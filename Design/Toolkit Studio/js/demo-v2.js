@@ -9,7 +9,7 @@
   ];
   const passes = ['Semantic Lowering', 'Layout Planning', 'Parallel Mapping', 'Memory Scheduling', 'ISA Emission'];
   const guards = ['Op legality', 'Dependencies', 'Manual scope', 'Liveness', 'Paged layout', 'Index width', 'ISA capacity', 'FP32 carry'];
-  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionTab: 'graph', pagedAttentionFocus: 'paging', pagedAttentionOverlay: 'data', pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, sourceCache: {} };
+  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionTab: 'graph', pagedAttentionFocus: 'paging', pagedAttentionOverlay: 'data', pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pto3LabTab: 'loops', pto3LabFocus: 'matmul', sourceCache: {} };
   const EXPLORER_STEP = 1;
   const WORKFLOW_STEPS = [0, 2, 3, 4];
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -35,6 +35,28 @@ def mm(
     c_acc = pl.matmul(a_l0a, b_l0b)      # 落在 Acc
     pl.store(c_acc, [0, 0], out)         # Acc -> DDR
     return out`;
+  const PTO3_TILE_LAB_FILE = 'pto3_tile_loop_lab.py';
+  const pto3TileLabSource = `@pl.jit.incore
+def matmul_tiled(a, b, out, M, K, N):
+    # PTO 3.0: 显式表达 M / N / K 的 Tile 循环
+    for m0 in pl.range(0, M, 128):
+        for n0 in pl.range(0, N, 128):
+            acc = pl.zeros([128, 128], dtype=pl.FP32, target_memory=pl.Mem.Left)
+            for k0 in pl.range(0, K, 128):
+                a_tile = pl.load(a, [m0, k0], [128, 128], target_memory=pl.Mem.Mat)
+                b_tile = pl.load(b, [k0, n0], [128, 128], target_memory=pl.Mem.Mat)
+                acc += pl.matmul(a_tile, b_tile)
+            pl.store(acc, [m0, n0], out)
+
+def rmsnorm_large_h(x, gamma, out, H=32768):
+    # 大 H 维：每次只把安全的 H_TILE 放入 UB
+    H_TILE = 4096
+    for h0 in pl.range(0, H, H_TILE):
+        h1 = min(h0 + H_TILE, H)
+        x_tile = pl.load(x, [h0], [h1 - h0], target_memory=pl.Mem.Vec)
+        ss = pl.sum(x_tile * x_tile, axis=0)
+        inv = pl.rsqrt(ss / H + 1e-6)
+        pl.store(x_tile * inv * gamma[h0:h1], [h0], out)`;
   const matmulHardwarePreset = {
     id: 'matmul-aic-ddr',
     name: 'Matmul AIC + DDR Memory Path',
@@ -254,6 +276,7 @@ def mm(
     const passes = window.PTO_PASSES_DUMP_SOURCES;
     if (passes && Object.prototype.hasOwnProperty.call(passes, file)) return passes[file];
     if (file === 'matmul.py') return matmulSource;
+    if (file === PTO3_TILE_LAB_FILE) return pto3TileLabSource;
     return state.sourceCache[file] || window.PTO_DECODE_LAYER_SOURCE || '';
   }
 
@@ -311,6 +334,13 @@ def mm(
         row.tabIndex = 0;
         row.title = matmulLineFlows[lineNumber]?.label || `第 ${lineNumber} 行硬件映射`;
       }
+      if (state.activeFile === PTO3_TILE_LAB_FILE) {
+        const focus = lineNumber >= 14 ? 'rmsnorm' : 'matmul';
+        row.dataset.pto3LabLine = String(lineNumber);
+        row.dataset.pto3LabFocus = focus;
+        row.tabIndex = 0;
+        row.title = `${focus === 'rmsnorm' ? 'RMSNorm 大 H 分块' : 'Matmul M/N/K 分块'} · 点击查看循环建议`;
+      }
       if (state.activeFile === 'examples/models/qwen3_jit/kernels/rmsnorm.py' && lineNumber >= 26) {
         row.dataset.rmsLine = String(lineNumber);
         row.dataset.rmsFunction = lineNumber < 56 ? 'input' : 'post';
@@ -331,7 +361,7 @@ def mm(
         row.tabIndex = 0;
         row.title = `${{ signature: 'JIT 入口契约', scope1: 'Scope 1 · RMSNorm + QKV', scope2: 'Scope 2 · RoPE + KV Cache', scope3: 'Scope 3 · Output + MLP', smoke: '编译 Smoke Test' }[focus]} · 点击同步右侧分析`;
       }
-      if (isPagedAttentionFile(state.activeFile) && lineNumber >= 35) {
+      if (isPagedAttentionFile(state.activeFile)) {
         const focus = pagedAttentionFocusForLine(lineNumber);
         sourceTag = pagedAttentionSourceTags[lineNumber] || null;
         row.dataset.pagedAttentionLine = String(lineNumber);
@@ -932,6 +962,39 @@ def mm(
     368: { focus: 'golden', label: 'Torch Golden' },
     457: { focus: 'runtime', label: 'Runtime / Verify' },
   };
+  const pagedAttentionObjectDetails = {
+    dynamic: { object: 'pl.dynamic · 运行时维度', code: 'B, H, D, block_size = pl.dynamic(...)', semantic: '声明编译时未知、运行时绑定的维度；让同一 Kernel 覆盖不同 Batch、Context 与分页大小。', io: [['输入', 'Tensor.dim / 调用点实参'], ['输出', '符号维度 B、H、D、M'], ['Shape · dtype · layout', '[B×H,D] · BF16 · row-major'], ['Memory space', 'Host metadata → GM Tensor view']], deps: '被 Builder、Paged KV 与 q_loop 共同消费；不产生数据依赖边。', sync: '不产生 sync；只在编译时形成 Shape guard。', pass: 'Semantic Lowering（已解析）→ Layout Planning（待确认动态 stride）', isa: '当前无法从源码确认具体 ISA；预计落入 scalar address / shape guard。', impact: '动态性减少重编译，但保守边界检查会增加少量标量开销。', evidence: 'source' },
+    builder: { object: 'Program Builder · Init', code: 'program = pl.program(...)  ·  fa_work_build(...)', semantic: '创建程序上下文并预分配工作表；把 q_tile、head_dim、block_size 固化为 Tile 级契约。', io: [['输入', '动态 Shape + page table'], ['输出', 'fa_work_table、初始化 Task'], ['Shape · dtype · layout', '[B×M] · INT32 · contiguous；work state · FP32'], ['Memory space', 'GM 持久化工作表；Task metadata 在编排侧']], deps: '初始化完成后，QK / Softmax / PV / Online 才可消费工作表。', sync: '需要 init → compute 的一次前置 event，避免未初始化工作表被读取。', pass: 'Semantic Lowering → Parallel Mapping（初始化 Task 与 compute Task 分离）', isa: 'AICPU / orchestration 生成 init dispatch；具体指令待 ISA Emission。', impact: '一次性初始化成本换取持久化 workspace；影响 GM 占用与首 token 延迟。', evidence: 'infer' },
+    qk: { object: 'QK Matmul · Cube', code: 'sij = pl.matmul(q_tile, k_block.T)', semantic: '对当前 Query Tile 与一个 KV Block 做点积，得到未归一化 attention scores。', io: [['输入', 'q_tile / k_block'], ['输出', 'sij scores'], ['Shape · dtype · layout', '[QTile, D] × [D, Block] → [QTile, Block] · FP32 accum · tile'], ['Memory space', 'GM → L1 → L0A/L0B；结果 L0C / UB']], deps: 'RAW: q_tile、paged K block → sij → valid_len mask；跨 Block 无状态依赖。', sync: 'CopyIn 完成后才可发 Cube；通常由 event/fence 连接 GM→L1 与 Matmul。', pass: 'Layout Planning（转置 K view）→ Parallel Mapping（Q head × block）→ Memory Scheduling', isa: '预计 Cube MatMul + Load2D / DataCopy；真实 opcode 待 ISA Emission。', impact: '主计算热点；Block 越大 Cube 利用率越高，但 L1/L0 工作集与尾块浪费增加。', evidence: 'infer' },
+    softmax: { object: 'Softmax Prepare · Vector', code: 'pij, mi, li = softmax_prepare(sij, valid_len)', semantic: '应用 scale 与末块 mask，计算 row max / exp / row sum，并把概率压到 BF16。', io: [['输入', 'sij + valid_len'], ['输出', 'pij、mi、li'], ['Shape · dtype · layout', '[QTile, valid] → [QTile,Block] · FP32→BF16 · row-major'], ['Memory space', 'L0C/GM → UB；state 留在 UB']], deps: 'RAW(sij)、RAW(valid_len) → pij；mi/li 将依赖传给 Online Update。', sync: 'Cube 写 sij 后需要 event；同一 UB region 上的 mask/exp 需要顺序 fence。', pass: 'Semantic Lowering → Layout Planning（mask view）→ Memory Scheduling（UB liveness）', isa: 'Vector exp/max/add/mul + cast；精确向量指令待 ISA Emission。', impact: 'Vector 受限于 exp 与 UB 带宽；BF16 概率降低带宽，但增加 cast。', evidence: 'infer' },
+    pv: { object: 'PV Matmul · Cube', code: 'oi_tmp = pl.matmul(pij, v_block)', semantic: '用归一化概率加权当前 KV Block 的 V，形成一个可合并的输出块。', io: [['输入', 'pij + v_block'], ['输出', 'oi_tmp'], ['Shape · dtype · layout', '[QTile, Block] × [Block,D] → [QTile,D] · FP32 accum · tile'], ['Memory space', 'UB/L1 → L0A/L0B → L0C']], deps: 'RAW(pij)、读—读(v_block) → oi_tmp；oi_tmp → Online Update。', sync: 'pij cast/store 与 V CopyIn 完成后才能发 Cube；event 保护 L0 buffer 复用。', pass: 'Parallel Mapping → Memory Scheduling（L0A/L0B 双缓冲候选）', isa: 'Cube MatMul；Load2D / Move；精确流水组合待编译后确认。', impact: '与 QK 类似的 Cube 热点；双缓冲可隐藏搬运，但会增加 L1/L0 资源。', evidence: 'infer' },
+    online: { object: 'Online Update · Vector', code: 'mi, li, oi = online_update(mi, li, oi, mi_new, li_new, oi_tmp)', semantic: '跨 KV Block 合并 running max、sum 与 output，末块完成归一化并写回。', io: [['输入', 'mi/li/oi state + mi_new/li_new/oi_tmp'], ['输出', 'loop-carried state；out'], ['Shape · dtype · layout', 'mi/li [QTile,1]、oi [QTile,D] · FP32 · row-major'], ['Memory space', 'UB loop-carried；末块 UB → GM']], deps: 'loop-carried RAW + WAW：第 n Block 的状态必须先于第 n+1 Block 更新。', sync: '必须插入 loop-carried fence；否则向量更新会读到旧 state，末块 store 还需 write-complete event。', pass: 'Dependency Analysis → Memory Scheduling（liveness）→ ISA Emission', isa: 'Vector max/sub/exp/mul/add/div + DataCopy GM store。', impact: '串行状态链限制 Block 间并行度；UB 保持 state 可减少 GM round-trip。', evidence: 'infer' },
+    orchestration: { object: 'Runtime Orchestration · Host', code: 'q_loop = pl.range(query.rows // (B * H))', semantic: '从 Tensor.dim 和 page table 推导运行时循环边界，并把逻辑 Block 映射到物理 Cache Row。', io: [['输入', 'query.rows、context_lens、block_table'], ['输出', 'block_id、valid_len、物理 row'], ['Shape · dtype · layout', '标量 INT32 / INDEX；不改变 Tensor layout'], ['Memory space', 'AICPU / host 编排侧读取 GM metadata']], deps: '为每个 InCore Task 提供 index；与 Tensor 数据流是辅助依赖。', sync: 'index 计算完成后用 dispatch dependency 约束对应 block 的 CopyIn。', pass: 'Semantic Lowering → Parallel Mapping（batch/head/block）', isa: 'AICPU scalar address arithmetic；设备 opcode 待运行采集。', impact: '动态索引可增加编排开销；错误的 block/page 映射会直接破坏 cache locality。', evidence: 'source' },
+    paging: { object: 'Paged KV · Address Mapping', code: 'row = block_table[b, block_id] * block_size + offset', semantic: '将逻辑 KV Block 映射到物理 Cache Row，并对最后一个 Block 施加 valid_len。', io: [['输入', 'block_table、context_lens、K/V cache'], ['输出', 'k_block、v_block view + valid_len'], ['Shape · dtype · layout', '[Block,D] × 2 · BF16 · paged / strided'], ['Memory space', 'GM paged KV；CopyIn 目标 L1']], deps: '读—读 page metadata；寻址结果控制 K/V CopyIn，valid_len 控制 mask。', sync: 'page lookup → CopyIn 的 dispatch dependency；末块 mask 前需确保 block 数据可见。', pass: 'Layout Planning（paged stride）→ Memory Scheduling（GM→L1）', isa: 'AddressGen + DataCopy / Load2D；真实 layout descriptor 待编译确认。', impact: '提升 KV 复用并降低连续内存需求；随机 page 会增加 GM 访问延迟。', evidence: 'source' },
+    golden: { object: 'Torch Golden · Reference', code: 'torch_paged_attention(...)', semantic: '以 CPU/PyTorch 复现分页寻址、mask、BF16 cast 与 online softmax，作为结果对照。', io: [['输入', '同一组 query / cache / page table'], ['输出', 'FP32 reference out'], ['Shape · dtype · layout', '[B×H,D] · FP32 · contiguous'], ['Memory space', 'Host DRAM / Torch tensor']], deps: '不进入设备 Task DAG；只在 run 后与 device output 对比。', sync: '无设备 sync；对比阶段等待 device run complete。', pass: '不参与设备 Pass；属于 Correctness Lab 证据链。', isa: '无硬件指令；CPU reference。', impact: '增加验证时间与 host 内存，不影响 device kernel 性能。', evidence: 'source' },
+    runtime: { object: 'Runtime / Verify · Host', code: 'run(program, inputs)  ·  torch.allclose(...)', semantic: '提交编译后的程序并以 Golden 校验输出；这里能把静态推断升级为实测证据。', io: [['输入', 'program + runtime tensors'], ['输出', 'TaskId、状态、timestamps、校验结果'], ['Shape · dtype · layout', '运行配置：B=64 · D=128 · BF16/FP32'], ['Memory space', '设备 GM / L1 / UB + Host result']], deps: '等待所有 Task complete，再执行 allclose；失败时回溯首个分歧。', sync: 'run completion fence 是验证边界；当前静态页面不伪造 TaskId 或耗时。', pass: 'ISA Emission 后的 Runtime 实测入口；状态待运行采集。', isa: '最终指令流待编译 / 设备 trace；当前仅显示预测路径。', impact: '可获得真实 occupancy、带宽、event 等指标；是性能结论的证据入口。', evidence: 'runtime' },
+  };
+
+  function pagedAttentionObjectDetail() {
+    const focus = state.pagedAttentionFocus || 'paging';
+    const detail = pagedAttentionObjectDetails[focus] || pagedAttentionObjectDetails.paging;
+    const evidence = EVIDENCE_LEVELS[detail.evidence] || EVIDENCE_LEVELS.infer;
+    return `<section class="kf-pa-object-detail" aria-label="选中对象详情">
+      <header><div><span class="kf-eyebrow">SELECTED OBJECT · ${evidence.label}</span><h2>${detail.object}</h2><code>${detail.code}</code></div><span class="kf-pa-detail-line">源码 ${pagedAttentionFocusMeta[focus]?.lines || '—'}</span></header>
+      <p class="kf-pa-detail-semantic">${detail.semantic}</p>
+      <div class="kf-pa-detail-grid">${detail.io.map(([label, value]) => `<div><span>${label}</span><b>${value}</b></div>`).join('')}</div>
+      <div class="kf-pa-detail-facts"><article><span>自动依赖</span><p>${detail.deps}</p></article><article><span>Sync / Event / Fence</span><p>${detail.sync}</p></article><article><span>Pass 修改点</span><p>${detail.pass}</p></article><article><span>最终硬件指令</span><p>${detail.isa}</p></article><article><span>性能与资源影响</span><p>${detail.impact}</p></article></div>
+      <footer><i class="${evidence.cls}">${evidence.short}</i><span>源码选择会同步下方计算图、调度与依赖视图</span></footer>
+    </section>`;
+  }
+
+  function pagedAttentionDetailView() {
+    return `<div class="kf-pa-detail-view">
+      <button type="button" class="kf-pa-detail-back" data-pa-detail-back aria-label="返回 Paged Attention 分析">← 返回分析</button>
+      <div class="kf-pa-detail-intro"><span class="kf-eyebrow">ON-DEMAND INSPECTOR</span><h1>对象详情</h1><p>当前详情来自你选中的源码行或计算图节点。</p></div>
+      ${pagedAttentionObjectDetail()}
+    </div>`;
+  }
   const pagedAttentionComputationGraph = {
     width: 650,
     height: 890,
@@ -1738,6 +1801,12 @@ def mm(
     pagedAttentionGraphController?.destroy?.();
     pagedAttentionGraphController = null;
     const tabs = { graph: '计算图', schedule: '调度', execution: '执行', validation: '风险与验证' };
+    if (state.pagedAttentionDetailOpen) {
+      $('#inspectorTitle').textContent = '对象详情';
+      $('#inspectorMeta').textContent = '按需查看 · source ↔ node';
+      $('#inspector').innerHTML = pagedAttentionDetailView();
+      return;
+    }
     const content = state.pagedAttentionTab === 'execution' ? pagedAttentionDataExecution()
       : state.pagedAttentionTab === 'schedule' ? pagedAttentionSchedule()
       : state.pagedAttentionTab === 'validation' ? pagedAttentionValidation()
@@ -1941,11 +2010,13 @@ def mm(
         }
         const focus = pagedAttentionGraphFocus[nodeId] || childFocusMap.get(nodeId);
         if (!focus) return;
+        if (pagedAttentionGraphFocus[nodeId]) state.pagedAttentionNode = nodeId;
         syncPagedAttentionSelection(focus);
+        state.pagedAttentionDetailOpen = true;
         $$('#dslEditor [data-paged-attention-focus]').forEach(row => row.classList.toggle('is-paged-attention-line-active', row.dataset.pagedAttentionFocus === focus));
         const meta = pagedAttentionFocusMeta[focus];
         if (status && meta) status.textContent = `${meta.label} · 源码第 ${meta.lines} 行 · ${meta.detail}`;
-        if (state.pagedAttentionTab === 'graph') renderPagedAttentionInspector();
+        renderPagedAttentionInspector();
       },
     });
     if (expandedId) {
@@ -1980,12 +2051,14 @@ def mm(
     input: {
       id: 'input', name: 'input_rmsnorm', role: 'Attention 前', scope: 'CORE_GROUP · rmsnorm', source: 'hidden_states', sourceType: 'BF16', weight: 'input_rms_weight', output: 'normed_states', chunk: 512, chunks: 16, stage: 4,
       cast: 'BF16 → FP32 → BF16', chunkBytes: '32 KiB', inputBytes: '256 KiB', scanBytes: '512 KiB', line: 27,
-      upstream: 'hidden_states', downstream: 'Q / K / V projection', note: '输入为 BF16；两遍都先将当前 chunk 转为 FP32，再完成平方和与归一化。'
+      upstream: 'hidden_states', downstream: 'Q / K / V projection', note: '输入为 BF16；两遍都先将当前 chunk 转为 FP32，再完成平方和与归一化。',
+      chunkConst: 'RMSNORM_K_CHUNK', scopeLine: 33, loopLines: [36, 47], nameHint: 'rmsnorm', sharedWith: null
     },
     post: {
       id: 'post', name: 'post_rmsnorm', role: 'Attention 后 · MLP 前', scope: 'CORE_GROUP · post_rmsnorm', source: 'resid', sourceType: 'FP32', weight: 'post_rms_weight', output: 'post_norm_tile', chunk: 128, chunks: 64, stage: 2,
       cast: 'FP32 → BF16', chunkBytes: '8 KiB', inputBytes: '512 KiB', scanBytes: '1 MiB', line: 57,
-      upstream: 'out_projection_residual', downstream: 'mlp_block', note: '残差流已经是 FP32，因此两遍扫描都不需要输入 cast；只在 assemble 前转为 BF16。'
+      upstream: 'out_projection_residual', downstream: 'mlp_block', note: '残差流已经是 FP32，因此两遍扫描都不需要输入 cast；只在 assemble 前转为 BF16。',
+      chunkConst: 'K_CHUNK', scopeLine: 69, loopLines: [72, 83], nameHint: 'post_rmsnorm', sharedWith: 'out_projection · down_projection'
     }
   };
   const rmsNormExecutionSteps = {
@@ -2026,13 +2099,158 @@ def mm(
       <div class="kf-inspector-card kf-rms-estimate"><b>可信边界</b><p>硬件路径由源码算子语义静态映射，用于解释数据流转，不代表实际指令时序；逻辑字节数不包含 Tile 对齐、临时缓冲与后端地址分配。真实片上占用和搬运指令需读取 Pass 后 IR。</p></div>`;
   }
 
-  function rmsNormTiling(profile) {
-    const blocks = Array.from({ length: profile.id === 'input' ? 16 : 32 }, () => '<i></i>').join('');
+  const RMS_UB_CAPACITY = 192 * 1024;
+  const RMS_HIDDEN = 8192;
+  const RMS_ROWS = 16;
+  const RMS_BIG_HIDDEN = 32768;
+  const RMS_CHUNK_CANDIDATES = [128, 256, 512, 1024, 2048];
+  const RMS_STAGE_CANDIDATES = [2, 4, 8];
+  const rmsKiB = (bytes) => (bytes < 1024 ? `${bytes} B` : bytes >= 10240 ? `${Math.round(bytes / 1024)} KiB` : `${(bytes / 1024).toFixed(1)} KiB`);
+
+  // 静态容量模型：pl.load / pl.assemble 产生的搬运 tile 受 stage 多缓冲，FP32 计算临时量与归约标量不随 stage 增长。
+  function rmsUbPlan(profile, chunk, stage) {
+    const srcBytes = RMS_ROWS * chunk * (profile.sourceType === 'BF16' ? 2 : 4);
+    const gammaBytes = chunk * 4;
+    const outBytes = RMS_ROWS * chunk * 2;
+    const tempBytes = RMS_ROWS * chunk * 4;
+    const reduceBytes = RMS_ROWS * 4 * 2;
+    const staged = (srcBytes + gammaBytes + outBytes) * stage;
+    const peak = staged + tempBytes + reduceBytes;
+    const iters = Math.ceil(RMS_HIDDEN / chunk);
+    const ratio = peak / RMS_UB_CAPACITY;
+    return {
+      chunk, stage, srcBytes, gammaBytes, outBytes, tempBytes, reduceBytes, staged, peak, iters, ratio,
+      tail: RMS_HIDDEN % chunk, safe: peak <= RMS_UB_CAPACITY, deep: iters >= stage * 2,
+      verdict: peak > RMS_UB_CAPACITY ? 'over' : ratio > 0.9 ? 'tight' : 'safe',
+    };
+  }
+
+  function rmsCurrentPlan(profile) {
+    const saved = state.rmsNormPlan[profile.id] || {};
+    return rmsUbPlan(profile, saved.chunk || profile.chunk, saved.stage || profile.stage);
+  }
+
+  // 求解器：在不溢出、无尾块、流水可填满的前提下，选择迭代次数最少的组合。
+  function rmsBestPlan(profile) {
+    let best = null;
+    RMS_CHUNK_CANDIDATES.forEach((chunk) => RMS_STAGE_CANDIDATES.forEach((stage) => {
+      const plan = rmsUbPlan(profile, chunk, stage);
+      if (!plan.safe || plan.tail !== 0 || !plan.deep || plan.ratio > 0.9) return;
+      if (!best || plan.iters < best.iters || (plan.iters === best.iters && plan.stage > best.stage)) best = plan;
+    }));
+    return best;
+  }
+
+  function rmsLoopSkeleton(profile, plan) {
+    const read = profile.id === 'input'
+      ? `x = pl.cast(${profile.source}[:, k0 : k0 + CHUNK], target_type=pl.FP32)`
+      : `x = ${profile.source}[:, k0 : k0 + CHUNK]`;
+    return [
+      `CHUNK = ${plan.chunk}                    # 求解器给出的安全 tile`,
+      `STEPS = HIDDEN // CHUNK         # ${plan.iters} 次 / pass · 整除，无尾块`,
+      '',
+      `with pl.at(level=pl.Level.CORE_GROUP, name_hint="${profile.nameHint}"):`,
+      '    acc = pl.full([1, BATCH], dtype=pl.FP32, value=0.0)',
+      '',
+      `    for kb in pl.pipeline(STEPS, stage=${plan.stage}):     # Pass A · 归约`,
+      '        k0 = kb * CHUNK',
+      `        ${read}`,
+      '        acc = pl.add(acc, pl.reshape(pl.row_sum(pl.mul(x, x)), [1, BATCH]))',
+      '',
+      '    inv_rms = pl.recip(pl.sqrt(pl.add(pl.mul(acc, HIDDEN_INV), EPS)))',
+      '',
+      `    for kb in pl.pipeline(STEPS, stage=${plan.stage}):     # Pass B · 归一化`,
+      '        k0 = kb * CHUNK',
+      `        ${read}`,
+      '        y = pl.col_expand_mul(pl.row_expand_mul(x, inv_rms), gamma[:, k0 : k0 + CHUNK])',
+      `        ${profile.output} = pl.assemble(${profile.output}, pl.cast(y, target_type=pl.BF16), [0, k0])`,
+    ].join('\n');
+  }
+
+  function rmsNormLoops(profile) {
+    const plan = rmsCurrentPlan(profile);
+    const best = rmsBestPlan(profile);
+    const isSourceValue = plan.chunk === profile.chunk && plan.stage === profile.stage;
+    const bestIsSource = best && best.chunk === profile.chunk && best.stage === profile.stage;
+    const barPct = Math.min(100, Math.round(plan.ratio * 100));
+    const verdictLabel = { safe: 'SAFE', tight: '临界', over: '溢出' }[plan.verdict];
+
+    const migrateRows = [
+      ['tile shape 声明', `${profile.chunkConst} = ${profile.chunk} + 显式切片 [:, k0 : k0+CHUNK]`, 'config.py', null],
+      ['自动展开切分循环', `pl.pipeline(HIDDEN // ${profile.chunkConst}) × 2 遍`, `L${profile.loopLines[0]} / L${profile.loopLines[1]}`, profile.loopLines[0]],
+      ['自动 double buffer', `stage=${profile.stage} 显式参数`, `L${profile.loopLines[0]}`, profile.loopLines[0]],
+      ['自动尾块处理', `整除守卫 8192 % ${profile.chunk} = 0 ✓`, '静态检查', null],
+      ['自动 UB 分配', '峰值需自行核对 ≤ 192 KiB', '↓ 求解器', null],
+    ];
+
+    const nestRows = [
+      ['pl.at · CORE_GROUP', `name_hint="${profile.nameHint}"`, '单个片上执行域，两遍扫描共享 UB', profile.scopeLine],
+      ['Pass A · pl.pipeline', `kb: 0 → ${plan.iters} · stage=${plan.stage}`, '平方和跨 chunk 累加到 partial_sq', profile.loopLines[0]],
+      ['Pass B · pl.pipeline', `kb: 0 → ${plan.iters} · stage=${plan.stage}`, '归一化 × gamma → assemble 写回', profile.loopLines[1]],
+    ];
+
+    const chunkChips = RMS_CHUNK_CANDIDATES.map((chunk) => {
+      const probe = rmsUbPlan(profile, chunk, plan.stage);
+      return `<button type="button" class="${chunk === plan.chunk ? 'is-active' : ''}${probe.safe ? '' : ' is-over'}" data-rms-plan-chunk="${chunk}" title="chunk ${chunk} × stage ${plan.stage} · 峰值 ${rmsKiB(probe.peak)}">${chunk}</button>`;
+    }).join('');
+    const stageChips = RMS_STAGE_CANDIDATES.map((stage) => {
+      const probe = rmsUbPlan(profile, plan.chunk, stage);
+      return `<button type="button" class="${stage === plan.stage ? 'is-active' : ''}${probe.safe ? '' : ' is-over'}" data-rms-plan-stage="${stage}" title="chunk ${plan.chunk} × stage ${stage} · 峰值 ${rmsKiB(probe.peak)}">${stage}</button>`;
+    }).join('');
+
+    const budgetRows = [
+      ['输入 tile', plan.srcBytes * plan.stage, `[${RMS_ROWS}, ${plan.chunk}] · ${profile.sourceType} · ${rmsKiB(plan.srcBytes)} × stage ${plan.stage}`],
+      ['gamma tile', plan.gammaBytes * plan.stage, `[1, ${plan.chunk}] · FP32 · ${rmsKiB(plan.gammaBytes)} × stage ${plan.stage}`],
+      ['输出 tile', plan.outBytes * plan.stage, `[${RMS_ROWS}, ${plan.chunk}] · BF16 · ${rmsKiB(plan.outBytes)} × stage ${plan.stage}`],
+      ['FP32 计算临时量', plan.tempBytes, `[${RMS_ROWS}, ${plan.chunk}] · FP32 · 不随 stage 增长`],
+      ['归约标量', plan.reduceBytes, 'partial_sq · inv_rms · 常驻'],
+    ];
+
+    const advice = bestIsSource && isSourceValue
+      ? '<b>当前取值已是最优</b><p>再增大 chunk 或加深 stage 都会越过 192 KiB。溢出风险来自参数而非结构，不需要为容量重构循环。</p>'
+      : best
+        ? `<b>推荐 chunk ${best.chunk} × stage ${best.stage}</b><p>峰值 ${rmsKiB(best.peak)}（${Math.round(best.ratio * 100)}%）· 迭代 ${plan.iters === best.iters ? `${best.iters}` : `${plan.iters} → ${best.iters}`} 次 / pass。${profile.sharedWith ? `<code>${profile.chunkConst}</code> 与 ${profile.sharedWith} 共用，应新增独立常量而不是就地改 config。` : ''}</p>`
+        : '<b>无安全候选</b><p>该 shape 下所有 chunk × stage 组合都超过 UB，需要先切 BATCH 维再谈 H 维分块。</p>';
+
+    const blocks = Array.from({ length: Math.min(plan.iters, 64) }, () => '<i></i>').join('');
+    const bigIters = RMS_BIG_HIDDEN / plan.chunk;
+    const wholeRowBytes = RMS_ROWS * RMS_BIG_HIDDEN * 4;
+    const overflowX = (wholeRowBytes / RMS_UB_CAPACITY).toFixed(1);
+
     return `
-      <section class="kf-inspector-section kf-rms-tiling"><header><h2 class="kf-inspector-title">Hidden 分块</h2><span>8192 = ${profile.chunks} × ${profile.chunk}</span></header><div class="kf-rms-blocks ${profile.id === 'post' ? 'is-dense' : ''}" title="${profile.chunks} chunks / pass">${blocks}</div><small>${profile.id === 'post' ? '每 2 个可视块代表 4 个 128-element chunks' : '每个可视块代表 1 个 512-element chunk'}</small></section>
-      <section class="kf-inspector-section kf-intent-detail"><header><h2>流水摘要</h2><span>两遍扫描</span></header><dl><div><dt>Chunk</dt><dd>${profile.chunk}</dd></div><div><dt>迭代 / pass</dt><dd>${profile.chunks}</dd></div><div><dt>Chunk 处理总次数</dt><dd>${profile.chunks * 2}</dd></div><div><dt>Pipeline stage</dt><dd>${profile.stage}</dd></div><div><dt>尾块</dt><dd class="kf-rms-good">✓ 无</dd></div></dl></section>
-      <section class="kf-rms-two-pass"><div><span>PASS A</span><b>平方 · 行归约 · 累加</b></div><i>inv_rms</i><div><span>PASS B</span><b>归一化 · gamma · assemble</b></div></section>
-      <div class="kf-inspector-card kf-rms-insight"><b>整除性守卫</b><p>✓ 8192 % ${profile.chunk} = 0　✓ assemble offset 与 chunk 对齐。若 HIDDEN 改为不可整除值，需要补 valid_shape 或尾块处理。</p></div>`;
+      <section class="kf-inspector-section kf-rmsl-migrate"><header><h2 class="kf-inspector-title">切分循环由谁生成</h2><span>PTO 2.0 → 3.0</span></header>
+        <div class="kf-rmsl-pair">
+          <article class="is-old"><span>PTO 2.0</span><code>tile_shape = [${RMS_ROWS}, ${profile.chunk}]<br>框架自动展开 H 维循环</code></article>
+          <article class="is-new"><span>PTO 3.0 · 本文件</span><code>for kb in pl.pipeline(<br>&nbsp;&nbsp;HIDDEN // ${profile.chunkConst}, stage=${profile.stage}):</code></article>
+        </div>
+        <div class="kf-rmsl-map">${migrateRows.map(([was, now, where, line]) => `<div><span>${was}</span>${line ? `<button type="button" data-rms-goto-line="${line}">${where}</button>` : `<em>${where}</em>`}<b>${now}</b></div>`).join('')}</div>
+      </section>
+
+      <section class="kf-inspector-section kf-rmsl-nest"><header><h2 class="kf-inspector-title">循环层级 · 源码实测</h2><span>2 层平铺 · 已最小</span></header>
+        <ol class="kf-pto3-loop-tree kf-rmsl-tree">${nestRows.map(([name, range, why, line], index) => `<li><i>0${index + 1}</i><div><b>${name}</b><code>${range}</code><small>${why}</small></div><button type="button" data-rms-goto-line="${line}">L${line}</button></li>`).join('')}</ol>
+        <div class="kf-pto3-reason"><b>还需要再加一层循环吗 —— 不需要</b><p>层级数由「H 维切分 + 两遍归约」决定：归约必须扫完整个 H 才能得到 inv_rms，所以是两个平铺循环而非嵌套；BATCH=${RMS_ROWS} 行整行常驻，无需再切 M 维。UB 峰值只由 chunk × stage 决定，<u>增加嵌套层级不会降低峰值</u>——溢出应当调参数，而不是重构结构。</p></div>
+      </section>
+
+      <section class="kf-inspector-section kf-rmsl-solver"><header><h2 class="kf-inspector-title">UB 峰值求解器</h2><span>192 KiB / AIV</span></header>
+        <div class="kf-rmsl-axes">
+          <div><span>chunk</span><div class="kf-rmsl-chips">${chunkChips}</div></div>
+          <div><span>stage</span><div class="kf-rmsl-chips">${stageChips}</div></div>
+        </div>
+        <div class="kf-rmsl-gauge is-${plan.verdict}"><i style="width:${barPct}%"></i><b>${rmsKiB(plan.peak)} / 192 KiB</b><em>${Math.round(plan.ratio * 100)}% · ${verdictLabel}</em></div>
+        <div class="kf-rmsl-budget">${budgetRows.map(([name, bytes, detail]) => `<div><span>${name}</span><code>${rmsKiB(bytes)}</code><b>${detail}</b></div>`).join('')}<div class="is-total"><span>循环内峰值</span><code>${rmsKiB(plan.peak)}</code><b>搬运 ${rmsKiB(plan.staged)} + 计算临时量 ${rmsKiB(plan.tempBytes + plan.reduceBytes)}</b></div></div>
+        <div class="kf-rmsl-advice ${bestIsSource && isSourceValue ? 'is-good' : 'is-tune'}">${advice}</div>
+        <div class="kf-rmsl-iters"><header><b>8192 = ${plan.iters} × ${plan.chunk}</b><span>${isSourceValue ? '与源码一致' : `源码为 ${profile.chunks} × ${profile.chunk}`}</span></header><div class="kf-rms-blocks">${blocks}</div><small>每块 = 1 次 pipeline 迭代 · 两遍扫描共 ${plan.iters * 2} 次${plan.tail ? ` · 尾块 ${plan.tail}` : ' · 无尾块'}</small></div>
+      </section>
+
+      <section class="kf-inspector-section kf-rmsl-skeleton"><header><h2 class="kf-inspector-title">循环骨架</h2><span>按当前求解结果生成</span></header>
+        <pre class="kf-rmsl-code">${escapeHtml(rmsLoopSkeleton(profile, plan))}</pre>
+        <button class="kf-rms-action" type="button" data-rms-action="skeleton">＋ 写入 ${profile.name} 循环骨架</button>
+      </section>
+
+      <div class="kf-inspector-card kf-rms-estimate kf-rmsl-bigh"><b>大 H 维推演 · HIDDEN 8192 → ${RMS_BIG_HIDDEN}</b>
+        <div class="kf-rmsl-bigh-grid"><div><span>UB 峰值</span><b class="is-good">${rmsKiB(plan.peak)} → ${rmsKiB(plan.peak)}</b></div><div><span>迭代 / pass</span><b>${plan.iters} → ${bigIters}</b></div><div><span>循环层级</span><b class="is-good">2 → 2</b></div><div><span>整行载入</span><b class="is-bad">${rmsKiB(wholeRowBytes)} · ${overflowX}× UB</b></div></div>
+        <p>H 变大只改变循环次数与常量，不改变循环层级；只有沿用 PTO 2.0「一次 load 整个 H」的心智才会在这里溢出。容量为静态估算，不含 Tile 对齐与后端临时分配，编译后需以 Pass IR 校准。</p>
+      </div>`;
   }
 
   function rmsNormValidation() {
@@ -2127,8 +2345,8 @@ def mm(
     rmsNormHardwareGraphInstance?.destroy?.();
     rmsNormHardwareGraphInstance = null;
     const profile = rmsNormProfiles[state.rmsNormFunction] || rmsNormProfiles.input;
-    const tabLabels = { overview: '概览', precision: '数据与精度', tiling: '分块流水', validation: '验证' };
-    const content = state.rmsNormTab === 'precision' ? rmsNormPrecision(profile) : state.rmsNormTab === 'tiling' ? rmsNormTiling(profile) : state.rmsNormTab === 'validation' ? rmsNormValidation() : rmsNormOverview(profile);
+    const tabLabels = { overview: '概览', precision: '数据与精度', loops: '循环·UB', validation: '验证' };
+    const content = state.rmsNormTab === 'precision' ? rmsNormPrecision(profile) : state.rmsNormTab === 'loops' ? rmsNormLoops(profile) : state.rmsNormTab === 'validation' ? rmsNormValidation() : rmsNormOverview(profile);
     $('#inspectorTitle').textContent = 'RMSNorm 分析';
     $('#inspectorMeta').textContent = `${profile.name} · static`;
     $('#inspector').innerHTML = `
@@ -2139,6 +2357,26 @@ def mm(
     $$('#dslEditor [data-rms-function]').forEach(row => row.classList.toggle('is-rms-function-active', row.dataset.rmsFunction === profile.id));
     if (scrollToFunction) $(`#dslEditor [data-rms-line="${profile.line}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     if (state.rmsNormTab === 'precision') renderRmsNormHardwareGraph(profile);
+  }
+
+  function renderPto3TileLabInspector() {
+    const isRms = state.pto3LabFocus === 'rmsnorm';
+    const tab = state.pto3LabTab;
+    const loopRows = isRms
+      ? [['H outer', '0 → 32768 · step 4096', '控制大 H 维的分块边界'], ['H inner', 'h0 → min(h0 + 4096, H)', '单个归约 Tile，保证 UB 安全'], ['归约', 'sum(x²) → rsqrt → scale', '在 Tile 内完成，避免整行进入 UB']]
+      : [['M loop', '0 → M · step 128', '输出行块并行维度'], ['N loop', '0 → N · step 128', '输出列块，约束单个结果 Tile'], ['K loop', '0 → K · step 128', '跨 K block 累加 FP32 accumulator']];
+    const budget = isRms
+      ? [['x_tile', '4096 × BF16', '8 KB'], ['square / acc', '4096 × FP32', '16 KB'], ['归一化临时量', '4096 × FP32', '16 KB'], ['预计 UB 使用', '—', '40 KB / 64 KB · SAFE']]
+      : [['A tile', '128 × 128 × BF16', '32 KB'], ['B tile', '128 × 128 × BF16', '32 KB'], ['acc', '128 × 128 × FP32', '64 KB · L0C'], ['循环内 UB', 'A/B 双缓冲', '≤ 64 KB · SAFE']];
+    const diff = isRms
+      ? '<div class="kf-pto3-diff"><div class="remove">- x = pl.load(x, [0], [H], target_memory=pl.Mem.Vec)</div><div class="add">+ for h0 in pl.range(0, H, H_TILE):</div><div class="add">+     x_tile = pl.load(x, [h0], [h1 - h0], target_memory=pl.Mem.Vec)</div><div class="add">+     ss = pl.sum(x_tile * x_tile, axis=0)</div></div>'
+      : '<div class="kf-pto3-diff"><div class="add">+ for m0 in pl.range(0, M, 128):</div><div class="add">+     for n0 in pl.range(0, N, 128):</div><div class="add">+         for k0 in pl.range(0, K, 128):</div><div class="add">+             acc += pl.matmul(a_tile, b_tile)</div></div>';
+    const body = tab === 'budget' ? `<section class="kf-pto3-section"><header><h2>UB 容量预算</h2><span>${isRms ? 'RMSNorm · H = 32768' : 'Matmul · 128 × 128 Tile'}</span></header><div class="kf-pto3-budget">${budget.map(row => `<div><span>${row[0]}</span><b>${row[1]}</b><em>${row[2]}</em></div>`).join('')}</div><div class="kf-pto3-safe"><b>SAFE</b><span>${isRms ? 'H_TILE = 4096，尾块使用 min()，不会把完整 H 维装入 UB。' : 'A/B Tile 在循环内复用，K 循环只延长 accumulator 生命周期。'}</span></div></section>`
+      : tab === 'refactor' ? `<section class="kf-pto3-section"><header><h2>结构化重构建议</h2><span>可逐段接受</span></header><p class="kf-pto3-explain">${isRms ? '把大 H 维拆成 outer loop + UB-sized inner Tile；归约、归一化和写回都留在 Tile 范围内。' : '把 M、N、K 三个切分维度显式展开；acc 只在 N block 内创建，并在 K loop 中复用。'}</p>${diff}<button type="button" class="kf-pto3-action" data-pto3-action="apply">应用推荐骨架</button></section>`
+      : `<section class="kf-pto3-section"><header><h2>显式循环结构</h2><span>${isRms ? 'Vector / reduction' : 'Cube / accumulate'}</span></header><ol class="kf-pto3-loop-tree">${loopRows.map((row, index) => `<li><i>0${index + 1}</i><div><b>${row[0]}</b><code>${row[1]}</code><small>${row[2]}</small></div></li>`).join('')}</ol><div class="kf-pto3-reason"><b>为什么需要这些层级？</b><p>${isRms ? 'H 维超过 UB 可容纳范围，必须以安全 Tile 分段归约；最后一个 Tile 允许小于 H_TILE。' : '每层循环对应一个硬件可管理的 Tile 维度：M/N 决定输出块，K 决定跨块累加。'}</p></div></section>`;
+    $('#inspectorTitle').textContent = 'PTO 3.0 · 循环与 Tile';
+    $('#inspectorMeta').textContent = `${isRms ? 'RMSNorm 大 H' : 'Matmul M / N / K'} · static`; 
+    $('#inspector').innerHTML = `<section class="kf-pto3-hero"><span class="kf-eyebrow">PTO 3.0 OPERATOR LAB</span><h1>${isRms ? 'RMSNorm · 大 H 维分块' : 'Matmul · 显式 M / N / K 切分'}</h1><p>选择源码中的循环或算子，查看它如何映射到 Tile、UB 和归约边界。</p><div class="kf-pto3-switch" role="tablist">${[['loops','循环结构'],['budget','UB 预算'],['refactor','重构建议']].map(([key,label]) => `<button type="button" class="${key === tab ? 'is-active' : ''}" data-pto3-tab="${key}">${label}</button>`).join('')}</div></section>${body}<footer class="kf-rms-provenance"><span><i class="fact"></i>源码结构</span><span><i class="estimated"></i>静态容量推断</span><span><i class="resolved"></i>编译后可继续校准</span></footer>`;
   }
 
   function renderIntentInspector() {
@@ -2166,6 +2404,10 @@ def mm(
     }
     if (isPagedAttentionFile(state.activeFile)) {
       renderPagedAttentionInspector();
+      return;
+    }
+    if (state.activeFile === PTO3_TILE_LAB_FILE) {
+      renderPto3TileLabInspector();
       return;
     }
     if (state.activeFile === RMSNORM_FILE) {
@@ -2824,6 +3066,7 @@ def mm(
         }
         if (isPagedAttentionFile(filePath)) {
           state.pagedAttentionTab = 'graph';
+          state.pagedAttentionDetailOpen = false;
           state.pagedAttentionOverlay = 'data';
           state.pagedAttentionNode = 'orch';
           state.pagedAttentionExpandedNode = null;
@@ -2832,6 +3075,10 @@ def mm(
           state.pagedAttentionDep = 'sij';
           state.pagedAttentionPipeKernel = 'qk';
           state.pagedAttentionLine = null;
+        }
+        if (filePath === PTO3_TILE_LAB_FILE) {
+          state.pto3LabTab = 'loops';
+          state.pto3LabFocus = 'matmul';
         }
         state.hardwareFlowLine = 0;
         state.hardwareFlowPinned = false;
@@ -2873,6 +3120,34 @@ def mm(
       const matchingStep = (rmsNormExecutionSteps[state.rmsNormFunction] || []).find((item) => item.lines.includes(sourceLine));
       if (matchingStep) state.rmsNormFlowStep = matchingStep.id;
       renderRmsNormInspector();
+    }
+    const rmsPlanChunk = event.target.closest('[data-rms-plan-chunk]');
+    const rmsPlanStage = event.target.closest('[data-rms-plan-stage]');
+    if (rmsPlanChunk || rmsPlanStage) {
+      const profile = rmsNormProfiles[state.rmsNormFunction] || rmsNormProfiles.input;
+      const current = rmsCurrentPlan(profile);
+      const chunk = rmsPlanChunk ? Number(rmsPlanChunk.dataset.rmsPlanChunk) : current.chunk;
+      const stage = rmsPlanStage ? Number(rmsPlanStage.dataset.rmsPlanStage) : current.stage;
+      state.rmsNormPlan[profile.id] = { chunk, stage };
+      const next = rmsUbPlan(profile, chunk, stage);
+      renderRmsNormInspector();
+      toast(next.safe
+        ? `chunk ${chunk} × stage ${stage} · UB 峰值 ${rmsKiB(next.peak)}（${Math.round(next.ratio * 100)}%）`
+        : `chunk ${chunk} × stage ${stage} 会溢出 UB：峰值 ${rmsKiB(next.peak)} > 192 KiB`);
+    }
+    const rmsGoto = event.target.closest('[data-rms-goto-line]');
+    if (rmsGoto && state.activeFile === RMSNORM_FILE) {
+      const target = $(`#dslEditor [data-rms-line="${rmsGoto.dataset.rmsGotoLine}"]`);
+      if (target) {
+        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        $$('#dslEditor .is-rms-goto-line').forEach((row) => row.classList.remove('is-rms-goto-line'));
+        target.classList.add('is-rms-goto-line');
+      }
+    }
+    if (event.target.closest('[data-rms-action="skeleton"]')) {
+      const profile = rmsNormProfiles[state.rmsNormFunction] || rmsNormProfiles.input;
+      const plan = rmsCurrentPlan(profile);
+      toast(`已生成 ${profile.name} 循环骨架草案：chunk ${plan.chunk} · stage ${plan.stage} · ${plan.iters} 次 / pass`);
     }
     if (event.target.closest('[data-rms-action="golden"]')) toast('已生成测试草案：Qwen3 shape · Torch golden · BF16 输出容差');
     const attentionTab = event.target.closest('[data-attention-tab]');
@@ -2920,6 +3195,11 @@ def mm(
       state.pagedAttentionTab = pagedAttentionTab.dataset.pagedAttentionTab;
       renderPagedAttentionInspector();
     }
+    const pagedAttentionDetailBack = event.target.closest('[data-pa-detail-back]');
+    if (pagedAttentionDetailBack) {
+      state.pagedAttentionDetailOpen = false;
+      renderPagedAttentionInspector();
+    }
     const pagedAttentionGoTab = event.target.closest('[data-pa-go-tab]');
     if (pagedAttentionGoTab) {
       state.pagedAttentionTab = pagedAttentionGoTab.dataset.paGoTab;
@@ -2962,6 +3242,7 @@ def mm(
       // 地图节点是精确选择，覆盖 focus 推出的代表节点
       if (nodeId) state.pagedAttentionNode = nodeId;
       if (line) state.pagedAttentionLine = line;
+      state.pagedAttentionDetailOpen = true;
       renderPagedAttentionInspector({ scrollToFocus: !line });
       if (line) revealPagedAttentionLine(line);
     }
@@ -2969,6 +3250,7 @@ def mm(
     if (pagedAttentionLine && isPagedAttentionFile(state.activeFile)) {
       syncPagedAttentionSelection(pagedAttentionLine.dataset.pagedAttentionFocus);
       state.pagedAttentionLine = Number(pagedAttentionLine.dataset.pagedAttentionLine);
+      state.pagedAttentionDetailOpen = true;
       if (state.pagedAttentionTab !== 'graph') state.pagedAttentionTab = 'graph';
       markPagedAttentionTargetLine(state.pagedAttentionLine);
       renderPagedAttentionInspector();
@@ -3019,6 +3301,19 @@ def mm(
       renderIntentInspector();
       toast(`意图预览已切换到 ${intentPreview[state.intentTab].label}`);
     }
+    const pto3Tab = event.target.closest('[data-pto3-tab]');
+    if (pto3Tab && state.activeFile === PTO3_TILE_LAB_FILE) {
+      state.pto3LabTab = pto3Tab.dataset.pto3Tab;
+      renderPto3TileLabInspector();
+    }
+    const pto3Line = event.target.closest('#dslEditor [data-pto3-lab-line]');
+    if (pto3Line && state.activeFile === PTO3_TILE_LAB_FILE) {
+      state.pto3LabFocus = pto3Line.dataset.pto3LabFocus;
+      state.pto3LabTab = 'loops';
+      $$('#dslEditor [data-pto3-lab-focus]').forEach(row => row.classList.toggle('is-pto3-lab-active', row === pto3Line));
+      renderPto3TileLabInspector();
+    }
+    if (event.target.closest('[data-pto3-action="apply"]')) toast('已生成 PTO 3.0 推荐循环骨架，可在源码中逐段接受');
     const cgMode = event.target.closest('[data-cg-mode]');
     if (cgMode) {
       setPassesGraphMode(cgMode.dataset.cgMode);

@@ -489,6 +489,85 @@
 .kf-pa2-hw-absent b { color: var(--foreground-secondary); font: 500 9px var(--font-mono); }
 .kf-pa2-hw-absent span { color: var(--foreground-muted); font: 9px var(--font-mono); text-align: right; }
 
+/* ── §5.0 任意源码行 / 节点的统一对象详情 ─────────────────────────────── */
+.kf-pa-detail-view { min-height: 100%; }
+.kf-pa-detail-back {
+  display: inline-flex; align-items: center; gap: 5px; margin: 1px 0 15px; padding: 5px 8px;
+  border: 1px solid var(--border-subtle); border-radius: 5px; color: var(--foreground-secondary);
+  background: var(--surface-2); cursor: pointer; font: 9px var(--font-mono);
+}
+.kf-pa-detail-back:hover { border-color: var(--primary); color: var(--primary); }
+.kf-pa-detail-intro { margin-bottom: 10px; }
+.kf-pa-detail-intro h1 { margin: 3px 0 2px; color: var(--foreground-primary); font: 650 15px var(--font-mono); }
+.kf-pa-detail-intro p { margin: 0; color: var(--foreground-muted); font-size: 9px; }
+.kf-pa-object-detail {
+  margin: 10px 0 12px;
+  padding: 11px 12px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border-default));
+  border-radius: var(--radius-md);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 9%, var(--surface-2)), var(--surface-1, var(--surface-2)) 62%);
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+.kf-pa-object-detail > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.kf-pa-object-detail > header h2 { margin: 3px 0 4px; color: var(--foreground-primary); font: 650 13px/1.25 var(--font-mono); }
+.kf-pa-object-detail > header code { display: block; color: var(--primary); font: 9px/1.5 var(--font-mono); overflow-wrap: anywhere; }
+.kf-pa-detail-line { flex: 0 0 auto; padding: 3px 6px; border: 1px solid var(--border-subtle); border-radius: 999px; color: var(--foreground-muted); font: 8px var(--font-mono); }
+.kf-pa-detail-semantic { margin: 9px 0; color: var(--foreground-secondary); font-size: 10px; line-height: 1.6; }
+.kf-pa-detail-grid { display: grid; gap: 1px; margin: 0 -1px 8px; border: 1px solid var(--border-subtle); border-radius: 5px; overflow: hidden; background: var(--border-subtle); }
+.kf-pa-detail-grid > div { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 8px; padding: 6px 8px; background: color-mix(in srgb, var(--surface-2) 72%, transparent); }
+.kf-pa-detail-grid span, .kf-pa-detail-facts > article > span { color: var(--foreground-muted); font: 8px var(--font-mono); }
+.kf-pa-detail-grid b { color: var(--foreground-secondary); font: 9px/1.45 var(--font-mono); overflow-wrap: anywhere; }
+.kf-pa-detail-facts { display: grid; gap: 5px; }
+.kf-pa-detail-facts > article { padding: 6px 8px; border-left: 2px solid color-mix(in srgb, var(--primary) 55%, var(--border-subtle)); border-radius: 3px; background: color-mix(in srgb, var(--surface-3) 60%, transparent); }
+.kf-pa-detail-facts > article:nth-child(2) { border-left-color: color-mix(in srgb, var(--warning) 60%, var(--border-subtle)); }
+.kf-pa-detail-facts > article:nth-child(5) { border-left-color: color-mix(in srgb, var(--success) 60%, var(--border-subtle)); }
+.kf-pa-detail-facts p { margin: 3px 0 0; color: var(--foreground-secondary); font-size: 9px; line-height: 1.52; }
+.kf-pa-object-detail > footer { display: flex; align-items: center; gap: 7px; margin-top: 9px; padding-top: 7px; border-top: 1px solid var(--border-subtle); }
+.kf-pa-object-detail > footer i { padding: 2px 5px; border-radius: 3px; font: 8px var(--font-mono); font-style: normal; }
+.kf-pa-object-detail > footer i.is-source { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.kf-pa-object-detail > footer i.is-infer { color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.kf-pa-object-detail > footer i.is-runtime { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.kf-pa-object-detail > footer span { color: var(--foreground-muted); font-size: 8px; }
+
+/* ── PTO 3.0 循环与 Tile Lab ───────────────────────────────────────────── */
+.kf-pto3-hero { padding: 10px 11px; border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--primary) 8%, var(--surface-2)); }
+.kf-pto3-hero h1 { margin: 4px 0 3px; color: var(--foreground-primary); font: 650 14px var(--font-mono); }
+.kf-pto3-hero p { margin: 0; color: var(--foreground-secondary); font-size: 9px; line-height: 1.55; }
+.kf-pto3-switch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-top: 10px; }
+.kf-pto3-switch button { padding: 6px 3px; border: 1px solid var(--border-subtle); border-radius: 4px; color: var(--foreground-muted); background: var(--surface-2); cursor: pointer; font: 9px var(--font-mono); }
+.kf-pto3-switch button.is-active { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, var(--surface-2)); }
+.kf-pto3-section { margin-top: 10px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-2) 62%, transparent); }
+.kf-pto3-section > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.kf-pto3-section h2 { margin: 0; color: var(--foreground-primary); font: 650 11px var(--font-mono); }
+.kf-pto3-section > header span { color: var(--foreground-muted); font: 8px var(--font-mono); }
+.kf-pto3-loop-tree { display: grid; gap: 4px; margin: 9px 0 0; padding: 0; list-style: none; }
+.kf-pto3-loop-tree li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 7px; padding: 7px; border-left: 2px solid var(--primary); background: var(--surface-3); }
+.kf-pto3-loop-tree li:nth-child(2) { margin-left: 12px; border-left-color: var(--warning); }
+.kf-pto3-loop-tree li:nth-child(3) { margin-left: 24px; border-left-color: var(--success); }
+.kf-pto3-loop-tree i { color: var(--primary); font: 9px var(--font-mono); font-style: normal; }
+.kf-pto3-loop-tree b, .kf-pto3-loop-tree code, .kf-pto3-loop-tree small { display: block; }
+.kf-pto3-loop-tree b { color: var(--foreground-primary); font: 600 10px var(--font-mono); }
+.kf-pto3-loop-tree code { margin-top: 2px; color: var(--primary); font: 8px var(--font-mono); }
+.kf-pto3-loop-tree small { margin-top: 3px; color: var(--foreground-muted); font-size: 8px; line-height: 1.4; }
+.kf-pto3-reason { margin-top: 9px; padding: 8px; border: 1px dashed color-mix(in srgb, var(--warning) 45%, var(--border-subtle)); border-radius: 4px; }
+.kf-pto3-reason b { color: var(--warning); font-size: 9px; }
+.kf-pto3-reason p, .kf-pto3-explain { margin: 4px 0 0; color: var(--foreground-secondary); font-size: 9px; line-height: 1.55; }
+.kf-pto3-budget { display: grid; gap: 1px; margin-top: 9px; border: 1px solid var(--border-subtle); background: var(--border-subtle); }
+.kf-pto3-budget > div { display: grid; grid-template-columns: 1fr 1.4fr .8fr; gap: 6px; padding: 6px 7px; background: var(--surface-2); }
+.kf-pto3-budget span { color: var(--foreground-muted); font: 8px var(--font-mono); }
+.kf-pto3-budget b, .kf-pto3-budget em { color: var(--foreground-secondary); font: 8px var(--font-mono); font-style: normal; overflow-wrap: anywhere; }
+.kf-pto3-budget em { color: var(--primary); text-align: right; }
+.kf-pto3-safe { display: flex; align-items: baseline; gap: 7px; margin-top: 8px; padding: 7px; border-radius: 4px; background: color-mix(in srgb, var(--success) 10%, transparent); }
+.kf-pto3-safe b { color: var(--success); font: 700 9px var(--font-mono); }
+.kf-pto3-safe span { color: var(--foreground-secondary); font-size: 8px; line-height: 1.45; }
+.kf-pto3-diff { display: grid; gap: 4px; margin-top: 9px; padding: 8px; border-radius: 4px; background: #10151c; font: 8px/1.55 var(--font-mono); overflow-wrap: anywhere; }
+.kf-pto3-diff .remove { color: var(--danger); }
+.kf-pto3-diff .add { color: var(--success); }
+.kf-pto3-action { margin-top: 9px; padding: 6px 8px; border: 1px solid var(--primary); border-radius: 4px; color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); cursor: pointer; font: 9px var(--font-mono); }
+.kf-pto3-action:hover { background: color-mix(in srgb, var(--primary) 18%, transparent); }
+#dslEditor [data-pto3-lab-focus] { cursor: pointer; }
+#dslEditor [data-pto3-lab-focus].is-pto3-lab-active { background: color-mix(in srgb, var(--primary) 14%, transparent); box-shadow: inset 2px 0 var(--primary); }
+
 /* ── §5.6 核内 Tile 流水 ────────────────────────────────────────────────── */
 .kf-pa2-tile-switch { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; margin-top: 9px; }
 .kf-pa2-tile-switch button {
@@ -586,3 +665,105 @@
 .kf-pa2-agent-body > div { padding: 8px 10px; background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
 .kf-pa2-agent-body dt { display: flex; align-items: center; gap: 4px; color: var(--primary); font: 650 var(--kf-font-micro) var(--font-mono); }
 .kf-pa2-agent-body dd { margin: 5px 0 0; color: var(--foreground-secondary); font-size: 9px; line-height: 1.7; overflow-wrap: anywhere; }
+
+/* ── RMSNorm · 循环与 UB（PTO 3.0 手写切分循环辅助）────────────────────── */
+/* 列宽按四个标签的实际文字宽度分配；窄于设计宽度时以省略号收敛，不再互相压字 */
+.kf-rms-tabs { grid-template-columns: 52fr 93fr 74fr 52fr; }
+.kf-rms-tabs button { overflow: hidden; text-overflow: ellipsis; }
+
+.kf-rmsl-migrate > header, .kf-rmsl-nest > header, .kf-rmsl-solver > header, .kf-rmsl-skeleton > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kf-rmsl-migrate > header > span, .kf-rmsl-nest > header > span, .kf-rmsl-solver > header > span, .kf-rmsl-skeleton > header > span { color: var(--foreground-muted); font: var(--kf-font-micro) var(--font-mono); }
+
+/* PTO 2.0 / 3.0 对照 */
+.kf-rmsl-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.kf-rmsl-pair article { padding: 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.kf-rmsl-pair span { display: block; margin-bottom: 5px; font: 650 var(--kf-font-micro) var(--font-mono); }
+.kf-rmsl-pair code { display: block; color: var(--foreground-secondary); font: var(--kf-font-micro)/1.55 var(--font-mono); overflow-wrap: anywhere; }
+.kf-rmsl-pair .is-old { border-style: dashed; opacity: .75; }
+.kf-rmsl-pair .is-old span { color: var(--foreground-muted); }
+.kf-rmsl-pair .is-new { border-color: color-mix(in srgb, var(--primary) 45%, var(--border-subtle)); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.kf-rmsl-pair .is-new span { color: var(--primary); }
+
+/* 能力去向映射表 */
+.kf-rmsl-map { display: grid; gap: 1px; margin-top: 8px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--border-subtle); }
+.kf-rmsl-map > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 4px 8px; padding: 6px 7px; background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.kf-rmsl-map span { color: var(--foreground-muted); font-size: var(--kf-font-micro); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--danger) 70%, transparent); }
+.kf-rmsl-map b { grid-column: 1 / -1; color: var(--foreground-secondary); font: 500 var(--kf-font-micro)/1.5 var(--font-mono); overflow-wrap: anywhere; }
+.kf-rmsl-map em, .kf-rmsl-map button { justify-self: end; color: var(--foreground-muted); font: var(--kf-font-micro) var(--font-mono); font-style: normal; white-space: nowrap; }
+.kf-rmsl-map button { padding: 2px 5px; border: 1px solid var(--border-subtle); border-radius: 4px; color: var(--primary); background: transparent; cursor: pointer; }
+.kf-rmsl-map button:hover { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+
+/* 循环层级树（复用 .kf-pto3-loop-tree 骨架，加行号跳转按钮） */
+.kf-rmsl-tree li { grid-template-columns: 24px minmax(0, 1fr) auto; align-items: start; }
+.kf-rmsl-tree li:nth-child(2), .kf-rmsl-tree li:nth-child(3) { margin-left: 12px; }
+.kf-rmsl-tree li:nth-child(3) { border-left-color: var(--warning); }
+.kf-rmsl-tree > li > button { align-self: center; padding: 2px 5px; border: 1px solid var(--border-subtle); border-radius: 4px; color: var(--foreground-muted); background: transparent; cursor: pointer; font: var(--kf-font-micro) var(--font-mono); }
+.kf-rmsl-tree > li > button:hover { border-color: var(--primary); color: var(--primary); }
+.kf-pto3-reason u { color: var(--foreground-primary); text-decoration-color: color-mix(in srgb, var(--warning) 70%, transparent); text-underline-offset: 2px; }
+
+/* chunk × stage 求解器 */
+.kf-rmsl-axes { display: grid; gap: 6px; }
+.kf-rmsl-axes > div { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 7px; }
+.kf-rmsl-axes > div > span { color: var(--foreground-muted); font: var(--kf-font-micro) var(--font-mono); }
+.kf-rmsl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.kf-rmsl-chips button { flex: 1 1 0; min-width: 34px; padding: 5px 2px; border: 1px solid var(--border-subtle); border-radius: 5px; color: var(--foreground-secondary); background: color-mix(in srgb, var(--surface-2) 60%, transparent); cursor: pointer; font: var(--kf-font-micro) var(--font-mono); }
+.kf-rmsl-chips button:hover { border-color: var(--border-strong); }
+.kf-rmsl-chips button.is-over { color: color-mix(in srgb, var(--danger) 78%, var(--foreground-muted)); border-style: dashed; border-color: color-mix(in srgb, var(--danger) 40%, var(--border-subtle)); }
+.kf-rmsl-chips button.is-active { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 13%, transparent); }
+.kf-rmsl-chips button.is-active.is-over { border-color: var(--danger); color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, transparent); }
+
+/* 容量水位条 */
+.kf-rmsl-gauge { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; padding: 7px 9px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-3); }
+.kf-rmsl-gauge > i { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--success) 26%, transparent); transition: width 180ms ease; }
+.kf-rmsl-gauge > b, .kf-rmsl-gauge > em { position: relative; font: 650 var(--kf-font-micro) var(--font-mono); font-style: normal; }
+.kf-rmsl-gauge > b { color: var(--foreground-primary); }
+.kf-rmsl-gauge > em { color: var(--success); }
+.kf-rmsl-gauge.is-tight > i { background: color-mix(in srgb, var(--warning) 26%, transparent); }
+.kf-rmsl-gauge.is-tight > em { color: var(--warning); }
+.kf-rmsl-gauge.is-over > i { background: color-mix(in srgb, var(--danger) 30%, transparent); }
+.kf-rmsl-gauge.is-over > em { color: var(--danger); }
+.kf-rmsl-gauge.is-over { border-color: color-mix(in srgb, var(--danger) 50%, var(--border-subtle)); }
+
+/* 预算明细 */
+.kf-rmsl-budget { display: grid; gap: 1px; margin-top: 7px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--border-subtle); }
+.kf-rmsl-budget > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 4px 8px; padding: 6px 7px; background: color-mix(in srgb, var(--surface-2) 58%, transparent); }
+.kf-rmsl-budget span { color: var(--foreground-secondary); font-size: var(--kf-font-micro); }
+.kf-rmsl-budget code { color: var(--primary); font: 650 var(--kf-font-micro) var(--font-mono); text-align: right; white-space: nowrap; }
+.kf-rmsl-budget b { grid-column: 1 / -1; color: var(--foreground-muted); font: 400 var(--kf-font-micro)/1.45 var(--font-mono); overflow-wrap: anywhere; }
+.kf-rmsl-budget .is-total { background: color-mix(in srgb, var(--primary) 9%, var(--surface-2)); }
+.kf-rmsl-budget .is-total span { color: var(--foreground-primary); font-weight: 650; }
+.kf-rmsl-budget .is-total code { color: var(--foreground-primary); }
+
+/* 求解结论 */
+.kf-rmsl-advice { margin-top: 8px; padding: 8px 9px; border-left: 2px solid var(--primary); border-radius: 4px; background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+.kf-rmsl-advice.is-good { border-left-color: var(--success); }
+.kf-rmsl-advice.is-tune { border-left-color: var(--warning); }
+.kf-rmsl-advice b { display: block; color: var(--foreground-primary); font-size: var(--kf-font-micro); }
+.kf-rmsl-advice.is-good b { color: var(--success); }
+.kf-rmsl-advice.is-tune b { color: var(--warning); }
+.kf-rmsl-advice p { margin: 4px 0 0; color: var(--foreground-secondary); font-size: var(--kf-font-micro); line-height: 1.65; }
+.kf-rmsl-advice code { padding: 0 3px; border-radius: 3px; background: var(--surface-3); font: var(--kf-font-micro) var(--font-mono); }
+
+/* 迭代次数可视化 */
+.kf-rmsl-iters { margin-top: 9px; }
+.kf-rmsl-iters > header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.kf-rmsl-iters > header b { color: var(--foreground-primary); font: 650 var(--kf-font-micro) var(--font-mono); }
+.kf-rmsl-iters > header span { color: var(--foreground-muted); font: var(--kf-font-micro) var(--font-mono); }
+.kf-rmsl-iters .kf-rms-blocks i { height: 14px; }
+.kf-rmsl-iters > small { display: block; margin-top: 6px; color: var(--foreground-muted); font-size: var(--kf-font-micro); }
+
+/* 生成的循环骨架 */
+.kf-rmsl-code { margin: 9px 0 0; padding: 9px; overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: #10151c; color: var(--foreground-secondary); font: var(--kf-font-micro)/1.65 var(--font-mono); white-space: pre; }
+.kf-rmsl-skeleton .kf-rms-action { width: 100%; }
+
+/* 大 H 维推演 */
+.kf-rmsl-bigh { border-left: 2px dashed var(--warning); }
+.kf-rmsl-bigh-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 7px 0 8px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--border-subtle); }
+.kf-rmsl-bigh-grid > div { padding: 6px 7px; background: color-mix(in srgb, var(--surface-2) 58%, transparent); }
+.kf-rmsl-bigh-grid span { display: block; color: var(--foreground-muted); font-size: var(--kf-font-micro); }
+.kf-rmsl-bigh-grid b { display: block; margin-top: 3px; color: var(--foreground-secondary); font: 650 var(--kf-font-micro) var(--font-mono); overflow-wrap: anywhere; }
+.kf-rmsl-bigh-grid b.is-good { color: var(--success); }
+.kf-rmsl-bigh-grid b.is-bad { color: var(--danger); }
+
+/* 面板 → 源码定位高亮 */
+#dslEditor [data-rms-line].is-rms-goto-line { background: color-mix(in srgb, var(--primary) 15%, transparent); box-shadow: inset 2px 0 var(--primary); }
