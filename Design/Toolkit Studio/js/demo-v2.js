@@ -2927,18 +2927,19 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           </div>
           <footer id="matmulFlowStatus"><span><i></i>悬停源码行查看数据流，点击可锁定</span></footer>
         </section>
-        <section class="kf-inspector-section kf-intent-contract"><h2 class="kf-inspector-title">编码契约</h2><div class="kf-evidence-list"><div class="kf-evidence"><span>01</span><b>FP16 双输入</b><small>shape</small></div><div class="kf-evidence"><span>02</span><b>FP32 累加输出</b><small>dtype</small></div><div class="kf-evidence"><span>03</span><b>In-core 执行</b><small>memory</small></div></div></section>`;
+         `;
       renderMatmulHardwareGraph();
       return;
     }
     const active = intentPreview[state.intentTab] || intentPreview.shape;
     const tabs = Object.entries(intentPreview).map(([key, item]) => `<button type="button" class="${key === state.intentTab ? 'is-active' : ''}" data-intent-tab="${key}">${item.label}</button>`).join('');
+    const intentHero = '<section class="kf-intent-hero"><div class="kf-intent-title-row"><b>decode_layer</b><span class="kf-inference-badge">推理</span><span class="kf-megakernel-badge">megakernel</span></div></section>';
     $('#inspectorTitle').textContent = '意图预览';
     $('#inspectorMeta').textContent = 'decode_layer.py';
     if (state.intentTab === 'graph') {
       const summary = decodeLayerGraph.summary;
       $('#inspector').innerHTML = `
-        <section class="kf-intent-hero"><span class="kf-eyebrow">SOURCE-DRIVEN COMPUTATION GRAPH</span><div class="kf-intent-title-row"><b>decode_layer</b><span class="kf-inference-badge">推理</span><span class="kf-megakernel-badge">megakernel</span></div><small>Scope、TaskId、Shape / Layout 与调度资源在同一张图中呈现</small></section>
+        ${intentHero}
         <div class="kf-intent-tabs" role="tablist" aria-label="算子意图类型">${tabs}</div>
         <section class="kf-decode-graph-summary" aria-label="计算图摘要"><div><b>${summary.named}</b><span>named tasks</span></div><div><b>${summary.explicit}</b><span>explicit deps</span></div><div><b>${summary.spmd}</b><span>SPMD grids</span></div><div><b>${summary.at}</b><span>pl.at declarations</span></div></section>
         <div class="kf-decode-graph-legend" aria-label="计算图关系图例"><span><i class="is-data"></i>数据流</span><span><i class="is-task"></i>TaskId / 状态 / 控制</span><span><i class="is-cluster"></i>Scope 边界</span></div>
@@ -2958,12 +2959,11 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         <div class="kf-shape-layout-boundary"><i></i><span><b>精度边界</b> BF16 输入 / Cache / 激活边缘，FP32 层间 residual carry</span></div>
       </section>` : '';
     $('#inspector').innerHTML = `
-      <section class="kf-intent-hero"><div class="kf-intent-title-row"><b>decode_layer</b><span class="kf-inference-badge">推理</span><span class="kf-megakernel-badge">megakernel</span></div></section>
+      ${intentHero}
       <div class="kf-intent-tabs" role="tablist" aria-label="算子意图类型">${tabs}</div>
       ${shapeLayoutVisual}
       <section class="kf-inspector-section kf-intent-detail"><header><h2>${active.label}</h2><span>${active.meta}</span></header><dl>${active.rows.map(row => `<div><dt>${row[0]}</dt><dd>${row[1]}</dd></div>`).join('')}</dl></section>
-      <div class="kf-inspector-card kf-intent-note"><b>实时推导</b><p>${active.note}</p></div>
-      <section class="kf-inspector-section kf-intent-contract"><h2 class="kf-inspector-title">编码契约</h2><div class="kf-evidence-list"><div class="kf-evidence"><span>01</span><b>FP32 carry 已锁定</b><small>shape</small></div><div class="kf-evidence"><span>02</span><b>显式 TaskId 链</b><small>deps</small></div><div class="kf-evidence"><span>03</span><b>动态索引待降级</b><small>codegen</small></div></div></section>`;
+       `;
   }
 
   // Ordered passes_dump files (for the evolution/diff timeline).

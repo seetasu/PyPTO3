@@ -1181,15 +1181,16 @@ button { color: inherit; }
 .kf-intent-pane-title-group { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .kf-intent-pane-title-group .kf-intent-agent-stack { margin-left: 0; }
 .kf-intent-agent-stack { display: inline-flex; align-items: center; margin-left: 2px; padding-left: 3px; }
-.kf-intent-agent-avatar { position: relative; display: grid; width: 24px; height: 24px; margin-left: -5px; place-items: center; border: 1px solid var(--surface-1); border-radius: 8px; color: var(--primary); background: color-mix(in srgb, var(--primary) 16%, var(--surface-3)); box-shadow: 0 2px 7px rgb(0 0 0 / .28); font: 800 8px/1 var(--font-mono); font-style: normal; }
+.kf-intent-agent-avatar { --agent-skin: #d49b7c; --agent-hair: #1f2635; --agent-coat: #496fc6; --agent-shirt: #dce7ff; --agent-ring: #7c9cff; --agent-bg: #18223a; position: relative; display: grid; width: 28px; height: 28px; margin-left: -7px; place-items: center; overflow: hidden; isolation: isolate; flex: 0 0 auto; border: 1px solid color-mix(in srgb, var(--agent-ring) 70%, var(--surface-1)); border-radius: 50%; color: var(--agent-ring); background: radial-gradient(circle at 50% 25%, color-mix(in srgb, var(--agent-bg) 70%, white) 0 10%, transparent 34%), var(--agent-bg); box-shadow: 0 2px 8px rgb(0 0 0 / .34), inset 0 0 0 1px rgb(255 255 255 / .08); font-size: 0 !important; font-style: normal; }
 .kf-intent-agent-avatar:first-child { margin-left: 0; }
-.kf-intent-agent-avatar::before { position: absolute; top: 4px; left: 6px; width: 10px; height: 8px; border: 1px solid currentColor; border-radius: 3px; background: color-mix(in srgb, currentColor 12%, var(--surface-2)); content: ''; }
-.kf-intent-agent-avatar::after { position: absolute; bottom: 4px; left: 5px; width: 12px; height: 7px; border-radius: 2px 2px 4px 4px; background: color-mix(in srgb, currentColor 34%, var(--surface-2)); content: ''; }
-.kf-intent-agent-avatar b { position: relative; z-index: 1; margin-top: -4px; color: currentColor; font-size: 7px; }
-.kf-intent-agent-avatar.is-lead { z-index: 4; color: #7c9cff; }
-.kf-intent-agent-avatar.is-dsl { z-index: 3; color: #59c7b6; }
-.kf-intent-agent-avatar.is-guard { z-index: 2; color: #e4a45b; }
-.kf-intent-agent-avatar.is-validation { z-index: 1; color: #c38be9; }
+.kf-intent-agent-avatar::before { position: absolute; z-index: 2; top: 8px; left: 8px; width: 12px; height: 13px; border-radius: 46% 46% 48% 48%; background: radial-gradient(circle at 34% 48%, #171925 0 1px, transparent 1.35px), radial-gradient(circle at 66% 48%, #171925 0 1px, transparent 1.35px), radial-gradient(ellipse at 50% 76%, color-mix(in srgb, var(--agent-skin) 50%, #7a3d3a) 0 1px, transparent 1.5px), linear-gradient(90deg, color-mix(in srgb, var(--agent-skin) 72%, #5b2e2d), var(--agent-skin) 48%, color-mix(in srgb, var(--agent-skin) 75%, white)); box-shadow: 0 1px 0 rgb(255 255 255 / .13); content: ''; }
+.kf-intent-agent-avatar::after { position: absolute; z-index: 1; right: -1px; bottom: -3px; left: -1px; width: 30px; height: 15px; border-radius: 55% 55% 0 0; background: radial-gradient(ellipse at 50% 0, var(--agent-shirt) 0 20%, transparent 21%), linear-gradient(120deg, color-mix(in srgb, var(--agent-coat) 72%, white), var(--agent-coat) 48%, color-mix(in srgb, var(--agent-coat) 62%, black)); content: ''; }
+.kf-intent-agent-avatar b { position: absolute; z-index: 3; top: 2px; left: 5px; width: 18px; height: 10px; border-radius: 65% 58% 38% 42%; color: transparent; background: var(--agent-hair); box-shadow: 0 2px 0 var(--agent-hair), -2px 5px 0 -1px var(--agent-hair); font-size: 0 !important; line-height: 0; }
+.kf-intent-agent-avatar b::after { position: absolute; right: 1px; bottom: -3px; left: 3px; height: 5px; border-radius: 0 0 50% 50%; background: var(--agent-hair); content: ''; }
+.kf-intent-agent-avatar.is-lead { --agent-skin: #d49b7c; --agent-hair: #1f2635; --agent-coat: #496fc6; --agent-shirt: #dce7ff; --agent-ring: #7c9cff; --agent-bg: #18223a; z-index: 4; }
+.kf-intent-agent-avatar.is-dsl { --agent-skin: #c98c6d; --agent-hair: #6f3f39; --agent-coat: #2d928b; --agent-shirt: #d8fff5; --agent-ring: #59c7b6; --agent-bg: #142f31; z-index: 3; }
+.kf-intent-agent-avatar.is-guard { --agent-skin: #9b644e; --agent-hair: #151a24; --agent-coat: #ae7138; --agent-shirt: #fff0d6; --agent-ring: #e4a45b; --agent-bg: #35251d; z-index: 2; }
+.kf-intent-agent-avatar.is-validation { --agent-skin: #e0b19a; --agent-hair: #4b315a; --agent-coat: #8356ac; --agent-shirt: #f4e6ff; --agent-ring: #c38be9; --agent-bg: #2a1f39; z-index: 1; }
 .kf-intent-hero small { color: var(--foreground-muted); font: var(--kf-font-xs) / 1.45 var(--font-mono); }
 .kf-intent-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 16px; border-bottom: 1px solid var(--border-subtle); }
 .kf-intent-tabs button { min-width: 0; padding: 0 3px 9px; border: 0; border-bottom: 2px solid transparent; color: var(--foreground-muted); background: transparent; cursor: pointer; font-size: var(--kf-font-xs); white-space: nowrap; }
@@ -1579,7 +1580,8 @@ button { color: inherit; }
 .pto-ide-frame [data-ide-pane="inspector"] .kf-shape-layout-visual__head h2 { font-size: 14px !important; }
 .pto-ide-frame [data-ide-pane="inspector"] .kf-decode-graph-summary b,
 .pto-ide-frame [data-ide-pane="inspector"] .kf-shape-layout-kpis b { font-size: 14px !important; }
-.pto-ide-frame [data-ide-pane="inspector"] .kf-intent-tabs { grid-template-columns: 1.55fr .95fr .82fr .82fr .82fr; }
+.pto-ide-frame [data-ide-pane="inspector"] .kf-intent-tabs { grid-template-columns: minmax(96px, 1.65fr) repeat(4, minmax(0, 1fr)); }
+.pto-ide-frame [data-ide-pane="inspector"] .kf-intent-tabs button { overflow: hidden; text-overflow: ellipsis; }
 .pto-ide-frame [data-ide-pane="inspector"] .pto-model-graphviz-node-label { font-size: 14px !important; }
 .pto-ide-frame [data-ide-pane="inspector"] .pto-model-graphviz-node-type,
 .pto-ide-frame [data-ide-pane="inspector"] .pto-model-graphviz-cluster-title-text,

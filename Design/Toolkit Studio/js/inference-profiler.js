@@ -1,8 +1,9 @@
 /**
  * 推理性能分析 · 右侧大抽屉
  *
- * P1 已实现：抽屉外壳 + Run context bar + 总览 + 算子分析（含与结构图的双向跳转）
- * P2+ 占位：时间线 / 访存 / 批处理 / 诊断建议
+ * 六个页签：总览 / 时间线 / 算子分析 / 访存与缓存 / 批处理与调度 / 诊断建议
+ * 本文件负责抽屉外壳、Run context bar、总览与算子分析；其余页签渲染在各自模块，
+ * 本文件只持有 state 并转发交互。
  *
  * 与结构图的契约：op.id === baseGraph.nodes[].id（qwen3-model-viz.js）
  */
@@ -10,60 +11,13 @@
   'use strict';
 
   const TABS = [
-    { id: 'overview', label: '总览', ready: true },
-    { id: 'timeline', label: '时间线', ready: false, phase: 'P3' },
-    { id: 'ops', label: '算子分析', ready: true },
-    { id: 'memory', label: '访存与缓存', ready: false, phase: 'P4' },
-    { id: 'serving', label: '批处理与调度', ready: false, phase: 'P5' },
-    { id: 'advisor', label: '诊断建议', ready: false, phase: 'P4' },
+    { id: 'overview', label: '总览' },
+    { id: 'timeline', label: '时间线' },
+    { id: 'ops', label: '算子分析' },
+    { id: 'memory', label: '访存与缓存' },
+    { id: 'serving', label: '批处理与调度' },
+    { id: 'advisor', label: '诊断建议' },
   ];
-
-  const SOON = {
-    timeline: {
-      title: '时间线 · Trace',
-      lead: '对标 Nsight Systems / Perfetto。单个 decode step 展开为多轨道时间线，用轨道空隙直观回答“在等什么”。',
-      items: [
-        ['Host / Stream 轨道', 'python dispatch 与队列排队，暴露 Host 侧 0.195 ms 空隙'],
-        ['Scope 1 / 2 / 3 轨道', '按 decode_layer.py 的任务分段，与结构图同色'],
-        ['AIC / AIV / MTE2 / MTE3 流水线轨道', 'MTE2 近乎无空隙、计算轨道大量空闲，是 memory-bound 最有说服力的一屏'],
-        ['框选缩放 · W/A/S/D · 40 层 minimap', '业界标配的 trace 导航'],
-        ['Gap 检测', '> 2 μs 的空隙标红并注明 sync wait / host dispatch / MTE2 依赖'],
-      ],
-    },
-    memory: {
-      title: '访存与缓存',
-      lead: '对标 Nsight Compute Memory Workload + vLLM KV 面板，叠加 Ascend 片上存储层级。',
-      items: [
-        ['HBM 占用构成', '权重 27.99 GB · KV 池 6.55 GB · 激活 0.68 GB · workspace 0.81 GB / 64 GB'],
-        ['片上层级占用', 'L0A/L0B 71% · L0C 52% · L1 64% · UB 63%（编译期预算 58%）'],
-        ['带宽时间线', 'MTE2 / MTE3 实时带宽曲线，叠加 3.6 TB/s 峰值线'],
-        ['Paged KV 面板', '320 页池 · 已用 206 页 · 内部碎片 2.1% · work table 稠密率 80.5%'],
-        ['精度边界计数', '层内 0 次转换，入口/出口各 1 次 — 复用现有可信叙事'],
-      ],
-    },
-    serving: {
-      title: '批处理与调度',
-      lead: '对标 vLLM / TensorRT-LLM 服务面板，回答“该跑多大 batch”。',
-      items: [
-        ['请求生命周期泳道', '16 路并发的 waiting → running → finished'],
-        ['Batch size 曲线', '实际在 12–16 波动，平均 14.7'],
-        ['队列指标', 'running 16 / waiting 3 / 等待 p50 22 ms / 抢占 0'],
-        ['Batch 扫描表', '1 → 64 的 TPOT / 吞吐 / MTE2 占空比，容量规划最常引用的一屏'],
-        ['Prefill / Decode 占比', '14.2% / 85.8%'],
-      ],
-    },
-    advisor: {
-      title: '诊断建议',
-      lead: '对标 Nsight Compute Guided Analysis：规则驱动的结论卡片，每条含严重度 / 现象 / 证据 / 动作。',
-      items: [
-        ['🔴 fa_fused 未达内存屋顶', '1.86 TB/s = 51.7% 峰值，投影类在 70–76%；可回收约 0.64 ms（TPOT −4.2%）'],
-        ['🟠 MTE2 达成带宽 59.6%', '理论下界 9.07 ms，当前 15.2 ms，重叠不足'],
-        ['🟠 UB 峰值 63% 超编译期预算 58%', '来自 gate_up_proj'],
-        ['🟠 online_softmax 负载倾斜 CV 0.31', 'ragged seq_len 直接传导为不均衡'],
-        ['🟢 层内零精度转换 · KV 碎片 2.1%', '已生效的优化，需要正向记账'],
-      ],
-    },
-  };
 
   const GROUP_COLOR = {
     mlp: 'var(--primary)',
@@ -84,6 +38,7 @@
     groupFilter: null,
     query: '',
     lastFocus: null,
+    tl: { mode: 'layer', layer: 12, zoom: 1, gapThreshold: 1, criticalOnly: false, selected: null },
   };
 
   let root = null;
@@ -114,7 +69,7 @@
       ['吞吐', `${int(s.tps)}<i> tok/s</i>`, `batch ${p.meta.batch} · 平均 ${fmt(s.batchAvg, 1)}`, deltaChip(s.tpsDelta, true)],
       ['TTFT · p50', `${int(s.ttft)}<i> ms</i>`, `prefill 平均 ${int(p.meta.seqAvg)} token`, deltaChip(s.ttftDelta, false)],
       ['达成带宽', `${fmt(s.traffic.total / s.tpot.p50, 2)}<i> TB/s</i>`, `${fmt(s.traffic.total, 2)} GB / step`, `<span class="kf-prof-delta flat">${fmt(s.traffic.total / s.tpot.p50 / p.meta.peakBw * 100, 1)}% 峰值</span>`],
-      ['KV Cache', `${fmt(s.kvUsed, 2)}<i> / ${fmt(s.kvPool, 2)} GB</i>`, `${int(206)} / ${int(320)} 页 · 碎片 2.1%`, `<span class="kf-prof-delta flat">${fmt(s.kvPct, 1)}%</span>`],
+      ['KV Cache', `${fmt(s.kvUsed, 2)}<i> / ${fmt(s.kvPool, 2)} GB</i>`, `${int(p.memory.kv.pagesUsed)} / ${int(p.memory.kv.pagesTotal)} 页 · 碎片 ${fmt(p.memory.kv.fragmentation, 2)}%`, `<span class="kf-prof-delta flat">${fmt(s.kvPct, 1)}%</span>`],
       ['执行效率', `${fmt(s.efficiency, 1)}<i> %</i>`, `理论下界 ${fmt(s.lowerBoundMs, 2)} ms`, `<span class="kf-prof-delta up">可回收 ${fmt(s.tpot.p50 - s.lowerBoundMs, 2)} ms</span>`],
     ];
     return `<div class="kf-prof-kpis">${cards.map(([label, value, sub, delta]) => `
@@ -466,24 +421,11 @@
     return renderOpTable(p) + renderOpDetail(p);
   }
 
-  /* ---------------- 占位页签 ---------------- */
-
-  function renderSoon(tab) {
-    const spec = SOON[tab.id];
-    return `<div class="kf-prof-soon">
-      <i>◷</i>
-      <h3>${esc(spec.title)} · ${esc(tab.phase)} 计划内容</h3>
-      <p>${esc(spec.lead)}</p>
-      <ul>${spec.items.map(([title, detail]) => `<li><span><b>${esc(title)}</b> — ${esc(detail)}</span></li>`).join('')}</ul>
-      <p style="color:var(--foreground-muted)">当前构建为 P1：总览与算子分析已接入模拟数据，其余模块按上述清单分期实现。</p>
-    </div>`;
-  }
-
   /* ---------------- 外壳 ---------------- */
 
   function shell(p) {
     const m = p.meta;
-    const tabs = TABS.map((t) => `<button type="button" class="${state.tab === t.id ? 'is-active' : ''}" data-prof-tab="${t.id}" role="tab" aria-selected="${state.tab === t.id}">${esc(t.label)}${t.ready ? '' : `<em>${esc(t.phase)}</em>`}</button>`).join('');
+    const tabs = TABS.map((t) => `<button type="button" class="${state.tab === t.id ? 'is-active' : ''}" data-prof-tab="${t.id}" role="tab" aria-selected="${state.tab === t.id}">${esc(t.label)}</button>`).join('');
     return `<button class="kf-prof-scrim" type="button" data-prof-close aria-label="关闭推理性能分析"></button>
       <aside class="kf-prof-drawer" role="dialog" aria-modal="true" aria-label="推理性能分析">
         <header class="kf-prof-head">
@@ -522,7 +464,10 @@
     const tab = TABS.find((t) => t.id === state.tab);
     if (tab.id === 'overview') body.innerHTML = renderOverview(p);
     else if (tab.id === 'ops') body.innerHTML = renderOps(p);
-    else body.innerHTML = renderSoon(tab);
+    else if (tab.id === 'timeline') body.innerHTML = window.PtoInferenceTimeline.render(p, state.tl);
+    else if (tab.id === 'memory') body.innerHTML = window.PtoInferenceMemory.render(p);
+    else if (tab.id === 'serving') body.innerHTML = window.PtoInferenceServing.render(p);
+    else if (tab.id === 'advisor') body.innerHTML = window.PtoInferenceAdvisor.render(p);
     body.scrollTop = 0;
   }
 
@@ -562,6 +507,7 @@
       host.appendChild(root);
       root.addEventListener('click', onClick);
       root.addEventListener('input', onInput);
+      root.addEventListener('change', onChange);
     }
     state.lastFocus = document.activeElement;
     state.open = true;
@@ -616,6 +562,37 @@
 
     if (t.closest('[data-clear-filter]')) { state.groupFilter = null; renderBody(); return; }
 
+    /* ---- 时间线 ---- */
+    const tlMode = t.closest('[data-tl-mode]');
+    if (tlMode) { state.tl.mode = tlMode.dataset.tlMode; state.tl.zoom = 1; state.tl.selected = null; renderBody(); return; }
+
+    const tlLayer = t.closest('[data-tl-layer]');
+    if (tlLayer) { state.tl.layer = Number(tlLayer.dataset.tlLayer); state.tl.mode = 'layer'; state.tl.selected = null; renderBody(); return; }
+
+    const tlZoom = t.closest('[data-tl-zoom]');
+    if (tlZoom) {
+      const dir = tlZoom.dataset.tlZoom;
+      if (dir === 'fit') state.tl.zoom = 1;
+      else state.tl.zoom = Math.max(1, Math.min(24, dir === 'in' ? state.tl.zoom * 2 : state.tl.zoom / 2));
+      renderBody();
+      return;
+    }
+
+    if (t.closest('[data-tl-critical]')) { state.tl.criticalOnly = !state.tl.criticalOnly; renderBody(); return; }
+
+    const tlSpan = t.closest('[data-tl-span]');
+    if (tlSpan) {
+      state.tl.selected = state.tl.selected === tlSpan.dataset.tlSpan ? null : tlSpan.dataset.tlSpan;
+      renderBody();
+      return;
+    }
+
+    const tlGoto = t.closest('[data-tl-goto-op]');
+    if (tlGoto) { selectOp(tlGoto.dataset.tlGotoOp); return; }
+
+    const advGoto = t.closest('[data-advisor-op]');
+    if (advGoto) { selectOp(advGoto.dataset.advisorOp); return; }
+
     const mix = t.closest('[data-mix]');
     if (mix) {
       state.query = '';
@@ -644,6 +621,12 @@
       document.getElementById('activityExplorer')?.click();
       document.querySelector('[data-file="decode_layer.py"]')?.click();
     }
+  }
+
+  function onChange(event) {
+    const t = event.target;
+    if (t.id === 'tlLayerPick') { state.tl.layer = Number(t.value); state.tl.selected = null; renderBody(); return; }
+    if (t.matches('[data-tl-threshold]')) { state.tl.gapThreshold = Number(t.value); renderBody(); }
   }
 
   function onInput(event) {

@@ -32,13 +32,21 @@
     return out;
   }
 
-  /** 逐层曲线：首层 cache 冷、尾层要喂给输出边界，两端偏高 */
+  /**
+   * 逐层曲线：首层 cache 冷、尾层要喂给输出边界，两端偏高。
+   * 归一化到均值恰好等于 baseUs——时间线按逐层值铺 40 层，均值不准会让整步总时长偏离 TPOT。
+   */
   function perLayer(seed, baseUs, spread, headBoost, tailBoost) {
     const values = jitter(seed, 40, baseUs, spread);
     values[0] *= headBoost;
     values[1] *= 1 + (headBoost - 1) * 0.35;
     values[39] *= tailBoost;
-    return values.map((v) => Number(v.toFixed(2)));
+    const scale = (baseUs * 40) / values.reduce((a, v) => a + v, 0);
+    const rounded = values.map((v) => Number((v * scale).toFixed(2)));
+    // 2 位小数的舍入残差集中补到中间一层，保证 sum === baseUs * 40
+    const residual = Number((baseUs * 40 - rounded.reduce((a, v) => a + v, 0)).toFixed(2));
+    rounded[20] = Number((rounded[20] + residual).toFixed(2));
+    return rounded;
   }
 
   const ops = [
@@ -327,7 +335,7 @@
       perLayer: null,
       source: '—',
       static: [],
-      note: '层内 barrier 0.180 ms + Host dispatch 0.195 ms。时间线检出 12 处 > 2 μs 的空隙。',
+      note: '层内 barrier 0.180 ms（每层 4.5 μs，Scope 间 3 处）+ Host dispatch 0.195 ms。时间线页签按阈值实时检出暴露空隙。',
     },
   ];
 
@@ -346,6 +354,137 @@
     [16.4, 41], [16.8, 22], [17.2, 13], [17.6, 8], [18.0, 5], [18.4, 2], [18.8, 1],
   ];
 
+  /* ---------------- 访存与缓存（P4） ---------------- */
+
+  const KV_BYTES_PER_TOKEN_LAYER = 8 * 128 * 2 * 2;                 // kv_heads × dim × (K,V) × BF16
+  const KV_BYTES_PER_TOKEN = KV_BYTES_PER_TOKEN_LAYER * 40;         // 160 KiB
+  const PAGE_TOKENS = 128;
+  const PAGE_BYTES = KV_BYTES_PER_TOKEN * PAGE_TOKENS;              // 20.97 MB
+  const PAGES_TOTAL = 320;
+
+  const kvPerRequest = seqLens.map((seq, i) => ({
+    req: `req-${String(i).padStart(2, '0')}`,
+    seq,
+    pages: Math.ceil(seq / PAGE_TOKENS),
+  }));
+  const pagesUsed = kvPerRequest.reduce((a, r) => a + r.pages, 0);   // 206
+  const tokensLive = seqLens.reduce((a, s) => a + s, 0);             // 25,824
+  const tokensAllocated = pagesUsed * PAGE_TOKENS;                   // 26,368
+  const MCB = Math.ceil(Math.max(...seqLens) / PAGE_TOKENS);         // 16
+  const blocksPadded = MCB * seqLens.length;                         // 256
+
+  const memory = {
+    hbm: {
+      capacity: 64,
+      items: [
+        ['weights', '权重 · BF16', 27.99, '40 层 26.43 GB + LM Head 1.56 GB'],
+        ['kv', 'KV Cache 页池', PAGES_TOTAL * PAGE_BYTES / 1e9, `${PAGES_TOTAL} 页 × ${(PAGE_BYTES / 1e6).toFixed(2)} MB`],
+        ['workspace', 'Workspace / 累加器', 0.28, 'FP32 atomic 累加 + fa 分块中间量'],
+        ['act', '激活与跨层 carry', 0.02, 'cur FP32 + normed BF16 + 层内 tile'],
+      ],
+    },
+    onchip: [
+      ['L0A / L0B', 71, null, 'matmul 操作数 tile · Cube 直读'],
+      ['L0C', 52, null, 'FP32 累加器'],
+      ['L1', 64, null, '权重 tile 预取缓冲'],
+      ['UB', 63, 58, '峰值来自 gate_up_proj，超编译期预算 5 pt'],
+    ],
+    kv: {
+      pageTokens: PAGE_TOKENS,
+      pageBytesMb: PAGE_BYTES / 1e6,
+      pagesTotal: PAGES_TOTAL,
+      pagesUsed,
+      tokensLive,
+      tokensAllocated,
+      bytesAllocated: pagesUsed * PAGE_BYTES / 1e9,
+      bytesPool: PAGES_TOTAL * PAGE_BYTES / 1e9,
+      fragmentation: (tokensAllocated - tokensLive) / tokensAllocated * 100,
+      utilization: pagesUsed / PAGES_TOTAL * 100,
+      hitRate: 98.2,
+      preempt: 0,
+      swap: 0,
+      mcb: MCB,
+      blocksPadded,
+      blocksReal: pagesUsed,
+      density: pagesUsed / blocksPadded * 100,
+      perRequest: kvPerRequest,
+    },
+    precision: [
+      ['入口 BF16 → FP32', 'copy_hidden', 1, 'ok'],
+      ['层内转换', '—', 0, 'ok'],
+      ['出口 FP32 → BF16', 'cast_lmhead_in', 1, 'ok'],
+      ['跨层 carry', 'out FP32 0.33 MB/层 · normed BF16 0.16 MB/层', null, 'ok'],
+    ],
+  };
+
+  /* ---------------- 批处理与调度（P5） ---------------- */
+
+  // batch 扫描：权重流量恒定，KV 与激活随 batch 线性增长，达成带宽随 batch 略升
+  const SWEEP_BW = { 1: 2.05, 4: 2.10, 8: 2.12, 16: 2.147, 32: 2.18, 64: 2.21 };
+  const SWEEP_MTE2 = { 1: 78, 4: 76, 8: 73, 16: 70.4, 32: 66, 64: 61 };
+  const sweep = [1, 4, 8, 16, 32, 64].map((batch) => {
+    const kv = 4.231 / 16 * batch;
+    const act = 0.42 / 16 * batch;
+    const traffic = 27.99 + kv + act;
+    const bw = SWEEP_BW[batch];
+    // 用展示精度的 tpot 反算 tps，避免与 summary.tps 差 1
+    const tpot = Number((traffic / bw).toFixed(2));
+    return {
+      batch,
+      traffic: Number(traffic.toFixed(2)),
+      bw,
+      tpot,
+      tps: Math.round(batch / (tpot / 1000)),
+      mte2: SWEEP_MTE2[batch],
+      perToken: Number((traffic / batch).toFixed(2)),
+      current: batch === 16,
+    };
+  });
+
+  const batchOverTime = jitter(1337, 64, 14.7, 0.26).map((v) => Math.max(12, Math.min(16, Math.round(v))));
+  const batchAvg = batchOverTime.reduce((a, v) => a + v, 0) / batchOverTime.length;
+
+  // 连续批处理：16 个槽位在窗口内被复用，共 26 个请求
+  const WINDOW_MS = 512 * 15.2;
+  const requestLanes = (() => {
+    const lanes = [];
+    let s = 20260803;
+    const rnd = () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+    let seq = 0;
+    for (let slot = 0; slot < 16; slot += 1) {
+      const items = [];
+      let t = slot < 12 ? 0 : rnd() * 400;
+      while (t < WINDOW_MS) {
+        const wait = slot < 12 && t === 0 ? 0 : 6 + rnd() * 34;
+        const prefill = 120 + rnd() * 140;
+        const decode = 1400 + rnd() * 4200;
+        const end = Math.min(t + wait + prefill + decode, WINDOW_MS);
+        items.push({
+          id: `r-${String(seq).padStart(3, '0')}`,
+          t0: t, wait, prefill,
+          decode: Math.max(end - t - wait - prefill, 0),
+          done: end < WINDOW_MS,
+        });
+        seq += 1;
+        t = end + 2 + rnd() * 10;
+      }
+      lanes.push({ slot, items });
+    }
+    return lanes;
+  })();
+
+  const serving = {
+    windowMs: WINDOW_MS,
+    steps: 512,
+    queue: { running: 16, waiting: 3, waitP50: 22, waitP99: 61, preempt: 0, recompute: 0, chunkedPrefill: 7 },
+    split: { prefill: 14.2, decode: 85.8 },
+    batchOverTime,
+    batchAvg,
+    sweep,
+    lanes: requestLanes,
+    totalRequests: requestLanes.reduce((a, l) => a + l.items.length, 0),
+  };
+
   const profiles = {
     'run-0803-a': {
       id: 'run-0803-a',
@@ -363,8 +502,8 @@
         tpot: { p50: 15.2, p90: 16.4, p99: 18.1 }, tpotDelta: 3.4,
         tps: 1053, tpsDelta: -3.3,
         ttft: 184, ttftDelta: 1.2,
-        kvUsed: 4.26, kvPool: 6.55, kvPct: 65.0,
-        preempt: 0, batchAvg: 14.7,
+        kvUsed: memory.kv.bytesAllocated, kvPool: memory.kv.bytesPool, kvPct: memory.kv.utilization,
+        preempt: 0, batchAvg,
         sol: [
           { id: 'cube', label: 'Cube (AIC)', pct: 3.7, detail: '29.4 / 800 TFLOPS' },
           { id: 'vector', label: 'Vector (AIV)', pct: 17.9, detail: 'elementwise + 归约' },
@@ -380,6 +519,8 @@
       ops,
       itlBins,
       seqLens,
+      memory,
+      serving,
       baseline: { id: 'b8160fd', token: 'ptok://qwen3-14b/decode-fused@b8160fd', tpot: 14.7, tps: 1088, label: '可信基线 · 08/01' },
     },
   };

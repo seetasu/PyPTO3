@@ -1475,7 +1475,7 @@ def mm(
           </div>
           <footer id="matmulFlowStatus"><span><i></i>悬停源码行查看数据流，点击可锁定</span></footer>
         </section>
-        <section class="kf-inspector-section kf-intent-contract"><h2 class="kf-inspector-title">编码契约</h2><div class="kf-evidence-list"><div class="kf-evidence"><span>01</span><b>FP16 双输入</b><small>shape</small></div><div class="kf-evidence"><span>02</span><b>FP32 累加输出</b><small>dtype</small></div><div class="kf-evidence"><span>03</span><b>In-core 执行</b><small>memory</small></div></div></section>`;
+         `;
       renderMatmulHardwareGraph();
       return;
     }
@@ -1487,8 +1487,7 @@ def mm(
       <section class="kf-intent-hero"><div class="kf-intent-title-row"><b>decode_layer</b><span class="kf-inference-badge">推理</span><span class="kf-megakernel-badge">megakernel</span></div></section>
       <div class="kf-intent-tabs" role="tablist" aria-label="算子意图类型">${tabs}</div>
       <section class="kf-inspector-section kf-intent-detail"><header><h2>${active.label}</h2><span>${active.meta}</span></header><dl>${active.rows.map(row => `<div><dt>${row[0]}</dt><dd>${row[1]}</dd></div>`).join('')}</dl></section>
-      <div class="kf-inspector-card kf-intent-note"><b>实时推导</b><p>${active.note}</p></div>
-      <section class="kf-inspector-section kf-intent-contract"><h2 class="kf-inspector-title">编码契约</h2><div class="kf-evidence-list"><div class="kf-evidence"><span>01</span><b>FP32 carry 已锁定</b><small>shape</small></div><div class="kf-evidence"><span>02</span><b>显式 TaskId 链</b><small>deps</small></div><div class="kf-evidence"><span>03</span><b>动态索引待降级</b><small>codegen</small></div></div></section>`;
+       `;
   }
 
   // Ordered passes_dump files (for the evolution/diff timeline).
