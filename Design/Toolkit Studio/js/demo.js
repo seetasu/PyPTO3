@@ -1484,7 +1484,7 @@ def mm(
     $('#inspectorTitle').textContent = '意图预览';
     $('#inspectorMeta').textContent = 'decode_layer.py';
     $('#inspector').innerHTML = `
-      <section class="kf-intent-hero"><span class="kf-eyebrow">CURRENT OPERATOR</span><b>decode_layer</b><small>kernels/decode_layer.py · selected source anchors</small></section>
+      <section class="kf-intent-hero"><div class="kf-intent-title-row"><b>decode_layer</b><span class="kf-inference-badge">推理</span><span class="kf-megakernel-badge">megakernel</span></div></section>
       <div class="kf-intent-tabs" role="tablist" aria-label="算子意图类型">${tabs}</div>
       <section class="kf-inspector-section kf-intent-detail"><header><h2>${active.label}</h2><span>${active.meta}</span></header><dl>${active.rows.map(row => `<div><dt>${row[0]}</dt><dd>${row[1]}</dd></div>`).join('')}</dl></section>
       <div class="kf-inspector-card kf-intent-note"><b>实时推导</b><p>${active.note}</p></div>
@@ -2073,7 +2073,10 @@ def mm(
   setProductMode('ide');
 
   $$('[data-activity-view]').forEach((button) => button.addEventListener('click', (event) => {
-    event.stopImmediatePropagation();
+    const isExplorer = button.dataset.activityView === 'explorer';
+    const returningToExplorer = isExplorer && state.activityView !== 'explorer';
+    const explorerHidden = $('#kf-explorer')?.hidden;
+    if (returningToExplorer && !explorerHidden) event.stopImmediatePropagation();
     setActivityView(button.dataset.activityView);
   }, true));
   setActivityView('explorer');

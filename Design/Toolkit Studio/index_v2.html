@@ -15,8 +15,9 @@
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/aiv-core-object/pattern.css" />
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/memory-architecture/pattern.css" />
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/model-graphviz/pattern.css?v=20260813-2" />
-  <link rel="stylesheet" href="./styles/demo.css?v=20260813-32" />
-  <link rel="stylesheet" href="./styles/coding-v2.css?v=20260820-25" />
+  <link rel="stylesheet" href="./styles/demo.css?v=20260821-7" />
+  <link rel="stylesheet" href="./styles/coding-v2.css?v=20260820-26" />
+  <link rel="stylesheet" href="./styles/profiler.css?v=20260821-1" />
 </head>
 <body>
   <section class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="PyPTO Studio 可信 Kernel 工作台">
@@ -77,7 +78,7 @@
 
     <div class="pto-ide-frame__body">
       <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" id="ideActivityRail" data-ide-slot="activity-rail" aria-label="Activity rail">
-        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" id="activityExplorer" type="button" data-ide-toggle="explorer" data-activity-view="explorer" aria-label="打开资源管理器" aria-controls="kf-explorer" aria-expanded="true" aria-pressed="true" title="资源管理器">
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" id="activityExplorer" type="button" data-ide-toggle="explorer" data-activity-view="explorer" aria-label="切换资源管理器" aria-controls="kf-explorer" aria-expanded="true" aria-pressed="true" title="切换资源管理器">
           <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
         </button>
         <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" id="activityWorkflow" type="button" data-activity-view="workflow" aria-label="打开可信 Kernel 工作流" aria-controls="kf-explorer" aria-expanded="false" aria-pressed="false" title="可信 Kernel 工作流"><span class="kf-rail-glyph" aria-hidden="true">K</span></button>
@@ -105,6 +106,13 @@
               <button type="button" data-model-phase="scope-3"><i>04</i><span><b>Scope 3</b><small>Out Proj · SwiGLU · Carry</small></span></button>
               <button type="button" data-model-phase="boundary-out"><i>05</i><span><b>输出边界</b><small>cast · RMS LM Head</small></span></button>
             </nav>
+            <button class="kf-model-obs-entry" type="button" data-open-profiler aria-haspopup="dialog" aria-controls="inferenceProfiler">
+              <span class="kf-model-obs-entry__icon" aria-hidden="true">⏱</span>
+              <b>推理性能分析</b><em>↗</em>
+              <small>run-0803-a · 512 steps · 08/03 14:32</small>
+              <span class="kf-model-obs-entry__state"><i></i>已采集 · TPOT <b>15.2 ms</b> · <b>Memory-bound</b></span>
+            </button>
+
             <div class="kf-model-facts">
               <span>模型规格</span>
               <dl><div><dt>Decoder</dt><dd>40 层</dd></div><div><dt>Decode batch</dt><dd>16</dd></div><div><dt>Hidden</dt><dd>5,120</dd></div><div><dt>Attention</dt><dd>40 Q / 8 KV</dd></div><div><dt>Head dim</dt><dd>128</dd></div><div><dt>FFN</dt><dd>17,408</dd></div></dl>
@@ -115,8 +123,11 @@
           <main class="kf-model-canvas">
             <header class="kf-model-toolbar">
               <div><span class="kf-eyebrow">DECODE EXECUTION MAP</span><h1>Qwen3 14B · Fused Decode</h1><p id="modelPhaseSummary">decode_fwd 全链路 · 40 × Decoder Layer · FP32 跨层 carry</p></div>
-              <div class="kf-model-toolbar__actions" role="group" aria-label="画布控制">
-                <button type="button" data-model-zoom="out" aria-label="缩小">−</button><span id="modelZoomReadout">适应</span><button type="button" data-model-zoom="in" aria-label="放大">＋</button><button type="button" data-model-fit>适应画布</button>
+              <div class="kf-model-toolbar__right">
+                <div class="kf-model-toolbar__actions" role="group" aria-label="画布控制">
+                  <button type="button" data-model-zoom="out" aria-label="缩小">−</button><span id="modelZoomReadout">适应</span><button type="button" data-model-zoom="in" aria-label="放大">＋</button><button type="button" data-model-fit>适应画布</button>
+                </div>
+                <button class="kf-model-toolbar__profiler" type="button" data-open-profiler aria-haspopup="dialog" aria-controls="inferenceProfiler">⏱ 性能分析 ↗</button>
               </div>
             </header>
             <div class="kf-model-stage pto-model-graphviz-stage" id="qwen3ModelGraph" aria-label="Qwen3 14B 模型架构图"></div>
@@ -400,7 +411,7 @@
           </main>
 
           <aside class="pto-ide-frame__pane" data-ide-pane="inspector">
-            <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title" id="inspectorTitle">意图预览</span><span class="pto-ide-frame__pane-meta" id="inspectorMeta">live</span></header>
+            <header class="pto-ide-frame__pane-header"><div class="kf-intent-pane-title-group"><span class="pto-ide-frame__pane-title" id="inspectorTitle">意图预览</span><span class="kf-intent-agent-stack" aria-label="Agent team: Lead, DSL, Guard, Validation"><i class="kf-intent-agent-avatar is-lead" title="Lead Agent"><b>L</b></i><i class="kf-intent-agent-avatar is-dsl" title="DSL Agent"><b>D</b></i><i class="kf-intent-agent-avatar is-guard" title="Guard Agent"><b>G</b></i><i class="kf-intent-agent-avatar is-validation" title="Validation Agent"><b>V</b></i></span></div><span class="pto-ide-frame__pane-meta" id="inspectorMeta">live</span></header>
             <div class="pto-ide-frame__pane-body kf-inspector" id="inspector"></div>
           </aside>
         </div>
@@ -562,7 +573,9 @@
   <script src="./js/passes-dump-source.js?v=20260810-1"></script>
   <script src="./js/examples-source.js?v=20260812-1"></script>
   <script src="./js/passes-graph.js?v=20260811-8"></script>
-  <script src="./js/qwen3-model-viz.js?v=20260811-10"></script>
-  <script src="./js/demo-v2.js?v=20260820-27"></script>
+  <script src="./js/qwen3-model-viz.js?v=20260821-11"></script>
+  <script src="./js/inference-profile-data.js?v=20260821-1"></script>
+  <script src="./js/inference-profiler.js?v=20260821-1"></script>
+  <script src="./js/demo-v2.js?v=20260821-8"></script>
 </body>
 </html>

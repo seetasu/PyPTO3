@@ -9,7 +9,7 @@
   ];
   const passes = ['Semantic Lowering', 'Layout Planning', 'Parallel Mapping', 'Memory Scheduling', 'ISA Emission'];
   const guards = ['Op legality', 'Dependencies', 'Manual scope', 'Liveness', 'Paged layout', 'Index width', 'ISA capacity', 'FP32 carry'];
-  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionTab: 'graph', pagedAttentionFocus: 'paging', pagedAttentionOverlay: 'data', pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pto3LabTab: 'loops', pto3LabFocus: 'matmul', sourceCache: {} };
+  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionTab: 'graph', pagedAttentionFocus: 'paging', pagedAttentionOverlay: 'data', pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pto3LabTab: 'loops', pto3LabFocus: 'matmul', sourceCache: {} };
   const EXPLORER_STEP = 1;
   const WORKFLOW_STEPS = [0, 2, 3, 4];
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -21,7 +21,6 @@
     $$('[data-editor-panel]').forEach((panel) => { panel.hidden = panel.dataset.editorPanel !== tab; });
   }
 
-  const intentSourceLines = { 176: 'layout', 223: 'resource', 305: 'shape', 410: 'scope', 732: 'deps' };
   const matmulSource = `@pl.jit.incore
 def mm(
     a: pl.Tensor[[32, 32], pl.FP16],
@@ -168,6 +167,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   let attentionGraphController = null;
   let qwenDecodeGraphController = null;
   let pagedAttentionGraphController = null;
+  let decodeLayerGraphController = null;
   let passesGraphInstance = null;
 
   // Minimal Python syntax highlighter — stateful across lines so triple-quoted
@@ -318,6 +318,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const source = resolveSource(state.activeFile);
     const editor = $('#dslEditor');
     const highlighted = highlightPythonLines(source);
+    const sourceIntentLines = !isPasses ? resolveIntentSourceLines(source) : {};
     const fragment = document.createDocumentFragment();
     highlighted.forEach((lineHtml, index) => {
       const lineNumber = index + 1;
@@ -327,7 +328,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       let sourceTag = null;
       gutter.textContent = lineNumber;
       code.innerHTML = lineHtml || ' ';
-      if (!isPasses && intentSourceLines[lineNumber]) row.dataset.intentLine = intentSourceLines[lineNumber];
+      if (!isPasses && sourceIntentLines[lineNumber]) row.dataset.intentLine = sourceIntentLines[lineNumber];
       if (isPasses) { row.dataset.passesLine = String(lineNumber); row.tabIndex = 0; }
       if (state.activeFile === 'matmul.py') {
         row.dataset.hardwareLine = String(lineNumber);
@@ -649,33 +650,481 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     `<section class="kf-inspector-section"><h2 class="kf-inspector-title">可信状态</h2><div class="kf-inspector-card"><b style="color:var(--success)">可用于性能优化</b><p>此基线冻结 correctness 契约。之后的 tile、pipeline 或内存优化都可与它自动比对。</p></div></section><section class="kf-inspector-section"><h2 class="kf-inspector-title">签名摘要</h2><dl><div><dt>Evidence</dt><dd>sha256:91b4…0e2c</dd></div><div><dt>Environment</dt><dd>sha256:8da1…bf09</dd></div><div><dt>Artifact</dt><dd>sha256:13fe…8c71</dd></div></dl></section>`
   ];
 
-  const intentPreview = {
-    shape: {
-      label: 'Shape', meta: 'Qwen3-14B · contracted',
-      rows: [['hidden / out', '[16, 5120] · FP32'], ['Q / KV hidden', '5120 / 1024'], ['Heads', '40 Q / 8 KV · dim 128'], ['Layer carry', 'out + normed_out']],
-      note: '层间 hidden 与 residual 保持 FP32；仅外部 embedding 输入和最终 LM Head 边界进行 BF16 转换。'
-    },
-    layout: {
-      label: 'Layout', meta: 'paged · split-K · tiled',
-      rows: [['Paged KV', 'SEQ_TILE 128'], ['Q head batch', '5 real / 16 padded'], ['QKV tile', 'TM16 · TN256 · TK256'], ['MLP tile', 'TN1024 · chunk256']],
-      note: 'SEQ_TILE 与 serving page_size 绑定；每个 dense work item 只处理一个真实 sequence block。'
-    },
-    scope: {
-      label: 'Scope', meta: 'manual · auto-dep boundary',
-      rows: [['Scope 1', 'RMSNorm + Q/K/V'], ['Scope 2', 'Paged FA + online softmax'], ['Scope 3', 'out_proj + MLP'], ['Boundary', 'dcr_xgamma outside manual']],
-      note: 'manual_scope 内 tensormap 自动依赖被抑制，跨 scope 的任务顺序必须通过显式 TaskId 传递。'
-    },
-    deps: {
-      label: '依赖', meta: 'explicit TaskId chain',
-      rows: [['prev_out_tids', 'rms_recip'], ['work_tid', 'fa_fused'], ['fa_tid', 'online_softmax'], ['down_tids', 'dcr_xgamma']],
-      note: '核心链路是 fa_work_build → fa_fused → online_softmax；层间 carry 由 dcr_xgamma 的单次 SPMD dispatch 完成。'
-    },
-    resource: {
-      label: '资源', meta: 'declared scheduling intent',
-      rows: [['FA grid', '24 persistent cores'], ['Softmax grid', '48 vector blocks'], ['dcr_xgamma', '5 parallel slabs'], ['FA table cap', 'BATCH × MAX_CTX_BLOCKS']],
-      note: '资源意图优先平衡 ragged decode；A2/A3 的 Cube↔Vector 边界仍会经过 GM pipe buffer。'
+  function parseDecodeNumber(expression, constants) {
+    let value = String(expression || '').replace(/#.*/, '').trim();
+    value = value.replace(/int\(os\.environ\.get\([^,]+,\s*["'](\d+)["']\)\)/g, '$1');
+    value = value.replace(/\b(?:int|float)\(([^()]+)\)/g, '($1)');
+    for (let pass = 0; pass < 8; pass += 1) {
+      value = value.replace(/\b[A-Z][A-Z0-9_]*\b/g, (name) => (
+        Object.prototype.hasOwnProperty.call(constants, name) ? `${constants[name]}` : name
+      ));
     }
-  };
+    const operand = '(?:\\([^()]*\\)|(?:\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?))';
+    for (let pass = 0; pass < 8 && value.includes('//'); pass += 1) {
+      value = value.replace(new RegExp(`(${operand})\\s*//\\s*(${operand})`, 'g'), 'Math.floor($1 / $2)');
+    }
+    if (!/^[0-9eE+*/%().,\s-Mathfloor]+$/.test(value)) return null;
+    try {
+      const result = Number(Function(`"use strict"; return (${value});`)());
+      return Number.isFinite(result) ? result : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function parseDecodeLayerSource(source) {
+    const text = source || '';
+    const lines = text.split(/\r?\n/);
+    const constants = {};
+    const assignment = /^([A-Z][A-Z0-9_]*)\s*=\s*(.+?)(?:\s+#.*)?$/gm;
+    for (let pass = 0; pass < 8; pass += 1) {
+      assignment.lastIndex = 0;
+      let match;
+      while ((match = assignment.exec(text))) {
+        if (!Object.prototype.hasOwnProperty.call(constants, match[1])) {
+          const value = parseDecodeNumber(match[2], constants);
+          if (value !== null) constants[match[1]] = value;
+        }
+      }
+    }
+
+    const lineOf = (pattern) => {
+      const index = lines.findIndex((line) => pattern.test(line));
+      return index < 0 ? null : index + 1;
+    };
+    const number = (name, fallback = null) => (
+      Number.isFinite(constants[name]) ? constants[name] : fallback
+    );
+    const integer = (name, fallback = null) => {
+      const value = number(name, fallback);
+      return value === null ? null : Math.round(value);
+    };
+    const taskRecords = [];
+    const readBracketed = (input, start) => {
+      let depth = 0;
+      let quote = null;
+      for (let index = start; index < input.length; index += 1) {
+        const char = input[index];
+        if (quote) {
+          if (char === quote && input[index - 1] !== '\\') quote = null;
+          continue;
+        }
+        if (char === '"' || char === "'") { quote = char; continue; }
+        if (char === '[') depth += 1;
+        if (char === ']') {
+          depth -= 1;
+          if (depth === 0) return input.slice(start + 1, index);
+        }
+      }
+      return '';
+    };
+    const taskPattern = /with\s+pl\.(at|spmd)\(([\s\S]*?)\)\s+as\s+([A-Za-z_]\w*)\s*:/g;
+    let taskMatch;
+    while ((taskMatch = taskPattern.exec(text))) {
+      const args = taskMatch[2];
+      const nameMatch = args.match(/name_hint\s*=\s*["']([^"']+)["']/);
+      if (!nameMatch) continue;
+      const depsStart = args.search(/\bdeps\s*=\s*\[/);
+      const depsOpen = depsStart < 0 ? -1 : args.indexOf('[', depsStart);
+      const depsText = depsOpen < 0 ? '' : readBracketed(args, depsOpen).replace(/\s+/g, ' ').trim();
+      const depCount = !depsText ? 0 : depsText.includes(' for ') ? 1 : depsText.split(',').length;
+      const line = text.slice(0, taskMatch.index).split(/\r?\n/).length;
+      taskRecords.push({
+        name: nameMatch[1],
+        kind: taskMatch[1],
+        alias: taskMatch[3],
+        line,
+        deps: depsText || '自动依赖 / 无显式 deps',
+        depCount,
+        dispatch: args.split(',')[0].replace(/\s+/g, ' ').trim(),
+      });
+    }
+
+    const taskNames = [...new Set(taskRecords.map((task) => task.name))];
+    const taskByName = (name) => taskRecords.find((task) => task.name === name) || null;
+    const names = (items) => items.filter((name) => taskNames.includes(name)).join(' · ') || '源码未声明';
+    const manualLine = lineOf(/with\s+pl\.manual_scope\(\)/);
+    const explicitTasks = taskRecords.filter((task) => task.depCount > 0);
+    const sourceFacts = {
+      lines: lines.length,
+      manualLine,
+      dynamicIndex: /fa_total_blocks|cursor\s*\+\s*wp|g_base\s*\+\s*sb/.test(text),
+      compileBlocked: /does\s+NOT\s+compile/i.test(text) && /index\s+vs\s+i64/i.test(text),
+      markers: {
+        shape: lineOf(/# ── Model architecture/),
+        layout: lineOf(/SEQ_TILE\s*=/),
+        scope: manualLine,
+        deps: taskRecords.find((task) => task.depCount > 0)?.line || lineOf(/deps\s*=\s*\[/),
+        resource: lineOf(/NUM_CORES\s*=/),
+      },
+    };
+    return {
+      constants,
+      integer,
+      number,
+      names,
+      taskRecords,
+      taskNames,
+      taskByName,
+      explicitTasks,
+      sourceFacts,
+    };
+  }
+
+  function resolveIntentSourceLines(source) {
+    const parsed = parseDecodeLayerSource(source);
+    const map = {};
+    Object.entries(parsed.sourceFacts.markers).forEach(([tab, line]) => {
+      if (line) map[line] = tab === 'layout' ? 'shape' : tab;
+    });
+    return map;
+  }
+
+  function buildDecodeLayerIntent(source) {
+    const parsed = parseDecodeLayerSource(source);
+    const { integer, number, names, taskRecords, taskNames, taskByName, explicitTasks, sourceFacts } = parsed;
+    const c = (name, fallback = '—') => integer(name, fallback);
+    const value = (name, fallback = '—') => number(name, fallback);
+    const line = (tab) => sourceFacts.markers[tab] ? `源码第 ${sourceFacts.markers[tab]} 行` : '源码锚点未找到';
+    const task = (name) => taskByName(name);
+    const dep = (name) => task(name)?.deps || '源码未声明';
+    const qOn = c('Q_ON');
+    const kvOn = c('KV_ON');
+    const qkvOk = c('QKV_OK');
+    const mlpOn = c('MLP_ON');
+    const kSplitsMlp = c('K_SPLITS_MLP');
+    const downOn = c('DOWN_ON');
+    const kSplits = c('K_SPLITS');
+    const nSplitsOut = c('N_SPLITS_OUT');
+    const kSplitsOut = c('K_SPLITS_OUT');
+    const maxCtxBlocks = c('MAX_CTX_BLOCKS');
+    const batch = c('BATCH');
+    const hidden = c('HIDDEN');
+    const kvHidden = c('KV_HIDDEN');
+    const headDim = c('HEAD_DIM');
+    const intermediate = c('INTERMEDIATE');
+    const qHeadBatch = c('Q_HEAD_BATCH');
+    const qHeadPad = c('Q_HEAD_PAD');
+    const cacheRows = c('CACHE_ROWS');
+    const phase1 = names(['rms_recip', 'q_seed', 'q_proj', 'k_seed', 'k_proj', 'v_seed', 'v_proj', 'qk_norm']);
+    const phase2 = names(['fa_work_build', 'rope_qkv', 'fa_fused', 'online_softmax']);
+    const phase3 = names(['out_seed', 'out_proj', 'residual_rms_cast', 'post_rms_reduce', 'gate_seed', 'gate_proj', 'up_seed', 'up_proj', 'silu', 'down_proj']);
+
+    return {
+      shape: {
+        label: 'Shape & Layout',
+        meta: `源码解析 · ${line('shape')} · ${line('layout')}`,
+        rows: [
+          ['Shape · hidden_states', `[${batch}, ${hidden}] · BF16 → cur FP32`],
+          ['Shape · Q / K / V', `Q [${batch}, ${hidden}] · K/V [${batch}, ${kvHidden}] · FP32`],
+          ['Shape · Attention heads', `${c('NUM_HEADS')} Q / ${c('NUM_KV_HEADS')} KV · head_dim ${headDim} · GQA ${c('Q_PER_KV')}:1`],
+          ['Shape · Paged K/V cache', `[${cacheRows}, ${headDim}] × 2 · BF16 · paged GM`],
+          ['Shape · Attention output', `[${batch}, ${hidden}] · BF16 · attn_out`],
+          ['Shape · MLP intermediate', `[${batch}, ${intermediate}] · BF16 · gate/up/SiLU`],
+          ['Shape · Layer outputs', `out [${batch}, ${hidden}] FP32 · normed_out [${batch}, ${hidden}] BF16`],
+          ['Shape · Precision boundary', 'BF16 at input/cache/activation edges; FP32 inter-layer residual carry'],
+          ['Layout · Paged KV page', `SEQ_TILE=${c('SEQ_TILE')} · BLOCK_SIZE=${c('BLOCK_SIZE')} · MAX_CTX_BLOCKS=${maxCtxBlocks}`],
+          ['Layout · Q head tile', `${qHeadBatch} real rows → ${qHeadPad} physical rows · valid_shape 保留真实行`],
+          ['Layout · QKV projection', `M=${c('TM')} · inner N=${c('TN')} · inner K=${c('TK')} · outer N=${c('QKV_N_TILE')}`],
+          ['Layout · QKV split-K', `${qkvOk} K slices · slice ${c('QKV_K_SLICE')} · ${c('QKV_K_CHUNKS')} inner K chunks`],
+          ['Layout · Paged address', 'block_table[b, block] → physical page；slot_mapping → current-token row'],
+          ['Layout · FA work item', `${c('TOKENS_PER_SPLIT')} tokens / ${c('BLOCKS_PER_SPLIT')} KV block · GP_SIZE=${c('GP_SIZE')} KV heads`],
+          ['Layout · Out projection', `N split ${nSplitsOut} × K split ${kSplitsOut} · OUT_TN=${c('OUT_TN')} · OUT_TK=${c('OUT_TK')}`],
+          ['Layout · MLP / Down', `MLP_TN=${c('MLP_TN')} · inner K=${c('MLP_INNER_TK')} · chunk=${c('MLP_OUT_CHUNK')} · Down K=${c('DOWN_TK')}`],
+        ],
+        visual: {
+          kpis: [
+            ['Batch', batch, 'real sequences'],
+            ['Hidden', hidden, 'model width'],
+            ['Q / KV', `${c('NUM_HEADS')} / ${c('NUM_KV_HEADS')}`, `head_dim ${headDim}`],
+            ['Q rows', `${qHeadBatch} → ${qHeadPad}`, 'valid_shape'],
+          ],
+          flow: [
+            { kicker: 'INPUT', title: 'hidden_states', detail: `[${batch}, ${hidden}] · BF16 → FP32`, tone: 'source' },
+            { kicker: 'PROJECTION', title: 'Q / K / V', detail: `Q [${batch}, ${hidden}] · K/V [${batch}, ${kvHidden}] · FP32`, tone: 'compute' },
+            { kicker: 'ATTENTION', title: 'Paged KV + FA', detail: `[${cacheRows}, ${headDim}] × 2 · BF16`, tone: 'attention' },
+            { kicker: 'OUTPUT', title: 'out + normed_out', detail: `[${batch}, ${hidden}] · FP32 carry`, tone: 'output' },
+          ],
+          layout: [
+            ['PAGED KV', `SEQ_TILE ${c('SEQ_TILE')} · BLOCK ${c('BLOCK_SIZE')}`, `MAX_CTX_BLOCKS ${maxCtxBlocks}`],
+            ['TILE', `M ${c('TM')} · N ${c('TN')} · K ${c('TK')}`, `outer N ${c('QKV_N_TILE')}`],
+            ['SPLIT-K', `${qkvOk} slices · ${c('QKV_K_CHUNKS')} chunks`, `slice ${c('QKV_K_SLICE')}`],
+            ['WORK ITEM', `${c('TOKENS_PER_SPLIT')} tokens · ${c('BLOCKS_PER_SPLIT')} blocks`, `GP_SIZE ${c('GP_SIZE')}`],
+          ],
+        },
+        note: `Shape 与 Layout 已合并展示：前半段是源码常量/函数签名，后半段是分页、padding、Tile 和 Split-K 参数。它描述物理切分意图，不等同于编译后最终 stride descriptor。${sourceFacts.compileBlocked ? '当前源码头部还标注了动态索引 codegen 阻塞。' : ''}`,
+      },
+      graph: {
+        label: '计算图',
+        meta: '源码任务 · Scope / TaskId / 资源一体化',
+        rows: [],
+        note: '计算图把源码中带 name_hint 的任务、显式 TaskId 边、逻辑 Scope 和调度资源放到同一张图中。',
+      },
+      scope: {
+        label: 'Scope',
+        meta: `manual boundary · ${line('scope')}`,
+        rows: [
+          ['Runtime boundary', `1 个 pl.manual_scope · ${line('scope')}`],
+          ['Logical Scope 1', phase1],
+          ['Logical Scope 2', phase2],
+          ['Logical Scope 3', phase3],
+          ['Manual dependency rule', 'manual_scope 内关闭 tensormap 自动依赖；显式 TaskId 负责跨任务顺序'],
+          ['Outside boundary', taskNames.includes('dcr_xgamma') ? 'dcr_xgamma → out + normed_out → next layer' : '源码未找到 dcr_xgamma'],
+          ['Parallel constructs', `${taskRecords.filter((task) => task.kind === 'spmd').length} SPMD · ${taskRecords.filter((task) => task.kind === 'at').length} pl.at declarations`],
+        ],
+        note: `Scope 1/2/3 是源码中的逻辑阶段；真正的 Runtime 边界由 manual_scope 决定。当前解析到 ${taskNames.length} 个带 name_hint 的任务声明。`,
+      },
+      deps: {
+        label: '依赖',
+        meta: `TaskId + source scan · ${line('deps')}`,
+        rows: [
+          ['Task declarations', `${taskNames.length} named tasks · ${explicitTasks.length} have explicit deps`],
+          ['Layer carry → RMS', `prev_out_tids → rms_recip · ${dep('rms_recip')}`],
+          ['Normed input → QKV', `prev_normed_tids → q_proj/k_proj/v_proj · q=${dep('q_proj')}`],
+          ['Work table → FA', `fa_work_build → fa_fused · ${dep('fa_fused')}`],
+          ['RoPE → FA', `rope_qkv → fa_fused · ${dep('fa_fused')}`],
+          ['FA → online reduce', `fa_fused → online_softmax · ${dep('online_softmax')}`],
+          ['Attention → OutProj', `attn_done_tid → out_proj · ${dep('out_proj')}`],
+          ['Down → carry', `down_tids → dcr_xgamma · ${dep('dcr_xgamma')}`],
+        ],
+        note: `当前面板列出源码中解析到的关键显式边；Tensor 自动依赖、循环 carry、WAR/WAW 推导仍需编译后 IR 才能最终确认。`,
+      },
+      resource: {
+        label: '资源',
+        meta: `declared scheduling intent · ${line('resource')}`,
+        rows: [
+          ['FA fused grid', `NUM_CORES=${c('NUM_CORES')} persistent blocks · grid-stride over real blocks`],
+          ['RoPE grid', `ROPE_CORES=${c('ROPE_CORES')} · ${c('NUM_KV_HEADS')} × ${batch} head/batch items`],
+          ['Online softmax', `NUM_CORES × 2 = ${value('NUM_CORES', 0) * 2} Vector blocks · work=${c('OS_WORK')}`],
+          ['Q / K / V projection', `Q ${qOn * qkvOk} · K ${kvOn * qkvOk} · V ${kvOn * qkvOk} split tasks`],
+          ['Out projection', `${nSplitsOut * kSplitsOut} atomic tasks · ${nSplitsOut} N tiles × ${kSplitsOut} K slices`],
+          ['MLP projection', `gate/up ${mlpOn * kSplitsMlp} each · down ${downOn * kSplits} · FP32 atomic accum`],
+          ['Layer-tail carry', `dcr_xgamma ${downOn}-way SPMD · out + normed_out written together`],
+          ['Work table capacity', `FA_TABLE_CAP=${c('FA_TABLE_CAP')} entries · BATCH × MAX_CTX_BLOCKS`],
+        ],
+        note: `这些是源码声明的调度资源意图，不是设备实测 occupancy 或耗时。${sourceFacts.compileBlocked ? '源码头部明确提示 dynamic INDEX/i64 store offset 当前可能阻塞 codegen。' : ''}`,
+      },
+    };
+  }
+
+  function buildDecodeLayerGraph(source) {
+    const parsed = parseDecodeLayerSource(source);
+    const { integer, number, taskRecords, taskNames, taskByName } = parsed;
+    const c = (name, fallback = '—') => integer(name, fallback);
+    const value = (name, fallback = '—') => number(name, fallback);
+    const graphWidth = 920;
+    const nodeWidth = 176;
+    const nodeHeight = 62;
+    const centerX = 460;
+    const details = {};
+    const nodes = [];
+    const clusters = [];
+    const taskResources = (name) => {
+      if (name === 'fa_fused') return `${c('NUM_CORES')} cores`;
+      if (name === 'online_softmax') return `${value('NUM_CORES', 0) * 2} Vector`;
+      if (name === 'rope_qkv') return `${c('ROPE_CORES')} cores`;
+      if (name === 'q_proj') return `${c('Q_ON')}×${c('QKV_OK')} splits`;
+      if (name === 'k_proj' || name === 'v_proj') return `${c('KV_ON')}×${c('QKV_OK')} splits`;
+      if (name === 'out_proj') return `${c('N_SPLITS_OUT')}×${c('K_SPLITS_OUT')} atomic`;
+      if (name === 'gate_proj' || name === 'up_proj') return `${c('MLP_ON')}×${c('K_SPLITS_MLP')} atomic`;
+      if (name === 'down_proj') return `${c('DOWN_ON')}×${c('K_SPLITS')} atomic`;
+      if (name === 'dcr_xgamma') return `${c('DOWN_ON')}-way SPMD`;
+      if (name.endsWith('_seed')) return 'zero / seed';
+      return '源码任务';
+    };
+    const taskRecord = (name) => taskByName(name) || { name, kind: 'at', alias: '', line: null, deps: '', depCount: 0 };
+
+    const existing = (names) => names.filter((name) => taskNames.includes(name));
+    const recordsFor = (names) => existing(names).map(taskRecord);
+    const taskText = (names) => existing(names).join(' · ') || '源码任务未找到';
+    const dependencyText = (records) => {
+      const explicit = records.filter((record) => record.depCount > 0);
+      if (!explicit.length) return '自动依赖 / 无显式 TaskId';
+      return explicit.map((record) => `${record.alias || record.name}: ${record.deps}`).join('；');
+    };
+    const aggregate = ({ id, label, phase, kind = '计算节点', names = [], resource, colorKey, x, y, width = nodeWidth, height = nodeHeight, parent }) => {
+      const records = recordsFor(names);
+      const explicitCount = records.filter((record) => record.depCount > 0).length;
+      const lineList = records.map((record) => record.line).filter(Boolean);
+      const typeLabel = records.length
+        ? `${kind} · ${records.length} tasks · TaskId ${explicitCount}`
+        : `${kind} · ${resource || '源码数据'}`;
+      const node = {
+        id, label,
+        typeLabel,
+        kind: kind === 'Tensor' || kind === 'State' ? kind.toLowerCase() : 'op',
+        x, y, width, height, colorKey, parent,
+      };
+      nodes.push(node);
+      details[id] = {
+        title: label,
+        phase,
+        kind,
+        line: lineList.length ? lineList.join('、') : null,
+        resource: resource || records.map((record) => `${record.name}: ${taskResources(record.name)}`).join(' · ') || '源码任务',
+        deps: dependencyText(records),
+        alias: records.map((record) => record.alias).filter(Boolean).join(' · ') || '—',
+        tasks: existing(names).length ? taskText(names) : '',
+      };
+      return id;
+    };
+
+    const inputId = aggregate({ id: 'decode-input-hidden', label: 'hidden_states', phase: '入口边界', kind: 'Tensor', names: ['copy_hidden'], resource: `[${c('BATCH')}, ${c('HIDDEN')}] · BF16 → FP32`, colorKey: 'io:activation', x: centerX, y: 45, width: 210, height: 54 });
+    const layerInputId = aggregate({ id: 'decode-layer-input', label: 'layer_input', phase: 'Layer boundary → Scope 1', kind: 'Tensor', names: ['x_gamma0'], resource: `cur FP32 + x×γ BF16 · [${c('BATCH')}, ${c('HIDDEN')}]`, colorKey: 'io:activation', x: centerX, y: 140, width: 210, height: 54 });
+    const qkvId = aggregate({ id: 'decode-qkv-proj', label: 'RMSNorm + Q / K / V', phase: 'Scope 1 · RMSNorm + Q / K / V', names: ['rms_recip', 'q_seed', 'q_proj', 'k_seed', 'k_proj', 'v_seed', 'v_proj'], resource: `${c('Q_ON')}×${c('QKV_OK')} Q · ${c('KV_ON')}×${c('QKV_OK')} K/V`, colorKey: 'sem:norm', x: 150, y: 260, width: 190, height: 64 });
+    const qkNormId = aggregate({ id: 'decode-qk-norm', label: 'qk_norm', phase: 'Scope 1 · RMSNorm + Q / K / V', names: ['qk_norm'], resource: 'Q/K fused norm · gamma + inv_rms', colorKey: 'sem:norm', x: 150, y: 350 });
+    const workId = aggregate({ id: 'decode-fa-work-build', label: 'fa_work_build', phase: 'Scope 2 · Paged FA + online softmax', names: ['fa_work_build'], resource: `AIV prep · ${c('MAX_CTX_BLOCKS')} block table`, colorKey: 'sem:attention', x: 350, y: 260 });
+    const ropeId = aggregate({ id: 'decode-rope-qkv', label: 'rope_qkv', phase: 'Scope 2 · Paged FA + online softmax', names: ['rope_qkv'], resource: `${c('ROPE_CORES')} cores · Q/K rotate + K/V write`, colorKey: 'sem:attention', x: 470, y: 350 });
+    const cacheId = aggregate({ id: 'decode-paged-kv-cache', label: 'paged K / V cache', phase: 'Scope 2 · 状态', kind: 'State', resource: `[${c('CACHE_ROWS')}, ${c('HEAD_DIM')}] × 2 · BF16 · GM paged`, colorKey: 'io:state', x: 570, y: 260, width: 190, height: 54 });
+    const faId = aggregate({ id: 'decode-fa-fused', label: 'fa_fused', phase: 'Scope 2 · Paged FA + online softmax', names: ['fa_fused'], resource: `${c('NUM_CORES')} cores · QK → softmax → SV`, colorKey: 'sem:attention', x: 470, y: 450 });
+    const onlineId = aggregate({ id: 'decode-online-softmax', label: 'online_softmax', phase: 'Scope 2 · Paged FA + online softmax', names: ['online_softmax'], resource: `${value('NUM_CORES', 0) * 2} Vector · block partial reduce`, colorKey: 'sem:attention', x: 470, y: 550 });
+    const attnOutId = aggregate({ id: 'decode-attn-out', label: 'attn_out', phase: 'Scope 2 → Scope 3', kind: 'Tensor', resource: `[${c('BATCH')}, ${c('HIDDEN')}] · BF16`, colorKey: 'io:activation', x: 570, y: 650, width: 170, height: 54 });
+    const outProjId = aggregate({ id: 'decode-out-proj', label: 'out_proj', phase: 'Scope 3 · out_proj + MLP', names: ['out_seed', 'out_proj'], resource: `${c('N_SPLITS_OUT')}×${c('K_SPLITS_OUT')} atomic`, colorKey: 'sem:mlp', x: 760, y: 650 });
+    const residualId = aggregate({ id: 'decode-residual-rms', label: 'residual_rms_cast', phase: 'Scope 3 · residual / RMS', names: ['residual_rms_cast'], resource: 'out_proj + residual · FP32', colorKey: 'sem:mlp', x: 700, y: 750 });
+    const postRmsId = aggregate({ id: 'decode-post-rms', label: 'post_rms_reduce', phase: 'Scope 3 · residual / RMS', names: ['post_rms_reduce'], resource: 'FP32 reduce · inv_rms', colorKey: 'sem:norm', x: 820, y: 850 });
+    const gateUpId = aggregate({ id: 'decode-gate-up-proj', label: 'Gate / Up projection', phase: 'Scope 3 · out_proj + MLP', names: ['gate_seed', 'gate_proj', 'up_seed', 'up_proj'], resource: `${c('MLP_ON')}×${c('K_SPLITS_MLP')} atomic`, colorKey: 'sem:mlp', x: 760, y: 950, width: 190, height: 64 });
+    const siluId = aggregate({ id: 'decode-silu', label: 'SiLU', phase: 'Scope 3 · out_proj + MLP', names: ['silu'], resource: 'gate × silu · elementwise', colorKey: 'sem:mlp', x: 760, y: 1050 });
+    const downId = aggregate({ id: 'decode-down-proj', label: 'down_proj', phase: 'Scope 3 · out_proj + MLP', names: ['down_seed', 'down_proj'], resource: `${c('DOWN_ON')}×${c('K_SPLITS')} atomic`, colorKey: 'sem:mlp', x: 760, y: 1150 });
+    const dcrId = aggregate({ id: 'decode-dcr-xgamma', label: 'dcr_xgamma', phase: '层间边界 · fused output', names: ['dcr_xgamma'], resource: `${c('DOWN_ON')}-way SPMD · out + normed_out`, colorKey: 'sem:comm', x: 760, y: 1250 });
+    const outputId = aggregate({ id: 'decode-output', label: 'out + normed_out', phase: '层间边界', kind: 'Tensor', names: ['cast_lmhead_in'], resource: `[${c('BATCH')}, ${c('HIDDEN')}] · FP32 / BF16`, colorKey: 'io:output', x: centerX, y: 1360, width: 220, height: 54 });
+
+    const cluster = (id, label, x, y, width, height, colorKey, nodeList) => clusters.push({ id, label, x, y, width, height, colorKey, nodes: nodeList });
+    cluster('decode-boundary-in', 'Layer boundary · runtime entry / carry', 30, 15, 860, 170, 'sem:comm', [inputId, layerInputId]);
+    cluster('decode-scope1', 'Scope 1 · RMSNorm + Q / K / V', 45, 205, 220, 270, 'sem:norm', [qkvId, qkNormId]);
+    cluster('decode-scope2', 'Scope 2 · Paged FA + online softmax', 285, 205, 360, 580, 'sem:attention', [workId, ropeId, cacheId, faId, onlineId, attnOutId]);
+    cluster('decode-scope3', 'Scope 3 · out_proj + MLP', 650, 605, 245, 700, 'sem:mlp', [outProjId, residualId, postRmsId, gateUpId, siluId, downId, dcrId]);
+    cluster('decode-boundary-out', 'Layer boundary · output / next layer', 30, 1320, 860, 120, 'sem:comm', [outputId]);
+
+    const edges = [];
+    const edgeMap = new Map();
+    const addEdge = (source, target, tag, options = {}) => {
+      if (!source || !target || source === target) return;
+      const key = `${source}>${target}`;
+      const existing = edgeMap.get(key);
+      if (existing) {
+        if (tag && !String(existing.tag || '').includes(tag)) existing.tag = `${existing.tag ? `${existing.tag} · ` : ''}${tag}`;
+        return;
+      }
+      const edge = { source, target, tag, ...options };
+      edgeMap.set(key, edge);
+      edges.push(edge);
+    };
+    const semanticEdges = [
+      [inputId, layerInputId, 'FP32 carry'],
+      [layerInputId, qkvId, 'cur FP32 · TaskId prev_out_tids'], [qkvId, qkNormId, 'Q / K · inv_rms'],
+      [qkNormId, ropeId, 'Q / K'], [layerInputId, workId, 'seq_lens', { dashed: true, relation: 'control' }],
+      [workId, faId, 'dense blocks'], [ropeId, faId, 'Q padded'], [ropeId, cacheId, 'paged write', { dashed: true, relation: 'state' }], [cacheId, faId, 'paged read', { dashed: true, relation: 'state' }],
+      [faId, onlineId, 'block partials'], [onlineId, attnOutId, 'reduce'], [attnOutId, outProjId, 'attn_out'],
+      [outProjId, residualId, 'atomic out'], [outProjId, postRmsId, 'atomic out'], [layerInputId, residualId, 'residual FP32', { dashed: true, relation: 'state' }], [layerInputId, postRmsId, 'residual FP32', { dashed: true, relation: 'state' }], [residualId, postRmsId, 'residual'],
+      [postRmsId, gateUpId, 'normed_in · TaskId'], [gateUpId, siluId, 'gate / up'], [siluId, downId, 'activation'], [downId, dcrId, 'down partials'], [residualId, dcrId, 'post_norm_partial', { dashed: true, relation: 'state' }],
+      [dcrId, outputId, 'out + normed_out'], [outputId, layerInputId, 'next layer ×40', { dashed: true, relation: 'carry' }],
+    ];
+    semanticEdges.forEach(([source, target, tag, options]) => addEdge(source, target, tag, options));
+
+    return {
+      graph: routeDecodeLayerGraph({ width: graphWidth, height: 1460, nodes, clusters, edges }),
+      details,
+      summary: {
+        named: taskNames.length,
+        at: taskRecords.filter((task) => task.kind === 'at').length,
+        spmd: taskRecords.filter((task) => task.kind === 'spmd').length,
+        explicit: parsed.explicitTasks.length,
+        manualLine: parsed.sourceFacts.manualLine,
+        compileBlocked: parsed.sourceFacts.compileBlocked,
+        resources: [`FA ${c('NUM_CORES')} cores`, `Online ${value('NUM_CORES', 0) * 2} Vector`, `Q/K/V ${c('Q_ON')}×${c('QKV_OK')} / ${c('KV_ON')}×${c('QKV_OK')}`, `MLP ${c('MLP_ON')}×${c('K_SPLITS_MLP')}`, `dcr ${c('DOWN_ON')}-way`],
+      },
+    };
+  }
+
+  // 右侧图沿用“模型结构”图的路由原则：长距离/回流关系走侧向 lane，
+  // 同一节点的多条输入输出使用分散 port，避免所有关系挤在一个锚点上。
+  function routeDecodeLayerGraph(graph) {
+    const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+    const outgoing = new Map();
+    const incoming = new Map();
+    graph.edges.forEach((edge) => {
+      if (!outgoing.has(edge.source)) outgoing.set(edge.source, []);
+      if (!incoming.has(edge.target)) incoming.set(edge.target, []);
+      outgoing.get(edge.source).push(edge);
+      incoming.get(edge.target).push(edge);
+    });
+    outgoing.forEach((edges) => edges.sort((a, b) => (nodeById.get(a.target)?.y || 0) - (nodeById.get(b.target)?.y || 0)));
+    incoming.forEach((edges) => edges.sort((a, b) => (nodeById.get(a.source)?.y || 0) - (nodeById.get(b.source)?.y || 0)));
+
+    const routeHints = {
+      'decode-input-hidden>decode-layer-input': { side: 'left', lane: 104 },
+      'decode-layer-input>decode-fa-work-build': { side: 'left', lane: 300 },
+      'decode-layer-input>decode-residual-rms': { side: 'right', lane: 885 },
+      'decode-layer-input>decode-post-rms': { side: 'right', lane: 900 },
+      'decode-residual-rms>decode-dcr-xgamma': { side: 'right', lane: 900 },
+      'decode-output>decode-layer-input': { side: 'left', lane: 80 },
+    };
+
+    function portOffset(edge, collection, node, axis) {
+      const list = collection.get(axis === 'source' ? edge.source : edge.target) || [];
+      if (list.length < 2) return 0;
+      const index = list.indexOf(edge);
+      const raw = (index - (list.length - 1) / 2) * 18;
+      return Math.max(-(node.width / 2 - 20), Math.min(node.width / 2 - 20, raw));
+    }
+
+    const edges = graph.edges.map((edge) => {
+      const source = nodeById.get(edge.source);
+      const target = nodeById.get(edge.target);
+      if (!source || !target) return { ...edge };
+      const routeKey = edge.routeKey || `${edge.source}>${edge.target}`;
+      const hint = routeHints[routeKey];
+      const routed = { ...edge, routeKey, waypoints: undefined, curve: undefined, route: 'rounded', cornerRadius: 14 };
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+
+      if (hint) {
+        routed.sourceAnchor = { side: hint.side, dy: 0 };
+        routed.targetAnchor = { side: hint.side, dy: 0 };
+        routed.waypoints = [{ x: hint.lane, y: source.y }, { x: hint.lane, y: target.y }];
+        routed.routeClass = 'side-lane';
+        return routed;
+      }
+
+      if (dy < -70 || Math.abs(dy) > 360) {
+        const useLeft = (source.x + target.x) / 2 < graph.width / 2;
+        const lane = useLeft ? 90 : graph.width - 90;
+        const side = useLeft ? 'left' : 'right';
+        routed.sourceAnchor = side;
+        routed.targetAnchor = side;
+        routed.waypoints = [{ x: lane, y: source.y }, { x: lane, y: target.y }];
+        routed.routeClass = 'side-lane';
+        return routed;
+      }
+
+      if (Math.abs(dy) <= 54 && Math.abs(dx) > 40) {
+        const sourceSide = dx > 0 ? 'right' : 'left';
+        const targetSide = dx > 0 ? 'left' : 'right';
+        routed.sourceAnchor = sourceSide;
+        routed.targetAnchor = targetSide;
+        routed.waypoints = [{ x: (source.x + target.x) / 2, y: source.y }, { x: (source.x + target.x) / 2, y: target.y }];
+        routed.routeClass = 'horizontal-lane';
+        return routed;
+      }
+
+      const sourceDx = portOffset(edge, outgoing, source, 'source');
+      const targetDx = portOffset(edge, incoming, target, 'target');
+      const forward = dy >= 0;
+      const startY = source.y + (forward ? source.height / 2 : -source.height / 2);
+      const endY = target.y + (forward ? -target.height / 2 : target.height / 2);
+      const midY = (startY + endY) / 2;
+      routed.sourceAnchor = { side: forward ? 'bottom' : 'top', dx: sourceDx };
+      routed.targetAnchor = { side: forward ? 'top' : 'bottom', dx: targetDx };
+      routed.waypoints = [{ x: source.x + sourceDx, y: midY }, { x: target.x + targetDx, y: midY }];
+      routed.routeClass = Math.abs(dx) < 32 ? 'spine-lane' : 'branch-lane';
+      return routed;
+    });
+    return { ...graph, edges };
+  }
+
+  const intentSource = window.PTO_DECODE_LAYER_SOURCE || '';
+  const intentPreview = buildDecodeLayerIntent(intentSource);
+  const decodeLayerGraph = buildDecodeLayerGraph(intentSource);
 
   const ATTENTION_FILE = 'examples/models/qwen3_jit/kernels/attention.py';
   const QWEN_DECODE_FILE = 'examples/models/qwen3_jit/qwen3_decode.py';
@@ -2058,7 +2507,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       id: 'post', name: 'post_rmsnorm', role: 'Attention 后 · MLP 前', scope: 'CORE_GROUP · post_rmsnorm', source: 'resid', sourceType: 'FP32', weight: 'post_rms_weight', output: 'post_norm_tile', chunk: 128, chunks: 64, stage: 2,
       cast: 'FP32 → BF16', chunkBytes: '8 KiB', inputBytes: '512 KiB', scanBytes: '1 MiB', line: 57,
       upstream: 'out_projection_residual', downstream: 'mlp_block', note: '残差流已经是 FP32，因此两遍扫描都不需要输入 cast；只在 assemble 前转为 BF16。',
-      chunkConst: 'K_CHUNK', scopeLine: 69, loopLines: [72, 83], nameHint: 'post_rmsnorm', sharedWith: 'out_projection · down_projection'
+      chunkConst: 'K_CHUNK', scopeLine: 69, loopLines: [72, 83], nameHint: 'post_rmsnorm', sharedWith: 'mlp_block'
     }
   };
   const rmsNormExecutionSteps = {
@@ -2104,7 +2553,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   const RMS_ROWS = 16;
   const RMS_BIG_HIDDEN = 32768;
   const RMS_CHUNK_CANDIDATES = [128, 256, 512, 1024, 2048];
-  const RMS_STAGE_CANDIDATES = [2, 4, 8];
+  const RMS_STAGE_CANDIDATES = [2, 3, 4, 8];
   const rmsKiB = (bytes) => (bytes < 1024 ? `${bytes} B` : bytes >= 10240 ? `${Math.round(bytes / 1024)} KiB` : `${(bytes / 1024).toFixed(1)} KiB`);
 
   // 静态容量模型：pl.load / pl.assemble 产生的搬运 tile 受 stage 多缓冲，FP32 计算临时量与归约标量不随 stage 增长。
@@ -2120,7 +2569,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const ratio = peak / RMS_UB_CAPACITY;
     return {
       chunk, stage, srcBytes, gammaBytes, outBytes, tempBytes, reduceBytes, staged, peak, iters, ratio,
-      tail: RMS_HIDDEN % chunk, safe: peak <= RMS_UB_CAPACITY, deep: iters >= stage * 2,
+      tail: RMS_HIDDEN % chunk, stageTail: iters % stage, safe: peak <= RMS_UB_CAPACITY, deep: iters >= stage * 2,
       verdict: peak > RMS_UB_CAPACITY ? 'over' : ratio > 0.9 ? 'tight' : 'safe',
     };
   }
@@ -2130,15 +2579,24 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return rmsUbPlan(profile, saved.chunk || profile.chunk, saved.stage || profile.stage);
   }
 
-  // 求解器：在不溢出、无尾块、流水可填满的前提下，选择迭代次数最少的组合。
+  // 求解器：在不溢出、两道整除守卫都通过、流水可填满的前提下，选择迭代次数最少的组合。
   function rmsBestPlan(profile) {
     let best = null;
     RMS_CHUNK_CANDIDATES.forEach((chunk) => RMS_STAGE_CANDIDATES.forEach((stage) => {
       const plan = rmsUbPlan(profile, chunk, stage);
-      if (!plan.safe || plan.tail !== 0 || !plan.deep || plan.ratio > 0.9) return;
+      if (!plan.safe || plan.tail !== 0 || plan.stageTail !== 0 || !plan.deep || plan.ratio > 0.9) return;
       if (!best || plan.iters < best.iters || (plan.iters === best.iters && plan.stage > best.stage)) best = plan;
     }));
     return best;
+  }
+
+  // chip 状态：溢出（红）与「能跑但要补尾块 / 流水填不满」（琥珀）分开标注。
+  function rmsChipState(probe) {
+    if (!probe.safe) return { cls: ' is-over', note: '溢出 UB' };
+    if (probe.tail !== 0) return { cls: ' is-tail', note: `末片仅 ${probe.tail} 列，需显式尾块` };
+    if (probe.stageTail !== 0) return { cls: ' is-tail', note: `trip ${probe.iters} % stage ${probe.stage} ≠ 0，编译器补 tail dispatch` };
+    if (!probe.deep) return { cls: ' is-tail', note: `仅 ${probe.iters} 次迭代，流水填不满` };
+    return { cls: '', note: '两道守卫通过' };
   }
 
   function rmsLoopSkeleton(profile, plan) {
@@ -2147,7 +2605,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       : `x = ${profile.source}[:, k0 : k0 + CHUNK]`;
     return [
       `CHUNK = ${plan.chunk}                    # 求解器给出的安全 tile`,
-      `STEPS = HIDDEN // CHUNK         # ${plan.iters} 次 / pass · 整除，无尾块`,
+      `STEPS = HIDDEN // CHUNK         # ${plan.iters} 次 / pass · ${plan.tail || plan.stageTail ? '需尾块处理' : '两道守卫通过'}`,
       '',
       `with pl.at(level=pl.Level.CORE_GROUP, name_hint="${profile.nameHint}"):`,
       '    acc = pl.full([1, BATCH], dtype=pl.FP32, value=0.0)',
@@ -2179,7 +2637,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       ['tile shape 声明', `${profile.chunkConst} = ${profile.chunk} + 显式切片 [:, k0 : k0+CHUNK]`, 'config.py', null],
       ['自动展开切分循环', `pl.pipeline(HIDDEN // ${profile.chunkConst}) × 2 遍`, `L${profile.loopLines[0]} / L${profile.loopLines[1]}`, profile.loopLines[0]],
       ['自动 double buffer', `stage=${profile.stage} 显式参数`, `L${profile.loopLines[0]}`, profile.loopLines[0]],
-      ['自动尾块处理', `整除守卫 8192 % ${profile.chunk} = 0 ✓`, '静态检查', null],
+      ['自动尾块处理', `HIDDEN % ${profile.chunk} = 0 · trip ${profile.chunks} % stage ${profile.stage} = 0`, '静态检查', null],
       ['自动 UB 分配', '峰值需自行核对 ≤ 192 KiB', '↓ 求解器', null],
     ];
 
@@ -2191,11 +2649,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
 
     const chunkChips = RMS_CHUNK_CANDIDATES.map((chunk) => {
       const probe = rmsUbPlan(profile, chunk, plan.stage);
-      return `<button type="button" class="${chunk === plan.chunk ? 'is-active' : ''}${probe.safe ? '' : ' is-over'}" data-rms-plan-chunk="${chunk}" title="chunk ${chunk} × stage ${plan.stage} · 峰值 ${rmsKiB(probe.peak)}">${chunk}</button>`;
+      const chip = rmsChipState(probe);
+      return `<button type="button" class="${chunk === plan.chunk ? 'is-active' : ''}${chip.cls}" data-rms-plan-chunk="${chunk}" title="chunk ${chunk} × stage ${plan.stage} · 峰值 ${rmsKiB(probe.peak)} · ${chip.note}">${chunk}</button>`;
     }).join('');
     const stageChips = RMS_STAGE_CANDIDATES.map((stage) => {
       const probe = rmsUbPlan(profile, plan.chunk, stage);
-      return `<button type="button" class="${stage === plan.stage ? 'is-active' : ''}${probe.safe ? '' : ' is-over'}" data-rms-plan-stage="${stage}" title="chunk ${plan.chunk} × stage ${stage} · 峰值 ${rmsKiB(probe.peak)}">${stage}</button>`;
+      const chip = rmsChipState(probe);
+      return `<button type="button" class="${stage === plan.stage ? 'is-active' : ''}${chip.cls}" data-rms-plan-stage="${stage}" title="chunk ${plan.chunk} × stage ${stage} · 峰值 ${rmsKiB(probe.peak)} · ${chip.note}">${stage}</button>`;
     }).join('');
 
     const budgetRows = [
@@ -2212,6 +2672,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         ? `<b>推荐 chunk ${best.chunk} × stage ${best.stage}</b><p>峰值 ${rmsKiB(best.peak)}（${Math.round(best.ratio * 100)}%）· 迭代 ${plan.iters === best.iters ? `${best.iters}` : `${plan.iters} → ${best.iters}`} 次 / pass。${profile.sharedWith ? `<code>${profile.chunkConst}</code> 与 ${profile.sharedWith} 共用，应新增独立常量而不是就地改 config。` : ''}</p>`
         : '<b>无安全候选</b><p>该 shape 下所有 chunk × stage 组合都超过 UB，需要先切 BATCH 维再谈 H 维分块。</p>';
 
+    const guardRows = [
+      [plan.tail === 0, `HIDDEN % chunk = ${plan.tail}`, plan.tail === 0 ? `8192 % ${plan.chunk} · 切片覆盖完整 H，无残余列` : `8192 % ${plan.chunk} · 末片不足 chunk，需 valid_shape 或显式尾块`],
+      [plan.stageTail === 0, `trip % stage = ${plan.stageTail}`, plan.stageTail === 0 ? `${plan.iters} % ${plan.stage} · 外层按 stage × step 推进，无需 tail dispatch` : `${plan.iters} % ${plan.stage} · LowerPipelineLoops 会额外补一次 tail dispatch`],
+    ];
     const blocks = Array.from({ length: Math.min(plan.iters, 64) }, () => '<i></i>').join('');
     const bigIters = RMS_BIG_HIDDEN / plan.chunk;
     const wholeRowBytes = RMS_ROWS * RMS_BIG_HIDDEN * 4;
@@ -2239,7 +2703,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         <div class="kf-rmsl-gauge is-${plan.verdict}"><i style="width:${barPct}%"></i><b>${rmsKiB(plan.peak)} / 192 KiB</b><em>${Math.round(plan.ratio * 100)}% · ${verdictLabel}</em></div>
         <div class="kf-rmsl-budget">${budgetRows.map(([name, bytes, detail]) => `<div><span>${name}</span><code>${rmsKiB(bytes)}</code><b>${detail}</b></div>`).join('')}<div class="is-total"><span>循环内峰值</span><code>${rmsKiB(plan.peak)}</code><b>搬运 ${rmsKiB(plan.staged)} + 计算临时量 ${rmsKiB(plan.tempBytes + plan.reduceBytes)}</b></div></div>
         <div class="kf-rmsl-advice ${bestIsSource && isSourceValue ? 'is-good' : 'is-tune'}">${advice}</div>
-        <div class="kf-rmsl-iters"><header><b>8192 = ${plan.iters} × ${plan.chunk}</b><span>${isSourceValue ? '与源码一致' : `源码为 ${profile.chunks} × ${profile.chunk}`}</span></header><div class="kf-rms-blocks">${blocks}</div><small>每块 = 1 次 pipeline 迭代 · 两遍扫描共 ${plan.iters * 2} 次${plan.tail ? ` · 尾块 ${plan.tail}` : ' · 无尾块'}</small></div>
+        <div class="kf-rmsl-iters"><header><b>8192 = ${plan.iters} × ${plan.chunk}</b><span>${isSourceValue ? '与源码一致' : `源码为 ${profile.chunks} × ${profile.chunk}`}</span></header><div class="kf-rms-blocks">${blocks}</div><div class="kf-rmsl-guards">${guardRows.map(([ok, name, why]) => `<div class="${ok ? 'is-ok' : 'is-warn'}"><i>${ok ? '✓' : '!'}</i><b>${name}</b><small>${why}</small></div>`).join('')}</div><small>每块 = 1 次 pipeline 迭代 · 两遍扫描共 ${plan.iters * 2} 次</small></div>
       </section>
 
       <section class="kf-inspector-section kf-rmsl-skeleton"><header><h2 class="kf-inspector-title">循环骨架</h2><span>按当前求解结果生成</span></header>
@@ -2379,6 +2843,38 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     $('#inspector').innerHTML = `<section class="kf-pto3-hero"><span class="kf-eyebrow">PTO 3.0 OPERATOR LAB</span><h1>${isRms ? 'RMSNorm · 大 H 维分块' : 'Matmul · 显式 M / N / K 切分'}</h1><p>选择源码中的循环或算子，查看它如何映射到 Tile、UB 和归约边界。</p><div class="kf-pto3-switch" role="tablist">${[['loops','循环结构'],['budget','UB 预算'],['refactor','重构建议']].map(([key,label]) => `<button type="button" class="${key === tab ? 'is-active' : ''}" data-pto3-tab="${key}">${label}</button>`).join('')}</div></section>${body}<footer class="kf-rms-provenance"><span><i class="fact"></i>源码结构</span><span><i class="estimated"></i>静态容量推断</span><span><i class="resolved"></i>编译后可继续校准</span></footer>`;
   }
 
+  function renderDecodeGraphDetail(nodeId) {
+    const detail = decodeLayerGraph.details[nodeId] || decodeLayerGraph.details['decode-input-hidden'];
+    if (!detail) return '<b>尚未选择节点</b><p>点击计算图中的任务或 Tensor，查看 Scope、TaskId、资源和源码行。</p>';
+    return `<b>${escapeHtml(detail.title)}</b><p><span class="kf-decode-graph-detail__phase">${escapeHtml(detail.phase)}</span> · ${escapeHtml(detail.kind)}${detail.line ? ` · 源码第 ${detail.line} 行` : ''}</p><dl>${detail.tasks ? `<div><dt>源码任务</dt><dd>${escapeHtml(detail.tasks)}</dd></div>` : ''}<div><dt>资源</dt><dd>${escapeHtml(detail.resource)}</dd></div><div><dt>依赖</dt><dd>${escapeHtml(detail.deps)}</dd></div><div><dt>TaskId alias</dt><dd>${escapeHtml(detail.alias || '—')}</dd></div></dl>`;
+  }
+
+  function renderDecodeLayerGraph() {
+    const pattern = window.PtoModelGraphvizPattern;
+    const stage = $('#decodeLayerComputationGraph');
+    const status = $('#decodeGraphStatus');
+    const detail = $('#decodeGraphDetail');
+    if (!pattern || !stage) return;
+    decodeLayerGraphController = pattern.renderController(stage, decodeLayerGraph.graph, {
+      ariaLabel: 'decode_layer.py complete computation graph with scopes, dependencies and resources',
+      colormap: pattern.modelArchitectureColormap(decodeLayerGraph.graph),
+      fitMode: 'full', viewportPadding: 20, autoFit: true,
+      interaction: { panZoom: true, selectableClusters: false },
+      overlays: { edgeTags: true },
+      onSelect: ({ nodeId }) => {
+        state.intentGraphNode = nodeId;
+        if (detail) detail.innerHTML = renderDecodeGraphDetail(nodeId);
+        const selected = decodeLayerGraph.details[nodeId];
+        if (status && selected) status.textContent = `${selected.title} · ${selected.phase}${selected.line ? ` · 源码第 ${selected.line} 行` : ''}`;
+      },
+      onHover: (nodeId) => {
+        const hovered = decodeLayerGraph.details[nodeId];
+        if (status && hovered) status.textContent = `${hovered.title} · ${hovered.resource}`;
+      },
+    });
+    if (detail) detail.innerHTML = renderDecodeGraphDetail(state.intentGraphNode || 'decode-input-hidden');
+  }
+
   function renderIntentInspector() {
     matmulHardwareGraphInstance?.destroy?.();
     matmulHardwareGraphInstance = null;
@@ -2388,6 +2884,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     attentionGraphController = null;
     qwenDecodeGraphController?.destroy?.();
     qwenDecodeGraphController = null;
+    decodeLayerGraphController?.destroy?.();
+    decodeLayerGraphController = null;
     passesGraphInstance?.destroy?.();
     passesGraphInstance = null;
     if (isPassesDumpFile(state.activeFile)) {
@@ -2437,9 +2935,32 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const tabs = Object.entries(intentPreview).map(([key, item]) => `<button type="button" class="${key === state.intentTab ? 'is-active' : ''}" data-intent-tab="${key}">${item.label}</button>`).join('');
     $('#inspectorTitle').textContent = '意图预览';
     $('#inspectorMeta').textContent = 'decode_layer.py';
+    if (state.intentTab === 'graph') {
+      const summary = decodeLayerGraph.summary;
+      $('#inspector').innerHTML = `
+        <section class="kf-intent-hero"><span class="kf-eyebrow">SOURCE-DRIVEN COMPUTATION GRAPH</span><div class="kf-intent-title-row"><b>decode_layer</b><span class="kf-inference-badge">推理</span><span class="kf-megakernel-badge">megakernel</span></div><small>Scope、TaskId、Shape / Layout 与调度资源在同一张图中呈现</small></section>
+        <div class="kf-intent-tabs" role="tablist" aria-label="算子意图类型">${tabs}</div>
+        <section class="kf-decode-graph-summary" aria-label="计算图摘要"><div><b>${summary.named}</b><span>named tasks</span></div><div><b>${summary.explicit}</b><span>explicit deps</span></div><div><b>${summary.spmd}</b><span>SPMD grids</span></div><div><b>${summary.at}</b><span>pl.at declarations</span></div></section>
+        <div class="kf-decode-graph-legend" aria-label="计算图关系图例"><span><i class="is-data"></i>数据流</span><span><i class="is-task"></i>TaskId / 状态 / 控制</span><span><i class="is-cluster"></i>Scope 边界</span></div>
+        <section class="kf-inspector-section kf-decode-graph-section"><header><h2 class="kf-inspector-title">完整计算过程</h2><span>源码第 ${summary.manualLine || '—'} 行 manual_scope</span></header><div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-decode-graph-stage" id="decodeLayerComputationGraph" aria-label="decode_layer.py 完整计算图"></div><footer id="decodeGraphStatus">点击节点查看 Scope、显式依赖、资源和源码位置 · 拖拽 / 缩放查看全图</footer></section>
+        <section class="kf-decode-graph-resources" aria-label="计算图资源摘要"><span>资源映射</span>${summary.resources.map((item) => `<b>${item}</b>`).join('')}</section>
+        <div class="kf-inspector-card kf-decode-graph-detail" id="decodeGraphDetail"></div>
+        <div class="kf-inspector-card kf-intent-note"><b>图的边界</b><p>${summary.compileBlocked ? '源码头部明确标注 dynamic INDEX / i64 store offset 当前会阻塞 codegen；图展示的是源码声明的目标结构。' : '图展示源码声明的目标结构。'} Tensor 自动依赖、WAR/WAW 和最终运行状态仍需编译后 IR / Runtime Trace 继续确认。</p></div>`;
+      renderDecodeLayerGraph();
+      return;
+    }
+    const shapeLayoutVisual = active.visual ? `
+      <section class="kf-shape-layout-visual" aria-label="Shape 与 Layout 可视化摘要">
+        <header class="kf-shape-layout-visual__head"><div><span class="kf-eyebrow">PARSED TENSOR CONTRACT</span><h2>形状与布局总览</h2></div><span class="kf-source-chip">源码驱动</span></header>
+        <div class="kf-shape-layout-kpis">${active.visual.kpis.map(([label, value, detail]) => `<div><span>${escapeHtml(label)}</span><b>${escapeHtml(String(value))}</b><small>${escapeHtml(detail)}</small></div>`).join('')}</div>
+        <div class="kf-shape-layout-flow" aria-label="张量形状主链">${active.visual.flow.map((item, index) => `${index ? '<i class="kf-shape-layout-flow__arrow" aria-hidden="true">↓</i>' : ''}<div class="kf-shape-layout-flow__node is-${item.tone}"><span>${escapeHtml(item.kicker)}</span><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.detail)}</small></div>`).join('')}</div>
+        <div class="kf-shape-layout-layout"><header><b>Layout 约束</b><span>physical mapping</span></header><div>${active.visual.layout.map(([label, value, detail]) => `<article><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b><small>${escapeHtml(detail)}</small></article>`).join('')}</div></div>
+        <div class="kf-shape-layout-boundary"><i></i><span><b>精度边界</b> BF16 输入 / Cache / 激活边缘，FP32 层间 residual carry</span></div>
+      </section>` : '';
     $('#inspector').innerHTML = `
-      <section class="kf-intent-hero"><span class="kf-eyebrow">CURRENT OPERATOR</span><b>decode_layer</b><small>kernels/decode_layer.py · selected source anchors</small></section>
+      <section class="kf-intent-hero"><div class="kf-intent-title-row"><b>decode_layer</b><span class="kf-inference-badge">推理</span><span class="kf-megakernel-badge">megakernel</span></div></section>
       <div class="kf-intent-tabs" role="tablist" aria-label="算子意图类型">${tabs}</div>
+      ${shapeLayoutVisual}
       <section class="kf-inspector-section kf-intent-detail"><header><h2>${active.label}</h2><span>${active.meta}</span></header><dl>${active.rows.map(row => `<div><dt>${row[0]}</dt><dd>${row[1]}</dd></div>`).join('')}</dl></section>
       <div class="kf-inspector-card kf-intent-note"><b>实时推导</b><p>${active.note}</p></div>
       <section class="kf-inspector-section kf-intent-contract"><h2 class="kf-inspector-title">编码契约</h2><div class="kf-evidence-list"><div class="kf-evidence"><span>01</span><b>FP32 carry 已锁定</b><small>shape</small></div><div class="kf-evidence"><span>02</span><b>显式 TaskId 链</b><small>deps</small></div><div class="kf-evidence"><span>03</span><b>动态索引待降级</b><small>codegen</small></div></div></section>`;
@@ -3027,7 +3548,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   setProductMode('ide');
 
   $$('[data-activity-view]').forEach((button) => button.addEventListener('click', (event) => {
-    event.stopImmediatePropagation();
+    const isExplorer = button.dataset.activityView === 'explorer';
+    const returningToExplorer = isExplorer && state.activityView !== 'explorer';
+    const explorerHidden = $('#kf-explorer')?.hidden;
+    if (returningToExplorer && !explorerHidden) event.stopImmediatePropagation();
     setActivityView(button.dataset.activityView);
   }, true));
   setActivityView('explorer');

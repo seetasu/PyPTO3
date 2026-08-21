@@ -460,6 +460,29 @@
     });
   }
 
+  /**
+   * 供推理性能分析抽屉回跳：切到该节点所属阶段（视口随之平移）再选中它。
+   * applyPhase 内部会 clearNodeFocus，所以选中必须排在它之后。
+   */
+  function focusNode(nodeId) {
+    const target = baseGraph.nodes.find((node) => node.id === nodeId);
+    if (!target) return false;
+    init();
+    const apply = () => {
+      if (target.phase && target.phase !== activePhase) applyPhase(target.phase);
+      controller?.selectNode(nodeId, { source: 'profiler' });
+    };
+    if (activeDrill) {
+      // 有下钻展开时先收起，renderGraph 会重建 controller 并在 rAF 里跑 applyPhase
+      activeDrill = null;
+      renderGraph();
+      requestAnimationFrame(() => requestAnimationFrame(apply));
+    } else {
+      apply();
+    }
+    return true;
+  }
+
   init();
-  window.PtoQwen3ModelViz = { show, fit: () => controller?.fit(), setPhase: selectPhase, graph: baseGraph };
+  window.PtoQwen3ModelViz = { show, fit: () => controller?.fit(), setPhase: selectPhase, focusNode, graph: baseGraph };
 })();

@@ -710,7 +710,9 @@
 .kf-rmsl-chips button:hover { border-color: var(--border-strong); }
 .kf-rmsl-chips button.is-over { color: color-mix(in srgb, var(--danger) 78%, var(--foreground-muted)); border-style: dashed; border-color: color-mix(in srgb, var(--danger) 40%, var(--border-subtle)); }
 .kf-rmsl-chips button.is-active { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 13%, transparent); }
+.kf-rmsl-chips button.is-tail { color: color-mix(in srgb, var(--warning) 82%, var(--foreground-muted)); border-style: dashed; border-color: color-mix(in srgb, var(--warning) 42%, var(--border-subtle)); }
 .kf-rmsl-chips button.is-active.is-over { border-color: var(--danger); color: var(--danger); background: color-mix(in srgb, var(--danger) 13%, transparent); }
+.kf-rmsl-chips button.is-active.is-tail { border-color: var(--warning); color: var(--warning); background: color-mix(in srgb, var(--warning) 13%, transparent); }
 
 /* 容量水位条 */
 .kf-rmsl-gauge { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 9px; padding: 7px 9px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-3); }
@@ -751,6 +753,14 @@
 .kf-rmsl-iters > header span { color: var(--foreground-muted); font: var(--kf-font-micro) var(--font-mono); }
 .kf-rmsl-iters .kf-rms-blocks i { height: 14px; }
 .kf-rmsl-iters > small { display: block; margin-top: 6px; color: var(--foreground-muted); font-size: var(--kf-font-micro); }
+/* 两道整除守卫：HIDDEN % chunk（切片是否覆盖完整 H）与 trip % stage（是否触发 tail dispatch） */
+.kf-rmsl-guards { display: grid; gap: 1px; margin-top: 8px; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--border-subtle); }
+.kf-rmsl-guards > div { display: grid; grid-template-columns: 14px minmax(0, 1fr); align-items: baseline; gap: 3px 7px; padding: 6px 7px; background: color-mix(in srgb, var(--surface-2) 58%, transparent); }
+.kf-rmsl-guards i { color: var(--success); font: 650 var(--kf-font-micro)/1.3 var(--font-mono); font-style: normal; }
+.kf-rmsl-guards b { color: var(--foreground-secondary); font: 650 var(--kf-font-micro) var(--font-mono); }
+.kf-rmsl-guards small { grid-column: 2; color: var(--foreground-muted); font: var(--kf-font-micro)/1.5 var(--font-mono); overflow-wrap: anywhere; }
+.kf-rmsl-guards .is-warn { background: color-mix(in srgb, var(--warning) 9%, var(--surface-2)); }
+.kf-rmsl-guards .is-warn i, .kf-rmsl-guards .is-warn b { color: var(--warning); }
 
 /* 生成的循环骨架 */
 .kf-rmsl-code { margin: 9px 0 0; padding: 9px; overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: #10151c; color: var(--foreground-secondary); font: var(--kf-font-micro)/1.65 var(--font-mono); white-space: pre; }
