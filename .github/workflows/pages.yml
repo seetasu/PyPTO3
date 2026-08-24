@@ -7,6 +7,7 @@ on:
       - "launch.html"
       - "Design/**"
       - "inference/**"
+      - "Insight/knowledge-map-whitepaper/**"
       - "vendor/pto-design-system/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -36,11 +37,12 @@ jobs:
       - name: Prepare static site
         shell: bash
         run: |
-          mkdir -p _site/vendor
+          mkdir -p _site/vendor _site/Insight
           cp launch.html _site/index.html
           cp launch.html _site/launch.html
           cp -R Design _site/Design
           cp -R inference _site/inference
+          cp -R Insight/knowledge-map-whitepaper _site/Insight/knowledge-map-whitepaper
           cp -R vendor/pto-design-system _site/vendor/pto-design-system
           touch _site/.nojekyll
 
