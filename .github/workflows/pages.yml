@@ -6,6 +6,7 @@ on:
     paths:
       - "launch.html"
       - "Design/**"
+      - "inference/**"
       - "vendor/pto-design-system/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -39,6 +40,7 @@ jobs:
           cp launch.html _site/index.html
           cp launch.html _site/launch.html
           cp -R Design _site/Design
+          cp -R inference _site/inference
           cp -R vendor/pto-design-system _site/vendor/pto-design-system
           touch _site/.nojekyll
 
