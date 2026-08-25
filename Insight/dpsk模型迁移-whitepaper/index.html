@@ -216,25 +216,75 @@
 </details><hr>
 <h3>1.2 TileLang、PTO 等高层编程方式为什么能支撑 NPU 迁移</h3>
 <p class="section-lede"><strong>TileLang、PTO 等高层编程方式，负责承接 DeepSeek 迁移中的编译器与 Kernel 层工作。</strong>它们把算法意图和部分 Tile 级性能设计从 GPU 专用实现中提取出来，作为构建 NPU 执行后端的可复用输入；完整迁移还需要同步完成框架、算子、运行时、通信、Serving 与集群适配。</p>
-<p>复用范围可以压缩成三层：模型的 <strong>Algorithm Intent（算法意图）可以保持</strong>；Tile 形状、数据流与流水线等性能设计<strong>可以部分复用</strong>；进入硬件实现阶段后，内存映射、指令选择和硬件专用 Kernel <strong>必须针对 Ascend 重新实现并验证</strong>。</p>
+<p>复用范围可以压缩成三层：模型的 <strong>Algorithm Intent（算法意图）可以保持</strong>；Tile 分解思路、数据依赖和流水组织<strong>可以作为迁移起点</strong>；具体 Tile 尺寸、内存映射、指令选择和硬件专用 Kernel <strong>必须针对 Ascend 重新搜索、实现并验证</strong>。</p>
         <figure class="figure" id="fig-03">
-          <div class="figbar"><span class="fig-title-bi"><b>How TileLang and PTO Support NPU Migration</b><small>TileLang、PTO 如何支撑 NPU 迁移：表达可复用的数据流，并连接昇腾执行后端</small></span><span class="figid">FIG-03</span></div>
+          <div class="figbar"><span class="fig-title-bi"><b>WHAT A TILE PROGRAM DEFINES — AND WHAT THE BACKEND MUST REBUILD</b><small>Tile 程序到底定义什么：从形状、数据流到 GPU / Ascend 的内存与指令映射</small></span><span class="figid">FIG-03</span></div>
           <div class="figbody">
-            <p class="viz-note"><b>读图：</b>TileLang 位于可复用的 Tile/Dataflow 表达层；PTO / PyPTO 位于这层与 Ascend Backend 之间，负责把 Tile 级程序承接到昇腾执行后端。灰色分界线只是区分“可复用内容”和“按硬件重建内容”，不是一个技术层。</p>
-            <div class="knowledge-map">
-              <div class="km-axis"><span>更可迁移</span><span>更硬件相关</span></div>
-              <div class="km-row shared"><b class="bi-block"><span>Algorithm Intent</span><strong>算法意图</strong><small>定义迁移前后必须保持的计算语义</small></b><span>DSA / MLA · MoE · MTP</span><em class="bi-inline">SOURCE<small>来源事实</small></em></div>
-              <div class="km-row shared"><b class="bi-block"><span>Tile Shape · Dataflow · Pipeline</span><strong>Tile 形状、数据流与流水线</strong><small>可部分复用的性能设计</small></b><span>用高层方式表达分块、搬运与流水组织</span><em class="bi-inline">INFERENCE<small>访谈观点与推断</small></em></div>
-              <div class="km-tool-path" aria-label="TileLang 与 PTO 在 NPU 迁移链中的位置">
-                <div class="tilelang-position"><b>TileLang</b><strong>位于可复用表达层</strong><span>编写 Tile 形状、数据流与流水线</span></div>
-                <i>Tile 级程序<br>交给目标后端 →</i>
-                <div class="pto-position"><b>PTO / PyPTO</b><strong>位于昇腾承接层</strong><span>连接 Tile 级表达与 Ascend Backend</span></div>
-              </div>
-              <div class="km-boundary" aria-label="可复用内容与按硬件重建内容的分界线"><i></i><span><b>复用与重建分界</b><small>上方可复用 · 下方按目标硬件重新实现</small></span><i></i></div>
-              <div class="km-split"><div><b class="bi-block"><span>GPU Backend</span><strong>GPU 后端</strong><small>迁移前的硬件执行实现</small></b><span class="bi-block"><span>Memory Mapping</span><strong>内存映射</strong><small>组织数据布局与层级搬运</small></span><span class="bi-block"><span>Instruction Selection</span><strong>指令选择</strong><small>匹配 GPU 执行单元</small></span><span class="bi-block"><span>CUDA / Hopper-specific Kernel</span><strong>GPU 专用内核</strong><small>针对 CUDA 与 Hopper 优化</small></span></div><div><b class="bi-block"><span>Ascend Backend</span><strong>Ascend 后端</strong><small>目标平台上的重建实现</small></b><span class="bi-block"><span>Memory Mapping</span><strong>内存映射</strong><small>适配 NPU 存储层级与搬运</small></span><span class="bi-block"><span>Instruction Selection</span><strong>指令选择</strong><small>匹配 Ascend 执行单元</small></span><span class="bi-block"><span>Ascend C / CANN Kernel</span><strong>Ascend 专用内核</strong><small>面向昇腾计算与存储单元实现</small></span></div></div>
+            <p class="viz-note"><b>读图：</b>Tile 不是一种新数据，而是从大 Tensor 中切出的、由一个并行执行单元处理的有形状数据块。程序描述“切多大、放哪里、先搬什么、算什么”；Backend 再把这些选择映射为目标芯片的存储、指令与同步。迁移时数学语义稳定，但最优 Tile 和执行方案通常会变。</p>
+            <div class="tile-program-map">
+              <section class="tile-definition" aria-label="Tile 程序定义的四类信息">
+                <header><span>01 · TILE DEFINITION</span><b>一段 Tile 程序具体定义四件事</b></header>
+                <div class="tile-definition-grid">
+                  <article><i>①</i><b>形状与边界</b><code>A[BM×BK] · B[BK×BN]</code><span>Tile 尺寸、dtype、layout、offset，以及边界 Tile 的 valid region。</span></article>
+                  <article><i>②</i><b>数据放在哪里</b><code>global → on-chip → accumulator</code><span>声明输入、临时块和累加结果所处的逻辑 memory scope。</span></article>
+                  <article><i>③</i><b>数据怎样流动</b><code>load / copy → gemm → store</code><span>表达数据依赖、搬入、计算、规约、融合后处理与回写。</span></article>
+                  <article><i>④</i><b>怎样形成流水</b><code>stage 0 copy ║ stage 1 compute</code><span>通过多 stage、双缓冲、异步搬运与同步隐藏访存等待。</span></article>
+                </div>
+                <div class="tile-gemm-example" aria-label="Tile GEMM 示例">
+                  <div class="tensor-sheet global-sheet"><small>大 Tensor · Global Memory</small><div class="tensor-grid"><i></i><i></i><i class="hot"></i><i class="hot"></i><i></i><i></i><i class="hot"></i><i class="hot"></i><i></i><i></i><i></i><i></i></div><b>每次只取一个 Tile</b></div>
+                  <span class="flow-arrow">LOAD<br>→</span>
+                  <div class="operand-tiles"><div><small>A tile</small><b>BM × BK</b></div><span>×</span><div><small>B tile</small><b>BK × BN</b></div></div>
+                  <span class="flow-arrow">GEMM<br>→</span>
+                  <div class="tensor-sheet accum-sheet"><small>Accumulator tile</small><div class="tensor-grid"><i class="hot"></i><i class="hot"></i><i class="hot"></i><i class="hot"></i><i class="hot"></i><i class="hot"></i><i class="hot"></i><i class="hot"></i><i class="hot"></i><i class="hot"></i><i class="hot"></i><i class="hot"></i></div><b>BM × BN · 累加</b></div>
+                </div>
+              </section>
+
+              <div class="tile-portability-boundary"><span><b>可以继承</b> GEMM / Attention / MoE 的计算语义、Tile 分解思路与依赖关系</span><i>目标 Backend 重新选择 ↓</i><span><b>必须重算</b> Tile 尺寸、物理布局、搬运指令、同步、流水深度与融合边界</span></div>
+
+              <section class="backend-compare" aria-label="GPU 与 Ascend NPU 的 Tile 映射差异">
+                <article class="backend-lane gpu-lane">
+                  <header><span>02A · TILELANG → GPU BACKEND</span><b>NVIDIA GPU 上的典型映射</b><small>示意路径，不代表所有 GPU 代际</small></header>
+                  <div class="hardware-memory-flow gpu-memory-flow" aria-label="GPU 数据从 HBM 经 Shared Memory 进入 Fragment 和寄存器的横向流动路径">
+                    <div class="memory-step global"><b>Global Memory · HBM</b><span>权重 / 输入输出</span></div><i>copy</i>
+                    <div class="memory-step shared"><b>Shared Memory</b><span>CTA / Block 内复用</span></div><i>MMA</i>
+                    <div class="memory-step result"><b>Fragment / Registers</b><span>Tensor Core 累加结果</span></div>
+                  </div>
+                  <ol class="instruction-flow">
+                    <li><b>搬运</b><span><code>T.copy</code> / <code>async_copy</code> / TMA，把 Global Tile 放入 Shared。</span></li>
+                    <li><b>计算</b><span><code>T.gemm</code> 降低为 MMA / WGMMA 等 Tensor Core 路径，结果留在 Fragment。</span></li>
+                    <li><b>优化</b><span>同时权衡合并访存、Shared bank conflict、寄存器压力、occupancy 与 pipeline stage。</span></li>
+                  </ol>
+                </article>
+
+                <article class="backend-lane npu-lane">
+                  <header><span>02B · TILE PROGRAM → ASCEND BACKEND</span><b>Ascend NPU 上需要重建的映射</b><small>矩阵与向量路径使用不同片上存储和执行单元</small></header>
+                  <div class="hardware-memory-flow ascend-memory-flow" aria-label="Ascend 数据从 GM 经 L1 或 UB、L0A 和 L0B 进入 L0C 的横向流动路径">
+                    <div class="memory-step global"><b>GM</b><span>权重 / 输入输出</span></div><i>load</i>
+                    <div class="memory-step shared"><b>L1 / UB</b><span>片上暂存 / Vector</span></div><i>move</i>
+                    <div class="memory-step operands"><b>L0A · L0B</b><span>Cube 左 / 右操作数</span></div><i>matmul</i>
+                    <div class="memory-step result"><b>L0C</b><span>矩阵累加结果</span></div>
+                  </div>
+                  <ol class="instruction-flow">
+                    <li><b>搬运</b><span><code>load / move / store</code> 承接 GM、L1 / UB 与 L0 之间的 Tile 数据移动和回写。</span></li>
+                    <li><b>计算</b><span><code>matmul</code> 映射到 Cube 路径；逐元素、规约和后处理主要由 Vector 路径承接。</span></li>
+                    <li><b>优化</b><span>重新选择 ND / NZ 布局、UB / L1 / L0 容量分配、Cube–Vector 协同、双缓冲和流水并行。</span></li>
+                  </ol>
+                </article>
+              </section>
+
+              <section class="backend-difference" aria-label="GPU 与 Ascend Kernel 优化差异清单">
+                <header><span>03 · WHY THE SAME TILE PROGRAM DOES NOT MEAN THE SAME KERNEL</span><b>同一个算子，换硬件后究竟差在哪</b></header>
+                <div class="difference-row difference-head"><b>优化问题</b><b>GPU 侧</b><b>Ascend 侧</b><b>迁移结论</b></div>
+                <div class="difference-row"><b>Tile Shape</b><span>适配 CTA / Warp 与 Tensor Core 指令形状</span><span>适配 AI Core、Cube / Vector 与片上 Buffer 容量</span><em>分块思路可复用，尺寸要重搜</em></div>
+                <div class="difference-row"><b>Memory Layout</b><span>Global 合并访问、Shared bank、Fragment layout</span><span>ND / NZ、UB / L1、L0A / L0B / L0C 的放置与转换</span><em>逻辑 scope 可映射，物理 layout 不通用</em></div>
+                <div class="difference-row"><b>Instruction</b><span>异步 Copy / TMA、MMA / WGMMA、GPU barrier</span><span>PTO / CANN 对应的搬运、Cube / Vector 与同步指令</span><em>操作意图相同，指令序列重建</em></div>
+                <div class="difference-row"><b>Kernel Tuning</b><span>Occupancy、寄存器与 Shared Memory 压力、Warp 调度</span><span>AI Core 类型、片上 Buffer、搬运—Cube—Vector 流水和核间协同</span><em>不能把 CUDA 参数原封不动搬过去</em></div>
+              </section>
+
+              <aside class="tilelang-pto-relationship"><b>TileLang 与 PTO / PyPTO 的准确关系</b><span><strong>TileLang</strong> 是可面向不同目标的 Tile DSL，程序保留高层 Tile 结构，再由 CUDA、Ascend 等 Backend 分别降低。</span><span><strong>PyPTO</strong> 是面向昇腾的 Tensor / Tile / Block 编程框架；<strong>PTO</strong> 是其下方的 Tile 虚拟指令表达。它们共同承接 Ascend 侧的形状、内存、指令和流水优化，但“TileLang 源码直接交给 PyPTO”不是必须成立的固定编译链。</span></aside>
             </div>
           </div>
-          <figcaption class="figcap"><b>关键结论：</b>TileLang 负责表达可复用的 Tile/Dataflow 设计；PTO / PyPTO 负责把这类表达接入昇腾后端；Ascend Backend、Memory Mapping、Instruction Selection 与专用 Kernel 仍是需要重建的硬件实现。<div class="figcap-note added-caption"><b>图解说明：</b>灰色分界线不是技术组件，只用于回答“什么可以复用、什么必须重建”。TileLang 位于分界线上方，PTO / PyPTO 连接可复用表达与 Ascend Backend。</div></figcaption>
+          <figcaption class="figcap"><b>关键结论：</b>Tile DSL 保存的是“怎样分块并组织数据流”的性能意图，不是某一块芯片上的最终机器实现。GPU → Ascend 迁移可以继承算法、依赖和初始分块方案，但仍要根据 NPU 的存储层级、Cube / Vector 单元和指令约束重新生成并调优 Kernel。<div class="figcap-note added-caption"><b>证据边界：</b>TileLang 的 Shared / Fragment、Copy、GEMM 与 Pipeline 语义来自 TileLang 官方文档；PyPTO 的 Tile 类型、MemorySpace、load / move / matmul / store 及 PTO 代码生成来自 PyPTO 项目文档。图中的“可继承 / 必须重算”是基于两套公开编程模型做出的工程归纳。</div></figcaption>
         </figure>
 <p class="key-takeaway"><strong>在完整迁移中的作用：</strong>TileLang、PTO 降低算法和数据流向 NPU 后端迁移的重复开发成本；昇腾侧仍需完成算子开发、编译后端适配、性能调优与端到端验证。</p>
 <details class="evidence-details"><summary>查看高层编程方式支撑跨硬件复用的访谈依据</summary>
@@ -617,6 +667,9 @@
             <a href="https://docs.vllm.ai/projects/ascend/en/main/tutorials/models/DeepSeek-V3.2.html"><span>PROJECT DOC · MAIN</span><b>vLLM Ascend · DeepSeek-V3.2</b><small>W8A8、A2/A3、EP、PD 分离、精度与特定性能案例；main 会持续变化</small></a>
             <a href="https://www.hiascend.com/document/detail/en/canncommercial/850/opdevg/Ascendcopdevg/atlas_ascendc_map_10_0002.html"><span>OFFICIAL · CANN 8.5</span><b>Ascend C</b><small>自定义算子语言、编译与 Runtime 调度边界</small></a>
             <a href="https://www.hiascend.com/document/detail/en/canncommercial/850/API/ascendcopapi/atlasascendc_api_07_0869.html"><span>OFFICIAL · CANN 8.5</span><b>Ascend C HCCL APIs</b><small>计算与通信任务协同的 API 边界</small></a>
+            <a href="https://github.com/tile-ai/tilelang/blob/main/docs/get_started/overview.md"><span>PROJECT DOC</span><b>TileLang Programming Model</b><small>Tile 形状、Shared / Fragment 放置、Copy、GEMM 与多级 Tiling</small></a>
+            <a href="https://github.com/tile-ai/tilelang/blob/main/docs/programming_guides/software_pipeline.md"><span>PROJECT DOC</span><b>TileLang Software Pipeline</b><small>Copy / Compute 的 stage、order、依赖检查与多阶段流水语义</small></a>
+            <a href="https://github.com/hw-native-sys/pypto/blob/main/docs/en/user/01-language_guide.md"><span>PROJECT DOC</span><b>PyPTO Language Guide</b><small>Tile 类型、DDR / UB / L1 / L0A-B-C MemorySpace 与 load / move / matmul / store</small></a>
             <a href="https://github.com/hw-native-sys/pto-isa"><span>PROJECT</span><b>PTO Tile Library</b><small>Tile-oriented virtual ISA 与 PyPTO / TileLang Ascend 集成</small></a>
             <a href="https://github.com/tile-ai/tilelang-ascend"><span>PROJECT</span><b>TileLang Ascend</b><small>Ascend C / PTO 与 AscendNPU IR Backend；具体状态以仓库版本为准</small></a>
             <a href="https://docs.vllm.ai/projects/ascend/en/main/developer_guide/performance_and_debug/index.html"><span>PROJECT DOC</span><b>vLLM Ascend Performance &amp; Debug</b><small>Benchmark、profiling 与 debugging 入口</small></a>
