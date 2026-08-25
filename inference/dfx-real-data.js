@@ -1,7 +1,9 @@
 (function (global) {
   'use strict';
 
-  var ROOT = '../../deepseekv4-flash-decode/';
+  // Keep the evidence bundle inside the static site so local HTTP serving and
+  // GitHub Pages resolve the same relative path.
+  var ROOT = './data/deepseekv4-flash-decode/';
   var PALETTE = {
     aic: '#c8945d',
     aiv: '#5f9b9b',
