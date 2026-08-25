@@ -473,6 +473,37 @@
 
     .tags { display: flex; flex-wrap: wrap; gap: 7px; }
 
+    .demo-variants {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 2px;
+    }
+
+    .demo-version-link {
+      display: inline-flex;
+      min-width: 72px;
+      min-height: 40px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 19px;
+      border: 1px solid var(--launch-border-strong);
+      border-radius: 10px;
+      color: var(--launch-text);
+      background: rgba(255, 255, 255, 0.035);
+      font-size: 14px;
+      font-weight: 760;
+      transition: border-color 160ms ease, color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .demo-version-link:hover, .demo-version-link:focus-visible {
+      border-color: rgba(168, 255, 53, 0.42);
+      color: #10150a;
+      background: var(--launch-accent);
+      outline: none;
+      transform: translateY(-1px);
+    }
+
     .tag {
       display: inline-flex;
       min-height: 24px;
@@ -706,8 +737,12 @@
         version: "01 / MVP",
         description: "围绕模型推理过程查看执行阶段、性能信号与 KV Cache 状态，快速理解推理链路并定位关键资源变化。",
         href: "inference/index.html",
-        preview: "Design/assets/toolkit-studio.png",
-        tags: ["Inference", "KV Cache", "Runtime", "Performance"]
+        preview: "Design/assets/inference-workbench.png",
+        tags: ["Inference", "KV Cache", "Runtime", "Performance"],
+        variants: [
+          { label: "V1", href: "inference/index.html" },
+          { label: "V2", href: "inference/serving-observability.html" }
+        ]
       },
       {
         title: "DOT Graph Viewer",
@@ -767,8 +802,18 @@
 
     function cardTemplate(demo) {
       const tags = demo.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+      const hasVariants = Array.isArray(demo.variants) && demo.variants.length > 0;
+      const cardAttributes = hasVariants
+        ? 'class="demo-card has-variants"'
+        : `class="demo-card" data-href="${escapeHtml(demo.href)}" tabindex="0" role="link" aria-label="打开 ${escapeHtml(demo.title)}"`;
+      const launchArrow = hasVariants
+        ? ""
+        : '<span class="launch-arrow" aria-hidden="true"><svg class="icon"><use href="#icon-arrow"></use></svg></span>';
+      const variants = hasVariants
+        ? `<div class="demo-variants" aria-label="版本入口">${demo.variants.map((variant) => `<a class="demo-version-link" href="${escapeHtml(variant.href)}">${escapeHtml(variant.label)}</a>`).join("")}</div>`
+        : "";
       return `
-        <article class="demo-card" data-href="${escapeHtml(demo.href)}" tabindex="0" role="link" aria-label="打开 ${escapeHtml(demo.title)}">
+        <article ${cardAttributes}>
           <div class="preview">
             <img src="${escapeHtml(demo.preview)}" alt="${escapeHtml(demo.title)} 预览" loading="lazy">
             <span class="preview-badge">${escapeHtml(demo.status)}</span>
@@ -783,10 +828,11 @@
                 <h2 class="card-title">${escapeHtml(demo.title)}</h2>
                 <p class="card-subtitle">${escapeHtml(demo.subtitle)}</p>
               </div>
-              <span class="launch-arrow" aria-hidden="true"><svg class="icon"><use href="#icon-arrow"></use></svg></span>
+              ${launchArrow}
             </div>
             <p class="card-description">${escapeHtml(demo.description)}</p>
             <div class="tags">${tags}</div>
+            ${variants}
           </div>
         </article>`;
     }
@@ -814,12 +860,14 @@
     });
 
     demoGrid.addEventListener("click", (event) => {
+      if (event.target.closest(".demo-version-link")) return;
       const card = event.target.closest(".demo-card[data-href]");
       if (card) window.location.href = card.dataset.href;
     });
 
     demoGrid.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
+      if (event.target.closest(".demo-version-link")) return;
       const card = event.target.closest(".demo-card[data-href]");
       if (!card) return;
       event.preventDefault();
