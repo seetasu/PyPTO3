@@ -114,6 +114,11 @@
       <div class="inner">
         <header class="section-head"><div class="section-no">03 · ASSET-FIRST ADOPTION</div><h2>既有软件资产的可延续性影响用户的硬件平台选择</h2><p class="deck">大模型团队带到新硬件上的是一套经过长期投入形成的资产系统，涵盖模型语义、Checkpoint、分布式策略、精度政策、调试工具、评测链路和 Serving 基础设施。API 兼容只覆盖其中一部分。</p></header>
         <div class="callout boundary"><strong>重要限定：</strong>MindSpore 的全场景、自动并行、Ascend-native 与端边云统一能力仍适合新建系统、AI for Science、行业全栈方案等场景。其适用范围应由场景优势决定，Framework replacement 不宜成为所有 Ascend workload 的默认前提。</div>
+        <div class="grid cols-3">
+          <article class="card"><span class="num">STRATEGIC SHIFT · [R6]</span><h3>MindSpore 正在扩大对主流大模型生态的兼容范围</h3><p>“南向亲和昇腾、北向生态兼容”意味着 MindSpore 在保留 Ascend-native 能力的同时，对齐 Megatron、Hugging Face、vLLM、SGLang 与 OpenCompass 等既有入口。</p></article>
+          <article class="card"><span class="num">LONG-TERM BOUNDARY</span><h3>接口兼容与进入上游生态治理体系属于两个层次</h3><p>API 和组件兼容能够降低迁移难度；社区主干控制权、版本节奏、工具链和用户资产归属仍决定其能否成为既有生态的一部分。</p></article>
+          <article class="card"><span class="num">DIFFERENTIATED FIT</span><h3>差异化场景决定完整 Framework 的长期价值</h3><p>新建系统、超大规模自动并行、AI for Science、Ascend-native 训练、端边云一致部署及行业全栈交付，更能发挥 MindSpore 的完整性优势。</p></article>
+        </div>
         <p class="figure-intro">展开一个 PyTorch workload 周围的隐性资产后，可以看到 Framework replacement 会同时触及模型语义、训练状态、工程工具与生产系统，影响范围远大于 API 映射。</p>
         <figure class="figure" id="fig-03">
           <div class="figbar"><span class="fig-title-bi"><b>Software Assets within a Workload</b><small>PyTorch 工作负载由多类相互依赖的软件资产构成</small></span><span class="figid">FIG-03</span></div>
@@ -157,19 +162,26 @@
       <div class="inner">
         <header class="section-head"><div class="section-no">04 · TRAINING INTERFACE</div><h2>MindSpeed 以适配器方式将昇腾训练优化接入 Megatron</h2><p class="deck">MindSpeed 保留 Megatron 的训练主干与 Framework 控制权，并通过 adapter 注入并行、通信、内存与融合算子优化。这种产品形态把硬件专有能力收敛在明确的接入边界内。</p></header>
         <div class="mt"><div class="mtbar">Megatron integration · 官方 Quick Start 所示接口</div><pre class="mb"><code><span class="code-accent">import</span> mindspeed.megatron_adaptor</code></pre></div>
-        <p class="figure-intro">训练接入需要同时标明优化注入点、Framework 控制权、依赖可选性和版本契约。沿着 Megatron→MindSpeed→torch_npu→CANN 的路径，可以逐项检查这些边界。</p>
+        <p class="figure-intro">训练接入需要同时标明优化注入点、Framework 控制权、依赖可选性和版本契约。ROLL 的 Ascend RFC 展示了一种设计方案：同一项目分别通过 MindSpeed 与 vLLM-Ascend 接入训练和推理，并继续保留 CUDA 路径。</p>
         <figure class="figure" id="fig-05">
           <div class="figbar"><span class="fig-title-bi"><b>MindSpeed Integration with Megatron</b><small>MindSpeed 在保留 Megatron 控制权的前提下接入昇腾优化</small></span><span class="figid">FIG-05</span></div>
           <div class="figbody figure-scroll"><div class="min-1060">
             <p class="viz-note"><b>读图：</b>先沿上方主路径到达 CANN；再用下方 Integration Passport 检查所有权、可选性、版本契约和证据。</p>
             <div class="flow"><div class="node">Megatron-LM<small>训练主干 / Framework ownership</small></div><div class="node adapt">MindSpeed Adapter<small>Ascend-specific injection point</small></div><div class="node diff">Parallel · Communication · Kernel<small>并行、通信、融合算子优化</small></div><div class="node adapt">torch_npu<small>PyTorch NPU adapter</small></div><div class="node deep">CANN → Ascend<small>编译与执行底座</small></div></div>
+            <div class="example-strip"><b>ROLL RFC proposed device abstraction · [R12]</b><span class="chip">训练提案：Megatron + MindSpeed</span><span class="chip">推理提案：vLLM + vLLM-Ascend</span><span class="chip">约束：保留 CUDA 架构</span></div>
             <div class="passport-grid">
               <article class="passport blue"><header><b>Framework Ownership</b><small>框架控制权</small></header><dl><div><dt>Owner</dt><dd>Megatron-LM / PyTorch</dd></div><div><dt>MindSpeed</dt><dd>提供 Ascend 加速，不替代训练主干</dd></div><div><dt>Evidence</dt><dd><span class="status">官方资料</span></dd></div></dl></article>
               <article class="passport cyan"><header><b>Optionality</b><small>依赖可选性</small></header><dl><div><dt>Target</dt><dd>不改变 CUDA / CPU 行为</dd></div><div><dt>ROLL RFC</dt><dd>MindSpeed optional、非 hard dependency</dd></div><div><dt>Evidence</dt><dd><span class="status verify">以对应 RFC 版本为准</span></dd></div></dl></article>
               <article class="passport amber"><header><b>Version Contract</b><small>版本契约</small></header><dl><div><dt>Coupling</dt><dd>MCore、PyTorch、torch_npu、CANN 需配套</dd></div><div><dt>Boundary</dt><dd>适配层需要显式兼容矩阵</dd></div><div><dt>Evidence</dt><dd><span class="status">官方仓库</span></dd></div></dl></article>
             </div>
+            <table class="matrix" style="margin-top:16px"><thead><tr><th>ROLL RFC 接入面</th><th>保留对象</th><th>拟议 Ascend 接入点</th><th>RFC 约束</th></tr></thead><tbody>
+              <tr><td>训练</td><td>Megatron 主架构与上层训练逻辑</td><td>MindSpeed</td><td>可选依赖，不接管 Megatron 架构</td></tr>
+              <tr><td>推理</td><td>vLLM 控制面与 Serving 路径</td><td>vLLM-Ascend</td><td>通过设备抽象选择后端</td></tr>
+              <tr><td>跨设备兼容</td><td>既有 CUDA / CPU 行为</td><td>统一 device abstraction</td><td>Ascend 支持不得改变原有行为</td></tr>
+              <tr><td>依赖治理</td><td>项目默认依赖边界</td><td>按设备按需启用</td><td>MindSpeed 不成为 hard dependency</td></tr>
+            </tbody></table>
           </div></div>
-          <figcaption class="figcap"><b>关键结论：</b>低侵入的训练接口让 hardware-specific capability 进入已有 Framework，并将 adapter 限定为能力注入点。<div class="figcap-note">MindSpeed 的集成路径依据官方 README 与 Quick Start；ROLL 的依赖约束应按采用时对应的 RFC 与代码版本核对。</div></figcaption>
+          <figcaption class="figcap"><b>关键结论：</b>低侵入接口让 hardware-specific capability 进入已有 Framework；ROLL RFC 给出训练、推理和原有 CUDA 路径共享设备抽象、同时保持主干控制权的设计样本。<div class="figcap-note">MindSpeed 的集成路径依据官方 README 与 Quick Start。截至 2026-09-04，ROLL 硬件支持指南中的已发布示例主要列出 FSDP2 + vLLM，并将 Ascend 支持标为参考实现；本图的 Megatron + MindSpeed 路径属于 RFC 级设计证据。[R12]</div></figcaption>
         </figure>
       </div>
     </section>
@@ -177,15 +189,18 @@
     <section class="floor" id="inference-control">
       <div class="inner">
         <header class="section-head"><div class="section-no">05 · INFERENCE CONTROL PLANE</div><h2>推理软件栈需要明确划分控制面职责</h2><p class="deck">vLLM、SGLang 已经承担 Scheduler、KV Cache、Prefix Cache、PD、Parallelism 与 Serving。完整 vendor engine 与之并置会产生职责重叠，模型兼容无法解决控制面归属冲突。</p></header>
-        <p class="figure-intro">把两个完整推理引擎的 Scheduler、KV Cache、PD 与 Parallelism 职责逐项对齐，可以定位重复控制的位置，并明确需要拆分的组件边界。</p>
+        <p class="figure-intro">把两个完整推理引擎的批处理、缓存、推测解码、PD、专家并行、调度与服务职责逐项对齐，可以定位重复控制的位置，并明确需要拆分的组件边界。</p>
         <figure class="figure" id="fig-06a">
           <div class="figbar"><span class="fig-title-bi"><b>Overlapping Inference Control Responsibilities</b><small>完整推理引擎并置会导致控制面职责重叠</small></span><span class="figid">FIG-06A</span></div>
-          <div class="figbody">
+          <div class="figbody figure-scroll"><div class="min-1060">
             <p class="viz-note"><b>读图：</b>从两侧向中间看；红色背景字段是双方都可能拥有的职责，因此必须明确唯一 owner 或拆成组件接口。</p>
-            <div class="comparison"><div class="lane"><h4>vLLM / SGLang</h4><div class="ownership"><div class="owner conflict"><b>Scheduler</b><span>请求调度</span></div><div class="owner conflict"><b>KV Cache</b><span>缓存管理</span></div><div class="owner conflict"><b>PD</b><span>Prefill / Decode</span></div><div class="owner conflict"><b>Parallelism</b><span>并行策略</span></div></div></div><div class="lane"><h4>Complete MindIE Engine</h4><div class="ownership"><div class="owner conflict"><b>Scheduler</b><span>请求调度</span></div><div class="owner conflict"><b>KV Cache</b><span>缓存管理</span></div><div class="owner conflict"><b>PD</b><span>Prefill / Decode</span></div><div class="owner conflict"><b>Parallelism</b><span>并行策略</span></div></div></div></div>
+            <div class="comparison">
+              <div class="lane"><h4>vLLM / SGLang</h4><div class="ownership expanded"><div class="owner conflict"><b>Continuous Batching</b><span>连续批处理</span></div><div class="owner conflict"><b>KV Cache</b><span>缓存管理</span></div><div class="owner conflict"><b>Prefix Cache</b><span>前缀复用</span></div><div class="owner conflict"><b>Speculative Decoding</b><span>推测解码</span></div><div class="owner conflict"><b>PD</b><span>Prefill / Decode 解耦</span></div><div class="owner conflict"><b>Expert Parallel</b><span>专家并行</span></div><div class="owner conflict"><b>Scheduler</b><span>请求调度</span></div><div class="owner conflict"><b>Distributed Serving</b><span>分布式服务</span></div><div class="owner conflict"><b>API Serving</b><span>服务接口</span></div></div></div>
+              <div class="lane"><h4>Complete MindIE Engine</h4><div class="ownership expanded"><div class="owner conflict"><b>Continuous Batching</b><span>连续批处理</span></div><div class="owner conflict"><b>KV Cache</b><span>缓存管理</span></div><div class="owner conflict"><b>Prefix Cache</b><span>前缀复用</span></div><div class="owner conflict"><b>Speculative Decoding</b><span>推测解码</span></div><div class="owner conflict"><b>PD</b><span>Prefill / Decode 解耦</span></div><div class="owner conflict"><b>Expert Parallel</b><span>专家并行</span></div><div class="owner conflict"><b>Scheduler</b><span>请求调度</span></div><div class="owner conflict"><b>Distributed Serving</b><span>分布式服务</span></div><div class="owner conflict"><b>API Serving</b><span>服务接口</span></div></div></div>
+            </div>
             <div class="cross" style="margin-top:14px">CONTROL PLANE OWNERSHIP CONFLICT · 控制面归属冲突</div>
-          </div>
-          <figcaption class="figcap"><b>关键结论：</b>模型兼容只说明两个引擎都能执行模型；实现可组合部署还需要为 Scheduler、KV、PD 与并行策略确定唯一控制权。<div class="figcap-note"><span class="status source">分析判断</span> FIG-06A 用于定位控制职责重叠。</div></figcaption>
+          </div></div>
+          <figcaption class="figcap"><b>关键结论：</b>模型兼容只说明两个引擎都能执行模型；实现可组合部署还需要为批处理、缓存、解码、并行、调度与服务接口确定唯一控制权。<div class="figcap-note"><span class="status source">分析判断</span> 职责清单来自原始笔记对 vLLM、SGLang 与完整 vendor engine 的边界分析。</div></figcaption>
         </figure>
 
         <p class="figure-intro">将服务控制、模型执行与硬件优化拆成独立层后，FIG-06A 中重复的控制职责会转化为三个可分别选择和演进的组件边界。</p>
@@ -204,8 +219,13 @@
           <div class="figbody figure-scroll"><div class="min-940">
             <p class="viz-note"><b>读图：</b>主路径保持 Application→vLLM 不变，只在 Hardware Plugin 处选择 CUDA 或 Ascend backend；右侧缩略反例会提前离开上游控制面。</p>
             <div class="branch"><div class="lane"><h4>Upstream plugin path <span class="status">推荐形态</span></h4><div class="lane-stack"><div class="node">Application</div><div class="node">vLLM · owns control plane</div><div class="node adapt">Hardware Plugin</div><div class="grid cols-2"><div class="node">CUDA</div><div class="node diff">vLLM-Ascend → CANN</div></div></div></div><div class="branch-center">VS<br>边界差异</div><div class="lane"><h4>Vendor-specific path <span class="status source">缩略反例</span></h4><div class="lane-stack"><div class="node">Application</div><div class="node risk">Vendor inference framework</div><div class="node diff">Vendor runtime</div><div class="node deep">Ascend</div></div></div></div>
+            <div class="passport-grid">
+              <article class="passport blue"><header><b>Governance Home</b><small>上游治理位置</small></header><dl><div><dt>Project</dt><dd>进入 vllm-project 官方组织</dd></div><div><dt>Meaning</dt><dd>Ascend backend 位于上游项目治理边界内</dd></div><div><dt>Evidence</dt><dd><span class="status">[R9]</span></dd></div></dl></article>
+              <article class="passport cyan"><header><b>Release Contract</b><small>版本对应关系</small></header><dl><div><dt>Upstream</dt><dd>vLLM release</dd></div><div><dt>Backend</dt><dd>vLLM-Ascend 对应版本</dd></div><div><dt>Evidence</dt><dd><span class="status verify">部署时核对</span></dd></div></dl></article>
+              <article class="passport amber"><header><b>Upstream Tracking</b><small>持续集成责任</small></header><dl><div><dt>Mechanism</dt><dd>Ascend CI 持续跟踪 upstream</dd></div><div><dt>Purpose</dt><dd>尽早暴露 API、模型与 Kernel 支持差异</dd></div><div><dt>Evidence</dt><dd><span class="status">[R9] 官方资料</span></dd></div></dl></article>
+            </div>
           </div></div>
-          <figcaption class="figcap"><b>关键结论：</b>进入 upstream extension point 能减少 fork 与 API divergence，并把模型和 Framework 的创新节奏留在原社区。<div class="figcap-note"><span class="status">官方资料</span> vLLM Ascend 文档将其描述为 hardware-pluggable backend。</div></figcaption>
+          <figcaption class="figcap"><b>关键结论：</b>进入 upstream extension point 只是第一步；项目治理位置、版本对应关系和持续集成机制共同决定该后端能否持续跟随上游创新。<div class="figcap-note"><span class="status">官方资料</span> vLLM Ascend 文档将其描述为 hardware-pluggable backend；版本与 CI 状态应按部署时的官方仓库核对。</div></figcaption>
         </figure>
       </div>
     </section>
@@ -239,14 +259,17 @@
           <div class="figbody figure-scroll"><div class="min-1060">
             <p class="viz-note"><b>读图：</b>先看上方三类控制语义，再跨过语义边界沿两条实例路径进入 CANN；最后用底部矩阵确认各层责任。</p>
             <div class="definition-grid"><div class="definition"><b>Model Semantics</b><span>PyTorch / Hugging Face 定义模型与算子语义</span></div><div class="definition"><b>Training Control</b><span>Megatron / FSDP 定义并行与训练状态</span></div><div class="definition"><b>Inference Control</b><span>vLLM / SGLang 定义调度、KV 与 Serving</span></div><div class="definition"><b>Device Execution</b><span>CANN 定义 Ascend 编译、通信与运行时</span></div></div>
+            <div class="example-strip"><b>Ascend Extension for PyTorch · [R11]</b><span class="chip">PyTorch 原生 API</span><span class="chip">MindSpeed</span><span class="chip">TorchAir</span><span class="chip">第三方库</span><span class="chip">自定义算子</span><span class="chip">性能优化与迁移工具</span></div>
             <div class="divider"><b>SEMANTIC BOUNDARY · 上层语义可以保持 / 硬件执行必须转译与优化</b></div>
             <div class="comparison"><div class="lane"><h4>PyTorch compiler path</h4><div class="lane-stack"><div class="node">PyTorch semantic world</div><div class="node">FX Graph</div><div class="node adapt">TorchAir · Compiler Bridge</div><div class="node diff">GE / Ascend IR</div></div></div><div class="lane"><h4>vLLM plugin path</h4><div class="lane-stack"><div class="node">vLLM control plane</div><div class="node adapt">vLLM-Ascend</div><div class="node diff">Ascend operators / kernels</div><div class="node diff">CANN interface</div></div></div></div>
             <div class="arch-layer diff" style="margin-top:14px"><div class="arch-label">CANN CUTAWAY · 共同硬件腰部</div><div class="arch-boxes"><span class="arch-box">GE / Graph Compiler</span><span class="arch-box">HCCL / Communication</span><span class="arch-box">Operator & Kernel</span><span class="arch-box">Runtime</span><span class="arch-box">Memory</span><span class="arch-box">AscendCL</span></div></div>
             <table class="matrix" style="margin-top:16px"><thead><tr><th>层</th><th>主要责任</th><th>可替换性</th><th>Ascend 不可替代性</th></tr></thead><tbody><tr><td>Framework</td><td>模型与执行语义</td><td>可选，但用户资产强绑定</td><td>低</td></tr><tr><td>Adapter / Plugin</td><td>把上游语义接到设备</td><td>随上游接口演化</td><td>中</td></tr><tr><td>Compiler Bridge</td><td>FX 等语义转为 GE/IR</td><td>路径可变化</td><td>高</td></tr><tr><td>CANN Runtime</td><td>图编译、通信、Kernel、内存与执行</td><td>硬件绑定</td><td>最高</td></tr><tr><td>Ascend Hardware</td><td>算力、内存与互联</td><td>目标平台</td><td>核心</td></tr></tbody></table>
           </div></div>
-          <figcaption class="figcap"><b>关键结论：</b>CANN 及其语义桥构成稳定的共同腰部，持续承接上层生态变化并释放 Ascend 硬件能力。<div class="figcap-note"><span class="status">官方资料</span> TorchAir 的 FX→GE 路径来自官方 overview；“共同腰部”属于本文的结构分析。</div></figcaption>
+          <figcaption class="figcap"><b>关键结论：</b>PyTorch-on-Ascend 已形成覆盖原生 API、训练加速、编译桥、第三方库、自定义算子与工程工具的开发入口；CANN 及其语义桥在这些路径下方汇聚硬件能力。<div class="figcap-note"><span class="status">官方资料</span> TorchAir 的 FX→GE 路径来自官方 overview；“共同腰部”属于本文的结构分析。</div></figcaption>
         </figure>
       </div>
+    </section>
+
     <section class="floor" id="positioning">
       <div class="inner">
         <header class="section-head"><div class="section-no">08 · PRODUCT POSITIONING</div><h2>产品抽象层级影响用户向昇腾迁移的成本</h2><p class="deck">支持更多模型扩大 Coverage；让已有工作流以低侵入方式接入 Ascend 建立 Alignment。Coverage 提供可用范围，Alignment 决定这些能力能否在用户愿意接受的边界内被采用。</p></header>
@@ -276,16 +299,25 @@
 
     <section class="floor" id="transition">
       <div class="inner">
-        <header class="section-head"><div class="section-no">09 · STRATEGIC TRANSITION</div><h2>软件能力模块化可以缩小用户必须迁移的软件范围</h2><p class="deck">Ascend 的转型可以概括为从 Stack Ownership 走向 Capability Provisioning：编译、通信、Kernel、运行时与优化组件继续承载差异化价值，用户则可通过主流 Framework 的稳定接口按需调用这些能力。</p></header>
-        <p class="figure-intro">使用相同层级对齐 Vertical Full Stack 与 Open Hardware Platform，可以直接比较两个阶段的用户入口、控制权和 Mind 组件必选性。</p>
+        <header class="section-head"><div class="section-no">09 · STRATEGIC TRANSITION</div><h2>软件能力模块化可以缩小用户必须迁移的软件范围</h2><p class="deck">Ascend 的转型可以概括为从单一 Stack Ownership 扩展到 Capability Provisioning：编译、通信、Kernel、运行时与优化组件继续承载差异化价值，用户则可通过主流 Framework 的稳定接口按需调用这些能力。</p></header>
+        <div class="callout boundary"><strong>双路径长期共存：</strong>垂直集成继续服务 Ascend-native、新建系统和强调统一交付的场景；开放后端路径服务已经拥有 PyTorch、Megatron、vLLM 等软件资产的团队。转型改变的是默认入口、控制权和兼容责任，不要求取消完整软件栈。</div>
+        <p class="figure-intro">使用相同层级对齐垂直集成交付与开放硬件后端，可以直接比较两条长期路径的用户入口、控制权、兼容责任和适用条件。</p>
         <figure class="figure" id="fig-11">
           <div class="figbar"><span class="fig-title-bi"><b>From Stack Control to Modular Capability Provision</b><small>模块化能力供给能够降低全栈迁移要求</small></span><span class="figid">FIG-11</span></div>
           <div class="figbody figure-scroll"><div class="min-940">
-            <p class="viz-note"><b>读图：</b>两侧从 Application 向 Hardware 使用同一纵向顺序；关注右侧 Mind 组件如何从强制主干变为按需注入点。</p>
-            <div class="comparison"><div class="lane"><h4>Phase 1 · Vertical Full Stack</h4><div class="lane-stack"><div class="node">Application</div><div class="node diff">MindSpore</div><div class="node diff">MindSpeed / MindIE</div><div class="node diff">CANN</div><div class="node deep">Ascend</div></div></div><div class="lane"><h4>Phase 2 · Open Hardware Platform</h4><div class="lane-stack"><div class="node">PyTorch · Megatron · vLLM</div><div class="node adapt">Stable extension points</div><div class="node optional">MindSpeed / MindIE Turbo · optional</div><div class="node diff">CANN</div><div class="node deep">Ascend</div></div></div></div>
-            <table class="matrix" style="margin-top:16px"><thead><tr><th>维度</th><th>Vertical Full Stack</th><th>Open Hardware Platform</th></tr></thead><tbody><tr><td>用户入口</td><td>Vendor-defined stack</td><td>主流 Framework / Engine</td></tr><tr><td>控制权</td><td>端到端集中</td><td>上游控制，后端适配</td></tr><tr><td>Mind 组件</td><td>主干能力</td><td>差异化选择或可选优化</td></tr><tr><td>优势</td><td>软硬协同、统一交付</td><td>资产复用、创新同步、低侵入</td></tr><tr><td>代价</td><td>迁移面大</td><td>接口治理与兼容验证复杂</td></tr></tbody></table>
+            <p class="viz-note"><b>读图：</b>两侧从 Application 向 Hardware 使用同一纵向顺序；两条路径共享 CANN 与 Ascend 底座，区别集中在上层入口、控制权和 Mind 组件的必选性。</p>
+            <div class="comparison"><div class="lane"><h4>Integrated Delivery Path <span class="status source">完整交付</span></h4><div class="lane-stack"><div class="node">Application</div><div class="node diff">MindSpore / vendor-defined entry</div><div class="node diff">Integrated training / serving</div><div class="node diff">CANN</div><div class="node deep">Ascend</div></div></div><div class="lane"><h4>Open Ecosystem Path <span class="status">开放后端</span></h4><div class="lane-stack"><div class="node">PyTorch · Megatron · vLLM</div><div class="node adapt">Stable extension points</div><div class="node optional">MindSpeed / MindIE Turbo · optional</div><div class="node diff">CANN</div><div class="node deep">Ascend</div></div></div></div>
+            <table class="matrix" style="margin-top:16px"><thead><tr><th>责任维度</th><th>Integrated Delivery Path</th><th>Open Ecosystem Path</th></tr></thead><tbody>
+              <tr><td>默认用户入口</td><td>MindSpore 或统一行业方案</td><td>PyTorch、Megatron、vLLM 等既有主干</td></tr>
+              <tr><td>Framework / Engine 控制权</td><td>Vendor 端到端统筹</td><td>上游社区或用户系统持有</td></tr>
+              <tr><td>Ascend 能力注入</td><td>在完整软件栈内部集成</td><td>通过 adapter、plugin、compiler bridge 和可选组件</td></tr>
+              <tr><td>兼容责任</td><td>由统一版本与方案交付承担</td><td>由扩展接口、版本矩阵、CI 与回归证据共同承担</td></tr>
+              <tr><td>主要优势</td><td>软硬协同、统一部署、端到端优化</td><td>资产复用、上游创新同步、较小迁移面</td></tr>
+              <tr><td>主要代价</td><td>用户进入新软件栈的范围较大</td><td>接口治理、跨项目协作与兼容验证复杂</td></tr>
+              <tr><td>优先场景</td><td>新建系统、Ascend-native、AI for Science、行业全栈交付</td><td>已有 PyTorch、Megatron、vLLM 与内部工程资产的团队</td></tr>
+            </tbody></table>
           </div></div>
-          <figcaption class="figcap"><b>关键结论：</b>分层解耦把软件价值放到用户最容易调用、主动迁移范围最小的位置。<div class="figcap-note"><span class="status">官方方向</span> 华为 2025 开放声明支持“分层解耦、插件化、开放协作”；两阶段模型属于本文的综合判断。</div></figcaption>
+          <figcaption class="figcap"><b>关键结论：</b>分层解耦扩展了 Ascend 的采用路径：完整软件栈保留端到端优势，开放后端则把硬件能力放到既有生态能够直接调用的位置。<div class="figcap-note"><span class="status">官方方向</span> 华为 2025 开放声明支持“分层解耦、插件化、开放协作”；双路径共存模型属于本文依据原始材料作出的综合判断。</div></figcaption>
         </figure>
       </div>
     </section>
@@ -329,6 +361,14 @@
           </div></div>
           <figcaption class="figcap"><b>关键结论：</b>成功标准是迁移距离更短，同时仍能释放 Ascend 的硬件差异化能力；两者缺一不可。<div class="figcap-note"><span class="status risk">战略推论</span> 本框架刻意不提供统一总分，避免不同 workload 之间的伪精确比较。</div></figcaption>
         </figure>
+        <h3>ROLL RFC 如何落入 Reachability 评审框架</h3>
+        <table class="matrix"><thead><tr><th>迁移表面</th><th>原始笔记能够确认的变化</th><th>仍需项目证据回答的问题</th></tr></thead><tbody>
+          <tr><td>Code Surface</td><td>通过统一 device abstraction 保留 CUDA 架构，并按设备启用 Ascend 路径</td><td>具体模型、自定义算子与数值一致性需要逐项验证</td></tr>
+          <tr><td>Architecture Surface</td><td>RFC 提议训练使用 MindSpeed、推理使用 vLLM-Ascend；Megatron 与 vLLM 继续持有主干控制权</td><td>当前发布版是否完整采用提案，以及容错、扩缩容、Checkpoint 与服务拓扑变化仍需核对</td></tr>
+          <tr><td>Workflow Surface</td><td>原有 CUDA / CPU 行为被明确列为需要保持的约束</td><td>Debug、Profiling、CI 和故障定位体验尚无实证数据</td></tr>
+          <tr><td>Optimization Surface</td><td>Ascend 专有训练与推理优化分别收敛到 MindSpeed 和 vLLM-Ascend</td><td>吞吐、时延、内存、稳定性和版本滞后尚无对比结果</td></tr>
+        </tbody></table>
+        <div class="callout warning"><strong>实证边界：</strong>原始笔记没有提供统一 Benchmark、迁移工时、客户案例数据或竞品实验结果。ROLL 内容属于 RFC 级接口与依赖治理样本；当前硬件支持文档仍需独立核对，无法据此推导性能收益、生产成熟度或发布版功能状态。</div>
         <div class="grid cols-2">
           <article class="card"><span class="num">ACCEPTANCE CRITERIA</span><h3>接入验收应覆盖可运行性、可维护性与可诊断性</h3><p>完整验收还应覆盖上游升级可持续性、原框架控制权、adapter→compiler→kernel→runtime 的性能定位能力，以及未知边界的验证责任。</p></article>
           <article class="card"><span class="num">FINAL JUDGMENT</span><h3>硬件平台生态要求主流软件能够持续接入昇腾</h3><p>当 PyTorch、Megatron、vLLM、SGLang、Triton 及未来 Framework 都能自然选择 Ascend，而底层能力又能兑现硬件优势，生态位置才真正建立。</p></article>
@@ -345,17 +385,17 @@
         <h3>参考资料及其用途</h3>
         <div class="refs">
           <article class="ref"><b>[R1] Huawei · Ascend: Open for All to Build a Vibrant Ecosystem · 2025-09</b><p>分层解耦、全面开源开放，并与 PyTorch、Triton、vLLM、verl 等社区协作。<a href="https://www.huawei.com/en/news/2025/9/hc-shengten-opensource">官方页面 ↗</a></p></article>
-          <article class="ref"><b>[R2] Huawei · Groundbreaking SuperPoD Interconnect · 2025</b><p>用于说明华为 AI 商业化聚焦硬件，以及 CANN 与 Mind 系列的开放计划。<span class="status source">材料引用</span></p></article>
+          <article class="ref"><b>[R2] Huawei · Groundbreaking SuperPoD Interconnect · 2025</b><p>用于说明华为 AI 商业化聚焦硬件，以及 CANN 与 Mind 系列的开放计划。<a href="https://www.huawei.com/en/news/2025/9/hc-xu-keynote-speech">官方演讲 ↗</a></p></article>
           <article class="ref"><b>[R3] Huawei 2025 Annual Report</b><p>Mind 系列、CANN 与 AI 训推工具链的开放方向。<a href="https://www-file.huawei.com/admin/asset/v1/pro/view/dec782afd1544f558c32fc76e3141334.pdf">官方 PDF ↗</a></p></article>
-          <article class="ref"><b>[R4] Huawei · 《构筑开放基础软件栈，共建昇腾 AI 算力新生态》</b><p>用于说明产品结构、插件化、分层解耦与保护客户核心资产的架构方向。<span class="status source">材料引用</span></p></article>
-          <article class="ref"><b>[R5] Ascend CANN 官方文档 · 《CANN 是什么》</b><p>用于说明 CANN 在 Framework 与 Ascend 硬件之间的位置，以及 Compiler、Runtime、HCCL 等能力。<span class="status source">材料引用</span></p></article>
+          <article class="ref"><b>[R4] Huawei · 《构筑开放基础软件栈，共建昇腾 AI 算力新生态》</b><p>用于说明产品结构、插件化、分层解耦与保护客户核心资产的架构方向。<a href="https://www.huawei.com/cn/publications/huaweitech/202503">官方刊物 ↗</a></p></article>
+          <article class="ref"><b>[R5] Ascend CANN 官方文档 · 《CANN 是什么》</b><p>用于说明 CANN 在 Framework 与 Ascend 硬件之间的位置，以及 Compiler、Runtime、HCCL 等能力。<a href="https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/80RC2alpha002/quickstart/quickstart/quickstart_18_0003.html">官方文档 ↗</a></p></article>
           <article class="ref"><b>[R6] MindSpore 官方文档</b><p>全场景 Framework 定位、Cloud/Edge/Device 与 PyTorch 迁移材料。<a href="https://www.mindspore.cn/docs/zh-CN/master/index.html">官方文档 ↗</a></p></article>
           <article class="ref"><b>[R7] Ascend / MindSpeed 官方仓库与 Quick Start</b><p>Megatron-LM 集成、adapter、版本配套和 Ascend 优化能力。<a href="https://github.com/Ascend/MindSpeed/blob/master/README.md">官方仓库 ↗</a></p></article>
-          <article class="ref"><b>[R8] MindIE 官方产品资料</b><p>用于说明 MindIE Motor、LLM、Turbo 与第三方引擎的关系；具体组件边界应按采用时的产品版本核对。<span class="status verify">版本相关</span></p></article>
-          <article class="ref"><b>[R9] vLLM Project · vLLM Ascend Plugin</b><p>Hardware Pluggable 架构、安装与版本关系。<a href="https://docs.vllm.ai/projects/ascend/en/latest/index.html">官方文档 ↗</a></p></article>
+          <article class="ref"><b>[R8] MindIE 官方产品资料</b><p>用于说明 MindIE Motor、LLM、Turbo 与第三方引擎的关系；具体组件边界应按采用时的产品版本核对。<a href="https://www.hiascend.com/document/detail/zh/mindie/21RC2/quickstart/mindie_what_0001.html">官方文档 ↗</a></p></article>
+          <article class="ref"><b>[R9] vLLM Project · vLLM Ascend Plugin</b><p>vllm-project 治理位置、Hardware Pluggable 架构、版本关系与 CI 跟踪机制。<a href="https://docs.vllm.ai/projects/ascend/en/latest/index.html">官方文档 ↗</a></p></article>
           <article class="ref"><b>[R10] Ascend / TorchAir 官方仓库</b><p>基于 PyTorch Dynamo，把 FX Graph 转为 GE Graph 并在 Ascend 上编译执行。<a href="https://github.com/Ascend/torchair/blob/master/docs/zh/overview.md">官方概览 ↗</a></p></article>
-          <article class="ref"><b>[R11] Ascend Extension for PyTorch 官方资料</b><p>用于说明 torch_npu、MindSpeed、TorchAir、PyTorch API 与第三方库组成的开发入口。<span class="status source">材料引用</span></p></article>
-          <article class="ref"><b>[R12] Alibaba ROLL Ascend Support RFC</b><p>用于展示以设备抽象保留既有架构、以 vLLM-Ascend 接入推理、以 MindSpeed 接入训练的集成案例；项目现状应以对应 RFC 与代码版本为准。<span class="status verify">版本相关</span></p></article>
+          <article class="ref"><b>[R11] Ascend Extension for PyTorch 官方资料</b><p>用于说明 torch_npu、MindSpeed、TorchAir、PyTorch API 与第三方库组成的开发入口。<a href="https://www.hiascend.com/document/detail/en/Pytorch/2600/index/index.html">官方文档 ↗</a> · <a href="https://github.com/Ascend/pytorch">官方仓库 ↗</a></p></article>
+          <article class="ref"><b>[R12] Alibaba ROLL Ascend Support RFC 与当前支持指南</b><p>用于展示设备抽象、vLLM-Ascend 与 MindSpeed 的拟议集成路径，并将 RFC 设计与当前发布版支持状态分开。<a href="https://github.com/alibaba/ROLL/issues/83">设备抽象 RFC ↗</a> · <a href="https://github.com/alibaba/ROLL/issues/337">MindSpeed RFC ↗</a> · <a href="https://github.com/alibaba/ROLL/blob/main/docs_roll/docs/User%20Guides/Hardware%20Support/ascend_usage.md">当前支持指南 ↗</a></p></article>
           <article class="ref"><b>[R13] Huawei 2024 Annual Report</b><p>Ascend 行业采用与 CANN、MindIE 软件生态进展。<a href="https://www.huawei.com/en/annual-report/2024">官方入口 ↗</a></p></article>
         </div>
         <div class="callout warning"><strong>使用边界：</strong>本文定位为技术战略分析，不代表华为官方产品路线图，也不构成采购、性能或兼容性承诺。部署前应按具体版本核对 CANN、torch_npu、MindSpeed、vLLM-Ascend 与相关上游组件的官方兼容矩阵。</div>

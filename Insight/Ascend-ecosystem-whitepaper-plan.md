@@ -59,7 +59,7 @@
 | ID 与标题 | 来源映射 | 读者问题 | 保留内容 | 强调与阅读产出 | 编辑动作 |
 |---|---|---|---|---|---|
 | `cover` 从全栈闭环到开放硬件后端 | 摘要 | 这篇报告解决什么问题？ | 问题、读者、核心判断、2025—2026 转向 | 三项核心结论与阅读承诺 | 将长摘要压缩为三项独立结论 |
-| `misalignment` 错位不是能力不足，而是抽象层错位 | 第 1 节 | 用户资产与 Ascend 差异化分别位于哪一层？ | L0–L4 分层、用户关切、能力边界 | L0–L4 总览及错位边界 | 层级表转为主视觉，正文缩短 |
+| `misalignment` 错位来源于产品抽象层与用户资产边界不一致 | 第 1 节 | 用户资产与 Ascend 差异化分别位于哪一层？ | L0–L4 分层、用户关切、能力边界 | L0–L4 总览及错位边界 | 层级表转为主视觉，正文缩短 |
 | `value-capture` 硬件价值捕获为何要求软件入口变薄 | 第 2 节 | 上层闭环为什么会限制硬件价值？ | Hardware Value Capture、Complement Friction、迁移门槛 | 采用收益与迁移摩擦的因果关系 | 合并两条 ASCII 因果链 |
 | `asset-first` 用户先选择软件资产，再选择硬件 | 第 3—4 节 | 为什么 Framework replacement 成本高？ | PyTorch 资产、Framework migration、水平组合、MindSpore 优势边界 | 软件资产系统与可替换边界 | 合并重复决策顺序，保留适用场景 |
 | `training-interface` 训练侧：MindSpeed 的正确接口形态 | 第 5 节及 5.1 | 硬件优化如何进入 Megatron？ | adapter、可选依赖、ROLL 案例、CUDA/CPU 不变等限定 | 一条可插拔训练路径 | 保留代码示例，合并训练拓扑 |
@@ -210,7 +210,7 @@
   3. 侧边案例：ROLL 的训练与推理双路径。
 - 关键结论：能力进入已有 Framework，且不把 adapter 变成新的控制主干。
 - 证据模式：官方 MindSpeed 资料；ROLL 约束待核实。
-- 图前导语：训练侧的关键不是重新定义训练栈，而是在既有主干上找到稳定注入点。
+- 图前导语：训练侧的关键是在保留既有训练主干的前提下建立稳定优化注入点。
 - 双语：Adapter、Parallel Optimization、Communication Optimization、Kernel Optimization 配中文说明。
 - 重复控制：一行 import 示例单独保留，图只负责体系关系与契约。
 
@@ -252,7 +252,7 @@
 - 设计：Application→vLLM→Hardware Plugin→CUDA/Ascend，高亮 vLLM-Ascend；旁边仅用缩略反例表示 vendor-specific engine 路径。
 - 关键结论：硬件插件保留上游控制面，并降低 fork 与 API divergence。
 - 证据模式：vLLM Ascend 官方文档。
-- 图前导语：真正低侵入的兼容不是复制上游，而是进入上游已经定义好的 extension point。
+- 图前导语：低侵入兼容依赖上游已经定义的 extension point，并应避免复制上游主干。
 - 双语：Hardware Plugin、Upstream、Backend 配中文说明。
 - 重复控制：反例只保留轮廓，不重复 FIG-06A。
 
@@ -270,7 +270,7 @@
   4. 未核实版本直接标“需验证”。
 - 关键结论：同步成本由变化需要穿过的边界决定，不由产品数量单独决定。
 - 证据模式：官方兼容矩阵与源文档结构；不展示虚构时间。
-- 图前导语：版本问题不是单个组件落后，而是变化必须穿过多少个受控边界。
+- 图前导语：版本问题取决于上游变化需要穿过的受控边界数量与契约复杂度。
 - 双语：Release Train、Compatibility Matrix、Version Contract 配中文说明。
 - 重复控制：主图呈现结构，具体版本只进入 Passport 或证据注记。
 
@@ -323,9 +323,9 @@
   3. 使用相同层级、对象和路径顺序。
   4. 直接标出 Mind 组件从强制主干变为可选注入点。
   5. 底部比较控制权、用户入口、差异化位置、适用场景和代价。
-- 关键结论：转型不是减少软件，而是把软件从强制主干改造成可组合能力。
+- 关键结论：转型通过重构软件的交付位置，使强制主干能力转化为可组合能力。
 - 证据模式：源文档综合判断与华为开放声明。
-- 图前导语：这次转型改变的不是软件能力多少，而是软件能力是否必须占据用户主路径。
+- 图前导语：这次转型重新分配软件能力在用户主路径中的必选性与控制权。
 - 双语：Stack Ownership、Capability Provisioning、Optional Optimization Kit 配中文说明。
 - 重复控制：阶段一、阶段二两张 ASCII 图合为一张。
 
@@ -342,7 +342,7 @@
   3. 统一字段：Primary Role、Best-fit Scenario、Should Preserve、Should Avoid、Evidence/Inference。
 - 关键结论：竞争目标是让 Ascend 成为自然后端，而不是复制同数量的软件产品。
 - 证据模式：战略推论，明确标注。
-- 图前导语：最终目标不是消除 Ascend-specific 能力，而是让它们出现在用户最少需要主动感知的位置。
+- 图前导语：最终目标是在保留 Ascend-specific 能力的同时，将其放置在用户主动感知与迁移成本最低的位置。
 - 双语：Open Innovation Ecosystem、Stable Extension Point、Differentiation Layer 配中文说明。
 - 重复控制：三个产品的角色只在 Passport 中总结，不再各画独立产品图。
 
@@ -438,3 +438,15 @@
 
 - `Ascend-ecosystem-whitepaper/index.html`
 - `Ascend-ecosystem-whitepaper/shared.css`
+
+## 12. 内容完整性复核
+
+根据生成后与原始 Markdown 的逐章复核，成稿已补充以下被过度压缩的内容：
+
+- MindSpore“南向亲和昇腾、北向生态兼容”的演进方向、生态治理边界与差异化适用场景。
+- Alibaba ROLL Ascend RFC 提出的训练、推理和 CUDA 共存三条路径，以及 optional、非 hard dependency、不改变既有行为与 Megatron 架构等约束；成稿明确区分 RFC 设计与当前发布版状态。
+- vLLM / SGLang 与完整 vendor engine 在批处理、缓存、推测解码、PD、专家并行、调度和 Serving 等职责上的控制面重叠。
+- vLLM-Ascend 的上游治理位置、版本对应与持续集成责任。
+- Ascend Extension for PyTorch 覆盖原生 API、MindSpeed、TorchAir、第三方库、自定义算子、性能优化与迁移工具的完整入口。
+- Vertical Full Stack 与 Open Hardware Platform 的长期双路径关系，以及默认入口、控制权和兼容责任的重新分配。
+- 以 ROLL RFC 为例的 Reachability 四表面评审，并显式保留原始材料没有提供的性能、生产状态与发布版实现证据。
