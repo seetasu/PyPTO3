@@ -11,8 +11,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 42px;
-  padding: 6px 12px 7px;
+  min-height: 36px;
+  padding: 5px 12px;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--ide-frame-pane-header-fill);
 }
@@ -132,7 +132,7 @@
 #qwen3PerformanceSwimlane {
   display: block;
   width: 100%;
-  height: 228px;
+  height: 238px;
   cursor: crosshair;
 }
 
@@ -166,5 +166,5 @@
 @media (max-height: 760px) {
   .kf-model-performance { max-height: 214px; }
   .kf-model-performance__canvas-wrap { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
-  #qwen3PerformanceSwimlane { height: 228px; }
+  #qwen3PerformanceSwimlane { height: 238px; }
 }

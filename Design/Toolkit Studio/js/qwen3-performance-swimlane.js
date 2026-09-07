@@ -5,12 +5,14 @@
   const PANEL_ID = 'qwen3PerformanceSwimlanePanel';
   const CANVAS_ID = 'qwen3PerformanceSwimlane';
   const LABEL_WIDTH = 74;
-  const AXIS_HEIGHT = 18;
+  // Reserve a dedicated band so the first lane never collides with the time axis.
+  const AXIS_HEIGHT = 30;
   const ROW_HEIGHT = 19;
   const ROW_GAP = 2;
   // Keep the default view readable while showing more of the real trace:
   // 4 AIC + 5 AIV + 1 AICPU = 10 representative hardware lanes.
   const LANE_LIMITS = { AIC: 4, AIV: 5, AICPU: 1 };
+  const LANE_ORDER = ['AICPU', 'AIC', 'AIV'];
 
   let initialized = false;
   let loaded = false;
@@ -45,6 +47,11 @@
   function laneNumber(name) {
     const match = String(name).match(/_(\d+)$/);
     return match ? Number(match[1]) : 9999;
+  }
+
+  function laneSort(a, b) {
+    const kindDelta = LANE_ORDER.indexOf(laneKind(a)) - LANE_ORDER.indexOf(laneKind(b));
+    return kindDelta || laneNumber(a) - laneNumber(b) || String(a).localeCompare(String(b));
   }
 
   function shortLaneLabel(name) {
@@ -103,6 +110,27 @@
     };
   }
 
+  function embeddedTraceData() {
+    const embedded = window.PtoQwen3EmbeddedTrace;
+    if (!embedded?.lanes) return null;
+    const events = Object.entries(embedded.lanes).flatMap(([laneName, laneEvents]) => (
+      laneEvents.map(([name, ts, dur, taskId, coreId]) => makeTask({
+        name,
+        ts,
+        dur,
+        args: { taskId, CoreId: coreId },
+      }, laneName))
+    ));
+    return {
+      source: '真实 trace · embedded 10 lanes',
+      events,
+      totalEvents: embedded.totalEvents,
+      min: embedded.min,
+      max: embedded.max,
+      lanes: Object.keys(embedded.lanes).sort(laneSort),
+    };
+  }
+
   function parseTrace(payload) {
     const traceEvents = Array.isArray(payload?.traceEvents) ? payload.traceEvents : [];
     const threadNames = new Map(
@@ -123,7 +151,7 @@
     });
 
     const selectedLanes = [];
-    ['AIC', 'AIV', 'AICPU'].forEach((kind) => {
+    LANE_ORDER.forEach((kind) => {
       [...stats.values()]
         .filter((item) => laneKind(item.laneName) === kind)
         .sort((a, b) => laneNumber(a.laneName) - laneNumber(b.laneName) || b.count - a.count)
@@ -158,11 +186,11 @@
         if (!response.ok) throw new Error(`trace HTTP ${response.status}`);
         model = parseTrace(await response.json());
       } catch (error) {
-        model = fallbackData();
+        model = embeddedTraceData() || fallbackData();
         model.min = 0;
-        model.max = Math.max(...model.events.map((task) => task.end), 1);
-        model.lanes = [...new Set(model.events.map((task) => task.laneId))];
-        console.warn('[Qwen3 performance] real trace unavailable; using fallback preview.', error);
+        model.max = model.max || Math.max(...model.events.map((task) => task.end), 1);
+        model.lanes = model.lanes?.length ? model.lanes : [...new Set(model.events.map((task) => task.laneId))];
+        console.warn(`[Qwen3 performance] external trace unavailable; using ${model.source}.`, error);
       }
       loaded = true;
       loading = null;
@@ -176,9 +204,7 @@
   function updateMeta() {
     const root = panel();
     if (!root || !model) return;
-    const source = qs('[data-performance-swimlane-source]', root);
     const stats = qs('[data-performance-swimlane-stats]', root);
-    if (source) source.textContent = `${model.source} · ${model.lanes.length} 条代表泳道`;
     if (stats) stats.textContent = `${model.totalEvents.toLocaleString()} tasks · ${(model.max - model.min).toFixed(1)} μs`;
   }
 
@@ -192,19 +218,29 @@
   }
 
   function drawAxis(ctx, x, width, min, max) {
-    const axisY = AXIS_HEIGHT - 4;
+    const axisY = 15;
     const span = Math.max(1, max - min);
     ctx.strokeStyle = cssColor('--border-subtle', 'rgba(255,255,255,.12)');
     ctx.fillStyle = cssColor('--foreground-muted', '#8b929e');
     ctx.font = '500 9px ui-monospace, SFMono-Regular, Consolas, monospace';
     ctx.textBaseline = 'top';
     ctx.textAlign = 'center';
+    ctx.beginPath();
+    ctx.moveTo(x, axisY);
+    ctx.lineTo(x + width, axisY);
+    ctx.stroke();
     for (let index = 0; index <= 4; index += 1) {
       const position = x + width * (index / 4);
       ctx.beginPath();
       ctx.moveTo(position, axisY);
-      ctx.lineTo(position, axisY + 4);
+      ctx.lineTo(position, axisY + 5);
       ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,.08)';
+      ctx.beginPath();
+      ctx.moveTo(position, axisY + 6);
+      ctx.lineTo(position, Math.max(axisY + 7, ctx.canvas.clientHeight || 0));
+      ctx.stroke();
+      ctx.strokeStyle = cssColor('--border-subtle', 'rgba(255,255,255,.12)');
       ctx.fillText(`${(min + span * (index / 4)).toFixed(0)} μs`, position, axisY + 5);
     }
   }
