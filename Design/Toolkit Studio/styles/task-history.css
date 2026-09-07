@@ -596,9 +596,47 @@
 /* artifact inventory, restacked for the rail (riArts in js/task-history.js).
    The pane forces every glyph to >= 12px, so rows earn their height by losing
    the card chrome instead of the third line. */
+.kf-ri-invhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.kf-ri-invhead .kf-inspector-title { margin-bottom: 3px; }
+.kf-ri-invhead small { display: block; color: var(--foreground-muted); font: 8px/1.35 var(--font-mono); }
+.kf-ri-invcount {
+  display: grid; min-width: 43px; justify-items: end; gap: 1px; padding: 4px 6px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border-subtle));
+  border-radius: var(--radius-md); background: color-mix(in srgb, var(--primary) 9%, transparent);
+}
+.kf-ri-invcount strong { color: var(--primary); font: 700 15px/1 var(--font-mono); }
+.kf-ri-invcount span { color: var(--foreground-muted); font: 8px/1 var(--font-mono); }
+.kf-ri-flow {
+  display: flex; align-items: flex-start; gap: 0; margin: 11px 0 7px; padding: 8px 3px 6px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 46%, transparent);
+}
+.kf-ri-flow-step { position: relative; display: grid; min-width: 0; flex: 1; justify-items: center; gap: 4px; }
+.kf-ri-flow-step:not(:last-child)::after {
+  content: ""; position: absolute; z-index: 0; top: 7px; left: 50%; width: 100%; height: 1px;
+  background: var(--border-strong);
+}
+.kf-ri-flow-step > i {
+  position: relative; z-index: 1; display: grid; width: 15px; height: 15px; place-items: center;
+  border: 1px solid var(--border-strong); border-radius: 50%; color: var(--foreground-muted);
+  background: var(--surface-2); font: 700 7px/1 var(--font-mono); font-style: normal;
+}
+.kf-ri-flow-step > b { overflow: hidden; max-width: 100%; color: var(--foreground-muted); font: 7px/1 var(--font-mono); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.kf-ri-flow-step.is-compile > i, .kf-ri-flow-step.is-runtime > i { border-color: color-mix(in srgb, var(--primary) 65%, var(--border-subtle)); color: var(--primary); }
+.kf-ri-flow-step.is-codegen > i { border-color: color-mix(in srgb, var(--success) 50%, var(--border-subtle)); color: var(--success); }
+.kf-ri-invmeta { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 1px 9px; color: var(--foreground-muted); font: 8px var(--font-mono); }
+.kf-ri-invmeta span { display: inline-flex; align-items: center; gap: 4px; }
+.kf-ri-invmeta i { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
+.kf-ri-invmeta i.is-ready { background: var(--primary); box-shadow: 0 0 6px color-mix(in srgb, var(--primary) 45%, transparent); }
+.kf-ri-invmeta i.is-stored { background: var(--foreground-muted); }
 .kf-ri-grp { margin-top: 10px; }
 .kf-ri-grp:first-of-type { margin-top: 0; }
-.kf-ri-glabel { display: flex; align-items: baseline; gap: 6px; margin-bottom: 5px; }
+.kf-ri-glabel { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+.kf-ri-gstep {
+  display: grid; width: 18px; height: 18px; flex: none; place-items: center; border-radius: 5px;
+  color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent);
+  font: 700 8px/1 var(--font-mono); font-style: normal;
+}
 .kf-ri-glabel b { color: var(--foreground-secondary); font-size: var(--kf-type-2xs); font-weight: 650; }
 .kf-ri-glabel em {
   padding: 0 5px; border-radius: var(--radius-pill); background: var(--surface-3);
@@ -625,6 +663,32 @@
 .kf-ri-art > i.is-off { color: var(--foreground-muted); opacity: .6; }
 .kf-ri-art > small { grid-column: 1 / -1; overflow-wrap: anywhere; color: var(--foreground-muted); font: 9px/1.45 var(--font-mono); }
 .kf-ri-art > code { grid-column: 1 / -1; overflow-wrap: anywhere; color: var(--foreground-muted); font: 9px/1.4 var(--font-mono); opacity: .62; }
+.kf-ri-art--visual {
+  grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 3px 8px;
+  padding: 7px 8px; border-left-width: 2px;
+}
+.kf-ri-art--visual.is-input { border-left-color: color-mix(in srgb, var(--foreground-muted) 65%, transparent); }
+.kf-ri-art--visual.is-compile { border-left-color: var(--primary); }
+.kf-ri-art--visual.is-codegen { border-left-color: var(--success); }
+.kf-ri-art--visual.is-runtime { border-left-color: var(--warning); }
+.kf-ri-art--visual.is-repro { border-left-color: var(--foreground-muted); }
+.kf-ri-art-mark {
+  display: grid; width: 22px; height: 22px; place-items: center; border: 1px solid var(--border-subtle);
+  border-radius: 6px; color: var(--foreground-muted); background: var(--surface-2); font: 700 8px/1 var(--font-mono);
+}
+.kf-ri-art--visual.is-compile .kf-ri-art-mark { border-color: color-mix(in srgb, var(--primary) 36%, var(--border-subtle)); color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--surface-2)); }
+.kf-ri-art--visual.is-codegen .kf-ri-art-mark { border-color: color-mix(in srgb, var(--success) 30%, var(--border-subtle)); color: var(--success); background: color-mix(in srgb, var(--success) 9%, var(--surface-2)); }
+.kf-ri-art--visual.is-runtime .kf-ri-art-mark { border-color: color-mix(in srgb, var(--warning) 34%, var(--border-subtle)); color: var(--warning); background: color-mix(in srgb, var(--warning) 9%, var(--surface-2)); }
+.kf-ri-art-copy { display: grid; min-width: 0; gap: 2px; }
+.kf-ri-art-copy b { overflow: hidden; color: var(--foreground); font-size: var(--kf-type-2xs); font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.kf-ri-art-copy small, .kf-ri-art-copy code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kf-ri-art-copy small { color: var(--foreground-muted); font: 8px/1.35 var(--font-mono); }
+.kf-ri-art-copy code { color: var(--foreground-muted); font: 8px/1.35 var(--font-mono); opacity: .68; }
+.kf-ri-art-action { align-self: start; padding: 2px 4px; border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); border-radius: 4px; color: var(--primary); font: 8px/1.2 var(--font-mono); font-style: normal; white-space: nowrap; }
+.kf-ri-art-action span { font-size: 10px; }
+.kf-ri-art-action.is-off { border-color: var(--border-subtle); color: var(--foreground-muted); opacity: .72; }
+.kf-ri-art--visual.is-sel .kf-ri-art-mark { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 13%, transparent); }
+.kf-ri-art--visual.is-static { opacity: .76; }
 
 /* ---- content tabs (tabStrip in js/task-history.js) -------------------------
    Inside the run detail, directly under the KPI strip: identity, verdict and
@@ -669,11 +733,18 @@
    Keep the metrics visually distinct inside it, but avoid three separate
    floating cards competing for the same hierarchy. */
 .kf-rd-overview {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, .85fr);
+  align-items: stretch;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
   border-radius: calc(var(--radius-lg) + 2px);
   background: color-mix(in srgb, var(--surface-1) 88%, transparent);
   box-shadow: 0 14px 32px rgb(0 0 0 / .14), inset 0 1px 0 rgb(255 255 255 / .025);
+}
+.kf-rd-overview-left, .kf-rd-overview-right { min-width: 0; }
+.kf-rd-overview-right {
+  display: flex; min-width: 0; flex-direction: column;
+  border-left: 1px solid var(--border-subtle);
 }
 
 .kf-rd-summary {
@@ -695,7 +766,7 @@
   border-radius: 50%; background: color-mix(in srgb, var(--primary) 13%, transparent); filter: blur(34px);
 }
 .kf-rd-summary .kf-rd-head {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
+  display: block;
   padding: 0; border: 0;
 }
 .kf-rd-summary .kf-rd-id { min-width: 0; }
@@ -731,7 +802,10 @@
 .kf-rd-status.is-bad i { background: var(--danger); }
 .kf-rd-id > p { margin: 6px 0 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
 
-.kf-rd-summary .kf-rd-run { flex: none; align-items: flex-end; gap: 3px; padding-top: 2px; }
+.kf-rd-summary .kf-rd-run {
+  align-items: flex-start; gap: 3px; margin-top: 12px; padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+}
 .kf-rd-summary .kf-rd-run > span { color: var(--foreground-muted); font: 700 8px/1 var(--font-mono); letter-spacing: .1em; }
 .kf-rd-summary .kf-rd-run code { color: var(--foreground); font: 650 11px/1.25 var(--font-mono); }
 .kf-rd-summary .kf-rd-run small { color: var(--foreground-muted); font: 8.5px/1.35 var(--font-mono); }
@@ -760,6 +834,10 @@
   display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0;
   padding: 0 2px 2px; border-top: 1px solid var(--border-subtle);
 }
+.kf-rd-overview-right .kf-rd-kpis {
+  height: 100%; grid-template-columns: 1fr; padding: 0;
+  border-top: 0;
+}
 .kf-rd-kpi {
   --kpi-accent: var(--primary); position: relative; isolation: isolate; overflow: hidden;
   grid-column: span 2; min-height: 124px; display: grid; grid-template-rows: auto 1fr auto; gap: 10px;
@@ -779,6 +857,20 @@
 .kf-rd-overview .kf-rd-kpi::after { display: none; }
 .kf-rd-overview .kf-rd-kpi + .kf-rd-kpi {
   border-left: 1px solid var(--border-subtle);
+}
+.kf-rd-overview-right .kf-rd-kpi {
+  grid-column: auto; min-height: 0; padding-inline: 16px;
+}
+.kf-rd-overview-right .kf-rd-kpi + .kf-rd-kpi {
+  border-top: 1px solid var(--border-subtle);
+  border-left: 0;
+}
+.kf-rd-overview-right .kf-rd-kpi-main { gap: 6px; }
+.kf-rd-overview-right .kf-rd-kpi-eff { gap: 6px; }
+.kf-rd-overview-right .kf-rd-kpi-eff-legend { justify-content: flex-start; gap: 4px; }
+.kf-rd-overview-right .kf-rd-kpi-eff-legend > span { flex: 0 0 auto; gap: 3px; }
+.kf-rd-overview-right .kf-rd-kpi-eff-legend > span > b {
+  overflow: visible; font-size: 6.5px; text-overflow: clip;
 }
 .kf-rd-kpi::after {
   content: ""; position: absolute; z-index: -1; width: 78px; height: 78px; top: -45px; right: -28px;
@@ -864,11 +956,40 @@
   .kf-rd-kpi-eff-legend > span > b { overflow: visible; font-size: 7px; text-overflow: clip; }
 }
 @container (max-width: 370px) {
-  .kf-rd-summary .kf-rd-head { display: grid; }
   .kf-rd-summary .kf-rd-run { align-items: flex-start; }
   .kf-rd-kpi, .kf-rd-kpi.is-memory, .kf-rd-kpi.is-signals { grid-column: span 6; }
   .kf-rd-overview .kf-rd-kpi + .kf-rd-kpi {
     border-left: 0;
     border-top: 1px solid var(--border-subtle);
   }
+}
+@container (max-width: 400px) {
+  .kf-rd-overview { grid-template-columns: 1fr; }
+  .kf-rd-overview-right { border-top: 1px solid var(--border-subtle); border-left: 0; }
+  .kf-rd-overview-right .kf-rd-kpi { min-height: 118px; }
+}
+
+/* Wide run detail: the snapshot identity and both headline metrics are three
+   equal peers in one horizontal row. The nested wrappers dissolve so the
+   overview grid owns all three columns directly. */
+.kf-rd-overview {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, .95fr) minmax(0, .85fr) !important;
+}
+.kf-rd-overview-right, .kf-rd-overview-right .kf-rd-kpis { display: contents; }
+.kf-rd-overview-right .kf-rd-kpi {
+  min-height: 150px; padding-inline: 16px;
+}
+.kf-rd-overview-right .kf-rd-kpi + .kf-rd-kpi {
+  border-top: 0; border-left: 1px solid var(--border-subtle);
+}
+.kf-rd-overview > .kf-rd-kpi {
+  grid-column: auto !important; min-height: 150px; padding-inline: 16px;
+}
+.kf-rd-overview > .kf-rd-kpi-main { gap: 6px; }
+.kf-rd-overview > .kf-rd-kpi-eff { gap: 6px; }
+.kf-rd-overview > .kf-rd-kpi-eff-legend { justify-content: flex-start; gap: 4px; }
+.kf-rd-overview > .kf-rd-kpi-eff-legend > span { flex: 0 0 auto; gap: 3px; }
+.kf-rd-overview > .kf-rd-kpi-eff-legend > span > b {
+  overflow: visible; font-size: 6.5px; text-overflow: clip;
 }

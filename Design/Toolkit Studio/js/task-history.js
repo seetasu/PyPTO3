@@ -363,12 +363,9 @@
   const tone = (p) => p >= 100 ? 'bad' : p >= 80 ? 'warn' : p >= 50 ? 'mid' : 'ok';
 
   /* ---------- header ------------------------------------------------------
-     The left pane already carries identity (title, kind, model, verdict, run id
-     and time) on both the task row and the run row, so repeating it here is
-     pure noise. The header keeps a compact run identity — status, run id and
-     timestamp — then leads with the two metrics a kernel developer acts on.
-     Scale counts and the compiler's own findings are stated by the sections
-     that own them further down. */
+     Keep the run identity together: the title is followed immediately by the
+     immutable run id and timestamp. The live overview puts the two actionable
+     metrics in a separate right-hand column. */
   function headline(t, r, L) {
     const v = VERDICT[r.verdict] || VERDICT.purged;
     return '<section class="kf-rd-summary">' +
@@ -377,9 +374,9 @@
           '<div class="kf-rd-eyebrow"><span><i></i>RUN SNAPSHOT</span></div>' +
           '<div class="kf-rd-titleline"><h2>' + esc(t.title) + '</h2>' +
             '<span class="kf-rd-status is-' + v[1] + '"><i></i>' + v[0] + '</span></div>' +
+          '<div class="kf-rd-run"><span>RUN ID</span><code>' + esc(r.id) + '</code>' +
+            '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small></div>' +
         '</div>' +
-        '<div class="kf-rd-run"><span>RUN ID</span><code>' + esc(r.id) + '</code>' +
-          '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small></div>' +
       '</div>' +
     '</section>';
   }
@@ -432,12 +429,12 @@
       );
     }
     if (!tiles.length) return '';
-    return '<div class="kf-rd-kpis">' + tiles.map(t =>
-      '<article class="kf-rd-kpi is-' + t.t + ' is-' + t.k + '">' +
+    return tiles.map(t =>
+      '<article class="kf-rd-kpi is-' + t.t + ' is-' + t.k + '" style="grid-column:auto;min-width:0;">' +
         '<header><span>' + esc(t.l) + '</span><em>' + esc(t.tag || '') + '</em></header>' +
         '<div class="kf-rd-kpi-main"><b>' + t.v + '<i>' + t.u + '</i></b>' + t.viz + '</div>' +
         '<small>' + esc(t.s) + '</small>' +
-      '</article>').join('') + '</div>';
+      '</article>').join('');
   }
 
   /* memory water level — one square per kernel, filled by utilisation.
@@ -710,11 +707,26 @@
     const inv = r.inventory || [];
     if (!inv.length) return '';
     const groups = GROUPS.map(G => [G, inv.filter(i => i.g === G[0])]).filter(x => x[1].length);
+    const viewable = inv.filter(i => i.open || (TL_ARTS[i.k] && window.PTO_RUN_TRACE)).length;
+    const kindLabel = { input: 'IN', compile: 'IR', codegen: 'CG', runtime: 'RT', repro: 'RP' };
     return '<section class="kf-inspector-section">' +
-      '<h2 class="kf-inspector-title">产物清单</h2>' +
-      groups.map(([G, items]) =>
-        '<div class="kf-ri-grp">' +
-          '<div class="kf-ri-glabel"><b>' + G[1] + '</b><em>' + items.length + '</em>' +
+      '<div class="kf-ri-invhead">' +
+        '<div><h2 class="kf-inspector-title">产物清单</h2>' +
+          '<small>一次运行的输入、编译、生成与运行时证据</small></div>' +
+        '<b class="kf-ri-invcount"><strong>' + inv.length + '</strong><span>项产物</span></b>' +
+      '</div>' +
+      '<div class="kf-ri-flow" aria-label="产物阶段链路">' +
+        groups.map(([G], gi) =>
+          '<span class="kf-ri-flow-step is-' + G[0] + '">' +
+            '<i>' + String(gi + 1).padStart(2, '0') + '</i><b>' + esc(G[1]) + '</b>' +
+          '</span>').join('') +
+      '</div>' +
+      '<div class="kf-ri-invmeta"><span><i class="is-ready"></i>' + viewable + ' 项可查看</span>' +
+        '<span><i class="is-stored"></i>' + (inv.length - viewable) + ' 项已记录</span></div>' +
+      groups.map(([G, items], groupIndex) =>
+        '<div class="kf-ri-grp is-' + G[0] + '">' +
+          '<div class="kf-ri-glabel"><i class="kf-ri-gstep">' + String(groupIndex + 1).padStart(2, '0') + '</i>' +
+            '<b>' + G[1] + '</b><em>' + items.length + '</em>' +
             '<small>' + G[2] + '</small></div>' +
           items.map(i => {
             const o = i.open ? OPEN[i.open] : null;
@@ -723,15 +735,16 @@
               ? (o.explorer ? ' data-th-view="explorer" data-th-art="source"'
                             : ' data-th-tab="' + o.tab + '" data-th-art="' + o.k + '"')
               : tl ? ' data-th-scroll="timeline"' : '';
-            const tag = o ? '<i>打开 &rarr;</i>' : tl ? '<i>看时间线 &uarr;</i>'
-                                                     : '<i class="is-off">在库</i>';
+            const action = o ? '<i class="kf-ri-art-action is-open">打开 <span>→</span></i>'
+              : tl ? '<i class="kf-ri-art-action is-open">时间线 <span>↑</span></i>'
+                   : '<i class="kf-ri-art-action is-off">已记录</i>';
             const live = o || tl;
             return '<' + (live ? 'button type="button"' : 'div') +
-              ' class="kf-ri-art' + (live ? '' : ' is-static') +
+              ' class="kf-ri-art kf-ri-art--visual is-' + G[0] + (live ? ' is-live' : ' is-static') +
               (o && o.k === st.artifact ? ' is-sel' : '') + '"' + attr + '>' +
-              '<b>' + esc(i.label) + '</b>' + tag +
-              '<small>' + esc(i.meta) + '</small>' +
-              '<code>' + esc(i.where) + '</code>' +
+              '<span class="kf-ri-art-mark" aria-hidden="true">' + (kindLabel[G[0]] || '•') + '</span>' +
+              '<span class="kf-ri-art-copy"><b>' + esc(i.label) + '</b>' +
+                '<small>' + esc(i.meta) + '</small><code>' + esc(i.where) + '</code></span>' + action +
             '</' + (live ? 'button' : 'div') + '>';
           }).join('') +
         '</div>').join('') +
@@ -741,17 +754,26 @@
   /* archived runs carry a recorded artifact list instead of a real inventory */
   function riArchivedArts(r) {
     if (!r.artifacts || !r.artifacts.length) return '';
+    const items = r.artifacts;
     return '<section class="kf-inspector-section">' +
-      '<h2 class="kf-inspector-title">产物</h2>' +
-      '<div class="kf-ri-grp">' +
-        '<div class="kf-ri-glabel"><b>归档记录</b><em>' + r.artifacts.length + '</em>' +
+      '<div class="kf-ri-invhead">' +
+        '<div><h2 class="kf-inspector-title">产物清单</h2>' +
+          '<small>这次运行留下的归档证据</small></div>' +
+        '<b class="kf-ri-invcount"><strong>' + items.length + '</strong><span>项产物</span></b>' +
+      '</div>' +
+      '<div class="kf-ri-invmeta"><span><i class="is-stored"></i>归档记录</span>' +
+        '<span><i class="is-stored"></i>目录未挂载</span></div>' +
+      '<div class="kf-ri-grp is-repro">' +
+        '<div class="kf-ri-glabel"><i class="kf-ri-gstep">AR</i><b>归档记录</b><em>' + items.length + '</em>' +
           '<small>目录不在当前工作区</small></div>' +
-        r.artifacts.map(a =>
-          '<button type="button" class="kf-ri-art' + (a.k === st.artifact ? ' is-sel' : '') + '"' +
+        items.map(a =>
+          '<button type="button" class="kf-ri-art kf-ri-art--visual is-repro' + (a.k === st.artifact ? ' is-sel' : '') + '"' +
             ' data-th-art="' + a.k + '"' +
             (a.explorer ? ' data-th-view="explorer"' : ' data-step="' + a.step + '"') + '>' +
-            '<b>' + esc(a.label) + '</b><i>打开 &rarr;</i>' +
-            '<small>' + esc(a.meta) + '</small>' +
+            '<span class="kf-ri-art-mark" aria-hidden="true">AR</span>' +
+            '<span class="kf-ri-art-copy"><b>' + esc(a.label) + '</b>' +
+              '<small>' + esc(a.meta) + '</small><code>归档运行 · ' + esc(r.id) + '</code></span>' +
+            '<i class="kf-ri-art-action is-open">打开 <span>→</span></i>' +
           '</button>').join('') +
       '</div>' +
     '</section>';
@@ -960,8 +982,9 @@
     if (L) {
       /* Identity, verdict and the headline numbers stay above the tabs — they
          are true of the run, not of one view of it. Everything below switches. */
-      const overview = '<section class="kf-rd-overview" aria-label="运行快照概览">' +
-        head + kpis(r, L) +
+      const overview = '<section class="kf-rd-overview" style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.95fr) minmax(0,.85fr);" aria-label="运行快照概览">' +
+        '<div class="kf-rd-overview-left">' + head + '</div>' +
+        kpis(r, L) +
         '</section>';
       els.detail.innerHTML = overview + tabStrip() +
         '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div>';
