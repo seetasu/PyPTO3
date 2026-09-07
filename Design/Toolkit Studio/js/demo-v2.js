@@ -1993,16 +1993,46 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   ];
 
   // §12 Agent 输出建议 · 结论 / 原因 / 证据 / 影响 / 建议 / 验证
+  /* Agent 结论：一个完整的判断链，而不是一张多字段表。
+     原来这里是 结论/原因/证据/影响/建议/验证 六个 key 平铺成 dl，读者拿到的是
+     六段并列文本，得自己拼出因果。现在按开发者真正的追问顺序组织：
+     发现了什么 → 为什么会这样 → 会造成什么 → 怎么改 → 怎么确认改对了。 */
   const pagedAttentionAgentFinding = {
-    title: 'Q Head 尾 Tile 在动态 num_heads 下缺少有效 Shape 保护',
     severity: '正确性',
-    sections: [
-      { key: '结论', level: 'infer', body: 'q_loop_cfg 用 ceil-div 计算需要多少个 q_tile 覆盖全部 Q Head，但取 Q 的 slice 始终按固定 q_tile 取行。当 num_heads 不是 q_tile 的整数倍时，最后一个 q_idx 会越过本 request 的 Q 行段。' },
-      { key: '原因', level: 'source', body: '第 281 行 q_loop_cfg = (q_head_num + q_tile - 1) // q_tile；第 289 行 cur_offset = b_idx * q_head_num + q_idx * q_tile；第 300 行 qi = pl.slice(query, [q_tile, head_dim_cfg], [cur_offset, 0])。三者组合下，尾 Tile 的 [cur_offset, cur_offset + q_tile) 会跨过 request 边界。' },
-      { key: '证据', level: 'source', body: '对照 KV 侧：末 Block 已用 valid_len = pl.min(block_size_cfg, cur_seq - bn * block_size_cfg)（第 305 行）并通过 sij_valid 收窄（第 320 行）。Q 侧没有等价处理。main() 取 num_heads = 16、q_tile = 16 恰好整除（第 504、509 行），因此自带 golden 覆盖不到这条路径。' },
-      { key: '影响', level: 'infer', body: '跨 request 的 Q 数据污染，属正确性问题而非性能问题；同时输出视图 slice(out, ..., [cur_offset, 0]) 也会写到相邻 request 的行段上。仅在 num_heads % q_tile ≠ 0 时触发。' },
-      { key: '建议', level: 'infer', body: '为 Q 侧补一个与 valid_len 对称的量：valid_q = pl.min(q_tile, q_head_num - q_idx * q_tile)，并把 Q Tile 与 out 写回视图都收窄到 valid_q；InCore 的 load 尺寸仍可保持 _Q_TILE，只需让参与计算与写回的行数正确。' },
-      { key: '验证', level: 'runtime', body: '新增参数化用例 num_heads ∈ {8, 17, 24} × q_tile = 16，与 torch golden 比 allclose(rtol = atol = 2e-2)；并单独断言 out 中相邻 request 的行段未被覆写。' },
+    headline: '当 num_heads 不是 q_tile 的整数倍时，最后一个 Q Tile 会读到、也会写到相邻 request 的数据。',
+    scope: '触发条件：<code>num_heads % q_tile ≠ 0</code>。本例 16 ÷ 16 恰好整除，所以自带 Golden 永远测不到。',
+    steps: [
+      {
+        key: 'finding', mark: '①', title: '发现了什么', level: 'infer',
+        body: '循环次数按 ceil-div 算，取数却按固定宽度取——两者不匹配。<code>q_loop_cfg</code> 已经算出"需要几个 tile 才能覆盖全部 Q Head"，但每个 tile 都无条件取满 <code>q_tile</code> 行，没有人负责最后那个不满的 tile。',
+      },
+      {
+        key: 'cause', mark: '②', title: '根因：三行代码组合出的越界', level: 'source',
+        body: '不是某一行写错了，是三行各自都对、合起来越界：',
+        trace: [
+          ['281', 'q_loop_cfg = (q_head_num + q_tile - 1) // q_tile', 'ceil：16 heads / q_tile 16 → 1；18 heads → 2'],
+          ['289', 'cur_offset = b_idx * q_head_num + q_idx * q_tile', '偏移按 q_head_num 跨 request 步进'],
+          ['300', 'qi = pl.slice(query, [q_tile, head_dim_cfg], [cur_offset, 0])', '恒取 q_tile 行，不看还剩几行'],
+        ],
+        tail: '第 2 个 tile 的 <code>cur_offset</code> 落在 <code>b_idx × 18 + 16</code>，往后取 16 行会越过本 request 剩下的 2 行，吃进下一个 request 的 Q。',
+      },
+      {
+        key: 'contrast', mark: '③', title: '对照：KV 侧做了，Q 侧没做', level: 'source',
+        body: '同一个文件里，KV 末块是有保护的——<code>valid_len = pl.min(block_size_cfg, cur_seq - bn * block_size_cfg)</code>（第 305 行）算出有效宽度，再用 <code>sij_valid</code> 收窄（第 320 行）。Q 侧缺的正是这个对称量。这说明不是不会写，是漏了一处。',
+      },
+      {
+        key: 'impact', mark: '④', title: '会造成什么', level: 'infer',
+        body: '<b>读被污染，写也被污染。</b>尾 tile 的注意力结果混入邻接 request 的 Q；同时输出视图 <code>pl.slice(out, ..., [cur_offset, 0])</code> 用同一个 <code>cur_offset</code>，会把结果写到邻接 request 的输出行上——即使那个 request 自己算对了，结果也会被覆盖。属正确性问题，不是性能问题；编译和运行都不会报错。',
+      },
+      {
+        key: 'fix', mark: '⑤', title: '怎么改', level: 'infer',
+        body: '补一个与 <code>valid_len</code> 对称的 <code>valid_q</code>，Q Tile 与 out 写回视图都收窄到它。InCore 的 load 尺寸可以保持 <code>_Q_TILE</code> 不动——只需要让参与计算和写回的<b>行数</b>正确：',
+        code: 'valid_q = pl.min(q_tile, q_head_num - q_idx * q_tile)\nqi       = pl.slice(query, [valid_q, head_dim_cfg], [cur_offset, 0])\nout_view = pl.slice(out,   [valid_q, head_dim_cfg], [cur_offset, 0])',
+      },
+      {
+        key: 'verify', mark: '⑥', title: '怎么确认改对了', level: 'runtime',
+        body: '加一组参数化用例 <code>num_heads ∈ {8, 17, 24} × q_tile = 16</code>，与 torch golden 比 <code>allclose(rtol = atol = 2e-2)</code>。<b>再单独断言一条</b>：相邻 request 的输出行段没有被覆写——数值比对本身可能因为邻接值接近而漏掉这一点。',
+      },
     ],
   };
 
@@ -2151,11 +2181,24 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   function pagedAttentionAgentSection() {
-    const finding = pagedAttentionAgentFinding;
+    const f = pagedAttentionAgentFinding;
+    const step = (s) => `
+      <li class="kf-pa2-step" data-pa2-step="${s.key}">
+        <i>${s.mark}</i>
+        <div>
+          <b>${s.title}${ev(s.level)}</b>
+          <p>${s.body}</p>
+          ${s.trace ? `<div class="kf-pa2-trace">${s.trace.map(([line, code, note]) => `<button type="button" data-pa2-jump="${line}"><em>${line}</em><code>${code}</code><small>${note}</small></button>`).join('')}</div>` : ''}
+          ${s.tail ? `<p class="kf-pa2-tail">${s.tail}</p>` : ''}
+          ${s.code ? `<pre class="kf-pa2-code"><code>${s.code}</code></pre>` : ''}
+        </div>
+      </li>`;
     return `
-      <section class="kf-inspector-section kf-pa2-agent"><header><h2 class="kf-inspector-title">Agent 结论</h2></header>
-        <div class="kf-pa2-agent-head"><span>${finding.severity}</span><b>${finding.title}</b></div>
-        <dl class="kf-pa2-agent-body">${finding.sections.map((item) => `<div><dt>${item.key}${ev(item.level)}</dt><dd>${item.body}</dd></div>`).join('')}</dl>
+      <section class="kf-inspector-section kf-pa2-agent is-lead">
+        <header><h2 class="kf-inspector-title">Agent 结论<span class="kf-pa2-agent-tag">${f.severity}</span></h2></header>
+        <p class="kf-pa2-headline">${f.headline}</p>
+        <p class="kf-pa2-scope">${f.scope}</p>
+        <ol class="kf-pa2-steps">${f.steps.map(step).join('')}</ol>
       </section>`;
   }
 
@@ -2169,43 +2212,66 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return `<section class="kf-pa-summary-strip"><div><span>根入口</span><b>paged_attention</b></div><div><span>任务节点</span><b>5 × InCore Call</b></div><div><span>依赖治理</span><b>AUTO Scope</b></div></section>`;
   }
 
+  // 原标题叫「张量契约与方向」——"契约""方向"都是 PyPTO 内部说法，读者第一眼
+  // 看不出这张表在讲什么。它其实就是函数签名：收哪几个张量、哪个是被写的。
   function paContractTable() {
     const rows = [
-      ['query', '[B×H, D]', 'In · BF16', 'orchestration'],
-      ['key_cache', '[KVRows, D]', 'In · BF16', 'paging'],
-      ['value_cache', '[KVRows, D]', 'In · BF16', 'paging'],
-      ['block_table', '[B×MaxBlocks]', 'In · INT32', 'paging'],
-      ['context_lens', '[B]', 'In · INT32', 'orchestration'],
-      ['out', '[B×H, D]', 'Out · FP32', 'online'],
+      ['query', '[B×H, D]', 'BF16', '只读', '本次 decode 的 Q，每行一个 (request, head)', 'orchestration'],
+      ['key_cache', '[KVRows, D]', 'BF16', '只读', '全局 KV Cache，按物理 block 行寻址', 'paging'],
+      ['value_cache', '[KVRows, D]', 'BF16', '只读', '同上，与 key_cache 同一套寻址', 'paging'],
+      ['block_table', '[B×MaxBlocks]', 'INT32', '只读', '逻辑 block → 物理 block 的映射表', 'paging'],
+      ['context_lens', '[B]', 'INT32', '只读', '每个 request 当前的上下文长度', 'orchestration'],
+      ['out', '[B×H, D]', 'FP32', '被写回', '注意力结果，原位写入，函数返回的就是它', 'online'],
     ];
-    return `<div class="kf-pa-tensor-table"><div class="head"><span>Tensor</span><b>Shape</b><em>方向 · DType</em></div>${rows.map(([name, shape, dir, focus]) => `<button type="button" data-paged-attention-focus="${focus}"><span>${name}</span><b>${shape}</b><em>${dir}</em></button>`).join('')}</div>
-      <p class="kf-pa-note">六个参数的 B / H / D / Block 全部由 <code>pl.dynamic()</code> 声明，运行时从 <code>pl.tensor.dim()</code> 推导（第 273–277 行）。<code>out</code> 是唯一的 <code>pl.Out</code>，通过 <code>pl.slice</code> 取视图后由 online_update 原位写回，函数返回的是同一个 <code>out</code>。</p>`;
+    return `<p class="kf-op-inline-note">这个函数收 <b>5 个只读张量</b>，写 <b>1 个输出张量</b>。所有形状都不是写死的：<code>B / H / D / block_size</code> 由 <code>pl.dynamic()</code> 声明，运行时才从 <code>pl.tensor.dim()</code> 推出来（第 273–277 行）。点任意一行定位到用它的源码段。</p>
+      <div class="kf-pa-tensor-table is-plain"><div class="head"><span>参数名</span><b>形状 · 类型</b><em>读 / 写</em></div>${rows.map(([name, shape, dtype, dir, why, focus]) => `<button type="button" data-paged-attention-focus="${focus}" class="${dir === '被写回' ? 'is-out' : ''}"><span>${name}</span><b>${shape}<i>${dtype}</i></b><em>${dir}</em><small>${why}</small></button>`).join('')}</div>
+      <p class="kf-pa-note"><code>out</code> 是唯一被写的参数（<code>pl.Out</code>）：编排层用 <code>pl.slice</code> 取一个行段视图交给 online_update 原位写回。所以「返回值」和「入参 out」是同一块内存——调用方传进来的缓冲区会被就地改掉。</p>`;
+  }
+
+  // 把风险按行号落回源码分区，用来回答"问题集中在哪一层"。
+  // 分区边界直接取 pagedAttentionFocusMeta 的行段，风险取 profile 的行号——
+  // 两边都是既有事实，这里不新增任何断言。
+  function paRiskLanding() {
+    const zones = Object.entries(pagedAttentionFocusMeta).map(([key, meta]) => {
+      const [from, to] = meta.lines.split('–').map(Number);
+      return { key, label: meta.label, from, to, count: 0 };
+    });
+    pagedAttentionProfile().risks.forEach((risk) => {
+      const line = risk.lines[0];
+      const zone = zones.find((z) => line >= z.from && line <= z.to);
+      if (zone) zone.count += 1;
+    });
+    const hit = zones.filter((z) => z.count > 0);
+    // 编排层 = 动态维度推导 + Paged KV 编排（第 237–367 行）。builder 段虽然也在
+    // kernel 之外，但它讲的是闭包常量固化，不算编排——所以按 key 显式列举，不用
+    // "不在 kernel 里"反推。
+    const inOrch = hit.filter((z) => ['orchestration', 'paging'].includes(z.key)).reduce((n, z) => n + z.count, 0);
+    const total = hit.reduce((n, z) => n + z.count, 0);
+    return `<div class="kf-pa-risk-landing">
+      <b>${total} 条风险里有 ${inOrch} 条落在编排层</b>
+      <div>${hit.map((z) => `<button type="button" data-paged-attention-focus="${z.key}"><span>${z.label}</span><em>${z.count}</em></button>`).join('')}</div>
+      <small>真正需要改的地方基本不在 5 个 kernel 内部，而在第 237–367 行的动态维推导与 Paged 编排——先看这一段。</small>
+    </div>`;
   }
 
   function paTaskGraphStage() {
-    const layerMeta = {
-      data: { label: '数据', legend: '<i class="tensor"></i>Tensor Shape / 方向　<i class="dynamic"></i>运行时解析的动态维' },
-      dep: { label: '依赖', legend: '<i class="raw"></i>RAW　<i class="waw"></i>WAW / loop-carried　<i class="none"></i>读—读无依赖' },
-      hardware: { label: '硬件', legend: '<i class="cube"></i>AIC / Cube　<i class="vector"></i>AIV / Vector　<i class="memory"></i>GM / AICPU 编排' },
-      precision: { label: '精度', legend: '<i class="bf16"></i>BF16 输入 / 概率　<i class="fp32"></i>FP32 计算 / 状态　<i class="index"></i>INT32 / INDEX' },
-      runtime: { label: '运行状态', legend: '<i class="locked"></i>需要编译并运行后才有 TaskId、状态与时间戳' },
-    }[state.pagedAttentionOverlay] || { label: '数据', legend: '' };
-    const locked = state.pagedAttentionOverlay === 'runtime';
-    // 图层轴与四格 tab 是同一根轴：依赖→编排依赖、硬件→分块硬件、精度→数据精度。
-    // 与其把图并进某一格，不如让图层指回对应的格——图留在概览，细节各归其位。
-    const layerToTab = { dep: ['orch', '编排依赖'], hardware: ['tiling', '分块硬件'], precision: ['data', '数据精度'] };
-    const jump = layerToTab[state.pagedAttentionOverlay];
+    // 这里原本有 5 个图层按钮（数据 / 依赖 / 硬件 / 精度 / 运行状态）。它们是四格
+    // Tab 的同一根轴又画了一遍：依赖→编排依赖、硬件→分块硬件、精度→数据精度——
+    // 当时甚至配了一个"本图层的完整内容在「X」→"的跳转按钮，那就是重复的自认。
+    // 运行状态图层在 coding 阶段永远是空的。现在图只保留一个视图：这段代码在干
+    // 什么 + 问题落在哪一段，其余维度回各自的 Tab。
     return `
-      <div class="kf-pa2-layer-switch" role="group" aria-label="计算图信息图层">${[['data','数据'],['dep','依赖'],['hardware','硬件'],['precision','精度'],['runtime','运行状态']].map(([key,label]) => `<button type="button" class="${key === state.pagedAttentionOverlay ? 'is-active' : ''}${key === 'runtime' ? ' is-locked' : ''}" data-pa-overlay="${key}">${label}</button>`).join('')}</div>
-      <div class="kf-pa-overlay-legend" data-overlay="${state.pagedAttentionOverlay}"><b>${layerMeta.label}图层</b><span>${layerMeta.legend}</span></div>
-      ${jump ? `<button type="button" class="kf-op-layer-jump" data-op-tab="${jump[0]}">本图层的完整内容在「${jump[1]}」<i>→</i></button>` : ''}
-      ${locked ? '<div class="kf-pa2-locked"><i>○</i><div><b>运行状态图层尚无数据</b><p>TaskId、Ready / Running / Blocked / Complete、未满足依赖数与时间戳属于 Runtime 实测证据。Coding 阶段先建立静态任务图，编译并运行后同一批节点会切换为动态状态图。</p></div></div>' : ''}
+      <p class="kf-op-inline-note">1 个 Orchestration 驱动 5 个 InCore kernel，按 KV Block 迭代做 online softmax。点节点展开核内子图并定位源码。</p>
       <div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
-      <footer id="pagedAttentionGraphStatus" class="kf-pa-graph-status">点击节点展开核内子图并定位源码 · 拖拽 / 缩放查看全图</footer>`;
+      <footer id="pagedAttentionGraphStatus" class="kf-pa-graph-status">点击节点展开核内子图并定位源码 · 拖拽 / 缩放查看全图</footer>
+      ${paRiskLanding()}`;
   }
 
+  // 563 行的文件读者不是自己写的，第一件事是知道它分成哪几段、要找的东西在哪。
+  // 原标题「源码阶段」没说这一点，读者不知道这排按钮是干嘛的。
   function paSourceMap() {
-    return `<div class="kf-attn-source-map kf-pa-source-map"><div>${Object.entries(pagedAttentionFocusMeta).map(([key, item]) => `<button type="button" class="${key === state.pagedAttentionFocus ? 'is-active' : ''}" data-paged-attention-focus="${key}"><i>${item.lines}</i><span><b>${item.label}</b><small>${item.detail}</small></span></button>`).join('')}</div></div>`;
+    return `<p class="kf-op-inline-note">整个文件 563 行，分成下面 10 段。点任一段跳到源码对应位置，编辑器与计算图会一起高亮——用来快速定位，不用从头读。</p>
+      <div class="kf-attn-source-map kf-pa-source-map"><div>${Object.entries(pagedAttentionFocusMeta).map(([key, item]) => `<button type="button" class="${key === state.pagedAttentionFocus ? 'is-active' : ''}" data-paged-attention-focus="${key}"><i>${item.lines}</i><span><b>${item.label}</b><small>${item.detail}</small></span></button>`).join('')}</div></div>`;
   }
 
   function paPrecisionPath() {
@@ -2243,11 +2309,14 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return `<div class="kf-pa-memory"><dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl></div>`;
   }
 
-  // main() 的实例化配置——面板里每一个具体数字都是在这组配置下算出来的
+  // 这组数字的作用只有一个：说明上面那排"已通过"的绿灯是在什么条件下拿到的。
+  // 它曾经是概览里一个叫「示例运行画像」的独立区块，孤立地摆一张 main() 配置表，
+  // 读者不知道要拿它干什么。它属于置信度的脚注，所以现在挂在证据区。
   function paRunProfile() {
     const rows = [['Platform / Backend', 'a2a3 · Ascend910B'], ['Batch / Heads', '64 / 16'], ['Head dim / Block', '128 / 128'], ['Context / Max model', '8192 / 32768'], ['Blocks / Request', '64 used / 256 max'], ['数值门禁', 'allclose · rtol = atol = 2e-2']];
-    return `<div class="kf-pa-run"><dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
-      <p class="kf-op-inline-note">8192 ÷ 128 = 64 恰好整除、16 heads ÷ QTile 16 恰好整除——这组配置同时避开了末块与尾 Tile 两条路径，是两条警告风险在 Golden 下不暴露的原因。</p></div>`;
+    return `<b class="kf-pa-run-lead">绿灯是在这一组配置下拿到的</b>
+      <div class="kf-pa-run"><dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl></div>
+      <p class="kf-op-inline-note">8192 ÷ 128 = 64 整除、16 heads ÷ q_tile 16 整除——这组配置同时避开了 KV 末块与 Q 尾 Tile 两条路径。<b>所以「设备实跑通过」不能读成「这个算子没问题」</b>，只能读成「在整除配置下没问题」。上面 9 条风险里有 3 条正是被这组配置掩盖的。</p>`;
   }
 
   // 目标能力 Lens：源码用到的 PyPTO 能力在目标后端的支持状态
@@ -2348,6 +2417,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         device: { ok: true, note: 'main() 以 platform="a2a3" 实跑并 allclose(rtol=atol=2e-2)' },
         perfBaseline: { ok: false, note: 'Swimlane 采集是 --profile 可选项，没有可比基线' },
       },
+      confidenceNote: paRunProfile,
 
       // 静态可判定的风险。level: block | warn；每条带 为什么 / 影响什么 / 如何验证（O7）
       risks: [
@@ -2364,7 +2434,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           title: 'Q Head 尾 Tile 固定按 q_tile 取片',
           why: '<code>q_loop_cfg = (q_head_num + q_tile - 1) // q_tile</code>（第 281 行）是 ceil 除，但第 300 行的 <code>pl.slice(query, [q_tile, head_dim_cfg], [cur_offset, 0])</code> 无论第几个 tile 都固定取 <code>q_tile</code> 行。',
           impact: '<code>num_heads % q_tile ≠ 0</code> 时，最后一个 Q Tile 会越界读入下一个 batch 条目的 query 行，该 tile 的注意力输出被邻接请求污染。示例 16 heads ÷ QTile 16 恰好整除，掩盖了这个缺口。',
-          verify: '构造 num_heads = 18、q_tile = 16 的配置跑 Golden；或给尾 tile 补一个与 <code>valid_len</code> 对称的有效行数。',
+          fix: '补一个与 <code>valid_len</code> 对称的 <code>valid_q = pl.min(q_tile, q_head_num - q_idx * q_tile)</code>，Q Tile 与 <code>out</code> 写回视图都收窄到它。<b>完整分析见「概览」首屏的 Agent 结论。</b>',
+          verify: '构造 num_heads = 18、q_tile = 16 的配置跑 Golden；并单独断言相邻 request 的输出行段未被覆写。',
         },
         {
           level: 'warn', cls: '契约', lines: [286, 286],
@@ -2424,12 +2495,17 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         // 计算图是"这段代码在干什么"的直接答案，必须落在第一屏。
         // 入口与函数层级已移到「编排依赖」——它讲的是跨任务怎么排，不是这是什么。
         overview: [
+          // Agent 结论排在第一屏最上面：开发者接手一份自己没写的算子，第一个要
+          // 回答的是"这里有没有坑"，不是"这段代码长什么样"。图和签名是理解材料，
+          // 排在结论之后。
+          { type: 'raw', html: () => pagedAttentionAgentSection() },
           { type: 'raw', html: paSummaryStrip },
           { type: 'block', title: '任务计算图', origin: 'fact', html: paTaskGraphStage },
-          { type: 'block', title: '张量契约与方向', origin: 'fact', html: paContractTable },
-          { type: 'raw', html: () => pagedAttentionAgentSection() },
-          { type: 'block', title: '示例运行画像', origin: 'measured', html: paRunProfile },
-          { type: 'block', title: '源码阶段', origin: 'fact', html: paSourceMap },
+          { type: 'block', title: '输入与输出', origin: 'fact', html: paContractTable },
+          // 「示例运行画像」原本是一张 main() 的配置表，单独摆在这里读者不知道
+          // 要拿它干什么。它唯一的作用是解释"为什么现有 Golden 没发现这些问题"，
+          // 所以它属于置信度的脚注，已移到证据区抽屉，不再单独占一个区块。
+          { type: 'block', title: '源码地图', origin: 'fact', html: paSourceMap },
         ],
         data: [
           { type: 'block', title: '端到端精度流', origin: 'fact', html: paPrecisionPath },
@@ -4077,6 +4153,16 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       state.pagedAttentionPipeKernel = pagedAttentionPipe.dataset.pa2Pipe;
       syncPagedAttentionSelection(state.pagedAttentionPipeKernel);
       renderPagedAttentionInspector({ scrollToFocus: true });
+    }
+    // Agent 结论里的行号引用：只定位源码，不开抽屉。开抽屉会把读者正在读的
+    // 那段分析盖掉——这里点行号的意图是"我去看一眼那行"，不是"换个对象看"。
+    const pagedAttentionJump = event.target.closest('[data-pa2-jump]');
+    if (pagedAttentionJump) {
+      const jumpLine = Number(pagedAttentionJump.dataset.pa2Jump);
+      state.pagedAttentionLine = jumpLine;
+      markPagedAttentionTargetLine(jumpLine);
+      revealPagedAttentionLine(jumpLine);
+      return;
     }
     const pagedAttentionFocus = event.target.closest('[data-paged-attention-focus]');
     if (pagedAttentionFocus && !pagedAttentionFocus.closest('#dslEditor')) {

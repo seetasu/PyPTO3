@@ -360,6 +360,32 @@
   text-align: left;
 }
 .kf-op__risk-item dd code { font-family: var(--font-mono); }
+/* 「建议改法」是这条风险里唯一可执行的一行，给它一条 accent 边区分于描述。 */
+.kf-op__risk-item dl > div.is-fix {
+  margin: 1px 0;
+  padding: 6px 8px 6px 6px;
+  border-left: 2px solid var(--primary);
+  border-radius: 0 4px 4px 0;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.kf-op__risk-item dl > div.is-fix dt { color: var(--primary); }
+.kf-op__risk-item dl > div.is-fix dd { color: var(--foreground); }
+.kf-op-why-green { color: var(--foreground-muted); }
+
+.kf-op__evidence-note {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border-subtle);
+}
+.kf-op__evidence-note > b {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--foreground-muted);
+  font: 600 var(--kf-font-micro)/1.3 var(--font-sans);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
 .kf-op__risk-conflict {
   margin-top: 8px;
   padding: 7px 9px;
@@ -472,3 +498,151 @@
   .kf-op__status-div { display: none; }
   .kf-op__confidence { flex-basis: 100%; }
 }
+
+/* 源码行 ↔ 面板的统一高亮。取代此前每个文件一套的
+   .is-rms-function-active / .is-attention-line-active / .is-paged-attention-line-active … */
+#dslEditor [data-inspector-scope].is-inspector-scope-active {
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+  box-shadow: inset 2px 0 var(--primary);
+}
+
+/* 作用域切换器：一个文件里几个同族函数共用结论，各自有自己的数据与分块。 */
+.kf-op__variants {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  margin-top: 9px;
+}
+.kf-op__variants button {
+  display: grid;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  color: var(--foreground-muted);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.kf-op__variants button b { font: 600 var(--kf-font-micro)/1.3 var(--font-mono); overflow: hidden; text-overflow: ellipsis; }
+.kf-op__variants button small { font: var(--kf-font-micro)/1.3 var(--font-sans); opacity: .8; overflow: hidden; text-overflow: ellipsis; }
+.kf-op__variants button.is-active {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface-2));
+}
+
+/* ---- paged_attention 概览重构 --------------------------------------------
+   1) 计算图去掉 5 个图层按钮，改为图下的"风险落点"条
+   2) 输入与输出：加一列人话说明
+   3) Agent 结论：从六字段表改为 发现→根因→影响→改法→验证 的判断链
+   4) 示例运行画像下沉为置信度脚注
+
+   两条既有约束，这里一律遵守而不是绕开：
+   · demo.css:1601 用 !important 把 inspector 内所有文字压成 12px（标题 14px）。
+     所以下面不写任何 font-size——层级全部靠字重、颜色、留白和底色做出来。
+   · 面板跟随主题（当前默认深色）。所以颜色一律走 token，不写死任何字面色值。 */
+
+/* 1 · 风险落点 */
+.kf-pa-risk-landing {
+  margin-top: 12px; padding: 12px 14px; border-radius: 10px;
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, transparent);
+}
+.kf-pa-risk-landing > b { display: block; font-weight: 700; color: var(--warning); letter-spacing: 0.01em; }
+.kf-pa-risk-landing > div { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 8px; }
+.kf-pa-risk-landing button {
+  display: inline-flex; align-items: center; gap: 7px; padding: 4px 9px;
+  border-radius: 999px; cursor: pointer; font-family: inherit;
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--border-default));
+  background: var(--surface-1); color: var(--foreground);
+}
+.kf-pa-risk-landing button:hover {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface-1));
+}
+.kf-pa-risk-landing button em {
+  font-style: normal; font-weight: 700; color: var(--warning);
+  min-width: 18px; padding: 0 4px; text-align: center; border-radius: 4px;
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+}
+.kf-pa-risk-landing > small { display: block; line-height: 1.7; color: var(--foreground-muted); }
+
+/* 2 · 输入与输出 */
+/* 基础表是 .8fr 1.25fr 1fr 的三列。人话说明塞进第一列只有 ~85px，会逐字换行，
+   所以让它单独占一整行——三列放"参数名 / 形状 / 读写"，说明横跨全宽。 */
+.kf-pa-tensor-table.is-plain > div,
+.kf-pa-tensor-table.is-plain > button {
+  /* context_lens / block_table 在 .8fr 下会被省略号截掉，参数名截掉就没用了 */
+  grid-template-columns: 1.05fr 1.6fr .5fr;
+}
+.kf-pa-tensor-table.is-plain button { align-items: baseline; row-gap: 3px; }
+.kf-pa-tensor-table.is-plain button > small {
+  grid-column: 1 / -1; color: var(--foreground-muted); line-height: 1.55;
+}
+.kf-pa-tensor-table.is-plain button > b { display: flex; align-items: baseline; gap: 6px; }
+.kf-pa-tensor-table.is-plain button > b i {
+  font-style: normal; font-weight: 600; color: var(--foreground-muted);
+  padding: 0 5px; border-radius: 4px; background: var(--surface-3);
+}
+.kf-pa-tensor-table.is-plain button.is-out {
+  background: color-mix(in srgb, var(--success) 9%, transparent);
+  border-color: color-mix(in srgb, var(--success) 30%, var(--border-default));
+}
+.kf-pa-tensor-table.is-plain button.is-out > em { color: var(--success); font-weight: 700; }
+
+/* 3 · Agent 结论 */
+.kf-pa2-agent.is-lead {
+  border-radius: 12px; padding: 13px 15px 6px;
+  border: 1px solid color-mix(in srgb, var(--danger) 32%, transparent);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface-2));
+}
+.kf-pa2-agent-tag {
+  margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+  font-weight: 700; letter-spacing: 0.02em; text-transform: none;
+  color: var(--surface-1); background: var(--danger);
+}
+/* 结论句压不了字号，就给它一条竖杠 + 满字重 + 最亮的前景色，让它在 12px 里
+   也是第一眼看到的东西 */
+.kf-pa2-headline {
+  margin: 9px 0 6px; padding-left: 10px;
+  border-left: 3px solid var(--danger);
+  line-height: 1.7; font-weight: 700; color: var(--foreground);
+}
+.kf-pa2-scope { margin: 0 0 12px; padding-left: 13px; line-height: 1.65; color: var(--foreground-muted); }
+.kf-pa2-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+.kf-pa2-step { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 9px; align-items: start; }
+.kf-pa2-step > i { font-style: normal; font-weight: 700; color: var(--danger); line-height: 1.6; }
+.kf-pa2-step > div > b { display: block; font-weight: 700; color: var(--foreground); margin-bottom: 4px; }
+.kf-pa2-step > div > p { margin: 0; line-height: 1.8; color: color-mix(in srgb, var(--foreground) 78%, transparent); }
+.kf-pa2-tail { margin-top: 8px !important; }
+.kf-pa2-trace { display: flex; flex-direction: column; gap: 4px; margin: 8px 0 0; }
+.kf-pa2-trace button {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 3px 9px;
+  text-align: left; padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border-default); background: var(--surface-1); font-family: inherit;
+}
+.kf-pa2-trace button:hover {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface-1));
+}
+.kf-pa2-trace em {
+  grid-row: span 2; font-style: normal; font-weight: 700;
+  color: var(--foreground-muted); text-align: right;
+}
+.kf-pa2-trace code { font-family: var(--font-mono); line-height: 1.6; color: var(--foreground); word-break: break-word; }
+.kf-pa2-trace small { line-height: 1.55; color: var(--foreground-muted); }
+.kf-pa2-code {
+  margin: 9px 0 0; padding: 10px 12px; border-radius: 8px; overflow-x: auto;
+  background: var(--surface-3);
+  border: 1px solid color-mix(in srgb, var(--success) 26%, transparent);
+}
+.kf-pa2-code code {
+  display: block; white-space: pre; line-height: 1.9;
+  color: var(--foreground); font-family: var(--font-mono);
+}
+
+/* 4 · 置信度脚注里的运行配置 */
+.kf-pa-run-lead { display: block; font-weight: 700; color: var(--foreground); margin-bottom: 7px; }

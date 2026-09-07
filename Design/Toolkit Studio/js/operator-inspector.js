@@ -116,6 +116,7 @@
       <dl>
         <div><dt>为什么</dt><dd>${item.why}</dd></div>
         <div><dt>影响什么</dt><dd>${item.impact}</dd></div>
+        ${item.fix ? `<div class="is-fix"><dt>建议改法</dt><dd>${item.fix}</dd></div>` : ''}
         <div><dt>如何验证</dt><dd>${item.verify}</dd></div>
       </dl>
       ${item.conflict ? `<p class="kf-op__risk-conflict"><b>与现有面板结论冲突：</b>${item.conflict}</p>` : ''}
@@ -182,7 +183,7 @@
           const on = entry === true || (entry && entry.ok);
           const note = entry && entry.note ? entry.note : what;
           return `<div class="${on ? 'is-on' : ''}"><i>${on ? '✓' : '✗'}</i><span><b>${esc(label)}</b><small>${note}</small></span><em>${on ? '有证据' : '缺失'}</em></div>`;
-        }).join('')}</div>`,
+        }).join('')}</div>${profile.confidenceNote ? `<div class="kf-op__evidence-note">${typeof profile.confidenceNote === 'function' ? profile.confidenceNote() : profile.confidenceNote}</div>` : ''}`,
       };
     }
 
@@ -225,6 +226,14 @@
          <button type="button" class="is-warn" data-op-drawer="warn"${warnCount ? '' : ' disabled'}>⚠ ${warnCount}</button>
          <button type="button" class="is-guard" data-op-drawer="guards">🛡 ${guardCount}</button>`;
 
+    // 多函数文件的作用域切换器。一个文件里几个同族函数（rmsnorm 的 input/post）
+    // 共用一套结论与风险，但数据与分块各不相同——切换它，Body 换内容，骨架不动。
+    const variants = profile.variants || [];
+    const activeVariant = variants.some((v) => v.id === options.variant) ? options.variant : (variants[0] && variants[0].id);
+    const variantSwitch = variants.length > 1
+      ? `<div class="kf-op__variants" role="group" aria-label="${esc(profile.variantLabel || '函数')}">${variants.map((v) => `<button type="button" class="${v.id === activeVariant ? 'is-active' : ''}" data-op-variant="${esc(v.id)}"><b>${esc(v.name)}</b><small>${esc(v.role || '')}</small></button>`).join('')}</div>`
+      : '';
+
     const conf = profile.confidence || {};
     const confChips = CONFIDENCE.map(([key, shortLabel, fullLabel]) => {
       const entry = conf[key];
@@ -249,6 +258,7 @@
         <div class="kf-op__eyebrow">SOURCE ANALYSIS · ${esc(DEPTH_LABEL[profile.depth] || profile.depth || '')}</div>
         <p class="kf-op__summary" data-op-summary>${profile.summary || ''}</p>
         <div class="kf-op__id"><b class="kf-op__name">${esc(profile.name)}</b>${badges}</div>
+        ${variantSwitch}
         <div class="kf-op__status">
           <div class="kf-op__risk">${riskChips}</div>
           <div class="kf-op__status-div"></div>
@@ -277,5 +287,30 @@
     </div>`;
   }
 
-  window.PtoOperatorInspector = { render, TABS, ORIGINS, CONFIDENCE };
+  /* ---- 源码 ↔ 面板的唯一锚点 -------------------------------------------
+     行号到阶段的映射只在 profile.scopes[].lines 声明一次。此前每个文件各有
+     一条硬编码 if 链（`lineNumber < 93 ? 'qk' : ...`），源码一改就默默错位。 */
+
+  function scopeForLine(profile, line) {
+    const scopes = (profile && profile.scopes) || [];
+    for (const scope of scopes) {
+      const range = scope.lines;
+      if (Array.isArray(range) && line >= range[0] && line <= range[1]) return scope.id;
+    }
+    return null;
+  }
+
+  function scopeById(profile, id) {
+    return ((profile && profile.scopes) || []).find((scope) => scope.id === id) || null;
+  }
+
+  // 显示用行号：默认是归属区间，`anchor` 可以收窄到真正有内容的几行
+  function scopeLines(scope) {
+    if (!scope) return '—';
+    if (scope.anchor) return scope.anchor;
+    const range = scope.lines || [];
+    return range[0] === range[1] ? String(range[0]) : `${range[0]}–${range[1]}`;
+  }
+
+  window.PtoOperatorInspector = { render, TABS, ORIGINS, CONFIDENCE, scopeForLine, scopeById, scopeLines };
 })();
