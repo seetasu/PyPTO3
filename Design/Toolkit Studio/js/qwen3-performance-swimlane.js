@@ -9,10 +9,10 @@
   const AXIS_HEIGHT = 30;
   const ROW_HEIGHT = 19;
   const ROW_GAP = 2;
-  // Keep the default view readable while showing more of the real trace:
-  // 4 AIC + 5 AIV + 1 AICPU = 10 representative hardware lanes.
-  const LANE_LIMITS = { AIC: 4, AIV: 5, AICPU: 1 };
   const LANE_ORDER = ['AICPU', 'AIC', 'AIV'];
+  const DEFAULT_VIEWPORT_HEIGHT = 238;
+  const MIN_VIEWPORT_HEIGHT = 160;
+  const MAX_VIEWPORT_HEIGHT = 520;
 
   let initialized = false;
   let loaded = false;
@@ -122,7 +122,7 @@
       }, laneName))
     ));
     return {
-      source: '真实 trace · embedded 10 lanes',
+      source: '真实 trace · embedded',
       events,
       totalEvents: embedded.totalEvents,
       min: embedded.min,
@@ -150,17 +150,7 @@
       stats.set(laneName, item);
     });
 
-    const selectedLanes = [];
-    LANE_ORDER.forEach((kind) => {
-      [...stats.values()]
-        .filter((item) => laneKind(item.laneName) === kind)
-        .sort((a, b) => laneNumber(a.laneName) - laneNumber(b.laneName) || b.count - a.count)
-        .slice(0, LANE_LIMITS[kind])
-        .forEach((item) => selectedLanes.push(item.laneName));
-    });
-
     const events = allEvents
-      .filter(({ laneName }) => selectedLanes.includes(laneName))
       .map(({ event, laneName }) => makeTask(event, laneName))
       .sort((a, b) => a.start - b.start || a.laneId.localeCompare(b.laneId));
     const traceTasks = allEvents.map(({ event, laneName }) => makeTask(event, laneName));
@@ -173,7 +163,7 @@
       totalEvents: traceTasks.length,
       min: Number.isFinite(min) ? min : 0,
       max: max || 1,
-      lanes: selectedLanes,
+      lanes: [...stats.keys()].sort(laneSort),
     };
   }
 
@@ -217,6 +207,53 @@
     return context;
   }
 
+  function viewportHeight() {
+    const root = panel();
+    const value = Number.parseFloat(getComputedStyle(root).getPropertyValue('--qwen3-performance-viewport-height'));
+    return Number.isFinite(value) ? value : DEFAULT_VIEWPORT_HEIGHT;
+  }
+
+  function setViewportHeight(value) {
+    const root = panel();
+    if (!root) return;
+    const height = Math.round(Math.min(MAX_VIEWPORT_HEIGHT, Math.max(MIN_VIEWPORT_HEIGHT, value)));
+    root.style.setProperty('--qwen3-performance-viewport-height', `${height}px`);
+    const handle = qs('[data-performance-swimlane-resize]', root);
+    handle?.setAttribute('aria-valuenow', String(height));
+    render();
+    window.PtoQwen3ModelViz?.fit?.();
+  }
+
+  function handleResizeKeydown(event) {
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown' && event.key !== 'Home' && event.key !== 'End') return;
+    event.preventDefault();
+    const current = viewportHeight();
+    if (event.key === 'Home') return setViewportHeight(MIN_VIEWPORT_HEIGHT);
+    if (event.key === 'End') return setViewportHeight(MAX_VIEWPORT_HEIGHT);
+    setViewportHeight(current + (event.key === 'ArrowUp' ? 20 : -20));
+  }
+
+  function handleResizePointerDown(event) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const root = panel();
+    const startY = event.clientY;
+    const startHeight = viewportHeight();
+    const move = (moveEvent) => setViewportHeight(startHeight - (moveEvent.clientY - startY));
+    const end = () => {
+      root?.classList.remove('is-resizing');
+      document.body.style.removeProperty('user-select');
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+    };
+    root?.classList.add('is-resizing');
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  }
+
   function drawAxis(ctx, x, width, min, max) {
     const axisY = 15;
     const span = Math.max(1, max - min);
@@ -249,14 +286,16 @@
     const node = canvas();
     if (!node || !model || panel()?.hidden) return;
     const width = Math.max(280, node.clientWidth || node.parentElement?.clientWidth || 640);
-    const height = Math.max(80, node.clientHeight || 157);
-    const ctx = resizeCanvas(node, width, height);
-    const chartX = LABEL_WIDTH;
-    const chartWidth = Math.max(120, width - chartX - 10);
     const rows = model.lanes.map((laneName) => ({
       laneName,
       tasks: model.events.filter((task) => task.laneId === laneName),
     }));
+    const contentHeight = AXIS_HEIGHT + rows.length * (ROW_HEIGHT + ROW_GAP);
+    node.style.height = `${Math.max(80, contentHeight)}px`;
+    const height = Math.max(80, node.clientHeight || contentHeight);
+    const ctx = resizeCanvas(node, width, height);
+    const chartX = LABEL_WIDTH;
+    const chartWidth = Math.max(120, width - chartX - 10);
     const min = model.min || 0;
     const max = Math.max(model.max || 1, min + 1);
     const span = max - min;
@@ -368,6 +407,9 @@
     node.addEventListener('pointermove', handlePointerMove);
     node.addEventListener('pointerleave', handlePointerLeave);
     node.addEventListener('click', handleClick);
+    const resizeHandle = qs('[data-performance-swimlane-resize]', root);
+    resizeHandle?.addEventListener('pointerdown', handleResizePointerDown);
+    resizeHandle?.addEventListener('keydown', handleResizeKeydown);
     resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(() => render()) : null;
     resizeObserver?.observe(node.parentElement || node);
     window.addEventListener('qwen3-graph-selection', (event) => {

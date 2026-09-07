@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="./styles/operator-inspector.css?v=20260907-1" />
   <link rel="stylesheet" href="./styles/profiler.css?v=20260821-4" />
   <link rel="stylesheet" href="./styles/fusion.css?v=20260829-1" />
-  <link rel="stylesheet" href="./styles/qwen3-performance-swimlane.css?v=20260907-4" />
+  <link rel="stylesheet" href="./styles/qwen3-performance-swimlane.css?v=20260907-5" />
   <link rel="stylesheet" href="./styles/fusion-catalog.css?v=20260828-1" />
   <link rel="stylesheet" href="./styles/fusion-hardware.css?v=20260829-2" />
   <link rel="stylesheet" href="./styles/ir-compile-guard.css?v=20260902-1" />
@@ -231,6 +231,7 @@
               <div class="kf-model-stage pto-model-graphviz-stage" id="qwen3ModelGraph" aria-label="Qwen3 14B 模型架构图"></div>
               </div>
               <section class="kf-model-performance" id="qwen3PerformanceSwimlanePanel" aria-label="Qwen3 14B 性能泳道图" hidden>
+                <div class="kf-model-performance__resize-handle" data-performance-swimlane-resize role="separator" aria-orientation="horizontal" aria-valuemin="160" aria-valuemax="520" aria-valuenow="238" tabindex="0" title="拖拽调整泳道图高度"></div>
                 <header class="kf-model-performance__header">
                   <div class="kf-model-performance__title"><strong>性能泳道图</strong></div>
                   <div class="kf-model-performance__meta"><span data-performance-swimlane-stats>—</span><button type="button" data-performance-swimlane-toggle aria-expanded="true" aria-controls="qwen3PerformanceSwimlaneBody" title="收起性能泳道图">⌄</button></div>
@@ -676,8 +677,8 @@
   <!-- Large source snapshots are loaded on demand when their tree entry opens. -->
   <script src="./js/passes-graph.js?v=20260811-8"></script>
   <script src="./js/qwen3-model-viz.js?v=20260907-1"></script>
-  <script src="./js/qwen3-performance-embedded-trace.js?v=20260907-3"></script>
-  <script src="./js/qwen3-performance-swimlane.js?v=20260907-4"></script>
+  <script src="./js/qwen3-performance-embedded-trace.js?v=20260907-5"></script>
+  <script src="./js/qwen3-performance-swimlane.js?v=20260907-5"></script>
   <script src="./js/deepseek-v4-model-viz.js?v=20260828-1"></script>
   <script src="./js/inference-profile-data.js?v=20260821-4"></script>
   <script src="./js/inference-timeline.js?v=20260821-1"></script>

@@ -366,6 +366,99 @@
     });
   }
 
+  /* ---------- Pass 河 ---------------------------------------------------
+     The previous trace used one equal-width bar per pass. Keep that exact
+     data/selection model, but borrow Pass Atlas' more legible expression:
+     IR form bands above, strata bands behind the execution spine, and a
+     decision dot for meaningful transformations versus a tick for mechanical
+     rewrites. Every node still carries data-kg-p, so the existing detail panel
+     and real pass metadata remain the source of truth. */
+  function passRiver(ev) {
+    const W = Math.max(1240, PASSMETA.length * 26 + 200);
+    const padL = 176;
+    const padR = 28;
+    const irY = 18;
+    const bandY = 52;
+    const bandH = 56;
+    const nodeY = bandY + 34;
+    const H = bandY + bandH + 28;
+    const x = (index) => padL + ((index + 0.5) / PASSMETA.length) * (W - padL - padR);
+    const tipText = (item) => {
+      const pass = PASSMETA[item.i];
+      const status = item.kind === 'same' ? '未改动 IR'
+        : item.kind === 'absent' ? '这个 kernel 轨迹中尚不存在'
+        : item.text || '改写了 IR';
+      return `${String(item.i).padStart(2, '0')} ${pass.name}|${status}${item.touched ? ` · 影响 ${item.touched} 个 kernel` : ''}`;
+    };
+    const irLabels = {
+      S0: 'Tensor IR', S1: 'SSA / Tensor', S2: 'Structured IR',
+      S3: 'Tile IR', S4: 'AIC / AIV Kernel', S5: 'MemRef / 物理内存', S6: 'Runtime IR'
+    };
+    const milestoneKinds = new Set(['birth', 'struct', 'intent', 'bad', 'mem', 'rt']);
+    let svg = `<svg class="kf-kg-river" viewBox="0 0 ${W} ${H}" style="min-width:${W}px" role="img" aria-label="IR Pass 河">`;
+    svg += '<defs>' +
+      '<linearGradient id="kgRiverBand" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0%" stop-color="var(--foreground)" stop-opacity=".055"/>' +
+        '<stop offset="100%" stop-color="var(--foreground)" stop-opacity=".015"/>' +
+      '</linearGradient>' +
+      '<linearGradient id="kgRiverSpine" gradientUnits="userSpaceOnUse" x1="' + padL + '" y1="0" x2="' + (W - padR) + '" y2="0">' +
+        '<stop offset="0%" stop-color="var(--foreground)" stop-opacity=".05"/>' +
+        '<stop offset="12%" stop-color="var(--foreground)" stop-opacity=".2"/>' +
+        '<stop offset="88%" stop-color="var(--foreground)" stop-opacity=".2"/>' +
+        '<stop offset="100%" stop-color="var(--foreground)" stop-opacity=".05"/>' +
+      '</linearGradient>' +
+      '</defs>';
+
+    STRATA.forEach((stratum) => {
+      const start = Math.max(0, stratum.from);
+      const end = Math.min(PASSMETA.length - 1, stratum.to);
+      if (end < start) return;
+      const left = x(start) - 11;
+      const right = x(end) + 11;
+      const color = `var(--irp-${stratum.id.toLowerCase()})`;
+      svg += `<rect class="kf-kg-river-band" x="${left}" y="${bandY}" width="${right - left}" height="${bandH}" rx="10" fill="url(#kgRiverBand)" stroke="${color}" stroke-opacity=".28"/>`;
+      svg += `<text class="kf-kg-river-band-label" x="${(left + right) / 2}" y="${bandY + 16}" text-anchor="middle">${esc(stratum.id + ' · ' + stratum.name)}</text>`;
+    });
+
+    STRATA.forEach((stratum) => {
+      const start = Math.max(0, stratum.from);
+      const end = Math.min(PASSMETA.length - 1, stratum.to);
+      if (end < start) return;
+      const left = x(start) - 9;
+      const right = x(end) + 9;
+      const label = irLabels[stratum.id] || stratum.name;
+      svg += `<rect class="kf-kg-river-irbox" x="${left}" y="${irY - 10}" width="${Math.max(46, right - left - 4)}" height="19" rx="9"/>`;
+      svg += `<text class="kf-kg-river-ir" x="${left + 10}" y="${irY + 3}">${esc(label)}</text>`;
+    });
+    svg += `<text class="kf-kg-river-label" x="${padL - 14}" y="${irY + 3}" text-anchor="end">IR 形态</text>`;
+    svg += `<line class="kf-kg-river-spine" x1="${padL}" y1="${nodeY}" x2="${W - padR}" y2="${nodeY}" stroke="url(#kgRiverSpine)"/>`;
+    svg += `<text class="kf-kg-river-label" x="${padL - 14}" y="${nodeY + 4}" text-anchor="end">执行序 →</text>`;
+
+    PASSMETA.forEach((pass, index) => {
+      const item = ev[index];
+      const meaningful = milestoneKinds.has(item.kind);
+      const selected = item.i === st.pass;
+      const color = `var(--irp-${(pass.s || 'S0').toLowerCase()})`;
+      const cls = ['kf-kg-river-node', meaningful ? 'is-milestone' : 'is-mechanical', selected ? 'is-sel' : ''].filter(Boolean).join(' ');
+      const nodeX = x(index);
+      const labelY = meaningful ? nodeY + 25 : nodeY + 22;
+      const title = esc(`${String(pass.i).padStart(2, '0')} ${pass.name}`);
+      svg += `<g class="${cls}" data-kg-p="${pass.i}" data-kg-tip="${esc(tipText(item))}" tabindex="0" role="button" aria-label="${title}">`;
+      if (meaningful) {
+        svg += `<circle class="kf-kg-river-glow" cx="${nodeX}" cy="${nodeY}" r="13" fill="${color}"/>`;
+        svg += `<circle class="kf-kg-river-ring" cx="${nodeX}" cy="${nodeY}" r="9.5" fill="none" stroke="${color}" stroke-width="1"/>`;
+        svg += `<circle class="kf-kg-river-dot" cx="${nodeX}" cy="${nodeY}" r="6.5" fill="${color}" stroke="var(--background)" stroke-width="1.8"/>`;
+        svg += `<text class="kf-kg-river-index" x="${nodeX}" y="${labelY}" text-anchor="middle">${String(pass.i).padStart(2, '0')}</text>`;
+      } else {
+        svg += `<circle class="kf-kg-river-glow" cx="${nodeX}" cy="${nodeY}" r="8" fill="var(--foreground)"/>`;
+        svg += `<line class="kf-kg-river-tick" x1="${nodeX}" y1="${nodeY - 4.5}" x2="${nodeX}" y2="${nodeY + 4.5}"/>`;
+      }
+      svg += `<title>${title}</title></g>`;
+    });
+    svg += '</svg>';
+    return svg;
+  }
+
   const KIND_LABEL = {
     struct: '结构变换', intent: '意图相关', bad: '意图被破坏',
     mem: '内存', rt: '运行时', touch: '普通改动',
@@ -494,18 +587,6 @@
     const ev = opEvents();
     const miles = ev.filter(e => e.milestone);
 
-    const slots = ev.map(e => {
-      const s = STRATA.find(x => e.i >= x.from && e.i <= x.to);
-      const what = e.kind === 'same' ? '未改动'
-        : e.text + (e.touched ? '\n影响 ' + e.touched + ' 个 kernel' : '');
-      return '<button type="button" class="kf-kg-slot is-' + e.kind + (e.milestone ? ' is-milestone' : '') +
-        (e.i === st.pass ? ' is-sel' : '') + '"' +
-        ' data-kg-p="' + e.i + '" data-kg-tip="' + esc(String(e.i).padStart(2, '0') + ' ' + PASSNAMES[e.i] + '|' + what) + '"' +
-        ' style="--kg-c: var(--irp-' + (s ? s.id.toLowerCase() : 's0') + ')"' +
-        ' aria-label="' + esc(PASSNAMES[e.i] + ' — ' + what) + '">' +
-        '<i></i><em>' + String(e.i).padStart(2, '0') + '</em></button>';
-    }).join('');
-
     // Selected pass → operator-level detail from the global per-pass record.
     const p = st.pass !== null ? PASSMETA[st.pass] : null;
     let detail = '';
@@ -555,10 +636,7 @@
         '<span class="kf-kg-tmeta">' + miles.length + ' 个关键事件 · ' +
           ev.filter(e => e.kind !== 'same').length + ' / ' + ev.length + ' 个 pass 改动了 IR</span>' +
       '</div>' +
-      '<div class="kf-kg-track">' +
-        '<div class="kf-kg-strata">' + strataBands() + '</div>' +
-        '<div class="kf-kg-slots">' + slots + '</div>' +
-      '</div>' +
+      '<div class="kf-kg-river-wrap">' + passRiver(ev) + '</div>' +
       legendFor(ev) +
       detail;
   }
@@ -669,9 +747,17 @@
       st.pass = +b.dataset.kgP; st.fact = 0;
       renderTrace(); renderLineage();
     });
+    els.trace.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const b = e.target.closest('.kf-kg-river-node');
+      if (!b) return;
+      e.preventDefault();
+      st.pass = +b.dataset.kgP; st.fact = 0;
+      renderTrace(); renderLineage();
+    });
 
     els.trace.addEventListener('mousemove', e => {
-      const b = e.target.closest('.kf-kg-slot');
+      const b = e.target.closest('.kf-kg-slot, .kf-kg-river-node');
       if (!b) { els.tip.style.opacity = '0'; return; }
       const [head, body] = (b.dataset.kgTip || '|').split('|');
       els.tip.innerHTML = '<b>' + esc(head) + '</b><br>' + esc(body);

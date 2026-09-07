@@ -1,9 +1,45 @@
 .kf-model-performance {
+  --qwen3-performance-viewport-height: 238px;
   min-height: 0;
-  max-height: 310px;
-  overflow: hidden;
+  overflow: visible;
   border-top: 1px solid var(--border-subtle);
   background: color-mix(in srgb, var(--ide-frame-pane-fill) 96%, #07090d);
+}
+
+.kf-model-performance__resize-handle {
+  position: relative;
+  z-index: 2;
+  height: 6px;
+  margin-top: -3px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.kf-model-performance__resize-handle::after {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 42px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  content: '';
+  opacity: .7;
+  transform: translateX(-50%);
+  transition: width .15s ease, background .15s ease;
+}
+
+.kf-model-performance__resize-handle:hover::after,
+.kf-model-performance.is-resizing .kf-model-performance__resize-handle::after,
+.kf-model-performance__resize-handle:focus-visible::after {
+  width: 64px;
+  background: var(--primary);
+  opacity: 1;
+}
+
+.kf-model-performance__resize-handle:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--primary) 70%, transparent);
+  outline-offset: -1px;
 }
 
 .kf-model-performance__header {
@@ -126,7 +162,10 @@
 .kf-model-performance__canvas-wrap {
   position: relative;
   min-height: 0;
-  overflow: hidden;
+  height: var(--qwen3-performance-viewport-height);
+  overflow: auto;
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
 }
 
 #qwen3PerformanceSwimlane {
@@ -164,7 +203,5 @@
 }
 
 @media (max-height: 760px) {
-  .kf-model-performance { max-height: 214px; }
-  .kf-model-performance__canvas-wrap { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
-  #qwen3PerformanceSwimlane { height: 238px; }
+  .kf-model-performance__canvas-wrap { height: min(var(--qwen3-performance-viewport-height), 238px); }
 }

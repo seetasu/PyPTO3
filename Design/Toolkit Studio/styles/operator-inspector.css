@@ -417,6 +417,30 @@
    会造成双标题，统一压掉。随着 raw 区块被结构化，这条规则会消失。 */
 .kf-op__body .kf-inspector-section { margin-bottom: 16px; }
 
+/* 假设推演（"如果声明 pl.pipeline 会发生什么"）不是现状，默认折叠。
+   现状永远直接可见，推演要多点一下——这是这个面板的取舍顺序。 */
+.kf-op__body .kf-op-fold > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  padding: 7px 0;
+}
+.kf-op__body .kf-op-fold > summary::-webkit-details-marker { display: none; }
+.kf-op__body .kf-op-fold > summary::before {
+  content: "›";
+  flex: none;
+  width: 14px;
+  color: var(--foreground-muted);
+  font: var(--kf-font-sm)/1 var(--font-mono);
+  transition: transform .15s ease;
+}
+.kf-op__body .kf-op-fold[open] > summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .kf-op__body .kf-op-fold > summary::before { transition: none; }
+}
+
 /* 图层轴与 tab 轴是同一根轴：从图的某个图层直接跳到对应的格 */
 .kf-op-layer-jump {
   display: flex;

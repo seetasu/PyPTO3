@@ -266,6 +266,63 @@
 .kf-kg-track.is-mini .kf-kg-slot.is-milestone i { height: 10px; }
 .kf-kg-track.is-mini .kf-kg-slot em { font-size: 6.5px; }
 
+/* ---------- Pass 河 -----------------------------------------------------
+   Borrowed from Design/pass-atlas: IR form bands sit above a single
+   execution spine, while meaningful transforms become decision dots and
+   mechanical rewrites stay as quiet ticks. The SVG remains horizontally
+   scrollable so every real pass keeps its own hit target. */
+.kf-kg-river-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--background) 70%, transparent);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.kf-kg-river {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 118px;
+}
+.kf-kg-river-label,
+.kf-kg-river-band-label,
+.kf-kg-river-ir,
+.kf-kg-river-index {
+  pointer-events: none;
+}
+.kf-kg-river-label { fill: var(--foreground-muted); font: 10px var(--font-sans); }
+.kf-kg-river-ir { fill: var(--foreground-muted); font: 9.5px var(--font-mono); }
+.kf-kg-river-band { stroke-width: 1; }
+.kf-kg-river-band-label { fill: var(--foreground-muted); font: 9.5px var(--font-sans); letter-spacing: .04em; }
+.kf-kg-river-irbox { fill: var(--surface-3); stroke: var(--border-default); stroke-width: 1; }
+.kf-kg-river-spine { stroke-width: 1.5; stroke-linecap: round; }
+.kf-kg-river-node { cursor: pointer; outline: none; }
+.kf-kg-river-node .kf-kg-river-glow { opacity: 0; transition: opacity .16s ease; }
+.kf-kg-river-node .kf-kg-river-ring,
+.kf-kg-river-node .kf-kg-river-dot,
+.kf-kg-river-node .kf-kg-river-tick { transition: all .14s ease; }
+.kf-kg-river-node .kf-kg-river-tick { stroke: color-mix(in srgb, var(--foreground) 46%, transparent); stroke-width: 2; stroke-linecap: round; }
+.kf-kg-river-node .kf-kg-river-index { fill: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-kg-river-node:hover .kf-kg-river-dot,
+.kf-kg-river-node:focus-visible .kf-kg-river-dot { stroke: var(--foreground); stroke-width: 2.4; }
+.kf-kg-river-node:hover .kf-kg-river-tick,
+.kf-kg-river-node:focus-visible .kf-kg-river-tick { stroke: var(--foreground); stroke-width: 2.5; }
+.kf-kg-river-node:hover .kf-kg-river-glow,
+.kf-kg-river-node:focus-visible .kf-kg-river-glow,
+.kf-kg-river-node.is-sel .kf-kg-river-glow { opacity: .55; }
+.kf-kg-river-node.is-sel .kf-kg-river-dot { stroke: var(--foreground); stroke-width: 2.4; }
+.kf-kg-river-node.is-sel .kf-kg-river-index { fill: var(--foreground); font-weight: 700; }
+.kf-kg-river-node.is-mechanical .kf-kg-river-glow { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .kf-kg-river-node .kf-kg-river-glow,
+  .kf-kg-river-node .kf-kg-river-ring,
+  .kf-kg-river-node .kf-kg-river-dot,
+  .kf-kg-river-node .kf-kg-river-tick { transition: none; }
+}
+
 /* Tooltip now carries the milestone description, so it wraps rather than
    forcing one long line. */
 .kf-kg-tip {

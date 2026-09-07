@@ -2113,7 +2113,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       <section class="kf-inspector-section kf-pa2-scope"><header><h2 class="kf-inspector-title">Scope 与依赖治理</h2><span>全程 ${scope.mode}</span></header>
         <div class="kf-pa2-scope-banner" data-mode="${scope.mode}"><b>${scope.mode} Scope</b><span>Tensor 生产 / 消费关系自动推导任务顺序，无需显式 TaskId</span>${ev('source')}</div>
         <div class="kf-pa2-scope-facts">${scope.facts.map(([name, value]) => `<div><span>${name}</span><b>${value}</b></div>`).join('')}</div>
-        <div class="kf-pa2-scope-risks">${scope.risks.map((risk) => `<article class="is-${risk.level}"><header><b>${risk.title}</b>${ev(risk.level)}</header><p>${risk.body}</p></article>`).join('')}</div>
+        <p class="kf-pa-note">因为不存在 MANUAL Scope，也就没有"读了别人写的 Tensor 但 <code>deps</code> 里缺 TaskId"这类漏依赖。反过来，间接寻址与动态写回可能被<b>保守串行化</b>——两条已记入结论区的警告风险。</p>
       </section>`;
   }
 
@@ -2138,7 +2138,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         <div class="kf-pa2-tile-head"><b>${pipe.label}</b><span>${pipe.core}</span><code>第 ${pipe.lines} 行</code></div>
         <ol class="kf-pa2-tile-steps">${pipe.steps.map((step) => `<li class="is-${step.kind}"><em>${kindLabel[step.kind]}</em><div><code>${step.op}</code><span>${step.from} → ${step.to}</span>${step.note ? `<small>${step.note}</small>` : ''}</div></li>`).join('')}</ol>
         <div class="kf-pa2-loop-table"><header><span>循环与流水语义</span>${ev('source')}</header><div class="head"><span>语句</span><b>位置</b><em>语义</em><i>调度含义</i></div>${pagedAttentionLoopSemantics.map(([stmt, line, sem, meaning]) => `<div><span><code>${stmt}</code></span><b>${line}</b><em>${sem}</em><i>${meaning}</i></div>`).join('')}</div>
-        <div class="kf-pa2-pipe-chart"><header><b>如果声明 pl.pipeline 会发生什么</b>${ev('infer')}</header>
+        <details class="kf-pa2-pipe-chart kf-op-fold"><summary><b>如果声明 pl.pipeline 会发生什么</b>${ev('infer')}</summary>
           <div class="kf-pa2-pipe-legend"><span><i class="copyin"></i>CopyIn K / V Block</span><span><i class="compute"></i>QK · Softmax · PV</span><span><i class="copyout"></i>Online Update</span></div>
           <div class="kf-pa2-pipe-lanes"><span class="axis">时间 →</span>
             <div><i>bn 0</i><em class="copyin" style="--s:1;--n:1" title="CopyIn K/V Block 0"></em><em class="compute" style="--s:2;--n:3" title="QK · Softmax · PV">QK·SM·PV</em><em class="copyout" style="--s:5;--n:1" title="Online Update"></em></div>
@@ -2146,9 +2146,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
             <div><i>bn 2</i><em class="copyin" style="--s:3;--n:1" title="CopyIn K/V Block 2 · 可与前面计算重叠"></em><em class="compute" style="--s:8;--n:3" title="QK · Softmax · PV">QK·SM·PV</em><em class="copyout" style="--s:11;--n:1" title="Online Update"></em></div>
           </div>
           <p>当前源码没有 <code>pl.pipeline(stage=F)</code>。由于 <code>mi / li / oi</code> 是 loop-carried 状态，<b>计算段无法跨 bn 重叠</b>；能重叠的只有 K / V Block 的 CopyIn。上图是静态推断的可达形态，不是实测时序。</p>
-        </div>
-        <div class="kf-pa2-tile-note"><i>↳</i><div><b>一个 Coding 阶段可见的搬运冗余</b><p><code>qi = pl.slice(query, [q_tile, head_dim_cfg], [cur_offset, 0])</code> 位于 <code>bn</code> 循环内部（第 300 行），而 Q Tile 在整个 KV Block 循环中并不变化。每个 Block 都重新取一次 Q，意味着同一份 Q 会被反复搬入；把它提到 <code>bn</code> 循环外是编译期就能确认的改法。</p></div>${ev('source')}</div>
-      </section>`;
+        </details>
+              </section>`;
   }
 
   function pagedAttentionAgentSection() {
@@ -2258,16 +2257,16 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       ['is-supported', '✓', 'Cube Matmul', 'BF16 input · FP32 accumulate', '源码采用'],
       ['is-supported', '✓', 'Vector Softmax primitives', 'row_max · exp · row_sum', '源码采用'],
       ['is-supported', '✓', 'transpose_view 零拷贝', 'Kᵀ 不额外占 L1', '源码采用'],
-      ['is-caution', '!', '动态有效宽度', 'sij_valid 用运行时 valid_len', '重点验证'],
-      ['is-caution', '!', '动态 Head 尾 Tile', 'slice 固定 q_tile', '能力缺口'],
       ['', '○', 'Cube↔Vector 片上交接', 'A2/A3 可能经 GM Buffer', '需 Pass / 实测'],
     ];
-    return `<div class="kf-pa-capability"><div>${rows.map(([cls, mark, name, detail, verdict]) => `<article class="${cls}"><i>${mark}</i><span><b>${name}</b><small>${detail}</small></span><em>${verdict}</em></article>`).join('')}</div></div>`;
+    // 「动态有效宽度」「动态 Head 尾 Tile」两条原本在这里重复列一遍，
+    // 它们已经是结论区的警告风险——能力表只留能力，风险只在一处说。
+    return `<div class="kf-pa-capability"><div>${rows.map(([cls, mark, name, detail, verdict]) => `<article class="${cls}"><i>${mark}</i><span><b>${name}</b><small>${detail}</small></span><em>${verdict}</em></article>`).join('')}</div>
+      <button type="button" class="kf-op-layer-jump" data-op-drawer="warn">动态有效宽度与 Head 尾 Tile 的能力缺口见警告风险<i>→</i></button></div>`;
   }
 
-  function paExecutionBand() {
-    return `<section class="kf-pa-execution-band" aria-label="Paged Attention 数据与硬件执行带"><div class="source"><em>GM · BF16</em><b>Q [16,128]</b><small>4 KiB</small></div><i>load</i><button type="button" class="cube" data-paged-attention-focus="qk"><em>CUBE · L1/L0</em><b>QK Matmul</b><small>BF16 × BF16 → FP32 sij</small></button><i>store / load</i><button type="button" class="vector" data-paged-attention-focus="softmax"><em>VECTOR · UB</em><b>Mask + Softmax</b><small>FP32 exp → BF16 pij</small></button><i>store / load</i><button type="button" class="cube" data-paged-attention-focus="pv"><em>CUBE · L1/L0</em><b>PV Matmul</b><small>BF16 × BF16 → FP32 oi_new</small></button><i>store / load</i><button type="button" class="vector" data-paged-attention-focus="online"><em>VECTOR · UB</em><b>Online Update</b><small>FP32 mi / li / oi → FP32 out</small></button><i>store</i><div class="source"><em>GM · FP32</em><b>Output [B×H,D]</b><small>512 KiB / example</small></div></section>`;
-  }
+  // 执行带与"昇腾执行路径"原本是两张同构的 5 段链（GM→Cube→Vector→Cube→Vector→GM），
+  // 只是一张带字节数、一张带片上层级。合并成一张，字节数与层级同时给出。
 
   function paLoopNest() {
     const rows = [
@@ -2301,13 +2300,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   function paHardwareLanes() {
-    return `<div class="kf-pa-hw-lanes"><div class="memory"><em>GM</em><b>Query · Paged K/V · State</b><small>BF16 inputs / FP32 accumulators</small></div><i>load</i><button type="button" data-paged-attention-focus="qk"><em>CUBE</em><b>QK Matmul</b><small>L1 → L0A/L0B → L0C · FP32</small></button><i>store/load</i><button type="button" data-paged-attention-focus="softmax"><em>VECTOR</em><b>Softmax Prepare</b><small>UB · FP32 exp/sum → BF16 pij</small></button><i>store/load</i><button type="button" data-paged-attention-focus="pv"><em>CUBE</em><b>PV Matmul</b><small>BF16 inputs · FP32 oi_new</small></button><i>store/load</i><button type="button" data-paged-attention-focus="online"><em>VECTOR</em><b>Online Update</b><small>FP32 mi/li/oi · normalize output</small></button><i>store</i><div class="memory"><em>GM</em><b>Attention Output</b><small>[B × Heads, D] · FP32</small></div></div>
+    return `<div class="kf-pa-hw-lanes"><div class="memory"><em>GM · BF16</em><b>Q [16,128] · Paged K/V</b><small>Q 4 KiB · K/V Block 各 32 KiB</small></div><i>load</i><button type="button" data-paged-attention-focus="qk"><em>CUBE</em><b>QK Matmul</b><small>L1 → L0A/L0B → L0C · BF16 × BF16 → FP32 sij 8 KiB</small></button><i>store / load</i><button type="button" data-paged-attention-focus="softmax"><em>VECTOR</em><b>Mask + Softmax Prepare</b><small>UB · FP32 exp/sum → BF16 pij 4 KiB</small></button><i>store / load</i><button type="button" data-paged-attention-focus="pv"><em>CUBE</em><b>PV Matmul</b><small>BF16 × BF16 → FP32 oi_new 8 KiB</small></button><i>store / load</i><button type="button" data-paged-attention-focus="online"><em>VECTOR</em><b>Online Update</b><small>UB · FP32 mi/li/oi → 归一化写回</small></button><i>store</i><div class="memory"><em>GM · FP32</em><b>Attention Output</b><small>[B × Heads, D] · 512 KiB / example</small></div></div>
       <p class="kf-pa-note">这是依据 <code>target_memory=</code> 与 kernel 语义的静态映射，不代表最终指令时序和真实 Buffer 地址。A2/A3 上 Cube↔Vector 的真实 GM 往返需读取 Pass IR、Swimlane 与 PMU。</p>`;
-  }
-
-  function paDepFlow() {
-    return `<div class="kf-pa-dependency"><div class="kf-pa-dep-flow"><div><b>QK</b><small>produces sij</small></div><i>→</i><div><b>Softmax</b><small>pij · mi · li</small></div><i>→</i><div><b>PV</b><small>oi_new</small></div><i>→</i><div><b>Online Update</b><small>mi_update · li_update · oi</small></div><i class="loop">↺ next bn</i></div>
-      <p>源码里<b>没有任何显式依赖原语</b>——没有 <code>pl.submit(deps=)</code>、<code>pl.at(...) as tid</code>、<code>pl.manual_scope()</code>、<code>pl.no_dep()</code>。全部顺序由 Call 的 Tensor 生产 / 消费与 <code>InOut</code> 状态自动推导。最终 Task 顺序需在 Pass 后依赖图确认。</p></div>`;
   }
 
   function paParallelIntent() {
@@ -2394,6 +2388,27 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           verify: '用不同的 <code>block_size</code> 调 <code>build_dynamic_paged_attention_program()</code> 并检查是否产生了不同的 CompiledProgram；确认这是设计意图而非遗漏。',
         },
         {
+          level: 'warn', cls: '性能', lines: [300, 300],
+          title: 'Q Tile 在 bn 循环内被重复搬运',
+          why: '<code>qi = pl.slice(query, [q_tile, head_dim_cfg], [cur_offset, 0])</code> 写在 <code>bn</code> 循环体内（第 300 行），而 Q Tile 在整个 KV Block 循环中并不变化。',
+          impact: '每个 KV Block 都重新取一次同一份 Q。本例每个 (batch, q_tile) 有 64 个 block，等于同一份 4 KiB 被搬 64 次。属性能损失，不影响数值。',
+          verify: '把该语句提到 <code>bn</code> 循环外，编译后对比 Tile 搬运次数；这是编译期就能确认的改法，不需要上机。',
+        },
+        {
+          level: 'warn', cls: '依赖', lines: [303, 310],
+          title: 'Paged 间接寻址可能被保守串行化',
+          why: '<code>key_cache</code> / <code>value_cache</code> 的 Slice 起点来自 <code>block_table</code> 读出的运行时标量（第 303、310 行）。编译期无法证明不同 <code>bn</code> 的 Region 不相交。',
+          impact: '一旦按保守重叠处理，读—读本应无依赖的路径也会被排成串行，KV Block 的取数失去重叠机会——这是性能损失而非错值。',
+          verify: '编译后读依赖图，确认 KV 读之间是否被插入了边；必要时用 <code>pl.no_dep(arg)</code> 在带外承诺不相交（那会引入本文件目前没有的语义护栏）。',
+        },
+        {
+          level: 'warn', cls: '依赖', lines: [350, 350],
+          title: 'out 写回视图可能产生保守 WAW',
+          why: '<code>out</code> 的写回视图 <code>pl.slice(out, [q_tile, head_dim], [cur_offset, 0])</code> 使用动态 <code>cur_offset</code>（第 350 行）。',
+          impact: '行段实际互不相交，但保守 WAW 会让不同 <code>(b_idx, q_idx)</code> 的 tile 失去并行机会。同样是性能问题。',
+          verify: '编译后确认这些写之间是否成边；若成边且确认不相交，可用 <code>no_dep_args=</code> 覆盖。',
+        },
+        {
           level: 'warn', cls: '切分', lines: [275, 277],
           title: '三处整除推导没有守卫',
           why: '<code>num_heads = query.rows // batch</code>、<code>block_size = value_cache.rows // block_table.size</code>、<code>block_num = block_table.size // batch</code>（第 275–277 行）都是整数除，源码没有对可除性做任何检查。',
@@ -2421,11 +2436,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           { type: 'block', title: '精度敏感点', origin: 'resolved', html: paPrecisionSensitivity },
           { type: 'block', title: 'Shape / Layout 变换', origin: 'fact', html: paLayoutFlow },
           { type: 'block', title: '有效 Shape 与 Padding', origin: 'fact', html: paValidShape },
+          // Shape 推导讲的是形状怎么来的，和 Layout 变换是同一件事，归数据精度
+          { type: 'block', title: '动态 Shape 推导', origin: 'fact', html: paShapeFormulas },
           { type: 'block', title: '单 Block 工作集', origin: 'estimated', html: paWorkingSet },
           { type: 'block', title: '示例逻辑规模', origin: 'estimated', html: paLogicalScale },
         ],
         tiling: [
-          { type: 'raw', html: paExecutionBand },
           { type: 'block', title: '循环与 Tile 映射', origin: 'fact', html: paLoopNest },
           { type: 'block', title: 'Tile 形状', origin: 'fact', html: paTileMatrix },
           { type: 'block', title: 'Paged Block 扫描', origin: 'estimated', html: paBlockStrip },
@@ -2439,11 +2455,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           // 入口与函数层级：1 Program → 1 Orchestration → 5 InCore 的调用结构。
           // 它已经把 Program / Orchestration / InCore 的层级画全了，不再重复一份树。
           { type: 'raw', html: () => pagedAttentionEntrySection() },
-          { type: 'block', title: '动态 Shape 推导', origin: 'fact', html: paShapeFormulas },
           { type: 'block', title: 'Paged KV 地址映射', origin: 'fact', html: paPageMap },
           { type: 'raw', html: () => pagedAttentionTaskSection() },
+          // 「依赖与数据流」已按边逐条展开 producer→consumer，原先另有一张静态
+          // QK→Softmax→PV→Update 链在讲同一件事，且"无显式依赖原语"这条事实
+          // 在 Scope 治理与护栏抽屉里各说过一次——三重重复，去掉那张链。
           { type: 'raw', html: () => pagedAttentionDepSection() },
-          { type: 'block', title: '依赖与状态 Carry', origin: 'fact', html: paDepFlow },
           { type: 'block', title: '并行意图', origin: 'fact', html: paParallelIntent },
           { type: 'raw', html: () => pagedAttentionScopeSection() },
         ],
