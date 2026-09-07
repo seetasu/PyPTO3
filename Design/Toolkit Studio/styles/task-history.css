@@ -665,6 +665,17 @@
    specific micro visualisations instead of identical number tiles. */
 .kf-rd { container-type: inline-size; }
 
+/* The run identity and its two headline metrics are one overview surface.
+   Keep the metrics visually distinct inside it, but avoid three separate
+   floating cards competing for the same hierarchy. */
+.kf-rd-overview {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  box-shadow: 0 14px 32px rgb(0 0 0 / .14), inset 0 1px 0 rgb(255 255 255 / .025);
+}
+
 .kf-rd-summary {
   position: relative; isolation: isolate; overflow: hidden; display: grid; gap: 13px;
   padding: 17px 18px 15px; border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--border-subtle));
@@ -673,6 +684,11 @@
     radial-gradient(120% 150% at 0% 0%, color-mix(in srgb, var(--primary) 13%, transparent), transparent 52%),
     linear-gradient(145deg, color-mix(in srgb, var(--surface-2) 92%, transparent), color-mix(in srgb, var(--surface-1) 78%, transparent));
   box-shadow: 0 14px 32px rgb(0 0 0 / .14), inset 0 1px 0 rgb(255 255 255 / .025);
+}
+.kf-rd-overview .kf-rd-summary {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 .kf-rd-summary::after {
   content: ""; position: absolute; z-index: -1; top: -52px; right: -40px; width: 180px; height: 120px;
@@ -740,7 +756,10 @@
 .kf-rd-summary .kf-rd-verdictline.is-warn { box-shadow: inset 2px 0 0 var(--warning); }
 .kf-rd-summary .kf-rd-verdictline.is-bad { box-shadow: inset 2px 0 0 var(--danger); }
 
-.kf-rd-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; }
+.kf-rd-kpis {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0;
+  padding: 0 2px 2px; border-top: 1px solid var(--border-subtle);
+}
 .kf-rd-kpi {
   --kpi-accent: var(--primary); position: relative; isolation: isolate; overflow: hidden;
   grid-column: span 2; min-height: 124px; display: grid; grid-template-rows: auto 1fr auto; gap: 10px;
@@ -749,6 +768,17 @@
   background:
     linear-gradient(160deg, color-mix(in srgb, var(--kpi-accent) 7%, var(--surface-2)), color-mix(in srgb, var(--surface-1) 88%, transparent));
   box-shadow: 0 9px 20px rgb(0 0 0 / .09), inset 0 1px 0 rgb(255 255 255 / .025);
+}
+.kf-rd-overview .kf-rd-kpi {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-inline: 16px;
+}
+.kf-rd-overview .kf-rd-kpi::after { display: none; }
+.kf-rd-overview .kf-rd-kpi + .kf-rd-kpi {
+  border-left: 1px solid var(--border-subtle);
 }
 .kf-rd-kpi::after {
   content: ""; position: absolute; z-index: -1; width: 78px; height: 78px; top: -45px; right: -28px;
@@ -837,4 +867,8 @@
   .kf-rd-summary .kf-rd-head { display: grid; }
   .kf-rd-summary .kf-rd-run { align-items: flex-start; }
   .kf-rd-kpi, .kf-rd-kpi.is-memory, .kf-rd-kpi.is-signals { grid-column: span 6; }
+  .kf-rd-overview .kf-rd-kpi + .kf-rd-kpi {
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
 }

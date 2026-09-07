@@ -960,7 +960,10 @@
     if (L) {
       /* Identity, verdict and the headline numbers stay above the tabs — they
          are true of the run, not of one view of it. Everything below switches. */
-      els.detail.innerHTML = head + kpis(r, L) + tabStrip() +
+      const overview = '<section class="kf-rd-overview" aria-label="运行快照概览">' +
+        head + kpis(r, L) +
+        '</section>';
+      els.detail.innerHTML = overview + tabStrip() +
         '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div>';
       const panel = $('#runTabPanel', els.detail);
 
