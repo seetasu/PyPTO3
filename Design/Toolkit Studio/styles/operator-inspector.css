@@ -1,0 +1,424 @@
+/* ---- 统一算子属性面板 (Operator Inspector) ----------------------------
+   一套骨架服务所有算子源码：结论区 / 四格 Tab / Body / 证据与行动。
+   文件之间的差异全部落在 OperatorProfile 数据里，不落在这张样式表里。
+   规范：Design/Toolkit Studio 算子属性面板统一规范 §四–§八 */
+
+.kf-inspector.is-op-inspector {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+.kf-op {
+  --kf-op-guard: #a985dd;
+  --kf-op-gap: 10px;
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ---- ① 结论区 ---------------------------------------------------------- */
+
+.kf-op__verdict {
+  flex: none;
+  padding: 11px 13px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface-2));
+}
+.kf-op__eyebrow {
+  color: var(--foreground-muted);
+  font: 600 var(--kf-font-micro)/1 var(--font-sans);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.kf-op__summary {
+  margin: 6px 0 8px;
+  color: var(--foreground);
+  font: var(--kf-font-xs)/1.55 var(--font-sans);
+  /* 两行封顶：结论区不能被一段长描述撑开 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.kf-op__summary.is-open { -webkit-line-clamp: unset; line-clamp: unset; }
+
+.kf-op__id { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.kf-op__name {
+  margin-right: 2px;
+  color: var(--foreground);
+  font: 650 var(--kf-font-md)/1.2 var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.kf-op__badge {
+  padding: 1px 6px;
+  border: 1px solid;
+  border-radius: 3px;
+  font: 600 var(--kf-font-micro)/1.5 var(--font-mono);
+  white-space: nowrap;
+}
+.kf-op__badge.is-kind { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.kf-op__badge.is-complete { border-color: color-mix(in srgb, var(--success) 45%, var(--border-default)); color: var(--success); background: color-mix(in srgb, var(--success) 8%, transparent); }
+.kf-op__badge.is-partial,
+.kf-op__badge.is-placeholder { border-color: color-mix(in srgb, var(--warning) 45%, var(--border-default)); color: var(--warning); background: color-mix(in srgb, var(--warning) 8%, transparent); }
+.kf-op__badge.is-blocked { border-color: color-mix(in srgb, var(--danger) 45%, var(--border-default)); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.kf-op__badge.is-trait { border-color: var(--border-default); color: var(--foreground-muted); background: transparent; }
+
+/* 状态条：左风险 chips ｜ 右置信度 chips。位置恒定占用，无风险时也不塌陷。 */
+.kf-op__status { display: flex; align-items: stretch; gap: 7px; margin-top: 9px; }
+.kf-op__risk { display: flex; gap: 3px; flex: none; }
+.kf-op__risk button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border: 1px solid;
+  border-radius: 4px;
+  font: 600 var(--kf-font-micro)/1.4 var(--font-mono);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.kf-op__risk button:disabled { cursor: default; opacity: .55; }
+.kf-op__risk .is-block { border-color: color-mix(in srgb, var(--danger) 45%, transparent); color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface-2)); }
+.kf-op__risk .is-warn { border-color: color-mix(in srgb, var(--warning) 45%, transparent); color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, var(--surface-2)); }
+.kf-op__risk .is-guard { border-color: color-mix(in srgb, var(--kf-op-guard) 50%, transparent); color: var(--kf-op-guard); background: color-mix(in srgb, var(--kf-op-guard) 12%, var(--surface-2)); }
+.kf-op__risk .is-clear { border-color: color-mix(in srgb, var(--success) 40%, transparent); color: var(--success); background: color-mix(in srgb, var(--success) 10%, var(--surface-2)); }
+
+.kf-op__status-div { flex: none; width: 1px; background: var(--border-default); }
+
+.kf-op__confidence {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 2px 8px;
+  min-width: 0;
+  flex: 1;
+}
+.kf-op__confidence button {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.5 var(--font-mono);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.kf-op__confidence button i { font-style: normal; font-weight: 700; }
+.kf-op__confidence button.is-on i { color: var(--success); }
+.kf-op__confidence button.is-off i { color: var(--danger); }
+.kf-op__confidence button:hover { color: var(--foreground-secondary); }
+/* 修改模式：旧证据对新代码不成立，整组灰掉 */
+.kf-op.is-diff .kf-op__confidence { opacity: .4; }
+.kf-op.is-diff .kf-op__confidence button i { color: var(--foreground-muted) !important; }
+
+/* ---- ② Tab 条：恒定四格，等分 ------------------------------------------ */
+
+.kf-op__tabs {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+}
+.kf-op__tabs button {
+  min-width: 0;
+  padding: 9px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--foreground-muted);
+  background: transparent;
+  cursor: pointer;
+  font: var(--kf-font-xs)/1.3 var(--font-sans);
+  white-space: nowrap;
+}
+.kf-op__tabs button:hover { color: var(--foreground-secondary); }
+.kf-op__tabs button.is-active { border-bottom-color: var(--primary); color: var(--primary); font-weight: 600; }
+.kf-op__tabs button.is-empty { opacity: .55; }
+
+/* ---- ③ Body ------------------------------------------------------------ */
+
+.kf-op__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 13px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.kf-op__block { margin-bottom: 16px; }
+.kf-op__block:last-child { margin-bottom: 0; }
+.kf-op__block-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.kf-op__block-head h3 {
+  margin: 0;
+  color: var(--foreground-muted);
+  font: 600 var(--kf-font-micro)/1.3 var(--font-sans);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.kf-op__origin {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.4 var(--font-mono);
+  white-space: nowrap;
+}
+.kf-op__origin i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+
+/* 五级来源标记，与 ④ 的图例一一对应（规划文档 §3.2 口径） */
+.kf-op-dot-fact { background: var(--foreground-secondary); }
+.kf-op-dot-resolved { background: var(--primary); }
+.kf-op-dot-compiled { background: var(--success); }
+.kf-op-dot-estimated { background: transparent; border: 1px dashed var(--warning); }
+.kf-op-dot-measured { background: transparent; border: 1px solid var(--border-strong); }
+
+/* 不适用的格：一行具体理由 + 跳转，不是通用空态 */
+.kf-op__na {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+.kf-op__na b { color: var(--foreground-secondary); font: 600 var(--kf-font-xs)/1.4 var(--font-sans); }
+.kf-op__na p { margin: 0; color: var(--foreground-muted); font: var(--kf-font-micro)/1.6 var(--font-sans); }
+.kf-op__na button {
+  justify-self: start;
+  padding: 5px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  color: var(--primary);
+  background: transparent;
+  cursor: pointer;
+  font: var(--kf-font-micro)/1.4 var(--font-mono);
+}
+.kf-op__na button:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+
+/* ---- ④ 证据与行动 ------------------------------------------------------ */
+
+.kf-op__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 13px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+}
+.kf-op__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 9px;
+  flex: 1;
+  min-width: 0;
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.5 var(--font-mono);
+}
+.kf-op__legend span { display: inline-flex; align-items: center; gap: 4px; }
+.kf-op__legend i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.kf-op__action {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  cursor: pointer;
+  font: 600 var(--kf-font-micro)/1.4 var(--font-mono);
+  white-space: nowrap;
+}
+.kf-op__action:hover { background: color-mix(in srgb, var(--primary) 18%, transparent); }
+
+/* ---- 抽屉：风险 / 护栏 / 证据下钻 / 对象详情共用 ------------------------ */
+
+.kf-op__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border: 0;
+  padding: 0;
+  background: color-mix(in srgb, #000 42%, transparent);
+  cursor: pointer;
+}
+.kf-op__drawer {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 74%;
+  border-top: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--surface-2);
+  box-shadow: 0 -8px 26px rgba(0, 0, 0, .34);
+  animation: kf-op-drawer-in .16s ease-out;
+}
+@keyframes kf-op-drawer-in { from { transform: translateY(14px); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .kf-op__drawer { animation: none; } }
+
+.kf-op__drawer-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 13px 9px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.kf-op__drawer-head b { color: var(--foreground); font: 650 var(--kf-font-sm)/1.3 var(--font-sans); }
+.kf-op__drawer-head small { color: var(--foreground-muted); font: var(--kf-font-micro)/1.4 var(--font-mono); }
+.kf-op__drawer-close {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--foreground-muted);
+  background: transparent;
+  cursor: pointer;
+  font: var(--kf-font-xs)/1 var(--font-mono);
+}
+.kf-op__drawer-close:hover { color: var(--foreground); border-color: var(--border-strong); }
+.kf-op__drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 13px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* 风险条目：为什么 · 影响什么 · 如何验证（洞察报告 O7 要求的三段） */
+.kf-op__risk-list { display: grid; gap: 9px; }
+.kf-op__risk-item {
+  padding: 10px 11px;
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+.kf-op__risk-item.is-block { border-left-color: var(--danger); }
+.kf-op__risk-item.is-warn { border-left-color: var(--warning); }
+.kf-op__risk-item.is-guard { border-left-color: var(--kf-op-guard); }
+.kf-op__risk-top { display: flex; align-items: baseline; gap: 7px; margin-bottom: 6px; }
+.kf-op__risk-top b { color: var(--foreground); font: 650 var(--kf-font-xs)/1.4 var(--font-sans); }
+.kf-op__risk-cls {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface-4, var(--surface-3)) 70%, transparent);
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.5 var(--font-mono);
+}
+.kf-op__risk-line {
+  margin-left: auto;
+  border: 0;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  cursor: pointer;
+  font: var(--kf-font-micro)/1.5 var(--font-mono);
+  white-space: nowrap;
+}
+.kf-op__risk-line:hover { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+/* `.kf-inspector dl div` 是面板级的 flex + space-between 规则，会把标签挤成竖排。
+   这里显式改回定宽标签列 + 自由正文列，并抵消 dd 的右对齐与等宽字体。 */
+.kf-op__risk-item dl { display: grid; gap: 7px; margin: 0; }
+.kf-op__risk-item dl > div {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  justify-content: stretch;
+}
+.kf-op__risk-item dt {
+  color: var(--foreground-muted);
+  font: 600 var(--kf-font-micro)/1.6 var(--font-sans);
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.kf-op__risk-item dd {
+  margin: 0;
+  color: var(--foreground-secondary);
+  font: var(--kf-font-micro)/1.65 var(--font-sans);
+  text-align: left;
+}
+.kf-op__risk-item dd code { font-family: var(--font-mono); }
+.kf-op__risk-conflict {
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm, 4px);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--foreground-secondary);
+  font: var(--kf-font-micro)/1.6 var(--font-sans);
+}
+.kf-op__risk-conflict b { color: var(--danger); }
+
+.kf-op__empty-note {
+  padding: 12px;
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.7 var(--font-sans);
+}
+.kf-op__empty-note b { display: block; margin-bottom: 4px; color: var(--foreground-secondary); font-size: var(--kf-font-xs); }
+
+/* 置信度下钻 */
+.kf-op__evidence { display: grid; gap: 8px; }
+.kf-op__evidence div {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: baseline;
+  padding: 9px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+.kf-op__evidence div { justify-content: stretch; }
+.kf-op__evidence i { font-style: normal; font-weight: 700; font-family: var(--font-mono); color: var(--danger); }
+.kf-op__evidence div.is-on i { color: var(--success); }
+.kf-op__evidence b { display: block; color: var(--foreground); font: 600 var(--kf-font-xs)/1.4 var(--font-sans); }
+.kf-op__evidence small { display: block; margin-top: 2px; color: var(--foreground-muted); font: var(--kf-font-micro)/1.6 var(--font-mono); }
+.kf-op__evidence em {
+  font-style: normal;
+  color: var(--foreground-muted);
+  font: var(--kf-font-micro)/1.5 var(--font-mono);
+  white-space: nowrap;
+}
+
+/* 区块内的补充说明。区块标题由骨架提供，这里只承载正文旁注。 */
+.kf-op__body .kf-pa-note,
+.kf-op-inline-note {
+  margin: 8px 0 0;
+  color: var(--foreground-muted);
+  font: var(--kf-font-xs)/1.55 var(--font-sans);
+}
+.kf-op__body .kf-pa-note code,
+.kf-op-inline-note code { font-family: var(--font-mono); }
+
+/* 迁移到四层骨架的文件：区块标题由骨架渲染，逃生口里残留的 section 头部
+   会造成双标题，统一压掉。随着 raw 区块被结构化，这条规则会消失。 */
+.kf-op__body .kf-inspector-section { margin-bottom: 16px; }
+
+@media (max-width: 1180px) {
+  .kf-op__status { flex-wrap: wrap; }
+  .kf-op__status-div { display: none; }
+  .kf-op__confidence { flex-basis: 100%; }
+}

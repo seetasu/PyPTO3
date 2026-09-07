@@ -15,7 +15,7 @@
       "patterns/ide-frame/pattern.css owns .pto-ide-frame* visual classes",
       "patterns/ide-frame/pattern.css owns the default IDE skin: --ide-gradient-bg, --ide-aura-bg, --ide-frame-pane-fill at 80%, and --ide-frame-pane-backdrop-filter",
       "patterns/ide-frame/pattern.js initializes declared split slots through PtoWorkbenchShell",
-      "patterns/ide-frame/pattern.js toggles a right-top terminal control through data-ide-toggle=\"terminal\" and swaps bottom terminal/visualization panels",
+      "patterns/ide-frame/pattern.js toggles declared explorer and inspector pane controls through data-ide-toggle and swaps bottom terminal/visualization panels",
       "patterns/ide-frame/pattern.js mounts playback slots through PtoFloatingPlaybackControl",
       "patterns/ide-frame/vscode.css maps --vscode-* variables for extension webviews",
       "patterns/workbench-shell/pattern.json provides the resize kernel",
@@ -62,7 +62,7 @@
     "hiding the standalone activity rail through hidden, data-activity-rail=\"hidden\", or data-hide-activity-rail=\"true\"",
     "host window width while preserving the default 4:3 frame ratio",
     "initial pane pixel sizing through data-pixel-sizes, with the standalone explorer defaulting to 300px",
-    "right-top terminal toggle through data-ide-toggle=\"terminal\" plus a bottom dock with data-ide-bottom-panel=\"terminal\" and optional data-ide-bottom-panel=\"visualization\"",
+    "explorer and inspector pane toggles through data-ide-toggle=\"explorer\" / data-ide-toggle=\"inspector\", plus a bottom dock with data-ide-bottom-panel=\"terminal\" and optional data-ide-bottom-panel=\"visualization\"",
     "IDE semantic tokens such as --ide-frame-page-bg, --ide-frame-bg, --ide-gradient-bg, --ide-aura-bg, --ide-frame-chrome-bg, --ide-frame-pane-bg, --ide-frame-pane-fill, --ide-frame-pane-header-fill, --ide-frame-pane-backdrop-filter, --ide-frame-pane-shadow, --ide-frame-pane-border, --ide-frame-header-height, --ide-frame-title-font, and --ide-frame-meta-font, while preserving the shared typography minimums",
     "pane content, renderer implementations, inspector content, floating playback state, and command bindings"
   ],

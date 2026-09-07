@@ -2281,7 +2281,7 @@
                     <path d="M9 3v18"></path>
                   </svg>
                 </button>
-                <button class="pto-ide-frame__window-action" type="button" aria-label="Toggle right dock">
+                <button class="pto-ide-frame__window-action" type="button" data-ide-toggle="inspector" data-expanded-label="Collapse inspector" data-collapsed-label="Expand inspector" aria-label="Collapse inspector" aria-controls="feature-inspector-pane" aria-expanded="true" aria-pressed="true" title="Inspector">
                   <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true">
                     <rect x="3" y="3" width="18" height="18" rx="2"></rect>
                     <path d="M15 3v18"></path>
@@ -2438,7 +2438,7 @@
                   </div>
                 </section>
 
-                <aside class="pto-ide-frame__pane" data-ide-pane="inspector">
+                <aside class="pto-ide-frame__pane" data-ide-pane="inspector" id="feature-inspector-pane">
                   <header class="pto-ide-frame__pane-header">
                     <h2 class="pto-ide-frame__pane-title">视图</h2>
                     <span class="pto-ide-frame__pane-meta">视图插槽</span>
@@ -3499,7 +3499,7 @@
   </main>
   <script src="./patterns/workbench-shell/pattern.js"></script>
   <script src="./patterns/floating-playback-control/pattern.js"></script>
-  <script src="./patterns/ide-frame/pattern.js"></script>
+  <script src="./patterns/ide-frame/pattern.js?v=ide-frame-v8"></script>
   <script>
     (() => {
       const root = document.documentElement;

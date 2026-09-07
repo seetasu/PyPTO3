@@ -335,10 +335,24 @@
     controller?.clearSelection();
   }
 
+  function phaseNavOffset() {
+    const nav = document.getElementById('modelPhaseNav');
+    const body = nav?.closest('.kf-model-canvas__body');
+    if (!nav || !body || body.closest('[hidden]')) return 0;
+    return Math.min(150, (nav.getBoundingClientRect().width + 24) / 2);
+  }
+
+  function fitModelViewport() {
+    if (!controller) return;
+    controller.fit();
+    const transform = controller.getTransform();
+    controller.setTransform({ tx: transform.tx + phaseNavOffset() });
+  }
+
   function focusPhaseViewport(phase) {
     if (!controller) return;
     if (phase === 'all' || !phaseBounds[phase]) {
-      controller.fit();
+      fitModelViewport();
       document.getElementById('modelZoomReadout').textContent = '适应';
       return;
     }
@@ -348,7 +362,7 @@
     const zoom = Math.max(.18, Math.min(1.05, (rect.width - padding * 2) / bounds.width, (rect.height - padding * 2) / bounds.height));
     controller.setTransform({
       zoom,
-      tx: (rect.width - bounds.width * zoom) / 2 - bounds.x * zoom,
+      tx: (rect.width - bounds.width * zoom) / 2 - bounds.x * zoom + phaseNavOffset(),
       ty: (rect.height - bounds.height * zoom) / 2 - bounds.y * zoom,
     });
     document.getElementById('modelZoomReadout').textContent = `${Math.round(zoom * 100)}%`;
@@ -362,7 +376,7 @@
     const zoom = Math.max(.18, Math.min(1.05, (rect.width - padding * 2) / cluster.width, (rect.height - padding * 2) / cluster.height));
     controller.setTransform({
       zoom,
-      tx: (rect.width - cluster.width * zoom) / 2 - cluster.x * zoom,
+      tx: (rect.width - cluster.width * zoom) / 2 - cluster.x * zoom + phaseNavOffset(),
       ty: (rect.height - cluster.height * zoom) / 2 - cluster.y * zoom,
     });
     document.getElementById('modelZoomReadout').textContent = `${Math.round(zoom * 100)}%`;
@@ -479,7 +493,7 @@
     document.querySelectorAll('[data-model-phase]').forEach((button) => button.addEventListener('click', () => selectPhase(button.dataset.modelPhase)));
     document.querySelector('[data-model-fit]')?.addEventListener('click', () => {
       if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
-      controller?.fit();
+      fitModelViewport();
       document.getElementById('modelZoomReadout').textContent = '适应';
     });
     document.querySelector('[data-model-zoom="in"]')?.addEventListener('click', () => {

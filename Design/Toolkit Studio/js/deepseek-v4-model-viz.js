@@ -532,11 +532,25 @@
     const zoom = Math.max(.18, Math.min(1.05, (rect.width - padding * 2) / drill.cluster.width, (rect.height - padding * 2) / drill.cluster.height));
     controller.setTransform({
       zoom,
-      tx: (rect.width - drill.cluster.width * zoom) / 2 - drill.cluster.x * zoom,
+      tx: (rect.width - drill.cluster.width * zoom) / 2 - drill.cluster.x * zoom + phaseNavOffset(),
       ty: (rect.height - drill.cluster.height * zoom) / 2 - drill.cluster.y * zoom,
     });
     const readout = qs('#modelZoomReadout');
     if (readout) readout.textContent = Math.round(zoom * 100) + '%';
+  }
+
+  function phaseNavOffset() {
+    const nav = qs('#modelPhaseNav');
+    const body = nav?.closest('.kf-model-canvas__body');
+    if (!nav || !body || body.closest('[hidden]')) return 0;
+    return Math.min(150, (nav.getBoundingClientRect().width + 24) / 2);
+  }
+
+  function fitModelViewport() {
+    if (!controller) return;
+    controller.fit();
+    const transform = controller.getTransform();
+    controller.setTransform({ tx: transform.tx + phaseNavOffset() });
   }
 
   function applyPhase(phase) {
@@ -627,6 +641,7 @@
         if (readout) readout.textContent = Math.round(savedTransform.zoom * 100) + '%';
         return;
       }
+      fitModelViewport();
       const fittedTransform = controller.getTransform?.();
       const readout = qs('#modelZoomReadout');
       if (readout && fittedTransform) readout.textContent = Math.round(fittedTransform.zoom * 100) + '%';
@@ -696,7 +711,7 @@
     document.querySelectorAll('[data-model-phase]').forEach((button, index) => button.addEventListener('click', () => selectPhase(phaseOrder[index] || 'all')));
     document.querySelector('[data-model-fit]')?.addEventListener('click', () => {
       if (!isMine()) return;
-      controller?.fit();
+      fitModelViewport();
       const readout = qs('#modelZoomReadout');
       if (readout) readout.textContent = '适应';
     });

@@ -9,7 +9,7 @@
   ];
   const passes = ['Semantic Lowering', 'Layout Planning', 'Parallel Mapping', 'Memory Scheduling', 'ISA Emission'];
   const guards = ['Op legality', 'Dependencies', 'Manual scope', 'Liveness', 'Paged layout', 'Index width', 'ISA capacity', 'FP32 carry'];
-  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionTab: 'graph', pagedAttentionFocus: 'paging', pagedAttentionOverlay: 'data', pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pto3LabTab: 'loops', pto3LabFocus: 'matmul', sourceCache: {} };
+  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionOverlay: 'data', pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
   const EXPLORER_STEP = 1;
   const WORKFLOW_STEPS = [0, 2, 3, 4];
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -654,6 +654,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   function updateRunInspector() {
+    $('#inspector').classList.remove('is-op-inspector');
     const run = getRun();
     $('#inspectorTitle').textContent = '证据检查器';
     $('#inspector').innerHTML = `
@@ -1458,15 +1459,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       <footer><i class="${evidence.cls}">${evidence.short}</i><span>源码选择会同步下方计算图、调度与依赖视图</span></footer>
     </section>`;
   }
-
-  function pagedAttentionDetailView() {
-    return `<div class="kf-pa-detail-view">
-      <button type="button" class="kf-pa-detail-back" data-pa-detail-back aria-label="返回 Paged Attention 分析">← 返回分析</button>
-      <div class="kf-pa-detail-intro"><span class="kf-eyebrow">ON-DEMAND INSPECTOR</span><h1>对象详情</h1><p>当前详情来自你选中的源码行或计算图节点。</p></div>
-      ${pagedAttentionObjectDetail()}
-    </div>`;
-  }
-  const pagedAttentionComputationGraph = {
+  const pagedAttentionComputationGraph = {
     width: 650,
     height: 890,
     nodes: [
@@ -2136,26 +2129,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return `<div class="kf-pa2-evidence-legend"><span>证据分层</span>${Object.entries(EVIDENCE_LEVELS).map(([key, meta]) => `<i class="${meta.cls}">${meta.label}</i>`).join('')}</div>`;
   }
 
-  function pagedAttentionExecutionGraph() {
-    const layerMeta = {
-      data: { label: '数据', legend: '<i class="tensor"></i>Tensor Shape / 方向　<i class="dynamic"></i>运行时解析的动态维' },
-      dep: { label: '依赖', legend: '<i class="raw"></i>RAW　<i class="waw"></i>WAW / loop-carried　<i class="none"></i>读—读无依赖' },
-      hardware: { label: '硬件', legend: '<i class="cube"></i>AIC / Cube　<i class="vector"></i>AIV / Vector　<i class="memory"></i>GM / AICPU 编排' },
-      precision: { label: '精度', legend: '<i class="bf16"></i>BF16 输入 / 概率　<i class="fp32"></i>FP32 计算 / 状态　<i class="index"></i>INT32 / INDEX' },
-      runtime: { label: '运行状态', legend: '<i class="locked"></i>需要编译并运行后才有 TaskId、状态与时间戳' },
-    }[state.pagedAttentionOverlay] || { label: '数据', legend: '' };
-    const locked = state.pagedAttentionOverlay === 'runtime';
-    return `
-      ${pagedAttentionEvidenceLegend()}
-      <section class="kf-inspector-section kf-pa-computation"><header class="kf-pa-graph-head"><div><h2 class="kf-inspector-title">任务计算图</h2></div></header>
-        <div class="kf-pa2-layer-switch" role="group" aria-label="计算图信息图层">${[['data','数据'],['dep','依赖'],['hardware','硬件'],['precision','精度'],['runtime','运行状态']].map(([key,label]) => `<button type="button" class="${key === state.pagedAttentionOverlay ? 'is-active' : ''}${key === 'runtime' ? ' is-locked' : ''}" data-pa-overlay="${key}">${label}</button>`).join('')}</div>
-        <div class="kf-pa-overlay-legend" data-overlay="${state.pagedAttentionOverlay}"><b>${layerMeta.label}图层</b><span>${layerMeta.legend}</span></div>
-        ${locked ? '<div class="kf-pa2-locked"><i>○</i><div><b>运行状态图层尚无数据</b><p>TaskId、Ready / Running / Blocked / Complete、未满足依赖数与时间戳属于 Runtime 实测证据。Coding 阶段先建立静态任务图，编译并运行后同一批节点会切换为动态状态图。</p></div></div>' : ''}
-        <div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
-        <footer id="pagedAttentionGraphStatus">当前叠加${layerMeta.label}图层 · 带 ＋ 节点可下钻到核内步骤 · 虚线表示跨 Block 状态 Carry</footer>
-      </section>`;
-  }
-
   function pagedAttentionTilePipelineSection() {
     const pipe = pagedAttentionTilePipelines[state.pagedAttentionPipeKernel] || pagedAttentionTilePipelines.qk;
     const kindLabel = { copyin: 'CopyIn', view: 'View', move: 'Move', compute: 'Compute', copyout: 'CopyOut' };
@@ -2187,111 +2160,329 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       </section>`;
   }
 
-  function pagedAttentionDataExecution() {
-    return `
-      <section class="kf-pa-execution-band" aria-label="Paged Attention 数据与硬件执行带"><div class="source"><em>GM · BF16</em><b>Q [16,128]</b><small>4 KiB</small></div><i>load</i><button type="button" class="cube" data-paged-attention-focus="qk"><em>CUBE · L1/L0</em><b>QK Matmul</b><small>BF16 × BF16 → FP32 sij [16,128]</small></button><i>store / load</i><button type="button" class="vector" data-paged-attention-focus="softmax"><em>VECTOR · UB</em><b>Mask + Softmax</b><small>FP32 exp → BF16 pij [16,128]</small></button><i>store / load</i><button type="button" class="cube" data-paged-attention-focus="pv"><em>CUBE · L1/L0</em><b>PV Matmul</b><small>BF16 × BF16 → FP32 oi_new [16,128]</small></button><i>store / load</i><button type="button" class="vector" data-paged-attention-focus="online"><em>VECTOR · UB</em><b>Online Update</b><small>FP32 mi / li / oi → FP32 out</small></button><i>store</i><div class="source"><em>GM · FP32</em><b>Output [B×H,D]</b><small>512 KiB / example</small></div></section>
-      ${pagedAttentionTaskSection()}
-      <section class="kf-inspector-section kf-pa-layout"><header><h2 class="kf-inspector-title">Layout 叠加</h2><span>Shape · View · Memory</span></header><div class="kf-pa-layout-flow"><div><i>Query</i><b>[QTile,D]</b><small>BF16 · natural</small></div><span>×</span><div><i>K natural</i><b>[Block,D]</b><small>BF16 · L1</small></div><span>transpose_view</span><div><i>Kᵀ view</i><b>[D,Block]</b><small>零拷贝视图</small></div><span>→</span><div><i>Score</i><b>[QTile,Block]</b><small>FP32 · L0C</small></div></div></section>
-      <section class="kf-inspector-section kf-pa-validshape"><header><h2 class="kf-inspector-title">有效区与数据规模</h2><span>Block128 · valid_len dynamic</span></header><div><span class="is-valid"><b>有效 Token 列</b><small>进入 row_max / exp / row_sum</small></span><span class="is-pad"><b>Padding</b><small>末块排除</small></span></div><div class="kf-pa-working-set"><span><b>Q</b><em>4 KiB</em></span><span><b>K + V</b><em>64 KiB</em></span><span><b>sij</b><em>8 KiB FP32</em></span><span><b>pij</b><em>4 KiB BF16</em></span><span><b>oi state</b><em>8 KiB FP32</em></span></div></section>
-      ${pagedAttentionHardwareSection()}
-      <div class="kf-inspector-card kf-rms-estimate"><b>硬件可信边界</b><p>执行带把 MemorySpace 和算子语义叠加显示；A2/A3 上 Cube↔Vector 的真实 GM 往返、Buffer 地址和重叠程度仍需读取 Pass IR、Swimlane 与 PMU。</p></div>`;
+  /* ---- 统一算子面板 · paged_attention 内容区块 -----------------------------
+     以下小函数只返回区块**内容**；区块标题与来源标记由 OperatorProfile 声明、
+     由 PtoOperatorInspector 统一渲染。它们取代了此前 7-tab 版本留下的六个
+     从未被调用的整段 composer（Dynamic / ContractLayout / Precision / Tiling /
+     Orchestration / Hardware），其内容按四格重新落位。 */
+
+  function paSummaryStrip() {
+    return `<section class="kf-pa-summary-strip"><div><span>根入口</span><b>paged_attention</b></div><div><span>任务节点</span><b>5 × InCore Call</b></div><div><span>依赖治理</span><b>AUTO Scope</b></div></section>`;
   }
 
-  function pagedAttentionSchedule() {
+  function paContractTable() {
+    const rows = [
+      ['query', '[B×H, D]', 'In · BF16', 'orchestration'],
+      ['key_cache', '[KVRows, D]', 'In · BF16', 'paging'],
+      ['value_cache', '[KVRows, D]', 'In · BF16', 'paging'],
+      ['block_table', '[B×MaxBlocks]', 'In · INT32', 'paging'],
+      ['context_lens', '[B]', 'In · INT32', 'orchestration'],
+      ['out', '[B×H, D]', 'Out · FP32', 'online'],
+    ];
+    return `<div class="kf-pa-tensor-table"><div class="head"><span>Tensor</span><b>Shape</b><em>方向 · DType</em></div>${rows.map(([name, shape, dir, focus]) => `<button type="button" data-paged-attention-focus="${focus}"><span>${name}</span><b>${shape}</b><em>${dir}</em></button>`).join('')}</div>
+      <p class="kf-pa-note">六个参数的 B / H / D / Block 全部由 <code>pl.dynamic()</code> 声明，运行时从 <code>pl.tensor.dim()</code> 推导（第 273–277 行）。<code>out</code> 是唯一的 <code>pl.Out</code>，通过 <code>pl.slice</code> 取视图后由 online_update 原位写回，函数返回的是同一个 <code>out</code>。</p>`;
+  }
+
+  function paTaskGraphStage() {
+    const layerMeta = {
+      data: { label: '数据', legend: '<i class="tensor"></i>Tensor Shape / 方向　<i class="dynamic"></i>运行时解析的动态维' },
+      dep: { label: '依赖', legend: '<i class="raw"></i>RAW　<i class="waw"></i>WAW / loop-carried　<i class="none"></i>读—读无依赖' },
+      hardware: { label: '硬件', legend: '<i class="cube"></i>AIC / Cube　<i class="vector"></i>AIV / Vector　<i class="memory"></i>GM / AICPU 编排' },
+      precision: { label: '精度', legend: '<i class="bf16"></i>BF16 输入 / 概率　<i class="fp32"></i>FP32 计算 / 状态　<i class="index"></i>INT32 / INDEX' },
+      runtime: { label: '运行状态', legend: '<i class="locked"></i>需要编译并运行后才有 TaskId、状态与时间戳' },
+    }[state.pagedAttentionOverlay] || { label: '数据', legend: '' };
+    const locked = state.pagedAttentionOverlay === 'runtime';
+    return `
+      <div class="kf-pa2-layer-switch" role="group" aria-label="计算图信息图层">${[['data','数据'],['dep','依赖'],['hardware','硬件'],['precision','精度'],['runtime','运行状态']].map(([key,label]) => `<button type="button" class="${key === state.pagedAttentionOverlay ? 'is-active' : ''}${key === 'runtime' ? ' is-locked' : ''}" data-pa-overlay="${key}">${label}</button>`).join('')}</div>
+      <div class="kf-pa-overlay-legend" data-overlay="${state.pagedAttentionOverlay}"><b>${layerMeta.label}图层</b><span>${layerMeta.legend}</span></div>
+      ${locked ? '<div class="kf-pa2-locked"><i>○</i><div><b>运行状态图层尚无数据</b><p>TaskId、Ready / Running / Blocked / Complete、未满足依赖数与时间戳属于 Runtime 实测证据。Coding 阶段先建立静态任务图，编译并运行后同一批节点会切换为动态状态图。</p></div></div>' : ''}
+      <div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
+      <footer id="pagedAttentionGraphStatus" class="kf-pa-graph-status">点击节点展开核内子图并定位源码 · 拖拽 / 缩放查看全图</footer>`;
+  }
+
+  function paSourceMap() {
+    return `<div class="kf-attn-source-map kf-pa-source-map"><div>${Object.entries(pagedAttentionFocusMeta).map(([key, item]) => `<button type="button" class="${key === state.pagedAttentionFocus ? 'is-active' : ''}" data-paged-attention-focus="${key}"><i>${item.lines}</i><span><b>${item.label}</b><small>${item.detail}</small></span></button>`).join('')}</div></div>`;
+  }
+
+  function paPrecisionPath() {
+    return `<div class="kf-pa-precision-path"><button type="button" data-paged-attention-focus="qk"><span>Q / K</span><b>BF16</b><small>Cube input</small></button><i>matmul accumulate</i><button type="button" data-paged-attention-focus="softmax"><span>sij / exp</span><b>FP32</b><small>Vector compute</small></button><i>explicit cast</i><button type="button" data-paged-attention-focus="pv"><span>pij</span><b>BF16</b><small>PV input</small></button><i>matmul accumulate</i><button type="button" data-paged-attention-focus="online"><span>oi_new</span><b>FP32</b><small>block result</small></button><i>online merge</i><button type="button" data-paged-attention-focus="online"><span>mi / li / oi / out</span><b>FP32</b><small>cross-block state</small></button></div>`;
+  }
+
+  function paPrecisionSensitivity() {
+    const items = [
+      ['Softmax 概率降精度', '<code>exp</code> 后先转 BF16 再转回 FP32 求和（第 128–130 行）；Golden 已显式复现这一量化点。'],
+      ['Online 状态保持 FP32', '<code>mi / li / oi</code> 跨 Block 合并全程 FP32，避免长上下文累计完全落在 BF16。'],
+      ['Scale 固定为 1.0', '调用点第 328 行传入常量 <code>1.0</code>，不是常见的 <code>1/sqrt(D)</code>。与 Golden 一致，但集成真实模型时必须确认上游是否已缩放。'],
+      ['末 Block 的 Mask 能否生效', '编排层用 <code>sij_valid</code> 收窄（第 320 行），但 kernel 内部按闭包常量 <code>_BLOCK_SIZE</code> 取 Tile（第 122 行）。见警告风险第 1 条。'],
+    ];
+    return `<div class="kf-pa-sensitivity">${items.map(([title, body], index) => `<article><i>0${index + 1}</i><div><b>${title}</b><p>${body}</p></div></article>`).join('')}</div>`;
+  }
+
+  function paLayoutFlow() {
+    return `<div class="kf-pa-layout-flow"><div><i>Query view</i><b>[QTile, D]</b><small>BF16 · natural</small></div><span>×</span><div><i>K natural</i><b>[Block, D]</b><small>BF16 · L1/Mat</small></div><span>transpose_view</span><div><i>Kᵀ view</i><b>[D, Block]</b><small>零拷贝视图</small></div><span>→</span><div><i>Score</i><b>[QTile, Block]</b><small>FP32 · L0C</small></div></div>
+      <div class="kf-pa-layout-flow is-pv"><div><i>Probability</i><b>[QTile, Block]</b><small>BF16</small></div><span>×</span><div><i>V natural</i><b>[Block, D]</b><small>BF16</small></div><span>→</span><div><i>Block output</i><b>[QTile, D]</b><small>FP32</small></div></div>
+      <p class="kf-pa-note"><code>pl.tile.transpose_view(kj_nat)</code>（第 150 行）只改视图不搬数据，Kᵀ 不额外占 L1。</p>`;
+  }
+
+  function paValidShape() {
+    return `<div class="kf-pa-validshape"><div><span class="is-valid" style="--valid:78%"><b>valid_len</b><small>进入 Softmax 的有效 Token 列</small></span><span class="is-pad"><b>padding</b><small>末 Block 不应参与 row_max / row_sum</small></span></div>
+      <p>KV Slice 仍取完整 <code>[block_size, D]</code>，编排层通过 <code>sij_valid = pl.slice(sij, [q_tile, valid_len], [0, 0])</code> 收窄（第 320 行）。这一收窄能否传递到 kernel 内部的 <code>pl.load</code>，是本文件最需要先确认的一件事。Q Head 尾 Tile 则没有同等的 valid shape。</p></div>`;
+  }
+
+  function paWorkingSet() {
+    const rows = [['Q Tile', '4 KiB · BF16'], ['K / V Block', '各 32 KiB · BF16'], ['Score sij', '8 KiB · FP32'], ['Probability pij', '4 KiB · BF16'], ['oi / oi_new', '各 8 KiB · FP32'], ['mi + li', '128 B · FP32']];
+    return `<div class="kf-pa-memory"><dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl></div>`;
+  }
+
+  function paLogicalScale() {
+    const rows = [['Query', '256 KiB · BF16'], ['单个 K / V Cache', '512 MiB · BF16'], ['Block Table', '64 KiB · INT32'], ['Context Lengths', '256 B · INT32'], ['Output', '512 KiB · FP32']];
+    return `<div class="kf-pa-memory"><dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl></div>`;
+  }
+
+  // main() 的实例化配置——面板里每一个具体数字都是在这组配置下算出来的
+  function paRunProfile() {
+    const rows = [['Platform / Backend', 'a2a3 · Ascend910B'], ['Batch / Heads', '64 / 16'], ['Head dim / Block', '128 / 128'], ['Context / Max model', '8192 / 32768'], ['Blocks / Request', '64 used / 256 max'], ['数值门禁', 'allclose · rtol = atol = 2e-2']];
+    return `<div class="kf-pa-run"><dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+      <p class="kf-op-inline-note">8192 ÷ 128 = 64 恰好整除、16 heads ÷ QTile 16 恰好整除——这组配置同时避开了末块与尾 Tile 两条路径，是两条警告风险在 Golden 下不暴露的原因。</p></div>`;
+  }
+
+  // 目标能力 Lens：源码用到的 PyPTO 能力在目标后端的支持状态
+  function paCapabilityLens() {
+    const rows = [
+      ['is-supported', '✓', '动态 Tensor 标注', 'pl.dynamic · pl.tensor.dim', '源码采用'],
+      ['is-supported', '✓', 'Cube Matmul', 'BF16 input · FP32 accumulate', '源码采用'],
+      ['is-supported', '✓', 'Vector Softmax primitives', 'row_max · exp · row_sum', '源码采用'],
+      ['is-supported', '✓', 'transpose_view 零拷贝', 'Kᵀ 不额外占 L1', '源码采用'],
+      ['is-caution', '!', '动态有效宽度', 'sij_valid 用运行时 valid_len', '重点验证'],
+      ['is-caution', '!', '动态 Head 尾 Tile', 'slice 固定 q_tile', '能力缺口'],
+      ['', '○', 'Cube↔Vector 片上交接', 'A2/A3 可能经 GM Buffer', '需 Pass / 实测'],
+    ];
+    return `<div class="kf-pa-capability"><div>${rows.map(([cls, mark, name, detail, verdict]) => `<article class="${cls}"><i>${mark}</i><span><b>${name}</b><small>${detail}</small></span><em>${verdict}</em></article>`).join('')}</div></div>`;
+  }
+
+  function paExecutionBand() {
+    return `<section class="kf-pa-execution-band" aria-label="Paged Attention 数据与硬件执行带"><div class="source"><em>GM · BF16</em><b>Q [16,128]</b><small>4 KiB</small></div><i>load</i><button type="button" class="cube" data-paged-attention-focus="qk"><em>CUBE · L1/L0</em><b>QK Matmul</b><small>BF16 × BF16 → FP32 sij</small></button><i>store / load</i><button type="button" class="vector" data-paged-attention-focus="softmax"><em>VECTOR · UB</em><b>Mask + Softmax</b><small>FP32 exp → BF16 pij</small></button><i>store / load</i><button type="button" class="cube" data-paged-attention-focus="pv"><em>CUBE · L1/L0</em><b>PV Matmul</b><small>BF16 × BF16 → FP32 oi_new</small></button><i>store / load</i><button type="button" class="vector" data-paged-attention-focus="online"><em>VECTOR · UB</em><b>Online Update</b><small>FP32 mi / li / oi → FP32 out</small></button><i>store</i><div class="source"><em>GM · FP32</em><b>Output [B×H,D]</b><small>512 KiB / example</small></div></section>`;
+  }
+
+  function paLoopNest() {
+    const rows = [
+      ['', 'B', 'Batch loop', '64 requests · <code>pl.range(batch_cfg)</code> · 第 283 行', '64'],
+      ['depth-1', 'Q', 'Head Tile loop', 'ceil(16 heads ÷ QTile16) · 第 281 行', '1 / request'],
+      ['depth-2', 'K', 'KV Block loop', 'ceil(8192 context ÷ Block128) · 第 286 行', '64 / Q tile'],
+      ['depth-3', '5', 'InCore chain', 'init once；QK → Softmax → PV → Update per block', '16,448 calls'],
+    ];
+    return `<div class="kf-pa-loop-tree">${rows.map(([cls, mark, title, meta, count]) => `<div class="${cls}"><i>${mark}</i><span><b>${title}</b><small>${meta}</small></span><em>${count}</em></div>`).join('')}</div>`;
+  }
+
+  function paBlockStrip() {
     const blocks = Array.from({ length: 16 }, (_, index) => `<i class="${index < 4 ? 'is-hot' : ''}">${index}</i>`).join('');
-    return `
-      <section class="kf-pa-summary-strip"><div><span>根入口</span><b>paged_attention</b></div><div><span>任务节点</span><b>5 × InCore Call</b></div><div><span>依赖治理</span><b>AUTO Scope</b></div></section>
-      ${pagedAttentionEntrySection()}
-      <section class="kf-pa-schedule-canvas"><div class="kf-pa-loop-rail"><div><i>B</i><span><b>64 Batch</b><small>pl.range</small></span></div><div><i>Q</i><span><b>1 Head Tile</b><small>16 heads ÷ QTile16</small></span></div><div><i>K</i><span><b>64 KV Blocks</b><small>8192 ÷ Block128</small></span></div></div><div class="kf-pa-schedule-main"><div class="kf-pa-tile-row"><button type="button" data-paged-attention-focus="qk"><b>QK</b><small>16×128×128</small></button><i>→</i><button type="button" data-paged-attention-focus="softmax"><b>Softmax</b><small>16×valid_len</small></button><i>→</i><button type="button" data-paged-attention-focus="pv"><b>PV</b><small>16×128×128</small></button><i>→</i><button type="button" data-paged-attention-focus="online"><b>Update</b><small>FP32 carry</small></button></div><div class="kf-pa-block-mini">${blocks}</div><div class="kf-pa-page-equation"><span>logical <b>bn</b></span><i>table[b × block_num + bn]</i><span>physical <b>block_id</b></span><i>× block_size</i><span>cache <b>row</b></span></div></div></section>
-      ${pagedAttentionDepSection()}
-      ${pagedAttentionScopeSection()}
-      <section class="kf-pa-schedule-notes"><article><b>可并行</b><p>Batch 与 Q Tile 数据相互独立，但当前使用 <code>pl.range</code>，未显式声明并行。</p></article><article><b>必须串行</b><p>KV Block 之间通过 FP32 <code>mi/li/oi</code> 状态 Carry 形成循环依赖。</p></article><article><b>边界风险</b><p>KV 末块有 <code>valid_len</code>；Q Head 尾 Tile 尚缺对应有效 Shape。</p></article></section>
-      ${pagedAttentionTilePipelineSection()}`;
+    return `<div class="kf-pa-block-strip"><div>${blocks}</div><small>为便于阅读仅画 16 个区段；实际逐个 logical block 通过 <code>block_table[b × block_num + bn]</code> 映射到物理 Cache 行（第 303 行）。</small></div>`;
   }
 
-  function pagedAttentionDynamic() {
-    const active = pagedAttentionFocusMeta[state.pagedAttentionFocus] || pagedAttentionFocusMeta.paging;
-    return `
-      <section class="kf-inspector-section kf-pa-shape"><header><h2 class="kf-inspector-title">动态 Shape 推导</h2><span>Tensor.dim · runtime</span></header><div class="kf-pa-formulas"><div><span>batch</span><b>context_lens.dim(0)</b></div><div><span>num_heads</span><b>query.rows ÷ batch</b></div><div><span>block_size</span><b>value_cache.rows ÷ block_table.size</b></div><div><span>blocks / request</span><b>block_table.size ÷ batch</b></div><div><span>Q loops</span><b>ceil(num_heads ÷ q_tile)</b></div><div><span>KV loops</span><b>ceil(context_len ÷ block_size)</b></div></div></section>
-      <section class="kf-inspector-section kf-pa-address"><header><h2 class="kf-inspector-title">Paged KV 地址映射</h2><span>logical block → physical row</span></header><div class="kf-pa-page-map"><div><small>Request b</small><b>logical block bn</b></div><i>table[b × block_num + bn]</i><div><small>Physical Block</small><b>cur_block_idx</b></div><i>× block_size</i><div><small>Cache Row</small><b>kv_block_row</b></div></div><p><code>valid_len = min(block_size, context_len − bn × block_size)</code>，末 Block 只让有效列进入 Softmax。</p></section>
-      <section class="kf-inspector-section kf-attn-source-map kf-pa-source-map"><header><h2 class="kf-inspector-title">源码阶段</h2><span>点击与源码联动</span></header><div>${Object.entries(pagedAttentionFocusMeta).map(([key, item]) => `<button type="button" class="${key === state.pagedAttentionFocus ? 'is-active' : ''}" data-paged-attention-focus="${key}"><i>${item.lines}</i><span><b>${item.label}</b><small>${item.detail}</small></span></button>`).join('')}</div></section>
-      <div class="kf-inspector-card kf-attn-insight"><b>${active.label}</b><p>${active.detail}。当前选中源码第 ${active.lines} 行。</p></div>`;
+  function paTileMatrix() {
+    return `<section class="kf-pa-tile-matrix"><button type="button" data-paged-attention-focus="qk"><span>QK</span><b>16 × 128 × 128</b><small>M=QTile · N=Block · K=D</small></button><i>→</i><button type="button" data-paged-attention-focus="softmax"><span>Softmax</span><b>16 × valid_len</b><small>Vector row-wise</small></button><i>→</i><button type="button" data-paged-attention-focus="pv"><span>PV</span><b>16 × 128 × 128</b><small>M=QTile · N=D · K=Block</small></button></section>`;
   }
 
-  function pagedAttentionContractLayout() {
-    return `
-      <section class="kf-inspector-section kf-pa-contract"><header><h2 class="kf-inspector-title">Tensor 契约与方向</h2><span>B / H / D / Block 均运行时解析</span></header><div class="kf-pa-tensor-table"><div class="head"><span>Tensor</span><b>Shape</b><em>方向 · DType</em></div><button type="button" data-paged-attention-focus="orchestration"><span>query</span><b>[B×H, D]</b><em>In · BF16</em></button><button type="button" data-paged-attention-focus="paging"><span>key_cache</span><b>[KVRows, D]</b><em>In · BF16</em></button><button type="button" data-paged-attention-focus="paging"><span>value_cache</span><b>[KVRows, D]</b><em>In · BF16</em></button><button type="button" data-paged-attention-focus="paging"><span>block_table</span><b>[B×MaxBlocks]</b><em>In · INT32</em></button><button type="button" data-paged-attention-focus="orchestration"><span>context_lens</span><b>[B]</b><em>In · INT32</em></button><button type="button" data-paged-attention-focus="online"><span>out</span><b>[B×H, D]</b><em>Out · FP32</em></button></div></section>
-      <section class="kf-inspector-section kf-pa-layout"><header><h2 class="kf-inspector-title">Shape / Layout 变换</h2><span>runtime row-major Tensor → on-chip Tile</span></header><div class="kf-pa-layout-flow"><div><i>Query view</i><b>[QTile, D]</b><small>BF16 · natural</small></div><span>×</span><div><i>K natural</i><b>[Block, D]</b><small>BF16 · L1/Mat</small></div><span>transpose_view</span><div><i>Kᵀ view</i><b>[D, Block]</b><small>no data copy</small></div><span>→</span><div><i>Score</i><b>[QTile, Block]</b><small>FP32 · L0C</small></div></div><div class="kf-pa-layout-flow is-pv"><div><i>Probability</i><b>[QTile, Block]</b><small>BF16</small></div><span>×</span><div><i>V natural</i><b>[Block, D]</b><small>BF16</small></div><span>→</span><div><i>Block output</i><b>[QTile, D]</b><small>FP32</small></div></div></section>
-      <section class="kf-inspector-section kf-pa-validshape"><header><h2 class="kf-inspector-title">有效 Shape 与 Padding</h2><span>动态边界</span></header><div><span class="is-valid" style="--valid:78%"><b>valid_len</b><small>进入 Softmax 的有效 Token 列</small></span><span class="is-pad"><b>padding</b><small>末 Block 不应参与 row_max / row_sum</small></span></div><p>KV Slice 仍取完整 <code>[block_size, D]</code>，Score 通过 <code>sij_valid = slice(..., valid_len)</code> 收窄。Q Head 尾 Tile 则没有同等明确的 valid shape，是需要补测的接口边界。</p></section>
-      <section class="kf-inspector-section kf-pa-memory"><header><h2 class="kf-inspector-title">示例逻辑规模</h2><span>B64 · H16 · D128 · Block128</span></header><dl><div><dt>Query</dt><dd>256 KiB · BF16</dd></div><div><dt>单个 K / V Cache</dt><dd>512 MiB · BF16</dd></div><div><dt>Block Table</dt><dd>64 KiB · INT32</dd></div><div><dt>Context Lengths</dt><dd>256 B · INT32</dd></div><div><dt>Output</dt><dd>512 KiB · FP32</dd></div></dl></section>`;
+  function paTailGuards() {
+    const rows = [
+      ['is-pass', 'KV 末 Block', '编排层 <code>valid_len = pl.min(...)</code> 第 305 行', '编排层已裁剪'],
+      ['', 'Kernel 内 Tile 宽度', 'softmax_prepare 按 <code>_BLOCK_SIZE</code> 取 Tile，非入参运行时宽度', '需编译确认'],
+      ['', 'Q Head 尾 Tile', 'ceil-div 后 slice 仍固定 <code>q_tile</code>（第 300 行）', '需补处理'],
+      ['is-pass', '示例 Heads', '16 % QTile16 = 0，示例配置掩盖了尾 Tile', '本例安全'],
+      ['', '空 Context', '<code>cur_seq = 0</code> 时 bn 循环不执行，<code>out</code> 该段未写', '需补测试'],
+      ['', 'Shape 可除性', '<code>query.rows % batch</code>、<code>cache.rows % table.size</code> 等三处无守卫', '需补守卫'],
+    ];
+    return `<div class="kf-pa-tail"><div>${rows.map(([cls, name, detail, verdict]) => `<article class="${cls}"><b>${name}</b><span>${detail}</span><em>${verdict}</em></article>`).join('')}</div></div>`;
   }
 
-  function pagedAttentionPrecision() {
-    return `
-      <section class="kf-inspector-section kf-pa-precision"><header><h2 class="kf-inspector-title">端到端精度流</h2><span>cast 与累加边界</span></header><div class="kf-pa-precision-path"><button type="button" data-paged-attention-focus="qk"><span>Q / K</span><b>BF16</b><small>Cube input</small></button><i>matmul accumulate</i><button type="button" data-paged-attention-focus="softmax"><span>sij / exp</span><b>FP32</b><small>Vector compute</small></button><i>explicit cast</i><button type="button" data-paged-attention-focus="pv"><span>pij</span><b>BF16</b><small>PV input</small></button><i>matmul accumulate</i><button type="button" data-paged-attention-focus="online"><span>oi_new</span><b>FP32</b><small>block result</small></button><i>online merge</i><button type="button" data-paged-attention-focus="online"><span>mi / li / oi / out</span><b>FP32</b><small>cross-block state</small></button></div></section>
-      <section class="kf-inspector-section kf-pa-precision"><header><h2 class="kf-inspector-title">精度敏感点</h2><span>Agent review</span></header><div class="kf-pa-sensitivity"><article><i>01</i><div><b>Softmax 概率降精度</b><p><code>exp</code> 后先转 BF16，再转回 FP32 求和；Golden 已显式复现这一量化点。</p></div></article><article><i>02</i><div><b>Online 状态保持 FP32</b><p><code>mi/li/oi</code> 跨 Block 合并，避免长上下文累计完全落在 BF16。</p></div></article><article><i>03</i><div><b>Scale 固定为 1.0</b><p>当前实现与 Golden 一致，但不是常见的 <code>1/sqrt(D)</code>；集成真实模型时必须确认上游是否已缩放。</p></div></article><article><i>04</i><div><b>末 Block Mask</b><p>Padding 进入 exp/row_sum 会系统性污染分母，必须覆盖 <code>context_len % block_size ≠ 0</code>。</p></div></article></div></section>
-      <section class="kf-inspector-section kf-pa-memory"><header><h2 class="kf-inspector-title">单 Block 工作集</h2><span>QTile16 · Block128 · D128</span></header><dl><div><dt>Q Tile</dt><dd>4 KiB · BF16</dd></div><div><dt>K / V Block</dt><dd>各 32 KiB · BF16</dd></div><div><dt>Score sij</dt><dd>8 KiB · FP32</dd></div><div><dt>Probability pij</dt><dd>4 KiB · BF16</dd></div><div><dt>oi / oi_new</dt><dd>各 8 KiB · FP32</dd></div><div><dt>mi + li</dt><dd>128 B · FP32</dd></div></dl></section>`;
+  function paHardwareLanes() {
+    return `<div class="kf-pa-hw-lanes"><div class="memory"><em>GM</em><b>Query · Paged K/V · State</b><small>BF16 inputs / FP32 accumulators</small></div><i>load</i><button type="button" data-paged-attention-focus="qk"><em>CUBE</em><b>QK Matmul</b><small>L1 → L0A/L0B → L0C · FP32</small></button><i>store/load</i><button type="button" data-paged-attention-focus="softmax"><em>VECTOR</em><b>Softmax Prepare</b><small>UB · FP32 exp/sum → BF16 pij</small></button><i>store/load</i><button type="button" data-paged-attention-focus="pv"><em>CUBE</em><b>PV Matmul</b><small>BF16 inputs · FP32 oi_new</small></button><i>store/load</i><button type="button" data-paged-attention-focus="online"><em>VECTOR</em><b>Online Update</b><small>FP32 mi/li/oi · normalize output</small></button><i>store</i><div class="memory"><em>GM</em><b>Attention Output</b><small>[B × Heads, D] · FP32</small></div></div>
+      <p class="kf-pa-note">这是依据 <code>target_memory=</code> 与 kernel 语义的静态映射，不代表最终指令时序和真实 Buffer 地址。A2/A3 上 Cube↔Vector 的真实 GM 往返需读取 Pass IR、Swimlane 与 PMU。</p>`;
   }
 
-  function pagedAttentionTiling() {
-    const blocks = Array.from({ length: 16 }, (_, index) => `<i class="${index < 4 ? 'is-hot' : ''}">${index}</i>`).join('');
-    return `
-      <section class="kf-inspector-section kf-pa-loop-nest"><header><h2 class="kf-inspector-title">循环与 Tile 映射</h2><span>main() 示例实例化</span></header><div class="kf-pa-loop-tree"><div><i>B</i><span><b>Batch loop</b><small>64 requests · <code>pl.range(batch_cfg)</code></small></span><em>64</em></div><div class="depth-1"><i>Q</i><span><b>Head Tile loop</b><small>ceil(16 heads ÷ QTile16)</small></span><em>1 / request</em></div><div class="depth-2"><i>K</i><span><b>KV Block loop</b><small>ceil(8192 context ÷ Block128)</small></span><em>64 / Q tile</em></div><div class="depth-3"><i>5</i><span><b>InCore chain</b><small>init once；QK → Softmax → PV → Update per block</small></span><em>16,448 calls</em></div></div></section>
-      <section class="kf-inspector-section kf-pa-block-strip"><header><h2 class="kf-inspector-title">Paged Block 扫描</h2><span>64 used blocks / request</span></header><div>${blocks}</div><small>为便于阅读仅画 16 个区段；高亮区表示当前可视窗口，实际逐个 logical block 通过 block_table 映射到物理 Cache。</small></section>
-      <section class="kf-pa-tile-matrix"><button type="button" data-paged-attention-focus="qk"><span>QK</span><b>16 × 128 × 128</b><small>M=QTile · N=Block · K=D</small></button><i>→</i><button type="button" data-paged-attention-focus="softmax"><span>Softmax</span><b>16 × valid_len</b><small>Vector row-wise</small></button><i>→</i><button type="button" data-paged-attention-focus="pv"><span>PV</span><b>16 × 128 × 128</b><small>M=QTile · N=D · K=Block</small></button></section>
-      <section class="kf-inspector-section kf-pa-tail"><header><h2 class="kf-inspector-title">尾块与整除守卫</h2><span>coding-time checks</span></header><div><article class="is-pass"><b>KV 末 Block</b><span><code>valid_len</code> 已显式裁剪</span><em>有处理</em></article><article><b>Q Head 尾 Tile</b><span>ceil-div 后仍固定 slice q_tile</span><em>需补处理</em></article><article class="is-pass"><b>示例 Heads</b><span>16 % QTile16 = 0</span><em>安全</em></article><article><b>空 Context</b><span>bn loop 为 0，输出语义需定义</span><em>需补测试</em></article></div></section>`;
+  function paScopeTree() {
+    const kernels = [['builder','I','init_inplace','动态形状绑定'],['qk','C','qk_matmul','Cube'],['softmax','V','softmax_prepare','Vector'],['pv','C','pv_matmul','Cube'],['online','V','online_update','Vector']];
+    return `<div class="kf-pa-scope-tree"><div><i>P</i><span><b>DynamicPagedAttentionProgram</b><small>@pl.program · Builder 闭包返回</small></span></div><div class="depth-1"><i>O</i><span><b>paged_attention</b><small>@pl.function(Orchestration) · 第 249 行</small></span></div>${kernels.map(([focus, mark, name, role]) => `<button type="button" class="depth-2" data-paged-attention-focus="${focus}"><i>${mark}</i><span><b>dyn_kernel_${name}</b><small>${role} · @pl.function(InCore)</small></span></button>`).join('')}</div>
+      <p class="kf-pa-note">1 Program · 1 Orchestration · 5 InCore，全部写在同一个文件里——这就是四格里「分块硬件」和「编排依赖」同时是主场的原因。</p>`;
   }
 
-  function pagedAttentionOrchestration() {
-    return `
-      <section class="kf-inspector-section kf-pa-scope"><header><h2 class="kf-inspector-title">Scope 层级</h2><span>1 Program · 1 Orchestration · 5 InCore</span></header><div class="kf-pa-scope-tree"><div><i>P</i><span><b>DynamicPagedAttentionProgram</b><small>Builder 返回的 @pl.program</small></span></div><div class="depth-1"><i>O</i><span><b>paged_attention</b><small>运行时维度、分页寻址、三层循环</small></span></div>${[['builder','I','init_inplace','动态形状绑定'],['qk','C','qk_matmul','Cube'],['softmax','V','softmax_prepare','Vector'],['pv','C','pv_matmul','Cube'],['online','V','online_update','Vector']].map(([focus,mark,name,role]) => `<button type="button" class="depth-2" data-paged-attention-focus="${focus}"><i>${mark}</i><span><b>${name}</b><small>${role} · InCore</small></span></button>`).join('')}</div></section>
-      <section class="kf-inspector-section kf-pa-dependency"><header><h2 class="kf-inspector-title">数据依赖与状态 Carry</h2><span>Tensor-derived ordering</span></header><div class="kf-pa-dep-flow"><div><b>QK</b><small>produces sij</small></div><i>→</i><div><b>Softmax</b><small>pij · mi · li</small></div><i>→</i><div><b>PV</b><small>oi_new</small></div><i>→</i><div><b>Online Update</b><small>mi_update · li_update · oi</small></div><i class="loop">↺ next bn</i></div><p>源码没有显式 <code>pl.submit(..., deps=...)</code>，依赖主要由 Call 的 Tensor 生产/消费和 InOut 状态推导。需要在 Pass 后依赖图确认最终 Task 顺序。</p></section>
-      <section class="kf-inspector-section kf-pa-parallel"><header><h2 class="kf-inspector-title">并行意图</h2><span>当前源码事实</span></header><div class="kf-pa-parallel-grid"><div><span>Batch</span><b>pl.range</b><em>未显式 parallel</em></div><div><span>Q Tile</span><b>pl.range</b><em>未显式 parallel</em></div><div><span>KV Block</span><b>pl.range</b><em>状态依赖串行</em></div><div><span>Pipeline</span><b>未声明</b><em>无 pl.pipeline</em></div></div><p>Online Softmax 的 <code>mi/li/oi</code> 形成 loop-carried dependency，因此 KV Block 不能简单并行。Batch 与 Q Tile 理论上有独立性，但当前源码未显式表达并行调度。</p></section>
-      <section class="kf-inspector-section kf-attn-source-map kf-pa-source-map"><header><h2 class="kf-inspector-title">源码阶段</h2><span>点击与源码联动</span></header><div>${Object.entries(pagedAttentionFocusMeta).map(([key, item]) => `<button type="button" class="${key === state.pagedAttentionFocus ? 'is-active' : ''}" data-paged-attention-focus="${key}"><i>${item.lines}</i><span><b>${item.label}</b><small>${item.detail}</small></span></button>`).join('')}</div></section>`;
+  function paDepFlow() {
+    return `<div class="kf-pa-dependency"><div class="kf-pa-dep-flow"><div><b>QK</b><small>produces sij</small></div><i>→</i><div><b>Softmax</b><small>pij · mi · li</small></div><i>→</i><div><b>PV</b><small>oi_new</small></div><i>→</i><div><b>Online Update</b><small>mi_update · li_update · oi</small></div><i class="loop">↺ next bn</i></div>
+      <p>源码里<b>没有任何显式依赖原语</b>——没有 <code>pl.submit(deps=)</code>、<code>pl.at(...) as tid</code>、<code>pl.manual_scope()</code>、<code>pl.no_dep()</code>。全部顺序由 Call 的 Tensor 生产 / 消费与 <code>InOut</code> 状态自动推导。最终 Task 顺序需在 Pass 后依赖图确认。</p></div>`;
   }
 
-  function pagedAttentionHardware() {
-    return `
-      <section class="kf-inspector-section kf-pa-hardware"><header><h2 class="kf-inspector-title">昇腾执行与精度路径</h2><span>A2/A3 · semantic mapping</span></header><div class="kf-pa-hw-lanes"><div class="memory"><em>GM</em><b>Query · Paged K/V · State</b><small>BF16 inputs / FP32 accumulators</small></div><i>load</i><button type="button" data-paged-attention-focus="qk"><em>CUBE</em><b>QK Matmul</b><small>L1 → L0A/L0B → L0C · FP32</small></button><i>store/load</i><button type="button" data-paged-attention-focus="softmax"><em>VECTOR</em><b>Softmax Prepare</b><small>UB · FP32 exp/sum → BF16 pij</small></button><i>store/load</i><button type="button" data-paged-attention-focus="pv"><em>CUBE</em><b>PV Matmul</b><small>BF16 inputs · FP32 oi_new</small></button><i>store/load</i><button type="button" data-paged-attention-focus="online"><em>VECTOR</em><b>Online Update</b><small>FP32 mi/li/oi · normalize output</small></button><i>store</i><div class="memory"><em>GM</em><b>Attention Output</b><small>[B × Heads, D] · FP32</small></div></div></section>
-      <section class="kf-inspector-section kf-pa-precision"><header><h2 class="kf-inspector-title">关键精度边界</h2><span>source facts</span></header><div class="kf-pa-precision-grid"><div><span>Q / K / V</span><b>BF16</b><small>Matmul input</small></div><div><span>sij</span><b>FP32</b><small>QK accumulation</small></div><div><span>pij</span><b>BF16</b><small>exp 后显式 cast</small></div><div><span>mi / li / oi</span><b>FP32</b><small>online state</small></div><div><span>out</span><b>FP32</b><small>oi ÷ li</small></div></div></section>
-      <section class="kf-inspector-section kf-attn-risks"><header><h2 class="kf-inspector-title">Coding 风险</h2><span>需要显式验证</span></header><ul><li><b>Q Head 尾块</b><span><code>q_loop</code> 使用 ceil-div，但 slice 仍固定为 <code>q_tile</code>；num_heads 不能整除 q_tile 时需确认有效 Shape 处理。</span></li><li><b>动态标注 ≠ 动态 Tile</b><span>InCore 类型使用 <code>pl.dynamic</code>，load 尺寸仍来自 Builder 闭包常量。</span></li><li><b>跨核数据往返</b><span>当前 5-stage InCore 管线在 A2/A3 上可能经过 GM；真实流量与重叠需结合 Pass IR、Swimlane 和 PMU。</span></li></ul></section>
-      <div class="kf-inspector-card kf-rms-estimate"><b>可信边界</b><p>此图是依据 MemorySpace 与 Kernel 语义的静态映射，不代表最终指令时序和真实 Buffer 地址。</p></div>`;
+  function paParallelIntent() {
+    const rows = [['Batch', 'pl.range', '未显式 parallel'], ['Q Tile', 'pl.range', '未显式 parallel'], ['KV Block', 'pl.range', '状态依赖串行'], ['Pipeline', '未声明', '无 pl.pipeline']];
+    return `<div class="kf-pa-parallel"><div class="kf-pa-parallel-grid">${rows.map(([k, v, note]) => `<div><span>${k}</span><b>${v}</b><em>${note}</em></div>`).join('')}</div>
+      <p>Online Softmax 的 <code>mi / li / oi</code> 形成 loop-carried dependency，KV Block 不能简单并行。Batch 与 Q Tile 理论上独立，但源码用的是 <code>pl.range</code> 而非 <code>pl.parallel</code>，并行意图没有表达出来。</p></div>`;
   }
 
-  function pagedAttentionValidation() {
-    return `
-      ${pagedAttentionAgentSection()}
-      <section class="kf-inspector-section kf-pa-capability"><header><h2 class="kf-inspector-title">目标能力 Lens</h2><span>A2/A3 · Ascend910B</span></header><div><article class="is-supported"><i>✓</i><span><b>动态 Tensor 标注</b><small>pl.dynamic · Tensor.dim</small></span><em>源码采用</em></article><article class="is-supported"><i>✓</i><span><b>Cube Matmul</b><small>BF16 input · FP32 accumulate</small></span><em>源码采用</em></article><article class="is-supported"><i>✓</i><span><b>Vector Softmax primitives</b><small>row_max · exp · row_sum</small></span><em>源码采用</em></article><article class="is-caution"><i>!</i><span><b>动态有效宽度</b><small>sij_valid uses runtime valid_len</small></span><em>重点验证</em></article><article class="is-caution"><i>!</i><span><b>动态 Head 尾 Tile</b><small>fixed q_tile load/slice</small></span><em>能力缺口</em></article><article><i>○</i><span><b>Cube↔Vector 片上交接</b><small>A2/A3 可能经 GM Buffer</small></span><em>需 Pass/实测</em></article></div></section>
-      <section class="kf-inspector-section kf-rms-validation"><header><h2 class="kf-inspector-title">当前验证设计</h2><span>源码自带 Golden</span></header><div class="kf-rms-proof"><div class="is-pass"><i>✓</i><p><b>Torch Golden 已实现</b><small>复现分页寻址、Mask 与 Online Softmax</small></p><em>直接证据</em></div><div class="is-pass"><i>✓</i><p><b>概率精度行为已对齐</b><small>pij 模拟 BF16 cast 后再转 FP32</small></p><em>直接证据</em></div><div class="is-pass"><i>✓</i><p><b>运行后执行 allclose</b><small>rtol = atol = 2e-2</small></p><em>源码门禁</em></div><div><i>○</i><p><b>动态 Shape 参数矩阵</b><small>Batch · Heads · D · Block · Context</small></p><em>缺失</em></div><div><i>○</i><p><b>Q Head 尾 Tile</b><small>num_heads % q_tile ≠ 0</small></p><em>高风险缺口</em></div><div><i>○</i><p><b>末 Block 与空 Context</b><small>valid_len · context_len 0/1/boundary</small></p><em>缺失</em></div></div></section>
-      <section class="kf-inspector-section kf-attn-risks"><header><h2 class="kf-inspector-title">风险与守卫</h2><span>G · capability & risk</span></header><ul><li><b>Shape 可除性</b><span><code>query.rows % batch == 0</code>、<code>cache.rows % table.size == 0</code>、<code>table.size % batch == 0</code> 应成为显式守卫。</span></li><li><b>Page Table 合法性</b><span><code>cur_block_idx</code> 必须处于物理 Block 池范围内，否则 KV Slice 越界。</span></li><li><b>Scale 语义</b><span>固定 1.0 需要与模型调用点对齐，避免遗漏 Attention Scale。</span></li><li><b>资源与后端</b><span>片上工作集是静态估算；最终地址、GM Round Trip 和执行重叠必须读取 Pass IR、Swimlane 与 PMU。</span></li></ul></section>
-      <section class="kf-inspector-section kf-pa-run"><header><h2 class="kf-inspector-title">示例运行画像</h2><span>main()</span></header><dl><div><dt>Platform / Backend</dt><dd>A2/A3 · Ascend910B</dd></div><div><dt>Batch / Heads</dt><dd>64 / 16</dd></div><div><dt>Head / Block</dt><dd>128 / 128</dd></div><div><dt>Context / Max model</dt><dd>8192 / 32768</dd></div><div><dt>Blocks / Request</dt><dd>64 used / 256 max</dd></div><div><dt>Optional evidence</dt><dd>L2 Swimlane</dd></div></dl></section>
-      <button class="kf-rms-action" type="button" data-paged-attention-action="tests">＋ 生成动态 Shape 与分页边界测试</button>`;
+  function paShapeFormulas() {
+    const rows = [['batch', 'context_lens.dim(0)', '273'], ['num_heads', 'query.rows ÷ batch', '275'], ['block_size', 'value_cache.rows ÷ block_table.size', '276'], ['blocks / request', 'block_table.size ÷ batch', '277'], ['Q loops', 'ceil(num_heads ÷ q_tile)', '281'], ['KV loops', 'ceil(context_len ÷ block_size)', '286']];
+    return `<div class="kf-pa-formulas">${rows.map(([k, v, line]) => `<div><span>${k}</span><b>${v}</b><em>第 ${line} 行</em></div>`).join('')}</div>
+      <p class="kf-pa-note">三处整除（第 275–277 行）都没有显式守卫；非整除输入会静默产生错误维度而不是报错。</p>`;
   }
 
+  function paPageMap() {
+    return `<div class="kf-pa-page-map"><div><small>Request b</small><b>logical block bn</b></div><i>table[b × block_num + bn]</i><div><small>Physical Block</small><b>cur_block_idx</b></div><i>× block_size</i><div><small>Cache Row</small><b>kv_block_row</b></div></div>
+      <p class="kf-pa-note"><code>valid_len = pl.min(block_size, context_len − bn × block_size)</code>（第 305 行）。<code>cur_block_idx</code> 来自设备侧读取（第 303 行），其取值是否落在物理 Block 池内，源码没有守卫。</p>`;
+  }
+
+  /* ---- paged_attention 的 OperatorProfile ---------------------------------
+     风险与护栏全部对着 repo/pto/examples/models/06_paged_attention_dynamic.py
+     逐行核对过；行号即编辑器行号。 */
+
+  function pagedAttentionProfile() {
+    return {
+      id: 'paged_attention.dynamic',
+      file: [PAGED_ATTENTION_FILE, PAGED_ATTENTION_ROOT_FILE],
+      fileLabel: 'examples/models/06_paged_attention_dynamic.py',
+
+      name: 'paged_attention',
+      summary: '把一次 batched decode 的注意力拆成 5 个 InCore kernel，在 Paged KV Cache 上按 block 迭代做 online softmax；B / H / D / block_size 全部运行时推导。',
+      kind: 'megakernel',
+      kindLabel: 'megakernel',
+      completeness: 'complete',
+      // 特征槽只放最能区分本文件的两项；"1 Orchestration + 5 InCore" 由摘要条承载
+      traits: ['dynamic shape', 'paged KV'],
+      depth: 'resolved',
+      checkCount: 14,
+
+      confidence: {
+        compiled: { ok: true, note: 'main() 走 ir.compile + ptoas 完整链路' },
+        torchGolden: { ok: true, note: 'golden() 复现分页寻址、Mask 与 online softmax' },
+        passDump: { ok: false, note: '未对 passes_dump 快照逐一做数值校验' },
+        device: { ok: true, note: 'main() 以 platform="a2a3" 实跑并 allclose(rtol=atol=2e-2)' },
+        perfBaseline: { ok: false, note: 'Swimlane 采集是 --profile 可选项，没有可比基线' },
+      },
+
+      // 静态可判定的风险。level: block | warn；每条带 为什么 / 影响什么 / 如何验证（O7）
+      risks: [
+        {
+          level: 'warn', cls: '切分', lines: [122, 122],
+          title: 'valid_len 的裁剪可能没有进入 kernel',
+          why: '编排层在第 320 行用 <code>sij_valid = pl.slice(sij, [q_tile, valid_len], [0, 0])</code> 收窄了有效列，但 <code>dyn_kernel_softmax_prepare</code> 内部第 122 行是 <code>pl.load(sij, [0, 0], [_Q_TILE, _BLOCK_SIZE], ...)</code>——取 Tile 的宽度来自闭包常量 <code>_BLOCK_SIZE</code>，不是入参的运行时宽度。',
+          impact: '若 load 按 <code>_BLOCK_SIZE</code> 取满，末块的 padding 列会进入 <code>row_max</code> / <code>exp</code> / <code>row_sum</code>，softmax 分母系统性偏大、注意力权重整体偏小。示例配置 8192 ÷ 128 = 64 整除，永远走不到末块，Golden 因此不会失败。',
+          verify: '把 <code>context_len</code> 设成 8191 这类非整数倍值跑 Golden 比对；或编译后在 IR 里确认 softmax_prepare 的 load extent 是常量还是运行时值。',
+          conflict: '现有面板「尾块与整除守卫」把 KV 末 Block 标为 <b>有处理</b>。静态证据只支持"编排层已裁剪"，不支持"kernel 内也已裁剪"。',
+        },
+        {
+          level: 'warn', cls: '切分', lines: [300, 300],
+          title: 'Q Head 尾 Tile 固定按 q_tile 取片',
+          why: '<code>q_loop_cfg = (q_head_num + q_tile - 1) // q_tile</code>（第 281 行）是 ceil 除，但第 300 行的 <code>pl.slice(query, [q_tile, head_dim_cfg], [cur_offset, 0])</code> 无论第几个 tile 都固定取 <code>q_tile</code> 行。',
+          impact: '<code>num_heads % q_tile ≠ 0</code> 时，最后一个 Q Tile 会越界读入下一个 batch 条目的 query 行，该 tile 的注意力输出被邻接请求污染。示例 16 heads ÷ QTile 16 恰好整除，掩盖了这个缺口。',
+          verify: '构造 num_heads = 18、q_tile = 16 的配置跑 Golden；或给尾 tile 补一个与 <code>valid_len</code> 对称的有效行数。',
+        },
+        {
+          level: 'warn', cls: '契约', lines: [286, 286],
+          title: '空 Context 时 out 该段从未被写',
+          why: '<code>bn_this_batch = (cur_seq + block_size - 1) // block_size</code>；<code>cur_seq == 0</code> 时它为 0，<code>bn</code> 循环体一次都不执行，第 350 行的 <code>out_view_buf</code> 与 online_update 都不会发生。',
+          impact: '<code>out</code> 是 <code>pl.Out</code> 参数，对应 batch 条目的输出行内容未定义——读到的是缓冲区里的残留值，而不是零或任何约定语义。编译和运行都不会报错。',
+          verify: '构造 <code>context_lens</code> 含 0 的输入，检查对应输出行；并在源码里明确空序列的输出契约（补零或显式拒绝）。',
+        },
+        {
+          level: 'warn', cls: '精度', lines: [328, 328],
+          title: 'Attention scale 固定为 1.0',
+          why: '第 328 行向 <code>dyn_kernel_softmax_prepare</code> 传入常量 <code>1.0</code> 作为 scale，而不是常见的 <code>1 / sqrt(head_dim)</code>。',
+          impact: '与本文件自带的 Golden 一致，所以数值门禁不会发现。但把这个 kernel 接进真实模型时，若上游没有预先缩放 Q，softmax 会在未缩放的 logits 上做，长上下文下极易饱和。',
+          verify: '在调用点确认上游是否已对 Q 乘过 <code>1/sqrt(D)</code>；否则把 scale 提为显式参数并在集成测试里覆盖。',
+        },
+        {
+          level: 'warn', cls: '类型布局', lines: [67, 69],
+          title: '动态标注 ≠ 动态 Tile',
+          why: '5 个 InCore kernel 的类型注解用的是模块级 <code>pl.dynamic()</code> 变量（Q_HEADS / HEAD_DIM_DYN / BLOCK_SIZE_DYN），但函数体内每一个 <code>pl.load</code> / <code>pl.create_tile</code> 的尺寸都来自 Builder 闭包常量 <code>_Q_TILE / _HEAD_DIM / _BLOCK_SIZE</code>（第 67–69 行捕获）。',
+          impact: '"支持动态 shape"只到 Orchestration 层为止；核内 Tile 尺寸在 Builder 调用时就固化了。换一组 block_size 需要重新 build 程序，而不是换一组输入。这也是上面第 1 条风险的根因。',
+          verify: '用不同的 <code>block_size</code> 调 <code>build_dynamic_paged_attention_program()</code> 并检查是否产生了不同的 CompiledProgram；确认这是设计意图而非遗漏。',
+        },
+        {
+          level: 'warn', cls: '切分', lines: [275, 277],
+          title: '三处整除推导没有守卫',
+          why: '<code>num_heads = query.rows // batch</code>、<code>block_size = value_cache.rows // block_table.size</code>、<code>block_num = block_table.size // batch</code>（第 275–277 行）都是整数除，源码没有对可除性做任何检查。',
+          impact: '输入不满足可除性时不会报错，而是静默得到偏小的维度，后续所有 slice 偏移随之错位——表现为难以定位的错值而不是异常。',
+          verify: '在 orchestration 入口加显式守卫，或在 build_tensors 层面约束；补一组故意不可除的输入确认失败方式是可诊断的。',
+        },
+      ],
+
+      // 本文件全程 AUTO scope，没有任何带外承诺——空结论本身是有价值的
+      guards: [],
+
+      tabs: {
+        overview: [
+          { type: 'raw', html: paSummaryStrip },
+          { type: 'raw', html: () => pagedAttentionAgentSection() },
+          { type: 'raw', html: () => pagedAttentionEntrySection() },
+          { type: 'block', title: '张量契约与方向', origin: 'fact', html: paContractTable },
+          { type: 'block', title: '任务计算图', origin: 'fact', html: paTaskGraphStage },
+          { type: 'block', title: '示例运行画像', origin: 'measured', html: paRunProfile },
+          { type: 'block', title: '源码阶段', origin: 'fact', html: paSourceMap },
+        ],
+        data: [
+          { type: 'block', title: '端到端精度流', origin: 'fact', html: paPrecisionPath },
+          { type: 'block', title: '精度敏感点', origin: 'resolved', html: paPrecisionSensitivity },
+          { type: 'block', title: 'Shape / Layout 变换', origin: 'fact', html: paLayoutFlow },
+          { type: 'block', title: '有效 Shape 与 Padding', origin: 'fact', html: paValidShape },
+          { type: 'block', title: '单 Block 工作集', origin: 'estimated', html: paWorkingSet },
+          { type: 'block', title: '示例逻辑规模', origin: 'estimated', html: paLogicalScale },
+        ],
+        tiling: [
+          { type: 'raw', html: paExecutionBand },
+          { type: 'block', title: '循环与 Tile 映射', origin: 'fact', html: paLoopNest },
+          { type: 'block', title: 'Tile 形状', origin: 'fact', html: paTileMatrix },
+          { type: 'block', title: 'Paged Block 扫描', origin: 'estimated', html: paBlockStrip },
+          { type: 'block', title: '尾块与整除守卫', origin: 'fact', html: paTailGuards },
+          { type: 'block', title: '目标能力 Lens', origin: 'resolved', html: paCapabilityLens },
+          { type: 'block', title: '昇腾执行路径', origin: 'estimated', html: paHardwareLanes },
+          { type: 'raw', html: () => pagedAttentionHardwareSection() },
+          { type: 'raw', html: () => pagedAttentionTilePipelineSection() },
+        ],
+        orch: [
+          { type: 'block', title: 'Scope 层级', origin: 'fact', html: paScopeTree },
+          { type: 'block', title: '动态 Shape 推导', origin: 'fact', html: paShapeFormulas },
+          { type: 'block', title: 'Paged KV 地址映射', origin: 'fact', html: paPageMap },
+          { type: 'raw', html: () => pagedAttentionTaskSection() },
+          { type: 'raw', html: () => pagedAttentionDepSection() },
+          { type: 'block', title: '依赖与状态 Carry', origin: 'fact', html: paDepFlow },
+          { type: 'block', title: '并行意图', origin: 'fact', html: paParallelIntent },
+          { type: 'raw', html: () => pagedAttentionScopeSection() },
+        ],
+      },
+
+      drawers: {
+        object: {
+          title: '对象详情',
+          meta: 'source ↔ node',
+          html: () => pagedAttentionObjectDetail(),
+        },
+      },
+
+      actions: {
+        read: { id: 'compileCheck', label: '最小编译检查' },
+        diff: { id: 'contractDiff', label: '契约 Diff' },
+      },
+    };
+  }
+
+  // paged_attention 是第一个迁到统一算子面板的文件：结论区 / 四格 Tab / Body /
+  // 证据与行动。风险与置信度不再占一格 tab，改由结论区常驻 + 共用抽屉承载。
   function renderPagedAttentionInspector({ scrollToFocus = false } = {}) {
     pagedAttentionGraphController?.destroy?.();
     pagedAttentionGraphController = null;
-    const tabs = { graph: '计算图', schedule: '调度', execution: '执行', validation: '风险与验证' };
-    if (state.pagedAttentionDetailOpen) {
-      $('#inspectorTitle').textContent = '对象详情';
-      $('#inspectorMeta').textContent = '按需查看 · source ↔ node';
-      $('#inspector').innerHTML = pagedAttentionDetailView();
-      return;
-    }
-    const content = state.pagedAttentionTab === 'execution' ? pagedAttentionDataExecution()
-      : state.pagedAttentionTab === 'schedule' ? pagedAttentionSchedule()
-      : state.pagedAttentionTab === 'validation' ? pagedAttentionValidation()
-      : pagedAttentionExecutionGraph();
-    $('#inspectorTitle').textContent = 'Paged Attention 分析';
-    $('#inspectorMeta').textContent = `coding · ${tabs[state.pagedAttentionTab] || tabs.graph}`;
-    $('#inspector').innerHTML = `
-      <section class="kf-pa-hero"><span class="kf-eyebrow">CODING AGENT · 代码将如何执行</span><div><b>paged_attention_dynamic</b><em>DYNAMIC SHAPE</em></div><small>1 Orchestration 入口 · 5 InCore Kernel · AUTO Scope · Paged KV · online softmax</small></section>
-      <div class="kf-pa-tabs" role="tablist" aria-label="动态 Paged Attention 分析视图">${Object.entries(tabs).map(([key, label]) => `<button type="button" class="${key === state.pagedAttentionTab ? 'is-active' : ''}" data-paged-attention-tab="${key}">${label}</button>`).join('')}</div>
-      <div class="kf-pa-view">${content}</div>
-      <footer class="kf-rms-provenance"><span><i class="fact"></i>源码事实</span><span><i class="estimated"></i>静态推断</span><span><i class="resolved"></i>编译 / Runtime / 硬件证据待补</span></footer>`;
+    const api = window.PtoOperatorInspector;
+    if (!api) { $('#inspector').innerHTML = '<code>算子面板渲染模块未加载</code>'; return; }
+    // 旧的整页接管改为抽屉：结论区与 Tab 始终可见
+    const drawer = state.pagedAttentionDetailOpen ? 'object' : state.opDrawer;
+    api.render({
+      mount: $('#inspector'),
+      titleEl: $('#inspectorTitle'),
+      metaEl: $('#inspectorMeta'),
+      profile: pagedAttentionProfile(),
+      tab: state.opTab,
+      drawer,
+      mode: state.opMode,
+    });
     $$('#dslEditor [data-paged-attention-focus]').forEach(row => row.classList.toggle('is-paged-attention-line-active', row.dataset.pagedAttentionFocus === state.pagedAttentionFocus));
     if (scrollToFocus) $(`#dslEditor [data-paged-attention-focus="${state.pagedAttentionFocus}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    if (state.pagedAttentionTab === 'graph') renderPagedAttentionComputationGraph();
+    if (state.opTab === 'overview' && !drawer) renderPagedAttentionComputationGraph();
   }
 
   function renderPagedAttentionComputationGraph() {
@@ -2898,6 +3089,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   function renderIntentInspector() {
+    // 非统一面板的文件仍走各自的渲染器：先摘掉四层骨架的布局类
+    $('#inspector').classList.remove('is-op-inspector');
     matmulHardwareGraphInstance?.destroy?.();
     matmulHardwareGraphInstance = null;
     rmsNormHardwareGraphInstance?.destroy?.();
@@ -3200,6 +3393,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   function updateInspector() {
+    $('#inspector').classList.remove('is-op-inspector');
     if (state.step === 1) {
       renderIntentInspector();
       if (state.fixed) $('.kf-intent-note p').textContent = '已切换到静态仿射 work-table fallback；动态 GM store offset 已移除。';
@@ -3248,7 +3442,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     $('#tabs').parentElement.hidden = view !== 'explorer';
     $('#stageTitle').closest('.pto-ide-frame__pane-header').hidden = view === 'explorer';
     $('.kf-command').textContent = isRuns ? 'RUNS · 统一运行详情' : '⌘ K　搜索命令、tensor 或 pass';
+    const sideKicker = { explorer: 'PROJECT', workflow: 'TASK FLOW', runs: 'RUN HISTORY' }[view] || 'PROJECT';
     const sideTitle = { explorer: '资源管理器', workflow: '任务路线', runs: '运行列表' }[view] || '资源管理器';
+    $('#sidePaneKicker').textContent = sideKicker;
     $('#sidePaneTitle').textContent = sideTitle;
     const workflowPosition = Math.max(0, WORKFLOW_STEPS.indexOf(state.step));
     $('#sidePaneMeta').textContent = view === 'explorer' ? 'workspace' : isRuns ? `${runs.length} runs` : `${workflowPosition + 1} / ${WORKFLOW_STEPS.length}`;
@@ -3603,6 +3799,17 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       selectorTrigger.setAttribute('aria-expanded', String(Boolean(open)));
       return;
     }
+    const phaseNavToggle = event.target.closest('[data-model-phase-nav-toggle]');
+    if (phaseNavToggle) {
+      const body = phaseNavToggle.closest('.kf-model-canvas__body');
+      if (body) {
+        const collapsed = body.classList.toggle('is-phase-nav-collapsed');
+        phaseNavToggle.setAttribute('aria-expanded', String(!collapsed));
+        phaseNavToggle.setAttribute('aria-label', collapsed ? '展开执行阶段' : '收起执行阶段');
+        phaseNavToggle.title = collapsed ? '展开执行阶段' : '收起执行阶段';
+      }
+      return;
+    }
     const recipe = event.target.closest('[data-recipe]');
     if (recipe) { state.selectedRecipe = recipe.dataset.recipe; renderRecipes(); toast(`已选择 ${$('b', recipe).textContent}`); }
     const step = event.target.closest('[data-step]');
@@ -3640,7 +3847,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           state.qwenDecodeFocus = 'scope1';
         }
         if (isPagedAttentionFile(filePath)) {
-          state.pagedAttentionTab = 'graph';
+          state.opTab = 'overview';
+          state.opDrawer = null;
+          state.opMode = 'read';
           state.pagedAttentionDetailOpen = false;
           state.pagedAttentionOverlay = 'data';
           state.pagedAttentionNode = 'orch';
@@ -3765,10 +3974,50 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       renderQwenDecodeInspector();
     }
     if (event.target.closest('[data-qwen-decode-action="test"]')) toast('已生成测试清单：编译结构 · Attention 数据链 · Cache 增量 · BF16 数值 · 昇腾实跑');
-    const pagedAttentionTab = event.target.closest('[data-paged-attention-tab]');
-    if (pagedAttentionTab) {
-      state.pagedAttentionTab = pagedAttentionTab.dataset.pagedAttentionTab;
-      renderPagedAttentionInspector();
+    // ---- 统一算子面板的交互：一套委托，取代此前每个文件各自一套 ----
+    const opTab = event.target.closest('[data-op-tab]');
+    if (opTab) {
+      state.opTab = opTab.dataset.opTab;
+      state.opDrawer = null;
+      state.pagedAttentionDetailOpen = false;
+      renderIntentInspector();
+    }
+    const opDrawer = event.target.closest('[data-op-drawer]');
+    if (opDrawer && !opDrawer.disabled) {
+      state.opDrawer = opDrawer.dataset.opDrawer;
+      state.pagedAttentionDetailOpen = false;
+      renderIntentInspector();
+    }
+    if (event.target.closest('[data-op-drawer-close]')) {
+      state.opDrawer = null;
+      state.pagedAttentionDetailOpen = false;
+      renderIntentInspector();
+    }
+    const opGotoLine = event.target.closest('[data-op-goto-line]');
+    if (opGotoLine) {
+      const line = Number(opGotoLine.dataset.opGotoLine);
+      state.opDrawer = null;
+      state.pagedAttentionDetailOpen = false;
+      renderIntentInspector();
+      const target = $(`#dslEditor [data-paged-attention-line="${line}"]`) || $(`#dslEditor div:nth-child(${line})`);
+      if (target) {
+        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        markPagedAttentionTargetLine(line);
+      }
+      toast(`已定位到第 ${line} 行`);
+    }
+    const opAction = event.target.closest('[data-op-action]');
+    if (opAction) {
+      toast(opAction.dataset.opAction === 'contractDiff'
+        ? '契约 Diff：对比修改前后的参数方向、Shape、dtype 与工作集'
+        : '最小编译检查：ir.compile(..., skip_ptoas=True) 只生成 .pto，不走 ptoas');
+    }
+    const opSummary = event.target.closest('[data-op-summary]');
+    if (opSummary) opSummary.classList.toggle('is-open');
+    const opJump = event.target.closest('[data-op-jump]');
+    if (opJump) {
+      const targetFile = $(`[data-file="${opJump.dataset.opJump}"]`);
+      if (targetFile) targetFile.click();
     }
     const pagedAttentionDetailBack = event.target.closest('[data-pa-detail-back]');
     if (pagedAttentionDetailBack) {
@@ -3777,7 +4026,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     }
     const pagedAttentionGoTab = event.target.closest('[data-pa-go-tab]');
     if (pagedAttentionGoTab) {
-      state.pagedAttentionTab = pagedAttentionGoTab.dataset.paGoTab;
+      state.opTab = { graph: 'overview', execution: 'tiling', schedule: 'orch', validation: 'overview' }[pagedAttentionGoTab.dataset.paGoTab] || 'overview';
+      state.pagedAttentionDetailOpen = false;
       renderPagedAttentionInspector();
     }
     const pagedAttentionOverlay = event.target.closest('[data-pa-overlay]');
@@ -3826,7 +4076,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       syncPagedAttentionSelection(pagedAttentionLine.dataset.pagedAttentionFocus);
       state.pagedAttentionLine = Number(pagedAttentionLine.dataset.pagedAttentionLine);
       state.pagedAttentionDetailOpen = true;
-      if (state.pagedAttentionTab !== 'graph') state.pagedAttentionTab = 'graph';
+      if (state.opTab !== 'overview') state.opTab = 'overview';
       markPagedAttentionTargetLine(state.pagedAttentionLine);
       renderPagedAttentionInspector();
     }
@@ -3920,7 +4170,14 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeModelSelector();
+    if (event.key !== 'Escape') return;
+    closeModelSelector();
+    // 抽屉（风险 / 护栏 / 置信度 / 对象详情）共用同一个关闭路径
+    if (state.opDrawer || state.pagedAttentionDetailOpen) {
+      state.opDrawer = null;
+      state.pagedAttentionDetailOpen = false;
+      renderIntentInspector();
+    }
   });
   document.addEventListener('pointerover', (event) => {
     const line = event.target.closest?.('[data-hardware-line]');

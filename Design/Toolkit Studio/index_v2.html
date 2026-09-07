@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/model-graphviz/pattern.css?v=20260813-2" />
   <link rel="stylesheet" href="./styles/demo.css?v=20260821-10" />
   <link rel="stylesheet" href="./styles/coding-v2.css?v=20260820-26" />
+  <link rel="stylesheet" href="./styles/operator-inspector.css?v=20260907-1" />
   <link rel="stylesheet" href="./styles/profiler.css?v=20260821-4" />
   <link rel="stylesheet" href="./styles/fusion.css?v=20260829-1" />
   <link rel="stylesheet" href="./styles/fusion-catalog.css?v=20260828-1" />
@@ -140,6 +141,9 @@
           <button class="pto-ide-frame__window-action" id="resetDemo" type="button" aria-label="重置 Demo" title="重置 Demo">
             <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/></svg>
           </button>
+          <button class="pto-ide-frame__window-action" id="inspectorToggle" type="button" data-ide-toggle="inspector" data-expanded-label="收起右侧面板" data-collapsed-label="展开右侧面板" aria-controls="inspectorPane" aria-expanded="true" aria-pressed="true" aria-label="收起右侧面板" title="右侧面板">
+            <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+          </button>
         </div>
       </div>
     </header>
@@ -162,9 +166,14 @@
 
       <div class="pto-ide-frame__workarea" id="ideWorkarea">
         <section class="kf-model-workspace pto-model-graphviz-pattern-page" id="modelArchitectureView" aria-label="大模型结构可视化" hidden>
-          <aside class="kf-model-library" aria-label="模型列表">
-            <header><span class="kf-eyebrow">MODEL ANALYSIS</span><h2>模型整网分析</h2></header>
-            <div class="kf-model-selector" data-model-selector>
+          <div class="pto-ide-frame__split kf-model-split" data-ide-split="model-main" data-split-direction="horizontal" data-sizes="22,51,27" data-min-size="240,520,300" data-storage-key="kernel-forge-model-v2">
+          <aside class="pto-ide-frame__pane kf-model-library" data-ide-pane="model-library" aria-label="模型列表">
+            <header class="pto-ide-frame__pane-header kf-model-library__header">
+              <div class="kf-pane-title-stack"><span class="kf-pane-kicker">MODEL ANALYSIS</span><span class="pto-ide-frame__pane-title">模型整网分析</span></div>
+              <span class="pto-ide-frame__pane-meta">MODEL</span>
+            </header>
+            <div class="pto-ide-frame__pane-body kf-model-library__body">
+              <div class="kf-model-selector" data-model-selector>
               <button class="kf-model-selector__trigger" type="button" data-model-selector-trigger aria-haspopup="listbox" aria-expanded="false" aria-controls="modelSelectorMenu">
                 <span class="kf-model-selector__current-icon" data-model-selector-icon="qwen3" aria-hidden="true">
                   <img class="kf-model-icon kf-model-icon--qwen" src="./Qwen_logo.svg.webp" alt="">
@@ -186,26 +195,18 @@
                   <span class="kf-model-card__icon"><img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt=""></span><span><b>DeepSeek V4 Flash · torch_npu</b><small>融合替换后 · Ascend 部署态</small></span><em>可视化</em>
                 </button>
               </div>
-            </div>
-            <nav class="kf-model-phases" aria-label="执行阶段">
-              <span>执行阶段</span>
-              <button class="is-active" type="button" data-model-phase="all"><i>00</i><span><b>完整链路</b><small>decode_fwd · 40 layers</small></span></button>
-              <button type="button" data-model-phase="boundary-in"><i>01</i><span><b>输入边界</b><small>copy_hidden · x_gamma0</small></span></button>
-              <button type="button" data-model-phase="scope-1"><i>02</i><span><b>Scope 1</b><small>RMS · QKV · QK Norm</small></span></button>
-              <button type="button" data-model-phase="scope-2"><i>03</i><span><b>Scope 2</b><small>Paged Flash Attention</small></span></button>
-              <button type="button" data-model-phase="scope-3"><i>04</i><span><b>Scope 3</b><small>Out Proj · SwiGLU · Carry</small></span></button>
-              <button type="button" data-model-phase="boundary-out"><i>05</i><span><b>输出边界</b><small>cast · RMS LM Head</small></span></button>
-            </nav>
-            <div class="kf-model-facts" id="modelFacts">
+              </div>
+              <div class="kf-model-facts" id="modelFacts">
               <span>模型规格</span>
               <dl id="modelFactsBody"><div><dt>Decoder</dt><dd>40 层</dd></div><div><dt>Decode batch</dt><dd>16</dd></div><div><dt>Hidden</dt><dd>5,120</dd></div><div><dt>Attention</dt><dd>40 Q / 8 KV</dd></div><div><dt>Head dim</dt><dd>128</dd></div><div><dt>FFN</dt><dd>17,408</dd></div></dl>
+              </div>
+              <div class="kf-model-legend"><span>节点类型</span><i class="is-op">任务 / 算子</i><i class="is-tensor">Tensor / State</i><i class="is-flow-solid">实线 · 主数据流</i><i class="is-flow-dashed">虚线 · 辅助依赖</i><small>点击节点查看信息 · 点击节点右侧 ＋ 下钻 · 容器右上角 − 收起</small></div>
             </div>
-            <div class="kf-model-legend"><span>节点类型</span><i class="is-op">任务 / 算子</i><i class="is-tensor">Tensor / State</i><i class="is-flow-solid">实线 · 主数据流</i><i class="is-flow-dashed">虚线 · 辅助依赖</i><small>点击节点查看信息 · 点击节点右侧 ＋ 下钻 · 容器右上角 − 收起</small></div>
           </aside>
 
-          <main class="kf-model-canvas">
-            <header class="kf-model-toolbar">
-              <div><span class="kf-eyebrow">DECODE EXECUTION MAP</span><h1>Qwen3 14B · Fused Decode</h1><p id="modelPhaseSummary">decode_fwd 全链路 · 40 × Decoder Layer · FP32 跨层 carry</p></div>
+          <main class="pto-ide-frame__pane kf-model-canvas" data-ide-pane="model-canvas">
+            <header class="pto-ide-frame__pane-header kf-model-toolbar">
+              <div><h1>Qwen3 14B · Fused Decode</h1><p id="modelPhaseSummary">decode_fwd 全链路 · 40 × Decoder Layer · FP32 跨层 carry</p></div>
               <div class="kf-model-toolbar__right">
                 <div class="kf-model-toolbar__actions" role="group" aria-label="画布控制">
                   <button type="button" data-model-zoom="out" aria-label="缩小">−</button><span id="modelZoomReadout">适应</span><button type="button" data-model-zoom="in" aria-label="放大">＋</button><button type="button" data-model-fit>适应画布</button>
@@ -215,21 +216,33 @@
                 <button class="kf-model-toolbar__catalog" type="button" data-open-catalog aria-haspopup="dialog" aria-controls="fusionCatalog" hidden>◈ 整网融合推荐 ↗</button>
               </div>
             </header>
-            <div class="kf-model-stage pto-model-graphviz-stage" id="qwen3ModelGraph" aria-label="Qwen3 14B 模型架构图"></div>
-            <footer class="kf-model-canvas__status"><span><i></i> <b id="modelCanvasStatus">Qwen3 14B 架构已预加载</b></span><span>单节点分层下钻 · 拖拽平移 · Ctrl/⌘ + 滚轮缩放</span></footer>
+            <div class="pto-ide-frame__pane-body kf-model-canvas__body">
+              <nav class="kf-model-phases kf-model-phase-nav" id="modelPhaseNav" data-model-phase-nav aria-label="执行阶段">
+                <div class="kf-model-phase-nav__head"><span>执行阶段</span><button type="button" data-model-phase-nav-toggle aria-expanded="true" aria-controls="modelPhaseNav" aria-label="收起执行阶段" title="收起执行阶段">‹</button></div>
+                <button class="is-active" type="button" data-model-phase="all"><i>00</i><span><b>完整链路</b><small>decode_fwd · 40 layers</small></span></button>
+                <button type="button" data-model-phase="boundary-in"><i>01</i><span><b>输入边界</b><small>copy_hidden · x_gamma0</small></span></button>
+                <button type="button" data-model-phase="scope-1"><i>02</i><span><b>Scope 1</b><small>RMS · QKV · QK Norm</small></span></button>
+                <button type="button" data-model-phase="scope-2"><i>03</i><span><b>Scope 2</b><small>Paged Flash Attention</small></span></button>
+                <button type="button" data-model-phase="scope-3"><i>04</i><span><b>Scope 3</b><small>Out Proj · SwiGLU · Carry</small></span></button>
+                <button type="button" data-model-phase="boundary-out"><i>05</i><span><b>输出边界</b><small>cast · RMS LM Head</small></span></button>
+              </nav>
+              <div class="kf-model-stage pto-model-graphviz-stage" id="qwen3ModelGraph" aria-label="Qwen3 14B 模型架构图"></div>
+              <footer class="kf-model-canvas__status"><span><i></i> <b id="modelCanvasStatus">Qwen3 14B 架构已预加载</b></span><span>单节点分层下钻 · 拖拽平移 · Ctrl/⌘ + 滚轮缩放</span></footer>
+            </div>
           </main>
 
-          <aside class="kf-model-inspector" aria-live="polite">
-            <header><span class="kf-eyebrow">MODEL INSPECTOR</span><h2 id="modelInspectorTitle">Qwen3 14B</h2></header>
-            <div id="modelInspectorBody">
+          <aside class="pto-ide-frame__pane kf-model-inspector" data-ide-pane="inspector" id="modelInspectorPane" aria-live="polite">
+            <header class="pto-ide-frame__pane-header kf-model-inspector__header"><div class="kf-pane-title-stack"><span class="kf-pane-kicker">MODEL INSPECTOR</span><span class="pto-ide-frame__pane-title" id="modelInspectorTitle">Qwen3 14B</span></div><span class="pto-ide-frame__pane-meta">MODEL</span></header>
+            <div class="pto-ide-frame__pane-body kf-model-inspector__body" id="modelInspectorBody">
               <div class="kf-model-inspector__hero"><span>CODE ALIGNED</span><b>decode_layer.py 已校准</b><p>阶段与依赖来自实际的 PyPTO 任务：从 BF16 输入边界开始，经三段 Scope，最终进入 RMS LM Head。</p></div>
             </div>
           </aside>
+          </div>
         </section>
 
         <div class="pto-ide-frame__split" id="ideMainSplit" data-ide-split="standalone-main" data-split-direction="horizontal" data-sizes="22,51,27" data-pixel-sizes="286" data-min-size="240,520,300" data-storage-key="kernel-forge-flow-a-v1">
           <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="kf-explorer">
-            <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title" id="sidePaneTitle">资源管理器</span><span class="pto-ide-frame__pane-meta" id="sidePaneMeta">workspace</span></header>
+            <header class="pto-ide-frame__pane-header"><div class="kf-pane-title-stack"><span class="kf-pane-kicker" id="sidePaneKicker">PROJECT</span><span class="pto-ide-frame__pane-title" id="sidePaneTitle">资源管理器</span></div><span class="pto-ide-frame__pane-meta" id="sidePaneMeta">workspace</span></header>
             <div class="pto-ide-frame__pane-body kf-explorer-body">
               <section class="kf-side-view is-active" data-side-view="explorer" aria-label="工程目录">
                 <div class="kf-tree-toolbar"><span>文件 <small>Qwen3_14b</small></span><button type="button" id="collapseTree" aria-label="折叠所有目录" title="折叠所有目录">⌃</button></div>
@@ -487,7 +500,7 @@
             </div>
           </main>
 
-          <aside class="pto-ide-frame__pane" data-ide-pane="inspector">
+          <aside class="pto-ide-frame__pane" data-ide-pane="inspector" id="inspectorPane">
             <header class="pto-ide-frame__pane-header"><div class="kf-intent-pane-title-group"><span class="pto-ide-frame__pane-title" id="inspectorTitle">意图预览</span><span class="kf-intent-agent-stack" aria-label="Agent team: Lead, DSL, Guard, Validation"><i class="kf-intent-agent-avatar is-lead" title="Lead Agent"><b>L</b></i><i class="kf-intent-agent-avatar is-dsl" title="DSL Agent"><b>D</b></i><i class="kf-intent-agent-avatar is-guard" title="Guard Agent"><b>G</b></i><i class="kf-intent-agent-avatar is-validation" title="Validation Agent"><b>V</b></i></span></div><span class="pto-ide-frame__pane-meta" id="inspectorMeta">live</span></header>
             <div class="pto-ide-frame__pane-body kf-inspector" id="inspector"></div>
           </aside>
@@ -640,7 +653,7 @@
   <div class="kf-toast" id="toast" role="status" aria-live="polite"></div>
   <script>window.PTO_PASS_IR_GRAPH_NODE_ASSET_PREFIX = '../../vendor/pto-design-system/';</script>
   <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
-  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js?v=ide-frame-v8"></script>
   <script src="../../vendor/pto-design-system/patterns/pass-ir-graph-node/pattern.js"></script>
   <script src="../../vendor/pto-design-system/patterns/aic-core-object/pattern.js"></script>
   <script src="../../vendor/pto-design-system/patterns/aiv-core-object/pattern.js"></script>
@@ -663,6 +676,7 @@
   <script src="./js/fusion-hardware-view.js?v=20260829-3"></script>
   <script src="./js/fusion-catalog-data.js?v=20260828-1"></script>
   <script src="./js/fusion-catalog-advisor.js?v=20260828-1"></script>
+  <script src="./js/operator-inspector.js?v=20260907-1"></script>
   <script src="./js/demo-v2.js?v=20260907-1"></script>
   <script src="./js/ir-pipeline-data.js?v=20260901-1"></script>
   <script src="./js/ir-kernels-data.js?v=20260903-4"></script>
