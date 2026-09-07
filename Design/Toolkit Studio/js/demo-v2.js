@@ -2192,9 +2192,14 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       runtime: { label: '运行状态', legend: '<i class="locked"></i>需要编译并运行后才有 TaskId、状态与时间戳' },
     }[state.pagedAttentionOverlay] || { label: '数据', legend: '' };
     const locked = state.pagedAttentionOverlay === 'runtime';
+    // 图层轴与四格 tab 是同一根轴：依赖→编排依赖、硬件→分块硬件、精度→数据精度。
+    // 与其把图并进某一格，不如让图层指回对应的格——图留在概览，细节各归其位。
+    const layerToTab = { dep: ['orch', '编排依赖'], hardware: ['tiling', '分块硬件'], precision: ['data', '数据精度'] };
+    const jump = layerToTab[state.pagedAttentionOverlay];
     return `
       <div class="kf-pa2-layer-switch" role="group" aria-label="计算图信息图层">${[['data','数据'],['dep','依赖'],['hardware','硬件'],['precision','精度'],['runtime','运行状态']].map(([key,label]) => `<button type="button" class="${key === state.pagedAttentionOverlay ? 'is-active' : ''}${key === 'runtime' ? ' is-locked' : ''}" data-pa-overlay="${key}">${label}</button>`).join('')}</div>
       <div class="kf-pa-overlay-legend" data-overlay="${state.pagedAttentionOverlay}"><b>${layerMeta.label}图层</b><span>${layerMeta.legend}</span></div>
+      ${jump ? `<button type="button" class="kf-op-layer-jump" data-op-tab="${jump[0]}">本图层的完整内容在「${jump[1]}」<i>→</i></button>` : ''}
       ${locked ? '<div class="kf-pa2-locked"><i>○</i><div><b>运行状态图层尚无数据</b><p>TaskId、Ready / Running / Blocked / Complete、未满足依赖数与时间戳属于 Runtime 实测证据。Coding 阶段先建立静态任务图，编译并运行后同一批节点会切换为动态状态图。</p></div></div>' : ''}
       <div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
       <footer id="pagedAttentionGraphStatus" class="kf-pa-graph-status">点击节点展开核内子图并定位源码 · 拖拽 / 缩放查看全图</footer>`;
@@ -2300,12 +2305,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       <p class="kf-pa-note">这是依据 <code>target_memory=</code> 与 kernel 语义的静态映射，不代表最终指令时序和真实 Buffer 地址。A2/A3 上 Cube↔Vector 的真实 GM 往返需读取 Pass IR、Swimlane 与 PMU。</p>`;
   }
 
-  function paScopeTree() {
-    const kernels = [['builder','I','init_inplace','动态形状绑定'],['qk','C','qk_matmul','Cube'],['softmax','V','softmax_prepare','Vector'],['pv','C','pv_matmul','Cube'],['online','V','online_update','Vector']];
-    return `<div class="kf-pa-scope-tree"><div><i>P</i><span><b>DynamicPagedAttentionProgram</b><small>@pl.program · Builder 闭包返回</small></span></div><div class="depth-1"><i>O</i><span><b>paged_attention</b><small>@pl.function(Orchestration) · 第 249 行</small></span></div>${kernels.map(([focus, mark, name, role]) => `<button type="button" class="depth-2" data-paged-attention-focus="${focus}"><i>${mark}</i><span><b>dyn_kernel_${name}</b><small>${role} · @pl.function(InCore)</small></span></button>`).join('')}</div>
-      <p class="kf-pa-note">1 Program · 1 Orchestration · 5 InCore，全部写在同一个文件里——这就是四格里「分块硬件」和「编排依赖」同时是主场的原因。</p>`;
-  }
-
   function paDepFlow() {
     return `<div class="kf-pa-dependency"><div class="kf-pa-dep-flow"><div><b>QK</b><small>produces sij</small></div><i>→</i><div><b>Softmax</b><small>pij · mi · li</small></div><i>→</i><div><b>PV</b><small>oi_new</small></div><i>→</i><div><b>Online Update</b><small>mi_update · li_update · oi</small></div><i class="loop">↺ next bn</i></div>
       <p>源码里<b>没有任何显式依赖原语</b>——没有 <code>pl.submit(deps=)</code>、<code>pl.at(...) as tid</code>、<code>pl.manual_scope()</code>、<code>pl.no_dep()</code>。全部顺序由 Call 的 Tensor 生产 / 消费与 <code>InOut</code> 状态自动推导。最终 Task 顺序需在 Pass 后依赖图确认。</p></div>`;
@@ -2407,12 +2406,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       guards: [],
 
       tabs: {
+        // 计算图是"这段代码在干什么"的直接答案，必须落在第一屏。
+        // 入口与函数层级已移到「编排依赖」——它讲的是跨任务怎么排，不是这是什么。
         overview: [
           { type: 'raw', html: paSummaryStrip },
-          { type: 'raw', html: () => pagedAttentionAgentSection() },
-          { type: 'raw', html: () => pagedAttentionEntrySection() },
-          { type: 'block', title: '张量契约与方向', origin: 'fact', html: paContractTable },
           { type: 'block', title: '任务计算图', origin: 'fact', html: paTaskGraphStage },
+          { type: 'block', title: '张量契约与方向', origin: 'fact', html: paContractTable },
+          { type: 'raw', html: () => pagedAttentionAgentSection() },
           { type: 'block', title: '示例运行画像', origin: 'measured', html: paRunProfile },
           { type: 'block', title: '源码阶段', origin: 'fact', html: paSourceMap },
         ],
@@ -2436,7 +2436,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           { type: 'raw', html: () => pagedAttentionTilePipelineSection() },
         ],
         orch: [
-          { type: 'block', title: 'Scope 层级', origin: 'fact', html: paScopeTree },
+          // 入口与函数层级：1 Program → 1 Orchestration → 5 InCore 的调用结构。
+          // 它已经把 Program / Orchestration / InCore 的层级画全了，不再重复一份树。
+          { type: 'raw', html: () => pagedAttentionEntrySection() },
           { type: 'block', title: '动态 Shape 推导', origin: 'fact', html: paShapeFormulas },
           { type: 'block', title: 'Paged KV 地址映射', origin: 'fact', html: paPageMap },
           { type: 'raw', html: () => pagedAttentionTaskSection() },

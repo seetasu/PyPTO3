@@ -1537,6 +1537,7 @@ button { color: inherit; }
 .kf-model-toolbar__actions span { min-width: 42px; color: var(--foreground-muted); font: var(--kf-type-2xs)/1 var(--font-mono); text-align: center; }
 .kf-model-stage { min-height: 0; height: 100%; border: 0; border-radius: 0; background: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--foreground) 9%, transparent) 1px, transparent 0) 0 0 / 24px 24px, var(--background); }
 .kf-model-canvas__body { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; padding: 0; overflow: hidden; background: transparent; }
+.kf-model-graph-area { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; overflow: hidden; }
 .kf-model-phase-nav { position: absolute; z-index: 3; inset: 12px auto auto 12px; width: 248px; max-height: min(360px, calc(100% - 64px)); align-content: start; padding: 10px 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--panel-shell-bg) 94%, transparent); box-shadow: 0 14px 30px rgb(0 0 0 / .24); overflow: auto; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; transition: width .16s ease, padding .16s ease; }
 .kf-model-phase-nav__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; margin: 0 2px 8px; }
 .kf-model-phase-nav__head > span { overflow: hidden; margin: 0; color: var(--foreground-muted); font: 600 var(--kf-type-2xs)/1 var(--font-sans); letter-spacing: .08em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
@@ -1550,9 +1551,6 @@ button { color: inherit; }
 .kf-model-canvas__body.is-phase-nav-collapsed .kf-model-phases > button { grid-template-columns: 1fr; justify-items: center; padding-inline: 2px; }
 .kf-model-canvas__body.is-phase-nav-collapsed .kf-model-phases > button > i { width: 29px; height: 29px; }
 .kf-model-stage svg { min-height: 0; transform-origin: 0 0; }
-.kf-model-canvas__status { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; padding: 0 12px; border-top: 1px solid var(--border-subtle); color: var(--foreground-muted); background: var(--panel-shell-bg); font-size: var(--kf-type-2xs); }
-.kf-model-canvas__status span { display: flex; align-items: center; gap: 6px; }
-.kf-model-canvas__status i { width: 6px; height: 6px; border-radius: 999px; background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 15%, transparent); }
 .kf-model-inspector__hero { display: grid; gap: 7px; padding: 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-2); }
 .kf-model-inspector__hero span { width: fit-content; padding: 3px 7px; border-radius: 999px; background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); font: 700 var(--kf-type-2xs)/1 var(--font-mono); }
 .kf-model-inspector__hero b { font-size: var(--kf-type-sm); }

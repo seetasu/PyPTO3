@@ -326,6 +326,35 @@
     stage.classList.add('has-node-focus');
     stage.dataset.focusedNode = nodeId;
     nodeDetail(nodeId);
+    const node = currentGraph.nodes.find((item) => item.id === nodeId) || baseGraph.nodes.find((item) => item.id === nodeId);
+    window.dispatchEvent(new CustomEvent('qwen3-graph-selection', { detail: { nodeId, label: node?.label || nodeId } }));
+  }
+
+  function performanceTaskNodeId(taskName) {
+    const name = String(taskName || '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    const aliases = [
+      ['copy_hidden', 'copy-hidden'], ['x_gamma0', 'x-gamma0'], ['rms_recip', 'rms-recip'],
+      ['q_proj', 'qkv-proj'], ['k_proj', 'qkv-proj'], ['v_proj', 'qkv-proj'], ['qk_norm', 'qk-norm'],
+      ['fa_work_build', 'fa-work-build'], ['rope_qkv', 'rope-qkv'], ['fa_fused', 'fa-fused'],
+      ['online_softmax', 'online-softmax'], ['out_proj', 'out-proj'], ['residual_rms_cast', 'residual-cast'],
+      ['post_rms_reduce', 'post-rms-reduce'], ['gate_proj', 'gate-up-proj'], ['up_proj', 'gate-up-proj'],
+      ['silu', 'silu'], ['down_proj', 'down-proj'], ['dcr_xgamma', 'dcr-xgamma'],
+      ['cast_lmhead', 'cast-lmhead'], ['rms_lm_head', 'rms-lm-head'],
+    ];
+    return aliases.find(([alias]) => name.includes(alias))?.[1] || null;
+  }
+
+  function handlePerformanceSelection(event) {
+    if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
+    const nodeId = performanceTaskNodeId(event.detail?.taskName);
+    if (!nodeId) return;
+    if (activeDrill) {
+      activeDrill = null;
+      renderGraph();
+      requestAnimationFrame(() => requestAnimationFrame(() => controller?.selectNode(nodeId, { source: 'performance' })));
+      return;
+    }
+    controller?.selectNode(nodeId, { source: 'performance' });
   }
 
   function clearNodeFocus() {
@@ -490,6 +519,7 @@
     if (!stage || !window.PtoModelGraphvizPattern) return;
     stage.addEventListener('click', handleDrillToggle, true);
     stage.addEventListener('pointerdown', handleCanvasSelectionClear, true);
+    window.addEventListener('qwen3-performance-select', handlePerformanceSelection);
     document.querySelectorAll('[data-model-phase]').forEach((button) => button.addEventListener('click', () => selectPhase(button.dataset.modelPhase)));
     document.querySelector('[data-model-fit]')?.addEventListener('click', () => {
       if (window.PtoModelArchitectureState?.active !== MODEL_ID) return;
@@ -510,6 +540,7 @@
 
   function show() {
     window.PtoModelArchitectureState = { active: MODEL_ID };
+    window.PtoQwen3PerformanceSwimlane?.show?.();
     const wasInitialized = initialized;
     init();
     setChrome();
@@ -546,5 +577,5 @@
 
   // The model workspace starts hidden. Defer the expensive SVG graph build
   // until the user actually opens the model view.
-  window.PtoQwen3ModelViz = { show, fit: () => controller?.fit(), setPhase: selectPhase, focusNode, graph: baseGraph };
+  window.PtoQwen3ModelViz = { show, fit: fitModelViewport, setPhase: selectPhase, focusNode, graph: baseGraph };
 })();

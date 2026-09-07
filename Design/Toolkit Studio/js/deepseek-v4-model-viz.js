@@ -1306,6 +1306,7 @@
   }
 
   function show() {
+    window.PtoQwen3PerformanceSwimlane?.hide?.();
     // 官方结构和部署态模型是本模块的两张视图，active 指向哪张就渲染哪张
     const wanted = activeModelId();
     const useNpu = wanted === NPU_MODEL_ID && !!ensureNpuGraph();
