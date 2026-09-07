@@ -7,7 +7,11 @@
 [data-side-view="workflow"] > #stepNav,
 [data-side-view="workflow"] > .kf-context { display: none; }
 
+/* Keep the execution history list in the workflow menu, while removing the
+   explanatory intro and filter controls so the pane stays focused. */
 .kf-th { display: grid; gap: 8px; padding: 2px 0 10px; }
+.kf-th > .kf-th-head,
+.kf-th > .kf-th-filters { display: none; }
 
 .kf-th-head { padding: 0 2px; }
 .kf-th-head h2 { margin: 3px 0 0; color: var(--foreground); font-size: var(--kf-type-sm); letter-spacing: -.01em; }
@@ -27,6 +31,13 @@
 
 .kf-th-list { display: grid; gap: 4px; }
 .kf-th-empty { margin: 0; padding: 16px 8px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); text-align: center; }
+
+/* Keep the selected task title as the list anchor. Only the metadata that is
+   repeated in the main detail area is omitted from the open task row. */
+.kf-th-item.is-open > .kf-th-row .kf-th-verdict,
+.kf-th-item.is-open > .kf-th-row .kf-th-sub,
+.kf-th-item.is-open > .kf-th-row .kf-th-time { display: none; }
+.kf-th-item.is-open > .kf-th-row { grid-template-areas: "dot title ."; }
 
 .kf-th-item {
   overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
@@ -439,16 +450,26 @@
 .kf-rd-hint tr:hover .kf-rd-src { color: var(--foreground-secondary); }
 
 /* ---- perf-hint findings ---------------------------------------------------
-   One card per root cause: verdict tag, the derived facts, then 现象/为什么/
-   怎么改 in prose. The raw perf_hints.log rows live inside a <details> so the
-   card stays a conclusion and the evidence is one click away. */
+   One card per root cause. Closed, it shows only the verdict tag and the
+   derived facts — its conclusion. The 现象/为什么/怎么改 prose opens on click,
+   and the raw perf_hints.log rows sit in a <details> one step further in. */
 .kf-rd-find { margin-top: 10px; padding: 11px 13px 12px; border: 1px solid var(--border-subtle);
   border-left: 3px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-2); }
 .kf-rd-find.is-warn { border-left-color: var(--warning); }
 .kf-rd-find.is-dim { border-left-color: var(--border-strong); background: transparent; }
-.kf-rd-find > header { display: flex; align-items: baseline; gap: 7px; margin-bottom: 8px; }
-.kf-rd-find > header b { flex: 1; color: var(--foreground); font-size: var(--kf-type-xs);
+/* The header IS the toggle: the click target is the card's own verdict line,
+   so there is no separate control competing with it for attention. */
+.kf-rd-findhd { display: flex; width: 100%; align-items: baseline; gap: 7px; margin-bottom: 8px;
+  padding: 0; border: 0; background: none; color: inherit; font: inherit;
+  cursor: pointer; text-align: left; }
+.kf-rd-findhd b { flex: 1; color: var(--foreground); font-size: var(--kf-type-xs);
   font-weight: 650; line-height: 1.4; }
+.kf-rd-findhd:hover b { color: var(--primary); }
+.kf-rd-findchev { flex: none; align-self: center; width: 6px; height: 6px;
+  border-right: 1.5px solid var(--foreground-muted); border-bottom: 1.5px solid var(--foreground-muted);
+  transform: rotate(45deg) translateY(-1px); transition: transform .16s ease, border-color .16s ease; }
+.kf-rd-findhd:hover .kf-rd-findchev { border-color: var(--primary); }
+.kf-rd-findhd[aria-expanded="true"] .kf-rd-findchev { transform: rotate(-135deg) translateY(-1px); }
 .kf-rd-findtag { flex: none; padding: 1px 6px; border-radius: var(--radius-pill);
   font: 650 9px/1.6 var(--font-mono); letter-spacing: .02em;
   background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
@@ -462,6 +483,7 @@
 .kf-rd-findfacts dd { margin: 1px 0 0; color: var(--foreground); font: 10px var(--font-mono);
   /* "128 B / 256 B （目标 512 B）" must not break after the last B */
   white-space: nowrap; }
+.kf-rd-find:has(.kf-rd-findmore[hidden]) .kf-rd-findfacts { margin-bottom: 0; }
 
 .kf-rd-findbody p { margin: 0 0 5px; color: var(--foreground-secondary);
   font-size: 10px; line-height: 1.65; }
@@ -624,40 +646,7 @@
 }
 .kf-rt button:hover { color: var(--foreground-secondary); }
 .kf-rt b { font-size: var(--kf-type-sm); font-weight: 600; }
-.kf-rt small { color: var(--foreground-muted); font-size: 9px; opacity: .78; }
 .kf-rt button[aria-selected="true"] { border-bottom-color: var(--primary); color: var(--foreground); }
-.kf-rt button[aria-selected="true"] small { color: var(--primary); opacity: 1; }
-
-/* ---- AI insight (aiBlock) --------------------------------------------------
-   A ranking, not a summary: the sections below already report the numbers, so
-   this only says which one to act on first. */
-.kf-rd-ai {
-  padding: 12px 14px 13px; border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-subtle));
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 7%, var(--surface-2)), var(--surface-2));
-}
-.kf-rd-ai > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-bottom: 10px; }
-.kf-rd-ai > header b { flex: none; color: var(--foreground); font-size: var(--kf-type-sm); font-weight: 650; white-space: nowrap; }
-.kf-rd-ai > header small { flex: 1 1 auto; min-width: 0; text-align: right; color: var(--foreground-muted); font: 9px var(--font-mono); }
-.kf-rd-aitag {
-  padding: 2px 7px; border-radius: var(--radius-pill);
-  color: var(--primary); background: color-mix(in srgb, var(--primary) 15%, transparent);
-  flex: none; white-space: nowrap; font: 700 9px var(--font-mono); letter-spacing: .06em;
-}
-.kf-rd-ailist { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: none; }
-.kf-rd-ailist li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 9px; align-items: start; }
-.kf-rd-ailist i {
-  display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%;
-  color: var(--primary); background: color-mix(in srgb, var(--primary) 13%, transparent);
-  font: 700 10px var(--font-mono); font-style: normal;
-}
-.kf-rd-ailist b { display: block; color: var(--foreground); font-size: var(--kf-type-2xs); font-weight: 650; }
-.kf-rd-ailist span { display: block; margin-top: 3px; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.6; }
-.kf-rd-ailist code { color: var(--foreground); font: 10px var(--font-mono); }
-.kf-rd-ai > footer {
-  margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--border-subtle);
-  color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55;
-}
 
 /* ---- section bands --------------------------------------------------------
    One level above .kf-rd-h: they group the sections that answer the same
@@ -807,6 +796,24 @@
 .kf-rd-kpi-eff > span { display: grid; gap: 2px; }
 .kf-rd-kpi-eff > span b { color: var(--foreground-secondary); font: 700 11px/1 var(--font-mono); }
 .kf-rd-kpi-eff > span em { color: var(--foreground-muted); font: 7px/1 var(--font-mono); font-style: normal; letter-spacing: .06em; }
+.kf-rd-kpi.is-efficiency .kf-rd-kpi-main { align-items: stretch; }
+.kf-rd-kpi.is-efficiency .kf-rd-kpi-main > b { align-self: center; flex: none; }
+.kf-rd-kpi-eff { display: grid; align-content: center; min-width: 0; flex: 1; gap: 8px; }
+.kf-rd-kpi-eff .kf-rd-kpi-split {
+  width: 100%; height: 16px; border: 1px solid rgb(255 255 255 / .08);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / .12);
+}
+.kf-rd-kpi-eff .kf-rd-kpi-split i { background: linear-gradient(90deg, color-mix(in srgb, var(--success) 92%, white), var(--success)); }
+.kf-rd-kpi-eff .kf-rd-kpi-split b { background: linear-gradient(90deg, color-mix(in srgb, var(--warning) 66%, var(--surface-3)), var(--warning)); }
+.kf-rd-kpi-eff-legend { display: flex; min-width: 0; justify-content: space-between; gap: 8px; }
+.kf-rd-kpi-eff-legend > span {
+  display: inline-flex; min-width: 0; align-items: center; gap: 5px;
+  color: var(--foreground-muted); font: 8px/1 var(--font-mono); white-space: nowrap;
+}
+.kf-rd-kpi-eff-legend > span > i { width: 6px; height: 6px; flex: none; border-radius: 2px; background: var(--success); }
+.kf-rd-kpi-eff-legend > span.is-wait > i { background: var(--warning); }
+.kf-rd-kpi-eff-legend > span > b { overflow: hidden; color: var(--foreground-secondary); font: 650 8px/1 var(--font-mono); text-overflow: ellipsis; }
+.kf-rd-kpi.is-efficiency > small { color: color-mix(in srgb, var(--foreground-muted) 72%, transparent); font-size: 8px; }
 .kf-rd-kpi-signal { display: grid; width: min(126px, 48%); grid-template-columns: minmax(44px, 1fr) auto; align-items: center; gap: 8px; }
 .kf-rd-kpi-signal > i { display: block; height: 5px; border-radius: var(--radius-pill); background: linear-gradient(90deg, var(--kpi-accent) calc(var(--p) * 1%), var(--surface-3) 0); }
 .kf-rd-kpi-signal span { display: grid; gap: 1px; }
@@ -817,6 +824,14 @@
   .kf-rd-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kf-rd-kpi { grid-column: span 3; }
   .kf-rd-kpi.is-latency { grid-column: span 6; min-height: 106px; }
+  .kf-rd-kpi.is-efficiency .kf-rd-kpi-main {
+    display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 8px;
+  }
+  .kf-rd-kpi.is-efficiency .kf-rd-kpi-main > b { align-self: end; }
+  .kf-rd-kpi.is-efficiency .kf-rd-kpi-eff { width: 100%; }
+  .kf-rd-kpi-eff-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .kf-rd-kpi-eff-legend > span { gap: 4px; }
+  .kf-rd-kpi-eff-legend > span > b { overflow: visible; font-size: 7px; text-overflow: clip; }
 }
 @container (max-width: 370px) {
   .kf-rd-summary .kf-rd-head { display: grid; }

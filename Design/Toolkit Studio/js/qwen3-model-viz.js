@@ -496,9 +496,11 @@
 
   function show() {
     window.PtoModelArchitectureState = { active: MODEL_ID };
+    const wasInitialized = initialized;
     init();
     setChrome();
-    renderGraph();
+    // init() renders the first graph; avoid rebuilding it twice on first open.
+    if (wasInitialized) renderGraph();
     requestAnimationFrame(() => {
       applyPhase(activePhase);
       if (activeDrill) focusDrillViewport(activeDrill);
@@ -528,6 +530,7 @@
     return true;
   }
 
-  init();
+  // The model workspace starts hidden. Defer the expensive SVG graph build
+  // until the user actually opens the model view.
   window.PtoQwen3ModelViz = { show, fit: () => controller?.fit(), setPhase: selectPhase, focusNode, graph: baseGraph };
 })();

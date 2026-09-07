@@ -720,6 +720,14 @@
   }
 
   let sweeping = false;
+  let visualsReady = false;
+  function activateVisuals() {
+    if (visualsReady) return;
+    visualsReady = true;
+    renderTrace();
+    renderLineage();
+  }
+
   async function sweep() {
     if (sweeping) return;
     sweeping = true;
@@ -751,17 +759,30 @@
     // open on the worst offender — the developer's actual entry point
     const worst = K.kernels.slice().sort((a, b) => worstPct(b).p - worstPct(a).p)[0];
     if (worst) { st.sel = worst.name; renderList(); }
-    renderTrace(); renderLineage(); syncHead();
+    syncHead();
+    const stage = document.querySelector('.kf-stage[data-stage="2"]');
+    if (stage) {
+      const activateIfVisible = () => {
+        if (stage.classList.contains('is-active')) activateVisuals();
+      };
+      new MutationObserver(activateIfVisible).observe(stage, { attributes: true, attributeFilter: ['class'] });
+      activateIfVisible();
+    }
   }
 
   // Let other panels drill into one kernel here (the run detail heatmap does).
   window.PTO_GUARD = {
+    activate: activateVisuals,
     select(name) {
       if (!els || !K.kernels.some(k => k.name === name)) return false;
       st.sel = name; st.pass = null; st.kpass = null;
       st.onlyIssues = false;                 // never hide the row we were asked for
       els.issues.setAttribute('aria-pressed', 'false');
-      renderList(); renderTrace(); renderLineage(); syncHead();
+      const hadVisuals = visualsReady;
+      activateVisuals();
+      renderList();
+      if (hadVisuals) { renderTrace(); renderLineage(); }
+      syncHead();
       const row = els.list.querySelector('.kf-kg-item.is-open');
       if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return true;

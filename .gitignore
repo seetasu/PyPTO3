@@ -8,3 +8,6 @@
 
 # Recoverable local backups
 vendor/pto-design-system.backup-*/
+
+# Downloaded GitHub issue archives
+/github_issues/pypto-lib/detailed/

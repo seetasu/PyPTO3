@@ -51,12 +51,27 @@
   clampDocument();
   syncNarrowExplorer();
 
-  new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-      mutation.addedNodes.forEach((node) => {
-        if (node instanceof Element) clampTree(node);
-      });
+  // Rendering several panels can add hundreds of nodes in one turn. Clamp the
+  // batch once on the next frame instead of recursively scanning every added
+  // node synchronously, which otherwise causes repeated style recalculation.
+  const pendingRoots = new Set();
+  let mutationQueued = false;
+  const queueAddedNode = (node) => {
+    if (!(node instanceof Element) || node.matches('script, style, template')) return;
+    pendingRoots.add(node);
+    if (mutationQueued) return;
+    mutationQueued = true;
+    requestAnimationFrame(() => {
+      mutationQueued = false;
+      const roots = Array.from(pendingRoots);
+      pendingRoots.clear();
+      roots.filter((root) => !roots.some((other) => other !== root && other.contains(root)))
+        .forEach(clampTree);
     });
+  };
+
+  new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => mutation.addedNodes.forEach(queueAddedNode));
   }).observe(document.body, { childList: true, subtree: true });
 
   window.addEventListener('resize', () => {

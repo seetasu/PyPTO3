@@ -14,6 +14,21 @@
   const WORKFLOW_STEPS = [0, 2, 3, 4];
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const optionalSourceLoads = new Map();
+
+  function loadOptionalSource(globalName, src) {
+    if (window[globalName]) return Promise.resolve();
+    if (optionalSourceLoads.has(globalName)) return optionalSourceLoads.get(globalName);
+    const promise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`无法加载可选源码数据：${src}`));
+      document.head.appendChild(script);
+    });
+    optionalSourceLoads.set(globalName, promise);
+    return promise;
+  }
 
   function setEditorTab(tab) {
     state.editorTab = tab;
@@ -283,6 +298,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   async function loadSource(file) {
     if (state.sourceCache[file]) return state.sourceCache[file];
     const sourceFile = isPagedAttentionFile(file) ? PAGED_ATTENTION_FILE : file;
+    const fileButton = $$('[data-file]').find((button) => button.dataset.file === file);
+    if (fileButton?.dataset.passesDump === 'true') {
+      await loadOptionalSource('PTO_PASSES_DUMP_SOURCES', './js/passes-dump-source.js?v=20260907-1');
+    }
+    if (sourceFile.startsWith('examples/')) {
+      await loadOptionalSource('PTO_EXAMPLES_SOURCES', './js/examples-source.js?v=20260907-1');
+    }
     if (state.sourceCache[sourceFile]) {
       state.sourceCache[file] = state.sourceCache[sourceFile];
       return state.sourceCache[file];
@@ -3567,7 +3589,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (returningToExplorer && !explorerHidden) event.stopImmediatePropagation();
     setActivityView(button.dataset.activityView);
   }, true));
-  setActivityView('explorer');
   $('[data-file="decode_layer.py"]')?.classList.add('is-selected');
 
   document.addEventListener('click', (event) => {

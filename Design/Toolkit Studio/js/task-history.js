@@ -256,9 +256,9 @@
      stops being the active stage. Nothing is duplicated, and every listener
      inside that stage survives the move. */
   const PANELS = [
-    { k: 'sum', label: '总览', sub: '运行态结论与结果' },
-    { k: 'slice', label: '运行切片', sub: '这次运行由什么组成' },
-    { k: 'ir', label: 'IR Pass 快照', sub: '编译态过程', from: '.kf-stage[data-stage="2"]' }
+    { k: 'sum', label: '总览' },
+    { k: 'slice', label: '运行切片' },
+    { k: 'ir', label: 'IR Pass 快照', from: '.kf-stage[data-stage="2"]' }
   ];
   let borrowed = null;
 
@@ -287,6 +287,7 @@
       releaseBorrowed();
       return;
     }
+    window.PTO_GUARD?.activate?.();
     if (borrowed && borrowed.from === p.from && panel.contains(borrowed.nodes[0])) return;
     releaseBorrowed();
     panel.innerHTML = '';        // after the release, only our own leftovers remain
@@ -318,7 +319,7 @@
       PANELS.map(p =>
         '<button type="button" role="tab" data-th-tab="' + p.k + '"' +
           ' aria-selected="' + (p.k === st.tab) + '">' +
-          '<b>' + p.label + '</b><small>' + p.sub + '</small></button>').join('') +
+          '<b>' + p.label + '</b></button>').join('') +
     '</nav>';
   }
 
@@ -373,11 +374,9 @@
     return '<section class="kf-rd-summary">' +
       '<div class="kf-rd-head">' +
         '<div class="kf-rd-id">' +
-          '<div class="kf-rd-eyebrow"><span><i></i>RUN SNAPSHOT</span>' +
-            (r.live ? '<em>产物在库</em>' : '<em class="is-archive">历史记录</em>') + '</div>' +
+          '<div class="kf-rd-eyebrow"><span><i></i>RUN SNAPSHOT</span></div>' +
           '<div class="kf-rd-titleline"><h2>' + esc(t.title) + '</h2>' +
             '<span class="kf-rd-status is-' + v[1] + '"><i></i>' + v[0] + '</span></div>' +
-          '<p>' + esc(t.kind) + '任务的本次执行快照与关键诊断</p>' +
         '</div>' +
         '<div class="kf-rd-run"><span>RUN ID</span><code>' + esc(r.id) + '</code>' +
           '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small></div>' +
@@ -406,59 +405,6 @@
 
   const usFmt = (v) => v >= 1000 ? (v / 1000).toFixed(2) + ' ms' : Math.round(v) + ' µs';
 
-  /* ---------- AI 洞察 ------------------------------------------------------
-     The sections below each report one measurement well, but none of them says
-     which measurement to act on first. That ranking is the only thing here:
-     every number is read off the same data the sections use, and the order is
-     computed (biggest single wait, then zero headroom, then the one class of
-     hint that is actually fixable), not written down. */
-  function aiBlock(L, P) {
-    const items = [];
-
-    if (P && P.chain.wait > 0) {
-      const w = P.chain.steps.slice().sort((a, b) => b.wait - a.wait)[0];
-      const share = Math.round(w.wait / P.chain.wait * 100);
-      items.push(['等待压过了计算',
-        Math.round(P.span) + ' µs 里有 ' + usFmt(P.chain.wait) + ' 在等核，只有 ' +
-        usFmt(P.chain.work) + ' 在算。单看一处：<code>' + esc(w.kn) + '</code> 之前等了 ' +
-        usFmt(w.wait) + '，占全部等待的 ' + share +
-        '%。解开这条依赖，比把任何单个 kernel 调快都更值钱。']);
-    }
-    if (P && P.top) {
-      items.push(['算力集中在一个 kernel 上',
-        '<code>' + esc(P.top.kn) + '</code> 累计忙碌 ' + usFmt(P.top.busy) + '，占全芯片忙碌时间的 ' +
-        P.top.pct.toFixed(1) + '%，铺在 ' + P.top.cores + ' 个核上。AIC ' +
-        P.occ.AIC.pct.toFixed(0) + '% 对 AIV ' + P.occ.AIV.pct.toFixed(0) +
-        '%，负载并不均衡，Vector 侧还有空间接活。']);
-    }
-    if (L.over) {
-      items.push(['内存已经溢出',
-        L.over + ' 个 kernel 超出了 ' + spLabel(L.kmem[0].sp) + ' 上限，必须先缩小分块。']);
-    } else if (L.atLimit) {
-      const c = L.kmem.find(k => k.u === k.lim);
-      items.push([spLabel(c.sp) + ' 已经零余量',
-        L.atLimit + ' 个 kernel 正好填满 ' + kb(c.lim) +
-        '，分块已经放到最大。功能上没问题，但 shape 一改就溢出 —— 这是个脆点，不是缺陷。']);
-    }
-    if (L.hints.length) {
-      items.push(['能改的搬运只有一类',
-        L.hints.length + ' 条性能提示里，真正可改的是 ' + L.actionable +
-        ' 处（RoPE 半维被拆成两次搬运）；另 ' + L.byCause.row + ' 处被分页 KV 布局锁死，' +
-        L.byCause.scalar + ' 处是单元素读写，加宽没有意义。别按条数排优先级。']);
-    }
-    if (!items.length) return '';
-
-    return '<section class="kf-rd-ai">' +
-      '<header><span class="kf-rd-aitag">AI 洞察</span>' +
-        '<b>按可动手的顺序排</b>' +
-        '<small>全部读自本次运行的 passes_dump / report / dfx_outputs</small></header>' +
-      '<ol class="kf-rd-ailist">' + items.map((x, i) =>
-        '<li><i>' + (i + 1) + '</i><div><b>' + esc(x[0]) + '</b><span>' + x[1] + '</span></div></li>').join('') +
-      '</ol>' +
-      '<footer>还缺数值一侧：这次运行没有产出 oracle 输出，正确性尚未验证 —— 上面的优化都建立在“功能本来就对”的假设上。</footer>' +
-    '</section>';
-  }
-
   const band = (t, s) => '<div class="kf-rd-band"><b>' + t + '</b><small>' + s + '</small></div>';
 
   function kpis(r, L) {
@@ -468,13 +414,17 @@
     if (P) {
       const aic = P.occ.AIC || { pct: 0, n: 0 }, aiv = P.occ.AIV || { pct: 0, n: 0 };
       const gap = Math.round(aic.pct - aiv.pct);
-      const work = Math.round(P.chain.workPct);
+      const work = Math.max(0, Math.min(100, Math.round(P.chain.workPct)));
+      const wait = 100 - work;
       tiles.push(
         { k: 'efficiency', v: Math.round(P.span), u: 'µs', l: '运行效率', t: work < 50 ? 'warn' : 'ok', tag: 'TIME + CHAIN',
-          s: work + '% 关键链有效执行 · ' + usFmt(P.chain.work) + ' 在算 / ' + usFmt(P.chain.wait) + ' 在等核',
-          viz: '<div class="kf-rd-kpi-eff" aria-hidden="true">' +
+          s: P.chain.n + ' 步关键链 · 全程实测',
+          viz: '<div class="kf-rd-kpi-eff" role="img" aria-label="计算 ' + work + '%，等待 ' + wait + '%">' +
             '<div class="kf-rd-kpi-split" style="--p:' + work + '"><i></i><b></b></div>' +
-            '<span><b>' + work + '%</b><em>CHAIN</em></span></div>' },
+            '<div class="kf-rd-kpi-eff-legend">' +
+              '<span class="is-work"><i></i><b>计算 ' + work + '%</b></span>' +
+              '<span class="is-wait"><i></i><b>等待 ' + wait + '%</b></span>' +
+            '</div></div>' },
         { k: 'occupancy', v: Math.round(aic.pct), u: '%', l: '核占用',
           t: aic.pct >= 60 ? 'warn' : 'ok', tag: 'AIC / AIV',
           s: 'AIV ' + Math.round(aiv.pct) + '% · 差 ' + gap + ' 个百分点',
@@ -636,11 +586,20 @@
         ['所在作用域', scopes.join(' · ') || '—'],
         ['涉及源码', g.length + ' 处 · 编译期共触发 ' + hits + ' 次']
       ];
+      /* Collapsed by default: the verdict and the four measured facts are the
+         card's conclusion, and 现象/为什么/怎么改 is the reasoning behind it.
+         Three stacked cards of full prose bury the ranking, so the reasoning
+         opens on demand. The raw log rows stay one further click in. */
+      const id = 'kfFind-' + f.k;
       return '<article class="kf-rd-find is-' + f.tone + '">' +
-        '<header><span class="kf-rd-findtag">' + f.verdict + '</span>' +
-          '<b>' + f.title + '</b><span class="kf-rd-findn">' + g.length + ' 条</span></header>' +
+        '<button type="button" class="kf-rd-findhd" data-th-find="' + id + '"' +
+          ' aria-expanded="false" aria-controls="' + id + '">' +
+          '<span class="kf-rd-findtag">' + f.verdict + '</span>' +
+          '<b>' + f.title + '</b><span class="kf-rd-findn">' + g.length + ' 条</span>' +
+          '<i class="kf-rd-findchev" aria-hidden="true"></i></button>' +
         '<dl class="kf-rd-findfacts">' + facts.map(([k, v]) =>
           '<div><dt>' + k + '</dt><dd>' + esc(v) + '</dd></div>').join('') + '</dl>' +
+        '<div class="kf-rd-findmore" id="' + id + '" hidden>' +
         '<div class="kf-rd-findbody">' +
           '<p><b>现象</b>' + f.what + '</p>' +
           '<p><b>为什么</b>' + f.why + '</p>' +
@@ -658,6 +617,7 @@
                 (h.scope ? '<i class="kf-rd-srcnote">编译器把提示挂在了这个作用域头上，' +
                   '实际是它内部的搬运</i>' : '') + '</td></tr>').join('') +
           '</tbody></table></div></details>' +
+        '</div>' +
       '</article>';
     }).join('');
 
@@ -1000,17 +960,16 @@
     if (L) {
       /* Identity, verdict and the headline numbers stay above the tabs — they
          are true of the run, not of one view of it. Everything below switches. */
-      const P = (window.PTO_RUN_TRACE || {}).perf;
       els.detail.innerHTML = head + kpis(r, L) + tabStrip() +
         '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div>';
       const panel = $('#runTabPanel', els.detail);
 
       if (st.tab === 'sum') {
-        /* Reads top-down as: what happened, what to do about it, then the two
-           measurements that back the ranking. The artifact inventory is in the
-           right rail, so the main column can stay focused on diagnosis. */
+        /* Reads top-down as the two measurements that matter: where the time
+           went, then what sits on chip. The artifact inventory is in the right
+           rail, so the main column can stay focused on diagnosis. */
         const gap = '<p class="kf-rd-note is-dim">正确性比对：这次运行没有产出 oracle 输出，需要单独跑验证。</p>';
-        panel.innerHTML = aiBlock(L, P) +
+        panel.innerHTML =
           band('性能分析', '搬运宽度的根因，以及 428 个任务在 73 个核上的实际排布') +
           hintBlock(L) + '<div id="runTimeline"></div>' +
           band('内存分析', '每个 kernel 的片上水位，以及声明的调度有没有活到最后') +
@@ -1076,6 +1035,15 @@
   }
 
   function onRunClick(e) {
+    // finding cards open in place; no state is kept, so a tab switch re-collapses
+    const fh = e.target.closest('[data-th-find]');
+    if (fh) {
+      const open = fh.getAttribute('aria-expanded') !== 'true';
+      fh.setAttribute('aria-expanded', String(open));
+      const more = document.getElementById(fh.dataset.thFind);
+      if (more) more.hidden = !open;
+      return;
+    }
     // a hot cell in the memory heatmap drills into that kernel in the compile
     // guard, which is where the buffer detail lives — now one tab over
     const kc = e.target.closest('[data-th-kernel]');
@@ -1172,7 +1140,7 @@
       const showing = !$('[data-side-view="workflow"]').hidden;
       if (!showing) return;
       if (title.textContent !== '任务与运行') title.textContent = '任务与运行';
-      const want = TASKS.length + ' 个任务';
+      const want = '';
       if (meta && meta.textContent !== want) meta.textContent = want;
     };
     new MutationObserver(fix).observe(title, { childList: true, characterData: true, subtree: true });
