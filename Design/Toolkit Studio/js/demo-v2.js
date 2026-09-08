@@ -1498,6 +1498,14 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     'pa-query': 'orchestration', 'pa-context': 'orchestration', 'pa-table': 'paging', 'pa-page': 'paging', 'pa-kv': 'paging',
     'pa-qk': 'qk', 'pa-mask': 'paging', 'pa-softmax': 'softmax', 'pa-pv': 'pv', 'pa-online': 'online', 'pa-out': 'online',
   };
+  const pagedAttentionPrecisionNotes = {
+    'pa-qk': '精度：BF16 × BF16 → FP32；Scale 当前固定为 1.0',
+    'pa-mask': '边界：valid_len / Padding 必须在 Softmax 前生效',
+    'pa-softmax': '精度：exp 后概率转 BF16；mi / li 保持 FP32',
+    'pa-pv': '精度：BF16 × BF16 → FP32 oi_new',
+    'pa-online': '精度：mi / li / oi 跨 Block 合并保持 FP32',
+    'pa-out': '精度：最终 out 以 FP32 写回',
+  };
   const pagedAttentionDrilldowns = {
     'pa-qk': {
       focus: 'qk',
@@ -2273,13 +2281,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       </section>`;
   }
 
-  function pagedAttentionHardwareSection() {
-    return `
-      <section class="kf-inspector-section kf-pa2-hardware"><header><h2 class="kf-inspector-title">硬件执行映射</h2></header>
-        <div class="kf-pa2-hw-table"><div class="head"><span>函数</span><b>核 / 单元</b><em>数据路径</em></div>${pagedAttentionHardwareMap.map((row) => `<div><span>${row.name}<small>${row.type}</small></span><b>${row.core}</b><em>${row.path}</em></div>`).join('')}</div>
-        <div class="kf-pa2-hw-absent"><header><span>未采用的调度能力</span>${ev('source')}</header>${pagedAttentionHardwareAbsent.map(([name, value]) => `<div><b>${name}</b><span>${value}</span></div>`).join('')}</div>
-      </section>`;
-  }
 
   function pagedAttentionEvidenceLegend() {
     return `<div class="kf-pa2-evidence-legend"><span>证据分层</span>${Object.entries(EVIDENCE_LEVELS).map(([key, meta]) => `<i class="${meta.cls}">${meta.label}</i>`).join('')}</div>`;
@@ -2289,7 +2290,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const pipe = pagedAttentionTilePipelines[state.pagedAttentionPipeKernel] || pagedAttentionTilePipelines.qk;
     const kindLabel = { copyin: 'CopyIn', view: 'View', move: 'Move', compute: 'Compute', copyout: 'CopyOut' };
     return `
-      <section class="kf-inspector-section kf-pa2-tile"><header><h2 class="kf-inspector-title">核内 Tile 流水</h2></header>
+      <section class="kf-inspector-section kf-pa2-tile"><header><h2 class="kf-inspector-title">④ 核内 Tile 流水与重叠余量</h2></header>
         <div class="kf-pa2-tile-switch" role="group" aria-label="InCore Kernel 选择">${Object.entries(pagedAttentionTilePipelines).map(([key, item]) => `<button type="button" class="${key === state.pagedAttentionPipeKernel ? 'is-active' : ''}" data-pa2-pipe="${key}"><b>${item.label.replace('dyn_kernel_', '')}</b><small>${item.core}</small></button>`).join('')}</div>
         <div class="kf-pa2-tile-head"><b>${pipe.label}</b><span>${pipe.core}</span><code>第 ${pipe.lines} 行</code></div>
         <ol class="kf-pa2-tile-steps">${pipe.steps.map((step) => `<li class="is-${step.kind}"><em>${kindLabel[step.kind]}</em><div><code>${step.op}</code><span>${step.from} → ${step.to}</span>${step.note ? `<small>${step.note}</small>` : ''}</div></li>`).join('')}</ol>
@@ -2415,7 +2416,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   function paLayoutFlow() {
     return `<div class="kf-pa-layout-flow"><div><i>Query view</i><b>[QTile, D]</b><small>BF16 · natural</small></div><span>×</span><div><i>K natural</i><b>[Block, D]</b><small>BF16 · L1/Mat</small></div><span>transpose_view</span><div><i>Kᵀ view</i><b>[D, Block]</b><small>零拷贝视图</small></div><span>→</span><div><i>Score</i><b>[QTile, Block]</b><small>FP32 · L0C</small></div></div>
       <div class="kf-pa-layout-flow is-pv"><div><i>Probability</i><b>[QTile, Block]</b><small>BF16</small></div><span>×</span><div><i>V natural</i><b>[Block, D]</b><small>BF16</small></div><span>→</span><div><i>Block output</i><b>[QTile, D]</b><small>FP32</small></div></div>
-      <p class="kf-pa-note"><code>pl.tile.transpose_view(kj_nat)</code>（第 150 行）只改视图不搬数据，Kᵀ 不额外占 L1。</p>`;
+      <p class="kf-pa-note"><code>pl.tile.transpose_view(kj_nat)</code>（第 150 行）只改视图不搬数据，Kᵀ 不额外占 L1。</p>
+      <p class="kf-pa-note">这里只展示主计算路径；完整的动态维度、有效区域、Cache 地址和输出写回视图见本页其他区块。</p>`;
   }
 
   function paValidShape() {
@@ -2423,10 +2425,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       <p>KV Slice 仍取完整 <code>[block_size, D]</code>，编排层通过 <code>sij_valid = pl.slice(sij, [q_tile, valid_len], [0, 0])</code> 收窄（第 320 行）。这一收窄能否传递到 kernel 内部的 <code>pl.load</code>，是本文件最需要先确认的一件事。Q Head 尾 Tile 则没有同等的 valid shape。</p></div>`;
   }
 
-  function paWorkingSet() {
-    const rows = [['Q Tile', '4 KiB · BF16'], ['K / V Block', '各 32 KiB · BF16'], ['Score sij', '8 KiB · FP32'], ['Probability pij', '4 KiB · BF16'], ['oi / oi_new', '各 8 KiB · FP32'], ['mi + li', '128 B · FP32']];
-    return `<div class="kf-pa-memory"><dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl></div>`;
-  }
 
   function paLogicalScale() {
     const rows = [['Query', '256 KiB · BF16'], ['单个 K / V Cache', '512 MiB · BF16'], ['Block Table', '64 KiB · INT32'], ['Context Lengths', '256 B · INT32'], ['Output', '512 KiB · FP32']];
@@ -2443,20 +2441,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       <p class="kf-op-inline-note">8192 ÷ 128 = 64 整除、16 heads ÷ q_tile 16 整除——这组配置同时避开了 KV 末块与 Q 尾 Tile 两条路径。<b>所以「设备实跑通过」不能读成「这个算子没问题」</b>，只能读成「在整除配置下没问题」。上面 9 条风险里有 3 条正是被这组配置掩盖的。</p>`;
   }
 
-  // 目标能力 Lens：源码用到的 PyPTO 能力在目标后端的支持状态
-  function paCapabilityLens() {
-    const rows = [
-      ['is-supported', '✓', '动态 Tensor 标注', 'pl.dynamic · pl.tensor.dim', '源码采用'],
-      ['is-supported', '✓', 'Cube Matmul', 'BF16 input · FP32 accumulate', '源码采用'],
-      ['is-supported', '✓', 'Vector Softmax primitives', 'row_max · exp · row_sum', '源码采用'],
-      ['is-supported', '✓', 'transpose_view 零拷贝', 'Kᵀ 不额外占 L1', '源码采用'],
-      ['', '○', 'Cube↔Vector 片上交接', 'A2/A3 可能经 GM Buffer', '需 Pass / 实测'],
-    ];
-    // 「动态有效宽度」「动态 Head 尾 Tile」两条原本在这里重复列一遍，
-    // 它们已经是结论区的警告风险——能力表只留能力，风险只在一处说。
-    return `<div class="kf-pa-capability"><div>${rows.map(([cls, mark, name, detail, verdict]) => `<article class="${cls}"><i>${mark}</i><span><b>${name}</b><small>${detail}</small></span><em>${verdict}</em></article>`).join('')}</div>
-      <button type="button" class="kf-op-layer-jump" data-op-drawer="warn">动态有效宽度与 Head 尾 Tile 的能力缺口见警告风险<i>→</i></button></div>`;
-  }
 
   // 执行带与"昇腾执行路径"原本是两张同构的 5 段链（GM→Cube→Vector→Cube→Vector→GM），
   // 只是一张带字节数、一张带片上层级。合并成一张，字节数与层级同时给出。
@@ -2471,31 +2455,68 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return `<div class="kf-pa-loop-tree">${rows.map(([cls, mark, title, meta, count]) => `<div class="${cls}"><i>${mark}</i><span><b>${title}</b><small>${meta}</small></span><em>${count}</em></div>`).join('')}</div>`;
   }
 
-  function paBlockStrip() {
-    const blocks = Array.from({ length: 16 }, (_, index) => `<i class="${index < 4 ? 'is-hot' : ''}">${index}</i>`).join('');
-    return `<div class="kf-pa-block-strip"><div>${blocks}</div><small>为便于阅读仅画 16 个区段；实际逐个 logical block 通过 <code>block_table[b × block_num + bn]</code> 映射到物理 Cache 行（第 303 行）。</small></div>`;
-  }
 
-  function paTileMatrix() {
-    return `<section class="kf-pa-tile-matrix"><button type="button" data-paged-attention-focus="qk"><span>QK</span><b>16 × 128 × 128</b><small>M=QTile · N=Block · K=D</small></button><i>→</i><button type="button" data-paged-attention-focus="softmax"><span>Softmax</span><b>16 × valid_len</b><small>Vector row-wise</small></button><i>→</i><button type="button" data-paged-attention-focus="pv"><span>PV</span><b>16 × 128 × 128</b><small>M=QTile · N=D · K=Block</small></button></section>`;
-  }
+  /* ---- 分块硬件 · 按开发者的追问顺序重排 ---------------------------------
+     原来这一格是 8 个区块、3935px：循环映射 / Tile 形状 / Paged Block 扫描 /
+     尾块与整除守卫 / 目标能力 Lens / 昇腾执行路径 / 硬件执行映射 / 核内 Tile
+     流水。问题不是每块都没用，是它们不按任何顺序排列，而且互相重复：
 
-  function paTailGuards() {
-    const rows = [
-      ['is-pass', 'KV 末 Block', '编排层 <code>valid_len = pl.min(...)</code> 第 305 行', '编排层已裁剪'],
-      ['', 'Kernel 内 Tile 宽度', 'softmax_prepare 按 <code>_BLOCK_SIZE</code> 取 Tile，非入参运行时宽度', '需编译确认'],
-      ['', 'Q Head 尾 Tile', 'ceil-div 后 slice 仍固定 <code>q_tile</code>（第 300 行）', '需补处理'],
-      ['is-pass', '示例 Heads', '16 % QTile16 = 0，示例配置掩盖了尾 Tile', '本例安全'],
-      ['', '空 Context', '<code>cur_seq = 0</code> 时 bn 循环不执行，<code>out</code> 该段未写', '需补测试'],
-      ['', 'Shape 可除性', '<code>query.rows % batch</code>、<code>cache.rows % table.size</code> 等三处无守卫', '需补守卫'],
+     · 「昇腾执行路径」与「硬件执行映射」是同一件事画两遍（1378px），一个是
+       带字节数的泳道、一个是函数→核→路径的表。
+     · 「尾块与整除守卫」6 行全部是 ⚠ 9 里的原话（KV 末块/Kernel Tile 宽度→
+       风险1，Q 尾 Tile→风险2，空 Context→风险3，可除性→风险9，示例 Heads→
+       置信度脚注）。这和之前删掉的「风险落点」是同一类重复。
+     · 「Paged Block 扫描」是 16 个装饰方块，寻址逻辑在编排依赖里已有完整一张。
+     · 「目标能力 Lens」5 行里 4 行是"源码用了 X，后端支持 X"——不是决策输入。
+
+     重排成开发者真正的追问链：
+       ① 切成几层、总共调用多少次   → 决定并行度与调用开销
+       ② 每次算多大一块、片上放得下吗 → 决定分块尺寸（形状和占用是因果，合并）
+       ③ 跑在哪个单元、数据怎么搬     → 决定搬运开销
+       ④ 能不能重叠                  → 决定还有多少余量                     */
+
+  // ② 形状与占用合成一块：分块尺寸就是被"这一块放不放得下"决定的，
+  // 原来一个在分块硬件、一个在数据精度，等于把因和果分到两屏。
+  function paTileFootprint() {
+    // dtype 并进容量列而不是单独一行：形状上面那条 Tile 链已经给过，这里
+    // 只需要回答"谁占得多"，八个 buffer 各占两行会把这一块撑到 700px。
+    const bufs = [
+      ['Q Tile', 4, 'BF16', 'qk'],
+      ['K Block', 32, 'BF16', 'qk'],
+      ['V Block', 32, 'BF16', 'pv'],
+      ['Score sij', 8, 'FP32', 'softmax'],
+      ['Prob pij', 4, 'BF16', 'softmax'],
+      ['oi', 8, 'FP32', 'online'],
+      ['oi_new', 8, 'FP32', 'online'],
+      ['mi + li', 0.125, 'FP32', 'online'],
     ];
-    return `<div class="kf-pa-tail"><div>${rows.map(([cls, name, detail, verdict]) => `<article class="${cls}"><b>${name}</b><span>${detail}</span><em>${verdict}</em></article>`).join('')}</div></div>`;
+    const total = bufs.reduce((sum, b) => sum + b[1], 0);
+    const max = Math.max(...bufs.map((b) => b[1]));
+    return `<div class="kf-pa-tile-matrix">${[
+      ['QK', '16 × 128 × 128', 'M=QTile · N=Block · K=D', 'qk'],
+      ['Softmax', '16 × valid_len', 'Vector row-wise', 'softmax'],
+      ['PV', '16 × 128 × 128', 'M=QTile · N=D · K=Block', 'pv'],
+    ].map(([name, shape, note, focus], i) => `${i ? '<i>→</i>' : ''}<button type="button" data-paged-attention-focus="${focus}"><span>${name}</span><b>${shape}</b><small>${note}</small></button>`).join('')}</div>
+      <div class="kf-pa-footprint">
+        <header><b>一次 (q_tile, bn) 迭代的片上工作集</b><em>${total.toFixed(1)} KiB</em></header>
+        ${bufs.map(([name, kib, meta, focus]) => `<button type="button" data-paged-attention-focus="${focus}"><span>${name}</span><i style="--w:${(kib / max * 100).toFixed(1)}%"></i><b>${kib < 1 ? Math.round(kib * 1024) + ' B' : kib + ' KiB'}<em>${meta}</em></b></button>`).join('')}
+      </div>
+      <p class="kf-op-inline-note">K / V Block 各 32 KiB，占了工作集的三分之二——<b>block_size 是这里最敏感的旋钮</b>：翻倍就多 64 KiB，而 Q Tile 翻倍只多 4 KiB。合计是按 Tile 形状静态累加的，不是编译器的实际分配，超没超片上上限要看编译后的 buffer 报告。</p>`;
   }
 
-  function paHardwareLanes() {
+  // ③ 泳道图已经把 函数 → 单元 → 数据路径 画全了，原来另有一张同构的表
+  // 讲同一件事。表并成泳道下面的一行行注解，只保留表里泳道没有的信息：
+  // Orchestration 跑在 AICPU、以及每个 kernel 的真实函数名。
+  function paExecPath() {
+    const rows = pagedAttentionHardwareMap;
     return `<div class="kf-pa-hw-lanes"><div class="memory"><em>GM · BF16</em><b>Q [16,128] · Paged K/V</b><small>Q 4 KiB · K/V Block 各 32 KiB</small></div><i>load</i><button type="button" data-paged-attention-focus="qk"><em>CUBE</em><b>QK Matmul</b><small>L1 → L0A/L0B → L0C · BF16 × BF16 → FP32 sij 8 KiB</small></button><i>store / load</i><button type="button" data-paged-attention-focus="softmax"><em>VECTOR</em><b>Mask + Softmax Prepare</b><small>UB · FP32 exp/sum → BF16 pij 4 KiB</small></button><i>store / load</i><button type="button" data-paged-attention-focus="pv"><em>CUBE</em><b>PV Matmul</b><small>BF16 × BF16 → FP32 oi_new 8 KiB</small></button><i>store / load</i><button type="button" data-paged-attention-focus="online"><em>VECTOR</em><b>Online Update</b><small>UB · FP32 mi/li/oi → 归一化写回</small></button><i>store</i><div class="memory"><em>GM · FP32</em><b>Attention Output</b><small>[B × Heads, D] · 512 KiB / example</small></div></div>
-      <p class="kf-pa-note">这是依据 <code>target_memory=</code> 与 kernel 语义的静态映射，不代表最终指令时序和真实 Buffer 地址。A2/A3 上 Cube↔Vector 的真实 GM 往返需读取 Pass IR、Swimlane 与 PMU。</p>`;
+      <div class="kf-pa-hw-fns">${rows.map((row) => `<div><code>${row.name}</code><b>${row.core}</b><small>${row.path}</small></div>`).join('')}</div>
+      <p class="kf-op-inline-note"><b>链路上每一次 store / load 都是一次 GM 往返。</b>5 个 kernel 各自独立声明，Cube 与 Vector 之间没有片上直连的声明——这是本文件唯一一个静态判不出的硬件问题：A2/A3 上这几次交接究竟走 GM 还是片上，要读 Pass IR 与 PMU 才能确认。</p>
+      <div class="kf-pa2-hw-absent"><header><span>未采用的调度能力</span>${ev('source')}</header>${pagedAttentionHardwareAbsent.map(([name, value]) => `<div><b>${name}</b><span>${value}</span></div>`).join('')}</div>`;
   }
+
+
+
 
   function paParallelIntent() {
     const rows = [['Batch', 'pl.range', '未显式 parallel'], ['Q Tile', 'pl.range', '未显式 parallel'], ['KV Block', 'pl.range', '状态依赖串行'], ['Pipeline', '未声明', '无 pl.pipeline']];
@@ -2640,24 +2661,22 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           // 所以它属于置信度的脚注，已移到证据区抽屉，不再单独占一个区块。
         ],
         data: [
-          // 按阅读顺序分成四组：精度流、数据形状、有效数据边界、资源规模。
-          // 标题前缀让分组在连续卡片中保持清晰，也避免把非精度内容混在一起。
-          { type: 'block', title: '精度 · 端到端精度流', origin: 'fact', html: paPrecisionPath },
-          { type: 'block', title: '精度 · 敏感点与取舍', origin: 'resolved', html: paPrecisionSensitivity },
-          { type: 'block', title: '数据形状 · 动态 Shape 推导', origin: 'fact', html: paShapeFormulas },
-          { type: 'block', title: '数据形状 · Shape / Layout 变换', origin: 'fact', html: paLayoutFlow },
-          { type: 'block', title: '有效数据 · Shape 与 Padding', origin: 'fact', html: paValidShape },
-          { type: 'block', title: '资源规模 · 单 Block 工作集', origin: 'estimated', html: paWorkingSet },
+          // 按开发者阅读路径分成五组：数据形状、有效边界、精度流、数值风险、资源规模。
+          // 先解释数据如何进入 kernel，再解释 dtype 如何变化，最后落到风险与资源。
+          { type: 'block', title: '数据形状与布局 · 动态 Shape 推导', origin: 'fact', html: paShapeFormulas },
+          { type: 'block', title: '数据形状与布局 · 主计算路径', origin: 'fact', html: paLayoutFlow },
+          { type: 'block', title: '有效数据与边界 · Shape 与 Padding', origin: 'fact', html: paValidShape },
+          { type: 'block', title: '数据流与精度 · 端到端精度流', origin: 'fact', html: paPrecisionPath },
+          { type: 'block', title: '数值风险 · 精度与边界取舍', origin: 'resolved', html: paPrecisionSensitivity },
+          // 「单 Block 工作集」已并入分块硬件 ②：片上占用是分块尺寸的成因，
+          // 和 Tile 形状放在一起才看得出因果，留在这里只是一张孤立的数字表。
           { type: 'block', title: '资源规模 · 示例逻辑规模', origin: 'estimated', html: paLogicalScale },
         ],
+        // ① 切成几层 → ② 每次多大、放得下吗 → ③ 跑在哪、怎么搬 → ④ 能否重叠
         tiling: [
-          { type: 'block', title: '循环与 Tile 映射', origin: 'fact', html: paLoopNest },
-          { type: 'block', title: 'Tile 形状', origin: 'fact', html: paTileMatrix },
-          { type: 'block', title: 'Paged Block 扫描', origin: 'estimated', html: paBlockStrip },
-          { type: 'block', title: '尾块与整除守卫', origin: 'fact', html: paTailGuards },
-          { type: 'block', title: '目标能力 Lens', origin: 'resolved', html: paCapabilityLens },
-          { type: 'block', title: '昇腾执行路径', origin: 'estimated', html: paHardwareLanes },
-          { type: 'raw', html: () => pagedAttentionHardwareSection() },
+          { type: 'block', title: '① 切分结构与调用次数', origin: 'fact', html: paLoopNest },
+          { type: 'block', title: '② 单次迭代的 Tile 与片上占用', origin: 'estimated', html: paTileFootprint },
+          { type: 'block', title: '③ 执行单元与数据路径', origin: 'estimated', html: paExecPath },
           { type: 'raw', html: () => pagedAttentionTilePipelineSection() },
         ],
         orch: [
@@ -2940,7 +2959,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         // 节点点击的语义是"带我去这一段"，详情仍可从张量表等入口打开。
         focusPagedAttentionSource(focus);
         const meta = pagedAttentionFocusMeta[focus];
-        if (status && meta) status.textContent = `${meta.label} · 源码第 ${meta.lines} 行 · ${meta.detail}`;
+        if (status && meta) status.textContent = `${meta.label} · 源码第 ${meta.lines} 行 · ${meta.detail}${pagedAttentionPrecisionNotes[nodeId] ? ` · ${pagedAttentionPrecisionNotes[nodeId]}` : ''}`;
         renderPagedAttentionInspector();
       },
     });
@@ -2956,7 +2975,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         renderPagedAttentionComputationGraph();
       }, true);
       const onNames = PA_GRAPH_LAYERS.filter(([key]) => layers[key]).map(([, label]) => label);
-      if (status) status.textContent = `${pagedAttentionFocusMeta[expandedSpec.focus].label} 已展开 · 点击 − 收起${onNames.length ? ` · 已叠加 ${onNames.join(' / ')}` : ' · 未叠加图层'}`;
+          if (status) status.textContent = `${pagedAttentionFocusMeta[expandedSpec.focus].label} 已展开 · 点击 − 收起${onNames.length ? ` · 已叠加 ${onNames.join(' / ')}` : ' · 未叠加图层'}${pagedAttentionPrecisionNotes[expandedId] ? ` · ${pagedAttentionPrecisionNotes[expandedId]}` : ''}`;
     }
   }
 

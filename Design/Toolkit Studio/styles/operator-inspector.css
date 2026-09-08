@@ -790,3 +790,71 @@
   .kf-pa-layers button > i,
   .kf-pa-layers button > i::after { transition: none; }
 }
+
+/* ---- 分块硬件 ② 片上工作集 -------------------------------------------------
+   原来「Tile 形状」在分块硬件、「单 Block 工作集」在数据精度，是把因和果分到
+   了两屏：分块尺寸就是被"这一块放不放得下"决定的。合成一块，并按占用排出
+   长条——一眼看出 K/V Block 吃掉了三分之二。 */
+.kf-pa-footprint {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.kf-pa-footprint > header {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+.kf-pa-footprint > header b { color: var(--foreground-secondary); font-weight: 600; }
+.kf-pa-footprint > header em {
+  margin-left: auto; font-style: normal; font-weight: 700;
+  color: var(--primary); font-family: var(--font-mono);
+}
+.kf-pa-footprint button {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) auto;
+  align-items: center; gap: 8px;
+  width: 100%; padding: 5px 9px;
+  border: 0; border-top: 1px solid var(--border-subtle);
+  background: transparent; color: var(--foreground-secondary);
+  cursor: pointer; text-align: left; font-family: inherit;
+}
+.kf-pa-footprint button:first-of-type { border-top: 0; }
+.kf-pa-footprint button:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.kf-pa-footprint button > i {
+  height: 7px; border-radius: 3px;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.kf-pa-footprint button > i::before {
+  content: ""; display: block; width: var(--w); height: 100%;
+  border-radius: 3px; background: var(--primary);
+}
+.kf-pa-footprint button > b {
+  display: flex; align-items: baseline; gap: 5px;
+  font-family: var(--font-mono); white-space: nowrap;
+}
+/* dtype 跟在容量后面，不另起一行——八个 buffer 各占两行会把这块撑到 700px */
+.kf-pa-footprint button > b em {
+  font-style: normal; font-weight: 400; color: var(--foreground-muted);
+}
+
+/* ③ 泳道下的函数 → 单元 → 路径注解，取代原先另起一节的同构表格 */
+.kf-pa-hw-fns {
+  display: grid; gap: 1px;
+  margin-top: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.kf-pa-hw-fns > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  padding: 6px 9px;
+  background: var(--surface-1);
+}
+.kf-pa-hw-fns code { color: var(--foreground-secondary); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.kf-pa-hw-fns b { color: var(--primary); font-weight: 600; white-space: nowrap; }
+.kf-pa-hw-fns small { grid-column: 1 / -1; color: var(--foreground-muted); font-family: var(--font-mono); }
