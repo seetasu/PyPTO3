@@ -314,56 +314,33 @@
 
   function initInspectorToggle(frame, splits, splitInstances) {
     const toggle = qs(frame, '[data-ide-toggle="inspector"]');
-    const inspectors = qsa(frame, '[data-ide-pane="inspector"]');
-    if (!toggle || !inspectors.length) return null;
+    const inspector = qs(frame, '[data-ide-pane="inspector"]');
+    const mainSplit = qs(frame, '[data-ide-split="standalone-main"]');
+    if (!toggle || !inspector || !mainSplit) return null;
 
-    const records = inspectors.map((inspector) => {
-      const mainSplit = inspector.closest('[data-ide-split]');
-      if (!mainSplit) return null;
-      const splitIndex = splits.indexOf(mainSplit);
-      const resizeInstance = splitInstances[splitIndex];
-      const panes = directPanes(mainSplit);
-      const inspectorIndex = panes.indexOf(inspector);
-      if (!resizeInstance || inspectorIndex < 0 || panes.length < 2) return null;
-      const currentSizes = resizeInstance.getSizes?.();
-      const configuredSizes = parseNumberList(mainSplit.dataset.sizes, panes.map(() => 100 / panes.length));
-      return {
-        inspector,
-        mainSplit,
-        resizeInstance,
-        panes,
-        inspectorIndex,
-        expandedSizes: currentSizes?.length === panes.length && currentSizes.every((size) => Number.isFinite(size) && size > 0)
-          ? currentSizes
-          : configuredSizes,
-        expanded: true,
-        inspectorGutter: inspector.previousElementSibling?.matches?.('.pto-workbench-shell__split-gutter')
-          ? inspector.previousElementSibling
-          : null,
-      };
-    }).filter(Boolean);
-    if (!records.length) return null;
+    const splitIndex = splits.indexOf(mainSplit);
+    const resizeInstance = splitInstances[splitIndex];
+    const panes = directPanes(mainSplit);
+    const inspectorIndex = panes.indexOf(inspector);
+    const inspectorGutter = inspector.previousElementSibling?.matches?.('.pto-workbench-shell__split-gutter')
+      ? inspector.previousElementSibling
+      : null;
+    let expandedSizes = parseNumberList(mainSplit.dataset.sizes, [22, 50, 28]);
+    let expanded = frame.dataset.inspectorCollapsed !== 'true';
 
-    const activeRecord = () => records.find((record) => (
-      !record.mainSplit.hidden && !record.mainSplit.closest('[hidden]')
-    )) || records[0];
-
-    const collapsedSizesFor = (record, sizes) => {
+    const collapsedSizesFor = (sizes) => {
       const configured = parseNumberList(toggle.dataset.collapsedSizes, []);
       if (configured.length === sizes.length) return configured;
-
-      const remainingTotal = sizes.reduce((sum, size, index) => (
-        index === record.inspectorIndex ? sum : sum + size
-      ), 0);
-      if (remainingTotal <= 0) {
-        return sizes.map((_size, index) => index === record.inspectorIndex ? 0 : 1);
-      }
-      return sizes.map((size, index) => index === record.inspectorIndex ? 0 : size / remainingTotal * 100);
+      const remaining = sizes.filter((_size, index) => index !== inspectorIndex);
+      const total = remaining.reduce((sum, size) => sum + size, 0);
+      return sizes.map((size, index) => (
+        index === inspectorIndex ? 0 : size / Math.max(total, 1) * 100
+      ));
     };
 
-    const applyCollapsedFill = (record, sizes) => {
-      record.panes.forEach((pane, index) => {
-        if (pane === record.inspector) {
+    const applyCollapsedFill = (sizes) => {
+      panes.forEach((pane, index) => {
+        if (pane === inspector) {
           pane.style.flex = '0 0 0px';
           pane.style.flexBasis = '0px';
           pane.style.width = '0px';
@@ -376,66 +353,50 @@
       });
     };
 
-    const renderRecord = (record, nextSizes = null) => {
-      record.mainSplit.dataset.inspectorCollapsed = String(!record.expanded);
-      record.inspector.setAttribute('aria-hidden', String(!record.expanded));
-      record.inspector.hidden = !record.expanded;
-      if (record.inspectorGutter) record.inspectorGutter.hidden = !record.expanded;
+    const render = (nextSizes = null) => {
+      frame.dataset.inspectorCollapsed = String(!expanded);
+      mainSplit.dataset.inspectorCollapsed = String(!expanded);
+      toggle.classList.toggle('is-selected', expanded);
+      toggle.setAttribute('aria-expanded', String(expanded));
+      toggle.setAttribute('aria-pressed', String(expanded));
+      inspector.setAttribute('aria-hidden', String(!expanded));
+      inspector.hidden = !expanded;
+      if (inspectorGutter) inspectorGutter.hidden = !expanded;
 
-      const sizes = nextSizes || (!record.expanded ? collapsedSizesFor(record, record.expandedSizes) : null);
-      if (sizes && record.resizeInstance.setSizes) {
-        record.resizeInstance.setSizes(sizes);
-        record.resizeInstance.refresh?.();
+      const sizes = nextSizes || (!expanded ? collapsedSizesFor(expandedSizes) : null);
+      if (sizes && resizeInstance?.setSizes) {
+        resizeInstance.setSizes(sizes);
+        resizeInstance.refresh?.();
       }
-      if (!record.expanded) applyCollapsedFill(record, sizes || collapsedSizesFor(record, record.expandedSizes));
-    };
-
-    const syncToggle = (record) => {
-      frame.dataset.inspectorCollapsed = String(!record.expanded);
-      toggle.classList.toggle('is-selected', record.expanded);
-      toggle.setAttribute('aria-expanded', String(record.expanded));
-      toggle.setAttribute('aria-pressed', String(record.expanded));
-      toggle.setAttribute('aria-controls', record.inspector.id || '');
-      toggle.setAttribute('aria-label', record.expanded
-        ? (toggle.dataset.expandedLabel || 'Collapse inspector')
-        : (toggle.dataset.collapsedLabel || 'Expand inspector'));
-      toggle.title = record.expanded
-        ? (toggle.dataset.expandedLabel || 'Collapse inspector')
-        : (toggle.dataset.collapsedLabel || 'Expand inspector');
+      if (!expanded) applyCollapsedFill(sizes || collapsedSizesFor(expandedSizes));
     };
 
     const onClick = () => {
-      const record = activeRecord();
-      if (record.expanded) {
-        const latestSizes = record.resizeInstance.getSizes?.();
-        if (latestSizes?.length === record.expandedSizes.length && latestSizes.every((size) => Number.isFinite(size) && size > 0)) {
-          record.expandedSizes = latestSizes;
+      if (expanded) {
+        const currentSizes = resizeInstance?.getSizes?.();
+        if (currentSizes?.length === expandedSizes.length && currentSizes.every((size) => Number.isFinite(size) && size > 0)) {
+          expandedSizes = currentSizes;
         }
-        record.expanded = false;
-        renderRecord(record, collapsedSizesFor(record, record.expandedSizes));
-      } else {
-        record.expanded = true;
-        renderRecord(record, record.expandedSizes);
+        expanded = false;
+        render(collapsedSizesFor(expandedSizes));
+        return;
       }
-      syncToggle(record);
+      expanded = true;
+      inspector.hidden = false;
+      if (inspectorGutter) inspectorGutter.hidden = false;
+      render(expandedSizes);
     };
 
     toggle.addEventListener('click', onClick);
-    records.forEach((record) => renderRecord(record));
-    syncToggle(activeRecord());
-    const observer = typeof MutationObserver === 'function' ? new MutationObserver(() => syncToggle(activeRecord())) : null;
-    observer?.observe(frame, { attributes: true, attributeFilter: ['hidden'], subtree: true });
+    render(expanded ? null : collapsedSizesFor(expandedSizes));
 
     return {
       destroy() {
         toggle.removeEventListener('click', onClick);
-        observer?.disconnect();
-        records.forEach((record) => {
-          record.inspector.removeAttribute('aria-hidden');
-          record.inspector.hidden = false;
-          if (record.inspectorGutter) record.inspectorGutter.hidden = false;
-          delete record.mainSplit.dataset.inspectorCollapsed;
-        });
+        inspector.removeAttribute('aria-hidden');
+        inspector.hidden = false;
+        if (inspectorGutter) inspectorGutter.hidden = false;
+        delete mainSplit.dataset.inspectorCollapsed;
         delete frame.dataset.inspectorCollapsed;
       },
     };
@@ -590,6 +551,7 @@
       frame,
       resizeInstances,
       explorerToggle,
+      inspectorToggle,
       bottomTerminalToggle,
       playbackInstances,
       destroy() {
