@@ -201,7 +201,7 @@
   const latest = (t) => t.runs[0];
   const FILTERS = [['all', '全部'], ['op', '算子'], ['model', '模型'], ['live', '产物在库']];
 
-  const st = { task: TASKS[0].id, run: TASKS[0].runs[0].id, artifact: 'compile', filter: 'all', tab: 'sum' };
+  const st = { task: TASKS[0].id, run: TASKS[0].runs[0].id, artifact: 'compile', artifactGroup: 'input', compareRuns: [], filter: 'all', tab: 'sum' };
   let els = null;
 
   function matches(t) {
@@ -219,14 +219,11 @@
     root.className = 'kf-th';
     root.id = 'taskHistory';
     root.innerHTML =
-      '<div class="kf-th-head">' +
-        '<span class="kf-eyebrow">TASK HISTORY</span><h2>任务与运行记录</h2>' +
-        '<p>任务是稳定的工程目标，每次执行是它的一次运行；产物归属于运行。</p>' +
-      '</div>' +
       '<div class="kf-th-filters" id="thFilters">' +
         FILTERS.map(f => '<button type="button" data-th-filter="' + f[0] + '"' +
           ' aria-pressed="' + (f[0] === st.filter) + '">' + f[1] + '</button>').join('') +
       '</div>' +
+      '<div class="kf-th-compare-box" id="thCompareBox" hidden></div>' +
       '<div class="kf-th-list" id="thList"></div>';
     host.insertBefore(root, host.firstChild);
     // Run detail goes at the top of stage 0; the recipe / contract form below
@@ -240,7 +237,7 @@
       stage0.insertBefore(detail, stage0.firstChild);
     }
 
-    els = { root, detail, list: $('#thList', root), filters: $('#thFilters', root) };
+    els = { root, detail, list: $('#thList', root), filters: $('#thFilters', root), compareBox: $('#thCompareBox', root) };
     return true;
   }
 
@@ -685,13 +682,8 @@
     '<code>' + esc(v) + '</code></p>';
 
   function riSource(t, r, L) {
-    const v = VERDICT[r.verdict] || VERDICT.purged;
-    const sub = L ? '无 Error · ' + L.passes + ' 个 pass 全部落盘'
-      : r.purged ? '产物目录已清理，只剩结论'
-      : '归档记录，目录不在当前工作区';
     return '<section class="kf-inspector-section">' +
       '<h2 class="kf-inspector-title">运行来源</h2>' +
-      '<div class="kf-ri-hero is-' + v[1] + '"><b>' + v[0] + '</b><small>' + esc(sub) + '</small></div>' +
       dl([['运行', r.id], ['时间', r.time], ['目标', r.target || '—'], ['分支', t.branch]]) +
       (r.dir ? path('产物目录', r.dir) : '') +
       (L ? path('数据来源', 'passes_dump/ · report/ · dfx_outputs/') : '') +
@@ -707,7 +699,8 @@
     const inv = r.inventory || [];
     if (!inv.length) return '';
     const groups = GROUPS.map(G => [G, inv.filter(i => i.g === G[0])]).filter(x => x[1].length);
-    const viewable = inv.filter(i => i.open || (TL_ARTS[i.k] && window.PTO_RUN_TRACE)).length;
+    const activeGroup = groups.find(([G]) => G[0] === st.artifactGroup) || groups[0];
+    const activeGroupIndex = groups.indexOf(activeGroup);
     const kindLabel = { input: 'IN', compile: 'IR', codegen: 'CG', runtime: 'RT', repro: 'RP' };
     return '<section class="kf-inspector-section">' +
       '<div class="kf-ri-invhead">' +
@@ -715,17 +708,15 @@
           '<small>一次运行的输入、编译、生成与运行时证据</small></div>' +
         '<b class="kf-ri-invcount"><strong>' + inv.length + '</strong><span>项产物</span></b>' +
       '</div>' +
-      '<div class="kf-ri-flow" aria-label="产物阶段链路">' +
+      '<div class="kf-ri-flow" role="tablist" aria-label="产物阶段链路">' +
         groups.map(([G], gi) =>
-          '<span class="kf-ri-flow-step is-' + G[0] + '">' +
+          '<button type="button" role="tab" class="kf-ri-flow-step is-' + G[0] + (G[0] === activeGroup[0][0] ? ' is-active' : '') + '" data-th-art-group="' + G[0] + '" aria-selected="' + (G[0] === activeGroup[0][0]) + '">' +
             '<i>' + String(gi + 1).padStart(2, '0') + '</i><b>' + esc(G[1]) + '</b>' +
-          '</span>').join('') +
+          '</button>').join('') +
       '</div>' +
-      '<div class="kf-ri-invmeta"><span><i class="is-ready"></i>' + viewable + ' 项可查看</span>' +
-        '<span><i class="is-stored"></i>' + (inv.length - viewable) + ' 项已记录</span></div>' +
-      groups.map(([G, items], groupIndex) =>
+      [activeGroup].map(([G, items]) =>
         '<div class="kf-ri-grp is-' + G[0] + '">' +
-          '<div class="kf-ri-glabel"><i class="kf-ri-gstep">' + String(groupIndex + 1).padStart(2, '0') + '</i>' +
+          '<div class="kf-ri-glabel"><i class="kf-ri-gstep">' + String(activeGroupIndex + 1).padStart(2, '0') + '</i>' +
             '<b>' + G[1] + '</b><em>' + items.length + '</em>' +
             '<small>' + G[2] + '</small></div>' +
           items.map(i => {
@@ -737,7 +728,7 @@
               : tl ? ' data-th-scroll="timeline"' : '';
             const action = o ? '<i class="kf-ri-art-action is-open">打开 <span>→</span></i>'
               : tl ? '<i class="kf-ri-art-action is-open">时间线 <span>↑</span></i>'
-                   : '<i class="kf-ri-art-action is-off">已记录</i>';
+                   : '';
             const live = o || tl;
             return '<' + (live ? 'button type="button"' : 'div') +
               ' class="kf-ri-art kf-ri-art--visual is-' + G[0] + (live ? ' is-live' : ' is-static') +
@@ -890,14 +881,44 @@
 
     html += riArts(Object.assign({ dir: r.dir }, L));
     if (P) html += riTime(P) + riCores(D, P);
-    html += riScale(L, D) + riOpen(L) +
-      '<div class="kf-inspector-card"><b>这次运行证明了什么</b><p>编译侧是完整的：' +
-        L.passes + ' 个 pass 全部落盘，' + L.kernels +
-        ' 个函数的内存水位与性能提示都能逐条核回源码行。执行侧是实测的：' +
-        (D ? num(D.counts.tasks) + ' 个逻辑任务在 ' + D.counts.lanes + ' 个核上跑完 ' +
-             Math.round(P.span) + ' µs' : '来自 dfx_outputs 的真实 trace') +
-        '。缺的是数值一侧 —— 没有 oracle 输出，正确性还没有被验证过。</p></div>';
+    html += riScale(L, D) + riOpen(L);
     return html + '</div>';
+  }
+
+  function renderComparePicker() {
+    const task = TASKS.find(t => t.id === st.task);
+    if (!els.compareBox || !task) return;
+    st.compareRuns = [];
+    if (task.runs.length < 2) {
+      els.compareBox.innerHTML = '<div><b>当前算子暂无两次可比较的运行</b><small>' + esc(task.title) + ' · 至少需要两次执行记录</small></div>';
+      return;
+    }
+    els.compareBox.innerHTML = '<div><b>选择同一算子的两次运行</b><small>' + esc(task.title) + '</small></div>' +
+      '<div class="kf-th-compare-options">' + task.runs.map(r => '<label><input type="checkbox" value="' + r.id + '" data-th-compare-run><span>' + esc(r.id) + '</span><em>' + esc((VERDICT[r.verdict] || VERDICT.purged)[0]) + '</em></label>').join('') + '</div>' +
+      '<button type="button" class="kf-th-compare-submit" data-th-compare-submit disabled>开始对比</button>';
+  }
+
+  function renderRunComparison() {
+    const task = TASKS.find(t => t.id === st.task);
+    const selected = task ? st.compareRuns.map(id => task.runs.find(r => r.id === id)).filter(Boolean) : [];
+    if (selected.length !== 2 || !els.detail) return;
+    const live = liveRun();
+    const snapshots = selected.map(r => {
+      const measured = task.id === 'task_decode' && live && r.id === live.stamp ? live : null;
+      return {
+        title: task.title, run: r.id, verdict: (VERDICT[r.verdict] || VERDICT.purged)[0],
+        model: task.model, target: r.target || '—',
+        passes: measured ? measured.passes + ' pass' : '—',
+        kernels: measured ? measured.kernels + ' kernel' : '—',
+      };
+    });
+    els.detail.innerHTML = '<section class="kf-rd kf-th-comparison">' +
+      '<div class="kf-th-compare-head"><div><span class="kf-eyebrow">RUN COMPARISON</span><h2>运行对比</h2><p>同一算子：' + esc(task.title) + '</p></div><button type="button" class="kf-th-compare-close" data-th-compare-close>返回运行详情</button></div>' +
+      '<div class="kf-th-compare-grid">' + snapshots.map(s => '<article><h3>' + esc(s.title) + '</h3><code>' + esc(s.run) + '</code><dl>' +
+        '<div><dt>状态</dt><dd>' + esc(s.verdict) + '</dd></div><div><dt>模型</dt><dd>' + esc(s.model) + '</dd></div>' +
+        '<div><dt>目标</dt><dd>' + esc(s.target) + '</dd></div>' +
+        '<div><dt>Pass</dt><dd>' + esc(s.passes) + '</dd></div><div><dt>Kernel</dt><dd>' + esc(s.kernels) + '</dd></div>' +
+      '</dl></article>').join('') + '</div></section>';
   }
 
   /* Stage 0 is the run detail page in every activity view, so whether it is on
@@ -1038,6 +1059,7 @@
           '<span class="kf-th-sub">' + esc(t.kind) + ' · ' + esc(t.model) + ' · ' + esc(t.op) + '</span>' +
           '<span class="kf-th-time">' + t.runs.length + ' 次运行 · 最近 ' + esc(head.time.slice(5, 16)) + '</span>' +
         '</button>' +
+        '<button type="button" class="kf-th-compare-icon" data-th-compare-open data-th-compare-task-id="' + t.id + '" aria-label="对比 ' + esc(t.title) + ' 的运行" title="对比此算子的运行"' + (t.runs.length < 2 ? ' disabled' : '') + '>⇄</button>' +
         (open
           ? '<div class="kf-th-runs">' +
               '<div class="kf-th-arts-h">运行历史 · ' + t.runs.length + ' 次' +
@@ -1061,6 +1083,45 @@
   }
 
   function onRunClick(e) {
+    const compareOpen = e.target.closest('[data-th-compare-open]');
+    if (compareOpen) {
+      if (compareOpen.disabled) return;
+      const targetTask = compareOpen.dataset.thCompareTaskId;
+      if (targetTask && targetTask !== st.task) {
+        st.task = targetTask;
+        const target = TASKS.find(t => t.id === targetTask);
+        st.run = target ? latest(target).id : null;
+        st.compareRuns = [];
+        render();
+        renderDetail();
+      }
+      const opening = els.compareBox.hidden;
+      els.compareBox.hidden = !opening;
+      if (opening) renderComparePicker();
+      return;
+    }
+    const compareRun = e.target.closest('[data-th-compare-run]');
+    if (compareRun) {
+      st.compareRuns = $$('[data-th-compare-run]:checked', els.compareBox).map(x => x.value);
+      if (st.compareRuns.length > 2) {
+        compareRun.checked = false;
+        st.compareRuns = $$('[data-th-compare-run]:checked', els.compareBox).map(x => x.value);
+      }
+      const submit = $('[data-th-compare-submit]', els.compareBox);
+      if (submit) submit.disabled = st.compareRuns.length !== 2;
+      return;
+    }
+    const compareSubmit = e.target.closest('[data-th-compare-submit]');
+    if (compareSubmit && !compareSubmit.disabled) {
+      renderRunComparison();
+      els.compareBox.hidden = true;
+      return;
+    }
+    const compareClose = e.target.closest('[data-th-compare-close]');
+    if (compareClose) {
+      renderDetail();
+      return;
+    }
     // finding cards open in place; no state is kept, so a tab switch re-collapses
     const fh = e.target.closest('[data-th-find]');
     if (fh) {
@@ -1089,6 +1150,12 @@
       els.detail.scrollIntoView({ block: 'start' });
       return;
     }
+    const group = e.target.closest('[data-th-art-group]');
+    if (group) {
+      st.artifactGroup = group.dataset.thArtGroup;
+      renderInspector();
+      return;
+    }
     const sc = e.target.closest('[data-th-scroll]');
     if (sc) {
       toTab('sum');
@@ -1105,6 +1172,7 @@
   }
 
   function wire() {
+    if (els.root) els.root.addEventListener('click', onRunClick);
     if (els.detail) els.detail.addEventListener('click', onRunClick);
 
     els.filters.addEventListener('click', e => {
@@ -1126,16 +1194,16 @@
       }
       const run = e.target.closest('[data-th-run]');
       if (run) {
-        st.task = run.dataset.thOf; st.run = run.dataset.thRun;
-        render(); renderDetail(); toOverview();
+        st.task = run.dataset.thOf; st.run = run.dataset.thRun; st.artifactGroup = 'input'; st.compareRuns = [];
+        render(); renderDetail(); if (!els.compareBox.hidden) renderComparePicker(); toOverview();
         return;
       }
       const row = e.target.closest('[data-th-task]');
       if (!row) return;
       const id = row.dataset.thTask;
       if (st.task === id) { st.task = null; }
-      else { st.task = id; const t = TASKS.find(x => x.id === id); st.run = t ? latest(t).id : null; }
-      render(); renderDetail();
+      else { st.task = id; const t = TASKS.find(x => x.id === id); st.run = t ? latest(t).id : null; st.compareRuns = []; }
+      render(); renderDetail(); if (!els.compareBox.hidden) renderComparePicker();
       if (st.task) toOverview();
     });
 

@@ -491,6 +491,12 @@ button { color: inherit; }
 .kf-pa-contract header, .kf-pa-computation header, .kf-pa-shape header, .kf-pa-address header, .kf-pa-hardware header, .kf-pa-precision header, .kf-pa-run header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .kf-pa-contract header > span, .kf-pa-computation header > span, .kf-pa-shape header > span, .kf-pa-address header > span, .kf-pa-hardware header > span, .kf-pa-precision header > span, .kf-pa-run header > span { color: var(--foreground-muted); font: var(--kf-font-micro) var(--font-mono); }
 .kf-pa-computation__stage { height: 580px; min-height: 580px; border-radius: var(--radius-lg); }
+.kf-pa-graph-panel { overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); }
+.kf-pa-graph-panel .kf-pa-computation__stage { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.kf-pa-graph-panel > footer { padding: 6px 12px 8px; color: var(--foreground-muted); font: var(--kf-font-micro)/1.45 var(--font-mono); }
+.kf-pa-data-group { display: grid; gap: 8px; }
+.kf-pa-data-group > h3 { margin: 10px 0 0; color: var(--foreground-muted); font: 700 var(--kf-font-micro) var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.kf-pa-data-group > .kf-inspector-section, .kf-pa-data-group > .kf-inspector-card { margin: 0; }
 .kf-pa-computation__stage svg { min-height: 580px; }
 .kf-pa-computation__stage .pto-model-graphviz-node-label { font-size: 20px; font-weight: 750; }
 .kf-pa-computation__stage .pto-model-graphviz-node-type { fill: var(--foreground); font-size: 16px; font-weight: 650; }
