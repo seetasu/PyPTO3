@@ -91,7 +91,9 @@
     // whole-operator numbers above it.
     root.innerHTML =
       '<div class="kf-kg-summary" id="kgSummary"></div>' +
-      '<div class="kf-kg-lineage" id="kgLineage"></div>' +
+      // KERNEL 诞生谱系暂时下线：不挂容器，renderLineage() 自己会因为 els.lineage
+      // 为空而 return。谱系的数据（K.lineage）与渲染代码都留着，把这一行加回来
+      // 就恢复。
       '<div class="kf-kg-trace" id="kgTrace"></div>' +
       '<div class="kf-kg-bar">' +
         '<div class="kf-kg-seg" id="kgDims" role="group" aria-label="关注维度">' +
@@ -374,9 +376,13 @@
      rewrites. Every node still carries data-kg-p, so the existing detail panel
      and real pass metadata remain the source of truth. */
   function passRiver(ev) {
-    const W = Math.max(1240, PASSMETA.length * 26 + 200);
-    const padL = 176;
+    // 左槽只放"IR 形态""执行序 →"两个右对齐标签，实测最宽 50px。原先 padL=176
+    // 让 x=0–112 整段空着，而这张图在面板里只能看到约 505px 宽——一进来就有
+    // 五分之一是空的。收到 76（50 标签 + 12 间距 + 14 边距），W 同步减掉同样的
+    // 量，节点间距不变、横向滚动也少一截。
+    const padL = 76;
     const padR = 28;
+    const W = Math.max(1140, PASSMETA.length * 26 + padL + padR);
     const irY = 18;
     const bandY = 52;
     const bandH = 56;
@@ -430,9 +436,9 @@
       svg += `<rect class="kf-kg-river-irbox" x="${left}" y="${irY - 10}" width="${Math.max(46, right - left - 4)}" height="19" rx="9"/>`;
       svg += `<text class="kf-kg-river-ir" x="${left + 10}" y="${irY + 3}">${esc(label)}</text>`;
     });
-    svg += `<text class="kf-kg-river-label" x="${padL - 14}" y="${irY + 3}" text-anchor="end">IR 形态</text>`;
+    svg += `<text class="kf-kg-river-label" x="${padL - 12}" y="${irY + 3}" text-anchor="end">IR 形态</text>`;
     svg += `<line class="kf-kg-river-spine" x1="${padL}" y1="${nodeY}" x2="${W - padR}" y2="${nodeY}" stroke="url(#kgRiverSpine)"/>`;
-    svg += `<text class="kf-kg-river-label" x="${padL - 14}" y="${nodeY + 4}" text-anchor="end">执行序 →</text>`;
+    svg += `<text class="kf-kg-river-label" x="${padL - 12}" y="${nodeY + 4}" text-anchor="end">执行序 →</text>`;
 
     PASSMETA.forEach((pass, index) => {
       const item = ev[index];
@@ -730,7 +736,7 @@
     });
     // the lineage strip drives the same selection as the trace below it, so
     // clicking an event there opens that pass's detail in one place
-    els.lineage.addEventListener('click', e => {
+    if (els.lineage) els.lineage.addEventListener('click', e => {
       const b = e.target.closest('[data-kg-lin]'); if (!b) return;
       st.pass = +b.dataset.kgLin; st.fact = 0;
       renderTrace(); renderLineage();
