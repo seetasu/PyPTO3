@@ -626,10 +626,7 @@
           '<div class="kf-kg-props">' + props + '</div>' +
           visualFor(p) +
           (hk ? '<details class="kf-kg-raw"><summary>查看这一步的 IR diff</summary>' +
-                  '<div class="kf-kg-hunk"><div class="kf-kg-hunk-h">整网 IR diff · @ line ' + hk.at + '</div>' +
-                    (hk.b.length ? '<pre class="is-before">' + esc(hk.b.join('\n')) + '</pre>' : '') +
-                    (hk.a.length ? '<pre class="is-after">' + esc(hk.a.join('\n')) + '</pre>' : '') +
-                  '</div></details>' : '') +
+                  irDiff(hk, '整网 IR diff') + '</details>' : '') +
         '</div>';
     }
 
@@ -645,6 +642,148 @@
   }
   const stat = (t, v, d) =>
     '<div><dt>' + t + '</dt><dd>' + v + '<em>' + d + '</em></dd></div>';
+
+  /* ---------- IR diff：业界通用的左右对照 --------------------------------
+     原来是两块上下叠的 <pre>（前一块整段红、后一块整段绿），行与行对不上，
+     得自己拿眼睛找哪一行变了。改成 split view：
+       · LCS 对齐行 —— 未改动的行左右同排，改动的行左右成对，纯增 / 纯删留空
+       · 成对改动行再做词级 LCS，把真正变了的 token 高亮出来
+     hunk 最大 11 行、每行几十个 token，O(n·m) 的朴素实现完全够用。 */
+  function lcsTable(a, b) {
+    const m = a.length, n = b.length;
+    const d = [];
+    for (let i = 0; i <= m; i++) d.push(new Uint16Array(n + 1));
+    for (let i = m - 1; i >= 0; i--) {
+      for (let j = n - 1; j >= 0; j--) {
+        d[i][j] = a[i] === b[j] ? d[i + 1][j + 1] + 1 : Math.max(d[i + 1][j], d[i][j + 1]);
+      }
+    }
+    return d;
+  }
+
+  function diffSeq(a, b) {
+    const d = lcsTable(a, b), out = [];
+    let i = 0, j = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] === b[j]) { out.push({ t: 'same', a: i, b: j }); i++; j++; }
+      else if (d[i + 1][j] >= d[i][j + 1]) { out.push({ t: 'del', a: i }); i++; }
+      else { out.push({ t: 'add', b: j }); j++; }
+    }
+    while (i < a.length) { out.push({ t: 'del', a: i }); i++; }
+    while (j < b.length) { out.push({ t: 'add', b: j }); j++; }
+    return out;
+  }
+
+  // 行相似度：token 多重集交集。整行都被改写的 pass（比如 ConvertTensorToTileOps
+  // 把 15 行全换掉）在行级 LCS 下一个锚点都没有，这时"按位配对"会把
+  // valid_len = pl.dynamic(...) 这种纯删除行也拉去和别人凑一对，整块错位。
+  function lineSim(x, y) {
+    const tk = (s) => {
+      const m = new Map();
+      (s.match(IR_TOKEN) || []).forEach(t => { if (!/^\s+$/.test(t)) m.set(t, (m.get(t) || 0) + 1); });
+      return m;
+    };
+    const A = tk(x), B = tk(y);
+    let inter = 0, na = 0, nb = 0;
+    A.forEach((c, t) => { na += c; inter += Math.min(c, B.get(t) || 0); });
+    B.forEach(c => { nb += c; });
+    return na + nb ? (2 * inter) / (na + nb) : 0;
+  }
+
+  // 改动块内按相似度对齐（带空位的 Needleman–Wunsch），相似度低于阈值就不配对，
+  // 让它作为纯删 / 纯增单独占一行。块最大 11 行，O(n·m) 足够。
+  const PAIR_MIN = 0.3;
+  function alignBlock(dels, adds, before, after) {
+    const m = dels.length, n = adds.length;
+    const best = [];
+    for (let i = 0; i <= m; i++) best.push(new Float32Array(n + 1));
+    const sim = [];
+    for (let i = 0; i < m; i++) {
+      sim.push(new Float32Array(n));
+      for (let j = 0; j < n; j++) sim[i][j] = lineSim(before[dels[i]], after[adds[j]]);
+    }
+    for (let i = m - 1; i >= 0; i--) {
+      for (let j = n - 1; j >= 0; j--) {
+        const pair = sim[i][j] >= PAIR_MIN ? sim[i][j] + best[i + 1][j + 1] : -Infinity;
+        best[i][j] = Math.max(pair, best[i + 1][j], best[i][j + 1]);
+      }
+    }
+    const rows = [];
+    let i = 0, j = 0;
+    while (i < m && j < n) {
+      const pair = sim[i][j] >= PAIR_MIN ? sim[i][j] + best[i + 1][j + 1] : -Infinity;
+      if (pair >= best[i + 1][j] && pair >= best[i][j + 1]) { rows.push({ t: 'chg', a: dels[i++], b: adds[j++] }); }
+      else if (best[i + 1][j] >= best[i][j + 1]) rows.push({ t: 'chg', a: dels[i++] });
+      else rows.push({ t: 'chg', b: adds[j++] });
+    }
+    while (i < m) rows.push({ t: 'chg', a: dels[i++] });
+    while (j < n) rows.push({ t: 'chg', b: adds[j++] });
+    return rows;
+  }
+
+  function diffRows(before, after) {
+    const rows = [];
+    let dels = [], adds = [];
+    const flush = () => {
+      if (dels.length || adds.length) alignBlock(dels, adds, before, after).forEach(r => rows.push(r));
+      dels = []; adds = [];
+    };
+    diffSeq(before, after).forEach(op => {
+      if (op.t === 'same') { flush(); rows.push({ t: 'same', a: op.a, b: op.b }); }
+      else if (op.t === 'del') dels.push(op.a);
+      else adds.push(op.b);
+    });
+    flush();
+    return rows;
+  }
+
+  // 词级高亮：IR 行动辄两百字符，只标"整行变了"等于没标
+  const IR_TOKEN = /[A-Za-z_][\w]*|\d+|\s+|[^\s\w]/g;
+  function markPair(x, y) {
+    const ax = x.match(IR_TOKEN) || [x];
+    const by = y.match(IR_TOKEN) || [y];
+    const ops = diffSeq(ax, by);
+    // 相邻的差异 token 合成一段 <mark>：逐 token 包会把一行炸成几十个小色块，
+    // 反而看不出改了什么。
+    const build = (side) => {
+      const src = side === 'del' ? ax : by;
+      let out = '', run = '';
+      const flush = () => { if (run) { out += '<mark>' + esc(run) + '</mark>'; run = ''; } };
+      ops.forEach(op => {
+        if (op.t === 'same') { flush(); out += esc(src[side === 'del' ? op.a : op.b]); }
+        else if (op.t === side) run += src[side === 'del' ? op.a : op.b];
+      });
+      flush();
+      return out;
+    };
+    return [build('del'), build('add')];
+  }
+
+  function irDiff(hk, title) {
+    const rows = diffRows(hk.b || [], hk.a || []);
+    let oldNo = hk.at, newNo = hk.at;
+    let added = 0, removed = 0;
+    const L = [], R = [];
+    rows.forEach(r => {
+      const bl = r.a !== undefined ? hk.b[r.a] : null;
+      const al = r.b !== undefined ? hk.a[r.b] : null;
+      let lh = bl === null ? '' : esc(bl);
+      let rh = al === null ? '' : esc(al);
+      if (r.t === 'chg' && bl !== null && al !== null) { const p = markPair(bl, al); lh = p[0]; rh = p[1]; }
+      if (r.t !== 'same') { if (bl !== null) removed++; if (al !== null) added++; }
+      const lc = bl === null ? 'nil' : (r.t === 'same' ? 'same' : 'del');
+      const rc = al === null ? 'nil' : (r.t === 'same' ? 'same' : 'add');
+      L.push('<div class="kf-kg-dl is-' + lc + '"><i>' + (bl === null ? '' : oldNo++) + '</i><code>' + lh + '</code></div>');
+      R.push('<div class="kf-kg-dl is-' + rc + '"><i>' + (al === null ? '' : newNo++) + '</i><code>' + rh + '</code></div>');
+    });
+    return '<div class="kf-kg-diff">' +
+      '<div class="kf-kg-diff-h"><span>' + esc(title) + ' · @ line ' + hk.at + '</span>' +
+        '<span class="kf-kg-diff-n"><b class="is-del">−' + removed + '</b><b class="is-add">+' + added + '</b></span></div>' +
+      '<div class="kf-kg-diff-body">' +
+        '<div class="kf-kg-diff-side" data-kg-diff-pane><div class="kf-kg-diff-cap">变更前</div>' + L.join('') + '</div>' +
+        '<div class="kf-kg-diff-side" data-kg-diff-pane><div class="kf-kg-diff-cap">变更后</div>' + R.join('') + '</div>' +
+      '</div></div>';
+  }
 
   /* What the pass DID to the computation, drawn. The IR diff is demoted to a
      collapsed <details> below it — reading code should be the fallback, not
@@ -688,11 +827,7 @@
 
     const sel = st.kpass !== null ? k.passes.find(x => x.i === st.kpass) : null;
     const hunk = sel && sel.h
-      ? '<div class="kf-kg-hunk"><div class="kf-kg-hunk-h">' +
-          String(sel.i).padStart(2, '0') + ' ' + esc(PASSNAMES[sel.i]) + ' · @ line ' + sel.h.at + '</div>' +
-          (sel.h.b.length ? '<pre class="is-before">' + esc(sel.h.b.join('\n')) + '</pre>' : '') +
-          (sel.h.a.length ? '<pre class="is-after">' + esc(sel.h.a.join('\n')) + '</pre>' : '') +
-        '</div>'
+      ? irDiff(sel.h, String(sel.i).padStart(2, '0') + ' ' + PASSNAMES[sel.i])
       : '<p class="kf-kg-none">点击色块查看该 pass 对这个 kernel 做了什么。</p>';
 
     return '<div class="kf-kg-track is-mini">' +
@@ -783,6 +918,19 @@
       els.tip.style.top = Math.max(e.clientY - r.height - 10, 8) + 'px';
     });
     if (els.list) els.list.addEventListener('mouseleave', () => { els.tip.style.opacity = '0'; });
+    // 左右两栏各自横向滚动，但要一起走——IR 行很长，两边错开就失去对照意义。
+    // diff 每次重渲染都是新 DOM，所以用捕获阶段的全局监听，不逐个挂。
+    let syncing = false;
+    document.addEventListener('scroll', e => {
+      const pane = e.target instanceof Element ? e.target.closest('[data-kg-diff-pane]') : null;
+      if (!pane || syncing) return;
+      syncing = true;
+      Array.prototype.forEach.call(pane.parentNode.children, other => {
+        if (other !== pane) other.scrollLeft = pane.scrollLeft;
+      });
+      syncing = false;
+    }, true);
+
     const run = document.getElementById('runCompile');
     if (run) run.addEventListener('click', sweep);
   }

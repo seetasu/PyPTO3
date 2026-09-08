@@ -455,3 +455,82 @@
 .kf-kg-linlist div { display: flex; flex-wrap: wrap; gap: 3px; }
 .kf-kg-linlist code { padding: 1px 5px; border: 1px solid var(--border-subtle); border-radius: 2px;
   color: var(--foreground-secondary); font: 8.5px var(--font-mono); }
+
+/* ---- IR diff · 左右对照 -----------------------------------------------------
+   取代原来上下叠的两块 <pre>（前一块整段红、后一块整段绿）：那种画法行与行
+   对不上，得自己拿眼睛找哪一行变了。现在按 LCS 对齐，未改动的行左右同排，
+   改动的行成对，行内再把真正变了的 token 标出来。 */
+.kf-kg-diff {
+  margin: 0 11px 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.kf-kg-diff-h {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--foreground-muted);
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+  font: 9px var(--font-mono);
+}
+.kf-kg-diff-n { margin-left: auto; display: flex; gap: 6px; }
+.kf-kg-diff-n b { font-weight: 700; }
+.kf-kg-diff-n .is-del { color: var(--danger); }
+.kf-kg-diff-n .is-add { color: var(--success); }
+
+.kf-kg-diff-body { display: grid; grid-template-columns: 1fr 1fr; }
+.kf-kg-diff-side {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.kf-kg-diff-side + .kf-kg-diff-side { border-left: 1px solid var(--border-default); }
+.kf-kg-diff-cap {
+  position: sticky; left: 0;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--foreground-muted);
+  background: color-mix(in srgb, var(--surface-2) 75%, var(--surface-1));
+  font: 9px var(--font-mono);
+}
+/* 行高必须写死：内容行按 line-height 撑到 20px，而一侧留空的占位行没有内容，
+   只用 min-height 会塌到 17px，左右两栏就逐行错开——split view 一旦对不齐就
+   没有意义了。 */
+.kf-kg-diff { --kg-dl-h: 20px; }
+.kf-kg-dl {
+  display: flex; align-items: stretch;
+  height: var(--kg-dl-h);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: var(--kg-dl-h);
+  white-space: pre;
+}
+.kf-kg-dl > i {
+  position: sticky; left: 0;
+  flex: none; width: 26px; padding-right: 6px;
+  color: color-mix(in srgb, var(--foreground) 32%, transparent);
+  background: inherit;
+  font-style: normal; text-align: right;
+  line-height: var(--kg-dl-h);
+  user-select: none;
+}
+.kf-kg-dl > code { padding-right: 10px; line-height: var(--kg-dl-h); }
+.kf-kg-dl.is-same { color: var(--foreground-muted); background: transparent; }
+.kf-kg-dl.is-del { color: color-mix(in srgb, var(--danger) 55%, var(--foreground)); background: color-mix(in srgb, var(--danger) 9%, transparent); }
+.kf-kg-dl.is-add { color: color-mix(in srgb, var(--success) 50%, var(--foreground)); background: color-mix(in srgb, var(--success) 9%, transparent); }
+/* 一侧没有对应行：留空占位，保持左右行号错位可见 */
+.kf-kg-dl.is-nil { background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--foreground) 4%, transparent) 5px 10px); }
+.kf-kg-dl mark {
+  padding: 0 1px; border-radius: 2px;
+  color: inherit; background: transparent;
+  font-weight: 700;
+}
+.kf-kg-dl.is-del mark { background: color-mix(in srgb, var(--danger) 26%, transparent); }
+.kf-kg-dl.is-add mark { background: color-mix(in srgb, var(--success) 26%, transparent); }
+
+/* 窄面板里左右各半会挤成两条细缝，这时退回上下排列（仍是逐行对齐的） */
+@media (max-width: 720px) {
+  .kf-kg-diff-body { grid-template-columns: 1fr; }
+  .kf-kg-diff-side + .kf-kg-diff-side { border-left: 0; border-top: 1px solid var(--border-default); }
+}
