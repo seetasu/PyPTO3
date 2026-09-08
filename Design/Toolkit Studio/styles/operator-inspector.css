@@ -718,3 +718,28 @@
   overflow: hidden; color: var(--foreground-muted);
   white-space: nowrap; text-overflow: ellipsis;
 }
+
+/* ---- 风险条目 → 源码联动 --------------------------------------------------
+   整个标题行都是跳转按钮，不只是右边那枚行号 chip：风险列表最常见的用法是
+   逐条点下去看代码，点击目标越大越好。正文留给选中复制，不参与点击。 */
+.kf-op__risk-top.is-clickable {
+  margin: -10px -11px 6px;
+  padding: 10px 11px 7px;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: pointer;
+}
+.kf-op__risk-top.is-clickable:hover { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.kf-op__risk-top.is-clickable:hover .kf-op__risk-line { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+.kf-op__risk-top.is-clickable:focus-visible {
+  outline: 1px solid var(--primary);
+  outline-offset: -1px;
+}
+/* 当前正在看的那条：走到列表中段时不丢位置感 */
+.kf-op__risk-item.is-active {
+  background: color-mix(in srgb, var(--primary) 9%, var(--surface-2));
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border-subtle));
+}
+.kf-op__risk-item.is-active .kf-op__risk-line {
+  color: var(--surface-1);
+  background: var(--primary);
+}

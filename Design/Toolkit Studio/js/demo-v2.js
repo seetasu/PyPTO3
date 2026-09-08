@@ -1580,6 +1580,15 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return meta ? meta.lines.split('–').map(Number) : null;
   }
 
+  // 行号 → 所属段。落在任何段之前（许可头 / import）时返回 null。
+  function pagedAttentionRegionForLine(line) {
+    for (const key of Object.keys(pagedAttentionFocusMeta)) {
+      const range = pagedAttentionRegionRange(key);
+      if (range && line >= range[0] && line <= range[1]) return key;
+    }
+    return null;
+  }
+
   // 当前段 = 滚动容器顶部往下一点的位置上那一行落在哪个段的行段里。
   // 按 focusMeta 的行段判，不用 pagedAttentionFocusForLine——后者把第 1–34 行的
   // 许可头也算进 dynamic，条上就会出现"你在 35–41 段"而屏幕上是第 3 行的矛盾。
@@ -1653,17 +1662,22 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     renderSourceRegionBar();
   }
 
-  function scrollEditorRowIntoView(row) {
+  // align: 'center'（默认，看上下文）| 'top'（把目标行顶到顶部往下一点）。
+  // 从风险列表跳过来时用 'top'：居中的话屏幕顶部那一行往往已经属于上一段，
+  // 源码顶部的段落条就会和刚点的那条风险对不上。
+  function scrollEditorRowIntoView(row, { align = 'center' } = {}) {
     let box = row.parentElement;
     while (box && box !== document.body && box.scrollHeight <= box.clientHeight + 1) box = box.parentElement;
     if (!box || box === document.body || box === document.documentElement) {
-      row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      row.scrollIntoView({ block: align === 'top' ? 'start' : 'center', behavior: 'smooth' });
       return;
     }
     const settle = () => {
       const rowRect = row.getBoundingClientRect();
       const boxRect = box.getBoundingClientRect();
-      const delta = (rowRect.top + rowRect.height / 2) - (boxRect.top + boxRect.height / 2);
+      const delta = align === 'top'
+        ? rowRect.top - (boxRect.top + 12)
+        : (rowRect.top + rowRect.height / 2) - (boxRect.top + boxRect.height / 2);
       if (Math.abs(delta) < 2) return;
       box.scrollTo({ top: Math.max(0, box.scrollTop + delta), behavior: 'auto' });
     };
@@ -2318,48 +2332,23 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       ['context_lens', '[B]', 'INT32', '只读', '每个 request 当前的上下文长度', 'orchestration'],
       ['out', '[B×H, D]', 'FP32', '被写回', '注意力结果，原位写入，函数返回的就是它', 'online'],
     ];
-    return `<p class="kf-op-inline-note">这个函数收 <b>5 个只读张量</b>，写 <b>1 个输出张量</b>。所有形状都不是写死的：<code>B / H / D / block_size</code> 由 <code>pl.dynamic()</code> 声明，运行时才从 <code>pl.tensor.dim()</code> 推出来（第 273–277 行）。点任意一行定位到用它的源码段。</p>
-      <div class="kf-pa-tensor-table is-plain"><div class="head"><span>参数名</span><b>形状 · 类型</b><em>读 / 写</em></div>${rows.map(([name, shape, dtype, dir, why, focus]) => `<button type="button" data-paged-attention-focus="${focus}" class="${dir === '被写回' ? 'is-out' : ''}"><span>${name}</span><b>${shape}<i>${dtype}</i></b><em>${dir}</em><small>${why}</small></button>`).join('')}</div>
+    return `<div class="kf-pa-tensor-table is-plain"><div class="head"><span>参数名</span><b>形状 · 类型</b><em>读 / 写</em></div>${rows.map(([name, shape, dtype, dir, why, focus]) => `<button type="button" data-paged-attention-focus="${focus}" class="${dir === '被写回' ? 'is-out' : ''}"><span>${name}</span><b>${shape}<i>${dtype}</i></b><em>${dir}</em><small>${why}</small></button>`).join('')}</div>
       <p class="kf-pa-note"><code>out</code> 是唯一被写的参数（<code>pl.Out</code>）：编排层用 <code>pl.slice</code> 取一个行段视图交给 online_update 原位写回。所以「返回值」和「入参 out」是同一块内存——调用方传进来的缓冲区会被就地改掉。</p>`;
-  }
-
-  // 把风险按行号落回源码分区，用来回答"问题集中在哪一层"。
-  // 分区边界直接取 pagedAttentionFocusMeta 的行段，风险取 profile 的行号——
-  // 两边都是既有事实，这里不新增任何断言。
-  function paRiskLanding() {
-    const zones = Object.entries(pagedAttentionFocusMeta).map(([key, meta]) => {
-      const [from, to] = meta.lines.split('–').map(Number);
-      return { key, label: meta.label, from, to, count: 0 };
-    });
-    pagedAttentionProfile().risks.forEach((risk) => {
-      const line = risk.lines[0];
-      const zone = zones.find((z) => line >= z.from && line <= z.to);
-      if (zone) zone.count += 1;
-    });
-    const hit = zones.filter((z) => z.count > 0);
-    // 编排层 = 动态维度推导 + Paged KV 编排（第 237–367 行）。builder 段虽然也在
-    // kernel 之外，但它讲的是闭包常量固化，不算编排——所以按 key 显式列举，不用
-    // "不在 kernel 里"反推。
-    const inOrch = hit.filter((z) => ['orchestration', 'paging'].includes(z.key)).reduce((n, z) => n + z.count, 0);
-    const total = hit.reduce((n, z) => n + z.count, 0);
-    return `<div class="kf-pa-risk-landing">
-      <b>${total} 条风险里有 ${inOrch} 条落在编排层</b>
-      <div>${hit.map((z) => `<button type="button" data-paged-attention-focus="${z.key}"><span>${z.label}</span><em>${z.count}</em></button>`).join('')}</div>
-      <small>真正需要改的地方基本不在 5 个 kernel 内部，而在第 237–367 行的动态维推导与 Paged 编排——先看这一段。</small>
-    </div>`;
   }
 
   function paTaskGraphStage() {
     // 这里原本有 5 个图层按钮（数据 / 依赖 / 硬件 / 精度 / 运行状态）。它们是四格
     // Tab 的同一根轴又画了一遍：依赖→编排依赖、硬件→分块硬件、精度→数据精度——
     // 当时甚至配了一个"本图层的完整内容在「X」→"的跳转按钮，那就是重复的自认。
-    // 运行状态图层在 coding 阶段永远是空的。现在图只保留一个视图：这段代码在干
-    // 什么 + 问题落在哪一段，其余维度回各自的 Tab。
+    // 运行状态图层在 coding 阶段永远是空的。现在图只保留一个视图：这段代码在干什么。
+    //
+    // 图下面一度还有一条「风险落点」，把同样这 9 条风险按源码分区数了一遍。
+    // 那和顶部 ⚠ 9 抽屉是同一份数据（它就是直接读 profile.risks），一份数据在
+    // 一屏里出现两次；风险的归属地已经由抽屉里每条的行号按钮承担，去掉。
     return `
       <p class="kf-op-inline-note">1 个 Orchestration 驱动 5 个 InCore kernel，按 KV Block 迭代做 online softmax。点节点展开核内子图并定位源码。</p>
       <div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
-      <footer id="pagedAttentionGraphStatus" class="kf-pa-graph-status">点击节点展开核内子图并定位源码 · 拖拽 / 缩放查看全图</footer>
-      ${paRiskLanding()}`;
+      <footer id="pagedAttentionGraphStatus" class="kf-pa-graph-status">点击节点展开核内子图并定位源码 · 拖拽 / 缩放查看全图</footer>`;
   }
 
   // 「源码地图」不再是右侧的一个区块——它已经贴到源码顶部随滚动指示当前段落
@@ -4181,15 +4170,24 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const opGotoLine = event.target.closest('[data-op-goto-line]');
     if (opGotoLine) {
       const line = Number(opGotoLine.dataset.opGotoLine);
-      state.opDrawer = null;
-      state.pagedAttentionDetailOpen = false;
-      renderIntentInspector();
+      // 抽屉留着不关：风险列表是要逐条点下去看代码的，关掉就得每次重新点开
+      // ⚠ 再滚回原位。抽屉浮在面板上，本来也不挡中间的源码。
+      // 也不重渲染——重渲染会把抽屉的滚动位置弹回顶部。
       const target = $(`#dslEditor [data-paged-attention-line="${line}"]`) || $(`#dslEditor div:nth-child(${line})`);
       if (target) {
-        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
         markPagedAttentionTargetLine(line);
+        scrollEditorRowIntoView(target, { align: 'top' });
+        // 源码顶部的段落条跟着走，指出这条风险落在哪一段。按行号直接算，不读
+        // 滚动位置——滚动这一刻还没落定。
+        if (!$('#sourceRegionBar').hidden) {
+          SOURCE_REGION_BAR_STATE.focus = pagedAttentionRegionForLine(line);
+          renderSourceRegionBar();
+        }
       }
+      // 标出当前正在看的是哪一条，走到列表中段时不会丢失位置感
+      $$('#inspector .kf-op__risk-item').forEach((el) => el.classList.toggle('is-active', el.dataset.opRiskLine === String(line)));
       toast(`已定位到第 ${line} 行`);
+      return;
     }
     const opAction = event.target.closest('[data-op-action]');
     if (opAction) {

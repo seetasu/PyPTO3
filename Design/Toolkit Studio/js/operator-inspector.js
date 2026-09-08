@@ -107,11 +107,13 @@
   function riskItem(item) {
     const lines = Array.isArray(item.lines) ? item.lines : null;
     const lineLabel = lines ? (lines[0] === lines[1] ? `第 ${lines[0]} 行` : `第 ${lines[0]}–${lines[1]} 行`) : null;
-    return `<article class="kf-op__risk-item is-${esc(item.level)}">
-      <div class="kf-op__risk-top">
+    // 整个标题行都是跳转源码的按钮，不只是右边那枚小行号——风险列表最常见的
+    // 用法是逐条点下去看代码，点击目标越大越好。正文留给选中复制，不参与点击。
+    return `<article class="kf-op__risk-item is-${esc(item.level)}"${lines ? ` data-op-risk-line="${lines[0]}"` : ''}>
+      <div class="kf-op__risk-top${lines ? ' is-clickable' : ''}"${lines ? ` data-op-goto-line="${lines[0]}" role="button" tabindex="0"` : ''}>
         <b>${esc(item.title)}</b>
         <span class="kf-op__risk-cls">${esc(item.cls)} · ${esc(LEVEL_LABEL[item.level] || item.level)}</span>
-        ${lines ? `<button type="button" class="kf-op__risk-line" data-op-goto-line="${lines[0]}">${esc(lineLabel)}</button>` : ''}
+        ${lines ? `<span class="kf-op__risk-line">${esc(lineLabel)}</span>` : ''}
       </div>
       <dl>
         <div><dt>为什么</dt><dd>${item.why}</dd></div>
