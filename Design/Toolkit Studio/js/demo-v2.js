@@ -1580,6 +1580,30 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return meta ? meta.lines.split('–').map(Number) : null;
   }
 
+  /* 选中某一段 → 源码跟着走。计算图节点、Tile 卡片这些地方原本只给源码行
+     加了个 is-paged-attention-line-active 的高亮 class 就完事，可是 563 行的
+     文件里那一段几乎总在屏幕外，看上去就是"点了没反应"。这里统一补上定位：
+     滚到段首行、标记它、并让顶部段落条切过去。 */
+  function focusPagedAttentionSource(focus) {
+    if (!isPagedAttentionFile(state.activeFile)) return;
+    const rows = $$('#dslEditor [data-paged-attention-focus]');
+    if (!rows.length) return;
+    rows.forEach((row) => row.classList.toggle('is-paged-attention-line-active', row.dataset.pagedAttentionFocus === focus));
+    const range = pagedAttentionRegionRange(focus);
+    const line = range ? range[0] : null;
+    const target = line ? $(`#dslEditor [data-paged-attention-line="${line}"]`) : null;
+    if (!target) return;
+    state.pagedAttentionLine = line;
+    markPagedAttentionTargetLine(line);
+    // 顶部对齐，理由同风险跳转：居中会让段落条落在上一段上
+    scrollEditorRowIntoView(target, { align: 'top' });
+    const bar = $('#sourceRegionBar');
+    if (bar && !bar.hidden) {
+      SOURCE_REGION_BAR_STATE.focus = focus;
+      renderSourceRegionBar();
+    }
+  }
+
   // 行号 → 所属段。落在任何段之前（许可头 / import）时返回 null。
   function pagedAttentionRegionForLine(line) {
     for (const key of Object.keys(pagedAttentionFocusMeta)) {
@@ -2347,8 +2371,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     // 一屏里出现两次；风险的归属地已经由抽屉里每条的行号按钮承担，去掉。
     return `
       <p class="kf-op-inline-note">1 个 Orchestration 驱动 5 个 InCore kernel，按 KV Block 迭代做 online softmax。点节点展开核内子图并定位源码。</p>
-      <div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
-      <footer id="pagedAttentionGraphStatus" class="kf-pa-graph-status">点击节点展开核内子图并定位源码 · 拖拽 / 缩放查看全图</footer>`;
+      <div class="kf-pa-graph-panel"><div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
+      <footer id="pagedAttentionGraphStatus" class="kf-pa-graph-status">点击节点展开核内子图并定位源码 · 拖拽 / 缩放查看全图</footer></div>`;
   }
 
   // 「源码地图」不再是右侧的一个区块——它已经贴到源码顶部随滚动指示当前段落
@@ -2655,7 +2679,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       mode: state.opMode,
     });
     $$('#dslEditor [data-paged-attention-focus]').forEach(row => row.classList.toggle('is-paged-attention-line-active', row.dataset.pagedAttentionFocus === state.pagedAttentionFocus));
-    if (scrollToFocus) $(`#dslEditor [data-paged-attention-focus="${state.pagedAttentionFocus}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // 走同一条定位路径：顶部对齐 + 标记段首行 + 段落条跟着切。原来这里是
+    // 单独一句 scrollIntoView({block:'center'})，既不更新段落条，居中之后
+    // 段落条还会落在上一段上。
+    if (scrollToFocus) focusPagedAttentionSource(state.pagedAttentionFocus);
     if (state.opTab === 'overview' && !drawer) renderPagedAttentionComputationGraph();
   }
 
@@ -2842,14 +2869,19 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           pagedAttentionGraphController?.destroy?.();
           pagedAttentionGraphController = null;
           renderPagedAttentionComputationGraph();
+          // 展开细粒度子图的同时源码也要跟过去——否则展开了一个 kernel 的内部，
+          // 中间还停在别处
+          focusPagedAttentionSource(state.pagedAttentionFocus);
           return;
         }
         const focus = pagedAttentionGraphFocus[nodeId] || childFocusMap.get(nodeId);
         if (!focus) return;
         if (pagedAttentionGraphFocus[nodeId]) state.pagedAttentionNode = nodeId;
         syncPagedAttentionSelection(focus);
-        state.pagedAttentionDetailOpen = true;
-        $$('#dslEditor [data-paged-attention-focus]').forEach(row => row.classList.toggle('is-paged-attention-line-active', row.dataset.pagedAttentionFocus === focus));
+        // 不再自动弹「对象详情」抽屉。抽屉盖住面板 body，图就不再挂载了——
+        // 点完一个节点必须先关抽屉才能点下一个，源码联动只能用一次。
+        // 节点点击的语义是"带我去这一段"，详情仍可从张量表等入口打开。
+        focusPagedAttentionSource(focus);
         const meta = pagedAttentionFocusMeta[focus];
         if (status && meta) status.textContent = `${meta.label} · 源码第 ${meta.lines} 行 · ${meta.detail}`;
         renderPagedAttentionInspector();
