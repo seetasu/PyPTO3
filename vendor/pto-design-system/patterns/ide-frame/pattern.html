@@ -93,7 +93,7 @@
                   <path d="M12 15h5"></path>
                 </svg>
               </button>
-              <button class="pto-ide-frame__window-action" type="button" aria-label="Toggle right dock">
+              <button class="pto-ide-frame__window-action" type="button" data-ide-toggle="inspector" data-expanded-label="Collapse inspector" data-collapsed-label="Expand inspector" aria-label="Collapse inspector" aria-controls="standalone-inspector-pane" aria-expanded="true" aria-pressed="true" title="Inspector">
                 <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true">
                   <rect x="3" y="3" width="18" height="18" rx="2"></rect>
                   <path d="M15 3v18"></path>
@@ -167,7 +167,7 @@
                     <div class="pto-ide-frame__pane-body" data-ide-slot="preview"></div>
                   </section>
 
-                  <aside class="pto-ide-frame__pane" data-ide-pane="inspector">
+                  <aside class="pto-ide-frame__pane" data-ide-pane="inspector" id="standalone-inspector-pane">
                     <header class="pto-ide-frame__pane-header" data-ide-slot="inspector-header"></header>
                     <div class="pto-ide-frame__pane-body" data-ide-slot="inspector"></div>
                   </aside>
@@ -234,6 +234,6 @@
 
   <script src="../workbench-shell/pattern.js?v=ide-frame-v7"></script>
   <script src="../floating-playback-control/pattern.js?v=ide-frame-v7"></script>
-  <script src="./pattern.js?v=ide-frame-v7"></script>
+  <script src="./pattern.js?v=ide-frame-v8"></script>
 </body>
 </html>

@@ -15,9 +15,75 @@
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/aiv-core-object/pattern.css" />
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/memory-architecture/pattern.css" />
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/model-graphviz/pattern.css?v=20260813-2" />
-  <link rel="stylesheet" href="./styles/demo.css?v=20260821-10" />
+  <link rel="stylesheet" href="./styles/demo.css?v=20260908-1" />
   <link rel="stylesheet" href="./styles/coding-v2.css?v=20260820-26" />
-  <link rel="stylesheet" href="./styles/profiler.css?v=20260821-3" />
+  <link rel="stylesheet" href="./styles/operator-inspector.css?v=20260907-1" />
+  <link rel="stylesheet" href="./styles/profiler.css?v=20260821-4" />
+  <link rel="stylesheet" href="./styles/fusion.css?v=20260829-1" />
+  <link rel="stylesheet" href="./styles/qwen3-performance-swimlane.css?v=20260907-5" />
+  <link rel="stylesheet" href="./styles/fusion-catalog.css?v=20260828-1" />
+  <link rel="stylesheet" href="./styles/fusion-hardware.css?v=20260829-2" />
+  <link rel="stylesheet" href="./styles/ir-compile-guard.css?v=20260902-1" />
+  <link rel="stylesheet" href="./styles/task-history.css?v=20260907-27" />
+  <link rel="stylesheet" href="./styles/run-fan.css?v=20260904-3" />
+  <link rel="stylesheet" href="./styles/run-timeline.css?v=20260902-4" />
+  <link rel="stylesheet" href="./styles/typography-responsive.css?v=20260904-3" />
+  <style>
+    .kf-env-panel { width: 438px; }
+    .kf-env-panel > header { align-items: center; padding: 13px 16px 10px; }
+    .kf-env-panel h2 { margin: 0; color: var(--foreground-muted); font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+    .kf-env-panel__intro { display: none; }
+    .kf-env-panel .kf-state-chip.warn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, var(--border-subtle)); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+    .kf-env i.is-warn, .kf-env-panel footer i.is-warn { background: var(--warning); box-shadow: 0 0 9px color-mix(in srgb, var(--warning) 70%, transparent); }
+    .kf-env-progress { height: 3px; margin: 0 16px 6px; overflow: hidden; border-radius: 99px; background: var(--surface-3); }
+    .kf-env-progress span { display: block; height: 100%; border-radius: inherit; background: var(--warning); transition: width 180ms ease; }
+    .kf-env-summary { display: grid; grid-template-columns: 1.25fr 1fr; gap: 10px; margin: 0 14px 10px; padding: 12px; border: 1px solid color-mix(in srgb, var(--success) 20%, var(--border-subtle)); border-radius: var(--radius-lg); background: linear-gradient(135deg, color-mix(in srgb, var(--success) 12%, var(--surface-2)), var(--surface-2)); }
+    .kf-env-score { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .kf-env-score-ring { display: grid; flex: 0 0 68px; width: 68px; height: 68px; place-content: center; border-radius: 50%; background: conic-gradient(var(--success) 100%, color-mix(in srgb, var(--success) 14%, var(--surface-3)) 0); box-shadow: inset 0 0 0 6px var(--surface-2), 0 0 20px color-mix(in srgb, var(--success) 18%, transparent); text-align: center; }
+    .kf-env-score-ring b, .kf-env-score-ring small { display: block; }
+    .kf-env-score-ring b { color: var(--foreground); font: 700 17px/1 var(--font-mono); }
+    .kf-env-score-ring small { margin-top: 4px; color: var(--success); font: 600 8px/1 var(--font-mono); letter-spacing: .12em; }
+    .kf-env-score strong { display: block; color: var(--foreground); font-size: 14px; }
+    .kf-env-score p { margin: 3px 0 0; color: var(--success); font: 600 10px var(--font-mono); }
+    .kf-env-summary-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; align-items: center; }
+    .kf-env-summary-facts span { padding-left: 8px; border-left: 1px solid var(--border-subtle); }
+    .kf-env-summary-facts b, .kf-env-summary-facts small { display: block; white-space: nowrap; }
+    .kf-env-summary-facts b { color: var(--foreground-secondary); font: 600 11px var(--font-mono); }
+    .kf-env-summary-facts small { margin-top: 4px; color: var(--foreground-muted); font-size: 9px; }
+    .kf-env-gates { display: grid; gap: 2px; margin: 0; padding: 4px 10px 8px; list-style: none; }
+    .kf-env-gates li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 50px; padding: 6px 8px; border-radius: var(--radius-md); }
+    .kf-env-gates li.is-ready { background: color-mix(in srgb, var(--success) 5%, transparent); }
+    .kf-env-gates li.is-blocked { background: color-mix(in srgb, var(--warning) 7%, transparent); }
+    .kf-env-gate-index { color: color-mix(in srgb, var(--foreground-muted) 72%, transparent); font: 600 10px var(--font-mono); }
+    .kf-env-gates b, .kf-env-gates small { display: block; }
+    .kf-env-gates b { color: var(--foreground-muted); font-size: 10px; font-weight: 500; letter-spacing: .01em; }
+    .kf-env-gates small { margin-top: 3px; overflow: hidden; color: var(--foreground); font: 600 13px/1.35 var(--font-sans); text-overflow: ellipsis; white-space: nowrap; }
+    .kf-env-gates em { display: inline-flex; align-items: center; gap: 4px; color: var(--success); font-size: 10px; font-weight: 600; font-style: normal; white-space: nowrap; }
+    .kf-env-gates em::before { content: '✓'; display: grid; width: 16px; height: 16px; place-items: center; border-radius: 50%; color: var(--surface-1); background: var(--success); font: 700 10px var(--font-mono); }
+    .kf-env-gates .is-blocked em { color: var(--warning); }
+    .kf-env-gates li.is-checking { outline: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+    .kf-env-gates li.is-checking em { color: var(--primary); }
+    .kf-env-gates li.is-checking em::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 4px; border: 1px solid currentColor; border-top-color: transparent; border-radius: 50%; vertical-align: -1px; animation: kf-env-spin 700ms linear infinite; }
+    @keyframes kf-env-spin { to { transform: rotate(360deg); } }
+    .kf-env-evidence { display: flex; gap: 8px; margin: 0 14px 9px; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--warning) 24%, var(--border-subtle)); border-radius: var(--radius-md); background: color-mix(in srgb, var(--warning) 7%, var(--surface-2)); }
+    .kf-env-evidence-icon { display: grid; flex: 0 0 17px; width: 17px; height: 17px; place-items: center; border-radius: 50%; color: var(--surface-1); background: var(--warning); font: 700 var(--kf-type-2xs) var(--font-mono); }
+    .kf-env-evidence b, .kf-env-evidence small { display: block; }
+    .kf-env-evidence b { color: var(--warning); font-size: var(--kf-type-2xs); }
+    .kf-env-evidence small { margin-top: 3px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.35; }
+    .kf-env-evidence-metric { align-self: center; color: var(--success); font: 700 14px var(--font-mono); white-space: nowrap; }
+    .kf-env-evidence.is-healthy { border-color: color-mix(in srgb, var(--success) 24%, var(--border-subtle)); background: color-mix(in srgb, var(--success) 7%, var(--surface-2)); }
+    .kf-env-evidence.is-healthy .kf-env-evidence-icon { background: var(--success); }
+    .kf-env-evidence.is-healthy b { color: var(--success); }
+    .kf-env-fingerprint { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 0 14px 10px; padding: 8px 9px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+    .kf-env-fingerprint code { display: block; margin-top: 4px; color: var(--foreground-secondary); font: var(--kf-type-xs) var(--font-mono); }
+    .kf-env-fingerprint button, .kf-env-panel > footer button { border: 0; color: var(--foreground-secondary); background: transparent; cursor: pointer; font-size: var(--kf-type-2xs); white-space: nowrap; }
+    .kf-env-fingerprint button:hover, .kf-env-panel > footer button:hover { color: var(--foreground); }
+    .kf-env-panel > footer { gap: 9px; }
+    .kf-env-panel > footer span { flex: 1; }
+    .kf-env-panel > footer time { color: var(--foreground-muted); font: var(--kf-type-2xs) var(--font-mono); white-space: nowrap; }
+    .kf-env-panel > footer button:last-child { padding: 5px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--foreground); background: var(--surface-2); }
+    @media (max-width: 760px) { .kf-env-panel { right: -48px; width: min(356px, calc(100vw - 24px)); } }
+  </style>
 </head>
 <body>
   <section class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="PyPTO Studio 可信 Kernel 工作台">
@@ -52,25 +118,32 @@
       <div class="pto-ide-frame__topbar-right">
         <div class="kf-env-wrap">
           <button class="kf-env" id="envControl" type="button" aria-haspopup="dialog" aria-controls="envFingerprintPanel" aria-expanded="false">
-            <span class="kf-env-label">全局环境</span><i></i><span>Ascend 950B</span><small>PyPTO 3.0.0-dev</small><b aria-hidden="true">⌄</b>
+            <span class="kf-env-label">环境检查</span><i></i><span>4 / 4 已通过</span><b aria-hidden="true">⌄</b>
           </button>
           <section class="kf-env-panel" id="envFingerprintPanel" role="dialog" aria-label="环境指纹" hidden>
-            <header><div><span class="kf-eyebrow">RUNTIME CONTEXT</span><h2>环境指纹</h2></div><span class="kf-state-chip good">环境已锁定</span></header>
-            <div class="kf-fingerprint-id"><span>FINGERPRINT</span><code>env:8da1bf09</code><button type="button" id="copyFingerprint">复制</button></div>
-            <dl>
-              <div><dt>Device</dt><dd><b>Ascend 950B</b><small>Firmware 7.6.0.3</small></dd></div>
-              <div><dt>Runtime</dt><dd><b>CANN 9.0.RC1</b><small>Driver 24.1.0</small></dd></div>
-              <div><dt>Compiler</dt><dd><b>PyPTO 3.0.0-dev</b><small>commit e10c4a</small></dd></div>
-              <div><dt>ISA</dt><dd><b>PTOAS 0.8.4</b><small>A2-compat</small></dd></div>
-              <div><dt>Precision</dt><dd><b>BF16 · rtol 1e-3</b><small>balanced profile</small></dd></div>
-              <div><dt>Shape hash</dt><dd><b>sha256:4c89…d2f1</b><small>12 tensor contracts</small></dd></div>
-            </dl>
-            <footer><span><i></i> 与当前可信基线一致</span><time datetime="2026-08-03T14:32:08+08:00">采集于 14:32:08</time></footer>
+            <header><div><h2>环境</h2></div><span class="kf-state-chip good" id="envStateChip">健康</span></header>
+            <div class="kf-env-summary">
+              <div class="kf-env-score"><span class="kf-env-score-ring"><b id="envPassedScore">4/4</b><small>PASS</small></span><div><strong>环境健康</strong><p>Mock snapshot</p></div></div>
+              <div class="kf-env-summary-facts"><span><b>950B</b><small>目标硬件</small></span><span><b>SIMULATOR</b><small>执行模式</small></span><span><b>9.0.RC1</b><small>CANN</small></span></div>
+            </div>
+            <div class="kf-env-progress" aria-label="环境检查进度"><span style="width: 100%; background: var(--success)"></span></div>
+            <ol class="kf-env-gates" id="envGates">
+              <li class="is-ready" data-env-gate="target"><span class="kf-env-gate-index">01</span><div><b>目标已配置</b><small>Ascend 950B · Simulator · 无需设备分配</small></div><em>已验证</em></li>
+              <li class="is-ready" data-env-gate="imports"><span class="kf-env-gate-index">02</span><div><b>框架与 harness 可导入</b><small>PyPTO 3.0.0-dev · torch · golden harness</small></div><em>已验证</em></li>
+              <li class="is-ready" data-env-gate="pins"><span class="kf-env-gate-index">03</span><div><b>工具链 pin 已对齐</b><small>PTOAS 0.8.4 · CANN 9.0.RC1 · Tile-ISA 8f31c2a</small></div><em>已验证</em></li>
+              <li class="is-ready" data-env-gate="smoke"><span class="kf-env-gate-index">04</span><div><b>Smoke run 已验证</b><small>compile · input · golden · runtime · validation 全部通过</small></div><em>已通过</em></li>
+            </ol>
+            <div class="kf-env-evidence is-healthy"><span class="kf-env-evidence-icon">✓</span><div><b>Validated run</b><small>pin 对齐 · compile / runtime / validation</small></div><span class="kf-env-evidence-metric">5 / 5 PASS</span></div>
+            <div class="kf-env-fingerprint"><span><span class="kf-eyebrow">CONFIG SNAPSHOT</span><code>env:8da1bf09</code></span><button type="button" id="copyFingerprint">复制快照 ID</button></div>
+            <footer><time id="envCheckedAt">最近检查 14:32:08</time><button type="button" id="recheckEnvironment">重新检查</button><button type="button" id="openRunAdmission">打开工作流</button></footer>
           </section>
         </div>
         <div class="pto-ide-frame__window-actions" data-ide-slot="window-controls" aria-label="Window controls">
           <button class="pto-ide-frame__window-action" id="resetDemo" type="button" aria-label="重置 Demo" title="重置 Demo">
             <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.6M4 4v4.6h4.6"/></svg>
+          </button>
+          <button class="pto-ide-frame__window-action" id="inspectorToggle" type="button" data-ide-toggle="inspector" data-expanded-label="收起右侧面板" data-collapsed-label="展开右侧面板" aria-controls="inspectorPane" aria-expanded="true" aria-pressed="true" aria-label="收起右侧面板" title="右侧面板">
+            <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
           </button>
         </div>
       </div>
@@ -81,7 +154,9 @@
         <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" id="activityExplorer" type="button" data-ide-toggle="explorer" data-activity-view="explorer" aria-label="切换资源管理器" aria-controls="kf-explorer" aria-expanded="true" aria-pressed="true" title="切换资源管理器">
           <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
         </button>
-        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" id="activityWorkflow" type="button" data-activity-view="workflow" aria-label="打开可信 Kernel 工作流" aria-controls="kf-explorer" aria-expanded="false" aria-pressed="false" title="可信 Kernel 工作流"><span class="kf-rail-glyph" aria-hidden="true">K</span></button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" id="activityWorkflow" type="button" data-activity-view="workflow" aria-label="打开任务与运行" aria-controls="kf-explorer" aria-expanded="false" aria-pressed="false" title="任务与运行">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v5M7 7h8M7 11h5M7 15h2"/><path d="m15 13 7 4.5-7 4.5Z"/></svg>
+        </button>
         <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" id="activityModelViz" type="button" data-activity-view="model" aria-label="打开大模型结构可视化" aria-controls="modelArchitectureView" aria-expanded="false" aria-pressed="false" title="大模型结构可视化">
           <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><rect x="8" y="2.5" width="8" height="5" rx="1.5"/><rect x="2.5" y="16.5" width="8" height="5" rx="1.5"/><rect x="13.5" y="16.5" width="8" height="5" rx="1.5"/><path d="M12 7.5v4.5M6.5 16.5V14h11v2.5"/></svg>
         </button>
@@ -92,67 +167,95 @@
 
       <div class="pto-ide-frame__workarea" id="ideWorkarea">
         <section class="kf-model-workspace pto-model-graphviz-pattern-page" id="modelArchitectureView" aria-label="大模型结构可视化" hidden>
-          <aside class="kf-model-library" aria-label="模型列表">
-            <header><span class="kf-eyebrow">MODEL LIBRARY</span><h2>模型结构</h2></header>
-            <button class="kf-model-card is-active" type="button" aria-current="true">
-              <span class="kf-model-card__icon">Q3</span><span><b>Qwen3 14B</b><small>Fused Decode · 源码校准</small></span><em>已加载</em>
-            </button>
-            <nav class="kf-model-phases" aria-label="执行阶段">
-              <span>执行阶段</span>
-              <button class="is-active" type="button" data-model-phase="all"><i>00</i><span><b>完整链路</b><small>decode_fwd · 40 layers</small></span></button>
-              <button type="button" data-model-phase="boundary-in"><i>01</i><span><b>输入边界</b><small>copy_hidden · x_gamma0</small></span></button>
-              <button type="button" data-model-phase="scope-1"><i>02</i><span><b>Scope 1</b><small>RMS · QKV · QK Norm</small></span></button>
-              <button type="button" data-model-phase="scope-2"><i>03</i><span><b>Scope 2</b><small>Paged Flash Attention</small></span></button>
-              <button type="button" data-model-phase="scope-3"><i>04</i><span><b>Scope 3</b><small>Out Proj · SwiGLU · Carry</small></span></button>
-              <button type="button" data-model-phase="boundary-out"><i>05</i><span><b>输出边界</b><small>cast · RMS LM Head</small></span></button>
-            </nav>
-            <button class="kf-model-obs-entry" type="button" data-open-profiler aria-haspopup="dialog" aria-controls="inferenceProfiler">
-              <span class="kf-model-obs-entry__icon" aria-hidden="true">⏱</span>
-              <b>推理性能分析</b><em>↗</em>
-              <small>run-0803-a · 512 steps · 08/03 14:32</small>
-              <span class="kf-model-obs-entry__state"><i></i>已采集 · TPOT <b>15.2 ms</b> · <b>Memory-bound</b></span>
-            </button>
-
-            <div class="kf-model-facts">
+          <div class="pto-ide-frame__split kf-model-split" data-ide-split="model-main" data-split-direction="horizontal" data-sizes="22,51,27" data-min-size="240,520,300" data-storage-key="kernel-forge-model-v2">
+          <aside class="pto-ide-frame__pane kf-model-library" data-ide-pane="model-library" aria-label="模型列表">
+            <header class="pto-ide-frame__pane-header kf-model-library__header">
+              <div class="kf-pane-title-stack"><span class="kf-pane-kicker">MODEL ANALYSIS</span><span class="pto-ide-frame__pane-title">模型整网分析</span></div>
+              <span class="pto-ide-frame__pane-meta">MODEL</span>
+            </header>
+            <div class="pto-ide-frame__pane-body kf-model-library__body">
+              <div class="kf-model-selector" data-model-selector>
+              <button class="kf-model-selector__trigger" type="button" data-model-selector-trigger aria-haspopup="listbox" aria-expanded="false" aria-controls="modelSelectorMenu">
+                <span class="kf-model-selector__current-icon" data-model-selector-icon="qwen3" aria-hidden="true">
+                  <img class="kf-model-icon kf-model-icon--qwen" src="./Qwen_logo.svg.webp" alt="">
+                </span>
+                <span class="kf-model-selector__current-icon" data-model-selector-icon="deepseek-v4-flash" aria-hidden="true" hidden>
+                  <img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt="">
+                </span>
+                <span class="kf-model-selector__label"><b data-model-selector-title>Qwen3 14B</b><small data-model-selector-subtitle>Fused Decode · 源码校准</small></span>
+                <span class="kf-model-selector__chevron" aria-hidden="true">⌄</span>
+              </button>
+              <div class="kf-model-selector__menu" id="modelSelectorMenu" data-model-selector-menu role="listbox" aria-label="选择模型" hidden>
+                <button class="kf-model-card is-active" type="button" role="option" aria-selected="true" aria-current="true" data-model-id="qwen3">
+                  <span class="kf-model-card__icon"><img class="kf-model-icon kf-model-icon--qwen" src="./Qwen_logo.svg.webp" alt=""></span><span><b>Qwen3 14B</b><small>Fused Decode · 源码校准</small></span><em>已加载</em>
+                </button>
+                <button class="kf-model-card" type="button" role="option" aria-selected="false" aria-current="false" data-model-id="deepseek-v4-flash">
+                  <span class="kf-model-card__icon"><img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt=""></span><span><b>DeepSeek V4 Flash</b><small>MoE · CSA/HCA · 官方结构</small></span><em>可视化</em>
+                </button>
+                <button class="kf-model-card is-npu" type="button" role="option" aria-selected="false" aria-current="false" data-model-id="deepseek-v4-flash-npu">
+                  <span class="kf-model-card__icon"><img class="kf-model-icon kf-model-icon--deepseek" src="./deepseek-logo-TrLl386065.webp" alt=""></span><span><b>DeepSeek V4 Flash · torch_npu</b><small>融合替换后 · Ascend 部署态</small></span><em>可视化</em>
+                </button>
+              </div>
+              </div>
+              <div class="kf-model-facts" id="modelFacts">
               <span>模型规格</span>
-              <dl><div><dt>Decoder</dt><dd>40 层</dd></div><div><dt>Decode batch</dt><dd>16</dd></div><div><dt>Hidden</dt><dd>5,120</dd></div><div><dt>Attention</dt><dd>40 Q / 8 KV</dd></div><div><dt>Head dim</dt><dd>128</dd></div><div><dt>FFN</dt><dd>17,408</dd></div></dl>
+              <dl id="modelFactsBody"><div><dt>Decoder</dt><dd>40 层</dd></div><div><dt>Decode batch</dt><dd>16</dd></div><div><dt>Hidden</dt><dd>5,120</dd></div><div><dt>Attention</dt><dd>40 Q / 8 KV</dd></div><div><dt>Head dim</dt><dd>128</dd></div><div><dt>FFN</dt><dd>17,408</dd></div></dl>
+              </div>
+              <div class="kf-model-legend"><span>节点类型</span><i class="is-op">任务 / 算子</i><i class="is-tensor">Tensor / State</i><i class="is-flow-solid">实线 · 主数据流</i><i class="is-flow-dashed">虚线 · 辅助依赖</i><small>点击节点查看信息 · 点击节点右侧 ＋ 下钻 · 容器右上角 − 收起</small></div>
             </div>
-            <div class="kf-model-legend"><span>节点类型</span><i class="is-op">任务 / 算子</i><i class="is-tensor">Tensor / State</i><i class="is-flow-solid">实线 · 主数据流</i><i class="is-flow-dashed">虚线 · 辅助依赖</i><small>点击节点查看信息 · 点击节点右侧 ＋ 下钻 · 容器右上角 − 收起</small></div>
           </aside>
 
-          <main class="kf-model-canvas">
-            <header class="kf-model-toolbar">
-              <div><span class="kf-eyebrow">DECODE EXECUTION MAP</span><h1>Qwen3 14B · Fused Decode</h1><p id="modelPhaseSummary">decode_fwd 全链路 · 40 × Decoder Layer · FP32 跨层 carry</p></div>
+          <main class="pto-ide-frame__pane kf-model-canvas" data-ide-pane="model-canvas">
+            <header class="pto-ide-frame__pane-header kf-model-toolbar">
+              <div><h1>Qwen3 14B · Fused Decode</h1><p id="modelPhaseSummary">decode_fwd 全链路 · 40 × Decoder Layer · FP32 跨层 carry</p></div>
               <div class="kf-model-toolbar__right">
                 <div class="kf-model-toolbar__actions" role="group" aria-label="画布控制">
                   <button type="button" data-model-zoom="out" aria-label="缩小">−</button><span id="modelZoomReadout">适应</span><button type="button" data-model-zoom="in" aria-label="放大">＋</button><button type="button" data-model-fit>适应画布</button>
                 </div>
                 <button class="kf-model-toolbar__profiler" type="button" data-open-profiler aria-haspopup="dialog" aria-controls="inferenceProfiler">⏱ 性能分析 ↗</button>
+                <button class="kf-model-toolbar__fusion" type="button" data-open-fusion aria-haspopup="dialog" aria-controls="fusionAdvisor" hidden>⧉ torch_npu 替换方案 ↗</button>
+                <button class="kf-model-toolbar__catalog" type="button" data-open-catalog aria-haspopup="dialog" aria-controls="fusionCatalog" hidden>◈ 整网融合推荐 ↗</button>
               </div>
             </header>
-            <div class="kf-model-stage pto-model-graphviz-stage" id="qwen3ModelGraph" aria-label="Qwen3 14B 模型架构图"></div>
-            <footer class="kf-model-canvas__status"><span><i></i> Qwen3 14B 架构已预加载</span><span>单节点分层下钻 · 拖拽平移 · Ctrl/⌘ + 滚轮缩放</span></footer>
+            <div class="pto-ide-frame__pane-body kf-model-canvas__body">
+              <div class="kf-model-graph-area">
+              <nav class="kf-model-phases kf-model-phase-nav" id="modelPhaseNav" data-model-phase-nav aria-label="执行阶段">
+                <div class="kf-model-phase-nav__head"><span>执行阶段</span><button type="button" data-model-phase-nav-toggle aria-expanded="true" aria-controls="modelPhaseNav" aria-label="收起执行阶段" title="收起执行阶段">‹</button></div>
+                <button class="is-active" type="button" data-model-phase="all"><i>00</i><span><b>完整链路</b><small>decode_fwd · 40 layers</small></span></button>
+                <button type="button" data-model-phase="boundary-in"><i>01</i><span><b>输入边界</b><small>copy_hidden · x_gamma0</small></span></button>
+                <button type="button" data-model-phase="scope-1"><i>02</i><span><b>Scope 1</b><small>RMS · QKV · QK Norm</small></span></button>
+                <button type="button" data-model-phase="scope-2"><i>03</i><span><b>Scope 2</b><small>Paged Flash Attention</small></span></button>
+                <button type="button" data-model-phase="scope-3"><i>04</i><span><b>Scope 3</b><small>Out Proj · SwiGLU · Carry</small></span></button>
+                <button type="button" data-model-phase="boundary-out"><i>05</i><span><b>输出边界</b><small>cast · RMS LM Head</small></span></button>
+              </nav>
+              <div class="kf-model-stage pto-model-graphviz-stage" id="qwen3ModelGraph" aria-label="Qwen3 14B 模型架构图"></div>
+              </div>
+              <section class="kf-model-performance" id="qwen3PerformanceSwimlanePanel" aria-label="Qwen3 14B 性能泳道图" hidden>
+                <div class="kf-model-performance__resize-handle" data-performance-swimlane-resize role="separator" aria-orientation="horizontal" aria-valuemin="160" aria-valuemax="520" aria-valuenow="238" tabindex="0" title="拖拽调整泳道图高度"></div>
+                <header class="kf-model-performance__header">
+                  <div class="kf-model-performance__title"><strong>性能泳道图</strong></div>
+                  <div class="kf-model-performance__meta"><span data-performance-swimlane-stats>—</span><button type="button" data-performance-swimlane-toggle aria-expanded="true" aria-controls="qwen3PerformanceSwimlaneBody" title="收起性能泳道图">⌄</button></div>
+                </header>
+                <div class="kf-model-performance__body" id="qwen3PerformanceSwimlaneBody">
+                  <div class="kf-model-performance__legend"><span><i class="is-aic"></i>AIC</span><span><i class="is-aiv"></i>AIV</span><span><i class="is-aicpu"></i>AICPU</span><em>点击任务条定位模型节点 · 悬停查看耗时</em></div>
+                  <div class="kf-model-performance__canvas-wrap"><canvas id="qwen3PerformanceSwimlane" aria-label="Qwen3 14B 性能泳道图画布"></canvas><div class="pto-swimlane-task-tooltip" data-performance-swimlane-tooltip role="tooltip" aria-hidden="true"></div></div>
+                </div>
+              </section>
+            </div>
           </main>
 
-          <aside class="kf-model-inspector" aria-live="polite">
-            <header><span class="kf-eyebrow">MODEL INSPECTOR</span><h2 id="modelInspectorTitle">Qwen3 14B</h2></header>
-            <div id="modelInspectorBody">
+          <aside class="pto-ide-frame__pane kf-model-inspector" data-ide-pane="inspector" id="modelInspectorPane" aria-live="polite">
+            <header class="pto-ide-frame__pane-header kf-model-inspector__header"><div class="kf-pane-title-stack"><span class="kf-pane-kicker">MODEL INSPECTOR</span><span class="pto-ide-frame__pane-title" id="modelInspectorTitle">Qwen3 14B</span></div><span class="pto-ide-frame__pane-meta">MODEL</span></header>
+            <div class="pto-ide-frame__pane-body kf-model-inspector__body" id="modelInspectorBody">
               <div class="kf-model-inspector__hero"><span>CODE ALIGNED</span><b>decode_layer.py 已校准</b><p>阶段与依赖来自实际的 PyPTO 任务：从 BF16 输入边界开始，经三段 Scope，最终进入 RMS LM Head。</p></div>
             </div>
-            <nav class="kf-model-outline" aria-label="结构索引">
-              <span>结构索引</span>
-              <button type="button" data-model-focus="copy-hidden"><i></i>copy_hidden<small>BF16 → FP32 · once</small></button>
-              <button type="button" data-model-focus="qkv-proj"><i></i>q/k/v_proj<small>Split-K atomic accumulate</small></button>
-              <button type="button" data-model-focus="fa-fused"><i></i>fa_fused<small>QK → Softmax → SV</small></button>
-              <button type="button" data-model-focus="dcr-xgamma"><i></i>dcr_xgamma<small>out + next normed</small></button>
-              <button type="button" data-model-focus="rms-lm-head"><i></i>rms_lm_head<small>Final norm + vocabulary</small></button>
-            </nav>
           </aside>
+          </div>
         </section>
 
         <div class="pto-ide-frame__split" id="ideMainSplit" data-ide-split="standalone-main" data-split-direction="horizontal" data-sizes="22,51,27" data-pixel-sizes="286" data-min-size="240,520,300" data-storage-key="kernel-forge-flow-a-v1">
           <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="kf-explorer">
-            <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title" id="sidePaneTitle">资源管理器</span><span class="pto-ide-frame__pane-meta" id="sidePaneMeta">workspace</span></header>
+            <header class="pto-ide-frame__pane-header"><div class="kf-pane-title-stack"><span class="kf-pane-kicker" id="sidePaneKicker">PROJECT</span><span class="pto-ide-frame__pane-title" id="sidePaneTitle">资源管理器</span></div><span class="pto-ide-frame__pane-meta" id="sidePaneMeta">workspace</span></header>
             <div class="pto-ide-frame__pane-body kf-explorer-body">
               <section class="kf-side-view is-active" data-side-view="explorer" aria-label="工程目录">
                 <div class="kf-tree-toolbar"><span>文件 <small>Qwen3_14b</small></span><button type="button" id="collapseTree" aria-label="折叠所有目录" title="折叠所有目录">⌃</button></div>
@@ -371,6 +474,9 @@
               </section>
 
               <section class="kf-stage kf-source-stage" data-stage="1" aria-label="decode_layer.py 全量源码">
+                <!-- 源码地图：原来是右侧面板里的一排按钮，现在贴在源码顶部随滚动
+                     指示"当前在哪一段"，点开可跳到任意一段。 -->
+                <div class="kf-source-region" id="sourceRegionBar" hidden></div>
                 <div class="kf-code kf-full-source" id="dslEditor" role="textbox" aria-label="decode_layer.py 全量源码" tabindex="0"></div>
               </section>
 
@@ -410,7 +516,7 @@
             </div>
           </main>
 
-          <aside class="pto-ide-frame__pane" data-ide-pane="inspector">
+          <aside class="pto-ide-frame__pane" data-ide-pane="inspector" id="inspectorPane">
             <header class="pto-ide-frame__pane-header"><div class="kf-intent-pane-title-group"><span class="pto-ide-frame__pane-title" id="inspectorTitle">意图预览</span><span class="kf-intent-agent-stack" aria-label="Agent team: Lead, DSL, Guard, Validation"><i class="kf-intent-agent-avatar is-lead" title="Lead Agent"><b>L</b></i><i class="kf-intent-agent-avatar is-dsl" title="DSL Agent"><b>D</b></i><i class="kf-intent-agent-avatar is-guard" title="Guard Agent"><b>G</b></i><i class="kf-intent-agent-avatar is-validation" title="Validation Agent"><b>V</b></i></span></div><span class="pto-ide-frame__pane-meta" id="inspectorMeta">live</span></header>
             <div class="pto-ide-frame__pane-body kf-inspector" id="inspector"></div>
           </aside>
@@ -563,23 +669,43 @@
   <div class="kf-toast" id="toast" role="status" aria-live="polite"></div>
   <script>window.PTO_PASS_IR_GRAPH_NODE_ASSET_PREFIX = '../../vendor/pto-design-system/';</script>
   <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
-  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js?v=ide-frame-v8"></script>
   <script src="../../vendor/pto-design-system/patterns/pass-ir-graph-node/pattern.js"></script>
   <script src="../../vendor/pto-design-system/patterns/aic-core-object/pattern.js"></script>
   <script src="../../vendor/pto-design-system/patterns/aiv-core-object/pattern.js"></script>
   <script src="../../vendor/pto-design-system/patterns/memory-architecture/pattern.js"></script>
   <script src="../../vendor/pto-design-system/patterns/model-graphviz/pattern.js?v=20260813-2"></script>
+  <script src="../../vendor/pto-design-system/patterns/swimlane-task/pattern.js?v=20260907-1"></script>
   <script src="./js/decode-layer-source.js?v=20260807-4"></script>
-  <script src="./js/passes-dump-source.js?v=20260810-1"></script>
-  <script src="./js/examples-source.js?v=20260812-1"></script>
+  <!-- Large source snapshots are loaded on demand when their tree entry opens. -->
   <script src="./js/passes-graph.js?v=20260811-8"></script>
-  <script src="./js/qwen3-model-viz.js?v=20260821-11"></script>
-  <script src="./js/inference-profile-data.js?v=20260821-3"></script>
+  <script src="./js/qwen3-model-viz.js?v=20260907-1"></script>
+  <script src="./js/qwen3-performance-embedded-trace.js?v=20260907-5"></script>
+  <script src="./js/qwen3-performance-swimlane.js?v=20260907-5"></script>
+  <script src="./js/deepseek-v4-model-viz.js?v=20260828-1"></script>
+  <script src="./js/inference-profile-data.js?v=20260821-4"></script>
   <script src="./js/inference-timeline.js?v=20260821-1"></script>
+  <script src="./js/inference-parallel.js?v=20260821-1"></script>
   <script src="./js/inference-memory.js?v=20260821-1"></script>
   <script src="./js/inference-serving.js?v=20260821-1"></script>
-  <script src="./js/inference-advisor.js?v=20260821-1"></script>
-  <script src="./js/inference-profiler.js?v=20260821-3"></script>
-  <script src="./js/demo-v2.js?v=20260821-8"></script>
+  <script src="./js/inference-advisor.js?v=20260821-2"></script>
+  <script src="./js/inference-profiler.js?v=20260821-4"></script>
+  <script src="./js/fusion-rules-data.js?v=20260829-1"></script>
+  <script src="./js/fusion-advisor.js?v=20260829-1"></script>
+  <script src="./js/fusion-hardware-view.js?v=20260829-3"></script>
+  <script src="./js/fusion-catalog-data.js?v=20260828-1"></script>
+  <script src="./js/fusion-catalog-advisor.js?v=20260828-1"></script>
+  <script src="./js/operator-scan.js?v=20260907-1"></script>
+  <script src="./js/operator-inspector.js?v=20260908-1"></script>
+  <script src="./js/demo-v2.js?v=20260908-4"></script>
+  <script src="./js/ir-pipeline-data.js?v=20260901-1"></script>
+  <script src="./js/ir-kernels-data.js?v=20260903-4"></script>
+  <script src="./js/ir-pass-visuals.js?v=20260902-1"></script>
+  <script src="./js/ir-compile-guard.js?v=20260907-1"></script>
+  <script src="./js/run-trace-data.js?v=20260902-3"></script>
+  <script src="./js/run-timeline.js?v=20260902-4"></script>
+  <script src="./js/run-fan.js?v=20260904-4"></script>
+  <script src="./js/task-history.js?v=20260908-8"></script>
+  <script src="./js/typography-responsive.js?v=20260907-1"></script>
 </body>
 </html>
