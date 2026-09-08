@@ -20,13 +20,16 @@
   margin-bottom: 12px;
 }
 
-/* The legacy pass strip, the static "Pass IR" stage and the stage heading
-   ("PASS-BY-PASS PROOF / 每一步编译都有证据") are hidden — the guard's own
+/* The legacy pass strip, the static "Pass IR" stage, the stage heading
+   ("PASS-BY-PASS PROOF / 每一步编译都有证据") and the 8-chip guard grid
+   (Op legality / Dependencies / … / FP32 carry) are hidden — the guard's own
    summary and operator trace now lead the stage. They stay in the DOM so
-   demo-v2.js can keep writing to #compileStatus / #guardSummary.
-   #guardGrid is deliberately left visible.
-   Delete this rule block to restore the old visuals. */
-#passStrip, #irGraph, #irPipeline, .kf-ir-stage,
+   demo-v2.js can keep writing to #compileStatus / #guardSummary / #guardGrid
+   without needing null guards.
+   Delete this rule block to restore the old visuals.
+   注：右侧面板的「卫士覆盖」清单是另一处（demo-v2.js 的 inspectorContent），
+   不受这条规则影响。 */
+#passStrip, #irGraph, #irPipeline, .kf-ir-stage, #guardGrid,
 .kf-stage[data-stage="2"] > .kf-stage-heading { display: none; }
 
 /* the guard is now the first thing in the stage */
