@@ -743,3 +743,50 @@
   color: var(--surface-1);
   background: var(--primary);
 }
+
+/* ---- 计算图叠加图层开关 ---------------------------------------------------
+   之前那排 5 个按钮是单选、互斥、和四格 Tab 同一根轴，所以删了。这一排是
+   开关：每个占不同的视觉通道（副标题 / 边标签 / 标题后缀），可以同时开。 */
+.kf-pa-layers {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+  padding: 8px 9px; margin-bottom: 8px;
+  border: 1px solid var(--border-subtle); border-radius: 8px;
+  background: var(--surface-2);
+}
+.kf-pa-layers__lead { color: var(--foreground-muted); margin-right: 2px; }
+.kf-pa-layers button {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px 3px 6px; border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: transparent; color: var(--foreground-muted);
+  cursor: pointer; font-family: inherit;
+}
+/* 小滑块，说明这是开关不是单选 */
+.kf-pa-layers button > i {
+  position: relative; flex: none;
+  width: 18px; height: 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 22%, transparent);
+  transition: background .15s ease;
+}
+.kf-pa-layers button > i::after {
+  content: ""; position: absolute; top: 1px; left: 1px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--surface-1);
+  transition: transform .15s ease;
+}
+.kf-pa-layers button:hover:not(:disabled) { color: var(--foreground); border-color: var(--border-strong); }
+.kf-pa-layers button.is-on {
+  color: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.kf-pa-layers button.is-on > i { background: var(--primary); }
+.kf-pa-layers button.is-on > i::after { transform: translateX(8px); }
+.kf-pa-layers button.is-locked {
+  opacity: .45; cursor: not-allowed;
+  border-style: dashed; padding-left: 9px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kf-pa-layers button > i,
+  .kf-pa-layers button > i::after { transition: none; }
+}

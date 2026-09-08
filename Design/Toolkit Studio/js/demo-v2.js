@@ -9,7 +9,7 @@
   ];
   const passes = ['Semantic Lowering', 'Layout Planning', 'Parallel Mapping', 'Memory Scheduling', 'ISA Emission'];
   const guards = ['Op legality', 'Dependencies', 'Manual scope', 'Liveness', 'Paged layout', 'Index width', 'ISA capacity', 'FP32 carry'];
-  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionOverlay: 'data', pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pagedAttentionAgentOpen: false, pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
+  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionLayers: { precision: true, shape: false, hardware: false, dep: false, risk: true }, pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pagedAttentionAgentOpen: false, pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
   const EXPLORER_STEP = 1;
   const WORKFLOW_STEPS = [0, 2, 3, 4];
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -1376,7 +1376,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     qwenDecodeGraphController = null;
     pagedAttentionGraphController?.destroy?.();
     pagedAttentionGraphController = null;
-    const tabs = { overview: '概览', data: '数据与精度', orchestration: '编排与依赖', validation: '验证' };
+    const tabs = { overview: '概览', data: '数据&精度', orchestration: '编排与依赖', validation: '验证' };
     const content = state.qwenDecodeTab === 'data' ? qwenDecodeData() : state.qwenDecodeTab === 'orchestration' ? qwenDecodeOrchestration() : state.qwenDecodeTab === 'validation' ? qwenDecodeValidation() : qwenDecodeOverview();
     $('#inspectorTitle').textContent = 'Decode Layer 分析';
     $('#inspectorMeta').textContent = 'qwen3_decode · orchestration';
@@ -2360,6 +2360,26 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       <p class="kf-pa-note"><code>out</code> 是唯一被写的参数（<code>pl.Out</code>）：编排层用 <code>pl.slice</code> 取一个行段视图交给 online_update 原位写回。所以「返回值」和「入参 out」是同一块内存——调用方传进来的缓冲区会被就地改掉。</p>`;
   }
 
+  /* 可叠加的图层开关。和之前那排 5 个单选按钮的区别在于：那是"换一张图"，
+     五种配色互斥、且和四格 Tab 是同一根轴；这是"往同一张图上加一层信息"，
+     每个开关占不同的视觉通道，可以同时开。 */
+  const PA_GRAPH_LAYERS = [
+    ['precision', '精度', '每个节点的 dtype 与累加位宽'],
+    ['shape', '形状', '每个节点的张量形状'],
+    ['hardware', '硬件', 'Cube / Vector / GM / 编排侧的归属'],
+    ['dep', '依赖', '边上标出 RAW / WAW / 读—读'],
+    ['risk', '风险', '带静态风险的节点打 ⚠ 与条数'],
+  ];
+
+  function paGraphLayerSwitch() {
+    const layers = state.pagedAttentionLayers;
+    return `<div class="kf-pa-layers" role="group" aria-label="计算图叠加图层">
+      <span class="kf-pa-layers__lead">叠加</span>
+      ${PA_GRAPH_LAYERS.map(([key, label, hint]) => `<button type="button" class="${layers[key] ? 'is-on' : ''}" data-pa-layer="${key}" role="switch" aria-checked="${!!layers[key]}" title="${hint}"><i aria-hidden="true"></i>${label}</button>`).join('')}
+      <button type="button" class="is-locked" disabled title="TaskId、Ready / Running / Blocked 与时间戳属于运行实测，编译并跑起来之后才有">运行状态</button>
+    </div>`;
+  }
+
   function paTaskGraphStage() {
     // 这里原本有 5 个图层按钮（数据 / 依赖 / 硬件 / 精度 / 运行状态）。它们是四格
     // Tab 的同一根轴又画了一遍：依赖→编排依赖、硬件→分块硬件、精度→数据精度——
@@ -2371,7 +2391,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     // 一屏里出现两次；风险的归属地已经由抽屉里每条的行号按钮承担，去掉。
     return `
       <p class="kf-op-inline-note">1 个 Orchestration 驱动 5 个 InCore kernel，按 KV Block 迭代做 online softmax。点节点展开核内子图并定位源码。</p>
-      <div class="kf-pa-graph-panel"><div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
+      <div class="kf-pa-graph-panel">${paGraphLayerSwitch()}<div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
       <footer id="pagedAttentionGraphStatus" class="kf-pa-graph-status">点击节点展开核内子图并定位源码 · 拖拽 / 缩放查看全图</footer></div>`;
   }
 
@@ -2528,6 +2548,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         {
           level: 'warn', cls: '切分', lines: [122, 122],
           title: 'valid_len 的裁剪可能没有进入 kernel',
+          nodes: ['pa-mask', 'pa-softmax'],
           why: '编排层在第 320 行用 <code>sij_valid = pl.slice(sij, [q_tile, valid_len], [0, 0])</code> 收窄了有效列，但 <code>dyn_kernel_softmax_prepare</code> 内部第 122 行是 <code>pl.load(sij, [0, 0], [_Q_TILE, _BLOCK_SIZE], ...)</code>——取 Tile 的宽度来自闭包常量 <code>_BLOCK_SIZE</code>，不是入参的运行时宽度。',
           impact: '若 load 按 <code>_BLOCK_SIZE</code> 取满，末块的 padding 列会进入 <code>row_max</code> / <code>exp</code> / <code>row_sum</code>，softmax 分母系统性偏大、注意力权重整体偏小。示例配置 8192 ÷ 128 = 64 整除，永远走不到末块，Golden 因此不会失败。',
           verify: '把 <code>context_len</code> 设成 8191 这类非整数倍值跑 Golden 比对；或编译后在 IR 里确认 softmax_prepare 的 load extent 是常量还是运行时值。',
@@ -2536,6 +2557,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         {
           level: 'warn', cls: '切分', lines: [300, 300],
           title: 'Q Head 尾 Tile 固定按 q_tile 取片',
+          nodes: ['pa-query', 'pa-out'],
           why: '<code>q_loop_cfg = (q_head_num + q_tile - 1) // q_tile</code>（第 281 行）是 ceil 除，但第 300 行的 <code>pl.slice(query, [q_tile, head_dim_cfg], [cur_offset, 0])</code> 无论第几个 tile 都固定取 <code>q_tile</code> 行。',
           impact: '<code>num_heads % q_tile ≠ 0</code> 时，最后一个 Q Tile 会越界读入下一个 batch 条目的 query 行，该 tile 的注意力输出被邻接请求污染。示例 16 heads ÷ QTile 16 恰好整除，掩盖了这个缺口。',
           fix: '补一个与 <code>valid_len</code> 对称的 <code>valid_q = pl.min(q_tile, q_head_num - q_idx * q_tile)</code>，Q Tile 与 <code>out</code> 写回视图都收窄到它。<b>完整分析见「概览」首屏的 Agent 结论。</b>',
@@ -2544,6 +2566,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         {
           level: 'warn', cls: '契约', lines: [286, 286],
           title: '空 Context 时 out 该段从未被写',
+          nodes: ['pa-out'],
           why: '<code>bn_this_batch = (cur_seq + block_size - 1) // block_size</code>；<code>cur_seq == 0</code> 时它为 0，<code>bn</code> 循环体一次都不执行，第 350 行的 <code>out_view_buf</code> 与 online_update 都不会发生。',
           impact: '<code>out</code> 是 <code>pl.Out</code> 参数，对应 batch 条目的输出行内容未定义——读到的是缓冲区里的残留值，而不是零或任何约定语义。编译和运行都不会报错。',
           verify: '构造 <code>context_lens</code> 含 0 的输入，检查对应输出行；并在源码里明确空序列的输出契约（补零或显式拒绝）。',
@@ -2551,6 +2574,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         {
           level: 'warn', cls: '精度', lines: [328, 328],
           title: 'Attention scale 固定为 1.0',
+          nodes: ['pa-softmax'],
           why: '第 328 行向 <code>dyn_kernel_softmax_prepare</code> 传入常量 <code>1.0</code> 作为 scale，而不是常见的 <code>1 / sqrt(head_dim)</code>。',
           impact: '与本文件自带的 Golden 一致，所以数值门禁不会发现。但把这个 kernel 接进真实模型时，若上游没有预先缩放 Q，softmax 会在未缩放的 logits 上做，长上下文下极易饱和。',
           verify: '在调用点确认上游是否已对 Q 乘过 <code>1/sqrt(D)</code>；否则把 scale 提为显式参数并在集成测试里覆盖。',
@@ -2558,6 +2582,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         {
           level: 'warn', cls: '类型布局', lines: [67, 69],
           title: '动态标注 ≠ 动态 Tile',
+          nodes: ['pa-qk', 'pa-softmax', 'pa-pv', 'pa-online'],
           why: '5 个 InCore kernel 的类型注解用的是模块级 <code>pl.dynamic()</code> 变量（Q_HEADS / HEAD_DIM_DYN / BLOCK_SIZE_DYN），但函数体内每一个 <code>pl.load</code> / <code>pl.create_tile</code> 的尺寸都来自 Builder 闭包常量 <code>_Q_TILE / _HEAD_DIM / _BLOCK_SIZE</code>（第 67–69 行捕获）。',
           impact: '"支持动态 shape"只到 Orchestration 层为止；核内 Tile 尺寸在 Builder 调用时就固化了。换一组 block_size 需要重新 build 程序，而不是换一组输入。这也是上面第 1 条风险的根因。',
           verify: '用不同的 <code>block_size</code> 调 <code>build_dynamic_paged_attention_program()</code> 并检查是否产生了不同的 CompiledProgram；确认这是设计意图而非遗漏。',
@@ -2565,6 +2590,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         {
           level: 'warn', cls: '性能', lines: [300, 300],
           title: 'Q Tile 在 bn 循环内被重复搬运',
+          nodes: ['pa-query'],
           why: '<code>qi = pl.slice(query, [q_tile, head_dim_cfg], [cur_offset, 0])</code> 写在 <code>bn</code> 循环体内（第 300 行），而 Q Tile 在整个 KV Block 循环中并不变化。',
           impact: '每个 KV Block 都重新取一次同一份 Q。本例每个 (batch, q_tile) 有 64 个 block，等于同一份 4 KiB 被搬 64 次。属性能损失，不影响数值。',
           verify: '把该语句提到 <code>bn</code> 循环外，编译后对比 Tile 搬运次数；这是编译期就能确认的改法，不需要上机。',
@@ -2572,6 +2598,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         {
           level: 'warn', cls: '依赖', lines: [303, 310],
           title: 'Paged 间接寻址可能被保守串行化',
+          nodes: ['pa-page', 'pa-kv'],
           why: '<code>key_cache</code> / <code>value_cache</code> 的 Slice 起点来自 <code>block_table</code> 读出的运行时标量（第 303、310 行）。编译期无法证明不同 <code>bn</code> 的 Region 不相交。',
           impact: '一旦按保守重叠处理，读—读本应无依赖的路径也会被排成串行，KV Block 的取数失去重叠机会——这是性能损失而非错值。',
           verify: '编译后读依赖图，确认 KV 读之间是否被插入了边；必要时用 <code>pl.no_dep(arg)</code> 在带外承诺不相交（那会引入本文件目前没有的语义护栏）。',
@@ -2579,6 +2606,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         {
           level: 'warn', cls: '依赖', lines: [350, 350],
           title: 'out 写回视图可能产生保守 WAW',
+          nodes: ['pa-out'],
           why: '<code>out</code> 的写回视图 <code>pl.slice(out, [q_tile, head_dim], [cur_offset, 0])</code> 使用动态 <code>cur_offset</code>（第 350 行）。',
           impact: '行段实际互不相交，但保守 WAW 会让不同 <code>(b_idx, q_idx)</code> 的 tile 失去并行机会。同样是性能问题。',
           verify: '编译后确认这些写之间是否成边；若成边且确认不相交，可用 <code>no_dep_args=</code> 覆盖。',
@@ -2586,6 +2614,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         {
           level: 'warn', cls: '切分', lines: [275, 277],
           title: '三处整除推导没有守卫',
+          nodes: ['pa-page'],
           why: '<code>num_heads = query.rows // batch</code>、<code>block_size = value_cache.rows // block_table.size</code>、<code>block_num = block_table.size // batch</code>（第 275–277 行）都是整数除，源码没有对可除性做任何检查。',
           impact: '输入不满足可除性时不会报错，而是静默得到偏小的维度，后续所有 slice 偏移随之错位——表现为难以定位的错值而不是异常。',
           verify: '在 orchestration 入口加显式守卫，或在 build_tensors 层面约束；补一组故意不可除的输入确认失败方式是可诊断的。',
@@ -2611,14 +2640,15 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           // 所以它属于置信度的脚注，已移到证据区抽屉，不再单独占一个区块。
         ],
         data: [
-          { type: 'block', title: '端到端精度流', origin: 'fact', html: paPrecisionPath },
-          { type: 'block', title: '精度敏感点', origin: 'resolved', html: paPrecisionSensitivity },
-          { type: 'block', title: 'Shape / Layout 变换', origin: 'fact', html: paLayoutFlow },
-          { type: 'block', title: '有效 Shape 与 Padding', origin: 'fact', html: paValidShape },
-          // Shape 推导讲的是形状怎么来的，和 Layout 变换是同一件事，归数据精度
-          { type: 'block', title: '动态 Shape 推导', origin: 'fact', html: paShapeFormulas },
-          { type: 'block', title: '单 Block 工作集', origin: 'estimated', html: paWorkingSet },
-          { type: 'block', title: '示例逻辑规模', origin: 'estimated', html: paLogicalScale },
+          // 按阅读顺序分成四组：精度流、数据形状、有效数据边界、资源规模。
+          // 标题前缀让分组在连续卡片中保持清晰，也避免把非精度内容混在一起。
+          { type: 'block', title: '精度 · 端到端精度流', origin: 'fact', html: paPrecisionPath },
+          { type: 'block', title: '精度 · 敏感点与取舍', origin: 'resolved', html: paPrecisionSensitivity },
+          { type: 'block', title: '数据形状 · 动态 Shape 推导', origin: 'fact', html: paShapeFormulas },
+          { type: 'block', title: '数据形状 · Shape / Layout 变换', origin: 'fact', html: paLayoutFlow },
+          { type: 'block', title: '有效数据 · Shape 与 Padding', origin: 'fact', html: paValidShape },
+          { type: 'block', title: '资源规模 · 单 Block 工作集', origin: 'estimated', html: paWorkingSet },
+          { type: 'block', title: '资源规模 · 示例逻辑规模', origin: 'estimated', html: paLogicalScale },
         ],
         tiling: [
           { type: 'block', title: '循环与 Tile 映射', origin: 'fact', html: paLoopNest },
@@ -2711,16 +2741,41 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         'pa-query': ['GM · load', 'io:state'], 'pa-context': ['Orchestration · scalar read', 'io:state'], 'pa-table': ['Orchestration · scalar read', 'io:state'], 'pa-page': ['Orchestration · address', 'sem:comm'], 'pa-kv': ['GM · paged block', 'io:state'], 'pa-qk': ['CUBE · L1 → L0', 'sem:linear'], 'pa-mask': ['Tensor slice · GM view', 'sem:comm'], 'pa-softmax': ['VECTOR · UB', 'sem:softmax'], 'pa-pv': ['CUBE · L1 → L0', 'sem:linear'], 'pa-online': ['VECTOR · UB', 'sem:softmax'], 'pa-out': ['GM · store', 'io:output'],
       },
     };
-    const overlay = overlays[state.pagedAttentionOverlay] || overlays.data;
-    const tensorOverlayLabels = {
-      data: { 'pa-query': 'In', 'pa-context': 'In', 'pa-table': 'In', 'pa-out': 'Out' },
-      dep: { 'pa-query': 'read', 'pa-context': 'read', 'pa-table': 'read', 'pa-out': 'write' },
-      runtime: { 'pa-query': '—', 'pa-context': '—', 'pa-table': '—', 'pa-out': '—' },
-      precision: { 'pa-query': 'BF16', 'pa-context': 'INT32', 'pa-table': 'INT32', 'pa-out': 'FP32' },
-      shape: { 'pa-query': '[B×H,D]', 'pa-context': '[B]', 'pa-table': '[B×M]', 'pa-out': '[B×H,D]' },
-      hardware: { 'pa-query': 'GM', 'pa-context': 'ORCH', 'pa-table': 'ORCH', 'pa-out': 'GM' },
-    }[state.pagedAttentionOverlay] || {};
-    const layerName = { data: '数据', dep: '依赖', hardware: '硬件', precision: '精度', runtime: '运行状态' }[state.pagedAttentionOverlay] || '数据';
+    /* 图层从"单选换一张图"改成"开关叠加"。之所以能叠，是因为每个开关占的是
+       不同的视觉通道，互相不抢：
+         精度 / 形状 / 硬件 → 节点副标题（可以并排写成 A · B · C）
+         依赖               → 边上的标签
+         风险               → 节点标题后缀 ⚠
+       方向（In/Out）不做成开关：它只有 4 个张量节点有、而且永远该看得见。
+       运行状态也不做成开关：coding 阶段每一格都是"待运行"，开了等于没开，
+       所以画成禁用态，说明它需要先跑起来。 */
+    /* 三个文字图层共用节点副标题这一行，全用长写法会撑破节点框（实测 11 个
+       节点里有 7 个溢出，pa-mask 是 338px 挤进 196px 的框）。所以：只开一个
+       时用长写法，把话说全；叠两个以上时换成短记号，保证塞得进框里。 */
+    const shortForm = {
+      precision: { 'pa-query': 'BF16', 'pa-context': 'INT32', 'pa-table': 'INT32', 'pa-page': 'INDEX', 'pa-kv': 'BF16', 'pa-qk': 'BF16→FP32', 'pa-mask': 'FP32', 'pa-softmax': 'FP32→BF16', 'pa-pv': 'BF16→FP32', 'pa-online': 'FP32', 'pa-out': 'FP32' },
+      shape: { 'pa-query': '[B×H,D]', 'pa-context': '[B]', 'pa-table': '[B×MaxB]', 'pa-page': 'scalar', 'pa-kv': '[Blk,D]×2', 'pa-qk': '[QT,Blk]', 'pa-mask': '[QT,valid]', 'pa-softmax': '[QT,Blk]', 'pa-pv': '[QT,D]', 'pa-online': '[QT,D]', 'pa-out': '[B×H,D]' },
+      hardware: { 'pa-query': 'GM', 'pa-context': 'ORCH', 'pa-table': 'ORCH', 'pa-page': 'ORCH', 'pa-kv': 'GM', 'pa-qk': 'CUBE', 'pa-mask': 'GM view', 'pa-softmax': 'VECTOR', 'pa-pv': 'CUBE', 'pa-online': 'VECTOR', 'pa-out': 'GM' },
+    };
+    const layers = state.pagedAttentionLayers;
+    const textLayers = ['precision', 'shape', 'hardware'].filter((key) => layers[key]);
+    const composedLabel = (nodeId, fallback) => {
+      const pick = textLayers.length > 1
+        ? (key) => shortForm[key][nodeId]
+        : (key) => overlays[key][nodeId]?.[0];
+      const parts = textLayers.map(pick).filter(Boolean);
+      return parts.length ? parts.join(' · ') : fallback;
+    };
+    // 张量节点的方向后缀常驻
+    const tensorOverlayLabels = { 'pa-query': 'In', 'pa-context': 'In', 'pa-table': 'In', 'pa-out': 'Out' };
+    // 风险 → 节点：取 profile 里每条风险手工指派的 nodes
+    const riskCountByNode = {};
+    if (layers.risk) {
+      pagedAttentionProfile().risks.forEach((risk) => {
+        (risk.nodes || []).forEach((id) => { riskCountByNode[id] = (riskCountByNode[id] || 0) + 1; });
+      });
+    }
+    const riskSuffix = (nodeId) => (riskCountByNode[nodeId] ? ` ⚠${riskCountByNode[nodeId]}` : '');
     const expandedId = pagedAttentionDrilldowns[state.pagedAttentionExpandedNode] ? state.pagedAttentionExpandedNode : null;
     const expandedSpec = expandedId ? pagedAttentionDrilldowns[expandedId] : null;
     const expandedBaseNode = expandedId ? pagedAttentionComputationGraph.nodes.find((node) => node.id === expandedId) : null;
@@ -2733,9 +2788,11 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         y: expandedBaseNode && node.y > expandedBaseNode.y ? node.y + expansionShift : node.y,
         height: node.kind === 'tensor' ? node.height : Math.max(72, node.height),
         collapsed: expandableIds.has(node.id),
-        label: node.kind === 'tensor' && tensorOverlayLabels[node.id] ? `${node.label} · ${tensorOverlayLabels[node.id]}` : node.label,
-        typeLabel: overlay[node.id]?.[0] || node.typeLabel,
-        colorKey: overlay[node.id]?.[1] || node.colorKey,
+        label: (node.kind === 'tensor' && tensorOverlayLabels[node.id]
+          ? `${node.label} · ${tensorOverlayLabels[node.id]}`
+          : node.label) + riskSuffix(node.id),
+        typeLabel: composedLabel(node.id, node.typeLabel),
+        colorKey: node.colorKey,
       }));
     const drillNodes = [];
     const drillEdges = [];
@@ -2745,7 +2802,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     let lastDrillNodeId = null;
     if (expandedId && expandedSpec && expandedBaseNode) {
       const clusterId = `${expandedId}-detail`;
-      const parentColor = overlay[expandedId]?.[1] || expandedBaseNode.colorKey;
+      // 颜色不再随图层变——它一直表示节点的语义角色，直接用节点自己的 colorKey
+      const parentColor = expandedBaseNode.colorKey;
       expandedSpec.children.forEach((child, index) => {
         const childId = `${expandedId}-${child.key}`;
         if (!firstDrillNodeId) firstDrillNodeId = childId;
@@ -2753,7 +2811,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         drillNodes.push({
           id: childId,
           label: child.label,
-          typeLabel: child[state.pagedAttentionOverlay] || child[{ data: 'shape', dep: 'precision', runtime: 'hardware' }[state.pagedAttentionOverlay]] || child.precision,
+          // 细粒度子节点自带 precision / shape / hardware 三个字段，按同一组开关拼
+          typeLabel: (textLayers.map((key) => child[key]).filter(Boolean).join(' · ')) || child.precision,
           kind: 'op',
           x: expandedBaseNode.x,
           y: expandedBaseNode.y + index * 82,
@@ -2792,11 +2851,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       'pa-softmax>pa-online': 'RAW · mi / li', 'pa-online>pa-online': 'loop-carried RAW+WAW',
       'pa-online>pa-out': 'WAW · 潜在保守',
     };
-    const layerEdgeTag = (edge) => {
-      if (state.pagedAttentionOverlay === 'dep') return depEdgeTags[`${edge.source}>${edge.target}`] || edge.tag;
-      if (state.pagedAttentionOverlay === 'runtime') return null;
-      return edge.tag;
-    };
+    const layerEdgeTag = (edge) => (layers.dep
+      ? depEdgeTags[`${edge.source}>${edge.target}`] || edge.tag
+      : edge.tag);
     const graphEdges = pagedAttentionComputationGraph.edges.map((edge) => {
       edge = { ...edge, tag: layerEdgeTag(edge) };
       if (!expandedId || !firstDrillNodeId || !lastDrillNodeId) return { ...edge };
@@ -2898,7 +2955,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         pagedAttentionGraphController = null;
         renderPagedAttentionComputationGraph();
       }, true);
-      if (status) status.textContent = `${pagedAttentionFocusMeta[expandedSpec.focus].label} 已展开 · 点击 − 收起 · 当前叠加${layerName}图层`;
+      const onNames = PA_GRAPH_LAYERS.filter(([key]) => layers[key]).map(([, label]) => label);
+      if (status) status.textContent = `${pagedAttentionFocusMeta[expandedSpec.focus].label} 已展开 · 点击 − 收起${onNames.length ? ` · 已叠加 ${onNames.join(' / ')}` : ' · 未叠加图层'}`;
     }
   }
 
@@ -4057,7 +4115,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           state.opDrawer = null;
           state.opMode = 'read';
           state.pagedAttentionDetailOpen = false;
-          state.pagedAttentionOverlay = 'data';
+          state.pagedAttentionLayers = { precision: true, shape: false, hardware: false, dep: false, risk: true };
           state.pagedAttentionNode = 'orch';
           state.pagedAttentionExpandedNode = null;
           state.pagedAttentionFocus = 'orchestration';
@@ -4245,10 +4303,19 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       state.pagedAttentionDetailOpen = false;
       renderPagedAttentionInspector();
     }
-    const pagedAttentionOverlay = event.target.closest('[data-pa-overlay]');
-    if (pagedAttentionOverlay) {
-      state.pagedAttentionOverlay = pagedAttentionOverlay.dataset.paOverlay;
-      renderPagedAttentionInspector();
+    // 叠加图层开关：只重挂计算图，不重渲整个面板——重渲会把 Body 滚回顶部，
+    // 而开关就在图上方，开一下就跳走很难受。
+    const pagedAttentionLayer = event.target.closest('[data-pa-layer]');
+    if (pagedAttentionLayer) {
+      const key = pagedAttentionLayer.dataset.paLayer;
+      state.pagedAttentionLayers = { ...state.pagedAttentionLayers, [key]: !state.pagedAttentionLayers[key] };
+      const on = state.pagedAttentionLayers[key];
+      pagedAttentionLayer.classList.toggle('is-on', on);
+      pagedAttentionLayer.setAttribute('aria-checked', String(on));
+      pagedAttentionGraphController?.destroy?.();
+      pagedAttentionGraphController = null;
+      renderPagedAttentionComputationGraph();
+      return;
     }
     const pagedAttentionTaskPick = event.target.closest('[data-pa2-task]');
     if (pagedAttentionTaskPick) {
