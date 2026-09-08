@@ -95,18 +95,12 @@
       // 为空而 return。谱系的数据（K.lineage）与渲染代码都留着，把这一行加回来
       // 就恢复。
       '<div class="kf-kg-trace" id="kgTrace"></div>' +
-      '<div class="kf-kg-bar">' +
-        '<div class="kf-kg-seg" id="kgDims" role="group" aria-label="关注维度">' +
-          Object.keys(DIMS).map(d =>
-            '<button type="button" data-kg-dim="' + d + '" aria-pressed="' + (d === st.dim) + '"' +
-            ' title="' + esc(DIMS[d].hint) + '">' + DIMS[d].label + '</button>').join('') +
-        '</div>' +
-        '<button class="kf-kg-toggle" id="kgIssues" type="button" aria-pressed="false"><i></i>只看有问题的</button>' +
-        '<span class="kf-kg-spacer"></span>' +
-        '<span class="kf-kg-target">' + esc(K.target) + '</span>' +
-      '</div>' +
-      '<p class="kf-kg-hint" id="kgHint"></p>' +
-      '<div class="kf-kg-list" id="kgList" aria-label="Kernel 列表"></div>';
+      // 维度栏（内存水位 / 意图兑现 / 诊断 / 优化收益 + 只看有问题的 + 目标平台）
+      // 与它所切换的 45 行 Kernel 列表一并暂时下线。两段渲染代码（renderList /
+      // kernelStrip）与 st.dim / st.sel 状态都留着，把下面两行容器加回来即恢复：
+      //   '<div class="kf-kg-bar">…</div><p class="kf-kg-hint" id="kgHint"></p>'
+      //   '<div class="kf-kg-list" id="kgList" aria-label="Kernel 列表"></div>'
+      '';
 
     anchor.parentNode.insertBefore(root, anchor.nextSibling);
 
@@ -146,7 +140,10 @@
 
   /* ---------- kernel list ---------- */
   function renderList() {
-    els.hint.textContent = DIMS[st.dim].hint;
+    // Kernel 列表已下线：容器不存在时整个函数是 no-op（st.sel / st.dim 仍照常
+    // 维护，pass 可视化还要靠 st.sel 挑聚焦 kernel）
+    if (!els.list) return;
+    if (els.hint) els.hint.textContent = DIMS[st.dim].hint;
 
     let rows = K.kernels.slice();
     if (st.onlyIssues) rows = rows.filter(hasIssue);
@@ -707,19 +704,19 @@
 
   /* ---------- events ---------- */
   function wire() {
-    els.dims.addEventListener('click', e => {
+    if (els.dims) els.dims.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b) return;
       st.dim = b.dataset.kgDim;
       Array.prototype.forEach.call(els.dims.querySelectorAll('button'),
         x => x.setAttribute('aria-pressed', String(x === b)));
       renderList();
     });
-    els.issues.addEventListener('click', () => {
+    if (els.issues) els.issues.addEventListener('click', () => {
       st.onlyIssues = !st.onlyIssues;
       els.issues.setAttribute('aria-pressed', String(st.onlyIssues));
       renderList();
     });
-    els.list.addEventListener('click', e => {
+    if (els.list) els.list.addEventListener('click', e => {
       // per-kernel strip inside an expanded row
       const kp = e.target.closest('[data-kg-kp]');
       if (kp) { st.kpass = +kp.dataset.kgKp; renderList(); return; }
@@ -775,7 +772,7 @@
     els.trace.addEventListener('mouseleave', () => { els.tip.style.opacity = '0'; });
 
     // same tooltip for the per-kernel strip
-    els.list.addEventListener('mousemove', e => {
+    if (els.list) els.list.addEventListener('mousemove', e => {
       const b = e.target.closest('.kf-kg-slot');
       if (!b) { els.tip.style.opacity = '0'; return; }
       const [head, body] = (b.dataset.kgTip || '|').split('|');
@@ -785,7 +782,7 @@
       els.tip.style.left = Math.min(e.clientX + 12, window.innerWidth - r.width - 8) + 'px';
       els.tip.style.top = Math.max(e.clientY - r.height - 10, 8) + 'px';
     });
-    els.list.addEventListener('mouseleave', () => { els.tip.style.opacity = '0'; });
+    if (els.list) els.list.addEventListener('mouseleave', () => { els.tip.style.opacity = '0'; });
     const run = document.getElementById('runCompile');
     if (run) run.addEventListener('click', sweep);
   }
@@ -823,7 +820,7 @@
   async function sweep() {
     if (sweeping) return;
     sweeping = true;
-    const rows = Array.prototype.slice.call(els.list.querySelectorAll('.kf-kg-row'));
+    const rows = els.list ? Array.prototype.slice.call(els.list.querySelectorAll('.kf-kg-row')) : [];
     for (const r of rows) {
       r.classList.add('is-checking');
       await new Promise(x => setTimeout(x, 26));
@@ -869,13 +866,13 @@
       if (!els || !K.kernels.some(k => k.name === name)) return false;
       st.sel = name; st.pass = null; st.kpass = null;
       st.onlyIssues = false;                 // never hide the row we were asked for
-      els.issues.setAttribute('aria-pressed', 'false');
+      if (els.issues) els.issues.setAttribute('aria-pressed', 'false');
       const hadVisuals = visualsReady;
       activateVisuals();
       renderList();
       if (hadVisuals) { renderTrace(); renderLineage(); }
       syncHead();
-      const row = els.list.querySelector('.kf-kg-item.is-open');
+      const row = els.list && els.list.querySelector('.kf-kg-item.is-open');
       if (row) row.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return true;
     }
