@@ -116,7 +116,7 @@ for (const expanded of [[], ['q_projection'], ['kv_projection'], ['q_projection'
     }
   }
 }
-const shared = '/Users/yin/pto-design-system/patterns/model-architecture-training-sidecar';
+const shared = path.resolve(directory, '../../../vendor/pto-design-system/patterns/model-architecture-training-sidecar');
 for (const name of ['pattern.dv4-architecture-data.js', 'pattern.dv4.js']) vm.runInContext(fs.readFileSync(path.join(shared, name), 'utf8'), context);
 const whole = context.window.PtoCsaImplementationPattern.buildWholeModelGraph;
 const ancestors = ['l1_csa', 'dv4/layer/2/mhc_attn/hybrid_attention', 'dv4/layer/2/mhc_attn', 'dv4/layer/2'];

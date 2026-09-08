@@ -8,6 +8,8 @@ on:
       - "Design/**"
       - "inference/**"
       - "Insight/**"
+      - "Data/DeepSeek-V4-Flash-Official/**"
+      - "Data/DeepseekV4/deepseek_v4_flash_dspark/**"
       - "vendor/pto-design-system/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -43,6 +45,9 @@ jobs:
           cp -R Design _site/Design
           cp -R inference _site/inference
           cp -R Insight _site/Insight
+          mkdir -p _site/Data/DeepseekV4
+          cp -R Data/DeepSeek-V4-Flash-Official _site/Data/DeepSeek-V4-Flash-Official
+          cp -R Data/DeepseekV4/deepseek_v4_flash_dspark _site/Data/DeepseekV4/deepseek_v4_flash_dspark
           cp -R vendor/pto-design-system _site/vendor/pto-design-system
           touch _site/.nojekyll
 
