@@ -2,7 +2,7 @@ name: Deploy Design Lab to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, insight]
     paths:
       - "launch.html"
       - "Design/**"
