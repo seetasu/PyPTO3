@@ -211,7 +211,9 @@
     const clean = !blockCount && !warnCount && !guardCount;
 
     if (titleEl) titleEl.textContent = '算子分析';
-    if (metaEl) metaEl.textContent = profile.fileLabel || (profile.file && profile.file[0]) || '';
+    // 文件路径不写进头部：正上方的编辑器标签页已经在显示同一个路径，头部再写
+    // 一遍只是把标题挤窄、逼出省略号。profile.fileLabel 仍然保留，供别处引用。
+    if (metaEl) metaEl.textContent = '';
 
     const badges = [
       `<span class="kf-op__badge is-kind">${esc(profile.kindLabel || profile.kind)}</span>`,
