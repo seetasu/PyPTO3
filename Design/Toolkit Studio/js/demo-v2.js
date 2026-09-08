@@ -9,7 +9,7 @@
   ];
   const passes = ['Semantic Lowering', 'Layout Planning', 'Parallel Mapping', 'Memory Scheduling', 'ISA Emission'];
   const guards = ['Op legality', 'Dependencies', 'Manual scope', 'Liveness', 'Paged layout', 'Index width', 'ISA capacity', 'FP32 carry'];
-  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionOverlay: 'data', pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
+  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionOverlay: 'data', pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pagedAttentionAgentOpen: false, pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
   const EXPLORER_STEP = 1;
   const WORKFLOW_STEPS = [0, 2, 3, 4];
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -2193,12 +2193,19 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           ${s.code ? `<pre class="kf-pa2-code"><code>${s.code}</code></pre>` : ''}
         </div>
       </li>`;
+    // 默认只给结论句和触发条件——这两句是"我现在要不要管这件事"的答案。
+    // 根因 / 对照 / 影响 / 改法 / 验证 是决定要管之后才需要的，收进折叠层。
+    // open 由 state 驱动而不是让 <details> 自己记：面板会因为别处的点击重渲染，
+    // 展开状态不该被别的操作弄没。
     return `
       <section class="kf-inspector-section kf-pa2-agent is-lead">
         <header><h2 class="kf-inspector-title">Agent 结论<span class="kf-pa2-agent-tag">${f.severity}</span></h2></header>
         <p class="kf-pa2-headline">${f.headline}</p>
         <p class="kf-pa2-scope">${f.scope}</p>
-        <ol class="kf-pa2-steps">${f.steps.map(step).join('')}</ol>
+        <details class="kf-pa2-agent-fold kf-op-fold" data-pa2-agent-fold ${state.pagedAttentionAgentOpen ? 'open' : ''}>
+          <summary><b>完整分析</b><small>根因 · 对照 · 影响 · 改法 · 验证</small></summary>
+          <ol class="kf-pa2-steps">${f.steps.map(step).join('')}</ol>
+        </details>
       </section>`;
   }
 
@@ -4153,6 +4160,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       state.pagedAttentionPipeKernel = pagedAttentionPipe.dataset.pa2Pipe;
       syncPagedAttentionSelection(state.pagedAttentionPipeKernel);
       renderPagedAttentionInspector({ scrollToFocus: true });
+    }
+    // Agent 结论的"完整分析"折叠：只记状态，展开动作交给 <details> 自己完成。
+    // 这里不重渲染——重渲染会把刚点开的那一层又关回去。
+    const agentFold = event.target.closest('[data-pa2-agent-fold] > summary');
+    if (agentFold) {
+      state.pagedAttentionAgentOpen = !agentFold.parentElement.open;
+      return;
     }
     // Agent 结论里的行号引用：只定位源码，不开抽屉。开抽屉会把读者正在读的
     // 那段分析盖掉——这里点行号的意图是"我去看一眼那行"，不是"换个对象看"。

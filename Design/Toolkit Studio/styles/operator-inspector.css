@@ -611,7 +611,16 @@
   border-left: 3px solid var(--danger);
   line-height: 1.7; font-weight: 700; color: var(--foreground);
 }
-.kf-pa2-scope { margin: 0 0 12px; padding-left: 13px; line-height: 1.65; color: var(--foreground-muted); }
+.kf-pa2-scope { margin: 0 0 4px; padding-left: 13px; line-height: 1.65; color: var(--foreground-muted); }
+/* 折叠条：默认态下它是这个区块的最后一行，要看得出还有东西可点 */
+.kf-pa2-agent-fold { border-top: 1px solid color-mix(in srgb, var(--danger) 22%, transparent); margin-top: 10px; }
+.kf-op__body .kf-pa2-agent-fold > summary { padding: 9px 0 8px; }
+.kf-pa2-agent-fold > summary::before { color: var(--danger) !important; }
+.kf-pa2-agent-fold > summary b { font-weight: 700; color: var(--danger); }
+.kf-pa2-agent-fold > summary small { color: var(--foreground-muted); }
+.kf-pa2-agent-fold > summary:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.kf-pa2-agent-fold[open] > summary { border-bottom: 1px solid var(--border-subtle); margin-bottom: 11px; }
+.kf-pa2-agent-fold .kf-pa2-steps { padding-bottom: 6px; }
 .kf-pa2-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
 .kf-pa2-step { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 9px; align-items: start; }
 .kf-pa2-step > i { font-style: normal; font-weight: 700; color: var(--danger); line-height: 1.6; }
