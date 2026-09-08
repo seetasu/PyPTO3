@@ -655,3 +655,66 @@
 
 /* 4 · 置信度脚注里的运行配置 */
 .kf-pa-run-lead { display: block; font-weight: 700; color: var(--foreground); margin-bottom: 7px; }
+
+/* ---- 源码地图 · 贴在源码顶部 ---------------------------------------------
+   原来是右侧面板概览里的一个区块。右侧那份只能说"文件分成哪几段"，说不了
+   "你现在读到哪一段"——后者才是读 563 行陌生代码时真正需要的。挪上来做成
+   sticky 条：随滚动指出当前段，点开是完整的 10 段跳转表。 */
+.kf-source-region {
+  position: sticky; top: 0; z-index: 4;
+  margin-bottom: 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-2);
+  box-shadow: 0 6px 14px -10px rgba(0, 0, 0, .75);
+}
+.kf-source-region__head {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+  align-items: baseline; gap: 9px;
+  width: 100%; padding: 8px 11px;
+  border: 0; border-radius: 8px; background: transparent;
+  cursor: pointer; text-align: left; font-family: inherit;
+}
+.kf-source-region__head:hover { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+.kf-source-region__pos {
+  flex: none; padding: 1px 6px; border-radius: 4px;
+  color: var(--foreground-muted); background: var(--surface-3);
+  font-family: var(--font-mono);
+}
+.kf-source-region__head > b { color: var(--foreground); font-weight: 700; }
+.kf-source-region__head > i {
+  font-style: normal; color: var(--primary); font-family: var(--font-mono);
+}
+.kf-source-region__head > small {
+  overflow: hidden; color: var(--foreground-muted);
+  white-space: nowrap; text-overflow: ellipsis;
+}
+.kf-source-region__head > em {
+  flex: none; font-style: normal; color: var(--foreground-muted);
+}
+.kf-source-region__list {
+  display: grid; gap: 2px; padding: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+.kf-source-region__list button {
+  display: grid;
+  grid-template-columns: auto minmax(0, auto) auto minmax(0, 1fr);
+  align-items: baseline; gap: 9px;
+  padding: 6px 8px; border: 0; border-radius: 6px;
+  background: transparent; cursor: pointer; text-align: left;
+  color: var(--foreground); font-family: inherit;
+}
+.kf-source-region__list button:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.kf-source-region__list button.is-active { background: color-mix(in srgb, var(--primary) 15%, transparent); }
+.kf-source-region__list button > span {
+  color: var(--foreground-muted); font-family: var(--font-mono);
+}
+.kf-source-region__list button > b { font-weight: 700; }
+.kf-source-region__list button > i {
+  font-style: normal; color: var(--primary); font-family: var(--font-mono);
+}
+.kf-source-region__list button > small {
+  overflow: hidden; color: var(--foreground-muted);
+  white-space: nowrap; text-overflow: ellipsis;
+}

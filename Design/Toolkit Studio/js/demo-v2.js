@@ -418,6 +418,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       $$('#dslEditor [data-paged-attention-focus]').forEach(row => row.classList.toggle('is-paged-attention-line-active', row.dataset.pagedAttentionFocus === state.pagedAttentionFocus));
       if (state.pagedAttentionLine) markPagedAttentionTargetLine(state.pagedAttentionLine);
     }
+    SOURCE_REGION_BAR_STATE.focus = undefined;
+    renderSourceRegionBar();
     $('[data-editor-tab="source"]').textContent = state.activeFile;
     editor.setAttribute('aria-label', `${state.activeFile} 全量源码`);
     editor.closest('[data-stage="1"]').setAttribute('aria-label', `${state.activeFile} 全量源码`);
@@ -1565,6 +1567,92 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   // 只在源码面板内部滚动，不带动整页
+  /* ---- 源码地图 · 贴在源码顶部 ---------------------------------------------
+     这排东西原来是右侧面板概览里的一个区块「源码地图」。放在右侧的问题是：
+     它只能告诉你这个文件分成哪几段，没法告诉你**现在读到了哪一段**——而后者
+     才是读 563 行陌生代码时真正需要的。挪到源码上方做成 sticky 条之后，它随
+     滚动指出当前段落，点开是完整的 10 段跳转表。 */
+  // focus: undefined = 尚未判定（下次渲染时按滚动位置算）；null = 在任何段之前的文件头
+  const SOURCE_REGION_BAR_STATE = { open: false, focus: undefined };
+
+  function pagedAttentionRegionRange(key) {
+    const meta = pagedAttentionFocusMeta[key];
+    return meta ? meta.lines.split('–').map(Number) : null;
+  }
+
+  // 当前段 = 滚动容器顶部往下一点的位置上那一行落在哪个段的行段里。
+  // 按 focusMeta 的行段判，不用 pagedAttentionFocusForLine——后者把第 1–34 行的
+  // 许可头也算进 dynamic，条上就会出现"你在 35–41 段"而屏幕上是第 3 行的矛盾。
+  // 落在任何段之前时返回 null，由调用方显示"文件头"。
+  function currentPagedAttentionRegion() {
+    const first = $('#dslEditor [data-paged-attention-line]');
+    if (!first) return null;
+    const box = editorScrollBox();
+    const anchorY = (box ? box.getBoundingClientRect().top : 0) + 8;
+    // 代码视图每行等高，所以按行高算而不是遍历 564 行量 rect——滚动时每帧遍历
+    // 一遍会把布局抖起来，这里只量首行一次。
+    const firstRect = first.getBoundingClientRect();
+    const rowH = firstRect.height;
+    if (!rowH) return null;
+    const total = $$('#dslEditor [data-paged-attention-line]').length;
+    const offset = Math.floor((anchorY - firstRect.top) / rowH);
+    const topLine = Math.min(Math.max(Number(first.dataset.pagedAttentionLine) + offset, 1), total);
+    for (const key of Object.keys(pagedAttentionFocusMeta)) {
+      const range = pagedAttentionRegionRange(key);
+      if (range && topLine >= range[0] && topLine <= range[1]) return key;
+    }
+    return null;
+  }
+
+  function editorScrollBox() {
+    let box = $('#dslEditor');
+    while (box && box !== document.body && box.scrollHeight <= box.clientHeight + 1) box = box.parentElement;
+    return box && box !== document.body && box !== document.documentElement ? box : null;
+  }
+
+  function renderSourceRegionBar() {
+    const bar = $('#sourceRegionBar');
+    if (!bar) return;
+    if (!isPagedAttentionFile(state.activeFile) || state.editorTab !== 'source') {
+      bar.hidden = true;
+      bar.replaceChildren();
+      return;
+    }
+    bar.hidden = false;
+    const active = SOURCE_REGION_BAR_STATE.focus !== undefined ? SOURCE_REGION_BAR_STATE.focus : currentPagedAttentionRegion();
+    SOURCE_REGION_BAR_STATE.focus = active;
+    const entries = Object.entries(pagedAttentionFocusMeta);
+    const index = entries.findIndex(([key]) => key === active);
+    // 还没进入第一段（许可头 / import）时不硬套一个段名
+    const meta = active
+      ? pagedAttentionFocusMeta[active]
+      : { label: '文件头', lines: `1–${pagedAttentionRegionRange(entries[0][0])[0] - 1}`, detail: '许可声明、模块 docstring 与 import' };
+    bar.innerHTML = `
+      <button type="button" class="kf-source-region__head" data-source-region-toggle aria-expanded="${SOURCE_REGION_BAR_STATE.open}">
+        <span class="kf-source-region__pos">${active ? `${index + 1}/${entries.length}` : `—/${entries.length}`}</span>
+        <b>${meta.label}</b>
+        <i>${meta.lines}</i>
+        <small>${meta.detail}</small>
+        <em aria-hidden="true">${SOURCE_REGION_BAR_STATE.open ? '收起' : '全部'}</em>
+      </button>
+      <div class="kf-source-region__list"${SOURCE_REGION_BAR_STATE.open ? '' : ' hidden'}>
+        ${entries.map(([key, item], order) => `<button type="button" class="${key === active ? 'is-active' : ''}" data-source-region="${key}"><span>${String(order + 1).padStart(2, '0')}</span><b>${item.label}</b><i>${item.lines}</i><small>${item.detail}</small></button>`).join('')}
+      </div>`;
+  }
+
+  // 滚动时只改当前段，不重建整条——重建会让点开的列表闪一下
+  function syncSourceRegionBar() {
+    const bar = $('#sourceRegionBar');
+    if (!bar || bar.hidden) return;
+    // null 是合法值（滚到文件头），所以只能比"变没变"，不能用真值判断——
+    // 否则从第一段往上滚回许可头时条子会卡在"动态 Shape 声明"上。
+    if (!$('#dslEditor [data-paged-attention-line]')) return;
+    const active = currentPagedAttentionRegion();
+    if (active === SOURCE_REGION_BAR_STATE.focus) return;
+    SOURCE_REGION_BAR_STATE.focus = active;
+    renderSourceRegionBar();
+  }
+
   function scrollEditorRowIntoView(row) {
     let box = row.parentElement;
     while (box && box !== document.body && box.scrollHeight <= box.clientHeight + 1) box = box.parentElement;
@@ -2274,12 +2362,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       ${paRiskLanding()}`;
   }
 
-  // 563 行的文件读者不是自己写的，第一件事是知道它分成哪几段、要找的东西在哪。
-  // 原标题「源码阶段」没说这一点，读者不知道这排按钮是干嘛的。
-  function paSourceMap() {
-    return `<p class="kf-op-inline-note">整个文件 563 行，分成下面 10 段。点任一段跳到源码对应位置，编辑器与计算图会一起高亮——用来快速定位，不用从头读。</p>
-      <div class="kf-attn-source-map kf-pa-source-map"><div>${Object.entries(pagedAttentionFocusMeta).map(([key, item]) => `<button type="button" class="${key === state.pagedAttentionFocus ? 'is-active' : ''}" data-paged-attention-focus="${key}"><i>${item.lines}</i><span><b>${item.label}</b><small>${item.detail}</small></span></button>`).join('')}</div></div>`;
-  }
+  // 「源码地图」不再是右侧的一个区块——它已经贴到源码顶部随滚动指示当前段落
+  // （见 renderSourceRegionBar）。定位这件事发生在源码上，不该跨到面板里做。
 
   function paPrecisionPath() {
     return `<div class="kf-pa-precision-path"><button type="button" data-paged-attention-focus="qk"><span>Q / K</span><b>BF16</b><small>Cube input</small></button><i>matmul accumulate</i><button type="button" data-paged-attention-focus="softmax"><span>sij / exp</span><b>FP32</b><small>Vector compute</small></button><i>explicit cast</i><button type="button" data-paged-attention-focus="pv"><span>pij</span><b>BF16</b><small>PV input</small></button><i>matmul accumulate</i><button type="button" data-paged-attention-focus="online"><span>oi_new</span><b>FP32</b><small>block result</small></button><i>online merge</i><button type="button" data-paged-attention-focus="online"><span>mi / li / oi / out</span><b>FP32</b><small>cross-block state</small></button></div>`;
@@ -2512,7 +2596,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           // 「示例运行画像」原本是一张 main() 的配置表，单独摆在这里读者不知道
           // 要拿它干什么。它唯一的作用是解释"为什么现有 Golden 没发现这些问题"，
           // 所以它属于置信度的脚注，已移到证据区抽屉，不再单独占一个区块。
-          { type: 'block', title: '源码地图', origin: 'fact', html: paSourceMap },
         ],
         data: [
           { type: 'block', title: '端到端精度流', origin: 'fact', html: paPrecisionPath },
@@ -4161,6 +4244,25 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       syncPagedAttentionSelection(state.pagedAttentionPipeKernel);
       renderPagedAttentionInspector({ scrollToFocus: true });
     }
+    // 源码地图（贴在源码顶部的 sticky 条）
+    if (event.target.closest('[data-source-region-toggle]')) {
+      SOURCE_REGION_BAR_STATE.open = !SOURCE_REGION_BAR_STATE.open;
+      renderSourceRegionBar();
+      return;
+    }
+    const sourceRegion = event.target.closest('[data-source-region]');
+    if (sourceRegion) {
+      const key = sourceRegion.dataset.sourceRegion;
+      const range = pagedAttentionRegionRange(key);
+      SOURCE_REGION_BAR_STATE.open = false;
+      SOURCE_REGION_BAR_STATE.focus = key;
+      syncPagedAttentionSelection(key);
+      renderSourceRegionBar();
+      // 跳到段首行，并让右侧面板跟着切到同一段
+      if (range) revealPagedAttentionLine(range[0]);
+      renderPagedAttentionInspector();
+      return;
+    }
     // Agent 结论的"完整分析"折叠：只记状态，展开动作交给 <details> 自己完成。
     // 这里不重渲染——重渲染会把刚点开的那一层又关回去。
     const agentFold = event.target.closest('[data-pa2-agent-fold] > summary');
@@ -4287,6 +4389,18 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       toast(`对比 ${getRun().id} ↔ ${trusted ? trusted.id : '可信基线'} · 因果 diff 已就绪`);
     }
   });
+
+  // 源码滚动 → 更新 sticky 条上的"当前段"。scroll 不冒泡，所以用捕获阶段听；
+  // 每帧最多算一次，避免在 563 行上反复量 getBoundingClientRect。
+  // 按时间戳节流而不是 requestAnimationFrame：页面不在前台绘制时 rAF 不会回调，
+  // 条子就会一直停在旧段上。这里的活儿是常数开销，直接跑更可靠。
+  let sourceRegionAt = 0;
+  document.addEventListener('scroll', () => {
+    const now = Date.now();
+    if (now - sourceRegionAt < 60) return;
+    sourceRegionAt = now;
+    syncSourceRegionBar();
+  }, true);
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
