@@ -68,6 +68,7 @@
       kind: String(stage.kind ?? 'candidate'),
       count,
       summary: String(stage.summary ?? ''),
+      caption: String(stage.caption ?? ''),
       segments,
       candidateLabels: Array.isArray(stage.candidateLabels) ? stage.candidateLabels.map(String) : [],
       layout: { ...(stage.layout || {}) }
@@ -80,8 +81,8 @@
     }
     const rawType = String(rawNext.type || '').toLowerCase();
     const type = rawType === 'expand' ? 'diverge' : rawType === 'filter' ? 'converge' : rawType;
-    if (type !== 'diverge' && type !== 'converge') {
-      throw new Error(`candidate-population-lineage: stage "${source.id}" next.type must be diverge or converge`);
+    if (type !== 'diverge' && type !== 'converge' && type !== 'sweep') {
+      throw new Error(`candidate-population-lineage: stage "${source.id}" next.type must be diverge, converge or sweep`);
     }
     const id = String(rawNext.id ?? `${source.id}-to-${target.id}`);
     const difference = Math.abs(target.count - source.count);
@@ -92,28 +93,34 @@
     if (type === 'converge' && target.count > source.count) {
       throw new Error(`candidate-population-lineage: converge "${id}" cannot expand ${source.count} to ${target.count}`);
     }
+    if (type === 'sweep' && target.count > source.count) {
+      throw new Error(`candidate-population-lineage: sweep "${id}" cannot expand ${source.count} to ${target.count}`);
+    }
 
-    const branches = type === 'diverge'
+    const branches = type === 'diverge' || type === 'sweep'
       ? normalizeItems(rawNext.branches, 'branches', target.count)
+        .map((branch, branchIndex) => ({ ...branch, id: String(branch.id ?? `${id}-branch-${branchIndex + 1}`) }))
       : [];
     const rejected = type === 'converge'
       ? normalizeItems(rawNext.rejected ?? rawNext.categories, 'rejected', difference)
       : [];
     const expectedTotal = type === 'diverge' ? target.count : difference;
-    const actualTotal = (type === 'diverge' ? branches : rejected).reduce((sum, item) => sum + item.count, 0);
+    const actualTotal = type === 'sweep'
+      ? branches.reduce((sum, branch) => sum + integerCount(branch.rejected || 0, `sweep branch "${branch.label}" rejected`), 0)
+      : (type === 'diverge' ? branches : rejected).reduce((sum, item) => sum + item.count, 0);
     if (actualTotal !== expectedTotal) {
-      const subject = type === 'diverge' ? 'branch counts' : 'rejected counts';
+      const subject = type === 'diverge' ? 'branch counts' : type === 'sweep' ? 'sweep rejection counts' : 'rejected counts';
       throw new Error(`candidate-population-lineage: ${subject} for "${id}" must sum to ${expectedTotal}, received ${actualTotal}`);
     }
 
     const defaultValue = type === 'diverge'
       ? `×${source.count === 0 ? '—' : Number((target.count / source.count).toFixed(1))}`
-      : `−${difference}`;
+      : type === 'sweep' ? `${source.count}→${target.count}` : `−${difference}`;
     return {
       ...rawNext,
       id,
       type,
-      label: String(rawNext.label ?? (type === 'diverge' ? `EXPAND ${defaultValue}` : `REJECT ${defaultValue}`)),
+      label: String(rawNext.label ?? (type === 'diverge' ? `EXPAND ${defaultValue}` : type === 'sweep' ? `SWEEP ${defaultValue}` : `REJECT ${defaultValue}`)),
       summary: String(rawNext.summary ?? ''),
       from: source.count,
       to: target.count,
@@ -140,6 +147,12 @@
       const transition = normalizeTransition(stage.next, stage, stages[index + 1], index);
       if (ids.has(transition.id)) throw new Error(`candidate-population-lineage: duplicate selectable id "${transition.id}"`);
       ids.add(transition.id);
+      if (transition.type === 'sweep') {
+        transition.branches.forEach((branch) => {
+          if (ids.has(branch.id)) throw new Error(`candidate-population-lineage: duplicate selectable id "${branch.id}"`);
+          ids.add(branch.id);
+        });
+      }
       return transition;
     });
     if (stages[stages.length - 1].next) {
@@ -171,10 +184,13 @@
   }
 
   function layoutChart(svg, stages, maxVisibleCandidates) {
-    const width = Math.max(MIN_WIDTH, Math.round(svg.clientWidth || MIN_WIDTH));
+    const minimumWidth = stages.some((stage) => String(stage.next?.type || '').toLowerCase() === 'sweep') ? 1120 : MIN_WIDTH;
+    svg.style.minWidth = `${minimumWidth}px`;
+    const width = Math.max(minimumWidth, Math.round(svg.clientWidth || minimumWidth));
     const height = Math.max(MIN_HEIGHT, Math.round(svg.clientHeight || MIN_HEIGHT));
-    const horizontalInset = Math.max(48, Math.min(64, width * .05));
-    const step = (width - horizontalInset * 2) / Math.max(1, stages.length - 1);
+    const leftInset = Math.max(48, Math.min(64, width * .05));
+    const finalLabelReserve = stages[stages.length - 1].candidateLabels.length ? 220 : leftInset;
+    const step = (width - leftInset - finalLabelReserve) / Math.max(1, stages.length - 1);
     const verticalScale = height / BASE_HEIGHT;
     const centerY = 96 * verticalScale;
     const laidOutStages = stages.map((stage, index) => {
@@ -182,7 +198,7 @@
       return {
         ...stage,
         ...cloud,
-        x: horizontalInset + step * index,
+        x: leftInset + step * index,
         height: cloud.baseHeight * verticalScale
       };
     });
@@ -243,6 +259,25 @@
     return segmentIndex >= 0 ? ` tone-${stage.segments[segmentIndex].tone}` : '';
   }
 
+  function appendCandidateDots(group, item, bounds, stageIndex, isFinal, centerY) {
+    for (let index = 0; index < item.visibleCount; index += 1) {
+      const column = index % item.columns;
+      const row = Math.floor(index / item.columns);
+      const x = item.columns === 1 ? item.x : bounds.left + (column / (item.columns - 1)) * item.width;
+      const y = item.rows === 1 ? (item.y ?? centerY) : bounds.top + (row / (item.rows - 1)) * item.height;
+      const tone = item.tone ? ` tone-${item.tone}` : dotTone(item, index);
+      group.append(svgNode('circle', {
+        class: `candidate-dot${tone}${isFinal ? ' is-final' : ''}`,
+        cx: x,
+        cy: y,
+        r: stageIndex < 2 ? 1.35 : stageIndex < 4 ? 1.65 : 2.05
+      }));
+      if (item.visibleCount === item.count && item.candidateLabels?.[index]) {
+        group.append(svgNode('text', { class: 'candidate-name', x: x + 10, y: y + 3 }, item.candidateLabels[index]));
+      }
+    }
+  }
+
   function renderStage(svg, stage, stageIndex, chart, selectionLookup) {
     const bounds = stageBounds(stage, chart.centerY);
     const isFinal = stageIndex === chart.stages.length - 1;
@@ -257,6 +292,7 @@
       'data-candidate-count': stage.count
     });
     selectionLookup.set(stage.id, { id: stage.id, kind: 'stage', item: stage, stageIndex });
+    appendStageLabel(group, { centerX: stage.x, dotY: 28 * chart.verticalScale, label: stage.label });
 
     group.append(svgNode('rect', {
       class: 'stage-plane',
@@ -266,24 +302,8 @@
       height: stage.height + 24,
       rx: 12
     }));
-    appendStageLabel(group, { centerX: stage.x, dotY: 28 * chart.verticalScale, label: stage.label });
     group.append(svgNode('text', { class: 'stage-count', x: stage.x, y: bounds.top - 16, 'text-anchor': 'middle' }, stage.count));
-
-    for (let index = 0; index < stage.visibleCount; index += 1) {
-      const column = index % stage.columns;
-      const row = Math.floor(index / stage.columns);
-      const x = stage.columns === 1 ? stage.x : bounds.left + (column / (stage.columns - 1)) * stage.width;
-      const y = stage.rows === 1 ? chart.centerY : bounds.top + (row / (stage.rows - 1)) * stage.height;
-      group.append(svgNode('circle', {
-        class: `candidate-dot${dotTone(stage, index)}${isFinal ? ' is-final' : ''}`,
-        cx: x,
-        cy: y,
-        r: stageIndex < 2 ? 1.35 : stageIndex < 4 ? 1.65 : 2.05
-      }));
-      if (stage.visibleCount === stage.count && stage.candidateLabels[index]) {
-        group.append(svgNode('text', { class: 'candidate-name', x: x + 10, y: y + 3 }, stage.candidateLabels[index]));
-      }
-    }
+    appendCandidateDots(group, stage, bounds, stageIndex, isFinal, chart.centerY);
     if (stage.count > stage.visibleCount) {
       group.append(svgNode('text', {
         class: 'lineage-aggregate-label',
@@ -292,21 +312,19 @@
         'text-anchor': 'middle'
       }, `${stage.visibleCount} dots · ${stage.count} candidates`));
     }
-    group.append(svgNode('title', {}, `${stage.label}: ${stage.count} ${stage.kind}`));
+    group.append(svgNode('title', {}, `${stage.label}: ${stage.count} ${stage.kind}${stage.summary ? ` · ${stage.summary}` : ''}`));
     svg.append(group);
   }
 
   function renderDivergence(group, transition, source, target, chart) {
     const startX = source.right + 9;
-    const endX = target.left - 9;
     const sourceHeight = source.bottom - source.top;
-    const targetHeight = target.bottom - target.top;
-    const labelStartY = Math.max(154 * chart.verticalScale, target.bottom + 22);
     let sourceCursor = source.top;
     let targetCursor = target.top;
     transition.branches.forEach((branch, branchIndex) => {
+      const endX = target.left - 9;
       const sourceThickness = sourceHeight * (branch.count / Math.max(1, transition.to));
-      const targetThickness = targetHeight * (branch.count / Math.max(1, transition.to));
+      const targetThickness = (target.bottom - target.top) * (branch.count / Math.max(1, transition.to));
       const sourceTop = sourceCursor;
       const sourceBottom = sourceTop + sourceThickness;
       const targetTop = targetCursor;
@@ -319,7 +337,7 @@
       group.append(svgNode('text', {
         class: 'lineage-branch-label',
         x: target.left,
-        y: labelStartY + branchIndex * 11,
+        y: Math.max(154 * chart.verticalScale, target.bottom + 22) + branchIndex * 11,
         'text-anchor': 'start'
       }, branch.label));
       sourceCursor = sourceBottom;
@@ -373,20 +391,157 @@
     });
   }
 
+  function renderSweepTransition(group, transition, source, target, chart, transitionIndex, selectionLookup) {
+    const startX = source.right + 9;
+    const endX = target.left - 9;
+    const midpoint = (startX + endX) / 2;
+    const branchOffset = 48 * chart.verticalScale;
+    const thickness = Math.max(7, 8 * chart.verticalScale);
+    const cardWidth = 56;
+    const cardHeight = 38 * chart.verticalScale;
+    const sourceOffset = Math.min(7 * chart.verticalScale, (source.bottom - source.top) * .22);
+    const targetOffset = Math.min(7 * chart.verticalScale, (target.bottom - target.top) * .22);
+
+    transition.branches.forEach((branch, branchIndex) => {
+      const direction = branchIndex === 0 ? -1 : 1;
+      const laneY = chart.centerY + direction * branchOffset;
+      const startY = chart.centerY + direction * sourceOffset;
+      const endY = chart.centerY + direction * targetOffset;
+      const cardLeft = midpoint - cardWidth / 2;
+      const cardRight = midpoint + cardWidth / 2;
+      const cardTop = laneY - cardHeight / 2;
+      const cardBottom = laneY + cardHeight / 2;
+      const passCount = integerCount(branch.count, `sweep branch "${branch.label}" count`);
+      const halfThickness = thickness / 2;
+      const branchGroup = svgNode('g', {
+        class: 'sweep-branch-group',
+        role: 'button',
+        tabindex: '0',
+        'aria-label': `查看 ${branch.label} 对比图`,
+        'aria-pressed': 'false',
+        'data-candidate-lineage-select': branch.id,
+        'data-sweep-branch-select': branch.id
+      });
+      selectionLookup.set(branch.id, {
+        id: branch.id,
+        kind: 'sweep-branch',
+        item: branch,
+        transition,
+        transitionIndex,
+        sourceStage: chart.stages[transitionIndex],
+        targetStage: chart.stages[transitionIndex + 1]
+      });
+      branchGroup.append(svgNode('path', {
+        class: `lineage-ribbon sweep-ribbon tone-${branch.tone}`,
+        d: createRibbonPath({
+          startX,
+          startTop: startY - halfThickness,
+          startBottom: startY + halfThickness,
+          endX: cardLeft - 8,
+          endTop: laneY - halfThickness,
+          endBottom: laneY + halfThickness
+        }),
+        'data-sweep-branch': branch.id,
+        'data-flow-count': transition.from
+      }));
+      branchGroup.append(svgNode('path', {
+        class: `lineage-ribbon sweep-ribbon is-pass tone-${branch.tone}`,
+        d: createRibbonPath({
+          startX: cardRight + 8,
+          startTop: laneY - halfThickness,
+          startBottom: laneY + halfThickness,
+          endX,
+          endTop: endY - halfThickness,
+          endBottom: endY + halfThickness
+        }),
+        'data-sweep-branch': branch.id,
+        'data-flow-count': passCount
+      }));
+      branchGroup.append(svgNode('rect', {
+        class: `sweep-branch-card tone-${branch.tone}`,
+        x: cardLeft,
+        y: cardTop,
+        width: cardWidth,
+        height: cardHeight,
+        rx: 8
+      }));
+      branchGroup.append(svgNode('text', {
+        class: `sweep-branch-title tone-${branch.tone}`,
+        x: midpoint,
+        y: cardTop - 25,
+        'text-anchor': 'middle'
+      }, branch.label));
+      branchGroup.append(svgNode('text', {
+        class: 'sweep-branch-count',
+        x: midpoint,
+        y: cardTop - 8,
+        'text-anchor': 'middle'
+      }, passCount));
+
+      const columns = Math.max(1, Math.ceil(Math.sqrt(passCount)));
+      const rows = Math.max(1, Math.ceil(passCount / columns));
+      const dotGapX = columns === 1 ? 0 : Math.min(12, (cardWidth - 22) / (columns - 1));
+      const dotGapY = rows === 1 ? 0 : Math.min(11, (cardHeight - 18) / (rows - 1));
+      const gridWidth = dotGapX * (columns - 1);
+      const gridHeight = dotGapY * (rows - 1);
+      for (let dotIndex = 0; dotIndex < passCount; dotIndex += 1) {
+        const column = dotIndex % columns;
+        const row = Math.floor(dotIndex / columns);
+        branchGroup.append(svgNode('circle', {
+          class: `sweep-candidate-dot tone-${branch.tone}`,
+          cx: midpoint - gridWidth / 2 + column * dotGapX,
+          cy: laneY - gridHeight / 2 + row * dotGapY,
+          r: 2
+        }));
+      }
+
+      if (Number(branch.rejected || 0) > 0) {
+        const rejectThickness = Math.max(5, thickness * Number(branch.rejected) / Math.max(1, transition.from));
+        const rejectEndX = endX - 22;
+        const rejectEndY = branch.rejectionDirection === 'up' ? Math.max(10, cardTop - 15) : cardBottom + 28;
+        branchGroup.append(svgNode('path', {
+          class: 'lineage-ribbon sweep-reject-ribbon is-reject tone-1',
+          d: createRibbonPath({
+            startX: cardRight + 7,
+            startTop: laneY - rejectThickness / 2,
+            startBottom: laneY + rejectThickness / 2,
+            endX: rejectEndX,
+            endTop: rejectEndY - rejectThickness / 2,
+            endBottom: rejectEndY + rejectThickness / 2
+          }),
+          'data-rejected-count': branch.rejected
+        }));
+        branchGroup.append(svgNode('text', {
+          class: 'sweep-branch-outcome is-reject',
+          x: rejectEndX + 7,
+          y: rejectEndY + 3,
+          'text-anchor': 'start'
+        }, String(branch.outcome || '')));
+      }
+      branchGroup.append(svgNode('title', {}, `${branch.label} · ${branch.detail || ''} · ${branch.outcome || ''}`));
+      group.append(branchGroup);
+    });
+
+    group.append(
+      svgNode('circle', { class: 'sweep-junction', cx: startX + 2, cy: chart.centerY, r: 3.2 }),
+      svgNode('circle', { class: 'sweep-junction', cx: endX - 2, cy: chart.centerY, r: 3.2 })
+    );
+  }
+
   function renderTransition(svg, transition, transitionIndex, chart, gradientId, selectionLookup) {
     const sourceStage = chart.stages[transitionIndex];
     const targetStage = chart.stages[transitionIndex + 1];
     const source = stageBounds(sourceStage, chart.centerY);
     const target = stageBounds(targetStage, chart.centerY);
     const midpoint = (sourceStage.x + targetStage.x) / 2;
-    const stateClass = transition.type === 'diverge' ? 'is-diverge' : 'is-converge';
+    const stateClass = transition.type === 'diverge' ? 'is-diverge' : transition.type === 'sweep' ? 'is-sweep' : 'is-converge';
     const group = svgNode('g', {
-      class: 'lineage-edge-group',
-      role: 'button',
-      tabindex: '0',
-      'aria-label': `查看 ${transition.label}：${transition.from} → ${transition.to}`,
-      'aria-pressed': 'false',
-      'data-candidate-lineage-select': transition.id,
+      class: `lineage-edge-group${transition.type === 'sweep' ? ' has-sweep' : ''}`,
+      role: transition.type === 'sweep' ? 'group' : 'button',
+      tabindex: transition.type === 'sweep' ? null : '0',
+      'aria-label': transition.type === 'sweep' ? `${transition.label}，选择 Prefill 或 Decode 查看对比图` : `查看 ${transition.label}：${transition.from} → ${transition.to}`,
+      'aria-pressed': transition.type === 'sweep' ? null : 'false',
+      'data-candidate-lineage-select': transition.type === 'sweep' ? null : transition.id,
       'data-lineage-edge': transition.id,
       'data-input-count': transition.from,
       'data-output-count': transition.to
@@ -402,16 +557,20 @@
 
     if (transition.type === 'diverge') {
       renderDivergence(group, transition, source, target, chart);
+    } else if (transition.type === 'sweep') {
+      renderSweepTransition(group, transition, source, target, chart, transitionIndex, selectionLookup);
     } else {
       renderConvergence(group, transition, source, target, chart, gradientId, transitionIndex === chart.stages.length - 2);
     }
-    group.append(svgNode('circle', { class: `lineage-transition-orb ${stateClass}`, cx: midpoint, cy: chart.centerY, r: 14 }));
-    group.append(svgNode('text', {
-      class: `lineage-transition-value ${stateClass}`,
-      x: midpoint,
-      y: chart.centerY + 4,
-      'text-anchor': 'middle'
-    }, transition.valueLabel));
+    if (transition.type !== 'sweep') {
+      group.append(svgNode('circle', { class: `lineage-transition-orb ${stateClass}`, cx: midpoint, cy: chart.centerY, r: 14 }));
+      group.append(svgNode('text', {
+        class: `lineage-transition-value ${stateClass}`,
+        x: midpoint,
+        y: chart.centerY + 4,
+        'text-anchor': 'middle'
+      }, transition.valueLabel));
+    }
     group.append(svgNode('title', {}, `${transition.label}: ${transition.from} → ${transition.to}`));
     svg.append(group);
   }

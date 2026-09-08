@@ -83,6 +83,12 @@
   font: 700 10px / 1 var(--font-mono);
 }
 
+.pto-candidate-lineage__svg .stage-caption {
+  fill: var(--foreground-muted);
+  font: 500 10px / 1 var(--font-mono);
+  pointer-events: none;
+}
+
 .pto-candidate-lineage__svg .lineage-transition-value,
 .pto-candidate-lineage__svg .lineage-branch-label,
 .pto-candidate-lineage__svg .lineage-reject-label,
@@ -104,6 +110,79 @@
 .pto-candidate-lineage__svg .lineage-ribbon.is-reject {
   opacity: .82;
   stroke: color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+
+.pto-candidate-lineage__svg .sweep-ribbon {
+  opacity: .9;
+}
+
+.pto-candidate-lineage__svg .sweep-branch-group {
+  cursor: pointer;
+  outline: none;
+}
+
+.pto-candidate-lineage__svg .sweep-branch-card {
+  fill: color-mix(in srgb, var(--surface-3) 94%, transparent);
+  stroke: var(--border-subtle);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-candidate-lineage__svg .sweep-branch-card.tone-1 { stroke: color-mix(in srgb, var(--primary-hover) 52%, var(--border-subtle)); }
+.pto-candidate-lineage__svg .sweep-branch-card.tone-2 { stroke: color-mix(in srgb, var(--accent) 52%, var(--border-subtle)); }
+
+.pto-candidate-lineage__svg .sweep-branch-title,
+.pto-candidate-lineage__svg .sweep-branch-count,
+.pto-candidate-lineage__svg .sweep-branch-outcome {
+  font-family: var(--font-mono);
+  pointer-events: none;
+}
+
+.pto-candidate-lineage__svg .sweep-branch-title {
+  fill: var(--foreground);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+}
+
+.pto-candidate-lineage__svg .sweep-branch-count {
+  fill: var(--foreground);
+  font: 700 14px / 1 var(--font-mono);
+}
+
+.pto-candidate-lineage__svg .sweep-candidate-dot {
+  fill: color-mix(in srgb, var(--foreground) 78%, var(--primary));
+  opacity: .92;
+  pointer-events: none;
+}
+
+.pto-candidate-lineage__svg .sweep-candidate-dot.tone-1 { fill: color-mix(in srgb, var(--primary-hover) 64%, var(--foreground)); }
+.pto-candidate-lineage__svg .sweep-candidate-dot.tone-2 { fill: color-mix(in srgb, var(--accent) 72%, var(--foreground)); }
+
+.pto-candidate-lineage__svg .sweep-branch-outcome {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.pto-candidate-lineage__svg .sweep-branch-outcome.is-reject { fill: var(--danger); }
+.pto-candidate-lineage__svg .sweep-reject-ribbon { fill: var(--danger); color: var(--danger); opacity: .9; }
+.pto-candidate-lineage__svg .sweep-junction { fill: var(--foreground-secondary); }
+
+.pto-candidate-lineage__svg .sweep-branch-group:hover .sweep-ribbon,
+.pto-candidate-lineage__svg .sweep-branch-group.is-selected .sweep-ribbon {
+  opacity: 1;
+  stroke: var(--primary-hover);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--primary-hover) 46%, transparent));
+}
+
+.pto-candidate-lineage__svg .sweep-branch-group:hover .sweep-branch-card,
+.pto-candidate-lineage__svg .sweep-branch-group.is-selected .sweep-branch-card {
+  fill: color-mix(in srgb, var(--primary) 16%, var(--surface-3));
+  stroke: var(--primary-hover);
+}
+
+.pto-candidate-lineage__svg .sweep-branch-group:focus-visible .sweep-branch-card {
+  stroke: var(--primary-hover);
+  stroke-width: 2;
 }
 
 .pto-candidate-lineage__svg .lineage-ribbon.tone-1,
@@ -154,7 +233,7 @@
   fill: var(--foreground);
 }
 
-.pto-candidate-lineage__svg .lineage-edge-group:hover .lineage-ribbon,
+.pto-candidate-lineage__svg .lineage-edge-group:not(.has-sweep):hover .lineage-ribbon,
 .pto-candidate-lineage__svg .lineage-edge-group.is-selected .lineage-ribbon {
   opacity: 1;
   stroke: color-mix(in srgb, var(--primary-hover) 64%, var(--foreground));

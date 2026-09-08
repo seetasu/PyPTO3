@@ -15,7 +15,7 @@
 
   var MANIFEST = {
     csa: {
-      id: 'csa', label: 'CSA Baseline', group: 'attention', path: 'CSA',
+      id: 'csa', label: 'CSA', kind: 'attention', path: 'CSA',
       root: 'decode_attention_csa_startpos8192/dfx_outputs',
       trace: 'merged_swimlane_20260726_222710.json',
       nameMap: 'name_map__jit_attention_csa_test_20260726_222647.json',
@@ -23,7 +23,7 @@
       memory: 'decode_attention_csa_startpos8192/report/memory_after_AllocateMemoryAddr.txt'
     },
     hca: {
-      id: 'hca', label: 'HCA Candidate', group: 'attention', path: 'HCA',
+      id: 'hca', label: 'HCA', kind: 'attention', path: 'HCA',
       root: 'decode_attention_hca_startpos8192/dfx_outputs',
       trace: 'merged_swimlane_20260726_222738.json',
       nameMap: 'name_map__jit_attention_hca_test_20260726_222720.json',
@@ -31,7 +31,7 @@
       memory: 'decode_attention_hca_startpos8192/report/memory_after_AllocateMemoryAddr.txt'
     },
     swa: {
-      id: 'swa', label: 'SWA Candidate', group: 'attention', path: 'SWA',
+      id: 'swa', label: 'SWA', kind: 'attention', path: 'SWA',
       root: 'decode_attention_swa_startpos8192/dfx_outputs',
       trace: 'merged_swimlane_20260726_222804.json',
       nameMap: 'name_map__jit_attention_swa_test_20260726_222748.json',
@@ -39,14 +39,14 @@
       memory: 'decode_attention_swa_startpos8192/report/memory_after_AllocateMemoryAddr.txt'
     },
     ep2: {
-      id: 'ep2', label: 'EP2 Baseline', group: 'moe', path: 'EP2',
+      id: 'ep2', label: 'EP2 Balanced', kind: 'moe', path: 'EP2',
       scenario: 'moe_ep2_balanced', ranks: [0, 1], timestamp: '20260726_231408',
       hints: 'moe_ep2_balanced/report/perf_hints.log',
       memory: 'moe_ep2_balanced/report/memory_after_AllocateMemoryAddr.txt',
       distributedMeta: 'moe_ep2_balanced/distributed_meta.json'
     },
     ep8: {
-      id: 'ep8', label: 'EP8 Candidate', group: 'moe', path: 'EP8',
+      id: 'ep8', label: 'EP8 Balanced', kind: 'moe', path: 'EP8',
       scenario: 'moe_ep8_balanced', ranks: [0, 1, 2, 3, 4, 5, 6, 7], timestamp: '20260726_230402',
       rankTimestamps: { 7: '20260726_230403' },
       hints: 'moe_ep8_balanced/report/perf_hints.log',
@@ -276,7 +276,7 @@
     return {
       id: config.id,
       label: config.label,
-      group: config.group,
+      kind: config.kind,
       path: config.path,
       window: round(end - start, 2),
       taskCount: taskRecords.length,
@@ -342,7 +342,7 @@
     return {
       id: base.id + '-r' + rank,
       label: base.label + ' Rank ' + rank,
-      group: 'moe',
+      kind: 'moe',
       path: base.path + ' · Rank ' + rank,
       rank: rank,
       root: root,
@@ -407,7 +407,7 @@
       return {
         id: config.id,
         label: config.label,
-        group: 'moe',
+        kind: 'moe',
         path: config.path,
         window: round(Math.max.apply(null, rankEvidence.map(function (item) { return item.window; })), 2),
         taskCount: first.taskCount,
