@@ -917,9 +917,10 @@
     function cardTemplate(demo) {
       const tags = demo.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
       const hasVariants = Array.isArray(demo.variants) && demo.variants.length > 0;
+      const cardTag = hasVariants ? "article" : "a";
       const cardAttributes = hasVariants
         ? 'class="demo-card has-variants"'
-        : `class="demo-card" data-href="${escapeHtml(demo.href)}" tabindex="0" role="link" aria-label="打开 ${escapeHtml(demo.title)}"`;
+        : `class="demo-card" href="${escapeHtml(demo.href)}" aria-label="打开 ${escapeHtml(demo.title)}"`;
       const launchArrow = hasVariants
         ? ""
         : '<span class="launch-arrow" aria-hidden="true"><svg class="icon"><use href="#icon-arrow"></use></svg></span>';
@@ -927,7 +928,7 @@
         ? `<div class="demo-variants" aria-label="版本入口"><span class="variant-label">版本入口</span>${demo.variants.map((variant) => `<a class="demo-version-link" href="${escapeHtml(variant.href)}">${escapeHtml(variant.label)}</a>`).join("")}</div>`
         : "";
       return `
-        <article ${cardAttributes}>
+        <${cardTag} ${cardAttributes}>
           <div class="preview">
             <img src="${escapeHtml(demo.preview)}" alt="${escapeHtml(demo.title)} 预览" loading="lazy">
             <span class="preview-badge">${escapeHtml(demo.status)}</span>
@@ -948,7 +949,7 @@
             <div class="tags">${tags}</div>
             ${variants}
           </div>
-        </article>`;
+        </${cardTag}>`;
     }
 
     function render() {
@@ -971,21 +972,6 @@
     demoSearch.addEventListener("input", () => {
       state.query = demoSearch.value;
       render();
-    });
-
-    demoGrid.addEventListener("click", (event) => {
-      if (event.target.closest(".demo-version-link")) return;
-      const card = event.target.closest(".demo-card[data-href]");
-      if (card) window.location.href = card.dataset.href;
-    });
-
-    demoGrid.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      if (event.target.closest(".demo-version-link")) return;
-      const card = event.target.closest(".demo-card[data-href]");
-      if (!card) return;
-      event.preventDefault();
-      window.location.href = card.dataset.href;
     });
 
     document.addEventListener("keydown", (event) => {

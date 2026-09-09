@@ -2245,12 +2245,85 @@ button.operator-tree-toggle:hover {
     .so-scenario-kpis span { display: block; color: var(--foreground-muted); font-size: 9px; }
     .so-scenario-kpis strong { display: block; margin-top: 3px; font-size: 11px; }
     .so-source-model.so-model-architecture-section { border: 0; box-shadow: var(--shadow-sm); }
+    .so-register-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); margin-bottom: var(--space-5); }
+    .so-register-step { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: var(--space-2); min-width: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-1); }
+    .so-register-step.is-current { background: var(--state-selected); }
+    .so-register-step.is-complete { background: var(--surface-2); }
+    .so-register-step-index { display: grid; width: 28px; height: 28px; place-items: center; border-radius: var(--radius-pill); background: var(--surface-3); color: var(--foreground-secondary); font: var(--type-label); }
+    .so-register-step.is-current .so-register-step-index { background: var(--foreground); color: var(--background); }
+    .so-register-step.is-complete .so-register-step-index { color: var(--success); }
+    .so-register-step-copy { min-width: 0; }
+    .so-register-step-copy strong { display: block; overflow: hidden; color: var(--foreground); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-register-step-copy span { display: block; margin-top: 3px; overflow: hidden; color: var(--foreground-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-register-config-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+    .so-register-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }
+    .so-register-card-head h3 { margin: 0; font-size: 14px; }
+    .so-register-card-head p { margin: var(--space-1) 0 0; color: var(--foreground-secondary); font-size: 11px; line-height: 1.5; }
+    .so-register-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+    .so-register-fields .so-field.full { grid-column: 1 / -1; }
+    .so-register-fields .so-field label { display: block; margin-bottom: var(--space-2); }
+    .so-register-fields .so-field small { display: block; margin-top: var(--space-2); line-height: 1.45; }
+    .so-register-fields .so-input,
+    .so-register-fields .so-select { width: 100%; min-height: 36px; box-sizing: border-box; }
+    .so-register-manifest { display: grid; gap: 1px; margin-top: var(--space-4); overflow: hidden; border-radius: var(--radius-md); background: var(--border-subtle); }
+    .so-register-manifest-row { display: grid; grid-template-columns: 22px 128px minmax(0, 1fr); align-items: center; gap: var(--space-2); min-width: 0; padding: 9px var(--space-3); background: var(--surface-2); }
+    .so-register-manifest-row > i { display: grid; width: 18px; height: 18px; place-items: center; border-radius: var(--radius-pill); background: var(--surface-3); color: var(--success); font-size: 10px; font-style: normal; font-weight: 700; }
+    .so-register-manifest-row > span { color: var(--foreground-muted); font-size: 10px; }
+    .so-register-manifest-row > strong { min-width: 0; overflow: hidden; color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 10px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+    .so-register-scope { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+    .so-register-scope-item { min-width: 0; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); }
+    .so-register-scope-item:first-child { background: var(--state-selected); }
+    .so-register-scope-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+    .so-register-scope-item h3 { margin: 0; font-size: 13px; }
+    .so-register-scope-item p { min-height: 42px; margin: var(--space-2) 0 var(--space-3); color: var(--foreground-secondary); font-size: 11px; line-height: 1.55; }
+    .so-register-scope-checks { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+    .so-register-progress { display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: var(--space-4); align-items: center; padding: var(--space-5); border-radius: var(--radius-lg); background: var(--surface-1); }
+    .so-register-progress strong { display: block; margin-top: var(--space-1); font-size: 15px; }
+    .so-register-progress p { margin: var(--space-2) 0 0; color: var(--foreground-secondary); font-size: 12px; line-height: 1.5; }
+    .so-register-progress-track { display: grid; gap: var(--space-3); }
+    .so-register-progress-row { display: grid; grid-template-columns: 156px minmax(0, 1fr) 70px; align-items: center; gap: var(--space-3); color: var(--foreground-secondary); font-size: 11px; }
+    .so-register-progress-row .so-bar { height: 7px; }
+    .so-register-progress-row:last-child .so-bar > span { background: var(--warning); }
+    .so-register-decision { display: grid; grid-template-columns: minmax(280px, 1.35fr) repeat(3, minmax(140px, .65fr)); gap: var(--space-2); margin-bottom: var(--space-5); }
+    .so-register-decision-main,
+    .so-register-decision-metric { padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); }
+    .so-register-decision-main { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+    .so-register-decision-main h2 { margin: var(--space-1) 0 var(--space-2); font-size: 18px; }
+    .so-register-decision-main p { max-width: 640px; margin: 0; color: var(--foreground-secondary); font-size: 12px; line-height: 1.55; }
+    .so-register-decision-metric span { display: block; color: var(--foreground-muted); font-size: 10px; }
+    .so-register-decision-metric strong { display: block; margin-top: var(--space-2); color: var(--foreground); font-size: 20px; letter-spacing: -.03em; }
+    .so-register-decision-metric small { display: block; margin-top: var(--space-1); color: var(--foreground-secondary); font-size: 10px; line-height: 1.4; }
+    .so-register-level { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: var(--space-3); margin-top: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); }
+    .so-register-level-summary h3 { margin: var(--space-2) 0; font-size: 15px; }
+    .so-register-level-summary p { margin: 0; color: var(--foreground-secondary); font-size: 11px; line-height: 1.55; }
+    .so-register-level-summary .so-bar { height: 7px; margin-top: var(--space-4); }
+    .so-register-check-list,
+    .so-register-opportunities { display: grid; gap: var(--space-2); }
+    .so-register-check-row { display: grid; grid-template-columns: 24px minmax(160px, .8fr) minmax(240px, 1.4fr) 72px; align-items: center; gap: var(--space-3); min-width: 0; padding: 10px var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); }
+    .so-register-check-icon { display: grid; width: 22px; height: 22px; place-items: center; border-radius: var(--radius-pill); background: var(--surface-3); color: var(--success); font-size: 10px; font-weight: 700; }
+    .so-register-check-row strong { font-size: 11px; }
+    .so-register-check-row span { min-width: 0; color: var(--foreground-secondary); font-size: 10px; line-height: 1.45; }
+    .so-register-check-row .so-status { justify-self: end; }
+    .so-register-opportunity { display: grid; grid-template-columns: 52px minmax(180px, .8fr) minmax(260px, 1.2fr) 112px; align-items: center; gap: var(--space-3); min-width: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); }
+    .so-register-opportunity-code { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 10px; }
+    .so-register-opportunity-copy strong { display: block; font-size: 11px; }
+    .so-register-opportunity-copy span,
+    .so-register-opportunity-evidence { display: block; margin-top: 3px; color: var(--foreground-secondary); font-size: 10px; line-height: 1.45; }
+    .so-register-opportunity-evidence { margin-top: 0; font-family: var(--font-mono); }
+    .so-register-opportunity-impact { justify-self: end; text-align: right; }
+    .so-register-opportunity-impact strong { display: block; margin-top: var(--space-1); font-size: 11px; }
+    .so-register-artifacts { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); }
+    .so-register-artifacts h3 { margin: 0; font-size: 13px; }
+    .so-register-artifacts p { margin: var(--space-1) 0 0; color: var(--foreground-secondary); font-size: 11px; }
+    .so-register-artifact-list { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
     @media (max-width: 1440px) {
       .so-model-catalog,
       .so-recommendation-grid,
       .so-scenario-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .so-profile-grid,
       .so-resource-layout { grid-template-columns: 1fr; }
+      .so-register-decision { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .so-register-decision-main { grid-column: 1 / -1; }
     }
     @media (max-width: 860px) {
       .so-model-catalog,
@@ -2259,6 +2332,21 @@ button.operator-tree-toggle:hover {
       .so-readiness-items { grid-template-columns: 1fr; }
       .so-model-readiness { grid-template-columns: 1fr; }
       .so-attribute-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .so-register-flow,
+      .so-register-config-grid,
+      .so-register-scope,
+      .so-register-decision { grid-template-columns: 1fr; }
+      .so-register-decision-main { grid-column: auto; }
+      .so-register-level,
+      .so-register-progress { grid-template-columns: 1fr; }
+      .so-register-check-row,
+      .so-register-opportunity { grid-template-columns: 32px minmax(0, 1fr); }
+      .so-register-check-row > span,
+      .so-register-check-row .so-status,
+      .so-register-opportunity-evidence,
+      .so-register-opportunity-impact { grid-column: 2; justify-self: start; text-align: left; }
+      .so-register-artifacts { align-items: flex-start; flex-direction: column; }
+      .so-register-artifact-list { justify-content: flex-start; }
     }
   </style>
   <link rel="stylesheet" href="../Design/Toolkit%20Studio/styles/profiler.css?v=20260821-3">
@@ -2562,6 +2650,14 @@ button.operator-tree-toggle:hover {
         modelHardware: null,
         modelView: 'architecture',
         selectedModelOperator: 'mla_prolog',
+        modelRegistration: {
+          modelId: 'deepseek-v4',
+          hardwareId: 'ascend-a2-16',
+          checkpointPath: '/data/models/deepseek-v4-w8a8',
+          referenceBackend: 'pytorch-eager',
+          runtime: 'CANN 8.3.RC1',
+          status: 'idle'
+        },
         explorerSections: { model: false, scenarios: false, observe: true },
         scenarioCreatedNotice: null,
         scenarioDraft: {
@@ -2705,11 +2801,53 @@ button.operator-tree-toggle:hover {
         { id: 'lm-head', label: 'LM Head', short: 'Logits + sampling', kind: 'head', color: '#6f7c91', detail: 'Vocabulary projection · sampling output', tensor: 'logits [B,V]', placement: 'TP gather' }
       ];
 
+      var registrationModelCatalog = {
+        'deepseek-v4': {
+          name: 'DeepSeek V4',
+          precision: 'W8A8',
+          architecture: 'Decoder-only MoE · MLA · MTP',
+          checkpoint: '160 safetensors shards · 702 GB',
+          config: 'config.json · deepseek_v4',
+          tokenizer: 'tokenizer.json · vocab 129,280',
+          customCode: 'modeling_deepseek_v4.py · 7 custom ops',
+          peakHbm: 824,
+          path: '/data/models/deepseek-v4-w8a8'
+        },
+        'qwen3-235b': {
+          name: 'Qwen3 235B-A22B',
+          precision: 'BF16',
+          architecture: 'Decoder-only MoE · GQA',
+          checkpoint: '48 safetensors shards · 470 GB',
+          config: 'config.json · qwen3_moe',
+          tokenizer: 'tokenizer.json · vocab 151,936',
+          customCode: 'modeling_qwen3_moe.py · 4 custom ops',
+          peakHbm: 612,
+          path: '/data/models/qwen3-235b-a22b'
+        },
+        'llama4-maverick': {
+          name: 'Llama 4 Maverick',
+          precision: 'BF16',
+          architecture: 'Multimodal MoE · GQA',
+          checkpoint: '64 safetensors shards · 802 GB',
+          config: 'config.json · llama4_moe',
+          tokenizer: 'tokenizer.json · vocab 202,048',
+          customCode: 'modeling_llama4.py · vision + 5 custom ops',
+          peakHbm: 968,
+          path: '/data/models/llama4-maverick'
+        }
+      };
+
+      var registrationHardwareCatalog = {
+        'ascend-a2-16': { name: 'Ascend A2 64 GB × 16', topology: '2 nodes · 8 devices / node', capacity: '1,024 GB HBM', capacityGb: 1024, runtime: 'CANN 8.3.RC1', target: 'AICore + HCCL' },
+        'ascend-a3-16': { name: 'Ascend A3 96 GB × 16', topology: '2 nodes · 8 devices / node', capacity: '1,536 GB HBM', capacityGb: 1536, runtime: 'CANN 8.5', target: 'AICore + HCCL' },
+        'ascend-950-8': { name: 'Ascend 950 192 GB × 8', topology: '1 node · 8 devices', capacity: '1,536 GB HBM', capacityGb: 1536, runtime: 'CANN 9.0', target: 'Cube + Vector + HCCL' }
+      };
+
       function selectedModelLayer(draft) {
         return modelLayerCatalog.find(function (item) { return item.id === draft.modelLayer; }) || modelLayerCatalog[0];
       }
 
-      var validRoutes = ['workspace', 'model', 'scenarios', 'scenario-new', 'observe', 'run'];
+      var validRoutes = ['workspace', 'model', 'model-register', 'scenarios', 'scenario-new', 'observe', 'run'];
       function syncFromHash() {
         var raw = window.location.hash.replace(/^#\/?/, '');
         if (!raw) return;
@@ -3500,7 +3638,11 @@ button.operator-tree-toggle:hover {
         ];
         function accordion(id, label, icon, count, active, children) {
           var expanded = state.explorerSections[id];
-          var createAction = id === 'scenarios' ? '<button class="so-button ghost so-nav-create" type="button" data-explorer-create-scenario aria-label="创建 Scenario" title="创建 Scenario"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>' : '';
+          var createAction = id === 'model'
+            ? '<button class="so-button ghost so-nav-create" type="button" data-explorer-register-model aria-label="注册模型" title="注册模型"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>'
+            : id === 'scenarios'
+              ? '<button class="so-button ghost so-nav-create" type="button" data-explorer-create-scenario aria-label="创建 Scenario" title="创建 Scenario"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>'
+              : '';
           return '<div class="so-nav-accordion"><div class="so-nav-accordion-header"><button class="so-nav-accordion-trigger ' + (active ? 'is-active' : '') + '" type="button" data-explorer-section="' + id + '" aria-expanded="' + expanded + '" aria-controls="explorer-' + id + '"><span>' + icon + ' ' + label + '</span><span><span class="so-nav-count">' + esc(String(count)) + '</span><span class="so-nav-accordion-chevron" aria-hidden="true">›</span></span></button>' + createAction + '</div><div class="so-nav-accordion-children" id="explorer-' + id + '"' + (expanded ? '' : ' hidden') + '>' + children + '</div></div>';
         }
         var modelChildren = modelItems.map(function (item) {
@@ -3518,7 +3660,7 @@ button.operator-tree-toggle:hover {
         var html = '';
         html += '<div class="so-nav-group"><div class="so-nav-group-title">WORKSPACE</div>';
         html += '<button class="so-nav-item ' + (state.route === 'workspace' ? 'is-active' : '') + '" data-route="workspace"><span>⌂ Workspace</span><span class="so-nav-count">1</span></button>';
-        html += accordion('model', 'Model', '◈', modelItems.length, state.route === 'model', modelChildren);
+        html += accordion('model', 'Model', '◈', modelItems.length, state.route === 'model' || state.route === 'model-register', modelChildren);
         html += accordion('scenarios', 'Scenarios', '◇', scenarios.length, state.route === 'scenarios' || state.route === 'scenario-new', scenarioChildren);
         html += accordion('observe', 'Observe', '◉', runs.length, state.route === 'observe' || state.route === 'run', runChildren);
         html += '</div>';
@@ -3544,6 +3686,12 @@ button.operator-tree-toggle:hover {
           state.route = 'scenario-new';
           state.scenarioCreatedNotice = null;
           state.explorerSections.scenarios = true;
+          render();
+        });
+        var registerModel = explorer.querySelector('[data-explorer-register-model]');
+        if (registerModel) registerModel.addEventListener('click', function () {
+          state.route = 'model-register';
+          state.explorerSections.model = true;
           render();
         });
         explorer.querySelectorAll('[data-explorer-run]').forEach(function (el) {
@@ -3580,7 +3728,7 @@ button.operator-tree-toggle:hover {
       }
 
       function header(title, description, actions) {
-        var eyebrow = state.route === 'model' ? 'MODEL' : state.route === 'workspace' ? 'WORKSPACE' : state.route === 'scenarios' ? 'SCENARIOS' : state.route === 'scenario-new' ? 'SCENARIO / NEW' : state.route === 'run' ? 'CONTROLLED RUN' : 'OBSERVE / ' + state.observeTab;
+        var eyebrow = state.route === 'model-register' ? 'MODEL / REGISTER' : state.route === 'model' ? 'MODEL' : state.route === 'workspace' ? 'WORKSPACE' : state.route === 'scenarios' ? 'SCENARIOS' : state.route === 'scenario-new' ? 'SCENARIO / NEW' : state.route === 'run' ? 'CONTROLLED RUN' : 'OBSERVE / ' + state.observeTab;
         var html = '<div class="so-content-header"><div><div class="so-eyebrow">' + esc(eyebrow) + '</div><h1>' + esc(title) + '</h1>' + (description ? '<p>' + esc(description) + '</p>' : '') + '</div><div class="so-header-actions">' + (actions || '') + '</div></div>';
         return state.route === 'observe' ? html + observeContextBar() : html;
       }
@@ -5688,11 +5836,12 @@ button.operator-tree-toggle:hover {
         } else if (state.route === 'scenarios') html = renderScenarios();
         else if (state.route === 'scenario-new') html = renderScenarioNew();
         else if (state.route === 'run') html = renderRun();
+        else if (state.route === 'model-register') html = '';
         else html = renderSimple(state.route);
         main.innerHTML = html;
         document.querySelector('.so-workarea').classList.toggle('is-scenarios', state.route === 'scenarios');
         document.querySelector('.so-workarea').classList.toggle('is-scenario-new', state.route === 'scenario-new');
-        document.querySelector('.so-workarea').classList.toggle('is-model', state.route === 'model');
+        document.querySelector('.so-workarea').classList.toggle('is-model', state.route === 'model' || state.route === 'model-register');
         renderExplorer();
         renderLatestRunHeader();
         document.getElementById('inspector-content').innerHTML = state.route === 'scenario-new' ? '' : renderInspector();
