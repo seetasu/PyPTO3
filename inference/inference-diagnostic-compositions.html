@@ -2583,204 +2583,9 @@ button.operator-tree-toggle:hover {
 .diag-compositions .paper-note h3 {font-size:16px;margin-bottom:8px}
 .diag-compositions .paper-note p {color:#6d5d38}
 .diag-compositions .canvas-note {position:absolute;left:5%;bottom:3%;color:#aead9d;font-size:11px}
-/* D: diagnostic reasoning lives in a free canvas; evidence remains attached data, not graph topology. */
-.diag-compositions #composition-graph .composition-viewport {min-height:calc(100vh - 260px);overflow:visible}
-.diag-compositions .diagnostic-graph {position:relative;width:100%;min-width:820px;min-height:max(880px,calc(100vh - 260px));height:auto;overflow:visible;border:1px solid #343733;background-color:#171918;background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:28px 28px}
-.diag-compositions .dg-zone {position:absolute;top:14px;color:#6f746e;font:10px/1.2 var(--font-mono);letter-spacing:.08em;text-transform:uppercase}
-.diag-compositions .dg-zone::after {content:'';display:inline-block;width:34px;margin-left:8px;border-top:1px solid #3e423d;vertical-align:3px}
-.diag-compositions .dg-zone-a {left:2.5%}.diag-compositions .dg-zone-b {left:34%}.diag-compositions .dg-zone-c {left:72%}
-.diag-compositions .dg-links {position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.diag-compositions .dg-link {fill:none;stroke:#59615a;stroke-width:1;vector-effect:non-scaling-stroke;transition:opacity 170ms ease,stroke 170ms ease,stroke-width 170ms ease}
-.diag-compositions .dg-link.primary {stroke:#a88b70;stroke-width:1.8}.diag-compositions .dg-link.support {stroke:#626a62;stroke-width:.85}.diag-compositions .dg-link.uncertain {stroke:#777568;stroke-dasharray:5 5}.diag-compositions .dg-link.quiet {stroke:#474c47;stroke-width:.7}
-.diag-compositions .dg-object {position:absolute;z-index:2;transition:opacity 170ms ease,filter 170ms ease,transform 170ms ease}
-.diag-compositions .diagnostic-graph.is-rel-focus .dg-object:not(.is-linked),.diag-compositions .diagnostic-graph.is-rel-focus .dg-link:not(.is-linked) {opacity:.32}
-.diag-compositions .diagnostic-graph.is-rel-focus .is-linked {opacity:1;filter:brightness(1.16)}
-.diag-compositions .diagnostic-graph.is-rel-focus .dg-link.is-linked {stroke:#e0b18a;stroke-width:2.2}
-.diag-compositions .dg-label {display:block;margin-bottom:8px;color:#838a82;font:9px/1.2 var(--font-mono);letter-spacing:.08em;text-transform:uppercase}
-.diag-compositions .dg-finding {left:2.5%;top:58px;width:21.5%;padding:15px 16px;border-left:3px solid #d7ad86;background:#2d2b26}
-.diag-compositions .dg-finding h2 {font-size:16px;font-weight:500}.diag-compositions .dg-finding strong {display:block;margin:5px 0 8px;color:#f1c9a2;font-size:34px;font-weight:450;letter-spacing:-2px}
-.diag-compositions .dg-finding .dg-metrics {display:flex;gap:12px;padding-top:8px;border-top:1px solid #555047;color:#b8b3a9;font:9px/1.4 var(--font-mono)}
-.diag-compositions .dg-finding p {margin-top:7px;color:#a6a59e;font-size:9px;line-height:1.4}
-.diag-compositions .dg-node {padding:11px 13px;border:1px solid #555b54;background:#242724;color:#d7dbd4}
-.diag-compositions .dg-node h3 {font-size:15px;font-weight:500}.diag-compositions .dg-node strong {display:block;margin-top:4px;color:#d8b08c;font:20px/1.1 var(--font-mono);font-weight:500}
-.diag-compositions .dg-node p {margin-top:5px;color:#929991;font-size:9px;line-height:1.45}
-.diag-compositions .dg-decode {left:25.5%;top:248px;width:15.5%}.diag-compositions .dg-rank2 {left:42.5%;top:238px;width:14.5%;background:#c8cabb;color:#252a22;border:0}.diag-compositions .dg-rank2 .dg-label,.diag-compositions .dg-rank2 p {color:#555c50}.diag-compositions .dg-rank2 strong {color:#394131}
-.diag-compositions .dg-cause {min-width:86px;padding:8px 10px;border:0;background:transparent;color:#929890;font:11px/1.2 var(--font-mono);cursor:default;text-align:left}
-.diag-compositions .dg-cause::before {content:'';display:inline-block;width:7px;height:7px;margin-right:8px;border:1px solid #697069;border-radius:50%;vertical-align:0}
-.diag-compositions .dg-cause:hover,.diag-compositions .dg-cause:focus-visible {outline:none;color:#d4d8d1}
-.diag-compositions .dg-cause .dg-tip {position:absolute;left:50%;bottom:calc(100% + 7px);width:166px;padding:8px 9px;transform:translateX(-50%) translateY(3px);border:1px solid #50564f;background:#202320;color:#bfc4bd;font:9px/1.55 var(--font-sans);opacity:0;pointer-events:none;transition:opacity 160ms ease,transform 160ms ease}
-.diag-compositions .dg-cause:hover .dg-tip,.diag-compositions .dg-cause:focus-visible .dg-tip {opacity:1;transform:translateX(-50%) translateY(0)}
-.diag-compositions .dg-device {left:32%;top:400px}.diag-compositions .dg-memory {left:38%;top:474px}.diag-compositions .dg-kernel {left:46%;top:406px}
-.diag-compositions .dg-comm {left:47%;top:535px;color:#c1b27d;border-bottom:1px dashed #8b805c}.diag-compositions .dg-comm::before {border-color:#a09262;background:#615a42}
-.diag-compositions .dg-routing {left:57%;top:390px;width:12.5%;padding:13px 14px;border-color:#a28266;background:#342e28}.diag-compositions .dg-routing h3 {font-size:17px}.diag-compositions .dg-routing strong {font-size:25px}
-.diag-compositions .dg-evidence {padding:7px 9px;border:0;border-top:1px solid #484e48;background:rgba(27,30,28,.72);color:#acb1aa;text-align:left;cursor:pointer}
-.diag-compositions .dg-evidence:hover,.diag-compositions .dg-evidence:focus-visible {outline:1px solid #777c74;outline-offset:2px}.diag-compositions .dg-evidence[aria-expanded="true"] {z-index:5;background:#20231f;box-shadow:0 10px 30px rgba(0,0,0,.28)}
-.diag-compositions .dg-evidence .dg-label {margin-bottom:6px}.diag-compositions .dg-evidence p {margin-top:6px;color:#91978f;font-size:9px;line-height:1.45}.diag-compositions .dg-evidence .dg-more {display:none;margin-top:7px;padding-top:6px;border-top:1px solid #3f443f;color:#c3c7c0;font:9px/1.55 var(--font-mono)}
-.diag-compositions .dg-evidence[aria-expanded="true"] .dg-more {display:block}
-.diag-compositions .dg-phase {left:4%;top:350px;width:19%}.diag-compositions .dg-phase-grid {display:grid;grid-template-columns:42px 1fr 1fr;gap:4px 8px;align-items:center;color:#828981;font:9px/1.2 var(--font-mono)}.diag-compositions .dg-phase-grid b {color:#d8b08c;font-weight:500}
-.diag-compositions .dg-ranks {left:29.5%;top:53px;width:29%}.diag-compositions .dg-bars {display:grid;grid-template-columns:22px 1fr 32px;gap:3px 6px;align-items:center;color:#747b74;font:8px/1 var(--font-mono)}.diag-compositions .dg-bars i {height:4px;width:var(--w);background:#5b645c}.diag-compositions .dg-bars .hot,.diag-compositions .dg-bars b {color:#ddaf86}.diag-compositions .dg-bars i.hot {height:6px;background:#c29068}
-.diag-compositions .dg-kernels {left:32%;top:638px;width:19%}.diag-compositions .dg-kernel-dots {display:flex;gap:4px;align-items:end;height:24px}.diag-compositions .dg-kernel-dots i {width:6px;height:var(--h);background:#555d56}
-.diag-compositions .dg-route-chart {left:53.5%;top:748px;width:14.5%}.diag-compositions .dg-route-dots {display:flex;align-items:end;gap:5px;height:32px}.diag-compositions .dg-route-dots i {width:7px;height:var(--h);background:#606a61}.diag-compositions .dg-route-dots i.hot {background:#c08b64}
-.diag-compositions .dg-expert {left:68.5%;top:63px;width:16.5%}.diag-compositions .dg-expert-bars {display:flex;align-items:end;gap:5px;height:49px}.diag-compositions .dg-expert-bars i {width:9px;height:var(--h);background:#5b655b}.diag-compositions .dg-expert-bars i.hot {background:#b98763}.diag-compositions .dg-expert strong {color:#ddb18a;font:10px/1.5 var(--font-mono)}
-.diag-compositions .dg-placement {left:65%;top:220px;width:13%}.diag-compositions .dg-placement-row {display:grid;grid-template-columns:29px 1fr 1fr;gap:4px;color:#858b83;font:8px/1.4 var(--font-mono)}.diag-compositions .dg-placement-row b {color:#d8b08c}.diag-compositions .dg-placement-row em {color:#adb3ab;font-style:normal}
-.diag-compositions .dg-hypothesis {left:61.5%;top:608px;width:16.5%;padding:11px 12px;border:1px dashed #817c6f;background:#252621}.diag-compositions .dg-hypothesis h3 {font-size:12px;font-weight:500;line-height:1.3}.diag-compositions .dg-hypothesis p {margin-top:6px;color:#92958d;font-size:8.5px;line-height:1.4}
-.diag-compositions .dg-diagnosis {right:2.5%;top:438px;width:18%;padding:13px;border-left:3px solid #c7cbb6;background:#d3d3c5;color:#252a22}.diag-compositions .dg-diagnosis .dg-label {color:#63695d}.diag-compositions .dg-diagnosis h2 {font-size:15px;font-weight:550;line-height:1.25}.diag-compositions .dg-diagnosis p {margin-top:6px;color:#575d52;font-size:8.5px;line-height:1.4}.diag-compositions .dg-advice {margin-top:10px;padding-top:9px;border-top:1px solid #a7aa9c}.diag-compositions .dg-advice b {display:block;margin:3px 0;color:#2f392a;font-size:10.5px}.diag-compositions .dg-advice small {display:block;margin-top:5px;color:#62685d;font-size:8px;line-height:1.4}
-.diag-compositions .dg-note {position:absolute;z-index:1;color:#727870;font-size:9px;line-height:1.45}.diag-compositions .dg-note em {color:#b59b7f;font-style:normal}.diag-compositions .dg-note-phase {left:20.5%;top:194px;width:18%}.diag-compositions .dg-note-rank {left:45%;top:190px}.diag-compositions .dg-note-route {left:59%;top:344px}
-/* D / revision 2: one readable backbone with evidence kept inside its local stage. */
-.diag-compositions .diagnostic-backbone {width:100%;min-width:1120px;min-height:max(760px,calc(100vh - 260px));padding:24px 24px 40px;border:1px solid #343733;background-color:#171918;background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);background-size:28px 28px;color:#d8dbd5}
-.diag-compositions .db-kicker {display:flex;align-items:center;justify-content:space-between;gap:20px;color:#777d76;font:9px/1.3 var(--font-mono);letter-spacing:.08em;text-transform:uppercase}
-.diag-compositions .db-kicker span:last-child {color:#a0917e;text-transform:none;letter-spacing:0}
-.diag-compositions .db-path-summary {margin:17px 0 0;padding:12px 14px;border-left:2px solid #b58d6e;background:#20221f;color:#d8dbd5;font:12px/1.4 var(--font-mono);white-space:nowrap}
-.diag-compositions .db-path-summary b {color:#dfb18a;font-weight:600}
-.diag-compositions .db-rail {display:grid;grid-template-columns:1.14fr .78fr 1.18fr .78fr 1.25fr .9fr;gap:20px;align-items:start;margin-top:28px}
-.diag-compositions .db-stage {position:relative;min-width:0;min-height:570px}
-.diag-compositions .db-stage:not(:last-child)::after {content:'›';position:absolute;top:55px;left:calc(100% + 5px);z-index:2;width:10px;color:#c09a79;font:22px/1 var(--font-mono);text-align:center}
-.diag-compositions .db-node {position:relative;z-index:2;height:136px;padding:13px 14px;border:1px solid #555b54;background:#252825;color:#d9ddd6}
-.diag-compositions .db-node::after {content:'';position:absolute;top:64px;left:100%;width:20px;border-top:2px solid #9e8169}
-.diag-compositions .db-stage:last-child .db-node::after {display:none}
-.diag-compositions .db-node-label {display:block;margin-bottom:10px;color:#858c84;font:9px/1.25 var(--font-mono);letter-spacing:.08em;text-transform:uppercase}
-.diag-compositions .db-node h2,.diag-compositions .db-node h3 {margin:0;font-weight:530;line-height:1.22}.diag-compositions .db-node h2 {font-size:18px}.diag-compositions .db-node h3 {font-size:15px}
-.diag-compositions .db-node strong {display:block;margin-top:7px;color:#e0b18a;font:25px/1 var(--font-mono);font-weight:500;letter-spacing:-1px}
-.diag-compositions .db-node p {margin-top:7px;color:#989f97;font-size:9px;line-height:1.45}
-.diag-compositions .db-node-finding {border-left:3px solid #d0a47f;background:#322e29}.diag-compositions .db-node-finding strong {font-size:32px}
-.diag-compositions .db-node-promoted {background:#c8cabb;color:#272c24;border:0}.diag-compositions .db-node-promoted .db-node-label,.diag-compositions .db-node-promoted p {color:#596055}.diag-compositions .db-node-promoted strong {color:#424b3b}
-.diag-compositions .db-node-abnormal {border-color:#a67d5f;background:#372f29}.diag-compositions .db-node-abnormal strong {font-size:29px}
-.diag-compositions .db-node-diagnosis {border:0;background:#d1d1c4;color:#272c24}.diag-compositions .db-node-diagnosis .db-node-label,.diag-compositions .db-node-diagnosis p {color:#5f665b}
-.diag-compositions .db-node-action {border-color:#9b9f8f;background:#22251f}.diag-compositions .db-node-action h3 {font-size:16px}.diag-compositions .db-node-action strong {font-size:12px;line-height:1.35;letter-spacing:0}
-.diag-compositions .db-local {position:relative;margin-top:24px;padding-top:16px;border-top:1px solid #40453f;color:#858b84;font-size:9px;line-height:1.45}
-.diag-compositions .db-local::before {content:'';position:absolute;left:14px;bottom:100%;height:25px;border-left:1px solid #4c524c}
-.diag-compositions .db-local-title {display:block;margin-bottom:9px;color:#747b74;font:9px/1.25 var(--font-mono);letter-spacing:.07em;text-transform:uppercase}
-.diag-compositions .db-support-metrics {display:grid;gap:7px}.diag-compositions .db-support-metrics span {display:flex;justify-content:space-between;gap:8px;padding-bottom:5px;border-bottom:1px solid #30342f}.diag-compositions .db-support-metrics b {color:#c8ccc5;font-family:var(--font-mono);font-weight:500}
-.diag-compositions .db-checks {display:grid;gap:7px;margin-bottom:14px}.diag-compositions .db-check {display:flex;align-items:center;gap:7px;color:#696f69}.diag-compositions .db-check::before {content:'✓';color:#656d66;font-family:var(--font-mono)}
-.diag-compositions .db-check.is-unresolved {color:#b0a371}.diag-compositions .db-check.is-unresolved::before {content:'?';display:grid;width:13px;height:13px;place-items:center;border:1px dashed #8f835b;border-radius:50%;font-size:8px}
-.diag-compositions .db-cause-cluster {display:grid;gap:7px;margin-top:17px;padding:12px 0 0;border-top:1px dashed #3e433e}.diag-compositions .db-cause-cluster .db-local-title {margin-bottom:2px}
-.diag-compositions .db-cause-cluster small {display:block;margin:-2px 0 2px 20px;color:#696f69;font-size:8px;line-height:1.4}
-.diag-compositions .db-evidence-toggle {position:relative;display:block;width:100%;min-height:43px;margin:0 0 10px;padding:8px 9px;border:1px solid #404640;border-left:2px solid #687168;background:#1e211f;color:#aeb4ad;text-align:left;cursor:pointer;transition:border-color 160ms ease,background 160ms ease,margin 160ms ease}
-.diag-compositions .db-evidence-toggle:hover,.diag-compositions .db-evidence-toggle:focus-visible {outline:none;border-color:#8a8f86;background:#242824}
-.diag-compositions .db-evidence-toggle[aria-expanded="true"] {z-index:12;margin-bottom:var(--shot-space,190px);border-color:#c09a79;background:#292923}
-.diag-compositions .db-evidence-head {display:flex;align-items:center;justify-content:space-between;gap:8px;color:#aeb4ad;font:9px/1.3 var(--font-mono)}
-.diag-compositions .db-evidence-head::after {content:'展开 ↘';color:#887d70;font-family:var(--font-sans)}.diag-compositions .db-evidence-toggle[aria-expanded="true"] .db-evidence-head::after {content:'收起 ↖';color:#c39a77}
-.diag-compositions .db-evidence-summary {display:block;margin-top:5px;color:#6f766f;font-size:8px;line-height:1.35}
-.diag-compositions .db-evidence-shot {display:none;position:absolute;top:calc(100% + 10px);left:0;z-index:20;width:272px;min-height:158px;padding:15px 16px;border:1px solid #9a9c90;background:#d2d2c7;color:#30342e;box-shadow:0 17px 36px rgba(0,0,0,.38);transform:rotate(var(--shot-angle,-1deg));transform-origin:20px 0;cursor:default}
-.diag-compositions .db-evidence-toggle[aria-expanded="true"] .db-evidence-shot {display:block}
-.diag-compositions .db-evidence-shot::before {content:'';position:absolute;top:-6px;left:22px;width:48px;height:12px;background:rgba(185,175,151,.68);transform:rotate(2deg)}
-.diag-compositions .db-evidence-shot h4 {margin:0 0 10px;color:#3c4139;font:9px/1.3 var(--font-mono);letter-spacing:.06em;text-transform:uppercase}
-.diag-compositions .db-shot-note {display:block;margin-top:9px;padding-top:7px;border-top:1px solid #aaada0;color:#62685e;font-size:8px;line-height:1.4}
-.diag-compositions .db-shot-table {display:grid;grid-template-columns:52px 1fr 1fr;gap:5px 10px;color:#5c6259;font:9px/1.2 var(--font-mono)}.diag-compositions .db-shot-table b {color:#855b40;font-weight:600}
-.diag-compositions .db-shot-bars {display:grid;grid-template-columns:23px 1fr 33px;gap:4px 7px;align-items:center;color:#60675e;font:8px/1 var(--font-mono)}.diag-compositions .db-shot-bars i {height:5px;width:var(--w);background:#758074}.diag-compositions .db-shot-bars i.hot {height:7px;background:#a56f4e}.diag-compositions .db-shot-bars b {color:#83583f}
-.diag-compositions .db-shot-experts {display:flex;align-items:end;gap:8px;height:70px;margin-top:5px}.diag-compositions .db-shot-experts i {width:13px;height:var(--h);background:#788276}.diag-compositions .db-shot-experts i.hot {background:#a46d4b}.diag-compositions .db-shot-labels {display:flex;justify-content:space-between;margin-top:7px;color:#5e645b;font:9px/1.2 var(--font-mono)}
-.diag-compositions .db-stage:nth-child(2) .db-evidence-shot {--shot-angle:-1.3deg}.diag-compositions .db-stage:nth-child(3) .db-evidence-shot {--shot-angle:.9deg;left:50%;transform:translateX(-50%) rotate(var(--shot-angle))}.diag-compositions .db-stage:nth-child(4) .db-evidence-shot {--shot-angle:-.7deg;left:50%;transform:translateX(-50%) rotate(var(--shot-angle))}.diag-compositions .db-stage:nth-child(5) .db-evidence-shot {--shot-angle:.8deg;left:auto;right:0;transform:rotate(var(--shot-angle))}
-.diag-compositions .db-converge {position:relative;margin-top:12px;padding-left:12px;border-left:1px solid #5b625a}.diag-compositions .db-converge::after {content:'汇聚到诊断结论 ↑';display:block;margin:10px 0 4px;color:#a88c73;font:8px/1.3 var(--font-mono)}
-.diag-compositions .db-validate {display:grid;gap:7px}.diag-compositions .db-validate span {padding-left:11px;color:#777e77}.diag-compositions .db-validate span::before {content:'·';margin-left:-11px;margin-right:7px;color:#ac8b70}
-/* D / revision 3: a guided narrative embedded in a graph-shaped investigation space. */
-.diag-compositions .guided-graph {position:relative;width:100%;min-width:1160px;min-height:max(1050px,calc(100vh - 260px));overflow:visible;border:1px solid #343733;background-color:#171918;background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);background-size:28px 28px;color:#d8dbd5}
-.diag-compositions .gg-context {position:absolute;top:22px;left:26px;right:26px;display:flex;justify-content:space-between;color:#747a73;font:9px/1.3 var(--font-mono);letter-spacing:.06em;text-transform:uppercase}
-.diag-compositions .gg-context span:last-child {color:#988b7b;text-transform:none;letter-spacing:0}
-.diag-compositions .gg-links {position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.diag-compositions .gg-link {fill:none;vector-effect:non-scaling-stroke}
-.diag-compositions .gg-link.main {stroke:#b28b6d;stroke-width:2.1;marker-end:url(#gg-arrow)}
-.diag-compositions .gg-link.evidence {stroke:#687068;stroke-width:1.05;marker-end:url(#gg-arrow-muted)}
-.diag-compositions .gg-link.quiet {stroke:#454b46;stroke-width:.8}
-.diag-compositions .gg-link.unresolved {stroke:#887e59;stroke-width:1;stroke-dasharray:5 5}
-.diag-compositions .gg-anchor,.diag-compositions .gg-promoted,.diag-compositions .gg-node,.diag-compositions .gg-hypothesis,.diag-compositions .gg-cause,.diag-compositions .gg-evidence-toggle,.diag-compositions .gg-route-evidence {position:absolute;z-index:2}
-.diag-compositions .gg-label {display:block;margin-bottom:8px;color:#818880;font:9px/1.25 var(--font-mono);letter-spacing:.08em;text-transform:uppercase}
-.diag-compositions .gg-finding {left:2.5%;top:70px;width:230px;padding:18px 19px 16px;border-left:4px solid #d6a67f;background:#312d27;box-shadow:0 13px 30px rgba(0,0,0,.18)}
-.diag-compositions .gg-finding h2 {margin:0;font-size:20px;font-weight:540}.diag-compositions .gg-finding strong {display:block;margin:5px 0 11px;color:#efc39b;font:40px/1 var(--font-mono);font-weight:450;letter-spacing:-2px}
-.diag-compositions .gg-anchor-metrics {display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:10px;border-top:1px solid #5a5249;color:#b7b1a7;font:9px/1.45 var(--font-mono)}
-.diag-compositions .gg-anchor-note {margin-top:9px;color:#a09f98;font-size:9px;line-height:1.45}
-.diag-compositions .gg-decode {left:24%;top:226px;width:136px;padding:4px 4px 10px;border-bottom:2px solid #9d795f;background:transparent}
-.diag-compositions .gg-node h3 {margin:0;font-size:16px;font-weight:520}.diag-compositions .gg-node strong {display:block;margin-top:5px;color:#d9aa83;font:22px/1 var(--font-mono);font-weight:500}.diag-compositions .gg-node p {margin-top:6px;color:#888f88;font-size:9px;line-height:1.4}
-.diag-compositions .gg-rank2 {left:54%;top:202px;width:174px;padding:15px 16px;background:#cdcdc1;color:#272c25;box-shadow:0 15px 28px rgba(0,0,0,.2)}
-.diag-compositions .gg-rank2 .gg-label,.diag-compositions .gg-rank2 p {color:#5a6157}.diag-compositions .gg-rank2 h3 {font-size:20px}.diag-compositions .gg-rank2 strong {color:#434c3d;font-size:28px}
-.diag-compositions .gg-routing {left:69.5%;top:420px;width:150px;padding:12px 14px;border-left:3px solid #ba8c69;background:#342e28}
-.diag-compositions .gg-routing h3 {font-size:17px}.diag-compositions .gg-routing strong {font-size:27px}.diag-compositions .gg-routing .gg-label {color:#9b8573}
-.diag-compositions .gg-evidence-toggle {padding:8px 2px 7px;border:0;border-top:1px solid #4d544e;background:transparent;color:#aeb4ad;text-align:left;cursor:pointer}
-.diag-compositions .gg-evidence-toggle:hover,.diag-compositions .gg-evidence-toggle:focus-visible {outline:none;border-top-color:#b18a6c;color:#d4d8d1}
-.diag-compositions .gg-evidence-toggle[aria-expanded="true"] {z-index:20;border-top-color:#d0a17c}
-.diag-compositions .gg-evidence-toggle[aria-expanded="true"] .db-evidence-shot {display:block}
-.diag-compositions .gg-evidence-name {display:flex;justify-content:space-between;gap:8px;margin-bottom:7px;color:#949b93;font:9px/1.25 var(--font-mono)}
-.diag-compositions .gg-evidence-name::after {content:'展开 ↘';color:#7b7064;font-family:var(--font-sans)}.diag-compositions .gg-evidence-toggle[aria-expanded="true"] .gg-evidence-name::after {content:'收起 ↖';color:#c49a77}
-.diag-compositions .gg-phase-evidence {left:22%;top:330px;width:165px;color:#646b65}
-.diag-compositions .gg-phase-evidence>span:not(.db-evidence-shot) {display:block;margin:5px 0;font:8px/1.2 var(--font-mono)}.diag-compositions .gg-phase-evidence b {color:#777f78;font-weight:500}.diag-compositions .gg-phase-evidence>.db-evidence-shot {display:none}.diag-compositions .gg-phase-evidence[aria-expanded="true"]>.db-evidence-shot {display:block}
-.diag-compositions .gg-rank-evidence {left:36%;top:82px;width:224px}
-.diag-compositions .gg-mini-bars {display:grid;grid-template-columns:24px 1fr 32px;gap:4px 7px;align-items:center;color:#697169;font:8px/1 var(--font-mono)}
-.diag-compositions .gg-mini-bars i {display:block;height:4px;width:var(--w);background:#586159}.diag-compositions .gg-mini-bars i.hot {height:7px;background:#b67d56}.diag-compositions .gg-mini-bars b {color:#d1a17d}
-.diag-compositions .gg-evidence-caption {display:block;margin-top:7px;color:#737a73;font-size:8px;line-height:1.35}
-.diag-compositions .gg-rank-evidence .db-evidence-shot {top:calc(100% + 11px);left:18px;--shot-angle:-1deg}
-.diag-compositions .gg-phase-evidence .db-evidence-shot {top:calc(100% + 10px);left:-15px;--shot-angle:.8deg}
-.diag-compositions .gg-cause-label {position:absolute;left:51%;top:347px;color:#6f766f;font:8px/1.2 var(--font-mono);letter-spacing:.08em;text-transform:uppercase}
-.diag-compositions .gg-cause {padding:4px 6px;border:0;background:transparent;color:#626963;font:9px/1.3 var(--font-mono)}
-.diag-compositions .gg-cause::before {content:'✓';margin-right:7px;color:#555d57}.diag-compositions .gg-device {left:48.5%;top:378px}.diag-compositions .gg-memory {left:52.5%;top:433px}.diag-compositions .gg-kernel {left:60.5%;top:395px}
-.diag-compositions .gg-communication {left:64%;top:344px;color:#aa9d70}.diag-compositions .gg-communication::before {content:'?';display:inline-grid;width:13px;height:13px;margin-right:7px;place-items:center;border:1px dashed #8d815b;border-radius:50%;color:#b0a474;font-size:8px}
-.diag-compositions .gg-cause small {display:block;margin:4px 0 0 20px;color:#555c57;font:8px/1.35 var(--font-sans)}
-.diag-compositions .gg-route-evidence {left:71%;top:555px;width:172px;padding-top:7px;border-top:1px solid #474e48;color:#767d76}
-.diag-compositions .gg-route-evidence .gg-mini-route {display:flex;align-items:end;gap:7px;height:35px;margin-top:7px}.diag-compositions .gg-mini-route i {width:9px;height:var(--h);background:#566057}.diag-compositions .gg-mini-route i.hot {background:#b67f58}
-.diag-compositions .gg-route-evidence p {margin-top:6px;font:8px/1.35 var(--font-mono)}.diag-compositions .gg-route-evidence b {color:#c89b78;font-weight:500}
-.diag-compositions .gg-expert-evidence {left:59%;top:650px;width:174px}.diag-compositions .gg-placement-evidence {left:77%;top:665px;width:178px}
-.diag-compositions .gg-expert-evidence .db-evidence-shot {top:auto;bottom:calc(100% + 10px);left:-18px;--shot-angle:-.8deg}.diag-compositions .gg-placement-evidence .db-evidence-shot {top:calc(100% + 10px);left:-35px;--shot-angle:1deg}
-.diag-compositions .gg-mini-experts {display:flex;align-items:end;gap:8px;height:42px}.diag-compositions .gg-mini-experts i {width:11px;height:var(--h);background:#586159}.diag-compositions .gg-mini-experts i.hot {background:#b57a53}
-.diag-compositions .gg-placement-map {display:grid;grid-template-columns:34px 1fr 1fr;gap:4px 8px;color:#6e756e;font:8px/1.25 var(--font-mono)}.diag-compositions .gg-placement-map b {color:#c39775}.diag-compositions .gg-placement-map em {color:#959c95;font-style:normal}
-.diag-compositions .gg-hypothesis {left:60%;top:820px;width:180px;padding:10px 12px;border:1px dashed #777466;background:rgba(35,37,33,.78)}
-.diag-compositions .gg-hypothesis .gg-label {margin-bottom:5px;color:#8f876d}.diag-compositions .gg-hypothesis h3 {margin:0;font-size:11px;font-weight:500;line-height:1.4}.diag-compositions .gg-hypothesis p {margin-top:5px;color:#777d75;font-size:8px;line-height:1.35}
-.diag-compositions .gg-diagnosis {right:2.5%;top:760px;width:235px;padding:16px 17px;border-left:4px solid #aeb49e;background:#d1d1c4;color:#272c24;box-shadow:0 16px 32px rgba(0,0,0,.2)}
-.diag-compositions .gg-diagnosis .gg-label {color:#61685d}.diag-compositions .gg-diagnosis h2 {margin:0;font-size:17px;font-weight:560;line-height:1.25}.diag-compositions .gg-diagnosis>p {margin-top:8px;color:#5b6157;font-size:9px;line-height:1.45}
-.diag-compositions .gg-advice {margin-top:12px;padding-top:10px;border-top:1px solid #a8aa9d}.diag-compositions .gg-advice span {display:block;color:#686f63;font:8px/1.2 var(--font-mono);letter-spacing:.08em}.diag-compositions .gg-advice b {display:block;margin:5px 0;color:#313a2c;font-size:12px}.diag-compositions .gg-advice small {color:#63695f;font-size:8px;line-height:1.45}
-.diag-compositions .gg-path-key {position:absolute;left:28px;bottom:20px;color:#646a64;font:8px/1.3 var(--font-mono)}.diag-compositions .gg-path-key b {color:#ae896c;font-weight:500}
-.diag-compositions .gg-toolbar {position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:flex-end;gap:6px;height:42px;padding:0 8px;border:1px solid #343733;border-bottom:0;background:#1d201e;color:#b9beb7}
-.diag-compositions .gg-toolbar button {display:grid;width:30px;height:28px;place-items:center;border:1px solid #505650;background:#282c29;color:#d2d6cf;font:14px/1 var(--font-mono);cursor:pointer}.diag-compositions .gg-toolbar button:hover,.diag-compositions .gg-toolbar button:focus-visible {outline:1px solid #ba8e6b;outline-offset:1px;border-color:#8a7768}.diag-compositions .gg-toolbar button:last-child {width:auto;padding:0 10px;font:12px/1 var(--font-sans)}
-.diag-compositions .gg-toolbar span {min-width:48px;color:#c7ccc4;font:12px/1 var(--font-mono);text-align:center}
-.diag-compositions .guided-graph :is(.gg-context,.gg-label,.gg-anchor-metrics,.gg-anchor-note,.gg-node p,.gg-evidence-name,.gg-evidence-caption,.gg-phase-evidence>span:not(.db-evidence-shot),.gg-mini-bars,.gg-cause-label,.gg-cause,.gg-cause small,.gg-route-evidence p,.gg-placement-map,.gg-hypothesis h3,.gg-hypothesis p,.gg-diagnosis>p,.gg-advice span,.gg-advice b,.gg-advice p,.gg-advice small,.gg-path-key,.db-evidence-shot h4,.db-shot-note,.db-shot-table,.db-shot-bars,.db-shot-labels) {font-size:12px!important;line-height:1.4}
-.diag-compositions .guided-graph .gg-context {color:#959c95}.diag-compositions .guided-graph .gg-context span:last-child {color:#b3a18e}.diag-compositions .guided-graph .gg-label {color:#9da49c}.diag-compositions .guided-graph .gg-node p,.diag-compositions .guided-graph .gg-evidence-caption {color:#949b94}.diag-compositions .guided-graph .gg-phase-evidence,.diag-compositions .guided-graph .gg-cause {color:#858d86}.diag-compositions .guided-graph .gg-cause small {color:#737b74}.diag-compositions .guided-graph .gg-route-evidence {color:#929a92}.diag-compositions .guided-graph .gg-hypothesis p {color:#939a92}.diag-compositions .guided-graph .gg-path-key {color:#858c85}
-.diag-compositions .guided-graph .gg-finding {width:250px}.diag-compositions .guided-graph .gg-decode {width:160px}.diag-compositions .guided-graph .gg-rank-evidence {width:260px}.diag-compositions .guided-graph .gg-rank2 {width:190px}.diag-compositions .guided-graph .gg-routing {width:175px}.diag-compositions .guided-graph .gg-route-evidence {width:200px}.diag-compositions .guided-graph .gg-expert-evidence,.diag-compositions .guided-graph .gg-placement-evidence {width:210px}.diag-compositions .guided-graph .gg-hypothesis {width:230px}.diag-compositions .guided-graph .gg-diagnosis {width:270px}
-.diag-compositions .guided-graph .gg-mini-bars {grid-template-columns:35px 1fr 40px}.diag-compositions .guided-graph .gg-placement-map {grid-template-columns:40px 1fr 1fr}.diag-compositions .guided-graph {min-height:max(1180px,calc(100vh - 260px))}
-.diag-compositions .guided-graph :is(.gg-anchor,.gg-promoted,.gg-node,.gg-hypothesis,.gg-cause,.gg-evidence-toggle,.gg-route-evidence) {touch-action:none}.diag-compositions .guided-graph :is(.gg-anchor,.gg-promoted,.gg-node,.gg-hypothesis,.gg-cause) {cursor:grab}.diag-compositions .guided-graph [data-gg-dragging="true"] {z-index:30;cursor:grabbing;user-select:none;filter:brightness(1.08);box-shadow:0 14px 28px rgba(0,0,0,.28)}
-.diag-compositions .guided-graph {min-height:max(1320px,calc(100vh - 260px))}
-.diag-compositions .guided-graph .gg-finding {left:30px;top:70px}
-.diag-compositions .guided-graph .gg-decode {left:300px;top:320px}
-.diag-compositions .guided-graph .gg-phase-evidence {left:300px;top:455px}
-.diag-compositions .guided-graph .gg-rank-evidence {left:430px;top:110px}
-.diag-compositions .guided-graph .gg-rank2 {left:700px;top:250px}
-.diag-compositions .guided-graph .gg-cause-label {left:650px;top:450px}
-.diag-compositions .guided-graph .gg-device {left:600px;top:480px}
-.diag-compositions .guided-graph .gg-memory {left:650px;top:560px}
-.diag-compositions .guided-graph .gg-kernel {left:790px;top:525px}
-.diag-compositions .guided-graph .gg-communication {left:830px;top:455px}
-.diag-compositions .guided-graph .gg-routing {left:830px;top:610px}
-.diag-compositions .guided-graph .gg-route-evidence {left:800px;top:750px}
-.diag-compositions .guided-graph .gg-expert-evidence {left:650px;top:900px}
-.diag-compositions .guided-graph .gg-placement-evidence {left:900px;top:900px}
-.diag-compositions .guided-graph .gg-hypothesis {left:610px;top:1080px}
-.diag-compositions .guided-graph .gg-diagnosis {right:30px;top:1040px}
-.diag-compositions .guided-graph .gg-rank-evidence {left:690px;top:95px;width:190px}
-.diag-compositions .guided-graph .gg-route-evidence {left:620px;top:780px;width:170px}
-.diag-compositions .guided-graph .gg-expert-evidence {left:820px;top:800px;width:170px}
-.diag-compositions .guided-graph .gg-placement-evidence {left:990px;top:780px;width:140px}
-.diag-compositions .guided-graph .gg-hypothesis {left:610px;top:1020px}
-.diag-compositions .guided-graph .gg-diagnosis {right:30px;top:1010px}
-.diag-compositions .gg-thumb-bars {display:flex;align-items:end;gap:6px;height:34px;margin-top:5px}.diag-compositions .gg-thumb-bars i {display:block;width:10px;height:var(--h);background:#667068}.diag-compositions .gg-thumb-bars i.hot {background:#c68d66}
-.diag-compositions .gg-thumb-placement {display:grid;grid-template-columns:repeat(3,1fr);gap:4px;height:34px;margin-top:5px}.diag-compositions .gg-thumb-placement i {border:1px solid #616a62;background:#2b302c}.diag-compositions .gg-thumb-placement i.hot {border-color:#bd8965;background:#805a43}
-.diag-compositions .guided-graph .gg-rank-evidence .db-evidence-shot {top:calc(100% + 10px);left:-42px}
-.diag-compositions .guided-graph .gg-expert-evidence .db-evidence-shot {top:calc(100% + 10px);bottom:auto;left:-70px}
-.diag-compositions .guided-graph .gg-placement-evidence .db-evidence-shot {top:calc(100% + 10px);left:-135px}
-.diag-compositions .gg-optimize-scene {display:flex;width:100%;margin-top:12px;padding:10px 12px;align-items:center;justify-content:space-between;border:1px solid #30362d;background:#31382e;color:#eef1e9;font:600 12px/1.2 var(--font-sans);cursor:pointer}.diag-compositions .gg-optimize-scene:hover,.diag-compositions .gg-optimize-scene:focus-visible {outline:2px solid #987458;outline-offset:2px;background:#3b4437}.diag-compositions .gg-optimize-scene::after {content:'↗';font-family:var(--font-mono);font-weight:400}
-@media(max-width:1100px){
- .diag-compositions .composition-tabs button {padding:11px 9px;font-size:11px}
- .diag-compositions .wall-center h2{font-size:42px}
- .diag-compositions .wall-node{padding:13px}
- .diag-compositions .river{padding:18px}
- .diag-compositions .river-stage{padding:12px}
- .diag-compositions .paper{padding:14px}
- .diag-compositions .paper-benchmark .bench-row{gap:12px}
- .diag-compositions .paper-benchmark strong{font-size:27px}
- .diag-compositions .dg-finding strong{font-size:31px}
- .diag-compositions .dg-finding{padding:14px}
- .diag-compositions .dg-node{padding:9px 10px}
-}
-/* Coarse canvases keep their geometry; narrow preview panes scroll locally. */
-.diag-compositions .composition-viewport {overflow-x:auto}
-.diag-compositions .wall,.diag-compositions .river,.diag-compositions .evidence-canvas {min-width:720px}
 
 </style>
+<link rel="stylesheet" href="diagnostic-graph/diagnostic-graph.css">
 </head>
 <body>
   <section class="pto-ide-frame serving-ide" data-ide-frame data-host="standalone" data-cursor-dots="false" aria-label="Serving Observability IDE">
@@ -2891,236 +2696,28 @@ button.operator-tree-toggle:hover {
     </div></div>
   </section>
   <section id="composition-graph" role="tabpanel" aria-labelledby="tab-graph" hidden>
-    <div class="composition-meta"><b>Guided Diagnostic Graph · 沿异常证据推进</b><span>基线 RUN-044 → 当前 RUN-045 · DeepSeek-like MoE / Decode / EP8</span></div>
-    <div class="composition-viewport" data-guided-view>
-      <div class="gg-toolbar" aria-label="画布视图控制">
-        <button type="button" data-gg-zoom-out aria-label="缩小画布">−</button>
-        <span data-gg-zoom-label>100%</span>
-        <button type="button" data-gg-zoom-in aria-label="放大画布">＋</button>
-        <button type="button" data-gg-reset>重置视图</button>
-      </div>
-      <div class="guided-graph" data-guided-graph>
-      <div class="gg-context"><span>调查路径 / 仅异常继续</span><span>同负载 · 同并发 · 同 EP 配置</span></div>
-      <svg class="gg-links" viewBox="0 0 1200 1050" preserveAspectRatio="none" aria-hidden="true">
-        <defs>
-          <marker id="gg-arrow" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L6,3.5 L0,7" fill="none" stroke="#b28b6d" stroke-width="1.2"/></marker>
-          <marker id="gg-arrow-muted" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto"><path d="M0,0 L6,3.5 L0,7" fill="none" stroke="#687068" stroke-width="1"/></marker>
-        </defs>
-        <path class="gg-link main" data-from="gg-finding" data-to="gg-decode"/>
-        <path class="gg-link quiet" data-from="gg-decode" data-to="gg-phase-evidence"/>
-        <path class="gg-link main" data-from="gg-decode" data-to="gg-rank2"/>
-        <path class="gg-link evidence" data-from="gg-rank2" data-to="gg-rank-evidence"/>
-        <path class="gg-link quiet" data-from="gg-rank2" data-to="gg-device"/>
-        <path class="gg-link quiet" data-from="gg-rank2" data-to="gg-memory"/>
-        <path class="gg-link quiet" data-from="gg-rank2" data-to="gg-kernel"/>
-        <path class="gg-link unresolved" data-from="gg-rank2" data-to="gg-communication"/>
-        <path class="gg-link main" data-from="gg-rank2" data-to="gg-routing"/>
-        <path class="gg-link evidence" data-from="gg-routing" data-to="gg-route-evidence"/>
-        <path class="gg-link evidence" data-from="gg-routing" data-to="gg-expert-evidence"/>
-        <path class="gg-link evidence" data-from="gg-routing" data-to="gg-placement-evidence"/>
-        <path class="gg-link evidence" data-from="gg-expert-evidence" data-to="gg-hypothesis"/>
-        <path class="gg-link evidence" data-from="gg-placement-evidence" data-to="gg-hypothesis"/>
-        <path class="gg-link main" data-from="gg-hypothesis" data-to="gg-diagnosis"/>
-      </svg>
+    <div class="composition-meta"><b>Diagnostic Reasoning Canvas · 沿证据收窄问题空间</b><span>基线 RUN-044 → 当前 RUN-045 · DeepSeek-like MoE / Decode / EP8</span></div>
+    <div class="composition-viewport" data-diagnostic-graph-root></div>
 
-      <article id="gg-finding" class="gg-anchor gg-finding">
-        <span class="gg-label">01 / Finding</span><h2>Throughput</h2><strong>−27%</strong>
-        <div class="gg-anchor-metrics"><span>1000 → 730<br>tok/s</span><span>TTFT +2%<br>TPOT +32%</span></div>
-        <p class="gg-anchor-note">性能下降主要伴随 Token 生成时延恶化。</p>
-      </article>
+    <dialog class="gg-experiment-dialog" data-gg-experiment-dialog aria-labelledby="gg-experiment-title">
+      <section class="panel-shell" aria-label="验证诊断">
+        <header class="panel-shell-header">
+          <div><div class="panel-shell-meta">CONTROLLED EXPERIMENT</div><h2 id="gg-experiment-title" class="panel-shell-title">验证热点 Expert 共置假设</h2></div>
+          <button class="btn btn-icon btn-ghost" type="button" data-gg-close-experiment aria-label="关闭验证实验">×</button>
+        </header>
+        <div class="panel-shell-body">
+          <p class="gg-experiment-intro">用一次可证伪的对照运行判断 Expert 共置是否导致 Rank 2 长尾，而不是直接将当前诊断当作优化结论。</p>
+          <dl class="gg-experiment-grid">
+            <div class="gg-experiment-block is-wide"><dt>Hypothesis</dt><dd>Hot expert co-location causes the Rank 2 long pole.</dd></div>
+            <div class="gg-experiment-block"><dt>Change</dt><dd>E19: Rank 2 → Rank 6<br>E7: 保持 Rank 2</dd></div>
+            <div class="gg-experiment-block"><dt>Keep fixed</dt><dd>Workload · Concurrency<br>EP = 8 · 其他 Serving 配置</dd></div>
+            <div class="gg-experiment-block is-wide"><dt>Expected signals</dt><dd>Rank skew ↓ · Decode latency ↓ · TPOT ↓ · Throughput ↑</dd></div>
+          </dl>
+          <div class="gg-experiment-actions"><button class="btn btn-ghost btn-compact" type="button" data-gg-close-experiment>取消</button><button class="btn btn-solid btn-compact" type="button" data-gg-confirm-experiment>在场景中验证</button></div>
+        </div>
+      </section>
+    </dialog>
 
-      <article id="gg-decode" class="gg-node gg-decode"><span class="gg-label">02 / 阶段定位</span><h3>Decode</h3><strong>+33%</strong><p>贡献 82% 的新增时间</p></article>
-
-      <button id="gg-phase-evidence" class="gg-evidence-toggle gg-phase-evidence" type="button" aria-expanded="false">
-        <span class="gg-evidence-name">阶段对照</span><span><b>✓ Queue</b>&nbsp; 3.0 → 3.2 ms</span><span><b>✓ Prefill</b>&nbsp; 46.0 → 47.0 ms</span><span><b>✓ Output</b>&nbsp; 1.3 → 1.3 ms</span>
-        <span class="db-evidence-shot" aria-hidden="true"><h4>阶段时延 / ms</h4><span class="db-shot-table"><span></span><span>基线</span><span>当前</span><span>Queue</span><span>3.0</span><span>3.2</span><span>Prefill</span><span>46.0</span><span>47.0</span><b>Decode</b><span>12.6</span><b>16.8</b><span>Output</span><span>1.3</span><span>1.3</span></span><span class="db-shot-note">只有 Decode 进入下一层调查。</span></span>
-      </button>
-
-      <button id="gg-rank-evidence" class="gg-evidence-toggle gg-rank-evidence" type="button" aria-expanded="false">
-        <span class="gg-evidence-name">Rank 解码时延</span>
-        <span class="gg-thumb-bars" aria-hidden="true"><i style="--h:48%"></i><i style="--h:52%"></i><i class="hot" style="--h:100%"></i><i style="--h:50%"></i><i style="--h:54%"></i><i style="--h:51%"></i><i style="--h:49%"></i><i style="--h:53%"></i></span>
-        <span class="gg-evidence-caption">R2 唯一离群 · +41%</span>
-        <span class="db-evidence-shot" aria-hidden="true"><h4>Rank 解码时延 / ms</h4><span class="db-shot-bars"><span>R0</span><i style="--w:70%"></i><span>12.4</span><span>R1</span><i style="--w:72%"></i><span>12.7</span><b>R2</b><i class="hot" style="--w:100%"></i><b>17.8</b><span>R3</span><i style="--w:71%"></i><span>12.5</span><span>R4</span><i style="--w:73%"></i><span>12.9</span><span>R5</span><i style="--w:71%"></i><span>12.6</span><span>R6</span><i style="--w:69%"></i><span>12.3</span><span>R7</span><i style="--w:72%"></i><span>12.8</span></span><span class="db-shot-note">Rank 2 是唯一显著离群项。</span></span>
-      </button>
-
-      <article id="gg-rank2" class="gg-promoted gg-node gg-rank2"><span class="gg-label">03 / Promoted abnormal object</span><h3>Rank 2</h3><strong>+41%</strong><p>17.8 ms · EP 组中位数 12.6 ms</p></article>
-
-      <span class="gg-cause-label">Rank 2 / local cause cluster</span>
-      <span id="gg-device" class="gg-cause gg-device">Device<small>时钟、利用率处于基线范围</small></span>
-      <span id="gg-memory" class="gg-cause gg-memory">Memory / KV<small>无驱逐或缺页</small></span>
-      <span id="gg-kernel" class="gg-cause gg-kernel">Kernel<small>最大差异 +3.4%</small></span>
-      <span id="gg-communication" class="gg-cause gg-communication">Communication<small>等待 +11% · 相关性弱，停止</small></span>
-
-      <article id="gg-routing" class="gg-node gg-routing"><span class="gg-label">04 / 唯一继续</span><h3>Routing</h3><strong>1.65×</strong><p>Rank 2 / EP 组中位数负载</p></article>
-
-      <button id="gg-route-evidence" class="gg-evidence-toggle gg-route-evidence" type="button" aria-expanded="false">
-        <span class="gg-evidence-name">Rank 路由 Token</span><span class="gg-thumb-bars" aria-hidden="true"><i style="--h:54%"></i><i style="--h:59%"></i><i class="hot" style="--h:100%"></i><i style="--h:56%"></i><i style="--h:58%"></i><i style="--h:53%"></i><i style="--h:62%"></i><i style="--h:57%"></i></span><span class="gg-evidence-caption">R2 · 1.65×</span>
-        <span class="db-evidence-shot" aria-hidden="true" style="top:calc(100% + 10px);left:-36px;--shot-angle:.7deg"><h4>Rank 路由 Token / 中位数倍数</h4><span class="db-shot-bars"><span>R0</span><i style="--w:57%"></i><span>.94×</span><span>R1</span><i style="--w:62%"></i><span>1.02×</span><b>R2</b><i class="hot" style="--w:100%"></i><b>1.65×</b><span>R3</span><i style="--w:58%"></i><span>.96×</span><span>R4</span><i style="--w:61%"></i><span>1.01×</span><span>R5</span><i style="--w:56%"></i><span>.93×</span><span>R6</span><i style="--w:65%"></i><span>1.08×</span><span>R7</span><i style="--w:59%"></i><span>.98×</span></span></span>
-      </button>
-
-      <button id="gg-expert-evidence" class="gg-evidence-toggle gg-expert-evidence" type="button" aria-expanded="false">
-        <span class="gg-evidence-name">Expert traffic</span><span class="gg-thumb-bars" aria-hidden="true"><i style="--h:31%"></i><i style="--h:44%"></i><i class="hot" style="--h:100%"></i><i style="--h:39%"></i><i style="--h:48%"></i><i style="--h:36%"></i><i class="hot" style="--h:88%"></i><i style="--h:43%"></i></span><span class="gg-evidence-caption">E7 · E19 热点</span>
-        <span class="db-evidence-shot" aria-hidden="true"><h4>Expert 流量 / 平均值倍数</h4><span class="db-shot-experts"><i style="--h:31%"></i><i style="--h:44%"></i><i class="hot" style="--h:100%"></i><i style="--h:39%"></i><i style="--h:48%"></i><i style="--h:36%"></i><i class="hot" style="--h:88%"></i><i style="--h:43%"></i></span><span class="db-shot-labels"><b>E7 2.4×</b><b>E19 2.1×</b></span><span class="db-shot-note">其他 Expert 大多处于平均流量的 0.7–1.3×。</span></span>
-      </button>
-
-      <button id="gg-placement-evidence" class="gg-evidence-toggle gg-placement-evidence" type="button" aria-expanded="false">
-        <span class="gg-evidence-name">Placement</span><span class="gg-thumb-placement" aria-hidden="true"><i></i><i></i><i class="hot"></i><i></i><i></i><i class="hot"></i></span><span class="gg-evidence-caption">E7 + E19 → R2</span>
-        <span class="db-evidence-shot" aria-hidden="true"><h4>Expert → Rank</h4><span class="db-shot-table"><span></span><span>基线</span><span>当前</span><b>E7</b><span>Rank 2</span><b>Rank 2</b><b>E19</b><span>Rank 6</span><b>Rank 2</b></span><span class="db-shot-note">基线将两个最热 Expert 分别放置在 Rank 2 和 Rank 6。</span></span>
-      </button>
-
-      <article id="gg-hypothesis" class="gg-hypothesis"><span class="gg-label">待验证假设 / evidence convergence</span><h3>热点 Expert 共同位于 Rank 2</h3><p>Routing 负载不均 + Expert traffic + Placement</p></article>
-
-      <article id="gg-diagnosis" class="gg-anchor gg-diagnosis"><span class="gg-label">05 / Diagnosis</span><h2>Rank 2 热点 Expert 集中放置</h2><p>E7 与 E19 同时位于 Rank 2，使其成为 Decode 关键路径。</p><div class="gg-advice"><span class="gg-label">建议 / 优先</span><b>重新平衡 Expert 放置</b><p>将 E7 与 E19 分配到不同的 EP Rank。</p><small>验证：吞吐 · TPOT · Rank 时延 · 路由 Token 均衡度</small><button class="gg-optimize-scene" type="button" data-gg-optimize-scene>优化场景</button></div></article>
-      <div class="gg-path-key"><b>━ 异常继续</b>&nbsp;&nbsp; ┄ 已检查后停止</div>
-      </div>
-    </div>
-
-    <div class="composition-viewport" data-legacy-backbone hidden><div class="diagnostic-backbone" data-diagnostic-backbone>
-      <div class="db-kicker"><span>自动诊断完成 / 6 层证据链</span><span>同负载 · 同并发 · 同 EP 配置</span></div>
-      <div class="db-path-summary" aria-label="核心诊断路径"><b>Throughput −27%</b> → <b>Decode +33%</b> → <b>Rank 2 +41%</b> → <b>Routing 1.65×</b> → <b>热点 Expert 集中放置</b> → <b>重新平衡放置</b></div>
-
-      <div class="db-rail">
-        <section class="db-stage">
-          <article class="db-node db-node-finding">
-            <span class="db-node-label">01 / 诊断发现</span>
-            <h2>Throughput</h2>
-            <strong>−27%</strong>
-            <p>1000 → 730 tok/s</p>
-          </article>
-          <div class="db-local">
-            <span class="db-local-title">同一次基线对比</span>
-            <div class="db-support-metrics">
-              <span>TTFT <b>+2%</b></span>
-              <span>TPOT <b>+32%</b></span>
-            </div>
-            <p style="margin-top:10px">下降主要伴随 Token 生成时延恶化。</p>
-          </div>
-        </section>
-
-        <section class="db-stage">
-          <article class="db-node db-node-abnormal">
-            <span class="db-node-label">02 / 阶段定位</span>
-            <h3>Decode</h3>
-            <strong>+33%</strong>
-            <p>贡献 82% 的新增执行时间</p>
-          </article>
-          <div class="db-local">
-            <span class="db-local-title">同级阶段 / 已检查</span>
-            <div class="db-checks">
-              <span class="db-check">Queue&nbsp; 3.0 → 3.2 ms</span>
-              <span class="db-check">Prefill&nbsp; 46.0 → 47.0 ms</span>
-              <span class="db-check">Output&nbsp; 1.3 → 1.3 ms</span>
-            </div>
-            <button class="db-evidence-toggle" type="button" aria-expanded="false" style="--shot-space:205px">
-              <span class="db-evidence-head">阶段时延对比</span>
-              <span class="db-evidence-summary">同构集合只提升 Decode</span>
-              <span class="db-evidence-shot" aria-hidden="true">
-                <span class="db-shot-table"><span></span><span>基线</span><span>当前</span><span>Queue</span><span>3.0</span><span>3.2</span><span>Prefill</span><span>46.0</span><span>47.0</span><b>Decode</b><span>12.6</span><b>16.8</b><span>Output</span><span>1.3</span><span>1.3</span></span>
-                <span class="db-shot-note">新增执行时间的 82% 集中在 Decode；其余阶段停止展开。</span>
-              </span>
-            </button>
-          </div>
-        </section>
-
-        <section class="db-stage">
-          <article class="db-node db-node-promoted">
-            <span class="db-node-label">03 / 异常对象</span>
-            <h3>Rank 2</h3>
-            <strong>+41%</strong>
-            <p>17.8 ms · EP 组中位数 12.6 ms</p>
-          </article>
-          <div class="db-local">
-            <span class="db-local-title">同级 Rank / 唯一离群</span>
-            <button class="db-evidence-toggle" type="button" aria-expanded="false" style="--shot-space:225px">
-              <span class="db-evidence-head">Rank 解码时延</span>
-              <span class="db-evidence-summary">一张分布图 + 一个异常对象</span>
-              <span class="db-evidence-shot" aria-hidden="true">
-                <span class="db-shot-bars"><span>R0</span><i style="--w:70%"></i><span>12.4</span><span>R1</span><i style="--w:72%"></i><span>12.7</span><b>R2</b><i class="hot" style="--w:100%"></i><b>17.8</b><span>R3</span><i style="--w:71%"></i><span>12.5</span><span>R4</span><i style="--w:73%"></i><span>12.9</span><span>R5</span><i style="--w:71%"></i><span>12.6</span><span>R6</span><i style="--w:69%"></i><span>12.3</span><span>R7</span><i style="--w:72%"></i><span>12.8</span></span>
-                <span class="db-shot-note">基线区间 12.1–13.0 ms · Rank 2 是唯一显著离群项。</span>
-              </span>
-            </button>
-            <div class="db-cause-cluster">
-              <span class="db-local-title">局部调查分叉 / Rank 2</span>
-              <span class="db-check">Device · 基线范围</span>
-              <span class="db-check">Memory / KV · 无驱逐</span>
-              <span class="db-check">Kernel · 最大差异 +3.4%</span>
-              <span class="db-check is-unresolved">Communication · +11%</span>
-              <small>Collective 等待 1.9 → 2.1 ms<br>与慢步骤相关性较弱，停止展开</small>
-            </div>
-          </div>
-        </section>
-
-        <section class="db-stage">
-          <article class="db-node db-node-abnormal">
-            <span class="db-node-label">04 / 异常原因</span>
-            <h3>Routing</h3>
-            <strong>1.65×</strong>
-            <p>Rank 2 / EP 组中位数负载</p>
-          </article>
-          <div class="db-local">
-            <span class="db-local-title">路由 Token / 当前最强线索</span>
-            <button class="db-evidence-toggle" type="button" aria-expanded="false" style="--shot-space:215px">
-              <span class="db-evidence-head">Rank 路由 Token 分布</span>
-              <span class="db-evidence-summary">R2 承担 1.65× 中位数负载</span>
-              <span class="db-evidence-shot" aria-hidden="true">
-                <span class="db-shot-bars"><span>R0</span><i style="--w:57%"></i><span>.94×</span><span>R1</span><i style="--w:62%"></i><span>1.02×</span><b>R2</b><i class="hot" style="--w:100%"></i><b>1.65×</b><span>R3</span><i style="--w:58%"></i><span>.96×</span><span>R4</span><i style="--w:61%"></i><span>1.01×</span><span>R5</span><i style="--w:56%"></i><span>.93×</span><span>R6</span><i style="--w:65%"></i><span>1.08×</span><span>R7</span><i style="--w:59%"></i><span>.98×</span></span>
-                <span class="db-shot-note">Rank 2 被提升为异常对象；其他 Rank 作为背景分布。</span>
-              </span>
-            </button>
-          </div>
-        </section>
-
-        <section class="db-stage">
-          <article class="db-node db-node-diagnosis">
-            <span class="db-node-label">05 / 诊断结论</span>
-            <h3>热点 Expert 集中放置</h3>
-            <strong>E7 + E19</strong>
-            <p>同时位于 Rank 2</p>
-          </article>
-          <div class="db-local db-converge">
-            <span class="db-local-title">两份局部证据汇聚</span>
-            <button class="db-evidence-toggle" type="button" aria-expanded="false" style="--shot-space:190px">
-              <span class="db-evidence-head">Expert 流量</span>
-              <span class="db-evidence-summary">E7 2.4× · E19 2.1×</span>
-              <span class="db-evidence-shot" aria-hidden="true">
-                <h4>Expert 流量 / 平均值倍数</h4>
-                <span class="db-shot-experts"><i style="--h:31%"></i><i style="--h:44%"></i><i class="hot" style="--h:100%"></i><i style="--h:39%"></i><i style="--h:48%"></i><i style="--h:36%"></i><i class="hot" style="--h:88%"></i><i style="--h:43%"></i></span>
-                <span class="db-shot-labels"><b>E7 2.4×</b><b>E19 2.1×</b></span>
-                <span class="db-shot-note">其他 Expert 大多处于平均流量的 0.7–1.3×。</span>
-              </span>
-            </button>
-            <button class="db-evidence-toggle" type="button" aria-expanded="false" style="--shot-space:190px">
-              <span class="db-evidence-head">Expert 放置映射</span>
-              <span class="db-evidence-summary">当前 E7、E19 均落在 Rank 2</span>
-              <span class="db-evidence-shot" aria-hidden="true">
-                <h4>Expert → Rank</h4>
-                <span class="db-shot-table"><span></span><span>基线</span><span>当前</span><b>E7</b><span>Rank 2</span><b>Rank 2</b><b>E19</b><span>Rank 6</span><b>Rank 2</b></span>
-                <span class="db-shot-note">基线将两个最热 Expert 分别放置在 Rank 2 和 Rank 6。</span>
-              </span>
-            </button>
-          </div>
-        </section>
-
-        <section class="db-stage">
-          <article class="db-node db-node-action">
-            <span class="db-node-label">06 / 建议 · 优先</span>
-            <h3>重新平衡 Expert 放置</h3>
-            <strong>E7 ↔ E19 分离</strong>
-            <p>分配到不同的 EP Rank</p>
-          </article>
-          <div class="db-local">
-            <span class="db-local-title">验证结果</span>
-            <div class="db-validate">
-              <span>Throughput</span>
-              <span>TPOT</span>
-              <span>Rank 时延分布</span>
-              <span>路由 Token 均衡度</span>
-            </div>
-            <p style="margin-top:16px">可选实验：若两者持续高热，评估 Expert replication。</p>
-          </div>
-        </section>
-      </div>
-    </div></div>
   </section>
 </section>
 </main><aside id="inspector-content" class="so-side-inspector" aria-hidden="true"></aside></div></div>
@@ -3131,13 +2728,19 @@ button.operator-tree-toggle:hover {
   </section>
   
 
+<script src="diagnostic-graph/diagnostic-graph-data.js"></script>
+<script src="diagnostic-graph/vendor-elk.bundled.js"></script>
+<script src="diagnostic-graph/diagnostic-graph.js"></script>
 <script>
-// Behaviors are limited to concept tabs and local evidence inspection.
-const legacyBackboneMode = new URLSearchParams(location.search).get('version') === 'backbone';
-if (legacyBackboneMode) {
-  document.querySelector('[data-guided-view]').hidden = true;
-  document.querySelector('[data-legacy-backbone]').hidden = false;
-  document.querySelector('#composition-graph .composition-meta b').textContent = '诊断主干 · 沿异常逐层收窄';
+let diagnosticGraphController;
+const experimentDialog = document.querySelector('[data-gg-experiment-dialog]');
+function mountDiagnosticGraph() {
+  const root = document.querySelector('[data-diagnostic-graph-root]');
+  if (!root || diagnosticGraphController) return diagnosticGraphController;
+  diagnosticGraphController = new window.DiagnosticGraphController(root, window.DiagnosticGraphData, {
+    openExperiment: () => experimentDialog?.showModal()
+  });
+  return diagnosticGraphController;
 }
 const tabs = [...document.querySelectorAll('[data-composition]')];
 function showComposition(id, focus = false) {
@@ -3148,7 +2751,7 @@ function showComposition(id, focus = false) {
     tab.tabIndex = active ? 0 : -1;
     document.getElementById(tab.getAttribute('aria-controls')).hidden = !active;
     if (active && focus) tab.focus();
-    if (active && id === 'graph') requestAnimationFrame(updateGGLinks);
+    if (active && id === 'graph') requestAnimationFrame(() => mountDiagnosticGraph()?.ensureLayout());
   });
   history.replaceState(null, '', '#' + id);
 }
@@ -3168,139 +2771,20 @@ tabs.forEach((tab, index) => {
 showComposition(location.hash.slice(1));
 window.addEventListener('hashchange', () => showComposition(location.hash.slice(1)));
 
-document.querySelectorAll('#composition-graph .db-evidence-toggle, #composition-graph .gg-evidence-toggle').forEach(evidence => {
-  evidence.addEventListener('click', () => {
-    if (evidence.dataset.ggSuppressClick === 'true') {
-      delete evidence.dataset.ggSuppressClick;
-      return;
-    }
-    const open = evidence.getAttribute('aria-expanded') !== 'true';
-    document.querySelectorAll('#composition-graph .db-evidence-toggle, #composition-graph .gg-evidence-toggle').forEach(item => {
-      item.setAttribute('aria-expanded', 'false');
-      item.querySelector('.db-evidence-shot')?.setAttribute('aria-hidden', 'true');
-    });
-    evidence.setAttribute('aria-expanded', String(open));
-    evidence.querySelector('.db-evidence-shot')?.setAttribute('aria-hidden', String(!open));
-  });
-});
-
-const guidedGraph = document.querySelector('[data-guided-graph]');
-const ggScaleLabel = document.querySelector('[data-gg-zoom-label]');
-const ggDraggables = [...document.querySelectorAll('#gg-finding, #gg-decode, #gg-phase-evidence, #gg-rank-evidence, #gg-rank2, #gg-device, #gg-memory, #gg-kernel, #gg-communication, #gg-routing, #gg-route-evidence, #gg-expert-evidence, #gg-placement-evidence, #gg-hypothesis, #gg-diagnosis')];
-let ggScale = 1;
-
-function ggBox(element) {
-  const x = element.offsetLeft + Number(element.dataset.ggX || 0);
-  const y = element.offsetTop + Number(element.dataset.ggY || 0);
-  return {x, y, width: element.offsetWidth, height: element.offsetHeight, cx: x + element.offsetWidth / 2, cy: y + element.offsetHeight / 2};
-}
-
-function ggEdgePoint(box, target) {
-  const dx = target.cx - box.cx;
-  const dy = target.cy - box.cy;
-  if (Math.abs(dx / Math.max(box.width, 1)) > Math.abs(dy / Math.max(box.height, 1))) {
-    return {x: dx >= 0 ? box.x + box.width : box.x, y: box.cy};
-  }
-  return {x: box.cx, y: dy >= 0 ? box.y + box.height : box.y};
-}
-
-function updateGGLinks() {
-  if (!guidedGraph || guidedGraph.closest('[hidden]')) return;
-  const svg = guidedGraph.querySelector('.gg-links');
-  const scaleX = svg.viewBox.baseVal.width / guidedGraph.clientWidth;
-  const scaleY = svg.viewBox.baseVal.height / guidedGraph.clientHeight;
-  svg.querySelectorAll('[data-from][data-to]').forEach(path => {
-    const from = document.getElementById(path.dataset.from);
-    const to = document.getElementById(path.dataset.to);
-    if (!from || !to) return;
-    const fromBox = ggBox(from);
-    const toBox = ggBox(to);
-    const start = ggEdgePoint(fromBox, toBox);
-    const end = ggEdgePoint(toBox, fromBox);
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    let c1;
-    let c2;
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      c1 = {x: start.x + dx * .46, y: start.y};
-      c2 = {x: end.x - dx * .46, y: end.y};
-    } else {
-      c1 = {x: start.x, y: start.y + dy * .46};
-      c2 = {x: end.x, y: end.y - dy * .46};
-    }
-    path.setAttribute('d', `M${start.x * scaleX} ${start.y * scaleY} C${c1.x * scaleX} ${c1.y * scaleY} ${c2.x * scaleX} ${c2.y * scaleY} ${end.x * scaleX} ${end.y * scaleY}`);
-  });
-}
-
-function setGGScale(nextScale) {
-  ggScale = Math.min(1.5, Math.max(.7, Math.round(nextScale * 10) / 10));
-  guidedGraph.style.zoom = String(ggScale);
-  ggScaleLabel.textContent = `${Math.round(ggScale * 100)}%`;
-  requestAnimationFrame(updateGGLinks);
-}
-
-document.querySelector('[data-gg-zoom-out]')?.addEventListener('click', () => setGGScale(ggScale - .1));
-document.querySelector('[data-gg-zoom-in]')?.addEventListener('click', () => setGGScale(ggScale + .1));
-document.querySelector('[data-gg-optimize-scene]')?.addEventListener('click', () => {
+function openScenarioExperiment() {
   const scenarioRoute = 'serving-observability-ide.html#/scenario-new?mode=fast';
   if (window.location.protocol === 'file:') {
     window.location.href = `http://127.0.0.1:5501/PyPTO3/inference/${scenarioRoute}`;
     return;
   }
   window.location.href = scenarioRoute;
+}
+document.querySelectorAll('[data-gg-close-experiment]').forEach(button => button.addEventListener('click', () => experimentDialog?.close()));
+document.querySelector('[data-gg-confirm-experiment]')?.addEventListener('click', openScenarioExperiment);
+experimentDialog?.addEventListener('click', event => {
+  if (event.target === experimentDialog) experimentDialog.close();
 });
-document.querySelector('[data-gg-reset]')?.addEventListener('click', () => {
-  ggDraggables.forEach(element => {
-    element.dataset.ggX = '0';
-    element.dataset.ggY = '0';
-    element.style.transform = '';
-  });
-  setGGScale(1);
-});
-
-ggDraggables.forEach(element => {
-  element.addEventListener('pointerdown', event => {
-    const nestedControl = event.target.closest('button, a, input, select, textarea');
-    if (event.button !== 0 || event.target.closest('.db-evidence-shot') || (nestedControl && nestedControl !== element)) return;
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const originX = Number(element.dataset.ggX || 0);
-    const originY = Number(element.dataset.ggY || 0);
-    let moved = false;
-    element.setPointerCapture(event.pointerId);
-    element.dataset.ggDragging = 'true';
-
-    const move = moveEvent => {
-      const dx = (moveEvent.clientX - startX) / ggScale;
-      const dy = (moveEvent.clientY - startY) / ggScale;
-      if (Math.hypot(dx, dy) > 4) moved = true;
-      if (!moved) return;
-      const nextX = originX + dx;
-      const nextY = originY + dy;
-      element.dataset.ggX = String(nextX);
-      element.dataset.ggY = String(nextY);
-      element.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
-      updateGGLinks();
-      moveEvent.preventDefault();
-    };
-
-    const end = endEvent => {
-      element.removeEventListener('pointermove', move);
-      element.removeEventListener('pointerup', end);
-      element.removeEventListener('pointercancel', end);
-      delete element.dataset.ggDragging;
-      if (moved) element.dataset.ggSuppressClick = 'true';
-      if (element.hasPointerCapture(endEvent.pointerId)) element.releasePointerCapture(endEvent.pointerId);
-    };
-
-    element.addEventListener('pointermove', move);
-    element.addEventListener('pointerup', end);
-    element.addEventListener('pointercancel', end);
-  });
-});
-
-window.addEventListener('resize', updateGGLinks);
-requestAnimationFrame(updateGGLinks);
+window.addEventListener('resize', () => diagnosticGraphController?.resize());
 </script>
 </body>
 </html>

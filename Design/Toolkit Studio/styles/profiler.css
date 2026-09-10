@@ -314,6 +314,16 @@
 .kf-prof-solrow { display: grid; grid-template-columns: 132px minmax(0, 1fr) 66px; align-items: center; gap: 12px; }
 .kf-prof-solrow > span { color: var(--foreground-secondary); font: 500 var(--kf-type-xs)/1.2 var(--font-sans); }
 .kf-prof-soltrack { position: relative; height: 16px; border-radius: 4px; background: var(--surface-4); overflow: hidden; }
+.kf-prof-soltrack.is-grouped { display: grid; grid-template-rows: 1fr 1fr; gap: 2px; height: 22px; background: transparent; }
+.kf-prof-soltrack.is-grouped .kf-prof-solfill { position: static; min-width: 3px; border-radius: 2px; }
+.kf-prof-soltrack .kf-prof-solfill.is-baseline { opacity: .34; }
+.kf-prof-baseline { display: block; margin-top: 4px; color: var(--foreground-muted); font: 9px/1.35 var(--font-sans); white-space: normal; }
+.kf-prof-baseline .so-compare-state { margin-left: 4px; font-style: normal; }
+.kf-prof-series-legend { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; color: var(--foreground-secondary); font: 10px/1 var(--font-sans); }
+.kf-prof-series-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.kf-prof-series-legend i { width: 13px; height: 5px; border-radius: 2px; background: var(--primary); }
+.kf-prof-series-legend .is-baseline { color: var(--foreground-muted); }
+.kf-prof-series-legend .is-baseline i, .kf-prof-stack.is-baseline { opacity: .34; }
 .kf-prof-solfill { height: 100%; border-radius: 4px; background: var(--foreground-muted); }
 .kf-prof-solrow[data-unit="cube"] .kf-prof-solfill { background: color-mix(in srgb, var(--tone-blue-strong, #4a90d9) 78%, transparent); }
 .kf-prof-solrow[data-unit="vector"] .kf-prof-solfill { background: color-mix(in srgb, var(--tone-green-strong, #4caf7d) 78%, transparent); }
@@ -732,6 +742,7 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
 .kf-prof-bwchart > i.is-high { background: var(--warning); }
 .kf-prof-bwchart > i.is-mid { background: color-mix(in srgb, var(--tone-green-strong, #4caf7d) 78%, transparent); }
 .kf-prof-bwchart > i.is-low { background: color-mix(in srgb, var(--foreground) 26%, transparent); }
+.kf-prof-bwchart > i.is-baseline { bottom: 0; opacity: .27; outline: 1px solid color-mix(in srgb,var(--primary) 35%,transparent); background: var(--primary); }
 .kf-prof-bwroof, .kf-prof-bwavg {
   position: absolute;
   right: 0;
@@ -771,6 +782,9 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
 .kf-prof-batchchart { display: flex; align-items: flex-end; gap: 2px; height: 96px; padding-top: 4px; border-bottom: 1px solid var(--border-strong); }
 .kf-prof-batchchart > i { flex: 1 1 0; min-width: 2px; border-radius: 2px 2px 0 0; background: color-mix(in srgb, var(--primary) 58%, transparent); }
 .kf-prof-batchchart > i.is-full { background: var(--primary); }
+.kf-prof-batchchart.is-grouped > span { display: flex; align-items: flex-end; gap: 1px; flex: 1 1 0; height: 100%; }
+.kf-prof-batchchart.is-grouped > span > i { flex: 1 1 0; min-width: 1px; border-radius: 2px 2px 0 0; background: var(--primary); }
+.kf-prof-batchchart.is-grouped > span > i.is-baseline { opacity: .34; }
 
 .kf-prof-lanes { display: grid; gap: 3px; }
 .kf-prof-lane { display: grid; grid-template-columns: 54px minmax(0, 1fr); align-items: center; gap: 9px; }
@@ -780,6 +794,9 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
 .kf-prof-lanetrack i.is-wait { background: color-mix(in srgb, var(--foreground) 30%, transparent); }
 .kf-prof-lanetrack i.is-prefill { background: var(--tone-blue-strong, #4a90d9); }
 .kf-prof-lanetrack i.is-decode { background: var(--primary); opacity: .82; }
+.kf-prof-lane.is-baseline { grid-template-columns: 118px minmax(0,1fr); min-height: 10px; opacity: .48; }
+.kf-prof-lane.is-baseline .kf-prof-lanetrack { height: 9px; }
+.kf-prof-lane-missing { height: 9px; color: var(--foreground-muted); font: 9px/9px var(--font-sans); }
 .kf-prof-now { padding: 1px 5px; border-radius: 3px; background: color-mix(in srgb, var(--primary) 20%, transparent); color: var(--primary); font: 700 var(--kf-type-2xs)/1.5 var(--font-sans); font-style: normal; }
 
 /* ---------- 并行与通信 ---------- */

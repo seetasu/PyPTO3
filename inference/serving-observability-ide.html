@@ -70,6 +70,14 @@
     .so-metric-delta { color: var(--so-accent); font-size: 11px; margin-top: 7px; }
     .so-metric-delta.warn { color: var(--so-warm); }
     .so-metric-delta.muted { color: var(--so-muted); }
+    .so-baseline-value { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 8px; color: var(--foreground-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .so-compare-state { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 6px; font-size: 10px; font-weight: 650; }
+    .so-compare-state::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .so-compare-state.improved { color: var(--success); background: color-mix(in srgb,var(--success) 10%,transparent); }
+    .so-compare-state.regressed { color: var(--danger); background: color-mix(in srgb,var(--danger) 10%,transparent); }
+    .so-compare-state.changed { color: var(--warning); background: color-mix(in srgb,var(--warning) 10%,transparent); }
+    .so-compare-state.unchanged { color: var(--foreground-muted); background: var(--surface-3); }
+    .so-baseline-inline { display: block; margin-top: 3px; color: var(--foreground-muted); font-size: 10px; font-weight: 450; }
     .so-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; white-space: nowrap; }
     .so-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
     .so-status.success { color: var(--so-accent-strong); }
@@ -122,6 +130,10 @@
     .so-trace-label small { display: block; color: var(--so-muted); margin-top: 4px; font-size: 10px; }
     .so-trace-canvas-wrap { position: relative; min-width: 0; }
     .so-trace-canvas { display: block; width: 100%; height: 58px; background-image: linear-gradient(90deg, transparent 24.9%, color-mix(in srgb, var(--foreground) 5%, transparent) 25%, transparent 25.1%, transparent 49.9%, color-mix(in srgb, var(--foreground) 5%, transparent) 50%, transparent 50.1%, transparent 74.9%, color-mix(in srgb, var(--foreground) 5%, transparent) 75%, transparent 75.1%); }
+    .so-trace-row.is-baseline { min-height: 36px; background: color-mix(in srgb,var(--surface-3) 45%,transparent); }
+    .so-trace-row.is-baseline .so-trace-label { padding-top: 7px; color: var(--foreground-muted); font-size: 10px; }
+    .so-trace-row.is-baseline .so-trace-canvas { height: 36px; opacity: .72; }
+    .so-trace-missing { display: flex; align-items: center; height: 36px; padding-left: 12px; color: var(--foreground-muted); font-size: 10px; border-left: 1px dashed var(--border-subtle); }
     .so-trace-hit-layer { position: absolute; inset: 0; pointer-events: none; }
     .so-trace-hit { position: absolute; min-width: 6px; border: 0; border-radius: 5px; padding: 0; background: transparent; cursor: pointer; pointer-events: auto; }
     .so-trace-hit:hover, .so-trace-hit:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
@@ -434,6 +446,8 @@
     .so-moe-summary-metric span { display: block; color: var(--foreground-muted); font-size: 10px; }
     .so-moe-summary-metric strong { display: block; margin-top: 5px; color: var(--foreground); font-size: 16px; letter-spacing: -.02em; }
     .so-moe-summary-metric small { display: block; margin-top: 4px; color: var(--foreground-secondary); font-size: 10px; }
+    .so-moe-summary-baseline { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 12px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-3) 52%, transparent); color: var(--foreground-muted); font-size: 10px; }
+    .so-moe-summary-baseline strong { color: var(--foreground-secondary); font-weight: 650; }
     .so-moe-timeline-card { overflow: hidden; }
     .so-moe-timeline-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 13px 15px 10px; }
     .so-moe-timeline-head h3 { margin: 0; color: var(--foreground); font-size: 13px; }
@@ -449,6 +463,14 @@
     .so-moe-axis-track { display: flex; justify-content: space-between; padding: 0 2px; }
     .so-moe-rank-row { display: grid; grid-template-columns: var(--so-moe-label-column) minmax(0,1fr) var(--so-moe-meta-column); min-height: 57px; border-top: 1px solid var(--border-subtle); }
     .so-moe-rank-row.is-selected { background: var(--state-selected); box-shadow: inset 2px 0 0 var(--primary); }
+    .so-moe-rank-row.is-baseline { min-height: 38px; background: color-mix(in srgb,var(--surface-3) 44%,transparent); color: var(--foreground-muted); }
+    .so-moe-rank-row.is-baseline .so-moe-rank-label { min-height: 38px; opacity: .66; cursor: default; }
+    .so-moe-rank-row.is-baseline .so-moe-rank-label-copy strong { font-size: 10px; font-weight: 550; }
+    .so-moe-rank-row.is-baseline .so-moe-phase-track { height: 18px; }
+    .so-moe-rank-row.is-baseline .so-moe-phase { min-height: 18px; opacity: .42; pointer-events: auto; }
+    .so-moe-rank-row.is-baseline .so-moe-rank-meta { opacity: .62; font-size: 9px; }
+    .so-moe-legend-swatch.is-baseline { opacity: .42; }
+    .so-baseline-dock { padding: 8px 13px; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); color: var(--foreground-muted); background: color-mix(in srgb,var(--surface-3) 55%,transparent); font-size: 10px; }
     .so-moe-rank-label { display: flex; align-items: center; gap: 7px; min-width: 0; border: 0; padding: 8px 10px 8px 7px; background: transparent; color: var(--foreground); cursor: pointer; text-align: left; }
     .so-moe-rank-label:hover { background: var(--state-hover); }
     .so-moe-rank-label strong { font-size: 11px; }
@@ -2246,7 +2268,8 @@ button.operator-tree-toggle:hover {
     .so-scenario-kpis strong { display: block; margin-top: 3px; font-size: 11px; }
     .so-source-model.so-model-architecture-section { border: 0; box-shadow: var(--shadow-sm); }
     .so-register-flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); margin-bottom: var(--space-5); }
-    .so-register-step { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: var(--space-2); min-width: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-1); }
+    .so-register-step { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: var(--space-2); min-width: 0; border: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-1); color: inherit; cursor: pointer; font: inherit; text-align: left; }
+    .so-register-step:hover { background: var(--state-hover); }
     .so-register-step.is-current { background: var(--state-selected); }
     .so-register-step.is-complete { background: var(--surface-2); }
     .so-register-step-index { display: grid; width: 28px; height: 28px; place-items: center; border-radius: var(--radius-pill); background: var(--surface-3); color: var(--foreground-secondary); font: var(--type-label); }
@@ -2271,12 +2294,19 @@ button.operator-tree-toggle:hover {
     .so-register-manifest-row > span { color: var(--foreground-muted); font-size: 10px; }
     .so-register-manifest-row > strong { min-width: 0; overflow: hidden; color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 10px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
     .so-register-scope { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
-    .so-register-scope-item { min-width: 0; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); }
-    .so-register-scope-item:first-child { background: var(--state-selected); }
+    .so-register-scope-item { min-width: 0; border: 0; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); color: inherit; cursor: pointer; font: inherit; text-align: left; }
+    .so-register-scope-item:hover { background: var(--state-hover); }
+    .so-register-scope-item.is-selected { background: var(--state-selected); }
     .so-register-scope-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
     .so-register-scope-item h3 { margin: 0; font-size: 13px; }
     .so-register-scope-item p { min-height: 42px; margin: var(--space-2) 0 var(--space-3); color: var(--foreground-secondary); font-size: 11px; line-height: 1.55; }
     .so-register-scope-checks { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+    .so-register-scope-action { display: block; margin-top: var(--space-3); color: var(--primary); font-size: 10px; font-weight: 650; }
+    .so-register-scope-detail { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr); gap: var(--space-4); margin-top: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-2); }
+    .so-register-scope-detail h3 { margin: 0; font-size: 13px; }
+    .so-register-scope-detail p { margin: var(--space-2) 0 0; color: var(--foreground-secondary); font-size: 11px; line-height: 1.55; }
+    .so-register-scope-detail strong { display: block; color: var(--foreground); font-size: 11px; }
+    .so-register-scope-detail span { display: block; margin-top: var(--space-2); color: var(--foreground-secondary); font-size: 11px; line-height: 1.55; }
     .so-register-progress { display: grid; grid-template-columns: 184px minmax(0, 1fr); gap: var(--space-4); align-items: center; padding: var(--space-5); border-radius: var(--radius-lg); background: var(--surface-1); }
     .so-register-progress strong { display: block; margin-top: var(--space-1); font-size: 15px; }
     .so-register-progress p { margin: var(--space-2) 0 0; color: var(--foreground-secondary); font-size: 12px; line-height: 1.5; }
@@ -2286,7 +2316,9 @@ button.operator-tree-toggle:hover {
     .so-register-progress-row:last-child .so-bar > span { background: var(--warning); }
     .so-register-decision { display: grid; grid-template-columns: minmax(280px, 1.35fr) repeat(3, minmax(140px, .65fr)); gap: var(--space-2); margin-bottom: var(--space-5); }
     .so-register-decision-main,
-    .so-register-decision-metric { padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); }
+    .so-register-decision-metric { border: 0; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); color: inherit; font: inherit; text-align: left; }
+    .so-register-decision-metric { cursor: pointer; }
+    .so-register-decision-metric:hover { background: var(--state-hover); }
     .so-register-decision-main { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
     .so-register-decision-main h2 { margin: var(--space-1) 0 var(--space-2); font-size: 18px; }
     .so-register-decision-main p { max-width: 640px; margin: 0; color: var(--foreground-secondary); font-size: 12px; line-height: 1.55; }
@@ -2299,12 +2331,16 @@ button.operator-tree-toggle:hover {
     .so-register-level-summary .so-bar { height: 7px; margin-top: var(--space-4); }
     .so-register-check-list,
     .so-register-opportunities { display: grid; gap: var(--space-2); }
-    .so-register-check-row { display: grid; grid-template-columns: 24px minmax(160px, .8fr) minmax(240px, 1.4fr) 72px; align-items: center; gap: var(--space-3); min-width: 0; padding: 10px var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); }
+    .so-register-check-row { display: grid; grid-template-columns: 24px minmax(160px, .8fr) minmax(240px, 1.4fr) 72px; align-items: center; gap: var(--space-3); width: 100%; min-width: 0; border: 0; padding: 10px var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); color: inherit; cursor: pointer; font: inherit; text-align: left; }
+    .so-register-check-row:hover,
+    .so-register-check-row.is-selected { background: var(--surface-3); }
     .so-register-check-icon { display: grid; width: 22px; height: 22px; place-items: center; border-radius: var(--radius-pill); background: var(--surface-3); color: var(--success); font-size: 10px; font-weight: 700; }
     .so-register-check-row strong { font-size: 11px; }
     .so-register-check-row span { min-width: 0; color: var(--foreground-secondary); font-size: 10px; line-height: 1.45; }
     .so-register-check-row .so-status { justify-self: end; }
-    .so-register-opportunity { display: grid; grid-template-columns: 52px minmax(180px, .8fr) minmax(260px, 1.2fr) 112px; align-items: center; gap: var(--space-3); min-width: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); }
+    .so-register-opportunity { display: grid; grid-template-columns: 44px minmax(140px, .85fr) minmax(160px, 1.15fr) 94px; align-items: center; gap: var(--space-3); width: 100%; min-width: 0; border: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-2); color: inherit; cursor: pointer; font: inherit; text-align: left; }
+    .so-register-opportunity:hover,
+    .so-register-opportunity.is-selected { background: var(--surface-3); }
     .so-register-opportunity-code { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 10px; }
     .so-register-opportunity-copy strong { display: block; font-size: 11px; }
     .so-register-opportunity-copy span,
@@ -2312,6 +2348,10 @@ button.operator-tree-toggle:hover {
     .so-register-opportunity-evidence { margin-top: 0; font-family: var(--font-mono); }
     .so-register-opportunity-impact { justify-self: end; text-align: right; }
     .so-register-opportunity-impact strong { display: block; margin-top: var(--space-1); font-size: 11px; }
+    .so-register-detail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; overflow: hidden; border-radius: var(--radius-md); background: var(--border-subtle); }
+    .so-register-detail-block { min-width: 0; padding: var(--space-3); background: var(--surface-3); }
+    .so-register-detail-block span { display: block; color: var(--foreground-muted); font-size: 10px; }
+    .so-register-detail-block strong { display: block; margin-top: var(--space-2); color: var(--foreground-secondary); font-size: 11px; font-weight: 500; line-height: 1.5; }
     .so-register-artifacts { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-1); }
     .so-register-artifacts h3 { margin: 0; font-size: 13px; }
     .so-register-artifacts p { margin: var(--space-1) 0 0; color: var(--foreground-secondary); font-size: 11px; }
@@ -2345,12 +2385,13 @@ button.operator-tree-toggle:hover {
       .so-register-check-row .so-status,
       .so-register-opportunity-evidence,
       .so-register-opportunity-impact { grid-column: 2; justify-self: start; text-align: left; }
+      .so-register-detail { grid-template-columns: 1fr; }
       .so-register-artifacts { align-items: flex-start; flex-direction: column; }
       .so-register-artifact-list { justify-content: flex-start; }
     }
   </style>
-  <link rel="stylesheet" href="../Design/Toolkit%20Studio/styles/profiler.css?v=20260821-3">
-  <link rel="stylesheet" href="serving-profiler.css?v=20260825-1">
+  <link rel="stylesheet" href="../Design/Toolkit%20Studio/styles/profiler.css?v=20260909-1">
+  <link rel="stylesheet" href="serving-profiler.css?v=20260909-1">
   <link rel="stylesheet" href="candidate-population-lineage/pattern.css?v=20260903-8">
   <link rel="stylesheet" href="../vendor/pto-design-system/tokens/foundation.css">
   <link rel="stylesheet" href="../vendor/pto-design-system/tokens/semantic.css">
@@ -2375,6 +2416,13 @@ button.operator-tree-toggle:hover {
     .serving-ide .pto-ide-frame__topbar .header-actions { display: inline-flex; gap: var(--space-2); }
     .serving-ide .pto-ide-frame__topbar .latest-run-name,
     .serving-ide .pto-ide-frame__topbar .latest-run-time { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .serving-ide .so-observe-baseline-controls { display: flex; align-items: flex-end; gap: var(--space-2); }
+    .serving-ide .so-observe-baseline { display: grid; min-width: 252px; gap: 4px; text-align: left; }
+    .serving-ide .so-observe-baseline__label { color: var(--foreground-muted); font-size: 10px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
+    .serving-ide .so-observe-baseline__select { width: 100%; min-height: 34px; border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 0 28px 0 10px; background: var(--surface-1); color: var(--foreground); font-size: 12px; font-weight: 550; box-shadow: var(--shadow-sm); }
+    .serving-ide .so-observe-baseline__select:hover { border-color: var(--border-strong); background: var(--surface-3); }
+    .serving-ide .so-observe-baseline__select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .serving-ide .so-observe-compare-toggle { min-height: 34px; flex: 0 0 auto; }
     .serving-ide #inspector-content { display: none; }
     .serving-ide .pto-ide-frame__rail-image {
       width: 18px;
@@ -2557,6 +2605,9 @@ button.operator-tree-toggle:hover {
     @media (max-width: 900px) {
       .serving-ide .pto-ide-frame__topbar .latest-run-link { max-width: 260px; }
       .serving-ide .pto-ide-frame__topbar .latest-run-time { display: none; }
+      .serving-ide .so-observe-baseline { min-width: 220px; }
+      .serving-ide .so-observe-baseline-controls { align-items: stretch; flex-direction: column; }
+      .serving-ide .so-observe-compare-toggle { align-self: flex-end; }
     }
   </style>
 </head>
@@ -2609,9 +2660,9 @@ button.operator-tree-toggle:hover {
 
   <script src="dfx-real-data.js?v=20260825-2"></script>
   <script src="../Design/Toolkit%20Studio/js/inference-profile-data.js?v=20260821-3"></script>
-  <script src="../Design/Toolkit%20Studio/js/inference-memory.js?v=20260821-1"></script>
-  <script src="../Design/Toolkit%20Studio/js/inference-serving.js?v=20260821-1"></script>
-  <script src="serving-profiler.js?v=20260825-1"></script>
+  <script src="../Design/Toolkit%20Studio/js/inference-memory.js?v=20260909-1"></script>
+  <script src="../Design/Toolkit%20Studio/js/inference-serving.js?v=20260909-1"></script>
+  <script src="serving-profiler.js?v=20260909-1"></script>
   <script src="candidate-population-lineage/pattern.js?v=20260903-9"></script>
   <script>
     (function () {
@@ -2625,6 +2676,8 @@ button.operator-tree-toggle:hover {
         scenarioViewId: 'deepseek',
         runId: 'RUN-044',
         compareRunId: 'RUN-042',
+        observeBaseline: null,
+        showComparison: true,
         compareRunIds: ['RUN-044', 'RUN-043', 'RUN-042'],
         comparePickerOpen: false,
         selectedRequest: null,
@@ -2656,6 +2709,9 @@ button.operator-tree-toggle:hover {
           checkpointPath: '/data/models/deepseek-v4-w8a8',
           referenceBackend: 'pytorch-eager',
           runtime: 'CANN 8.3.RC1',
+          executionTarget: 'AICore + HCCL',
+          selectedScope: 'semantic',
+          selectedDetail: null,
           status: 'idle'
         },
         explorerSections: { model: false, scenarios: false, observe: true },
@@ -2863,6 +2919,8 @@ button.operator-tree-toggle:hover {
         }
         if (query.get('run') && runs && runs.some(function (item) { return item.id === query.get('run'); })) state.runId = query.get('run');
         if (query.get('compareRun') && runs && runs.some(function (item) { return item.id === query.get('compareRun'); })) state.compareRunId = query.get('compareRun');
+        if (query.get('baseline') && query.get('baseline') !== 'performance' && runs && runs.some(function (item) { return item.id === query.get('baseline'); })) state.observeBaseline = 'run:' + query.get('baseline');
+        if (state.route === 'observe') state.showComparison = query.get('comparison') !== 'off';
         var run = currentRun();
         if (run) state.scenarioId = run.scenarioId;
         if (state.route === 'observe' && observeTabsConfig.some(function (item) { return item[0] === query.get('tab'); })) state.observeTab = query.get('tab');
@@ -2893,6 +2951,8 @@ button.operator-tree-toggle:hover {
         if (state.route === 'observe') {
           query.set('tab', state.observeTab);
           query.set('compareRun', state.compareRunId);
+          if (state.observeBaseline) query.set('baseline', state.observeBaseline.replace(/^run:/, ''));
+          if (!state.showComparison) query.set('comparison', 'off');
         }
         var next = '#/' + state.route + '?' + query.toString();
         updateLocationHash(next);
@@ -3135,7 +3195,32 @@ button.operator-tree-toggle:hover {
         return runs.find(function (item) { return item.evidenceId === evidenceId; }) || null;
       }
       function comparableRuns(run) {
-        return runs.filter(function (item) { return item.id !== run.id && item.scenarioId === run.scenarioId && item.kind === run.kind; });
+        return runs.filter(function (item) { return item.id !== run.id && item.scenarioId === run.scenarioId && item.kind === run.kind && item.status === 'Completed'; });
+      }
+      function observeBaselineRuns(run) {
+        return comparableRuns(run).slice().sort(function (a, b) { return String(b.snapshot || '').localeCompare(String(a.snapshot || '')); });
+      }
+      function observeBaselineRun() {
+        if (!state.observeBaseline) return null;
+        var id = String(state.observeBaseline || '').replace(/^run:/, '');
+        return observeBaselineRuns(currentRun()).find(function (item) { return item.id === id; }) || null;
+      }
+      function activeBaselineRun() {
+        return state.showComparison ? observeBaselineRun() : null;
+      }
+      function baselineEvidence() {
+        var run = activeBaselineRun();
+        return run ? runtimeEvidence[run.evidenceId] || null : null;
+      }
+      function comparisonContext() {
+        var run = currentRun();
+        var baselineRun = activeBaselineRun();
+        var profiler = window.PtoServingProfiler;
+        return {
+          family: run.kind,
+          current: { run: run, evidence: currentEvidence(), profile: profiler && profiler.profileForRun ? profiler.profileForRun(run.id) : null },
+          baseline: baselineRun ? { run: baselineRun, evidence: baselineEvidence(), profile: profiler && profiler.profileForRun ? profiler.profileForRun(baselineRun.id) : null } : null
+        };
       }
       function compareRun() {
         var run = currentRun();
@@ -3152,14 +3237,23 @@ button.operator-tree-toggle:hover {
           return allowed.some(function (item) { return item.id === id; });
         });
         if (state.compareRunIds.indexOf(run.id) < 0) state.compareRunIds.unshift(run.id);
+        if (!observeBaselineRun()) {
+          var newestBaseline = observeBaselineRuns(run)[0] || null;
+          state.observeBaseline = newestBaseline ? 'run:' + newestBaseline.id : null;
+        }
+        var baselineRun = observeBaselineRun();
+        if (baselineRun) state.compareRunId = baselineRun.id;
       }
       function compareRunsForView() {
         var run = currentRun();
+        if (!state.showComparison) return [run];
         var allowed = [run].concat(comparableRuns(run));
         var ids = (state.compareRunIds || []).filter(function (id) {
           return allowed.some(function (item) { return item.id === id; });
         });
         if (ids.indexOf(run.id) < 0) ids.unshift(run.id);
+        var baselineRun = observeBaselineRun();
+        if (baselineRun && ids.indexOf(baselineRun.id) < 0) ids.splice(1, 0, baselineRun.id);
         if (ids.length < 2) {
           allowed.some(function (item) {
             if (ids.indexOf(item.id) < 0) { ids.push(item.id); return true; }
@@ -3407,8 +3501,33 @@ button.operator-tree-toggle:hover {
       function value(value, unit) {
         return value === '—' ? '<span class="so-metric-delta muted">不可用 / 未采集</span>' : esc(value) + (unit || '');
       }
-      function metric(label, val, delta, klass) {
-        return '<div class="so-card"><div class="so-card-body" style="padding-top:14px"><div class="so-metric-label">' + esc(label) + '</div><div class="so-metric-value">' + val + '</div><div class="so-metric-delta ' + (klass || '') + '">' + delta + '</div></div></div>';
+      function compareValue(current, baseline, direction) {
+        if (current == null || baseline == null) return { status: 'changed', label: '已变化', delta: '—' };
+        current = Number(current); baseline = Number(baseline);
+        if (!Number.isFinite(current) || !Number.isFinite(baseline)) return { status: 'changed', label: '已变化', delta: '—' };
+        var absolute = current - baseline;
+        var relative = baseline === 0 ? null : absolute / Math.abs(baseline) * 100;
+        if (Math.abs(absolute) < .000001) return { status: 'unchanged', label: '持平', delta: '+0' };
+        if (relative !== null && Math.abs(relative) < 1) return { status: 'unchanged', label: '持平', delta: (absolute >= 0 ? '+' : '') + roundText(absolute) };
+        if (direction === 'neutral') return { status: Math.abs(absolute) < .000001 ? 'unchanged' : 'changed', label: Math.abs(absolute) < .000001 ? '持平' : '变化', delta: relative === null ? (absolute >= 0 ? '+' : '') + roundText(absolute) : (relative >= 0 ? '+' : '') + relative.toFixed(1) + '%' };
+        var improved = direction === 'lower' ? absolute < 0 : absolute > 0;
+        return { status: improved ? 'improved' : 'regressed', label: improved ? '改善' : '退化', delta: relative === null ? (absolute >= 0 ? '+' : '') + roundText(absolute) : (relative >= 0 ? '+' : '') + relative.toFixed(1) + '%' };
+      }
+      function baselineMarkup(current, baseline, formattedBaseline, direction, baselineId) {
+        if (!state.showComparison) return '';
+        if (baseline == null) return '<div class="so-baseline-value">无可用基线</div>';
+        var diff = compareValue(current, baseline, direction || 'neutral');
+        return '<div class="so-baseline-value"><span>基线 · ' + formattedBaseline + '</span><span class="so-compare-state ' + diff.status + '">' + diff.label + ' ' + diff.delta + '</span></div>';
+      }
+      function baselineInline(current, baseline, text, direction, baselineId) {
+        if (!state.showComparison) return '';
+        if (baseline == null) return '<span class="so-baseline-inline">基线无数据</span>';
+        if (baselineId === '') return '<span class="so-baseline-inline">' + (text ? '基线 · ' + text : '基线') + '</span>';
+        var diff = compareValue(current, baseline, direction || 'neutral');
+        return '<span class="so-baseline-inline">基线 · ' + text + ' · <span class="so-compare-state ' + diff.status + '">' + diff.label + ' ' + diff.delta + '</span></span>';
+      }
+      function metric(label, val, delta, klass, comparison) {
+        return '<div class="so-card"><div class="so-card-body" style="padding-top:14px"><div class="so-metric-label">' + esc(label) + '</div><div class="so-metric-value">' + val + '</div><div class="so-metric-delta ' + (klass || '') + '">' + delta + '</div>' + (comparison || '') + '</div></div>';
       }
 
       function moeStoryFor(evidence) {
@@ -3495,6 +3614,9 @@ button.operator-tree-toggle:hover {
       function renderMoeSummary(evidence) {
         var story = moeStoryFor(evidence);
         var d = moeDerived(story);
+        var comparison = comparisonContext();
+        var baseStory = comparison.baseline && comparison.baseline.evidence ? moeStoryFor(comparison.baseline.evidence) : null;
+        var baseDerived = baseStory ? moeDerived(baseStory) : null;
         var rank = state.selectedRank ? moeRankFor(story, state.selectedRank) : null;
         var phase = state.selectedPhase ? moePhaseFor(story, state.selectedPhase) : null;
         var lead = rank ? (phase ? rank.name + ' · ' + phase.label : rank.name + ' selected') : 'Step 33 · EP8 rank alignment';
@@ -3502,7 +3624,10 @@ button.operator-tree-toggle:hover {
         var critical = d.criticalRank;
         var expertText = rank ? moeDurationMs(rank.phaseDurations[phase ? phase.id : 'expert-compute']) : moeDurationMs(critical.phaseDurations['expert-compute']);
         var expertLabel = rank ? (phase ? phase.short + ' duration' : 'Expert Compute') : 'Critical Phase';
-        return '<section class="so-moe-summary" aria-label="MoE rank summary"><div class="so-moe-summary-lead"><strong>' + esc(lead) + '</strong><p>' + esc(copy) + '</p></div><div class="so-moe-summary-metric"><span>Critical Rank</span><strong>' + esc(rank ? rank.name : story.criticalRank) + '</strong><small>' + (rank ? moeTokenDelta(rank, d) + ' routed tokens' : 'critical path') + '</small></div><div class="so-moe-summary-metric"><span>Routed Tokens</span><strong>' + Number(rank ? rank.routedTokens : d.criticalRank.routedTokens).toLocaleString() + '</strong><small>' + (rank ? moeTokenDelta(rank, d) + ' vs avg' : '+31.3% vs avg') + '</small></div><div class="so-moe-summary-metric"><span>' + esc(expertLabel) + '</span><strong>' + expertText + '</strong><small>' + (rank ? (phase ? 'selected phase' : 'selected Rank') : 'Rank 4 Expert Compute') + '</small></div><div class="so-moe-summary-metric"><span>Peer Wait</span><strong>' + (rank ? Number(rank.phaseDurations['wait-sync'] / 1000).toFixed(2) + ' ms' : (story.affectedRanks || []).length + ' ranks') + '</strong><small>' + (rank ? (Number(rank.phaseDurations['wait-sync']) / story.totalWindow * 100).toFixed(1) + '% of rank window' : (d.waitTotal / 1000).toFixed(2) + ' rank-ms') + '</small></div></section>';
+        var baselineSummary = baseStory && baseDerived
+          ? '<div class="so-moe-summary-baseline"><strong>基线</strong><span>Critical ' + esc(baseStory.criticalRank) + ' · ' + Number(baseDerived.criticalRank.routedTokens).toLocaleString() + ' routed · ' + moeDurationMs(baseStory.totalWindow) + ' window · ' + (baseStory.affectedRanks || []).length + ' peer wait</span></div>'
+          : '';
+        return '<section class="so-moe-summary" aria-label="MoE rank summary"><div class="so-moe-summary-lead"><strong>' + esc(lead) + '</strong><p>' + esc(copy) + '</p></div><div class="so-moe-summary-metric"><span>Critical Rank</span><strong>' + esc(rank ? rank.name : story.criticalRank) + '</strong><small>' + (rank ? moeTokenDelta(rank, d) + ' routed tokens' : 'critical path') + '</small></div><div class="so-moe-summary-metric"><span>Routed Tokens</span><strong>' + Number(rank ? rank.routedTokens : d.criticalRank.routedTokens).toLocaleString() + '</strong><small>' + (rank ? moeTokenDelta(rank, d) + ' vs avg' : '+31.3% vs avg') + '</small></div><div class="so-moe-summary-metric"><span>' + esc(expertLabel) + '</span><strong>' + expertText + '</strong><small>' + (rank ? (phase ? 'selected phase' : 'selected Rank') : 'Rank 4 Expert Compute') + '</small></div><div class="so-moe-summary-metric"><span>Peer Wait</span><strong>' + (rank ? Number(rank.phaseDurations['wait-sync'] / 1000).toFixed(2) + ' ms' : (story.affectedRanks || []).length + ' ranks') + '</strong><small>' + (rank ? (Number(rank.phaseDurations['wait-sync']) / story.totalWindow * 100).toFixed(1) + '% of rank window' : (d.waitTotal / 1000).toFixed(2) + ' rank-ms') + '</small></div>' + baselineSummary + '</section>';
       }
       function renderMoeRelationControls() {
         return '<div class="so-moe-relation-controls" aria-label="跨 Rank 关系控制"><label><input type="checkbox" data-moe-relations-toggle ' + (state.crossRankRelationsEnabled ? 'checked' : '') + '> 跨 Rank 关系</label><button class="so-moe-relation-chip ' + (state.crossRankRelationKinds.communication ? 'is-active' : '') + '" data-moe-relation-kind="communication" ' + (state.crossRankRelationsEnabled ? '' : 'disabled') + '>Communication</button><button class="so-moe-relation-chip ' + (state.crossRankRelationKinds.dependency ? 'is-active' : '') + '" data-moe-relation-kind="dependency" ' + (state.crossRankRelationsEnabled ? '' : 'disabled') + '>Dependency</button><button class="so-moe-relation-chip ' + (state.crossRankRelationScope === 'related' ? 'is-active' : '') + '" data-moe-relation-scope="related" ' + (state.crossRankRelationsEnabled ? '' : 'disabled') + '>Related</button><button class="so-moe-relation-chip ' + (state.crossRankRelationScope === 'all' ? 'is-active' : '') + '" data-moe-relation-scope="all" ' + (state.crossRankRelationsEnabled ? '' : 'disabled') + '>All</button></div>';
@@ -3540,6 +3665,10 @@ button.operator-tree-toggle:hover {
       }
       function renderMoeTimelineEmbedded(evidence) {
         var story = moeStoryFor(evidence);
+        var baseEvidence = baselineEvidence();
+        var baseRun = activeBaselineRun();
+        var baseStory = baseEvidence && baseEvidence.kind === 'moe' ? moeStoryFor(baseEvidence) : null;
+        var sharedWindow = Math.max(story.totalWindow || 0, baseStory && baseStory.totalWindow || 0, 1);
         var d = moeDerived(story);
         var width = Math.max(980, Math.round(980 * state.traceZoom));
         var rows = story.ranks.map(function (rank) {
@@ -3551,12 +3680,20 @@ button.operator-tree-toggle:hover {
           var phaseMarkup = phases.map(function (phase) {
             var isSelected = state.selectedRank === rank.name && state.selectedPhase === phase.id;
             var label = phase.label + ' · ' + moeDurationUs(phase.duration) + ' · ' + phase.share.toFixed(1) + '%';
-            return '<button class="so-moe-phase' + (isSelected ? ' is-selected' : '') + (dimmed ? ' is-dimmed' : '') + '" data-moe-phase="' + esc(phase.id) + '" data-rank="' + esc(rank.name) + '" aria-label="' + esc(rank.name + ' · ' + label) + '" style="left:' + (phase.start / story.totalWindow * 100) + '%;width:' + (phase.duration / story.totalWindow * 100) + '%;--phase-color:' + phase.color + '">' + (phase.share >= 12 ? esc(phase.short) : '') + '</button>';
+            return '<button class="so-moe-phase' + (isSelected ? ' is-selected' : '') + (dimmed ? ' is-dimmed' : '') + '" data-moe-phase="' + esc(phase.id) + '" data-rank="' + esc(rank.name) + '" aria-label="' + esc(rank.name + ' · ' + label) + '" style="left:' + (phase.start / sharedWindow * 100) + '%;width:' + (phase.duration / sharedWindow * 100) + '%;--phase-color:' + phase.color + '">' + (phase.share >= 12 ? esc(phase.short) : '') + '</button>';
           }).join('');
           var row = '<div class="so-moe-rank-row ' + (selected ? 'is-selected' : '') + '" data-moe-rank-row="' + esc(rank.name) + '"><button class="so-moe-rank-label" data-rank="' + esc(rank.name) + '"><span class="so-moe-rank-label-copy"><strong>' + esc(rank.name) + '</strong><small>' + Number(rank.routedTokens).toLocaleString() + ' tokens · ' + moeTokenDelta(rank, d) + ' vs avg</small><span class="so-moe-token-meter" aria-label="' + esc(rank.name + ' routed token load') + '"><span style="width:' + tokenPct.toFixed(1) + '%"></span></span></span></button><div class="so-moe-track-cell"><div class="so-moe-phase-track" data-moe-rank-track="' + esc(rank.name) + '">' + phaseMarkup + '</div></div><div class="so-moe-rank-meta"><span>Window<strong>' + moeDurationMs(story.totalWindow) + '</strong></span><span>Expert<strong>' + moeDurationMs(rank.phaseDurations['expert-compute']) + '</strong></span><span>Wait<strong>' + moeDurationMs(rank.phaseDurations['wait-sync']) + '</strong></span><span class="so-moe-rank-signal"><span class="so-status ' + signal.cls + '">' + signal.label + '</span></span></div></div>';
-          return row + (selected ? renderMoeDetail(evidence, true) : '');
+          var baseRank = baseStory ? moeRankFor(baseStory, rank.name) : null;
+          var baselineRow;
+          if (baseRank) {
+            var basePhases = moeRankPhases(baseStory, baseRank);
+            baselineRow = '<div class="so-moe-rank-row is-baseline"><div class="so-moe-rank-label"><span class="so-moe-rank-label-copy"><strong>基线 · ' + esc(rank.name) + '</strong><small>' + Number(baseRank.routedTokens).toLocaleString() + ' tokens</small></span></div><div class="so-moe-track-cell"><div class="so-moe-phase-track">' + basePhases.map(function (phase) { return '<span class="so-moe-phase" title="' + esc('基线 · ' + rank.name + ' · ' + phase.label + ' · ' + moeDurationUs(phase.duration)) + '" style="left:' + (phase.start / sharedWindow * 100) + '%;width:' + (phase.duration / sharedWindow * 100) + '%;--phase-color:' + phase.color + '"></span>'; }).join('') + '</div></div><div class="so-moe-rank-meta"><span>Window<strong>' + moeDurationMs(baseStory.totalWindow) + '</strong></span><span>Expert<strong>' + moeDurationMs(baseRank.phaseDurations['expert-compute']) + '</strong></span><span>Wait<strong>' + moeDurationMs(baseRank.phaseDurations['wait-sync']) + '</strong></span></div></div>';
+          } else {
+            baselineRow = '<div class="so-moe-rank-row is-baseline"><div class="so-moe-rank-label"><span class="so-moe-rank-label-copy"><strong>基线 · ' + esc(rank.name) + '</strong><small>基线无对应 Rank</small></span></div><div class="so-moe-track-cell"><div class="so-trace-missing">基线无对应 Rank</div></div><div class="so-moe-rank-meta"><span class="so-status neutral">Missing</span></div></div>';
+          }
+          return row + (baseStory ? baselineRow : '') + (selected ? renderMoeDetail(evidence, true) : '');
         }).join('');
-        return '<section class="so-card so-moe-timeline-card" aria-label="MoE Rank Semantic Phase Timeline"><div class="so-moe-timeline-head"><div><h3>Rank Semantic Phase Timeline</h3><p>底层 task 已聚合为统一 phase；点击 Rank 行，在当前时间线内展开 detail。</p></div>' + renderMoeRelationControls() + '</div><div class="so-moe-timeline-scroll"><div class="so-moe-timeline-stage" data-moe-timeline-stage style="min-width:' + width + 'px"><div class="so-moe-axis"><span>Rank / routed tokens</span><div class="so-moe-axis-track"><span>0 μs</span><span>' + Math.round(story.totalWindow * .25) + ' μs</span><span>' + Math.round(story.totalWindow * .5) + ' μs</span><span>' + Math.round(story.totalWindow * .75) + ' μs</span><span>' + Math.round(story.totalWindow) + ' μs</span></div><span>Window · Expert · Wait · Signal</span></div>' + rows + '<svg class="so-moe-relations" data-moe-relations-svg aria-label="跨 Rank communication and dependency"></svg></div></div><div class="so-moe-timeline-foot"><div class="so-moe-legend">' + story.phases.map(function (phase) { return '<span class="so-moe-legend-item"><i class="so-moe-legend-swatch" style="--phase-color:' + phase.color + '"></i>' + esc(phase.short) + '</span>'; }).join('') + '<span class="so-moe-legend-item"><i class="so-moe-legend-line" style="--line-color:#5f9b9b"></i>Communication</span><span class="so-moe-legend-item"><i class="so-moe-legend-line dashed" style="--line-color:#b86d68"></i>Dependency</span></div><span>总窗口 ' + moeDurationMs(story.totalWindow) + ' · ' + story.ranks.length + ' ranks</span></div></section>';
+        return '<section class="so-card so-moe-timeline-card" aria-label="MoE Rank Semantic Phase Timeline"><div class="so-moe-timeline-head"><div><h3>Rank Semantic Phase Timeline</h3><p>' + (baseStory ? '当前与基线从 t=0 对齐，共用较长窗口；基线行使用弱化色彩。' : '当前 Run 从 t=0 对齐，按 Rank 查看关键路径与等待。') + '</p></div>' + renderMoeRelationControls() + '</div><div class="so-moe-timeline-scroll"><div class="so-moe-timeline-stage" data-moe-timeline-stage style="min-width:' + width + 'px"><div class="so-moe-axis"><span>Rank / routed tokens</span><div class="so-moe-axis-track"><span>0 μs</span><span>' + Math.round(sharedWindow * .25) + ' μs</span><span>' + Math.round(sharedWindow * .5) + ' μs</span><span>' + Math.round(sharedWindow * .75) + ' μs</span><span>' + Math.round(sharedWindow) + ' μs</span></div><span>Window · Expert · Wait · Signal</span></div>' + rows + '<svg class="so-moe-relations" data-moe-relations-svg aria-label="跨 Rank communication and dependency"></svg></div></div><div class="so-moe-timeline-foot"><div class="so-moe-legend">' + story.phases.map(function (phase) { return '<span class="so-moe-legend-item"><i class="so-moe-legend-swatch" style="--phase-color:' + phase.color + '"></i>' + esc(phase.short) + '</span>'; }).join('') + (baseStory ? '<span class="so-moe-legend-item"><i class="so-moe-legend-swatch is-baseline" style="--phase-color:#7089a4"></i>基线</span>' : '') + '<span class="so-moe-legend-item"><i class="so-moe-legend-line" style="--line-color:#5f9b9b"></i>Communication</span><span class="so-moe-legend-item"><i class="so-moe-legend-line dashed" style="--line-color:#b86d68"></i>Dependency</span></div><span>' + (baseStory ? '共享窗口 ' : '当前窗口 ') + moeDurationMs(sharedWindow) + ' · ' + story.ranks.length + ' ranks</span></div></section>';
       }
       function renderMoeStats(evidence) {
         var story = moeStoryFor(evidence);
@@ -3735,7 +3872,22 @@ button.operator-tree-toggle:hover {
 
       function observeRunHeader() {
         var run = currentRun();
-        return header(run.id + ' · ' + run.name, '', '');
+        return header(run.id + ' · ' + run.name, '', observeBaselineControl());
+      }
+
+      function observeBaselineControl() {
+        var run = currentRun();
+        var baselineRuns = observeBaselineRuns(run);
+        var options = '<option value="benchmark" disabled>Benchmark · 暂不可选</option>';
+        if (baselineRuns.length) {
+          options += '<optgroup label="同 Scenario · 同 family · 已完成">' + baselineRuns.map(function (item) {
+            var optionValue = 'run:' + item.id;
+            return '<option value="' + esc(optionValue) + '"' + (state.observeBaseline === optionValue ? ' selected' : '') + '>' + esc(item.id + ' · ' + item.name) + '</option>';
+          }).join('') + '</optgroup>';
+        } else {
+          options += '<option value="" selected disabled>无可用基线</option>';
+        }
+        return '<div class="so-observe-baseline-controls"><div class="so-observe-baseline"><label class="so-observe-baseline__label" for="observe-baseline">全量 Observe 对比基线</label><select id="observe-baseline" class="so-observe-baseline__select" data-observe-baseline aria-label="选择全量 Observe 数据的对比基线">' + options + '</select></div><button class="btn btn-compact so-observe-compare-toggle' + (state.showComparison ? ' is-selected' : '') + '" type="button" data-observe-comparison-toggle aria-pressed="' + state.showComparison + '" aria-label="显示对比 Run 数据" title="关闭后隐藏所有基线数值、双系列图表与基线泳道"' + (baselineRuns.length ? '' : ' disabled') + '>显示对比</button></div>';
       }
 
       function observeContextBar() {
@@ -3754,22 +3906,26 @@ button.operator-tree-toggle:hover {
         var run = currentRun();
         var scenario = currentScenario();
         var evidence = currentEvidence();
+        var comparison = comparisonContext();
+        var baseline = comparison.baseline;
+        var baselineRun = baseline && baseline.run;
+        var baseEvidence = baseline && baseline.evidence;
         var html = observeRunHeader();
         html += observeTabs();
         html += '<div class="so-grid metrics">';
-        html += metric('Execution window', value(evidence.window, ' μs'), evidence.kind === 'moe' ? evidence.rankCount + ' ranks 取最大窗口' : evidence.coreCount + ' cores', '');
-        html += metric('Runtime events', value(evidence.eventCount, ''), (evidence.rawTraceEventCount || evidence.eventCount) + ' trace records', '');
-        html += metric('Task / Tensor', value(evidenceTaskCount(evidence), ''), evidenceTensorCount(evidence) + ' tensors · ' + evidenceEdgeCount(evidence) + ' edges', '');
-        html += metric('Diagnostic evidence', value((evidence.hintGroups || []).length, ' groups'), (evidence.hints || []).length + ' hint occurrences · ' + (evidence.memorySections || []).length + ' memory kernels', (evidence.hints || []).length ? 'warn' : '');
+        html += metric('Execution window', value(evidence.window, ' μs'), evidence.kind === 'moe' ? evidence.rankCount + ' ranks 取最大窗口' : evidence.coreCount + ' cores', '', baselineMarkup(evidence.window, baseEvidence && baseEvidence.window, baseEvidence ? roundText(baseEvidence.window) + ' μs' : '', 'lower', baselineRun && baselineRun.id));
+        html += metric('Runtime events', value(evidence.eventCount, ''), (evidence.rawTraceEventCount || evidence.eventCount) + ' trace records', '', baselineMarkup(evidence.eventCount, baseEvidence && baseEvidence.eventCount, baseEvidence ? baseEvidence.eventCount : '', 'neutral', baselineRun && baselineRun.id));
+        html += metric('Task / Tensor', value(evidenceTaskCount(evidence), ''), evidenceTensorCount(evidence) + ' tensors · ' + evidenceEdgeCount(evidence) + ' edges', '', baselineMarkup(evidenceTaskCount(evidence), baseEvidence && evidenceTaskCount(baseEvidence), baseEvidence ? evidenceTaskCount(baseEvidence) + ' tasks · ' + evidenceTensorCount(baseEvidence) + ' tensors' : '', 'neutral', baselineRun && baselineRun.id));
+        html += metric('Diagnostic evidence', value((evidence.hintGroups || []).length, ' groups'), (evidence.hints || []).length + ' hint occurrences · ' + (evidence.memorySections || []).length + ' memory kernels', (evidence.hints || []).length ? 'warn' : '', baselineMarkup((evidence.hints || []).length, baseEvidence && (baseEvidence.hints || []).length, baseEvidence ? (baseEvidence.hints || []).length + ' occurrences' : '', 'neutral', baselineRun && baselineRun.id));
         html += '</div>';
         html += '<div class="so-grid two" style="margin-top:12px">';
-        html += '<section class="so-card"><div class="so-card-head"><h3>Evidence scope</h3>' + status(run.status) + '</div><div class="so-card-body"><dl class="so-kv"><dt>Controlled Run</dt><dd class="so-mono">' + esc(run.id) + '</dd><dt>Scenario snapshot</dt><dd>' + esc(scenario.revision) + '</dd><dt>Run configuration</dt><dd>' + esc(run.config) + '</dd><dt>Hierarchy</dt><dd>' + (evidence.kind === 'moe' ? evidence.rankCount + ' Rank → Core → Event' : 'Core → Event') + '</dd><dt>Runtime graph</dt><dd>' + evidenceTaskCount(evidence) + ' Task → ' + evidenceTensorCount(evidence) + ' Tensor → ' + evidenceEdgeCount(evidence) + ' Edge</dd><dt>Core execution</dt><dd>AIC ' + (evidence.aicoreCount || 0) + ' · AICPU ' + (evidence.aicpuCount || 0) + '</dd></dl></div></section>';
-        html += '<section class="so-card"><div class="so-card-head"><h3>Evidence coverage</h3><span class="so-pill accent">DFX linked</span></div><div class="so-card-body"><dl class="so-kv"><dt>Timeline</dt><dd>' + evidence.eventCount + ' complete events</dd><dt>Dependency graph</dt><dd>' + evidenceEdgeCount(evidence) + ' creator / explicit / tensormap edges</dd><dt>Tensor metadata</dt><dd>identity · version · shape · dtype · stride · offset · storage</dd><dt>Memory report</dt><dd>' + (evidence.memorySections || []).length + ' kernel sections · ' + esc(evidence.memory) + '</dd><dt>Perf hints</dt><dd>' + (evidence.hintGroups || []).length + ' grouped problems · ' + (evidence.hints || []).length + ' occurrences</dd><dt>PMU</dt><dd><span class="so-status neutral">未采集</span></dd></dl></div></section>';
+        html += '<section class="so-card"><div class="so-card-head"><h3>Evidence scope</h3>' + status(run.status) + '</div><div class="so-card-body"><dl class="so-kv"><dt>Controlled Run</dt><dd class="so-mono">' + esc(run.id) + baselineInline(0, 0, baselineRun ? '' : '—', 'neutral', '') + '</dd><dt>Scenario snapshot</dt><dd>' + esc(scenario.revision) + '</dd><dt>Run configuration</dt><dd>' + esc(run.config) + (baselineRun ? '<span class="so-baseline-inline">基线 · ' + esc(baselineRun.config) + '</span>' : '') + '</dd><dt>Hierarchy</dt><dd>' + (evidence.kind === 'moe' ? evidence.rankCount + ' Rank → Core → Event' : 'Core → Event') + (baseEvidence ? baselineInline(evidence.rankCount || evidence.coreCount, baseEvidence.rankCount || baseEvidence.coreCount, (baseEvidence.kind === 'moe' ? baseEvidence.rankCount + ' Rank' : baseEvidence.coreCount + ' Core'), 'neutral', baselineRun.id) : '') + '</dd><dt>Runtime graph</dt><dd>' + evidenceTaskCount(evidence) + ' Task → ' + evidenceTensorCount(evidence) + ' Tensor → ' + evidenceEdgeCount(evidence) + ' Edge' + (baseEvidence ? baselineInline(evidenceTaskCount(evidence), evidenceTaskCount(baseEvidence), evidenceTaskCount(baseEvidence) + ' Task · ' + evidenceTensorCount(baseEvidence) + ' Tensor · ' + evidenceEdgeCount(baseEvidence) + ' Edge', 'neutral', baselineRun.id) : '') + '</dd><dt>Core execution</dt><dd>AIC ' + (evidence.aicoreCount || 0) + ' · AICPU ' + (evidence.aicpuCount || 0) + (baseEvidence ? baselineInline((evidence.aicoreCount || 0) + (evidence.aicpuCount || 0), (baseEvidence.aicoreCount || 0) + (baseEvidence.aicpuCount || 0), 'AIC ' + (baseEvidence.aicoreCount || 0) + ' · AICPU ' + (baseEvidence.aicpuCount || 0), 'neutral', baselineRun.id) : '') + '</dd></dl></div></section>';
+        html += '<section class="so-card"><div class="so-card-head"><h3>Evidence coverage</h3><span class="so-pill accent">DFX linked</span></div><div class="so-card-body"><dl class="so-kv"><dt>Timeline</dt><dd>' + evidence.eventCount + ' complete events' + (baseEvidence ? baselineInline(evidence.eventCount, baseEvidence.eventCount, baseEvidence.eventCount + ' complete events', 'neutral', baselineRun.id) : '') + '</dd><dt>Dependency graph</dt><dd>' + evidenceEdgeCount(evidence) + ' creator / explicit / tensormap edges' + (baseEvidence ? baselineInline(evidenceEdgeCount(evidence), evidenceEdgeCount(baseEvidence), evidenceEdgeCount(baseEvidence) + ' edges', 'neutral', baselineRun.id) : '') + '</dd><dt>Tensor metadata</dt><dd>identity · version · shape · dtype · stride · offset · storage</dd><dt>Memory report</dt><dd>' + (evidence.memorySections || []).length + ' kernel sections · ' + esc(evidence.memory) + (baseEvidence ? baselineInline((evidence.memorySections || []).length, (baseEvidence.memorySections || []).length, (baseEvidence.memorySections || []).length + ' kernel sections', 'neutral', baselineRun.id) : '') + '</dd><dt>Perf hints</dt><dd>' + (evidence.hintGroups || []).length + ' grouped problems · ' + (evidence.hints || []).length + ' occurrences' + (baseEvidence ? baselineInline((evidence.hints || []).length, (baseEvidence.hints || []).length, (baseEvidence.hintGroups || []).length + ' groups · ' + (baseEvidence.hints || []).length + ' occurrences', 'neutral', baselineRun.id) : '') + '</dd><dt>PMU</dt><dd><span class="so-status neutral">未采集</span></dd></dl></div></section>';
         html += '</div>';
         var runFindings = visibleFindings();
         html += '<div class="so-section-title so-findings-section-title"><div><h2>Findings <span class="so-findings-count">' + runFindings.length + '</span></h2><p>查看当前 Run 的诊断结论，进入 Trace 检查相关事件与证据</p></div><span class="so-finding-evidence">' + runFindings.filter(function (item) { return item.severity === 'High'; }).length + ' high priority</span></div>';
         html += '<div class="so-findings so-findings-overview">' + (runFindings.length ? runFindings.map(findingCard).join('') : '<div class="so-empty">当前 Run 尚未生成 Finding。</div>') + '</div>';
-        if (window.PtoServingProfiler) html += window.PtoServingProfiler.render('overview');
+        if (window.PtoServingProfiler) html += window.PtoServingProfiler.render('overview', comparison);
         return html;
       }
 
@@ -3811,13 +3967,22 @@ button.operator-tree-toggle:hover {
         return Object.keys(map).map(function (key) { return map[key]; }).sort(function (a, b) { return a.label.localeCompare(b.label, undefined, { numeric: true }); });
       }
 
-      function traceRows(evidence) {
+      function traceLaneIdentity(lane) {
+        return String((lane && (lane.id || lane.label)) || '').replace(/^r\d+[:\s·-]*/i, '').replace(/\s+/g, '').toLowerCase();
+      }
+      function traceRows(evidence, baseEvidence) {
         var lanes = visibleTraceLanes(evidence);
+        var baseLanes = baseEvidence ? visibleTraceLanes(baseEvidence) : [];
         var shown = lanes.slice(0, state.laneLimit);
         var html = shown.map(function (lane, laneIndex) {
           var events = lane.events || [];
           var canvasId = 'trace-canvas-' + String(lane.id || lane.label).replace(/[^a-z0-9]/gi, '-') + '-' + laneIndex;
-          return '<div class="so-trace-row"><div class="so-trace-label">' + esc(laneDisplayLabel(lane.label)) + '<small>' + events.length + ' events</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" id="' + canvasId + '" data-trace-lane="' + esc(lane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="' + esc(laneDisplayLabel(lane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer aria-label="' + esc(laneDisplayLabel(lane.label)) + ' events"></div></div></div>';
+          var baseLane = baseLanes.find(function (item) { return traceLaneIdentity(item) === traceLaneIdentity(lane); }) || null;
+          var currentRow = '<div class="so-trace-row"><div class="so-trace-label">' + esc(laneDisplayLabel(lane.label)) + '<small>' + events.length + ' events · 当前</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" id="' + canvasId + '" data-trace-source="current" data-trace-lane="' + esc(lane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="' + esc(laneDisplayLabel(lane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer aria-label="' + esc(laneDisplayLabel(lane.label)) + ' events"></div></div></div>';
+          var baselineRow = baseLane
+            ? '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(baseLane.label)) + '<small>' + baseLane.events.length + ' events</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" data-trace-source="baseline" data-trace-lane="' + esc(baseLane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="基线 ' + esc(laneDisplayLabel(baseLane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer></div></div></div>'
+            : '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(lane.label)) + '</div><div class="so-trace-missing">基线无对应 Lane</div></div>';
+          return currentRow + baselineRow;
         }).join('');
         if (lanes.length > shown.length) html += '<div class="so-lane-cap">已渲染 ' + shown.length + ' / ' + lanes.length + ' lanes。<button class="so-link" data-action="show-more-lanes">继续展开</button></div>';
         return html || '<div class="so-empty">当前筛选条件下没有匹配的 runtime event。</div>';
@@ -3831,13 +3996,15 @@ button.operator-tree-toggle:hover {
       }
 
       function traceLegend() {
-        return '<div class="so-trace-legend" aria-label="Trace event color legend"><span class="so-trace-legend-title">事件颜色</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#c8945d"></i>AIC 计算 / Expert</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#5f9b9b"></i>AIV 计算</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#b86d68"></i>Wait / Gather / Metadata</span><span class="so-trace-legend-hint">悬停彩色事件条查看详情</span></div>';
+        var baselineRun = activeBaselineRun();
+        return '<div class="so-trace-legend" aria-label="Trace event color legend"><span class="so-trace-legend-title">事件颜色</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#c8945d"></i>AIC 计算 / Expert</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#5f9b9b"></i>AIV 计算</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#b86d68"></i>Wait / Gather / Metadata</span>' + (baselineRun ? '<span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:color-mix(in srgb,#5f9b9b 48%,transparent)"></i>基线 · 弱化泳道</span>' : '') + '<span class="so-trace-legend-hint">悬停彩色事件条查看详情</span></div>';
       }
 
       function traceTooltipHtml(task) {
         var event = task && task.event || {};
         var end = Number(event.start || 0) + Number(event.dur || 0);
         return '<div class="so-timeline-tooltip__title"><span class="so-trace-tooltip-swatch" style="background:' + esc(event.color || '#5f6775') + '"></span>' + esc(event.funcName || event.label || 'runtime event') + '</div>' +
+          '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">来源</span><span class="so-timeline-tooltip__value">' + esc(task && task.sourceLabel || '当前 Run') + '</span></div>' +
           '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">lane</span><span class="so-timeline-tooltip__value">' + esc(laneDisplayLabel(event.lane || task.lane || '—')) + '</span></div>' +
           '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">core</span><span class="so-timeline-tooltip__value">' + esc(String(event.coreType || '—').toUpperCase()) + ' · ' + esc(event.coreId || '—') + '</span></div>' +
           '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">start</span><span class="so-timeline-tooltip__value">' + roundText(event.start) + ' μs</span></div>' +
@@ -3847,12 +4014,15 @@ button.operator-tree-toggle:hover {
       }
 
       function renderHierarchy(evidence) {
+        var base = baselineEvidence();
+        var baseRun = activeBaselineRun();
         if (evidence.ranks) {
           var selectedLabel = state.selectedRank || 'All ranks';
           var physicalCoreCount = evidence.coreCount || (evidence.id === 'ep8' ? 66 : 6);
-          return '<aside class="so-card so-hierarchy"><div class="so-hierarchy-head"><div class="so-eyebrow">TRACE SCOPE</div><div class="so-finding-title" style="margin-top:5px">Rank timeline focus</div></div><div class="so-hierarchy-list"><div class="so-hierarchy-stat"><span>Ranks</span><strong>' + evidence.rankCount + '</strong><small>在主 Timeline 选择</small></div><div class="so-hierarchy-stat"><span>Physical core lanes</span><strong>' + physicalCoreCount + '</strong><small>按执行角色聚合到右侧 Core lane summary</small></div><div class="so-hierarchy-stat"><span>Current drill</span><strong>' + esc(selectedLabel) + '</strong><small>Rank detail 在选中行内展开</small></div></div></aside>';
+          return '<aside class="so-card so-hierarchy"><div class="so-hierarchy-head"><div class="so-eyebrow">TRACE SCOPE</div><div class="so-finding-title" style="margin-top:5px">Rank timeline focus</div></div><div class="so-hierarchy-list"><div class="so-hierarchy-stat"><span>Ranks</span><strong>' + evidence.rankCount + '</strong><small>' + (base ? '基线 · ' + base.rankCount + ' ranks' : '当前 Run') + '</small></div><div class="so-hierarchy-stat"><span>Physical core lanes</span><strong>' + physicalCoreCount + '</strong><small>' + (base ? '基线 · ' + (base.coreCount || (base.aicoreCount || 0) + (base.aicpuCount || 0)) + ' physical' : '按执行角色聚合') + '</small></div><div class="so-hierarchy-stat"><span>Execution window</span><strong>' + roundText(evidence.window) + ' μs</strong><small>' + (base ? '基线 · ' + roundText(base.window) + ' μs' : '当前窗口') + '</small></div><div class="so-hierarchy-stat"><span>Current drill</span><strong>' + esc(selectedLabel) + '</strong><small>Rank detail 在选中行内展开</small></div></div></aside>';
         }
         var html = '<aside class="so-card so-hierarchy"><div class="so-hierarchy-head"><div class="so-eyebrow">EXECUTION HIERARCHY</div><div class="so-finding-title" style="margin-top:5px">' + (evidence.ranks ? 'Rank → Core' : 'Core → Event') + '</div></div><div class="so-hierarchy-list">';
+        if (base) html += '<div class="so-hierarchy-stat"><span>基线摘要</span><strong>' + esc(baseRun.id) + '</strong><small>' + (base.coreCount || 0) + ' cores · ' + base.eventCount + ' events · ' + roundText(base.window) + ' μs</small></div><div class="so-divider"></div>';
         if (evidence.ranks) {
           var maxWindow = Math.max.apply(null, evidence.ranks.map(function (rank) { return rank.window; }));
           html += '<button class="so-hierarchy-item ' + (!state.selectedRank ? 'is-active' : '') + '" data-rank=""><span>Rank Overview</span><span>' + evidence.rankCount + '</span></button>';
@@ -3939,11 +4109,17 @@ button.operator-tree-toggle:hover {
 
       function renderEvidenceDock(evidence) {
         var tabs = [['summary', 'Summary'], ['tensors', 'Tensors'], ['dependencies', 'Dependencies'], ['memory', 'Memory'], ['hints', 'Perf Hints'], ['source', 'Source']];
-        return '<section class="so-card so-evidence-dock"><div class="so-evidence-tabs">' + tabs.map(function (tab) { return '<button class="so-evidence-tab ' + (state.evidenceTab === tab[0] ? 'is-active' : '') + '" data-evidence-tab="' + tab[0] + '">' + tab[1] + '</button>'; }).join('') + '</div><div class="so-evidence-body">' + renderEvidenceBody(evidence) + '</div></section>';
+        var base = baselineEvidence();
+        var baseRun = activeBaselineRun();
+        var summary = base ? '<div class="so-baseline-dock">基线 · ' + roundText(base.window) + ' μs · ' + evidenceTaskCount(base) + ' tasks · ' + evidenceEdgeCount(base) + ' edges · ' + (base.hints || []).length + ' hints</div>' : '';
+        return '<section class="so-card so-evidence-dock"><div class="so-evidence-tabs">' + tabs.map(function (tab) { return '<button class="so-evidence-tab ' + (state.evidenceTab === tab[0] ? 'is-active' : '') + '" data-evidence-tab="' + tab[0] + '">' + tab[1] + '</button>'; }).join('') + '</div>' + summary + '<div class="so-evidence-body">' + renderEvidenceBody(evidence) + '</div></section>';
       }
 
       function renderTrace() {
         var evidence = currentEvidence();
+        var baseEvidence = baselineEvidence();
+        var baselineRun = activeBaselineRun();
+        var sharedWindow = Math.max(evidence.window || 0, baseEvidence && baseEvidence.window || 0);
         var html = observeRunHeader();
         html += observeTabs();
         if (state.dfxStatus !== 'ready') return html + '<div class="so-grid two" style="margin-top:12px">' + dfxStatusCard() + '</div>';
@@ -3955,7 +4131,7 @@ button.operator-tree-toggle:hover {
           html += '<div class="so-analysis-layout">' + renderHierarchy(evidence) + '<div>';
           if (evidence.ranks && !state.selectedRank && state.traceView === 'timeline') html += renderRankOverview(evidence);
           else if (state.traceView === 'dependency') html += renderDependencyGraph(evidence);
-          else html += '<div class="so-trace-scroll"><div class="so-trace"><div class="so-trace-scale"><span>0 μs</span><span>' + Math.round(evidence.window * .25) + ' μs</span><span>' + Math.round(evidence.window * .5) + ' μs</span><span>' + Math.round(evidence.window * .75) + ' μs</span><span>' + evidence.window + ' μs</span></div>' + traceRows(evidence) + '<div class="so-trace-note">' + esc(evidence.label) + ' · ' + evidenceTaskCount(evidence) + ' tasks · ' + evidenceTensorCount(evidence) + ' tensors · ' + evidenceEdgeCount(evidence) + ' dependency edges</div></div></div>';
+          else html += '<div class="so-trace-scroll"><div class="so-trace"><div class="so-trace-scale"><span>0 μs</span><span>' + Math.round(sharedWindow * .25) + ' μs</span><span>' + Math.round(sharedWindow * .5) + ' μs</span><span>' + Math.round(sharedWindow * .75) + ' μs</span><span>' + sharedWindow + ' μs</span></div>' + traceRows(evidence, baseEvidence) + '<div class="so-trace-note">' + esc(evidence.label) + ' · ' + evidenceTaskCount(evidence) + ' tasks · ' + evidenceTensorCount(evidence) + ' tensors · ' + evidenceEdgeCount(evidence) + ' dependency edges' + (baseEvidence ? '<span class="so-baseline-inline">基线 · ' + evidenceTaskCount(baseEvidence) + ' tasks · ' + evidenceTensorCount(baseEvidence) + ' tensors · 共享时间轴 ' + roundText(sharedWindow) + ' μs</span>' : '') + '</div></div></div>';
           html += renderEvidenceDock(evidence) + '</div></div>';
         }
         return html;
@@ -3973,6 +4149,9 @@ button.operator-tree-toggle:hover {
 
       function renderCompare() {
         var run = currentRun();
+        if (!state.showComparison) {
+          return observeRunHeader() + observeTabs() + '<section class="so-card"><div class="so-card-body"><div class="so-empty"><strong>对比数据已隐藏</strong><span>打开“显示对比”后，将恢复所选基线与其他兼容 Run 的比较。</span></div></div></section>';
+        }
         var selectedRuns = compareRunsForView();
         var colors = ['#7089a4', '#5f9b9b', '#c8945d', '#8f72a6', '#b86d68'];
         var servingMetrics = {
@@ -4011,8 +4190,9 @@ button.operator-tree-toggle:hover {
           return selected.reduce(function (max, item) { return Math.max(max, (item.functions[name] && item.functions[name].total) || 0); }, 0);
         }).concat([1]));
         var runItems = selected.map(function (item) {
-          var fixed = item.run.id === run.id || selected.length <= 2;
-          return '<div class="so-compare-run" style="--compare-color:' + item.color + '"><i aria-hidden="true"></i><div><b>' + esc(item.run.id + ' · ' + item.run.name) + '</b><span>' + esc(item.run.config) + '</span></div><button class="so-compare-remove" type="button" data-compare-remove="' + esc(item.run.id) + '" aria-label="移除 ' + esc(item.run.id) + '" title="移除"' + (fixed ? ' disabled' : '') + '>×</button></div>';
+          var isBaseline = activeBaselineRun() && item.run.id === activeBaselineRun().id;
+          var fixed = item.run.id === run.id || isBaseline || selected.length <= 2;
+          return '<div class="so-compare-run" style="--compare-color:' + item.color + '"><i aria-hidden="true"></i><div><b>' + esc(item.run.id + ' · ' + item.run.name) + (isBaseline ? ' <span class="so-pill accent">Baseline</span>' : item.run.id === run.id ? ' <span class="so-pill">当前</span>' : '') + '</b><span>' + esc(item.run.config) + '</span></div><button class="so-compare-remove" type="button" data-compare-remove="' + esc(item.run.id) + '" aria-label="移除 ' + esc(item.run.id) + '" title="移除"' + (fixed ? ' disabled' : '') + '>×</button></div>';
         }).join('');
         var picker = state.comparePickerOpen ? '<div class="so-compare-add-menu" role="menu">' + (available.length ? available.map(function (item) { return '<button type="button" role="menuitem" data-compare-add="' + esc(item.id) + '"><span>' + esc(item.id + ' · ' + item.name) + '</span><small>添加</small></button>'; }).join('') : '<div class="so-finding-summary" style="padding:7px">没有更多可比较的 Run</div>') + '</div>' : '';
         var metricRows = metricDefs.map(function (item) {
@@ -4094,7 +4274,7 @@ button.operator-tree-toggle:hover {
         html += observeTabs();
         html += '<div class="so-compare-view"><aside class="so-card so-compare-sidebar"><div class="so-compare-sidebar-head"><div><h2>比较对象</h2><p>同一 Scenario · 同类采集范围</p></div><span class="so-pill">' + selected.length + ' runs</span></div><div class="so-compare-run-list">' + runItems + '</div><div class="so-compare-add"><button class="so-button" type="button" data-compare-picker aria-expanded="' + state.comparePickerOpen + '">＋ 添加 Run</button>' + picker + '</div></aside>';
         html += '<section class="so-compare-main"><section class="so-compare-findings" aria-labelledby="compare-findings-title"><div class="so-section-title so-findings-section-title"><div><h2 id="compare-findings-title">Findings <span class="so-findings-count">' + comparisonFindings.length + '</span></h2><p>基于当前选中 Run 的服务指标与 runtime evidence 动态生成</p></div><span class="so-finding-evidence">' + comparisonFindings.filter(function (item) { return item.severity === 'High'; }).length + ' high priority</span></div><div class="so-findings so-findings-overview">' + comparisonFindings.map(findingCard).join('') + '</div></section>';
-        html += '<div class="so-compare-summary-grid"><section class="so-card so-compare-metrics"><div class="so-compare-metrics-head"><div><h2>服务指标对比</h2><p>延迟类低优先，吞吐类高优先。</p></div><span class="so-pill accent">当前 · ' + esc(run.id) + '</span></div><div class="so-compare-metric-table-wrap"><table class="so-compare-metric-table"><thead><tr><th>Metric</th>' + selected.map(function (item) { return '<th>' + esc(item.run.id) + '</th>'; }).join('') + '</tr></thead><tbody>' + metricRows + '</tbody></table></div></section>';
+        html += '<div class="so-compare-summary-grid"><section class="so-card so-compare-metrics"><div class="so-compare-metrics-head"><div><h2>服务指标对比</h2><p>延迟类低优先，吞吐类高优先。</p></div><span class="so-pill accent">当前 · ' + esc(run.id) + '</span></div><div class="so-compare-metric-table-wrap"><table class="so-compare-metric-table"><thead><tr><th>Metric</th>' + selected.map(function (item) { var isBase = activeBaselineRun() && item.run.id === activeBaselineRun().id; return '<th>' + esc(item.run.id) + (isBase ? '<span class="so-baseline-inline">Baseline</span>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>' + metricRows + '</tbody></table></div></section>';
         html += '<section class="so-card so-compare-scatter"><div class="so-compare-chart-head"><div><h3>tokens/s/GPU vs tokens/s/user</h3><p>每个点代表一条 Controlled Run；越靠右上表示单位 GPU 与用户侧输出吞吐都更高。</p></div><div class="so-compare-legend">' + selected.map(function (item) { return '<span style="--compare-color:' + item.color + '"><i></i>' + esc(item.run.id) + '</span>'; }).join('') + '</div></div>' + scatterSvg + '</section></div>';
         html += '<section class="so-card so-compare-operators"><div class="so-compare-operator-head"><div><h2>算子性能对比</h2><p>按累积函数耗时排序，保留原有函数级性能证据。</p></div><span class="so-pill">Top ' + operatorNames.length + '</span></div><div class="so-compare-operator-grid" style="--compare-count:' + selected.length + '"><strong>Function</strong>' + selected.map(function (item) { return '<strong>' + esc(item.run.id) + '</strong>'; }).join('') + operatorRows + '</div></section></section></div>';
         return html;
@@ -5691,6 +5871,135 @@ button.operator-tree-toggle:hover {
         return html;
       }
 
+      function renderModelRegistrationFlow() {
+        var status = state.modelRegistration.status;
+        var current = status === 'complete' ? 4 : status === 'analyzing' ? 2 : 1;
+        var steps = [
+          ['模型与硬件', '定义分析对象', 'register-config'],
+          ['语义完整性', '先确认能算对', status === 'complete' ? 'register-semantic' : 'register-scope'],
+          ['Graph 优化', '重写与内存计划', status === 'complete' ? 'register-graph' : 'register-scope'],
+          ['Kernel 优化', '针对目标硬件', status === 'complete' ? 'register-kernel' : 'register-scope']
+        ];
+        return '<div class="so-register-flow" aria-label="模型解析流程">' + steps.map(function (step, index) {
+          var number = index + 1;
+          var stepClass = status === 'complete' || number < current ? ' is-complete' : number === current ? ' is-current' : '';
+          var marker = status === 'complete' || number < current ? '✓' : number;
+          return '<button class="so-register-step' + stepClass + '" type="button" data-register-jump="' + step[2] + '" aria-label="进入' + step[0] + '"><span class="so-register-step-index">' + marker + '</span><span class="so-register-step-copy"><strong>' + step[0] + '</strong><span>' + step[1] + '</span></span></button>';
+        }).join('') + '</div>';
+      }
+
+      function registrationSelectOptions(catalog, selectedId) {
+        return Object.keys(catalog).map(function (id) {
+          return '<option value="' + id + '" ' + (id === selectedId ? 'selected' : '') + '>' + esc(catalog[id].name) + '</option>';
+        }).join('');
+      }
+
+      function renderModelRegistrationConfig() {
+        var registration = state.modelRegistration;
+        var model = registrationModelCatalog[registration.modelId];
+        var hardware = registrationHardwareCatalog[registration.hardwareId];
+        return '<section class="so-model-section" id="register-config"><div class="so-model-section-head"><div><h2>1 · 选择分析对象</h2><p>锁定模型资产、reference 与目标硬件，后续结论都绑定这组上下文。</p></div>' + modelTag('分析上下文') + '</div><div class="so-register-config-grid">' +
+          '<div class="so-model-surface"><div class="so-register-card-head"><div><h3>目标模型</h3><p>Checkpoint 与模型定义作为一个不可分割的输入集。</p></div>' + modelTag(model.precision) + '</div><div class="so-register-fields"><div class="so-field full"><label>模型</label><select class="so-select" data-register-field="modelId" aria-label="选择目标模型">' + registrationSelectOptions(registrationModelCatalog, registration.modelId) + '</select></div><div class="so-field full"><label>Checkpoint 路径</label><input class="so-input so-mono" type="text" data-register-field="checkpointPath" value="' + esc(registration.checkpointPath) + '" aria-label="Checkpoint 路径"><small>用于解析 shard、权重元数据与模型文件。</small></div><div class="so-field full"><label>Reference 后端</label><select class="so-select" data-register-field="referenceBackend" aria-label="选择 Reference 后端"><option value="pytorch-eager" ' + (registration.referenceBackend === 'pytorch-eager' ? 'selected' : '') + '>PyTorch eager · FP32 baseline</option><option value="transformers" ' + (registration.referenceBackend === 'transformers' ? 'selected' : '') + '>Transformers generate · BF16</option></select></div></div><div class="so-register-manifest" aria-label="模型资产清单"><div class="so-register-manifest-row"><i>✓</i><span>Checkpoint</span><strong>' + esc(model.checkpoint) + '</strong></div><div class="so-register-manifest-row"><i>✓</i><span>Model config</span><strong>' + esc(model.config) + '</strong></div><div class="so-register-manifest-row"><i>✓</i><span>Tokenizer</span><strong>' + esc(model.tokenizer) + '</strong></div><div class="so-register-manifest-row"><i>✓</i><span>Model code / ops</span><strong>' + esc(model.customCode) + '</strong></div></div></div>' +
+          '<div class="so-model-surface" id="register-hardware"><div class="so-register-card-head"><div><h3>目标硬件</h3><p>Graph 与 Kernel 建议将按当前硬件、Runtime 和容量约束生成。</p></div>' + modelTag('NPU target', 'status-success') + '</div><div class="so-register-fields"><div class="so-field full"><label>硬件配置</label><select class="so-select" data-register-field="hardwareId" aria-label="选择目标硬件">' + registrationSelectOptions(registrationHardwareCatalog, registration.hardwareId) + '</select></div><div class="so-field"><label>Runtime</label><select class="so-select" data-register-field="runtime" aria-label="选择 Runtime"><option value="CANN 8.3.RC1" ' + (registration.runtime === 'CANN 8.3.RC1' ? 'selected' : '') + '>CANN 8.3.RC1</option><option value="CANN 8.5" ' + (registration.runtime === 'CANN 8.5' ? 'selected' : '') + '>CANN 8.5</option><option value="CANN 9.0" ' + (registration.runtime === 'CANN 9.0' ? 'selected' : '') + '>CANN 9.0</option></select></div><div class="so-field"><label>执行目标</label><select class="so-select" data-register-field="executionTarget" aria-label="选择执行目标"><option value="AICore + HCCL" ' + (registration.executionTarget === 'AICore + HCCL' ? 'selected' : '') + '>AICore + HCCL</option><option value="AICore" ' + (registration.executionTarget === 'AICore' ? 'selected' : '') + '>AICore only</option><option value="Cube + Vector + HCCL" ' + (registration.executionTarget === 'Cube + Vector + HCCL' ? 'selected' : '') + '>Cube + Vector + HCCL</option></select></div></div><div class="so-register-manifest" aria-label="硬件约束"><div class="so-register-manifest-row"><i>✓</i><span>Topology</span><strong>' + esc(hardware.topology) + '</strong></div><div class="so-register-manifest-row"><i>✓</i><span>HBM capacity</span><strong>' + esc(hardware.capacity) + '</strong></div><div class="so-register-manifest-row"><i>✓</i><span>Compile target</span><strong>' + esc(registration.executionTarget + ' · ' + registration.runtime) + '</strong></div><div class="so-register-manifest-row"><i>✓</i><span>Analysis mode</span><strong>Static graph + kernel candidate evaluation</strong></div></div></div></div></section>';
+      }
+
+      function renderModelRegistrationScope() {
+        var items = [
+          { id: 'semantic', target: 'register-semantic', title: '模型语义完整', badge: '必须通过', tone: 'status-success', body: '确认权重、结构、Tokenizer、RoPE / Mask / KV Cache、MoE 与 reference output 语义一致。', tags: ['7 checks', 'Reference diff'], detail: '输出 7 项正确性检查及 reference diff。任何一项失败都会阻断 Graph 与 Kernel 优化结论。' },
+          { id: 'graph', target: 'register-graph', title: 'Graph / Model-level', badge: '语义通过后', tone: '', body: '识别 fusion、graph rewrite、layout、memory planning、inplace 与 buffer reuse 机会。', tags: ['Graph IR', 'Tensor lifetime'], detail: '从解析后的 Graph IR 识别融合、重写和内存复用候选，并保留每项判断证据。' },
+          { id: 'kernel', target: 'register-kernel', title: 'Kernel optimization', badge: '绑定硬件', tone: '', body: '将算子形状与目标 NPU 能力对齐，生成 kernel selection、tiling、autotuning 与 overlap 建议。', tags: ['Kernel candidates', 'Hardware fit'], detail: '依据目标硬件、Runtime 和执行目标生成 kernel 候选、autotuning 范围与通信重叠计划。' }
+        ];
+        var selected = items.find(function (item) { return item.id === state.modelRegistration.selectedScope; }) || items[0];
+        var action = state.modelRegistration.status === 'complete' ? '查看分析结果 →' : '选择此分析范围 →';
+        return '<section class="so-model-section" id="register-scope"><div class="so-model-section-head"><div><h2>2 · 分析范围与门禁</h2><p>点击分析范围查看它将检查什么；性能优化不能跳过正确性。</p></div></div><div class="so-register-scope">' + items.map(function (item, index) {
+          var isSelected = item.id === selected.id;
+          return '<button class="so-register-scope-item ' + (isSelected ? 'is-selected' : '') + '" type="button" data-register-scope="' + item.id + '" data-register-target="' + item.target + '" aria-pressed="' + isSelected + '"><div class="so-register-scope-top"><h3>' + (index + 1) + ' · ' + item.title + '</h3>' + modelTag(item.badge, item.tone) + '</div><p>' + item.body + '</p><div class="so-register-scope-checks">' + item.tags.map(function (tag) { return modelTag(tag); }).join('') + '</div><span class="so-register-scope-action">' + action + '</span></button>';
+        }).join('') + '</div><div class="so-register-scope-detail" role="status" aria-live="polite"><div><h3>' + esc(selected.title) + '</h3><p>' + (state.modelRegistration.status === 'complete' ? '分析已完成，可再次点击卡片跳到对应结果。' : '已加入本次解析范围。运行分析后生成对应证据。') + '</p></div><div><strong>将生成什么</strong><span>' + esc(selected.detail) + '</span></div></div></section>';
+      }
+
+      function renderModelRegistrationProgress() {
+        return '<section class="so-model-section"><div class="so-register-progress" role="status" aria-live="polite"><div><div class="so-eyebrow">ANALYSIS IN PROGRESS</div><strong>正在建立模型语义与硬件映射</strong><p>语义校验会先完成，然后才生成 Graph 和 Kernel 优化候选。</p></div><div class="so-register-progress-track"><div class="so-register-progress-row"><span>加载与语义校验</span><div class="so-bar"><span style="width:100%"></span></div><span class="so-status success">Passed</span></div><div class="so-register-progress-row"><span>Graph IR 与模式识别</span><div class="so-bar"><span style="width:72%"></span></div><span class="so-status warn">Analyzing</span></div><div class="so-register-progress-row"><span>Kernel 候选与硬件约束</span><div class="so-bar"><span style="width:34%"></span></div><span class="so-status neutral">Queued</span></div></div></div></section>';
+      }
+
+      function renderRegistrationCheckRows(model) {
+        var checks = [
+          { id: 'S-01', title: 'Checkpoint 完整加载', summary: model.checkpoint, status: 'Passed', evidence: 'Shard index 与 tensor checksum 全部可解析，无 missing / unexpected keys。', method: '按 checkpoint index 遍历 shard，校验 dtype、shape 与 checksum。', next: '当 checkpoint 变更时重新执行完整性校验。' },
+          { id: 'S-02', title: '模型结构 ↔ 权重', summary: model.architecture + ' · 层级与 parameter key 全部匹配', status: 'Passed', evidence: 'Config 层数、hidden size、expert 与 attention 参数均有对应权重。', method: '从 config 构建预期 parameter schema，与 checkpoint key / shape 逐项对比。', next: '保留 schema diff，用于后续 graph rewrite 的参数溯源。' },
+          { id: 'S-03', title: 'Tokenizer / vocab', summary: model.tokenizer + ' · special tokens 一致', status: 'Passed', evidence: 'Tokenizer vocab size 与 embedding / lm_head 维度一致。', method: '校验 BOS / EOS / PAD、added tokens 和 encode→decode round trip。', next: '将 tokenizer fingerprint 写入模型版本记录。' },
+          { id: 'S-04', title: 'RoPE / attention mask / KV Cache', summary: '增量 decode 与 full-sequence reference 状态对齐', status: 'Passed', evidence: 'Prefill + incremental decode 的 position、mask 与 KV slot 连续。', method: '对同一 prompt 比较 full-sequence 与 token-by-token decode 的 hidden state。', next: '在长上下文 Scenario 中继续校验 block table 与 eviction。' },
+          { id: 'S-05', title: 'MoE router / experts', summary: 'Top-k route、expert index、capacity 与 combine 语义一致', status: 'Passed', evidence: 'Router score、selected expert 和 combine weight 与 reference 一致。', method: '固定 token batch 与 seed，对比 top-k index、dispatch count 与 expert output。', next: '性能分析时保留 token→expert 映射作为重写验证基线。' },
+          { id: 'S-06', title: 'Inference mode', summary: 'Dropout 已关闭 · training-only branch 未进入执行图', status: 'Passed', evidence: 'Model 处于 eval mode，图中无 dropout 与 gradient-only 节点。', method: '检查 module training flag、requires_grad 与 captured graph node types。', next: '将 inference-mode 状态固化到注册模型配置。' },
+          { id: 'S-07', title: 'PyTorch reference', summary: '32 prompts · logits max abs error 7.4e-4 ≤ 1e-3', status: 'Matched', evidence: '32 / 32 prompts 通过，top-1 token 和 logits tolerance 都在阈值内。', method: '对比 prefill、first decode 和 sustained decode 三个阶段的 logits。', next: '把 reference fixture 固化为后续 fusion / kernel 替换的回归门禁。' }
+        ];
+        return '<div class="so-register-check-list">' + checks.map(function (check) {
+          var selected = state.modelRegistration.selectedDetail === check.id;
+          return '<button class="so-register-check-row ' + (selected ? 'is-selected' : '') + '" type="button" data-register-detail="' + check.id + '" aria-expanded="' + selected + '"><span class="so-register-check-icon">✓</span><strong>' + esc(check.title) + '</strong><span>' + esc(check.summary) + '</span><span class="so-status success">' + check.status + '</span></button>' + (selected ? renderRegistrationDetail(check) : '');
+        }).join('') + '</div>';
+      }
+
+      function renderRegistrationDetail(item) {
+        return '<div class="so-register-detail" id="register-detail-' + item.id + '" role="region" aria-label="' + esc(item.title + ' 详情') + '"><div class="so-register-detail-block"><span>证据</span><strong>' + esc(item.evidence) + '</strong></div><div class="so-register-detail-block"><span>分析方法</span><strong>' + esc(item.method || item.detail) + '</strong></div><div class="so-register-detail-block"><span>下一步</span><strong>' + esc(item.next || item.impact) + '</strong></div></div>';
+      }
+
+      function renderRegistrationOpportunities(items) {
+        return '<div class="so-register-opportunities">' + items.map(function (item) {
+          var selected = state.modelRegistration.selectedDetail === item.id;
+          return '<button class="so-register-opportunity ' + (selected ? 'is-selected' : '') + '" type="button" data-register-detail="' + item.id + '" aria-expanded="' + selected + '"><span class="so-register-opportunity-code">' + item.id + '</span><span class="so-register-opportunity-copy"><strong>' + item.title + '</strong><span>' + item.detail + '</span></span><span class="so-register-opportunity-evidence">' + item.evidence + '</span><span class="so-register-opportunity-impact"><span class="so-status warn">' + item.priority + '</span><strong>' + item.impact + '</strong></span></button>' + (selected ? renderRegistrationDetail(item) : '');
+        }).join('') + '</div>';
+      }
+
+      function renderModelRegistrationResults() {
+        var registration = state.modelRegistration;
+        var model = registrationModelCatalog[registration.modelId];
+        var hardware = registrationHardwareCatalog[registration.hardwareId];
+        var utilization = Math.round(model.peakHbm / hardware.capacityGb * 100);
+        var graphItems = [
+          { id: 'G-01', title: 'RMSNorm + QKV / RoPE fusion', detail: '合并归一化、投影与位置编码前处理。', evidence: '61 decoder blocks · 2 intermediate tensors / layer', priority: 'High', impact: '减少 122 launches' },
+          { id: 'G-02', title: 'MLA attention pattern rewrite', detail: '将 decode attention 子图映射到 fused Flash Decode 执行路径。', evidence: 'RoPE → KV read → QK/PV · pattern matched', priority: 'High', impact: '减少 HBM traffic' },
+          { id: 'G-03', title: 'MoE dispatch / combine rewrite', detail: '将 router、token permutation、grouped GEMM 和 combine 组织成可重叠结构。', evidence: 'router → dispatch → 256 experts → combine', priority: 'High', impact: '暴露 overlap 窗口' },
+          { id: 'G-04', title: 'Decoder buffer lifetime planning', detail: '复用 QKV、attention output 和 expert workspace 的中间 buffer。', evidence: '6 non-overlapping live ranges · 3 inplace candidates', priority: 'Medium', impact: '预估 -18 GB peak' }
+        ];
+        var kernelItems = [
+          { id: 'K-01', title: 'Flash Decode kernel selection', detail: '对 8K–128K KV 长度分桶，选择 MLA decode 候选 kernel。', evidence: hardware.name + ' · head dim / block table compatible', priority: 'High', impact: '3 candidates' },
+          { id: 'K-02', title: 'Expert grouped GEMM autotuning', detail: '按 routed token 分布对 tile、pipeline stage 与 workspace 组合调优。', evidence: '12 dominant shapes · W8A8 Cube path', priority: 'High', impact: '24 trials' },
+          { id: 'K-03', title: 'EP communication overlap', detail: '将 token dispatch / gather 与本地 expert compute 放入同一调度窗口。', evidence: hardware.topology + ' · HCCL available', priority: 'Medium', impact: '1 overlap plan' }
+        ];
+        return '<section class="so-model-section" id="register-results"><div class="so-model-section-head"><div><h2>3 · 分析结果</h2><p>结论已绑定 ' + esc(model.name + ' · ' + hardware.name) + '。</p></div>' + modelTag('语义门禁已通过', 'status-success') + '</div><div class="so-register-decision"><div class="so-register-decision-main"><div><div class="so-eyebrow">MODEL ANALYSIS DECISION</div><h2>可正确执行，建议进入优化</h2><p>模型语义与 PyTorch reference 一致；当前发现 4 个 Graph-level 和 3 个 Kernel-level 优化候选，其中 3 项建议优先建立 baseline 验证。</p></div><span class="so-status warn">需要优化</span></div><button class="so-register-decision-metric" type="button" data-register-jump="register-semantic"><span>语义校验</span><strong>7 / 7</strong><small>查看正确性证据</small></button><button class="so-register-decision-metric" type="button" data-register-jump="register-graph"><span>优化机会</span><strong>7</strong><small>查看 3 项高优先级</small></button><button class="so-register-decision-metric" type="button" data-register-jump="register-hardware"><span>HBM 承载</span><strong>' + utilization + '%</strong><small>' + model.peakHbm + ' / ' + hardware.capacityGb.toLocaleString() + ' GB</small></button></div>' +
+          '<div class="so-register-level" id="register-semantic"><div class="so-register-level-summary"><span class="so-status success">LEVEL 1 · PASSED</span><h3>模型语义完整</h3><p>所有正确性检查均已通过。点击任一检查项查看证据、分析方法和下一步。</p><div class="so-bar"><span style="width:100%"></span></div></div>' + renderRegistrationCheckRows(model) + '</div>' +
+          '<div class="so-register-level" id="register-graph"><div class="so-register-level-summary"><span class="so-status warn">LEVEL 2 · 4 CANDIDATES</span><h3>Graph / Model-level optimization</h3><p>优化模型的执行结构。点击候选项查看判断证据与验证动作。</p></div>' + renderRegistrationOpportunities(graphItems) + '</div>' +
+          '<div class="so-register-level" id="register-kernel"><div class="so-register-level-summary"><span class="so-status warn">LEVEL 3 · 3 CANDIDATES</span><h3>Kernel optimization</h3><p>针对 ' + esc(hardware.name) + ' 评估候选。点击条目查看调优方法。</p></div>' + renderRegistrationOpportunities(kernelItems) + '</div>' +
+          '<div class="so-register-artifacts"><div><h3>已生成分析资产</h3><p>后续可从同一个模型对象进入架构、优化计划与 Controlled Run。</p></div><div class="so-register-artifact-list">' + modelTag('Semantic report') + modelTag('Parsed graph IR') + modelTag('Operator inventory') + modelTag('Optimization plan', 'status-warning') + '</div></div></section>';
+      }
+
+      function renderModelRegistrationPage() {
+        var registration = state.modelRegistration;
+        var model = registrationModelCatalog[registration.modelId];
+        var hardware = registrationHardwareCatalog[registration.hardwareId];
+        var actionLabel = registration.status === 'analyzing' ? '正在解析…' : registration.status === 'complete' ? '重新解析' : '解析并分析模型';
+        var actions = '<button class="btn btn-ghost" type="button" data-route="model">返回模型目录</button><button class="btn btn-solid" type="button" data-action="analyze-model-registration" ' + (registration.status === 'analyzing' ? 'disabled' : '') + '>' + actionLabel + '</button>';
+        var html = header('注册模型', '将模型资产映射到目标硬件，先验证推理语义，再识别 Graph 与 Kernel 优化机会。', actions);
+        html += renderModelRegistrationFlow();
+        html += renderModelRegistrationConfig();
+        html += renderModelRegistrationScope();
+        if (registration.status === 'analyzing') html += renderModelRegistrationProgress();
+        else if (registration.status === 'complete') html += renderModelRegistrationResults();
+        else html += '<div class="so-register-artifacts"><div><h3>已准备解析</h3><p>' + esc(model.name + ' · ' + hardware.name) + '；正确性校验完成前不会给出性能优化结论。</p></div><div class="so-register-artifact-list">' + modelTag('4 model assets') + modelTag(hardware.capacity) + '</div></div>';
+        return html;
+      }
+
+      function runModelRegistrationAnalysis() {
+        var token = Date.now();
+        state.modelRegistration.analysisToken = token;
+        state.modelRegistration.selectedDetail = null;
+        state.modelRegistration.status = 'analyzing';
+        render();
+        window.setTimeout(function () {
+          if (state.modelRegistration.analysisToken !== token) return;
+          state.modelRegistration.status = 'complete';
+          render();
+        }, 900);
+      }
+
       function readinessItem(complete, title, detail, action, attrs) {
         return '<div class="so-readiness-item ' + (complete ? 'is-complete' : 'needs-action') + '"><span class="so-readiness-icon">' + (complete ? '✓' : '!') + '</span><div class="so-readiness-copy"><strong>' + esc(title) + '</strong><span>' + esc(detail) + '</span>' + (action ? '<button class="btn btn-ghost btn-sm" type="button" ' + attrs + '>' + esc(action) + '</button>' : '') + '</div></div>';
       }
@@ -5831,12 +6140,12 @@ button.operator-tree-toggle:hover {
           else {
             html = observeRunHeader();
             html += observeTabs();
-            html += window.PtoServingProfiler ? window.PtoServingProfiler.render(state.observeTab) : '<div class="so-empty">Profiler 尚未加载。</div>';
+            html += window.PtoServingProfiler ? window.PtoServingProfiler.render(state.observeTab, comparisonContext()) : '<div class="so-empty">Profiler 尚未加载。</div>';
           }
         } else if (state.route === 'scenarios') html = renderScenarios();
         else if (state.route === 'scenario-new') html = renderScenarioNew();
         else if (state.route === 'run') html = renderRun();
-        else if (state.route === 'model-register') html = '';
+        else if (state.route === 'model-register') html = renderModelRegistrationPage();
         else html = renderSimple(state.route);
         main.innerHTML = html;
         document.querySelector('.so-workarea').classList.toggle('is-scenarios', state.route === 'scenarios');
@@ -5949,16 +6258,22 @@ button.operator-tree-toggle:hover {
 
       function drawTrace() {
         var evidence = currentEvidence();
-        var visibleEvents = filteredTraceEvents(evidence);
-        var max = evidence.window;
+        var baseEvidence = baselineEvidence();
+        var max = Math.max(evidence.window || 0, baseEvidence && baseEvidence.window || 0, 1);
         document.querySelectorAll('[data-trace-canvas]').forEach(function (canvas) {
+          var source = canvas.getAttribute('data-trace-source') || 'current';
+          var sourceEvidence = source === 'baseline' ? baseEvidence : evidence;
+          var visibleEvents = sourceEvidence ? filteredTraceEvents(sourceEvidence) : [];
           var lane = canvas.getAttribute('data-trace-lane');
           var events = visibleEvents.filter(function (item) { return item.lane === lane; });
           var rect = canvas.getBoundingClientRect();
           var width = Math.max(620, rect.width || 620);
           var dpr = window.devicePixelRatio || 1;
+          var canvasHeight = source === 'baseline' ? 36 : 58;
+          var barY = source === 'baseline' ? 8 : 14;
+          var barHeight = source === 'baseline' ? 17 : 27;
           canvas.width = width * dpr;
-          canvas.height = 58 * dpr;
+          canvas.height = canvasHeight * dpr;
           var ctx = canvas.getContext('2d');
           ctx.scale(dpr, dpr);
           var hitLayer = canvas.parentElement.querySelector('[data-trace-hit-layer]');
@@ -5966,29 +6281,32 @@ button.operator-tree-toggle:hover {
           events.forEach(function (task) {
             var x = (task.start / max) * width;
             var barWidth = Math.max(6, (task.dur / max) * width * state.traceZoom);
+            ctx.save();
+            if (source === 'baseline') ctx.globalAlpha = .48;
             drawTimelineTaskBar(ctx, {
-              x: x, y: 14, width: Math.min(barWidth, width - x), height: 27,
+              x: x, y: barY, width: Math.min(barWidth, width - x), height: barHeight,
               task: { taskId: task.id, label: task.label, displayName: task.label, rawName: task.label, opName: task.task || task.label, laneKind: task.kind, laneId: lane, totalCycle: task.dur, clcCycle: task.dur, gap: 0, gapRatio: 0, status: 'completed', dominantCounter: task.hint || '' },
               baseColor: task.color,
-              isSelected: state.selectedEvent === task.id
+              isSelected: source === 'current' && state.selectedEvent === task.id
             });
+            ctx.restore();
             if (hitLayer) {
               var hit = document.createElement('button');
               hit.type = 'button';
-              hit.className = 'so-trace-hit' + (state.selectedEvent === task.id ? ' is-selected' : '');
-              hit.setAttribute('data-trace-hit', 'true');
+              hit.className = 'so-trace-hit' + (source === 'current' && state.selectedEvent === task.id ? ' is-selected' : '');
+              hit.setAttribute('data-trace-hit', source);
               hit.setAttribute('aria-label', task.funcName + ' · ' + roundText(task.dur) + ' μs');
               hit.style.left = Math.max(0, x) + 'px';
-              hit.style.top = '14px';
+              hit.style.top = barY + 'px';
               hit.style.width = Math.max(6, Math.min(barWidth, width - x)) + 'px';
-              hit.style.height = '27px';
-              hit.__timelineTask = { event: task, lane: lane };
-              hit.addEventListener('click', function () {
-                state.selectedEvent = task.id;
-                state.selectedTensor = null;
-                state.selectedRequest = null;
-                render();
-              });
+              hit.style.height = barHeight + 'px';
+              hit.__timelineTask = { event: task, lane: lane, sourceLabel: source === 'baseline' ? '基线' : '当前 ' + currentRun().id };
+              if (source === 'current') hit.addEventListener('click', function () {
+                  state.selectedEvent = task.id;
+                  state.selectedTensor = null;
+                  state.selectedRequest = null;
+                  render();
+                });
               hitLayer.appendChild(hit);
             }
           });
@@ -6003,6 +6321,8 @@ button.operator-tree-toggle:hover {
           getTooltipHtml: traceTooltipHtml
         });
         document.querySelectorAll('[data-trace-canvas]').forEach(function (canvas) {
+          if ((canvas.getAttribute('data-trace-source') || 'current') !== 'current') return;
+          var visibleEvents = filteredTraceEvents(evidence);
           var lane = canvas.getAttribute('data-trace-lane');
           var events = visibleEvents.filter(function (item) { return item.lane === lane; });
           canvas.addEventListener('click', function (event) {
@@ -6167,6 +6487,46 @@ button.operator-tree-toggle:hover {
         });
         document.querySelectorAll('[data-model-back]').forEach(function (el) {
           el.addEventListener('click', function () { state.modelPage = 'list'; render(); });
+        });
+        document.querySelectorAll('[data-register-field]').forEach(function (el) {
+          el.addEventListener('change', function () {
+            var field = el.getAttribute('data-register-field');
+            state.modelRegistration[field] = el.value;
+            if (field === 'modelId') state.modelRegistration.checkpointPath = registrationModelCatalog[el.value].path;
+            if (field === 'hardwareId') {
+              state.modelRegistration.runtime = registrationHardwareCatalog[el.value].runtime;
+              state.modelRegistration.executionTarget = registrationHardwareCatalog[el.value].target;
+            }
+            state.modelRegistration.analysisToken = null;
+            state.modelRegistration.selectedDetail = null;
+            state.modelRegistration.status = 'idle';
+            render();
+          });
+        });
+        document.querySelectorAll('[data-register-jump]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            var target = document.getElementById(el.getAttribute('data-register-jump'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+        document.querySelectorAll('[data-register-scope]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            state.modelRegistration.selectedScope = el.getAttribute('data-register-scope');
+            var targetId = el.getAttribute('data-register-target');
+            var shouldJump = state.modelRegistration.status === 'complete';
+            render();
+            var target = document.getElementById(shouldJump ? targetId : 'register-scope');
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+        document.querySelectorAll('[data-register-detail]').forEach(function (el) {
+          el.addEventListener('click', function () {
+            var detailId = el.getAttribute('data-register-detail');
+            state.modelRegistration.selectedDetail = state.modelRegistration.selectedDetail === detailId ? null : detailId;
+            render();
+            var detail = document.getElementById('register-detail-' + detailId);
+            if (detail) detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          });
         });
         document.querySelectorAll('[data-model-jump]').forEach(function (el) {
           el.addEventListener('click', function () {
@@ -6520,6 +6880,7 @@ button.operator-tree-toggle:hover {
           el.addEventListener('click', function () {
             var action = el.getAttribute('data-action');
             if (action === 'import-config') { state.modal = 'import'; renderModal(); }
+            if (action === 'analyze-model-registration') runModelRegistrationAnalysis();
             if (action === 'start-run') startRun();
             if (action === 'open-latest-run') {
               var run = latestRun();
@@ -6547,6 +6908,17 @@ button.operator-tree-toggle:hover {
         if (tracePreset) tracePreset.addEventListener('change', function () { state.tracePreset = tracePreset.value; state.selectedEvent = null; state.laneLimit = 18; render(); });
         var traceSearch = document.querySelector('[data-trace-search]');
         if (traceSearch) traceSearch.addEventListener('change', function () { state.traceSearch = traceSearch.value; state.selectedEvent = null; state.laneLimit = 18; render(); });
+        var observeBaseline = document.querySelector('[data-observe-baseline]');
+        if (observeBaseline) observeBaseline.addEventListener('change', function () {
+          state.observeBaseline = observeBaseline.value;
+          syncRunContext();
+          render();
+        });
+        var observeComparisonToggle = document.querySelector('[data-observe-comparison-toggle]');
+        if (observeComparisonToggle) observeComparisonToggle.addEventListener('click', function () {
+          state.showComparison = !state.showComparison;
+          render();
+        });
         document.querySelectorAll('[data-compare-picker]').forEach(function (el) {
           el.addEventListener('click', function () { state.comparePickerOpen = !state.comparePickerOpen; render(); });
         });
@@ -6561,7 +6933,7 @@ button.operator-tree-toggle:hover {
         document.querySelectorAll('[data-compare-remove]').forEach(function (el) {
           el.addEventListener('click', function () {
             var id = el.getAttribute('data-compare-remove');
-            if (id === currentRun().id || state.compareRunIds.length <= 2) return;
+            if (id === currentRun().id || (observeBaselineRun() && id === observeBaselineRun().id) || state.compareRunIds.length <= 2) return;
             state.compareRunIds = state.compareRunIds.filter(function (item) { return item !== id; });
             render();
           });

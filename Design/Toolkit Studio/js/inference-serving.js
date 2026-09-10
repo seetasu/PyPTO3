@@ -10,50 +10,62 @@
   const esc = (v) => String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (n, d = 2) => Number(n).toFixed(d);
   const int = (n) => Number(n).toLocaleString('en-US');
+  const cmp = (current, baseline, formatted, direction, c) => {
+    if (baseline == null) return '<span class="kf-prof-baseline">基线无数据</span>';
+    const d = c?.deltaInfo ? c.deltaInfo(current, baseline, direction || 'neutral') : { status: 'changed', label: '变化', delta: '' };
+    return `<span class="kf-prof-baseline">基线 · ${formatted} <em class="so-compare-state ${d.status}">${d.label} ${d.delta}</em></span>`;
+  };
 
   /* 队列与拆分 */
-  function queue(p) {
+  function queue(p, b, c) {
     const s = p.serving;
     const q = s.queue;
+    const bq = b?.serving.queue;
     const cards = [
-      ['运行中', q.running, `槽位上限 ${p.meta.batch}`],
-      ['等待中', q.waiting, `等待 p50 ${q.waitP50} ms · p99 ${q.waitP99} ms`],
-      ['抢占', q.preempt, q.preempt === 0 ? 'KV 池未打满，无需抢占' : '需扩容 KV 池'],
-      ['重计算', q.recompute, '无换出后重算'],
-      ['Chunked prefill', q.chunkedPrefill, '长 prefill 被切片让出算力'],
-      ['窗口内请求', s.totalRequests, `${s.lanes.length} 个槽位复用`],
+      ['运行中', q.running, `槽位上限 ${p.meta.batch}`, bq?.running, 'neutral'],
+      ['等待中', q.waiting, `等待 p50 ${q.waitP50} ms · p99 ${q.waitP99} ms`, bq?.waiting, 'lower'],
+      ['抢占', q.preempt, q.preempt === 0 ? 'KV 池未打满，无需抢占' : '需扩容 KV 池', bq?.preempt, 'lower'],
+      ['重计算', q.recompute, '无换出后重算', bq?.recompute, 'lower'],
+      ['Chunked prefill', q.chunkedPrefill, '长 prefill 被切片让出算力', bq?.chunkedPrefill, 'neutral'],
+      ['窗口内请求', s.totalRequests, `${s.lanes.length} 个槽位复用`, b?.serving.totalRequests, 'neutral'],
     ];
-    return `<div class="kf-prof-kpis">${cards.map(([label, value, sub]) => `
-      <article class="kf-prof-kpi"><span>${esc(label)}</span><b>${int(value)}</b><small><u style="text-decoration:none">${esc(sub)}</u></small></article>`).join('')}</div>`;
+    return `<div class="kf-prof-kpis">${cards.map(([label, value, sub, bv, direction]) => `
+      <article class="kf-prof-kpi"><span>${esc(label)}</span><b>${int(value)}</b><small><u style="text-decoration:none">${esc(sub)}</u></small>${bv != null ? cmp(value,bv,int(bv),direction,c):''}</article>`).join('')}</div>`;
   }
 
   /* batch 随时间波动 */
-  function batchCurve(p) {
+  function batchCurve(p, b, c) {
     const s = p.serving;
     const arr = s.batchOverTime;
     const min = Math.min(...arr);
-    const max = Math.max(...arr);
+    const currentMax = Math.max(...arr);
+    const barr = b?.serving.batchOverTime || [];
+    const max = Math.max(...arr, ...barr);
+    const baseMin = barr.length ? Math.min(...barr) : null;
+    const baseMax = barr.length ? Math.max(...barr) : null;
     const cap = p.meta.batch;
-    const bars = arr.map((v, i) => `<i style="height:${v / cap * 100}%" class="${v === cap ? 'is-full' : ''}" title="t≈${fmt(i / arr.length * s.windowMs / 1000, 2)} s · batch ${v}"></i>`).join('');
+    const utilization = s.batchAvg / cap * 100;
+    const baseUtilization = b ? b.serving.batchAvg / b.meta.batch * 100 : null;
+    const bars = arr.map((v, i) => `<span><i style="height:${v / max * 100}%" class="${v === cap ? 'is-full' : ''}" title="当前 · t≈${fmt(i / arr.length * s.windowMs / 1000, 2)} s · batch ${v}"></i>${barr[i] != null ? `<i class="is-baseline" style="height:${barr[i] / max * 100}%" title="基线 · batch ${barr[i]}"></i>`:''}</span>`).join('');
     return `<section class="kf-prof-card">
       <header><h3>Batch size 随时间</h3><span>${int(s.steps)} steps / ${fmt(s.windowMs / 1000, 2)} s · 采样 ${arr.length} 点</span></header>
       <div class="kf-prof-card__body">
-        <div class="kf-prof-batchchart">${bars}</div>
+        <div class="kf-prof-batchchart${b ? ' is-grouped' : ''}">${bars}</div>
         <div class="kf-prof-histaxis">
-          <span>区间 <b>${min} – ${max}</b></span>
-          <span>平均 <b>${fmt(s.batchAvg, 2)}</b></span>
-          <span>槽位利用率 <b>${fmt(s.batchAvg / cap * 100, 1)}%</b></span>
-          <span>Prefill / Decode <b>${fmt(s.split.prefill, 1)}% / ${fmt(s.split.decode, 1)}%</b></span>
+          <span>区间 <b>${min} – ${currentMax}</b>${b ? cmp(currentMax - min,baseMax - baseMin,`${baseMin} – ${baseMax}`,'neutral',c):''}</span>
+          <span>平均 <b>${fmt(s.batchAvg, 2)}</b>${b ? cmp(s.batchAvg,b.serving.batchAvg,fmt(b.serving.batchAvg,2),'higher',c):''}</span>
+          <span>槽位利用率 <b>${fmt(utilization, 1)}%</b>${b ? cmp(utilization,baseUtilization,`${fmt(baseUtilization,1)}%`,'higher',c):''}</span>
+          <span>Prefill / Decode <b>${fmt(s.split.prefill, 1)}% / ${fmt(s.split.decode, 1)}%</b>${b ? cmp(s.split.prefill,b.serving.split.prefill,`${fmt(b.serving.split.prefill,1)}% / ${fmt(b.serving.split.decode,1)}%`,'neutral',c):''}</span>
         </div>
       </div>
     </section>`;
   }
 
   /* 请求生命周期泳道 */
-  function lanes(p) {
+  function lanes(p, b, c) {
     const s = p.serving;
-    const W = s.windowMs;
-    const rows = s.lanes.map((lane) => {
+    const W = Math.max(s.windowMs, b?.serving.windowMs || 0);
+    const rowMarkup = (lane, isBaseline) => {
       const items = lane.items.map((it) => {
         const seg = (off, dur, cls, label) => {
           if (dur <= 0) return '';
@@ -66,7 +78,11 @@
           + seg(it.wait, it.prefill, 'is-prefill', 'prefill')
           + seg(it.wait + it.prefill, it.decode, 'is-decode', 'decode');
       }).join('');
-      return `<div class="kf-prof-lane"><span>slot ${String(lane.slot).padStart(2, '0')}</span><div class="kf-prof-lanetrack">${items}</div></div>`;
+      return `<div class="kf-prof-lane${isBaseline ? ' is-baseline' : ''}"><span>${isBaseline ? '基线 · ' : ''}slot ${String(lane.slot).padStart(2, '0')}</span><div class="kf-prof-lanetrack">${items}</div></div>`;
+    };
+    const rows = s.lanes.map((lane) => {
+      const baseLane = b?.serving.lanes.find((item) => item.slot === lane.slot);
+      return rowMarkup(lane, false) + (b ? (baseLane ? rowMarkup(baseLane, true) : `<div class="kf-prof-lane is-baseline"><span>基线 · slot ${String(lane.slot).padStart(2,'0')}</span><div class="kf-prof-lane-missing">基线无对应槽位</div></div>`) : '');
     }).join('');
     return `<section class="kf-prof-card">
       <header><h3>请求生命周期</h3><span>${s.totalRequests} 个请求在 ${s.lanes.length} 个槽位上滚动复用</span></header>
@@ -76,26 +92,26 @@
           <span><i style="background:color-mix(in srgb,var(--foreground) 30%,transparent)"></i>排队</span>
           <span><i style="background:var(--tone-blue-strong,#4a90d9)"></i>Prefill</span>
           <span><i style="background:var(--primary)"></i>Decode</span>
-          <span style="margin-left:auto">0 → ${fmt(W / 1000, 2)} s</span>
+          ${b ? '<span><i style="background:var(--primary);opacity:.38"></i>基线弱化行</span>' : ''}<span style="margin-left:auto">0 → ${fmt(W / 1000, 2)} s</span>
         </div>
       </div>
     </section>`;
   }
 
   /* batch 扫描 —— 容量规划最常引用的一屏 */
-  function sweep(p) {
+  function sweep(p, b, c) {
     const s = p.serving.sweep;
     const maxTps = Math.max(...s.map((r) => r.tps));
     const maxTpot = Math.max(...s.map((r) => r.tpot));
-    const rows = s.map((r) => `<tr class="${r.current ? 'is-selected' : ''}">
+    const rows = s.map((r) => { const br = b?.serving.sweep.find((item)=>item.batch===r.batch); return `<tr class="${r.current ? 'is-selected' : ''}">
         <td><b>${r.batch}</b>${r.current ? ' <em class="kf-prof-now">当前</em>' : ''}</td>
-        <td>${fmt(r.traffic, 2)} GB</td>
-        <td>${fmt(r.perToken, 2)} GB</td>
-        <td>${fmt(r.bw, 2)} TB/s</td>
-        <td><span class="kf-prof-share"><span class="kf-prof-sharetrack"><span class="kf-prof-sharefill" style="width:${r.tpot / maxTpot * 100}%;background:var(--warning)"></span></span>${fmt(r.tpot, 2)} ms</span></td>
-        <td><span class="kf-prof-share"><span class="kf-prof-sharetrack"><span class="kf-prof-sharefill" style="width:${r.tps / maxTps * 100}%"></span></span>${int(r.tps)}</span></td>
-        <td>${fmt(r.mte2, 1)}%</td>
-      </tr>`).join('');
+        <td>${fmt(r.traffic, 2)} GB${br?cmp(r.traffic,br.traffic,`${fmt(br.traffic,2)} GB`,'lower',c):''}</td>
+        <td>${fmt(r.perToken, 2)} GB${br?cmp(r.perToken,br.perToken,`${fmt(br.perToken,2)} GB`,'lower',c):''}</td>
+        <td>${fmt(r.bw, 2)} TB/s${br?cmp(r.bw,br.bw,`${fmt(br.bw,2)} TB/s`,'higher',c):''}</td>
+        <td><span class="kf-prof-share"><span class="kf-prof-sharetrack"><span class="kf-prof-sharefill" style="width:${r.tpot / maxTpot * 100}%;background:var(--warning)"></span></span>${fmt(r.tpot, 2)} ms</span>${br?cmp(r.tpot,br.tpot,`${fmt(br.tpot,2)} ms`,'lower',c):''}</td>
+        <td><span class="kf-prof-share"><span class="kf-prof-sharetrack"><span class="kf-prof-sharefill" style="width:${r.tps / maxTps * 100}%"></span></span>${int(r.tps)}</span>${br?cmp(r.tps,br.tps,int(br.tps),'higher',c):''}</td>
+        <td>${fmt(r.mte2, 1)}%${br?cmp(r.mte2,br.mte2,`${fmt(br.mte2,1)}%`,'higher',c):''}</td>
+      </tr>`; }).join('');
     const cur = s.find((r) => r.current) || s.find((r) => r.batch === p.meta.batch) || s[0];
     const big = s[s.length - 1];
     return `<section class="kf-prof-card">
@@ -120,8 +136,8 @@
     </section>`;
   }
 
-  function render(p) {
-    return queue(p) + batchCurve(p) + lanes(p) + sweep(p);
+  function render(p, b, c) {
+    return queue(p,b,c) + batchCurve(p,b,c) + lanes(p,b,c) + sweep(p,b,c);
   }
 
   window.PtoInferenceServing = { render };
