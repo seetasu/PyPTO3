@@ -2399,6 +2399,33 @@ button.operator-tree-toggle:hover {
   <link rel="stylesheet" href="../vendor/pto-design-system/css/style.css">
   <link rel="stylesheet" href="../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
   <link rel="stylesheet" href="../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+  <style data-diagnostic-graph-inline>
+.diagnostic-graph {--dg-canvas:#151816;--dg-grid:rgba(231,238,225,.045);--dg-line:#687168;--dg-main:#c29570;--dg-muted:#9ba39b;--dg-world-width:1600px;--dg-world-height:920px;position:relative;min-height:0;height:min(720px,calc(100vh - 300px));border:1px solid var(--border-subtle);background:var(--dg-canvas);color:var(--foreground);overflow:hidden}
+.diagnostic-graph__toolbar {position:absolute;z-index:20;top:10px;right:12px;display:flex;align-items:center;gap:6px;padding:5px;border-radius:var(--radius-md);background:color-mix(in srgb,var(--surface-2) 82%,transparent);box-shadow:var(--shadow-sm)}
+.diagnostic-graph__toolbar output {min-width:46px;color:var(--foreground-secondary);font:var(--type-micro);text-align:center}
+.diagnostic-graph__toolbar .btn-icon {width:28px;height:28px;min-height:0;padding:0}.diagnostic-graph__toolbar .btn.is-active {background:var(--state-selected);color:var(--foreground)}
+.diagnostic-graph__viewport {position:absolute;inset:0;overflow:hidden;touch-action:none;cursor:grab;background-image:linear-gradient(var(--dg-grid) 1px,transparent 1px),linear-gradient(90deg,var(--dg-grid) 1px,transparent 1px);background-size:28px 28px}
+.diagnostic-graph__viewport[data-dg-panning="true"] {cursor:grabbing}
+.diagnostic-graph__world {position:absolute;left:0;top:0;width:var(--dg-world-width);height:var(--dg-world-height);transform-origin:0 0;will-change:transform}
+.diagnostic-graph__edges,.diagnostic-graph__nodes {position:absolute;inset:0;width:100%;height:100%;overflow:visible}.diagnostic-graph__edges {pointer-events:none}.diagnostic-graph__nodes {pointer-events:none}
+.dg-edge {fill:none;stroke:var(--dg-line);stroke-width:1.3;vector-effect:non-scaling-stroke}.dg-edge--continue,.dg-edge--locate,.dg-edge--promote,.dg-edge--diagnose {stroke:var(--dg-main);stroke-width:2;marker-end:url(#dg-arrow)}.dg-edge--checked {opacity:.4}.dg-edge--unresolved {stroke:#a79261;stroke-dasharray:5 5}.dg-edge--support {stroke:#7d887e;stroke-width:1.4;marker-end:url(#dg-arrow-muted)}.dg-edge.is-related {stroke:#e1b18a;opacity:1}.dg-edge.is-dimmed {opacity:.12}
+.dg-edge-label rect {fill:#222723;stroke:#4a544a;stroke-width:1}.dg-edge-label text {fill:#c9d0c7;font:500 11px/1 var(--font-sans);text-anchor:middle}.dg-edge-label.is-dimmed {opacity:.12}
+.dg-node {position:absolute;box-sizing:border-box;pointer-events:auto;display:flex;flex-direction:column;gap:5px;width:180px;min-height:88px;padding:12px 13px;border:1px solid transparent;border-radius:var(--radius-md);background:color-mix(in srgb,var(--surface-2) 76%,transparent);box-shadow:0 7px 16px rgba(0,0,0,.14);color:var(--foreground);cursor:pointer;user-select:none;transition:opacity var(--duration-fast) var(--easing-default),filter var(--duration-fast) var(--easing-default),box-shadow var(--duration-fast) var(--easing-default)}
+.dg-node:focus-visible,.dg-evidence-attachment__trigger:focus-visible {outline:2px solid var(--primary);outline-offset:3px}.dg-node.is-selected {box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 70%,transparent),0 9px 20px rgba(0,0,0,.24)}.dg-node.is-dimmed {opacity:.22;filter:saturate(.55)}
+.dg-node__eyebrow {color:var(--foreground-muted);font:var(--type-micro);letter-spacing:.07em;text-transform:uppercase}.dg-node__title {margin:0;font-size:15px;font-weight:650;line-height:1.28}.dg-node__signal {color:var(--foreground);font:600 24px/1 var(--font-mono);letter-spacing:-.04em}.dg-node__summary {margin:0;color:var(--foreground-secondary);font:var(--type-body-sm);line-height:1.4}
+.dg-node--finding,.dg-node--diagnosis {width:246px;min-height:134px;padding:17px 18px;background:var(--surface-2)}.dg-node--finding .dg-node__signal {color:var(--warning);font-size:38px}.dg-node--diagnosis {width:320px;min-height:174px;gap:12px;background:#d0d0c4;color:#272c25}.dg-node--diagnosis .dg-node__head {display:flex;align-items:center;justify-content:space-between;gap:12px}.dg-node--diagnosis .dg-node__eyebrow {color:#596057}.dg-node--diagnosis .dg-node__title {max-width:270px;font-size:19px;line-height:1.34}.dg-node--diagnosis .dg-node__signal {flex:0 0 auto;color:#465044;font:600 11px/1 var(--font-sans);letter-spacing:.04em}
+.dg-node__action {display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:auto;padding-top:12px;border-top:1px solid rgba(48,53,47,.22)}.dg-node__action-copy {display:grid;min-width:0;gap:4px}.dg-node__action-eyebrow {color:#697069;font:var(--type-micro);letter-spacing:.07em;text-transform:uppercase}.dg-node__action-title {overflow:hidden;font-size:13px;line-height:1.3;text-overflow:ellipsis;white-space:nowrap}.dg-node__action .btn {flex:0 0 auto;background:var(--primary);border-color:transparent;color:var(--primary-foreground)}.dg-node__action .btn:hover {background:var(--primary-hover);border-color:transparent}.dg-node__action .btn:active {background:color-mix(in srgb,var(--primary) 82%,black)}
+.dg-node--cause {width:142px;min-height:62px;padding:8px 9px;border-top-color:var(--border-subtle);border-radius:0;background:transparent;box-shadow:none}.dg-node--cause .dg-node__title {font-size:12px}.dg-node--cause .dg-node__signal {position:absolute;top:9px;right:9px;font-size:13px}.dg-node--cause .dg-node__summary {display:none}.dg-node--cause.is-normal {opacity:.58}.dg-node--cause.is-normal .dg-node__signal {color:var(--success)}.dg-node--cause.is-unresolved {border-top-color:#8f8057}.dg-node--cause.is-unresolved .dg-node__signal {color:#cfb36f}.dg-node.is-abnormal {width:174px;min-height:100px;border-left-color:transparent;background:#342e28;box-shadow:inset 3px 0 0 var(--warning),0 8px 18px rgba(0,0,0,.18)}.dg-node.is-abnormal.is-selected {box-shadow:inset 3px 0 0 var(--warning),0 0 0 2px color-mix(in srgb,var(--primary) 70%,transparent),0 9px 20px rgba(0,0,0,.24)}.dg-node.is-abnormal .dg-node__signal {position:static;color:#e0b18c;font-size:26px}.dg-node.is-abnormal .dg-node__summary {display:block}
+.dg-node--hypothesis {width:260px;min-height:126px;border:1px dashed #837b63;background:#222622;box-shadow:none}.dg-node--hypothesis .dg-node__signal {font-size:12px;color:#c6b37d;letter-spacing:.05em;text-transform:uppercase}
+.dg-evidence-rail {position:absolute;z-index:-1;top:calc(100% - 2px);left:0;display:grid;width:100%;padding:14px 10px 7px;border-radius:15px;background:#2b2925;box-shadow:0 8px 18px rgba(0,0,0,.18);pointer-events:auto}.dg-evidence-rail::before {content:'';position:absolute;top:1px;right:14px;left:14px;border-top:1px dashed #858681}.dg-evidence-attachment {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:37px;padding:6px 0;border:0;border-radius:0;background:transparent;box-shadow:none;transition:opacity var(--duration-fast) var(--easing-default),filter var(--duration-fast) var(--easing-default),background var(--duration-fast) var(--easing-default)}.dg-evidence-attachment + .dg-evidence-attachment {border-top:1px dashed #777a75}.dg-evidence-attachment:hover {background:rgba(255,255,255,.025)}.dg-evidence-attachment.is-dimmed {opacity:.22;filter:saturate(.55)}.dg-evidence-attachment__title {overflow:hidden;color:var(--foreground-secondary);font:500 11px/1.2 var(--font-sans);text-overflow:ellipsis;white-space:nowrap}.dg-evidence-attachment__trigger {display:grid;flex:0 0 24px;place-items:center;width:24px;height:24px;padding:0;border:1px solid color-mix(in srgb,var(--border-default) 90%,transparent);border-radius:4px;background:transparent;color:#c9ad91;cursor:pointer}.dg-evidence-attachment__trigger:hover {border-color:#b38463;background:rgba(194,149,112,.11);color:#e1b18a}.dg-evidence-attachment__trigger svg {width:14px;height:14px}
+.diagnostic-graph__overlay {position:absolute;inset:0;z-index:30;pointer-events:none}.dg-note {position:absolute;box-sizing:border-box;width:min(390px,calc(100% - 24px));max-height:calc(100% - 24px);overflow:auto;padding:28px 28px 25px;background:#d2d2c5;color:#30352f;box-shadow:0 18px 34px rgba(0,0,0,.35);font-family:var(--font-sans);pointer-events:auto;transform:rotate(var(--dg-note-angle,-.7deg))}.dg-note::before {content:'';position:absolute;top:-11px;left:36px;width:88px;height:24px;background:rgba(174,161,132,.58);transform:rotate(1.5deg)}.dg-note__close {position:absolute;top:9px;right:10px;border:0;background:transparent;color:#575d55;font:18px/1 var(--font-mono);cursor:pointer}.dg-note__summary {margin:0 28px 14px 0;color:#4e574d;font-size:15px;line-height:1.45}.dg-note h3 {margin:0 0 18px;padding-top:12px;border-top:1px solid rgba(48,53,47,.22);font:500 19px/1.2 var(--font-mono);letter-spacing:.02em}.dg-note__bars {display:grid;gap:10px}.dg-note__bar {display:grid;grid-template-columns:40px 1fr 48px;gap:10px;align-items:center;color:#697069;font:14px/1 var(--font-mono)}.dg-note__bar i {height:10px;width:var(--w);background:#7b857b}.dg-note__bar.is-hot {color:#8d5f45;font-weight:700}.dg-note__bar.is-hot i {background:#ad7351}.dg-note__table {display:grid;grid-template-columns:52px 1fr 1fr;gap:9px 13px;padding-bottom:14px;border-bottom:1px solid rgba(48,53,47,.22);font:14px/1.2 var(--font-mono);color:#60675e}.dg-note__table strong {color:#885b43}
+.dg-canvas-hint {position:absolute;z-index:5;left:16px;bottom:14px;color:var(--foreground-muted);font:var(--type-micro);pointer-events:none}.dg-canvas-hint kbd {padding:2px 5px;border:1px solid var(--border-subtle);border-radius:3px;font-family:var(--font-mono)}
+/* Preserve the existing A/B/C responsive behavior; D owns its own non-scrolling viewport above. */
+.diag-compositions .wall,.diag-compositions .river,.diag-compositions .evidence-canvas {min-width:720px}
+@media (max-width:1100px) {.diag-compositions .composition-tabs button {padding:11px 9px;font-size:11px}.diag-compositions .wall-center h2 {font-size:42px}.diag-compositions .wall-node {padding:13px}.diag-compositions .river {padding:18px}.diag-compositions .river-stage {padding:12px}.diag-compositions .paper {padding:14px}.diag-compositions .paper-benchmark .bench-row {gap:12px}.diag-compositions .paper-benchmark strong {font-size:27px}}
+@media (max-height:780px) {.diagnostic-graph {height:calc(100vh - 235px)}}
+
+  </style>
   <style>
     html, body { width: 100%; min-width: 0; height: 100%; margin: 0; overflow: hidden; background: var(--background); }
     .serving-ide { width: 100%; height: 100vh; aspect-ratio: auto; border-radius: 0; }
@@ -2424,6 +2451,11 @@ button.operator-tree-toggle:hover {
     .serving-ide .so-observe-baseline__select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
     .serving-ide .so-observe-compare-toggle { min-height: 34px; flex: 0 0 auto; }
     .serving-ide #inspector-content { display: none; }
+    .serving-ide .so-diagnostic-graph-panel { display: grid; gap: 12px; }
+    .serving-ide .so-diagnostic-graph-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 0 2px; color: var(--foreground-secondary); font-size: 12px; }
+    .serving-ide .so-diagnostic-graph-meta strong { color: var(--foreground); font-size: 13px; font-weight: 650; }
+    .serving-ide .so-diagnostic-graph-meta span { color: var(--foreground-muted); font-size: 11px; text-align: right; }
+    .serving-ide .so-diagnostic-graph-canvas { min-width: 0; }
     .serving-ide .pto-ide-frame__rail-image {
       width: 18px;
       height: 18px;
@@ -2602,6 +2634,7 @@ button.operator-tree-toggle:hover {
     }
     .serving-ide .so-workarea.is-scenario-new .so-placement-layer.is-active { background: var(--primary); }
     .serving-ide .so-workarea.is-scenario-new .so-placement-layer-region { border-color: transparent; }
+
     @media (max-width: 900px) {
       .serving-ide .pto-ide-frame__topbar .latest-run-link { max-width: 260px; }
       .serving-ide .pto-ide-frame__topbar .latest-run-time { display: none; }
@@ -2660,10 +2693,297 @@ button.operator-tree-toggle:hover {
 
   <script src="dfx-real-data.js?v=20260825-2"></script>
   <script src="../Design/Toolkit%20Studio/js/inference-profile-data.js?v=20260821-3"></script>
-  <script src="../Design/Toolkit%20Studio/js/inference-memory.js?v=20260909-1"></script>
-  <script src="../Design/Toolkit%20Studio/js/inference-serving.js?v=20260909-1"></script>
-  <script src="serving-profiler.js?v=20260909-1"></script>
+  <script src="../Design/Toolkit%20Studio/js/inference-memory.js?v=20260910-2"></script>
+  <script src="../Design/Toolkit%20Studio/js/inference-serving.js?v=20260910-2"></script>
+  <script src="serving-profiler.js?v=20260910-3"></script>
   <script src="candidate-population-lineage/pattern.js?v=20260903-9"></script>
+  <script>
+/* Diagnostic graph data. Values are migrated from the former graph and backbone views. */
+(function () {
+  const rankLatency = [12.4, 12.7, 17.8, 12.5, 12.9, 12.6, 12.3, 12.8];
+  const routeLoad = [.94, 1.02, 1.65, .96, 1.01, .93, 1.08, .98];
+
+  window.DiagnosticGraphData = {
+    nodes: [
+      {id: 'finding', kind: 'finding', title: 'Throughput', signal: '−27%', summary: '1000 → 730 tok/s · TPOT +32%', priority: 'anchor'},
+      {id: 'decode', kind: 'reasoning', title: 'Decode', signal: '+33%', summary: '贡献 82% 的新增时间', evidenceRefs: ['phase']},
+      {id: 'rank2', kind: 'entity', title: 'Rank 2', signal: '+41%', summary: '17.8 ms · 组中位数 12.6 ms', evidenceRefs: ['rank-latency']},
+      {id: 'device', kind: 'cause', state: 'normal', title: 'Device', signal: '✓', summary: '时钟、利用率处于基线范围'},
+      {id: 'memory', kind: 'cause', state: 'normal', title: 'Memory / KV', signal: '✓', summary: '无驱逐或缺页'},
+      {id: 'routing', kind: 'cause', state: 'abnormal', title: 'Routing', signal: '1.65×', summary: 'Rank 2 / EP 组中位数负载', evidenceRefs: ['route-load', 'expert-traffic', 'placement']},
+      {id: 'kernel', kind: 'cause', state: 'normal', title: 'Kernel', signal: '✓', summary: '同 shape 最大差异 +3.4%'},
+      {id: 'communication', kind: 'cause', state: 'unresolved', title: 'Communication', signal: '+11%', summary: '1.9 → 2.1 ms · 不足以解释 +41%'},
+      {id: 'hypothesis', kind: 'hypothesis', title: '热点 Expert 共置可能造成 Routing 负载不均', signal: '待验证', summary: '由 3 份独立证据支持 · High confidence'},
+      {
+        id: 'diagnosis',
+        kind: 'diagnosis',
+        title: 'Rank 2 是当前 Decode 的关键路径',
+        signal: '高置信',
+        summary: '长尾时延与热点负载在 Rank 2 同位',
+        action: {
+          eyebrow: 'Experiment suggestion',
+          title: '验证 Expert 共置解释',
+          summary: '只改变 E19 的 Placement，其他条件保持不变',
+          label: '前往验证'
+        }
+      }
+    ],
+    edges: [
+      {id: 'finding-decode', source: 'finding', target: 'decode', relation: 'locate', label: '82% 新增时间'},
+      {id: 'decode-rank2', source: 'decode', target: 'rank2', relation: 'promote', label: '唯一 Rank 离群'},
+      {id: 'rank2-device', source: 'rank2', target: 'device', relation: 'checked'},
+      {id: 'rank2-memory', source: 'rank2', target: 'memory', relation: 'checked'},
+      {id: 'rank2-kernel', source: 'rank2', target: 'kernel', relation: 'checked'},
+      {id: 'rank2-communication', source: 'rank2', target: 'communication', relation: 'unresolved'},
+      {id: 'rank2-routing', source: 'rank2', target: 'routing', relation: 'continue', label: '最强关联'},
+      {id: 'routing-hypothesis', source: 'routing', target: 'hypothesis', relation: 'support', label: '3 份证据'},
+      {id: 'hypothesis-diagnosis', source: 'hypothesis', target: 'diagnosis', relation: 'diagnose', label: '综合研判'}
+    ],
+    evidenceById: {
+      phase: {
+        title: '阶段时延 / ms',
+        type: 'table',
+        rows: [['Queue', '3.0', '3.2'], ['Prefill', '46.0', '47.0'], ['Decode', '12.6', '16.8'], ['Output', '1.3', '1.3']],
+        note: '只有 Decode 进入下一层调查。'
+      },
+      'rank-latency': {
+        title: 'Rank 解码时延 / ms', type: 'bars', labels: rankLatency.map((_, index) => `R${index}`), values: rankLatency, hotIndex: 2,
+        note: 'Rank 2 是唯一显著离群项。'
+      },
+      'route-load': {
+        attachmentTitle: 'Routed tokens', title: 'Rank 路由 Token / 中位数倍数', type: 'bars', labels: routeLoad.map((_, index) => `R${index}`), values: routeLoad, hotIndex: 2,
+        note: 'R2 承担 1.65× 中位数负载；其他 Rank 均接近参考范围。'
+      },
+      'expert-traffic': {
+        attachmentTitle: 'Expert traffic', title: 'Expert 流量 / 平均值倍数', type: 'bars', labels: ['E0', 'E1', 'E7', 'E3', 'E4', 'E5', 'E19', 'E8'], values: [.31, .44, 1, .39, .48, .36, .88, .43], hotIndices: [2, 6],
+        note: 'E7 2.4×、E19 2.1×；其他 Expert 大多处于平均流量的 0.7–1.3×。'
+      },
+      placement: {
+        attachmentTitle: 'Expert placement', title: 'Expert → Rank', type: 'table', rows: [['E7', 'Rank 2', 'Rank 2'], ['E19', 'Rank 6', 'Rank 2']],
+        note: '基线将两个最热 Expert 分别放在 Rank 2 和 Rank 6。'
+      }
+    },
+    experiment: {
+      hypothesis: 'Hot expert co-location causes the Rank 2 long pole.',
+      change: 'E19: Rank 2 → Rank 6；E7 保持 Rank 2',
+      fixed: 'Workload · Concurrency · EP = 8 · 其他 Serving 配置',
+      expected: 'Rank skew ↓ · Decode latency ↓ · TPOT ↓ · Throughput ↑'
+    }
+  };
+}());
+
+  </script>
+  <script>
+(function () {
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const relationClass = relation => `dg-edge--${relation}`;
+  const typeTitle = {finding: '01 / Finding', reasoning: '02 / Abnormal dimension', entity: '03 / Promoted object', cause: 'Cause exploration', hypothesis: 'Hypothesis / pending validation', diagnosis: 'Diagnosis'};
+
+  function svg(tag, attrs = {}) { const el = document.createElementNS(SVG_NS, tag); Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value)); return el; }
+  function el(tag, className, text) { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; }
+  function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+
+  function roundedOrthogonalPath(points, radius = 8) {
+    const compact = points.filter((point, index) => index === 0 || point.x !== points[index - 1].x || point.y !== points[index - 1].y);
+    if (compact.length < 2) return '';
+    let path = `M ${compact[0].x} ${compact[0].y}`;
+    for (let index = 1; index < compact.length - 1; index += 1) {
+      const previous = compact[index - 1]; const current = compact[index]; const next = compact[index + 1];
+      const incoming = Math.hypot(current.x - previous.x, current.y - previous.y);
+      const outgoing = Math.hypot(next.x - current.x, next.y - current.y);
+      const corner = Math.min(radius, incoming / 2, outgoing / 2);
+      const before = {x: current.x + (previous.x - current.x) * corner / incoming, y: current.y + (previous.y - current.y) * corner / incoming};
+      const after = {x: current.x + (next.x - current.x) * corner / outgoing, y: current.y + (next.y - current.y) * corner / outgoing};
+      path += ` L ${before.x} ${before.y} Q ${current.x} ${current.y} ${after.x} ${after.y}`;
+    }
+    const last = compact[compact.length - 1];
+    return `${path} L ${last.x} ${last.y}`;
+  }
+
+  function chartIcon() {
+    const icon = svg('svg', {viewBox: '0 0 16 16', 'aria-hidden': 'true'});
+    icon.append(svg('path', {d: 'M2 13.5h12M4 11V7M8 11V3M12 11V5', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'square'}));
+    return icon;
+  }
+
+  function makeEvidenceAttachment(node, id, detail) {
+    const attachment = el('div', 'dg-evidence-attachment'); attachment.dataset.dgEvidenceAttachment = `${node.id}:${id}`;
+    const title = el('span', 'dg-evidence-attachment__title', detail.attachmentTitle || detail.title);
+    const trigger = el('button', 'dg-evidence-attachment__trigger'); trigger.type = 'button'; trigger.dataset.dgEvidence = id; trigger.setAttribute('aria-label', `查看 ${detail.title} 图表`); trigger.append(chartIcon());
+    attachment.append(title, trigger);
+    return attachment;
+  }
+
+  function renderNote(detail, anchor, overlay, viewport, onClose) {
+    const note = el('section', 'dg-note'); note.dataset.dgNote = 'true';
+    const close = el('button', 'dg-note__close', '×'); close.type = 'button'; close.setAttribute('aria-label', '关闭证据便利贴'); close.addEventListener('click', () => { note.remove(); onClose?.(); });
+    note.append(close, el('p', 'dg-note__summary', detail.note), el('h3', '', detail.title));
+    if (detail.type === 'bars') {
+      const bars = el('div', 'dg-note__bars'); const max = Math.max(...detail.values);
+      detail.values.forEach((value, index) => {
+        const row = el('div', `dg-note__bar${detail.hotIndex === index || detail.hotIndices?.includes(index) ? ' is-hot' : ''}`);
+        const bar = el('i'); bar.style.setProperty('--w', `${Math.round(value / max * 100)}%`);
+        row.append(el('span', '', detail.labels[index]), bar, el('strong', '', Number.isInteger(value) ? String(value) : `${value.toFixed(2)}×`)); bars.append(row);
+      }); note.append(bars);
+    } else {
+      const table = el('div', 'dg-note__table'); table.append(el('span', '', ''), el('span', '', '基线'), el('span', '', '当前'));
+      detail.rows.forEach(row => row.forEach((cell, index) => table.append(el(index === 0 ? 'strong' : 'span', '', cell)))); note.append(table);
+    }
+    overlay.replaceChildren(note);
+    const viewportRect = viewport.getBoundingClientRect(); const anchorRect = anchor.getBoundingClientRect();
+    note.style.maxHeight = `${Math.max(160, viewport.clientHeight - 24)}px`;
+    const width = note.offsetWidth; const height = note.offsetHeight; let left = anchorRect.right - viewportRect.left + 14; let top = anchorRect.top - viewportRect.top - 20;
+    if (left + width > viewport.clientWidth - 12) left = anchorRect.left - viewportRect.left - width - 14;
+    if (top + height > viewport.clientHeight - 12) top = viewport.clientHeight - height - 12;
+    if (top < 12) top = 12; if (left < 12) left = 12;
+    note.style.left = `${left}px`; note.style.top = `${top}px`; note.style.setProperty('--dg-note-angle', `${(anchorRect.left % 3) - 1}deg`);
+  }
+
+  class DiagnosticGraphController {
+    constructor(root, data, actions = {}) {
+      this.root = root; this.data = data; this.actions = actions; this.nodesById = new Map(data.nodes.map(node => [node.id, node]));
+      this.positions = new Map(); this.camera = {x: 0, y: 0, k: 1}; this.selectedId = null; this.noteEvidenceId = null; this.resizeObserver = null;
+      this.renderShell(); this.renderNodes(); this.layout(); this.bind(); requestAnimationFrame(() => this.fit());
+    }
+    renderShell() {
+      this.root.className = 'diagnostic-graph'; this.root.innerHTML = '';
+      this.toolbar = el('div', 'diagnostic-graph__toolbar'); this.toolbar.setAttribute('aria-label', '诊断图画布控制');
+      const controls = [['−', '缩小画布', 'zoom-out'], ['+', '放大画布', 'zoom-in'], ['Fit', '适应画布', 'fit'], ['100%', '恢复 100% 比例', 'hundred']];
+      controls.forEach(([text, label, action]) => { const button = el('button', action === 'fit' || action === 'hundred' ? 'btn btn-ghost btn-compact' : 'btn btn-ghost btn-icon', text); button.type = 'button'; button.dataset.dgAction = action; button.setAttribute('aria-label', label); this.toolbar.append(button); });
+      this.zoomOutput = el('output', '', '100%'); this.zoomOutput.setAttribute('aria-live', 'polite'); this.toolbar.insertBefore(this.zoomOutput, this.toolbar.querySelector('[data-dg-action="fit"]'));
+      this.viewport = el('div', 'diagnostic-graph__viewport'); this.viewport.tabIndex = 0; this.viewport.setAttribute('aria-label', '诊断推理画布');
+      this.world = el('div', 'diagnostic-graph__world'); this.edgeSvg = svg('svg', {class: 'diagnostic-graph__edges', 'aria-hidden': 'true'}); this.edgeSvg.append(this.markerDefs()); this.nodeLayer = el('div', 'diagnostic-graph__nodes'); this.world.append(this.edgeSvg, this.nodeLayer); this.overlay = el('div', 'diagnostic-graph__overlay');
+      this.hint = el('div', 'dg-canvas-hint'); this.hint.innerHTML = '拖动空白处平移 · <kbd>Ctrl</kbd> + 滚轮缩放'; this.viewport.append(this.world, this.overlay, this.hint); this.root.append(this.toolbar, this.viewport);
+    }
+    markerDefs() { const defs = svg('defs'); const main = svg('marker', {id: 'dg-arrow', markerWidth: 8, markerHeight: 8, refX: 6, refY: 4, orient: 'auto'}); main.append(svg('path', {d: 'M1 1 L7 4 L1 7', fill: 'none', stroke: '#c29570', 'stroke-width': 1.2})); const muted = svg('marker', {id: 'dg-arrow-muted', markerWidth: 8, markerHeight: 8, refX: 6, refY: 4, orient: 'auto'}); muted.append(svg('path', {d: 'M1 1 L7 4 L1 7', fill: 'none', stroke: '#7d887e', 'stroke-width': 1.1})); defs.append(main, muted); return defs; }
+    renderNodes() {
+      this.nodeElements = new Map(); this.evidenceElements = new Map(); this.nodeLayer.replaceChildren();
+      this.data.nodes.forEach(node => { const isAbnormal = node.kind === 'reasoning' || node.kind === 'entity' || node.state === 'abnormal'; const classes = isAbnormal ? 'dg-node is-abnormal' : `dg-node dg-node--${node.kind}${node.state ? ` is-${node.state}` : ''}`; const item = el('article', classes); item.id = `dg-node-${node.id}`; item.dataset.dgNode = node.id; item.tabIndex = 0; item.setAttribute('aria-label', node.action ? `${node.title}。${node.signal}。${node.summary}。下一步：${node.action.title}。${node.action.summary}` : `${node.title} ${node.signal}`);
+        if (node.kind === 'diagnosis') {
+          const head = el('div', 'dg-node__head'); head.append(el('span', 'dg-node__eyebrow', typeTitle[node.kind]), el('strong', 'dg-node__signal', node.signal));
+          item.append(head, el('h3', 'dg-node__title', node.title));
+        } else item.append(el('span', 'dg-node__eyebrow', typeTitle[node.kind]), el('h3', 'dg-node__title', node.title), el('strong', 'dg-node__signal', node.signal), el('p', 'dg-node__summary', node.summary));
+        if (node.evidenceRefs?.length) { const rail = el('div', 'dg-evidence-rail'); node.evidenceRefs.forEach(evidenceId => { const attachment = makeEvidenceAttachment(node, evidenceId, this.data.evidenceById[evidenceId]); rail.append(attachment); this.evidenceElements.set(`${node.id}:${evidenceId}`, attachment); }); item.append(rail); }
+        if (node.action) {
+          const actionSection = el('div', 'dg-node__action'); actionSection.title = node.action.summary;
+          const actionCopy = el('div', 'dg-node__action-copy'); actionCopy.append(el('span', 'dg-node__action-eyebrow', node.action.eyebrow), el('strong', 'dg-node__action-title', node.action.title));
+          const action = el('button', 'btn btn-solid btn-compact', node.action.label); action.type = 'button'; action.dataset.dgScenario = 'true';
+          actionSection.append(actionCopy, action); item.append(actionSection);
+        }
+        this.nodeLayer.append(item); this.nodeElements.set(node.id, item); });
+    }
+    measure() { return new Map([...this.nodeElements].map(([id, item]) => { const rail = item.querySelector('.dg-evidence-rail'); const width = item.offsetWidth; const height = item.offsetHeight; const railWidth = rail?.offsetWidth || 0; const railHeight = rail?.offsetHeight || 0; return [id, {width, height, railWidth, railHeight, occupiedWidth: width, occupiedHeight: height + (railHeight ? railHeight + 12 : 0)}]; })); }
+    ranks() {
+      const ranks = new Map(this.data.nodes.map(node => [node.id, 0]));
+      const incoming = new Map(this.data.nodes.map(node => [node.id, 0]));
+      const outgoing = new Map(this.data.nodes.map(node => [node.id, []]));
+      this.data.edges.forEach(edge => {
+        if (!outgoing.has(edge.source) || !incoming.has(edge.target)) throw new Error(`Unknown graph edge: ${edge.id}`);
+        outgoing.get(edge.source).push(edge); incoming.set(edge.target, incoming.get(edge.target) + 1);
+      });
+      const queue = this.data.nodes.filter(node => incoming.get(node.id) === 0).map(node => node.id);
+      while (queue.length) {
+        const source = queue.shift();
+        outgoing.get(source).forEach(edge => {
+          ranks.set(edge.target, Math.max(ranks.get(edge.target), ranks.get(source) + 1));
+          incoming.set(edge.target, incoming.get(edge.target) - 1);
+          if (incoming.get(edge.target) === 0) queue.push(edge.target);
+        });
+      }
+      return ranks;
+    }
+    primaryPath() {
+      const incoming = new Map(this.data.nodes.map(node => [node.id, 0]));
+      const outgoing = new Map(this.data.nodes.map(node => [node.id, []]));
+      this.data.edges.forEach(edge => { incoming.set(edge.target, (incoming.get(edge.target) || 0) + 1); outgoing.get(edge.source)?.push(edge); });
+      const preferredRelations = ['locate', 'promote', 'continue', 'support', 'diagnose'];
+      let current = this.data.nodes.find(node => incoming.get(node.id) === 0 && node.priority === 'anchor') || this.data.nodes.find(node => incoming.get(node.id) === 0);
+      const path = []; const visited = new Set();
+      while (current && !visited.has(current.id)) {
+        path.push(current.id); visited.add(current.id);
+        const candidates = outgoing.get(current.id) || [];
+        const next = candidates.slice().sort((a, b) => preferredRelations.indexOf(a.relation) - preferredRelations.indexOf(b.relation)).find(edge => preferredRelations.includes(edge.relation));
+        current = next ? this.nodesById.get(next.target) : null;
+      }
+      return path;
+    }
+    layout() {
+      const sizes = this.measure(); const ranks = this.ranks(); const layers = new Map(); this.data.nodes.forEach(node => { const rank = ranks.get(node.id) ?? 0; if (!layers.has(rank)) layers.set(rank, []); layers.get(rank).push(node); });
+      const layerWidths = [...layers.entries()].sort(([a], [b]) => a - b).map(([rank, nodes]) => [rank, Math.max(...nodes.map(node => Math.max(sizes.get(node.id).occupiedWidth, sizes.get(node.id).railWidth)))]); let x = 72; const xByRank = new Map(); layerWidths.forEach(([rank, width]) => { xByRank.set(rank, x); x += width + 112; });
+      const primary = this.primaryPath(); const primarySet = new Set(primary); const mainCenterY = 420; const branchGap = 42; const groupGap = 58;
+      this.positions.clear();
+      const setPosition = (node, y) => { const size = sizes.get(node.id); this.positions.set(node.id, {x: xByRank.get(ranks.get(node.id)), y, width: size.width, height: size.height, railWidth: size.railWidth, railHeight: size.railHeight, occupiedWidth: size.occupiedWidth, occupiedHeight: size.occupiedHeight}); };
+      layers.forEach(nodes => {
+        const spineIndex = nodes.findIndex(node => primarySet.has(node.id));
+        if (spineIndex < 0) {
+          const total = nodes.reduce((sum, node) => sum + sizes.get(node.id).occupiedHeight, 0) + Math.max(0, nodes.length - 1) * branchGap;
+          let y = mainCenterY - total / 2; nodes.forEach(node => { setPosition(node, y); y += sizes.get(node.id).occupiedHeight + branchGap; }); return;
+        }
+        const spine = nodes[spineIndex]; const spineSize = sizes.get(spine.id); const spineY = mainCenterY - spineSize.height / 2; setPosition(spine, spineY);
+        let upperCursor = spineY - groupGap;
+        nodes.slice(0, spineIndex).reverse().forEach(node => { const size = sizes.get(node.id); upperCursor -= size.occupiedHeight; setPosition(node, upperCursor); upperCursor -= branchGap; });
+        let lowerCursor = spineY + spineSize.occupiedHeight + groupGap;
+        nodes.slice(spineIndex + 1).forEach(node => { const size = sizes.get(node.id); setPosition(node, lowerCursor); lowerCursor += size.occupiedHeight + branchGap; });
+      });
+      const firstBounds = [...this.positions.values()].reduce((box, pos) => ({left: Math.min(box.left, pos.x), top: Math.min(box.top, pos.y), right: Math.max(box.right, pos.x + Math.max(pos.width, pos.railWidth)), bottom: Math.max(box.bottom, pos.y + pos.occupiedHeight)}), {left: Infinity, top: Infinity, right: 0, bottom: 0});
+      const shiftX = 72 - firstBounds.left; const shiftY = 72 - firstBounds.top;
+      this.positions.forEach(pos => { pos.x += shiftX; pos.y += shiftY; });
+      const bounds = [...this.positions.values()].reduce((box, pos) => ({right: Math.max(box.right, pos.x + Math.max(pos.width, pos.railWidth)), bottom: Math.max(box.bottom, pos.y + pos.height + (pos.railHeight ? pos.railHeight + 12 : 0))}), {right: 0, bottom: 0});
+      this.world.style.setProperty('--dg-world-width', `${bounds.right + 72}px`); this.world.style.setProperty('--dg-world-height', `${Math.max(620, bounds.bottom + 72)}px`); this.renderGeometry();
+    }
+    renderGeometry() {
+      this.nodeElements.forEach((item, id) => { const pos = this.positions.get(id); item.style.transform = `translate(${pos.x}px,${pos.y}px)`; }); this.renderEdges(); this.applyCamera();
+    }
+    renderEdges() {
+      const defs = this.edgeSvg.querySelector('defs'); this.edgeSvg.replaceChildren(defs);
+      const outgoing = new Map();
+      this.data.edges.forEach(edge => { if (!outgoing.has(edge.source)) outgoing.set(edge.source, []); outgoing.get(edge.source).push(edge); });
+      outgoing.forEach(edges => edges.sort((a, b) => { const aPos = this.positions.get(a.target); const bPos = this.positions.get(b.target); return (aPos.y + aPos.height / 2) - (bPos.y + bPos.height / 2); }));
+      this.data.edges.forEach(edge => {
+        const from = this.positions.get(edge.source); const to = this.positions.get(edge.target); if (!from || !to) return;
+        const siblings = outgoing.get(edge.source) || [edge]; const portIndex = siblings.indexOf(edge); const sourceY = siblings.length === 1 ? from.y + from.height / 2 : from.y + 18 + portIndex * ((from.height - 36) / Math.max(1, siblings.length - 1));
+        const start = {x: from.x + from.width, y: sourceY}; const end = {x: to.x, y: to.y + to.height / 2};
+        const isStraight = Math.abs(start.y - end.y) < 1; const channel = Math.min(end.x - 22, start.x + 30 + portIndex * 13);
+        const points = isStraight ? [start, end] : [start, {x: channel, y: start.y}, {x: channel, y: end.y}, end];
+        const path = svg('path', {class: `dg-edge ${relationClass(edge.relation)}`, d: roundedOrthogonalPath(points)}); path.dataset.dgEdge = edge.id; path.append(svg('title')); path.querySelector('title').textContent = edge.label || edge.relation; this.edgeSvg.append(path);
+        if (edge.label) {
+          const group = svg('g', {class: 'dg-edge-label'}); const width = Math.max(60, edge.label.length * 7 + 16);
+          const horizontalSegments = points.slice(0, -1).map((point, index) => ({from: point, to: points[index + 1], length: Math.abs(points[index + 1].x - point.x)})).filter(segment => segment.from.y === segment.to.y).sort((a, b) => b.length - a.length);
+          const segment = horizontalSegments[0] || {from: start, to: end}; const labelX = (segment.from.x + segment.to.x) / 2; const labelY = segment.from.y - 15;
+          group.setAttribute('transform', `translate(${labelX} ${labelY})`); group.append(svg('rect', {x: -width / 2, y: -10, width, height: 20, rx: 4}), svg('text', {y: 4})); group.lastChild.textContent = edge.label; this.edgeSvg.append(group);
+        }
+      }); this.updateFocus();
+    }
+    applyCamera() { this.world.style.transform = `translate(${this.camera.x}px,${this.camera.y}px) scale(${this.camera.k})`; this.zoomOutput.value = `${Math.round(this.camera.k * 100)}%`; this.zoomOutput.textContent = this.zoomOutput.value; }
+    fit() { const width = parseFloat(this.world.style.getPropertyValue('--dg-world-width')) || 1600; const height = parseFloat(this.world.style.getPropertyValue('--dg-world-height')) || 900; const pad = 34; const k = Math.min((this.viewport.clientWidth - pad * 2) / width, (this.viewport.clientHeight - pad * 2) / height); this.camera.k = Math.max(.08, k); this.camera.x = (this.viewport.clientWidth - width * this.camera.k) / 2; this.camera.y = (this.viewport.clientHeight - height * this.camera.k) / 2; this.applyCamera(); }
+    setScale(next, point) { const old = this.camera.k; const k = clamp(next, .1, 3); const anchor = point || {x: this.viewport.clientWidth / 2, y: this.viewport.clientHeight / 2}; this.camera.x = anchor.x - (anchor.x - this.camera.x) * k / old; this.camera.y = anchor.y - (anchor.y - this.camera.y) * k / old; this.camera.k = k; this.overlay.replaceChildren(); this.noteEvidenceId = null; this.applyCamera(); }
+    semanticEdges() { return this.data.edges; }
+    focusFor(id) { return new Set([id, ...this.semanticEdges().filter(edge => edge.source === id || edge.target === id).flatMap(edge => [edge.source, edge.target])]); }
+    updateFocus() { const focused = this.selectedId ? this.focusFor(this.selectedId) : null; const edgesById = new Map(this.semanticEdges().map(edge => [edge.id, edge])); this.nodeElements.forEach((item, id) => { item.classList.toggle('is-selected', id === this.selectedId); item.classList.toggle('is-dimmed', Boolean(focused && !focused.has(id))); }); this.evidenceElements.forEach((item, id) => { const [nodeId] = id.split(':'); item.classList.toggle('is-dimmed', Boolean(focused && !focused.has(nodeId))); }); this.edgeSvg.querySelectorAll('.dg-edge').forEach(path => { const edge = edgesById.get(path.dataset.dgEdge); const related = !focused || (focused.has(edge.source) && focused.has(edge.target)); path.classList.toggle('is-related', Boolean(focused && related)); path.classList.toggle('is-dimmed', Boolean(focused && !related)); }); this.edgeSvg.querySelectorAll('.dg-edge-label').forEach(label => label.classList.toggle('is-dimmed', Boolean(focused && !label.previousElementSibling.classList.contains('is-related')))); }
+    select(id) { this.selectedId = this.selectedId === id ? null : id; this.updateFocus(); }
+    bind() {
+      this.toolbar.addEventListener('click', event => { const action = event.target.closest('[data-dg-action]')?.dataset.dgAction; if (!action) return; if (action === 'zoom-in') this.setScale(this.camera.k + .12); if (action === 'zoom-out') this.setScale(this.camera.k - .12); if (action === 'fit') this.fit(); if (action === 'hundred') { this.camera = {x: 42, y: 42, k: 1}; this.applyCamera(); } });
+      this.viewport.addEventListener('wheel', event => { event.preventDefault(); const rect = this.viewport.getBoundingClientRect(); const point = {x: event.clientX - rect.left, y: event.clientY - rect.top}; if (event.ctrlKey || event.metaKey) this.setScale(this.camera.k * (event.deltaY > 0 ? .9 : 1.1), point); else { this.camera.x -= event.deltaX; this.camera.y -= event.deltaY; this.overlay.replaceChildren(); this.noteEvidenceId = null; this.applyCamera(); } }, {passive: false});
+      this.viewport.addEventListener('pointerdown', event => { const node = event.target.closest('[data-dg-node]'); const thumb = event.target.closest('[data-dg-evidence]'); if (thumb || node) return; this.pan(event); });
+      this.viewport.addEventListener('click', event => { if (event.target.closest('[data-dg-evidence]')) return; const node = event.target.closest('[data-dg-node]'); if (node) this.select(node.dataset.dgNode); else { this.selectedId = null; this.overlay.replaceChildren(); this.noteEvidenceId = null; this.updateFocus(); } });
+      this.nodeLayer.addEventListener('click', event => {
+        const scenario = event.target.closest('[data-dg-scenario]');
+        if (scenario) { event.stopPropagation(); this.actions.openScenario?.(); return; }
+        const thumb = event.target.closest('[data-dg-evidence]'); if (!thumb) return; event.stopPropagation(); const id = thumb.dataset.dgEvidence; if (this.noteEvidenceId === id) { this.overlay.replaceChildren(); this.noteEvidenceId = null; return; } this.noteEvidenceId = id; renderNote(this.data.evidenceById[id], thumb, this.overlay, this.viewport, () => { this.noteEvidenceId = null; });
+      });
+      this.viewport.addEventListener('keydown', event => { if (event.key === 'Escape') { if (this.noteEvidenceId) { this.overlay.replaceChildren(); this.noteEvidenceId = null; } else if (this.selectedId) { this.selectedId = null; this.updateFocus(); } } if (event.key === ' ' && event.target === this.viewport) event.preventDefault(); });
+      this.resizeObserver = new ResizeObserver(() => { if (!this.userCameraMoved) this.fit(); });
+      this.resizeObserver.observe(this.viewport);
+    }
+    pan(event) { const start = {x: event.clientX, y: event.clientY, cameraX: this.camera.x, cameraY: this.camera.y}; this.viewport.dataset.dgPanning = 'true'; this.viewport.setPointerCapture(event.pointerId); const move = moveEvent => { this.userCameraMoved = true; this.camera.x = start.cameraX + moveEvent.clientX - start.x; this.camera.y = start.cameraY + moveEvent.clientY - start.y; this.overlay.replaceChildren(); this.noteEvidenceId = null; this.applyCamera(); }; const end = endEvent => { this.viewport.dataset.dgPanning = 'false'; this.viewport.removeEventListener('pointermove', move); this.viewport.removeEventListener('pointerup', end); this.viewport.removeEventListener('pointercancel', end); if (this.viewport.hasPointerCapture(endEvent.pointerId)) this.viewport.releasePointerCapture(endEvent.pointerId); }; this.viewport.addEventListener('pointermove', move); this.viewport.addEventListener('pointerup', end); this.viewport.addEventListener('pointercancel', end); }
+    ensureLayout() { if (!this.positions.size) { this.layout(); this.fit(); } }
+    resize() { if (!this.userCameraMoved) this.fit(); }
+    destroy() { this.resizeObserver?.disconnect(); this.resizeObserver = null; this.root.replaceChildren(); }
+  }
+  window.DiagnosticGraphController = DiagnosticGraphController;
+}());
+
+  </script>
   <script>
     (function () {
       'use strict';
@@ -2769,7 +3089,6 @@ button.operator-tree-toggle:hover {
           query: '',
           sortKey: 'totalMs',
           sortDir: 'desc',
-          groupBy: 'flat',
           groupFilter: null,
           selectedOp: 'fa-fused'
         },
@@ -2780,14 +3099,16 @@ button.operator-tree-toggle:hover {
       var moeHoverController = null;
       var dseLineageController = null;
       var dseLineageRetryStarted = false;
+      var diagnosticGraphController = null;
 
       var observeTabsConfig = [
-        ['overview', 'Overview'],
+        ['overview', '总览'],
         ['trace', 'Trace'],
-        ['ops', '算子分析'],
-        ['memory', '访存与缓存'],
-        ['serving', '批处理与调度'],
-        ['compare', 'Compare']
+        ['ops', '算子'],
+        ['memory', '内存'],
+        ['serving', '调度'],
+        ['compare', '对比'],
+        ['diagnostic-graph', '诊断图谱']
       ];
 
       var scenarioTemplates = {
@@ -3887,7 +4208,7 @@ button.operator-tree-toggle:hover {
         } else {
           options += '<option value="" selected disabled>无可用基线</option>';
         }
-        return '<div class="so-observe-baseline-controls"><div class="so-observe-baseline"><label class="so-observe-baseline__label" for="observe-baseline">全量 Observe 对比基线</label><select id="observe-baseline" class="so-observe-baseline__select" data-observe-baseline aria-label="选择全量 Observe 数据的对比基线">' + options + '</select></div><button class="btn btn-compact so-observe-compare-toggle' + (state.showComparison ? ' is-selected' : '') + '" type="button" data-observe-comparison-toggle aria-pressed="' + state.showComparison + '" aria-label="显示对比 Run 数据" title="关闭后隐藏所有基线数值、双系列图表与基线泳道"' + (baselineRuns.length ? '' : ' disabled') + '>显示对比</button></div>';
+        return '<div class="so-observe-baseline-controls"><div class="so-observe-baseline"><label class="so-observe-baseline__label" for="observe-baseline">对比基线</label><select id="observe-baseline" class="so-observe-baseline__select" data-observe-baseline aria-label="选择全量 Observe 数据的对比基线">' + options + '</select></div><button class="btn btn-compact so-observe-compare-toggle' + (state.showComparison ? ' is-selected' : '') + '" type="button" data-observe-comparison-toggle aria-pressed="' + state.showComparison + '" aria-label="显示对比 Run 数据" title="关闭后隐藏所有基线数值、双系列图表与基线泳道"' + (baselineRuns.length ? '' : ' disabled') + '>显示对比</button></div>';
       }
 
       function observeContextBar() {
@@ -3900,6 +4221,29 @@ button.operator-tree-toggle:hover {
           var tab = item[0];
           return '<button class="so-tab ' + (state.observeTab === tab ? 'is-active' : '') + '" data-observe-tab="' + tab + '">' + item[1] + '</button>';
         }).join('') + '</div>';
+      }
+
+      function renderDiagnosticGraph() {
+        var run = currentRun();
+        var scenario = currentScenario();
+        var html = observeRunHeader();
+        html += observeTabs();
+        html += '<section class="so-diagnostic-graph-panel" aria-label="诊断图谱"><div class="so-diagnostic-graph-meta"><strong>Diagnostic Reasoning Canvas · 沿证据收窄问题空间</strong><span>基线 ' + esc(state.compareRunId) + ' → 当前 ' + esc(run.id) + ' · ' + esc(scenario.name) + ' · EP8</span></div><div class="so-diagnostic-graph-canvas" data-diagnostic-graph-root></div></section>';
+        return html;
+      }
+
+      function mountDiagnosticGraph() {
+        var root = document.querySelector('[data-diagnostic-graph-root]');
+        if (!root || !window.DiagnosticGraphController || !window.DiagnosticGraphData) return;
+        if (diagnosticGraphController) diagnosticGraphController.destroy();
+        diagnosticGraphController = new window.DiagnosticGraphController(root, window.DiagnosticGraphData, {
+          openScenario: function () {
+            state.modal = null;
+            state.route = 'scenario-new';
+            state.scenarioExplore.evaluationMode = 'fast';
+            render();
+          }
+        });
       }
 
       function renderOverview() {
@@ -3923,7 +4267,7 @@ button.operator-tree-toggle:hover {
         html += '<section class="so-card"><div class="so-card-head"><h3>Evidence coverage</h3><span class="so-pill accent">DFX linked</span></div><div class="so-card-body"><dl class="so-kv"><dt>Timeline</dt><dd>' + evidence.eventCount + ' complete events' + (baseEvidence ? baselineInline(evidence.eventCount, baseEvidence.eventCount, baseEvidence.eventCount + ' complete events', 'neutral', baselineRun.id) : '') + '</dd><dt>Dependency graph</dt><dd>' + evidenceEdgeCount(evidence) + ' creator / explicit / tensormap edges' + (baseEvidence ? baselineInline(evidenceEdgeCount(evidence), evidenceEdgeCount(baseEvidence), evidenceEdgeCount(baseEvidence) + ' edges', 'neutral', baselineRun.id) : '') + '</dd><dt>Tensor metadata</dt><dd>identity · version · shape · dtype · stride · offset · storage</dd><dt>Memory report</dt><dd>' + (evidence.memorySections || []).length + ' kernel sections · ' + esc(evidence.memory) + (baseEvidence ? baselineInline((evidence.memorySections || []).length, (baseEvidence.memorySections || []).length, (baseEvidence.memorySections || []).length + ' kernel sections', 'neutral', baselineRun.id) : '') + '</dd><dt>Perf hints</dt><dd>' + (evidence.hintGroups || []).length + ' grouped problems · ' + (evidence.hints || []).length + ' occurrences' + (baseEvidence ? baselineInline((evidence.hints || []).length, (baseEvidence.hints || []).length, (baseEvidence.hintGroups || []).length + ' groups · ' + (baseEvidence.hints || []).length + ' occurrences', 'neutral', baselineRun.id) : '') + '</dd><dt>PMU</dt><dd><span class="so-status neutral">未采集</span></dd></dl></div></section>';
         html += '</div>';
         var runFindings = visibleFindings();
-        html += '<div class="so-section-title so-findings-section-title"><div><h2>Findings <span class="so-findings-count">' + runFindings.length + '</span></h2><p>查看当前 Run 的诊断结论，进入 Trace 检查相关事件与证据</p></div><span class="so-finding-evidence">' + runFindings.filter(function (item) { return item.severity === 'High'; }).length + ' high priority</span></div>';
+        html += '<div class="so-section-title so-findings-section-title"><div><h2>诊断发现 <span class="so-findings-count">' + runFindings.length + '</span></h2><p>从结论直接进入相关证据</p></div><span class="so-finding-evidence">' + runFindings.filter(function (item) { return item.severity === 'High'; }).length + ' 个高优先级</span></div>';
         html += '<div class="so-findings so-findings-overview">' + (runFindings.length ? runFindings.map(findingCard).join('') : '<div class="so-empty">当前 Run 尚未生成 Finding。</div>') + '</div>';
         if (window.PtoServingProfiler) html += window.PtoServingProfiler.render('overview', comparison);
         return html;
@@ -4479,25 +4823,25 @@ button.operator-tree-toggle:hover {
         var mode = explore.searchStrategy || 'quick';
         var bruteMode = explore.searchBruteMode || 'automatic';
         var strategies = [
-          { id: 'quick', label: 'Quick', sub: '快速收敛', badge: 'Recommended', marker: 68, title: '快速找较优区域', copy: '从当前 baseline 向邻域迭代，重点搜索 <code>PP / EP / TP / DP</code> 与 P/D、hybrid parallelism。' },
-          { id: 'brute', label: 'Brute', sub: '枚举组合', badge: 'Coverage', marker: bruteMode === 'manual' ? 8 : 34, title: bruteMode === 'manual' ? '按范围展开策略组合' : '穷举核心策略组合', copy: bruteMode === 'manual' ? '按指定参数范围执行 sweep，控制力最强，适合验证明确的并行策略假设。' : '覆盖稳定、结果透明，但搜索成本较高；可切换 Manual Brute 自行定义范围。' },
-          { id: 'optuna', label: 'Optuna', sub: '智能采样', badge: 'Alpha', marker: 93, title: '根据 trial 结果智能采样', copy: '用历史结果选择下一组参数，通常更快收敛，但搜索过程可解释性较弱。', alpha: true }
+          { id: 'quick', label: 'Quick', sub: '快速收敛', badge: 'Recommended', marker: 68, title: '邻域搜索', copy: '围绕 baseline 搜索 <code>PP / EP / TP / DP</code> 与 P/D 组合。' },
+          { id: 'brute', label: 'Brute', sub: '枚举组合', badge: 'Coverage', marker: bruteMode === 'manual' ? 8 : 34, title: bruteMode === 'manual' ? '自定义枚举范围' : '枚举核心组合', copy: bruteMode === 'manual' ? '按指定范围和步长执行 sweep。' : '覆盖核心组合，可切换 Manual Brute 自定义范围。' },
+          { id: 'optuna', label: 'Optuna', sub: '智能采样', badge: 'Alpha', marker: 93, title: '智能采样', copy: '根据 trial 结果选择下一组参数。', alpha: true }
         ];
         var current = strategies.find(function (item) { return item.id === mode; }) || strategies[0];
         var budget = mode === 'quick' ? Number(explore.searchIterations || 8) : Number(explore.searchBudget || 18);
         var candidateText = mode === 'quick' ? budget + ' iterations · ' + (budget + 10) + ' candidates' : mode === 'optuna' ? budget + ' trials' : (bruteMode === 'manual' ? budget + ' combinations' : budget + ' candidates');
         var range = mode === 'quick' ? 'min="4" max="16" step="1"' : mode === 'optuna' ? 'min="8" max="48" step="4"' : 'min="8" max="64" step="8"';
-        var note = mode === 'quick' ? '从 baseline 向局部邻域迭代，保持快速反馈。' : mode === 'optuna' ? '采样 → 评估 → 更新搜索区域 · 已完成 ' + Math.max(0, budget - 4) + ' trials' : bruteMode === 'manual' ? '参数范围与步长决定候选数量，适合复现明确假设。' : '自动枚举核心组合 · API / 内存 / 调度逐层过滤。';
+        var note = mode === 'quick' ? '从 baseline 向局部邻域迭代。' : mode === 'optuna' ? '已完成 ' + Math.max(0, budget - 4) + ' trials' : bruteMode === 'manual' ? '参数范围与步长决定候选数量。' : 'API、内存与调度逐层过滤。';
         var tabs = strategies.map(function (item) {
           return '<button class="so-dse-search-tab' + (item.id === mode ? ' is-active' : '') + '" type="button" data-dse-search-strategy="' + item.id + '" role="tab" aria-selected="' + (item.id === mode) + '"><b>' + item.label + '</b><small>' + item.sub + '</small>' + (item.alpha ? '<i>Alpha</i>' : '') + '</button>';
         }).join('');
         var bruteModes = mode === 'brute' ? '<div class="so-dse-brute-modes" role="tablist" aria-label="Brute 模式"><button class="so-dse-brute-mode' + (bruteMode === 'automatic' ? ' is-active' : '') + '" type="button" data-dse-brute-mode="automatic" aria-selected="' + (bruteMode === 'automatic') + '">Automatic Brute</button><button class="so-dse-brute-mode' + (bruteMode === 'manual' ? ' is-active' : '') + '" type="button" data-dse-brute-mode="manual" aria-selected="' + (bruteMode === 'manual') + '">Manual Brute</button></div>' : '';
-        return '<div class="so-dse-search-mode"><div class="so-dse-search-head"><h3>搜索策略</h3><span class="so-dse-search-recommendation">' + current.badge + '</span></div><div class="so-dse-search-tabs" role="tablist" aria-label="搜索策略">' + tabs + '</div>' + bruteModes + '<div class="so-dse-search-copy"><strong>' + current.title + '</strong><p>' + current.copy + '</p>' + (current.alpha ? '<span class="alpha">Alpha · 适合探索性搜索</span>' : '') + '</div><div class="so-dse-search-budget"><div class="so-dse-search-budget-head"><span>搜索预算</span><strong data-dse-search-budget-label>' + candidateText + '</strong></div><input type="range" ' + range + ' value="' + budget + '" data-dse-search-budget aria-label="搜索预算"><small>' + note + '</small></div><div class="so-dse-search-complexity"><div class="so-dse-search-complexity-label"><span>枚举</span><span>智能搜索</span></div><div class="so-dse-search-complexity-track"><b style="left: ' + current.marker + '%"></b></div><div class="so-dse-search-complexity-modes"><span>Manual</span><span>Automatic</span><span>Quick</span><span>Optuna</span></div></div></div>';
+        return '<div class="so-dse-search-mode"><div class="so-dse-search-head"><h3>搜索策略</h3><span class="so-dse-search-recommendation">' + current.badge + '</span></div><div class="so-dse-search-tabs" role="tablist" aria-label="搜索策略">' + tabs + '</div>' + bruteModes + '<div class="so-dse-search-copy"><strong>' + current.title + '</strong><p>' + current.copy + '</p>' + (current.alpha ? '<span class="alpha">Alpha</span>' : '') + '</div><div class="so-dse-search-budget"><div class="so-dse-search-budget-head"><span>搜索预算</span><strong data-dse-search-budget-label>' + candidateText + '</strong></div><input type="range" ' + range + ' value="' + budget + '" data-dse-search-budget aria-label="搜索预算"><small>' + note + '</small></div><div class="so-dse-search-complexity"><div class="so-dse-search-complexity-label"><span>枚举</span><span>智能搜索</span></div><div class="so-dse-search-complexity-track"><b style="left: ' + current.marker + '%"></b></div><div class="so-dse-search-complexity-modes"><span>Manual</span><span>Automatic</span><span>Quick</span><span>Optuna</span></div></div></div>';
       }
 
       function renderDseIntentPanel(explore) {
-        var html = '<aside class="so-dse-intent"><section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Intent</h2><p>用服务目标描述本次探索，系统将其转换为可编辑条件。</p></div><span class="so-pill accent">Natural language</span></div><div class="so-dse-intent-body"><textarea class="so-input so-dse-intent-text" data-dse-intent>' + esc(explore.intent) + '</textarea><div class="so-dse-intent-actions"><span class="so-dse-parse-state">' + (explore.parsed ? '已解析 5 组条件' : '待解析') + '</span><button class="so-button" type="button" data-action="parse-scenario-intent">解析意图</button></div></div></section>';
-        html += '<section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Tuning knobs</h2><p>修改后统一更新右侧设计空间。</p></div>' + (explore.dirty ? '<span class="so-pill warm">Changed</span>' : '<span class="so-pill">已同步</span>') + '</div><div class="so-dse-knobs">';
+        var html = '<aside class="so-dse-intent"><section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Intent</h2><p>描述服务目标，生成可编辑条件。</p></div><span class="so-pill accent">Natural language</span></div><div class="so-dse-intent-body"><textarea class="so-input so-dse-intent-text" data-dse-intent>' + esc(explore.intent) + '</textarea><div class="so-dse-intent-actions"><span class="so-dse-parse-state">' + (explore.parsed ? '已解析 5 组条件' : '待解析') + '</span><button class="so-button" type="button" data-action="parse-scenario-intent">解析意图</button></div></div></section>';
+        html += '<section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Tuning knobs</h2><p>修改后更新设计空间。</p></div>' + (explore.dirty ? '<span class="so-pill warm">Changed</span>' : '<span class="so-pill">已同步</span>') + '</div><div class="so-dse-knobs">';
         html += renderDseKnob(explore, 'model', 'Model', explore.model + ' · ' + explore.precision, '<div class="so-dse-field-grid">' + dseField('Model', 'model', explore.model, { full: true, values: [{ value: 'DeepSeek V4', label: 'DeepSeek V4' }, { value: 'Qwen3 235B-A22B', label: 'Qwen3 235B-A22B' }] }) + dseField('Precision', 'precision', explore.precision, { full: true, values: [{ value: 'W8A8', label: 'W8A8' }, { value: 'BF16', label: 'BF16' }] }) + '</div>');
         html += renderDseKnob(explore, 'workload', 'Workload', explore.requestRate + ' req/s · P95 ' + Number(explore.promptP95).toLocaleString() + ' prompt', '<div class="so-dse-field-grid">' + dseField('Peak request rate', 'requestRate', explore.requestRate, { type: 'number' }) + dseField('Concurrency', 'concurrency', explore.concurrency, { type: 'number' }) + dseField('Prompt P95', 'promptP95', explore.promptP95, { type: 'number' }) + dseField('Output P50', 'outputP50', explore.outputP50, { type: 'number' }) + '</div>');
         html += renderDseKnob(explore, 'sla', 'SLA', 'TTFT ≤ ' + explore.ttftSla + ' ms · TPOT ≤ ' + explore.tpotSla + ' ms', '<div class="so-dse-field-grid">' + dseField('P95 TTFT · ms', 'ttftSla', explore.ttftSla, { type: 'number' }) + dseField('P95 TPOT · ms', 'tpotSla', explore.tpotSla, { type: 'number' }) + '</div>');
@@ -4508,7 +4852,7 @@ button.operator-tree-toggle:hover {
       }
 
       function renderDseLineage(explore) {
-        return '<section class="so-dse-section"><div class="so-dse-section-head"><div><h2>Candidate population lineage</h2><p>9 个部署结构经过 Prefill / Decode 双路 Engine Capacity 与 GPU Budget 筛选，形成 4 个排名方案。选择阶段查看其候选集合与收敛结论。</p></div><div class="so-dse-meta"><span class="so-pill">EXP-' + String(explore.revision).padStart(3, '0') + '</span><span class="so-pill accent">' + (explore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark') + '</span></div></div><div class="so-dse-lineage" id="dse-candidate-lineage"></div><div class="so-dse-sweep-analysis" id="dse-sweep-analysis" role="region" aria-live="polite" aria-labelledby="dse-sweep-analysis-title" hidden></div><div class="so-dse-stage-detail" id="dse-stage-detail" role="region" aria-live="polite" aria-labelledby="dse-stage-detail-title" hidden></div></section>';
+        return '<section class="so-dse-section"><div class="so-dse-section-head"><div><h2>Candidate population lineage</h2><p>从 9 个部署结构筛选出 4 个候选方案。</p></div><div class="so-dse-meta"><span class="so-pill">EXP-' + String(explore.revision).padStart(3, '0') + '</span><span class="so-pill accent">' + (explore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark') + '</span></div></div><div class="so-dse-lineage" id="dse-candidate-lineage"></div><div class="so-dse-sweep-analysis" id="dse-sweep-analysis" role="region" aria-live="polite" aria-labelledby="dse-sweep-analysis-title" hidden></div><div class="so-dse-stage-detail" id="dse-stage-detail" role="region" aria-live="polite" aria-labelledby="dse-stage-detail-title" hidden></div></section>';
       }
 
       function dseLineageData(explore) {
@@ -5154,7 +5498,7 @@ button.operator-tree-toggle:hover {
             return '<tr>' + item.map(function (value) { return '<td>' + esc(value) + '</td>'; }).join('') + '</tr>';
           }).join('');
         }
-        return '<div class="so-dse-search-space"><p class="so-dse-search-space-intro">已生成 9 个可能的部署结构，开始评估 Prefill 和 Decode engine。</p><section class="so-dse-candidate-group"><h4>Aggregated</h4><table class="so-dse-candidate-table"><thead><tr><th>ID</th><th>Parallelism</th></tr></thead><tbody>' + rows(aggregated) + '</tbody></table></section><section class="so-dse-candidate-group"><h4>Disaggregated</h4><table class="so-dse-candidate-table"><thead><tr><th>ID</th><th>Prefill</th><th>Decode</th></tr></thead><tbody>' + rows(disaggregated) + '</tbody></table></section><p class="so-dse-search-space-note">此时不推荐任何方案，也不提前固定 TP。</p></div>';
+        return '<div class="so-dse-search-space"><p class="so-dse-search-space-intro">已生成 9 个部署结构。</p><section class="so-dse-candidate-group"><h4>Aggregated</h4><table class="so-dse-candidate-table"><thead><tr><th>ID</th><th>Parallelism</th></tr></thead><tbody>' + rows(aggregated) + '</tbody></table></section><section class="so-dse-candidate-group"><h4>Disaggregated</h4><table class="so-dse-candidate-table"><thead><tr><th>ID</th><th>Prefill</th><th>Decode</th></tr></thead><tbody>' + rows(disaggregated) + '</tbody></table></section><p class="so-dse-search-space-note">尚未推荐方案。</p></div>';
       }
 
       function renderDseDeploymentCandidatesDetail() {
@@ -5339,7 +5683,7 @@ button.operator-tree-toggle:hover {
         var candidates = dseCandidateCatalog(explore);
         var paretoData = dseParetoCandidateData(explore);
         var paretoCount = dseParetoFrontier(paretoData).length;
-        return '<div class="so-dse-stage-pareto"><div class="so-dse-stage-pareto-head"><div><h4>Pareto frontier candidates</h4><p>所有候选均满足硬约束；选择一个方案查看 rank placement 与 Deployment config。</p></div><span class="so-pill accent">' + paretoCount + ' Pareto</span></div><div class="so-dse-pareto-chart"><div class="so-dse-pareto-chart-head"><div><h5>Pareto frontier</h5><p>同时最大化 tokens/s/gpu 与 tokens/s/user；实心点为 Pareto，空心点为 dominated。</p></div><div class="so-dse-pareto-chart-legend"><span><i style="--legend-color:var(--success)"></i>Pareto</span><span><i class="is-dominated" style="--legend-color:var(--danger)"></i>Dominated</span></div></div><svg data-dse-pareto-chart></svg></div><div class="so-dse-candidates">' + candidates.map(function (item) {
+        return '<div class="so-dse-stage-pareto"><div class="so-dse-stage-pareto-head"><div><h4>Pareto frontier candidates</h4><p>选择方案查看 placement 与运行配置。</p></div><span class="so-pill accent">' + paretoCount + ' Pareto</span></div><div class="so-dse-pareto-chart"><div class="so-dse-pareto-chart-head"><div><h5>Pareto frontier</h5><p>实心为 Pareto，空心为 dominated。</p></div><div class="so-dse-pareto-chart-legend"><span><i style="--legend-color:var(--success)"></i>Pareto</span><span><i class="is-dominated" style="--legend-color:var(--danger)"></i>Dominated</span></div></div><svg data-dse-pareto-chart></svg></div><div class="so-dse-candidates">' + candidates.map(function (item) {
           var active = item.id === explore.selectedCandidate;
           var tight = item.ttft > Number(explore.ttftSla) * .85 || item.tpot > Number(explore.tpotSla) * .9;
           return '<button class="so-dse-candidate' + (active ? ' is-active' : '') + '" type="button" data-dse-candidate="' + item.id + '" aria-pressed="' + active + '"><div class="so-dse-candidate-top"><h3>' + esc(item.name) + '</h3><span class="so-pill' + (item.id === 'balanced' ? ' accent' : '') + '">' + esc(item.badge) + '</span></div><div class="so-dse-candidate-summary"><span class="so-dse-sla' + (tight ? ' is-tight' : '') + '">' + (tight ? 'SLA TIGHT' : 'SLA PASS') + '</span><p>' + esc(item.description) + '</p></div><div class="so-dse-candidate-metrics"><div><span>Throughput</span><strong>' + item.throughput + ' tok/s</strong></div><div><span>P95 TTFT</span><strong>' + item.ttft + ' ms</strong></div><div><span>P95 TPOT</span><strong>' + item.tpot + ' ms</strong></div></div></button>';
@@ -5720,7 +6064,7 @@ button.operator-tree-toggle:hover {
         var memoryRows = [['KV dtype', memory.kvDtype], ['Block size', memory.blockSize], ['Prefix cache', memory.prefixCache], ['Pressure action', memory.pressure]];
         var memoryBar = memory.allocations.map(function (item) { return '<i style="width:' + item.value + '%;--memory-color:' + item.color + '" title="' + esc(item.label) + ' ' + item.value + '%"></i>'; }).join('');
         var memoryLegend = memory.allocations.map(function (item) { return '<span><i style="--memory-color:' + item.color + '"></i>' + esc(item.label) + '<strong>' + item.value + '%</strong></span>'; }).join('');
-        return '<div class="so-dse-config-section"><div class="so-dse-config-head"><div><strong>Deployment config</strong><span>采用方案后冻结为当前 Scenario revision 的运行配置。</span></div><span class="so-pill">Config revision · ' + esc(revisionLabel || ('C' + String(state.scenarioExplore.revision).padStart(2, '0'))) + '</span></div><dl class="so-dse-capacity-limits" aria-label="Capacity limits">' + runtimeLimitRows.map(function (row) { return '<div class="so-dse-capacity-limit"><dt>' + esc(row[0]) + '</dt><dd title="' + esc(row[1]) + '">' + esc(row[1]) + '</dd></div>'; }).join('') + '</dl><div class="so-dse-config-grid">' +
+        return '<div class="so-dse-config-section"><div class="so-dse-config-head"><div><strong>Deployment config</strong><span>采用后冻结到当前 revision。</span></div><span class="so-pill">Config revision · ' + esc(revisionLabel || ('C' + String(state.scenarioExplore.revision).padStart(2, '0'))) + '</span></div><dl class="so-dse-capacity-limits" aria-label="Capacity limits">' + runtimeLimitRows.map(function (row) { return '<div class="so-dse-capacity-limit"><dt>' + esc(row[0]) + '</dt><dd title="' + esc(row[1]) + '">' + esc(row[1]) + '</dd></div>'; }).join('') + '</dl><div class="so-dse-config-grid">' +
           '<section class="so-dse-config-card"><div class="so-dse-config-card-head"><div><strong>Serving pools</strong><span>Prefill / Decode 的资源边界与执行预算</span></div><span class="so-pill">' + (candidate.split ? 'Disaggregated' : 'Unified') + '</span></div><div class="so-dse-pool-configs">' + pools + '</div></section>' +
           '<section class="so-dse-config-card"><div class="so-dse-config-card-head"><div><strong>Scheduler policy</strong><span>' + esc(scheduler.name) + '</span></div><span class="so-pill">Active</span></div><dl class="so-dse-policy-list">' + schedulerRows.map(function (row) { return '<div><dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd></div>'; }).join('') + '</dl></section>' +
           '<section class="so-dse-config-card"><div class="so-dse-config-card-head"><div><strong>Memory policy</strong><span>' + esc(memory.name) + '</span></div><span class="so-pill">HBM ' + candidate.hbm + '%</span></div><div class="so-dse-memory-bar" aria-label="HBM allocation">' + memoryBar + '</div><div class="so-dse-memory-legend">' + memoryLegend + '</div><dl class="so-dse-policy-list">' + memoryRows.map(function (row) { return '<div><dt>' + esc(row[0]) + '</dt><dd>' + esc(row[1]) + '</dd></div>'; }).join('') + '</dl></section>' +
@@ -5744,7 +6088,7 @@ button.operator-tree-toggle:hover {
 
       function renderScenarioNew() {
         var explore = state.scenarioExplore;
-        var html = header('Design space exploration', '将 Serving intent 转换为模型、Workload、SLA 与硬件预算，并从候选方案的收敛过程中选择可部署方案。', '<button class="so-button" data-route="scenarios">返回 Scenarios</button>');
+        var html = header('Design space exploration', '定义服务目标与约束，选择部署方案。', '<button class="so-button" data-route="scenarios">返回 Scenarios</button>');
         html += '<div class="so-dse-layout">' + renderDseIntentPanel(explore) + '<div class="so-dse-exploration">' + renderDseLineage(explore) + '<div id="dse-deployment-detail" hidden></div></div>';
         return html;
       }
@@ -6118,6 +6462,10 @@ button.operator-tree-toggle:hover {
       }
 
       function render() {
+        if (diagnosticGraphController) {
+          diagnosticGraphController.destroy();
+          diagnosticGraphController = null;
+        }
         if (traceHoverController) {
           traceHoverController.destroy();
           traceHoverController = null;
@@ -6137,6 +6485,7 @@ button.operator-tree-toggle:hover {
           if (state.observeTab === 'overview') html = renderOverview();
           else if (state.observeTab === 'trace') html = renderTrace();
           else if (state.observeTab === 'compare') html = renderCompare();
+          else if (state.observeTab === 'diagnostic-graph') html = renderDiagnosticGraph();
           else {
             html = observeRunHeader();
             html += observeTabs();
@@ -6156,6 +6505,9 @@ button.operator-tree-toggle:hover {
         document.getElementById('inspector-content').innerHTML = state.route === 'scenario-new' ? '' : renderInspector();
         bind();
         writeHash();
+        if (state.route === 'observe' && state.observeTab === 'diagnostic-graph') {
+          window.requestAnimationFrame(mountDiagnosticGraph);
+        }
         if (state.route === 'scenario-new') {
           mountDseLineage(state.scenarioExplore);
         }
@@ -6631,7 +6983,9 @@ button.operator-tree-toggle:hover {
         });
         document.querySelectorAll('[data-continue-investigation]').forEach(function (el) {
           el.addEventListener('click', function () {
-            window.location.href = 'inference-diagnostic-compositions.html#graph';
+            state.route = 'observe';
+            state.observeTab = 'diagnostic-graph';
+            render();
           });
         });
         document.querySelectorAll('[data-event]').forEach(function (el) {

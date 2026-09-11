@@ -139,7 +139,7 @@
     var bs = b && b.summary;
     var bq = b && b.serving.queue;
     var bkv = b && b.memory.kv;
-    return '<div class="so-section-title"><h2>上层运行与硬件计数</h2><p>Service / Scheduler / Hardware runtime counter</p></div>'
+    return '<div class="so-section-title"><h2>上层运行与硬件计数</h2></div>'
       + '<div class="so-profile-layer-grid">'
       + '<section class="so-card so-profile-layer-card"><div class="so-card-head"><div><h3>Service</h3><div class="so-finding-summary">请求入口与 decode 服务状态</div></div><span class="so-status success">Completed</span></div><div class="so-card-body"><dl class="so-kv"><dt>吞吐</dt><dd>' + int(s.tps) + ' tok/s' + (bs ? compareLine(s.tps, bs.tps, int(bs.tps) + ' tok/s', 'higher', baselineId) : '') + '</dd><dt>TPOT p50 / p99</dt><dd>' + fmt(s.tpot.p50, 1) + ' / ' + fmt(s.tpot.p99, 1) + ' ms' + (bs ? compareLine(s.tpot.p50, bs.tpot.p50, fmt(bs.tpot.p50, 1) + ' / ' + fmt(bs.tpot.p99, 1) + ' ms', 'lower', baselineId) : '') + '</dd><dt>TTFT p50</dt><dd>' + int(s.ttft) + ' ms' + (bs ? compareLine(s.ttft, bs.ttft, int(bs.ttft) + ' ms', 'lower', baselineId) : '') + '</dd><dt>窗口</dt><dd>' + int(p.meta.steps) + ' steps · ' + fmt(p.meta.duration ? parseFloat(p.meta.duration) : 7.8, 1) + ' s</dd></dl></div></section>'
       + '<section class="so-card so-profile-layer-card"><div class="so-card-head"><div><h3>Scheduler</h3><div class="so-finding-summary">连续批处理与槽位复用</div></div><span class="so-pill accent">运行稳定</span></div><div class="so-card-body"><dl class="so-kv"><dt>运行中 / 等待中</dt><dd>' + q.running + ' / ' + q.waiting + (bq ? compareLine(q.waiting, bq.waiting, bq.running + ' / ' + bq.waiting, 'lower', baselineId) : '') + '</dd><dt>等待 p50 / p99</dt><dd>' + q.waitP50 + ' / ' + q.waitP99 + ' ms' + (bq ? compareLine(q.waitP50, bq.waitP50, bq.waitP50 + ' / ' + bq.waitP99 + ' ms', 'lower', baselineId) : '') + '</dd><dt>抢占 / 重计算</dt><dd>' + q.preempt + ' / ' + q.recompute + (bq ? compareLine(q.preempt, bq.preempt, bq.preempt + ' / ' + bq.recompute, 'lower', baselineId) : '') + '</dd><dt>Chunked Prefill</dt><dd>' + q.chunkedPrefill + ' 个窗口' + (bq ? compareLine(q.chunkedPrefill, bq.chunkedPrefill, bq.chunkedPrefill + ' 个窗口', 'neutral', baselineId) : '') + '</dd></dl></div></section>'
@@ -179,7 +179,7 @@
   function renderOverview(p, b, baselineId) {
     return '<div class="so-profile-pane so-profile-overview">'
       + renderLayerSummary(p, b, baselineId)
-      + '<div class="so-section-title"><h2>全链路性能</h2><p>Service 指标与 Hardware counter 的同一份采集上下文</p></div>'
+      + '<div class="so-section-title"><h2>全链路性能</h2></div>'
       + renderKpis(p, b, baselineId)
       + renderSol(p, b, baselineId)
       + '<div class="so-profile-grid2">' + renderMix(p, b, baselineId) + renderBatchHistogram(p, b, baselineId) + '</div>'
@@ -252,7 +252,7 @@
     var columns = [['name', '任务'], ['calls', '调用'], ['totalMs', '总耗时'], ['share', '占比'], ['perLayerUs', '每层'], ['mte2', 'MTE2'], ['achievedBw', '带宽'], ['bound', 'Bound'], ['efficiency', '效率']];
     var heads = columns.map(function (item) { var sorted = s.sortKey === item[0] ? ' is-sorted ' + s.sortDir : ''; return '<th class="' + sorted + '" data-prof-sort="' + item[0] + '">' + item[1] + '</th>'; }).join('');
     var group = s.groupFilter ? p.groups.find(function (item) { return item.id === s.groupFilter; }) : null;
-    return '<div class="so-profile-pane so-profile-ops"><div class="so-prof-toolbar"><div class="so-prof-segment">' + [['flat', '按任务'], ['scope', '按 Scope'], ['bound', '按硬件单元']].map(function (item) { return '<button type="button" class="' + ((s.groupBy || 'flat') === item[0] ? 'is-active' : '') + '" data-prof-groupby="' + item[0] + '">' + item[1] + '</button>'; }).join('') + '</div><input class="so-input so-prof-search" type="search" data-prof-search placeholder="筛选任务或 Scope…" value="' + esc(s.query || '') + '">' + (group ? '<button type="button" class="so-pill accent so-prof-filter" data-prof-clear-filter>' + esc(group.label) + ' ×</button>' : '') + '<span class="so-prof-toolbar-spacer"></span><span class="so-finding-summary">' + list.length + ' / ' + p.ops.length + ' 项 · 合计 ' + fmt(list.reduce(function (sum, op) { return sum + op.totalMs; }, 0), 3) + ' ms' + (baselineId ? ' · 基线' : '') + '</span></div><div class="so-table-wrap so-prof-table-wrap"><table class="so-table so-prof-table"><thead><tr>' + heads + '</tr></thead><tbody>' + list.map(function (op) { var baseOp = b && b.ops.find(function (item) { return item.id === op.id; }); return opRow(op, baseOp, maxShare, baselineId); }).join('') + '</tbody></table></div>' + renderOpDetail(p, b, baselineId) + '</div>';
+    return '<div class="so-profile-pane so-profile-ops"><div class="so-prof-toolbar"><input class="so-input so-prof-search" type="search" data-prof-search placeholder="筛选任务或 Scope…" value="' + esc(s.query || '') + '">' + (group ? '<button type="button" class="so-pill accent so-prof-filter" data-prof-clear-filter>' + esc(group.label) + ' ×</button>' : '') + '<span class="so-prof-toolbar-spacer"></span><span class="so-finding-summary">' + list.length + ' / ' + p.ops.length + ' 项 · 合计 ' + fmt(list.reduce(function (sum, op) { return sum + op.totalMs; }, 0), 3) + ' ms' + (baselineId ? ' · 基线' : '') + '</span></div><div class="so-table-wrap so-prof-table-wrap"><table class="so-table so-prof-table"><thead><tr>' + heads + '</tr></thead><tbody>' + list.map(function (op) { var baseOp = b && b.ops.find(function (item) { return item.id === op.id; }); return opRow(op, baseOp, maxShare, baselineId); }).join('') + '</tbody></table></div>' + renderOpDetail(p, b, baselineId) + '</div>';
   }
 
   function render(tab, comparison) {
@@ -281,8 +281,6 @@
         rerender();
         return;
       }
-      var groupBy = target.closest('[data-prof-groupby]');
-      if (groupBy) { currentState().groupBy = groupBy.getAttribute('data-prof-groupby'); rerender(); return; }
       var row = target.closest('[data-prof-op]');
       if (row) { currentState().selectedOp = row.getAttribute('data-prof-op'); rerender(); return; }
       var mix = target.closest('[data-prof-mix]');
