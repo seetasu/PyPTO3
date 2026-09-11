@@ -42,8 +42,8 @@
     'RUN-042': { latency: .908, traffic: .96, tps: 1168, ttft: 166, batch: 14.9, sol: [4.0, 18.8, 67.2, 5.5], kv: .94, queue: .82 },
     'RUN-043': { latency: .836, traffic: .93, tps: 1238, ttft: 154, batch: 15.1, sol: [4.2, 19.7, 64.8, 5.3], kv: .91, queue: .74 },
     'RUN-044': { latency: .783, traffic: .89, tps: 1325, ttft: 149, batch: 15.3, sol: [4.6, 21.1, 61.3, 5.0], kv: .88, queue: .66 },
-    'RUN-045': { latency: 1.013, traffic: 1.02, tps: 1053, ttft: 184, batch: 14.5, sol: [3.7, 17.9, 70.4, 5.1], kv: 1, queue: 1 },
-    'RUN-046': { latency: 1.059, traffic: 1.04, tps: 998, ttft: 197, batch: 14.1, sol: [3.5, 16.8, 73.2, 5.5], kv: 1.05, queue: 1.18 }
+    'RUN-045': { tpot: 18.6, latency: 1.224, traffic: 1.38, tps: 1053, ttft: 184, batch: 14.5, sol: [3.7, 17.9, 70.4, 5.1], kv: 1, queue: 1.06 },
+    'RUN-046': { tpot: 14.9, latency: .98, traffic: 1, tps: 1048, ttft: 179, batch: 14.1, sol: [3.5, 16.8, 73.2, 5.5], kv: 1, queue: 1 }
   };
 
   function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
@@ -52,12 +52,13 @@
     if (!base) return null;
     var v = RUN_VARIANTS[runId] || RUN_VARIANTS['RUN-045'];
     var p = JSON.parse(JSON.stringify(base));
+    var latencyScale = v.tpot == null ? v.latency : v.tpot / base.summary.tpot.p50;
     p.id = runId;
     p.title = runId + ' · Observe Profile';
     p.meta.capturedAt = runId;
-    p.summary.tpot.p50 = Number((base.summary.tpot.p50 * v.latency).toFixed(2));
-    p.summary.tpot.p90 = Number((base.summary.tpot.p90 * v.latency).toFixed(2));
-    p.summary.tpot.p99 = Number((base.summary.tpot.p99 * v.latency).toFixed(2));
+    p.summary.tpot.p50 = Number((v.tpot == null ? base.summary.tpot.p50 * latencyScale : v.tpot).toFixed(2));
+    p.summary.tpot.p90 = Number((base.summary.tpot.p90 * latencyScale).toFixed(2));
+    p.summary.tpot.p99 = Number((base.summary.tpot.p99 * latencyScale).toFixed(2));
     p.summary.tps = v.tps;
     p.summary.ttft = v.ttft;
     p.summary.batchAvg = v.batch;
@@ -68,13 +69,13 @@
     p.summary.sol.forEach(function (unit, index) { unit.pct = v.sol[index]; });
     p.summary.lowerBoundMs = Number((p.summary.traffic.total / p.meta.peakBw).toFixed(2));
     p.summary.efficiency = Number((p.summary.lowerBoundMs / p.summary.tpot.p50 * 100).toFixed(1));
-    p.groups.forEach(function (group) { group.ms = Number((group.ms * v.latency).toFixed(4)); });
+    p.groups.forEach(function (group) { group.ms = Number((group.ms * latencyScale).toFixed(4)); });
     p.ops.forEach(function (op) {
-      op.totalMs = Number((op.totalMs * v.latency).toFixed(4));
-      if (op.perLayerUs != null) op.perLayerUs = Number((op.perLayerUs * v.latency).toFixed(3));
-      if (op.perLayer) op.perLayer = op.perLayer.map(function (value) { return Number((value * v.latency).toFixed(3)); });
-      if (op.achievedBw) op.achievedBw = Number((op.achievedBw * v.traffic / v.latency).toFixed(3));
-      if (op.efficiency != null) op.efficiency = Math.round(clamp(op.efficiency / v.latency, 1, 99));
+      op.totalMs = Number((op.totalMs * latencyScale).toFixed(4));
+      if (op.perLayerUs != null) op.perLayerUs = Number((op.perLayerUs * latencyScale).toFixed(3));
+      if (op.perLayer) op.perLayer = op.perLayer.map(function (value) { return Number((value * latencyScale).toFixed(3)); });
+      if (op.achievedBw) op.achievedBw = Number((op.achievedBw * v.traffic / latencyScale).toFixed(3));
+      if (op.efficiency != null) op.efficiency = Math.round(clamp(op.efficiency / latencyScale, 1, 99));
       if (op.units && op.units.mte2 != null) op.units.mte2 = Number(clamp(op.units.mte2 * v.sol[2] / 70.4, 0, 100).toFixed(1));
     });
     p.memory.hbm.items.forEach(function (item) { if (item[0] === 'kv') item[2] = Number((item[2] * v.kv).toFixed(3)); if (item[0] === 'workspace') item[2] = Number((item[2] * v.traffic).toFixed(3)); });
@@ -96,8 +97,8 @@
     p.serving.queue.waitP50 = Math.round(p.serving.queue.waitP50 * v.queue);
     p.serving.queue.waitP99 = Math.round(p.serving.queue.waitP99 * v.queue);
     p.serving.queue.waiting = Math.max(0, Math.round(p.serving.queue.waiting * v.queue));
-    p.serving.lanes.forEach(function (lane) { lane.items.forEach(function (item) { item.wait = Math.round(item.wait * v.queue); item.prefill = Math.round(item.prefill * v.latency); item.decode = Math.round(item.decode * v.latency); }); });
-    p.serving.sweep.forEach(function (row) { row.tpot = Number((row.tpot * v.latency).toFixed(2)); row.tps = Math.round(row.tps / v.latency); row.traffic = Number((row.traffic * v.traffic).toFixed(2)); row.bw = Number((row.bw * v.traffic / v.latency).toFixed(2)); row.mte2 = Number(clamp(row.mte2 * v.sol[2] / 70.4, 0, 100).toFixed(1)); });
+    p.serving.lanes.forEach(function (lane) { lane.items.forEach(function (item) { item.wait = Math.round(item.wait * v.queue); item.prefill = Math.round(item.prefill * latencyScale); item.decode = Math.round(item.decode * latencyScale); }); });
+    p.serving.sweep.forEach(function (row) { row.tpot = Number((row.tpot * latencyScale).toFixed(2)); row.tps = Math.round(row.tps / latencyScale); row.traffic = Number((row.traffic * v.traffic).toFixed(2)); row.bw = Number((row.bw * v.traffic / latencyScale).toFixed(2)); row.mte2 = Number(clamp(row.mte2 * v.sol[2] / 70.4, 0, 100).toFixed(1)); });
     return p;
   }
 

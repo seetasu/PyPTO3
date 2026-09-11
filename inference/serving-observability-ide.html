@@ -2429,7 +2429,7 @@ button.operator-tree-toggle:hover {
 .dg-node--cause {width:142px;min-height:62px;padding:8px 9px;border-top-color:var(--border-subtle);border-radius:0;background:transparent;box-shadow:none}.dg-node--cause .dg-node__title {font-size:12px}.dg-node--cause .dg-node__signal {position:absolute;top:9px;right:9px;font-size:13px}.dg-node--cause .dg-node__summary {display:none}.dg-node--cause.is-normal {opacity:.58}.dg-node--cause.is-normal .dg-node__signal {color:var(--success)}.dg-node--cause.is-unresolved {border-top-color:#8f8057}.dg-node--cause.is-unresolved .dg-node__signal {color:#cfb36f}.dg-node.is-abnormal {width:174px;min-height:100px;border-left-color:transparent;background:#342e28;box-shadow:inset 3px 0 0 var(--warning),0 8px 18px rgba(0,0,0,.18)}.dg-node.is-abnormal.is-selected {box-shadow:inset 3px 0 0 var(--warning),0 0 0 2px color-mix(in srgb,var(--primary) 70%,transparent),0 9px 20px rgba(0,0,0,.24)}.dg-node.is-abnormal .dg-node__signal {position:static;color:#e0b18c;font-size:26px}.dg-node.is-abnormal .dg-node__summary {display:block}
 .dg-node--hypothesis {width:260px;min-height:126px;border:1px dashed #837b63;background:#222622;box-shadow:none}.dg-node--hypothesis .dg-node__signal {font-size:12px;color:#c6b37d;letter-spacing:.05em;text-transform:uppercase}
 .dg-evidence-rail {position:absolute;z-index:-1;top:calc(100% - 2px);left:0;display:grid;width:100%;padding:14px 10px 7px;border-radius:15px;background:#2b2925;box-shadow:0 8px 18px rgba(0,0,0,.18);pointer-events:auto}.dg-evidence-rail::before {content:'';position:absolute;top:1px;right:14px;left:14px;border-top:1px dashed #858681}.dg-evidence-attachment {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:37px;padding:6px 0;border:0;border-radius:0;background:transparent;box-shadow:none;transition:opacity var(--duration-fast) var(--easing-default),filter var(--duration-fast) var(--easing-default),background var(--duration-fast) var(--easing-default)}.dg-evidence-attachment + .dg-evidence-attachment {border-top:1px dashed #777a75}.dg-evidence-attachment:hover {background:rgba(255,255,255,.025)}.dg-evidence-attachment.is-dimmed {opacity:.22;filter:saturate(.55)}.dg-evidence-attachment__title {overflow:hidden;color:var(--foreground-secondary);font:500 11px/1.2 var(--font-sans);text-overflow:ellipsis;white-space:nowrap}.dg-evidence-attachment__trigger {display:grid;flex:0 0 24px;place-items:center;width:24px;height:24px;padding:0;border:1px solid color-mix(in srgb,var(--border-default) 90%,transparent);border-radius:4px;background:transparent;color:#c9ad91;cursor:pointer}.dg-evidence-attachment__trigger:hover {border-color:#b38463;background:rgba(194,149,112,.11);color:#e1b18a}.dg-evidence-attachment__trigger svg {width:14px;height:14px}
-.diagnostic-graph__overlay {position:absolute;inset:0;z-index:30;pointer-events:none}.dg-note {position:absolute;box-sizing:border-box;width:min(390px,calc(100% - 24px));max-height:calc(100% - 24px);overflow:auto;padding:28px 28px 25px;background:#d2d2c5;color:#30352f;box-shadow:0 18px 34px rgba(0,0,0,.35);font-family:var(--font-sans);pointer-events:auto;transform:rotate(var(--dg-note-angle,-.7deg))}.dg-note::before {content:'';position:absolute;top:-11px;left:36px;width:88px;height:24px;background:rgba(174,161,132,.58);transform:rotate(1.5deg)}.dg-note__close {position:absolute;top:9px;right:10px;border:0;background:transparent;color:#575d55;font:18px/1 var(--font-mono);cursor:pointer}.dg-note__summary {margin:0 28px 14px 0;color:#4e574d;font-size:15px;line-height:1.45}.dg-note h3 {margin:0 0 18px;padding-top:12px;border-top:1px solid rgba(48,53,47,.22);font:500 19px/1.2 var(--font-mono);letter-spacing:.02em}.dg-note__bars {display:grid;gap:10px}.dg-note__bar {display:grid;grid-template-columns:40px 1fr 48px;gap:10px;align-items:center;color:#697069;font:14px/1 var(--font-mono)}.dg-note__bar i {height:10px;width:var(--w);background:#7b857b}.dg-note__bar.is-hot {color:#8d5f45;font-weight:700}.dg-note__bar.is-hot i {background:#ad7351}.dg-note__table {display:grid;grid-template-columns:52px 1fr 1fr;gap:9px 13px;padding-bottom:14px;border-bottom:1px solid rgba(48,53,47,.22);font:14px/1.2 var(--font-mono);color:#60675e}.dg-note__table strong {color:#885b43}
+.diagnostic-graph__overlay {position:absolute;inset:0;z-index:30;pointer-events:none}.dg-note {position:absolute;box-sizing:border-box;width:min(390px,calc(100% - 24px));max-height:calc(100% - 24px);overflow:auto;padding:28px 28px 25px;background:#d2d2c5;color:#30352f;box-shadow:0 18px 34px rgba(0,0,0,.35);font-family:var(--font-sans);pointer-events:auto;transform:rotate(var(--dg-note-angle,-.7deg))}.dg-note::before {content:'';position:absolute;top:-11px;left:36px;width:88px;height:24px;background:rgba(174,161,132,.58);transform:rotate(1.5deg)}.dg-note__close {position:absolute;top:9px;right:10px;border:0;background:transparent;color:#575d55;font:18px/1 var(--font-mono);cursor:pointer}.dg-note__summary {margin:0 28px 14px 0;color:#4e574d;font-size:15px;line-height:1.45}.dg-note h3 {margin:0 0 18px;padding-top:12px;border-top:1px solid rgba(48,53,47,.22);font:500 19px/1.2 var(--font-mono);letter-spacing:.02em}.dg-note__bars {display:grid;gap:10px}.dg-note__bar {display:grid;grid-template-columns:var(--dg-note-label-width,40px) 1fr 62px;gap:10px;align-items:center;color:#697069;font:14px/1 var(--font-mono)}.dg-note__bar i {height:10px;width:var(--w);background:#7b857b}.dg-note__bar.is-hot {color:#8d5f45;font-weight:700}.dg-note__bar.is-hot i {background:#ad7351}.dg-note__table {display:grid;grid-template-columns:var(--dg-note-columns,52px 1fr 1fr);gap:9px 13px;padding-bottom:14px;border-bottom:1px solid rgba(48,53,47,.22);font:14px/1.2 var(--font-mono);color:#60675e}.dg-note__table strong {color:#885b43}.dg-note__sequence {display:grid;justify-items:start;gap:4px;padding-bottom:14px;border-bottom:1px solid rgba(48,53,47,.22);font:14px/1.2 var(--font-mono)}.dg-note__sequence-op {min-width:126px;padding:6px 9px;background:rgba(48,53,47,.08);color:#30352f}.dg-note__sequence-link {padding-left:18px;color:#885b43}.dg-note__facts {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;margin-top:14px;color:#60675e;font:13px/1.25 var(--font-mono)}.dg-note__facts strong {color:#30352f}.dg-note__facts span {color:#885b43;font-weight:700;text-align:right}
 .dg-canvas-hint {position:absolute;z-index:5;left:16px;bottom:14px;color:var(--foreground-muted);font:var(--type-micro);pointer-events:none}.dg-canvas-hint kbd {padding:2px 5px;border:1px solid var(--border-subtle);border-radius:3px;font-family:var(--font-mono)}
 /* Preserve the existing A/B/C responsive behavior; D owns its own non-scrolling viewport above. */
 .diag-compositions .wall,.diag-compositions .river,.diag-compositions .evidence-canvas {min-width:720px}
@@ -2682,15 +2682,17 @@ button.operator-tree-toggle:hover {
   <script src="../Design/Toolkit%20Studio/js/inference-profile-data.js?v=20260821-3"></script>
   <script src="../Design/Toolkit%20Studio/js/inference-memory.js?v=20260910-2"></script>
   <script src="../Design/Toolkit%20Studio/js/inference-serving.js?v=20260910-2"></script>
-  <script src="serving-profiler.js?v=20260911-4"></script>
+  <script src="serving-profiler.js?v=20260911-5"></script>
   <script src="candidate-population-lineage/pattern.js?v=20260903-9"></script>
   <script>
-/* Diagnostic graph data. Values are migrated from the former graph and backbone views. */
+/* Diagnostic graph data. One controller renders the story selected by the active Finding. */
 (function () {
-  const rankLatency = [12.4, 12.7, 17.8, 12.5, 12.9, 12.6, 12.3, 12.8];
-  const routeLoad = [.94, 1.02, 1.65, .96, 1.01, .93, 1.08, .98];
+  const legacyRankLatency = [12.4, 12.7, 17.8, 12.5, 12.9, 12.6, 12.3, 12.8];
+  const legacyRouteLoad = [.94, 1.02, 1.65, .96, 1.01, .93, 1.08, .98];
+  const ep8RankWindow = [6.61, .49, 2.34, 5.51, 7.13, 5.41, 6.88, 4.84];
+  const ep8RouteLoad = [.94, .98, .92, 1.02, 1.31, .95, .97, .91];
 
-  window.DiagnosticGraphData = {
+  const legacyGraph = {
     nodes: [
       {id: 'finding', kind: 'finding', title: 'Throughput', signal: '−27%', summary: '1000 → 730 tok/s · TPOT +32%', priority: 'anchor'},
       {id: 'decode', kind: 'reasoning', title: 'Decode', signal: '+33%', summary: '贡献 82% 的新增时间', evidenceRefs: ['phase']},
@@ -2734,11 +2736,11 @@ button.operator-tree-toggle:hover {
         note: '只有 Decode 进入下一层调查。'
       },
       'rank-latency': {
-        title: 'Rank 解码时延 / ms', type: 'bars', labels: rankLatency.map((_, index) => `R${index}`), values: rankLatency, hotIndex: 2,
+        title: 'Rank 解码时延 / ms', type: 'bars', labels: legacyRankLatency.map((_, index) => `R${index}`), values: legacyRankLatency, hotIndex: 2,
         note: 'Rank 2 是唯一显著离群项。'
       },
       'route-load': {
-        attachmentTitle: 'Routed tokens', title: 'Rank 路由 Token / 中位数倍数', type: 'bars', labels: routeLoad.map((_, index) => `R${index}`), values: routeLoad, hotIndex: 2,
+        attachmentTitle: 'Routed tokens', title: 'Rank 路由 Token / 中位数倍数', type: 'bars', labels: legacyRouteLoad.map((_, index) => `R${index}`), values: legacyRouteLoad, hotIndex: 2,
         note: 'R2 承担 1.65× 中位数负载；其他 Rank 均接近参考范围。'
       },
       'expert-traffic': {
@@ -2756,6 +2758,103 @@ button.operator-tree-toggle:hover {
       fixed: 'Workload · Concurrency · EP = 8 · 其他 Serving 配置',
       expected: 'Rank skew ↓ · Decode latency ↓ · TPOT ↓ · Throughput ↑'
     }
+  };
+
+  const ep8RankRoutingGraph = {
+    nodes: [
+      {id: 'finding', kind: 'finding', title: 'EP8 Rank window 不均衡', signal: '7.13 ms', summary: 'Rank 4 · 组中位数 5.46 ms · +30.6%', priority: 'anchor', evidenceRefs: ['rank-window']},
+      {id: 'decode', kind: 'reasoning', title: 'MoE Decode step', signal: 'Rank skew', summary: '长尾集中在 Expert execution window'},
+      {id: 'critical-rank', kind: 'entity', title: 'Rank 4', signal: '+30.6%', summary: '7.13 ms · 组中位数 5.46 ms'},
+      {id: 'device', kind: 'cause', state: 'normal', title: 'Device', signal: '✓', summary: '时钟与利用率处于参考范围'},
+      {id: 'memory', kind: 'cause', state: 'normal', title: 'Memory / KV', signal: '✓', summary: '无驱逐或缺页'},
+      {id: 'routing', kind: 'cause', state: 'abnormal', title: 'Routing', signal: '1.31×', summary: 'Rank 4 / EP 组平均路由负载', evidenceRefs: ['route-load', 'expert-traffic', 'placement']},
+      {id: 'kernel', kind: 'cause', state: 'normal', title: 'Kernel', signal: '✓', summary: '同 shape 执行时间处于基线范围'},
+      {id: 'communication', kind: 'cause', state: 'unresolved', title: 'Communication', signal: '+11%', summary: '有变化，但不足以解释 Rank window 长尾'},
+      {id: 'hypothesis', kind: 'hypothesis', title: '热点 Expert 负载可能造成 Rank 4 路由偏斜', signal: '待验证', summary: '路由负载、Expert traffic 与 placement 共同支持 · High confidence'},
+      {
+        id: 'diagnosis', kind: 'diagnosis', title: 'Rank 4 是当前 MoE Decode 的关键路径', signal: '高置信', summary: '长尾时延与高 routed-token 负载同位',
+        action: {eyebrow: 'Experiment suggestion', title: '验证 Expert placement', summary: '只调整热点 Expert placement，其他条件保持不变', label: '前往验证'}
+      }
+    ],
+    edges: [
+      {id: 'finding-decode', source: 'finding', target: 'decode', relation: 'locate', label: '定位 MoE step'},
+      {id: 'decode-rank', source: 'decode', target: 'critical-rank', relation: 'promote', label: '最长 Rank'},
+      {id: 'rank-device', source: 'critical-rank', target: 'device', relation: 'checked'},
+      {id: 'rank-memory', source: 'critical-rank', target: 'memory', relation: 'checked'},
+      {id: 'rank-kernel', source: 'critical-rank', target: 'kernel', relation: 'checked'},
+      {id: 'rank-communication', source: 'critical-rank', target: 'communication', relation: 'unresolved'},
+      {id: 'rank-routing', source: 'critical-rank', target: 'routing', relation: 'continue', label: '最强关联'},
+      {id: 'routing-hypothesis', source: 'routing', target: 'hypothesis', relation: 'support', label: '3 份证据'},
+      {id: 'hypothesis-diagnosis', source: 'hypothesis', target: 'diagnosis', relation: 'diagnose', label: '综合研判'}
+    ],
+    evidenceById: {
+      'rank-window': {attachmentTitle: 'Rank windows', title: 'EP8 Rank execution window / ms', type: 'bars', labels: ep8RankWindow.map((_, index) => `R${index}`), values: ep8RankWindow, hotIndex: 4, valueSuffix: ' ms', note: 'Rank 4 为 7.13 ms，较组中位数 5.46 ms 高 30.6%。'},
+      'route-load': {attachmentTitle: 'Routed tokens', title: 'Rank routed tokens / 组平均倍数', type: 'bars', labels: ep8RouteLoad.map((_, index) => `R${index}`), values: ep8RouteLoad, hotIndex: 4, note: 'Rank 4 承担 1.31× EP 组平均路由负载。'},
+      'expert-traffic': {attachmentTitle: 'Expert traffic', title: 'Expert traffic / 平均值倍数', type: 'bars', labels: ['E0', 'E1', 'E7', 'E3', 'E4', 'E5', 'E19', 'E8'], values: [.72, .81, 1.42, .78, .86, .75, 1.36, .8], hotIndices: [2, 6], note: 'E7 与 E19 是当前流量最高的两个 Expert。'},
+      placement: {attachmentTitle: 'Expert placement', title: 'Expert → Rank', type: 'table', rows: [['E7', 'Rank 2', 'Rank 4'], ['E19', 'Rank 6', 'Rank 4']], note: '基线将两个热点 Expert 分置在不同 Rank。'}
+    }
+  };
+
+  const ep8FusionGraph = {
+    nodes: [
+      {id: 'finding', kind: 'finding', title: 'TPOT 超出目标', signal: '18.6 ms', summary: '目标 ≤15.0 ms · 基线 14.9 ms · +24.8%', priority: 'anchor'},
+      {id: 'decode', kind: 'reasoning', title: 'Decode execution', signal: '+24%', summary: '17.1 ms vs 13.8 ms · TPOT 超额主要来自 Decode', evidenceRefs: ['phase-latency']},
+      {id: 'kernel-chain', kind: 'entity', title: 'Repeated short-kernel chain', signal: '6 kernels', summary: '同一 pattern 在 Block #18–31 的 Decode 路径重复出现', evidenceRefs: ['kernel-timeline']},
+      {id: 'compute', kind: 'cause', state: 'normal', title: 'Compute', signal: '✓', summary: 'AICore compute utilization 处于参考范围 · Δ +2.1%'},
+      {id: 'communication', kind: 'cause', state: 'normal', title: 'Communication', signal: '✓', summary: 'Collective / EP communication 与 baseline 接近'},
+      {id: 'kernel-boundaries', kind: 'cause', state: 'abnormal', title: 'Kernel boundaries', signal: '6 / block', summary: '短 kernel 之间存在重复 dispatch 与 materialization boundary', evidenceRefs: ['kernel-boundary', 'linear-dependency']},
+      {id: 'memory-traffic', kind: 'cause', state: 'abnormal', title: 'Memory traffic', signal: '+38%', summary: 'Intermediate tensor HBM read / write 明显增加', evidenceRefs: ['memory-traffic']},
+      {id: 'hypothesis', kind: 'hypothesis', title: 'Decode hot path 中存在未融合的连续算子链', signal: '待验证', summary: 'short kernels、HBM traffic 与 linear dependency 共同支持 · High confidence'},
+      {
+        id: 'diagnosis', kind: 'diagnosis', title: '未融合算子链是当前 Decode TPOT 的主要损耗', signal: '高置信', summary: '多个短 kernel 与 intermediate tensor HBM round-trip 在 Block #18–31 重复出现',
+        action: {eyebrow: 'Optimization suggestion', title: '实现 Fused SwiGLU', summary: 'Fuse Dequantize → SiLU → Mul，减少 2 个 intermediate tensors 与 kernel boundaries；固定 workload、parallelism、scheduler 后重跑 TPOT', label: '前往验证'}
+      }
+    ],
+    edges: [
+      {id: 'finding-decode', source: 'finding', target: 'decode', relation: 'locate', label: '主要异常阶段'},
+      {id: 'decode-kernel-chain', source: 'decode', target: 'kernel-chain', relation: 'promote', label: '主要执行模式'},
+      {id: 'chain-compute', source: 'kernel-chain', target: 'compute', relation: 'checked'},
+      {id: 'chain-communication', source: 'kernel-chain', target: 'communication', relation: 'checked'},
+      {id: 'chain-boundaries', source: 'kernel-chain', target: 'kernel-boundaries', relation: 'continue', label: '高频边界'},
+      {id: 'chain-memory', source: 'kernel-chain', target: 'memory-traffic', relation: 'continue', label: 'HBM +38%'},
+      {id: 'boundaries-hypothesis', source: 'kernel-boundaries', target: 'hypothesis', relation: 'support', label: '边界 + 线性依赖'},
+      {id: 'memory-hypothesis', source: 'memory-traffic', target: 'hypothesis', relation: 'support', label: '流量证据'},
+      {id: 'hypothesis-diagnosis', source: 'hypothesis', target: 'diagnosis', relation: 'diagnose', label: '综合研判'}
+    ],
+    evidenceById: {
+      'phase-latency': {
+        attachmentTitle: 'Phase latency', title: '阶段时延对比', type: 'table', columns: ['Phase', '当前', '基线', 'Δ'], columnTemplate: 'minmax(92px,1.35fr) repeat(3,minmax(58px,.8fr))',
+        rows: [['Queue', '1.8 ms', '1.7 ms', '+6%'], ['Prefill', '108 ms', '105 ms', '+3%'], ['Decode / token', '17.1 ms', '13.8 ms', '+24%']],
+        note: '队列与 Prefill 接近基线，TPOT 超额主要位于 Decode。'
+      },
+      'kernel-timeline': {
+        attachmentTitle: 'Kernel timeline', title: 'Decode hot path / kernel duration', type: 'bars', labelWidth: '84px', valueSuffix: ' μs',
+        labels: ['RMSNorm', 'Quantize', 'MatMul', 'Dequantize', 'SiLU', 'Mul'], values: [42, 31, 210, 37, 35, 29],
+        note: '没有单个极端 long pole；损耗来自多个短 kernel 在 14 个 Block 中高频串行累积。'
+      },
+      'memory-traffic': {
+        attachmentTitle: 'Memory traffic', title: 'Memory / compute change', type: 'table', columns: ['Signal', '当前', '基线', 'Δ'], columnTemplate: 'minmax(112px,1.45fr) repeat(3,minmax(54px,.72fr))',
+        rows: [['HBM read / write', '1.38×', '1.00×', '+38%'], ['Compute work', '1.04×', '1.00×', '+4%'], ['Arithmetic intensity', '下降', '参考', '↓']],
+        note: '计算量变化很小，但 intermediate tensor 流量明显增加，呈现 memory-bound execution pattern。'
+      },
+      'kernel-boundary': {
+        attachmentTitle: 'Boundary counts', title: 'Kernel boundary evidence', type: 'table', columns: ['Signal', '当前', '基线'], columnTemplate: 'minmax(138px,1.5fr) repeat(2,minmax(62px,.7fr))',
+        rows: [['Kernel launches / block', '6', '3'], ['Intermediate tensors', '5', '2'], ['Repeated blocks', '14', '14']],
+        note: '每个 Block 存在 6 次 launch 和 5 个中间结果，在 Block #18–31 重复发生。'
+      },
+      'linear-dependency': {
+        attachmentTitle: 'Linear dependency', title: 'Linear dependency / tensor lifetime', type: 'sequence',
+        steps: [['RMSNorm', 'tmp_1'], ['Quantize', 'tmp_2'], ['MatMul', 'tmp_3'], ['Dequantize', 'tmp_4'], ['SiLU', 'tmp_5'], ['Mul', null]],
+        facts: [['External consumer', '0'], ['Branch', '0'], ['Intermediate lifetime', '1 operator']],
+        note: '5 / 5 intermediate tensors 只被下一个 operator 消费，无 fan-out，具备 fusion candidate 的基本结构条件。'
+      }
+    }
+  };
+
+  window.DiagnosticGraphData = legacyGraph;
+  window.DiagnosticGraphData.variants = {
+    'ep8-rank-routing': ep8RankRoutingGraph,
+    'ep8-fusion': ep8FusionGraph
   };
 }());
 
@@ -2803,17 +2902,32 @@ button.operator-tree-toggle:hover {
 
   function renderNote(detail, anchor, overlay, viewport, onClose) {
     const note = el('section', 'dg-note'); note.dataset.dgNote = 'true';
-    const close = el('button', 'dg-note__close', '×'); close.type = 'button'; close.setAttribute('aria-label', '关闭证据便利贴'); close.addEventListener('click', () => { note.remove(); onClose?.(); });
+    note.addEventListener('click', event => event.stopPropagation());
+    const close = el('button', 'dg-note__close', '×'); close.type = 'button'; close.setAttribute('aria-label', '关闭证据便利贴'); close.addEventListener('click', event => { event.stopPropagation(); note.remove(); onClose?.(); });
     note.append(close, el('p', 'dg-note__summary', detail.note), el('h3', '', detail.title));
     if (detail.type === 'bars') {
       const bars = el('div', 'dg-note__bars'); const max = Math.max(...detail.values);
+      if (detail.labelWidth) bars.style.setProperty('--dg-note-label-width', detail.labelWidth);
       detail.values.forEach((value, index) => {
         const row = el('div', `dg-note__bar${detail.hotIndex === index || detail.hotIndices?.includes(index) ? ' is-hot' : ''}`);
         const bar = el('i'); bar.style.setProperty('--w', `${Math.round(value / max * 100)}%`);
-        row.append(el('span', '', detail.labels[index]), bar, el('strong', '', Number.isInteger(value) ? String(value) : `${value.toFixed(2)}×`)); bars.append(row);
+        const valueText = detail.valueSuffix ? `${value}${detail.valueSuffix}` : (Number.isInteger(value) ? String(value) : `${value.toFixed(2)}×`);
+        row.append(el('span', '', detail.labels[index]), bar, el('strong', '', valueText)); bars.append(row);
       }); note.append(bars);
+    } else if (detail.type === 'sequence') {
+      const sequence = el('div', 'dg-note__sequence');
+      detail.steps.forEach(step => {
+        sequence.append(el('strong', 'dg-note__sequence-op', step[0]));
+        if (step[1]) sequence.append(el('span', 'dg-note__sequence-link', `↓ ${step[1]}`));
+      });
+      const facts = el('div', 'dg-note__facts');
+      detail.facts.forEach(fact => facts.append(el('strong', '', fact[0]), el('span', '', fact[1])));
+      note.append(sequence, facts);
     } else {
-      const table = el('div', 'dg-note__table'); table.append(el('span', '', ''), el('span', '', '基线'), el('span', '', '当前'));
+      const table = el('div', 'dg-note__table');
+      const columns = detail.columns || ['', '基线', '当前'];
+      if (detail.columnTemplate) table.style.setProperty('--dg-note-columns', detail.columnTemplate);
+      columns.forEach(column => table.append(el('span', '', column)));
       detail.rows.forEach(row => row.forEach((cell, index) => table.append(el(index === 0 ? 'strong' : 'span', '', cell)))); note.append(table);
     }
     overlay.replaceChildren(note);
@@ -2951,12 +3065,12 @@ button.operator-tree-toggle:hover {
     bind() {
       this.toolbar.addEventListener('click', event => { const action = event.target.closest('[data-dg-action]')?.dataset.dgAction; if (!action) return; if (action === 'zoom-in') this.setScale(this.camera.k + .12); if (action === 'zoom-out') this.setScale(this.camera.k - .12); if (action === 'fit') this.fit(); if (action === 'hundred') { this.camera = {x: 42, y: 42, k: 1}; this.applyCamera(); } });
       this.viewport.addEventListener('wheel', event => { event.preventDefault(); const rect = this.viewport.getBoundingClientRect(); const point = {x: event.clientX - rect.left, y: event.clientY - rect.top}; if (event.ctrlKey || event.metaKey) this.setScale(this.camera.k * (event.deltaY > 0 ? .9 : 1.1), point); else { this.camera.x -= event.deltaX; this.camera.y -= event.deltaY; this.overlay.replaceChildren(); this.noteEvidenceId = null; this.applyCamera(); } }, {passive: false});
-      this.viewport.addEventListener('pointerdown', event => { const node = event.target.closest('[data-dg-node]'); const thumb = event.target.closest('[data-dg-evidence]'); if (thumb || node) return; this.pan(event); });
-      this.viewport.addEventListener('click', event => { if (event.target.closest('[data-dg-evidence]')) return; const node = event.target.closest('[data-dg-node]'); if (node) this.select(node.dataset.dgNode); else { this.selectedId = null; this.overlay.replaceChildren(); this.noteEvidenceId = null; this.updateFocus(); } });
+      this.viewport.addEventListener('pointerdown', event => { const node = event.target.closest('[data-dg-node]'); const thumb = event.target.closest('[data-dg-evidence]'); const note = event.target.closest('[data-dg-note]'); if (thumb || node || note) return; this.pan(event); });
+      this.viewport.addEventListener('click', event => { const path = event.composedPath(); if (event.target.closest('[data-dg-evidence]') || path.some(item => item.dataset?.dgNote === 'true')) return; const node = event.target.closest('[data-dg-node]'); if (node) this.select(node.dataset.dgNode); else { this.selectedId = null; this.overlay.replaceChildren(); this.noteEvidenceId = null; this.updateFocus(); } });
       this.nodeLayer.addEventListener('click', event => {
         const scenario = event.target.closest('[data-dg-scenario]');
         if (scenario) { event.stopPropagation(); this.actions.openScenario?.(); return; }
-        const thumb = event.target.closest('[data-dg-evidence]'); if (!thumb) return; event.stopPropagation(); const id = thumb.dataset.dgEvidence; if (this.noteEvidenceId === id) { this.overlay.replaceChildren(); this.noteEvidenceId = null; return; } this.noteEvidenceId = id; renderNote(this.data.evidenceById[id], thumb, this.overlay, this.viewport, () => { this.noteEvidenceId = null; });
+        const thumb = event.target.closest('[data-dg-evidence]'); if (!thumb) return; event.stopPropagation(); const id = thumb.dataset.dgEvidence; if (this.noteEvidenceId === id) { this.overlay.replaceChildren(); this.noteEvidenceId = null; return; } const selectedBeforeNote = this.selectedId || this.actions.initialSelectedId || null; this.noteEvidenceId = id; renderNote(this.data.evidenceById[id], thumb, this.overlay, this.viewport, () => { this.noteEvidenceId = null; requestAnimationFrame(() => { this.selectedId = selectedBeforeNote; this.updateFocus(); }); });
       });
       this.viewport.addEventListener('keydown', event => { if (event.key === 'Escape') { if (this.noteEvidenceId) { this.overlay.replaceChildren(); this.noteEvidenceId = null; } else if (this.selectedId) { this.selectedId = null; this.updateFocus(); } } if (event.key === ' ' && event.target === this.viewport) event.preventDefault(); });
       this.resizeObserver = new ResizeObserver(() => { if (!this.userCameraMoved) this.fit(); });
@@ -3364,7 +3478,7 @@ button.operator-tree-toggle:hover {
         { id: 'RUN-043', name: 'HCA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'hca', kind: 'attention', status: 'Completed', progress: 100, sloRate: 98.1, snapshot: '2026-07-26 22:27:38 +08:00', config: 'attention=HCA · startpos=8192 · batch=8', artifact: 'decode_attention_hca_startpos8192' },
         { id: 'RUN-044', name: 'SWA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'swa', kind: 'attention', status: 'Completed', progress: 100, sloRate: 99.2, snapshot: '2026-07-26 22:28:04 +08:00', config: 'attention=SWA · startpos=8192 · batch=8', artifact: 'decode_attention_swa_startpos8192' },
         { id: 'RUN-045', name: 'EP8 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep8', kind: 'moe', status: 'Completed', progress: 100, sloRate: 93.4, snapshot: '2026-07-26 23:04:02 +08:00', config: 'expert_parallel=8 · balanced routing', artifact: 'moe_ep8_balanced' },
-        { id: 'RUN-046', name: 'EP2 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep2', kind: 'moe', status: 'Completed', progress: 100, sloRate: 90.7, snapshot: '2026-07-26 23:14:08 +08:00', config: 'expert_parallel=2 · balanced routing', artifact: 'moe_ep2_balanced' }
+        { id: 'RUN-046', name: 'EP2 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep2', kind: 'moe', status: 'Completed', progress: 100, sloRate: 98.4, snapshot: '2026-07-26 23:14:08 +08:00', config: 'expert_parallel=2 · balanced routing', artifact: 'moe_ep2_balanced' }
       ];
 
       var modelOperators = [
@@ -3443,7 +3557,7 @@ button.operator-tree-toggle:hover {
             { source: 'Rank 4', sourcePhase: 'expert-compute', target: 'Rank 7', targetPhase: 'wait-sync', label: 'Rank 4 Expert → Rank 7 Wait' }
           ],
           findings: [
-            { id: 'MOE-F-001', title: 'Rank 4 的 token 路由偏斜拉长 MoE critical path', severity: 'High', summary: 'Rank 4 接收 1,344 routed tokens，较 Rank 均值高 31.3%；Expert Compute 为 3.60 ms，较 Rank 中位数多 1.04 ms，并使 6 个 Rank 在 Gather 后进入等待。', impact: 'Step critical path +1.04 ms', evidence: 'Rank 4 → Expert Compute → 6 peer Wait / Sync', action: '在 Timeline 定位', candidate: 'ep8', rank: 'Rank 4', phase: 'expert-compute', timeWindow: [1360, 4960], relationKinds: { communication: true, dependency: true } },
+            { id: 'MOE-F-001', title: 'Decode 出现 repeated short-kernel chain', severity: 'High', summary: '6 kernels / block 在 Block #18–31 重复；不存在单一极端 long pole，kernel boundary 与中间结果写回累计拉高 Decode TPOT。', impact: 'Decode / token 17.1 ms', evidence: '6 short kernels → 5 intermediates → HBM round-trip', recommendation: '检查 kernel boundary 与 memory traffic。', action: '在 Timeline 定位', candidate: 'ep8', phase: 'expert-compute', timeWindow: [1360, 4960], relationKinds: { communication: false, dependency: true } },
             { id: 'MOE-F-002', title: 'Rank 7 的 Wait / Sync 占比最高', severity: 'Medium', summary: 'Rank 7 有 2.386 ms 处于 Wait / Sync，占自身窗口 33.4%；主要等待 Rank 4 完成 Expert Compute 并返回 Gather 数据。', impact: 'Wait / Sync 33.4%', evidence: 'Rank 7 → Wait / Sync → Rank 4 Expert', action: '定位 Rank 7', candidate: 'ep8', rank: 'Rank 7', phase: 'wait-sync', timeWindow: [4747, 7132.7], relationKinds: { communication: false, dependency: true } },
             { id: 'MOE-F-003', title: 'Rank 4 的 Gather / Combine 高于 Rank 中位数', severity: 'Medium', summary: 'Rank 4 的 Gather / Combine 为 1.380 ms，较 Rank 中位数高 16.5%，与高 routed token 负载同时出现。', impact: 'Gather / Combine 1.380 ms', evidence: 'Rank 4 → Gather / Combine → return flow', action: '定位 Gather', candidate: 'ep8', rank: 'Rank 4', phase: 'gather', timeWindow: [4960, 6340], relationKinds: { communication: true, dependency: false } }
           ]
@@ -3467,6 +3581,15 @@ button.operator-tree-toggle:hover {
           tokenFlows: [{ source: 'Rank 0', target: 'Rank 1', tokens: 512 }],
           dependencies: [{ source: 'Rank 1', sourcePhase: 'expert-compute', target: 'Rank 0', targetPhase: 'wait-sync', label: 'Rank 1 Expert → Rank 0 Wait' }],
           findings: []
+        }
+      };
+
+      var diagnosticGraphBindings = {
+        'RUN-045': {
+          'DFX-RANK-001': { graphKey: 'ep8-rank-routing', graphNodeId: 'finding' },
+          'MOE-F-001': { graphKey: 'ep8-fusion', graphNodeId: 'kernel-chain' },
+          'MOE-F-002': { graphKey: 'ep8-rank-routing', graphNodeId: 'communication' },
+          'MOE-F-003': { graphKey: 'ep8-rank-routing', graphNodeId: 'critical-rank' }
         }
       };
 
@@ -3582,11 +3705,14 @@ button.operator-tree-toggle:hover {
         var evidence = currentEvidence();
         var story = evidence.kind === 'moe' && moeSemanticStories[evidence.id];
         var combined = visibleFindings().concat(story && story.findings || []);
+        var runBindings = diagnosticGraphBindings[currentRun().id] || {};
         var seen = {};
         return combined.filter(function (item) {
           if (!item || seen[item.id]) return false;
           seen[item.id] = true;
           return true;
+        }).map(function (item) {
+          return runBindings[item.id] ? Object.assign({}, item, runBindings[item.id]) : item;
         });
       }
       function findingDestination(item) {
@@ -4251,16 +4377,24 @@ button.operator-tree-toggle:hover {
       function renderDiagnosticGraphPanel() {
         var run = currentRun();
         var scenario = currentScenario();
+        var selectedFinding = allRunFindings().find(function (item) { return item.id === state.selectedFinding; });
         var baseline = state.showComparison && state.compareRunId ? '基线 ' + state.compareRunId + ' → ' : '';
         return '<div class="so-section-title so-diagnostic-graph-section-title"><div><h2>诊断图谱</h2><p>从症状、异常维度到根因与验证建议</p></div><span class="so-finding-evidence">' + esc(baseline + '当前 ' + run.id + ' · ' + scenario.name) + '</span></div>'
-          + '<section class="so-diagnostic-graph-panel" aria-label="诊断图谱"><div class="so-diagnostic-graph-canvas" data-diagnostic-graph-root></div></section>';
+          + '<section class="so-diagnostic-graph-panel" aria-label="诊断图谱' + (selectedFinding ? '：' + esc(selectedFinding.title) : '') + '"><div class="so-diagnostic-graph-canvas" data-diagnostic-graph-root></div></section>';
       }
 
       function mountDiagnosticGraph() {
         var root = document.querySelector('[data-diagnostic-graph-root]');
         if (!root || !window.DiagnosticGraphController || !window.DiagnosticGraphData) return;
+        var selectedFinding = allRunFindings().find(function (item) { return item.id === state.selectedFinding; });
+        var graphData = window.DiagnosticGraphData;
+        if (selectedFinding && selectedFinding.graphKey && graphData.variants && graphData.variants[selectedFinding.graphKey]) {
+          graphData = graphData.variants[selectedFinding.graphKey];
+        }
         if (diagnosticGraphController) diagnosticGraphController.destroy();
-        diagnosticGraphController = new window.DiagnosticGraphController(root, window.DiagnosticGraphData, {
+        diagnosticGraphController = new window.DiagnosticGraphController(root, graphData, {
+          // Finding 只决定图谱 variant，不预先聚焦图谱节点；让用户从整条链路开始阅读。
+          initialSelectedId: null,
           openScenario: function () {
             state.modal = null;
             state.route = 'scenario-new';
@@ -4327,7 +4461,7 @@ button.operator-tree-toggle:hover {
         if (item.recommendation) return item.recommendation;
         var key = [item.id, item.title, item.story, item.evidence].join(' ');
         if (item.id === 'DFX-RANK-001') return '先定位最长 Rank 的 dispatch_wait，再检查路由负载。';
-        if (item.id === 'MOE-F-001') return '重新分配热点 Expert，平衡 Rank 4 的 routed tokens。';
+        if (item.id === 'MOE-F-001') return '检查 kernel boundary 与 memory traffic。';
         if (item.id === 'MOE-F-002') return '先消除上游 Rank 4 长尾，再验证 Rank 7 等待回落。';
         if (item.id === 'MOE-F-003') return '优化 Rank 4 Gather / Combine，并复核 token 分布。';
         if (/MEM|buffer|live range|memory/i.test(key)) return '缩短 buffer live range，验证复用或降低 pipeline depth。';
@@ -4355,6 +4489,13 @@ button.operator-tree-toggle:hover {
         var diagnosis = compactFindingText(item.title || item.summary || '发现异常', 52);
         var recommendation = compactFindingText(findingRecommendation(item), 48);
         return '<article class="so-finding ' + severityClass + selectedClass + '" role="button" tabindex="0" aria-pressed="' + (state.selectedFinding === item.id) + '" aria-label="' + esc(findingBrief(item)) + '" data-finding-card="' + esc(item.id) + '"><div class="so-finding-copy"><div class="so-finding-diagnosis">' + esc(diagnosis) + '</div><div class="so-finding-recommendation"><span>建议</span>' + esc(recommendation) + '</div></div></article>';
+      }
+
+      function scrollDiagnosticWorkspaceToTop() {
+        window.requestAnimationFrame(function () {
+          var workspace = document.querySelector('.so-diagnostic-workspace');
+          if (workspace) workspace.scrollIntoView({ behavior: 'auto', block: 'start' });
+        });
       }
 
       function filteredTraceEvents(evidence) {
@@ -7057,6 +7198,7 @@ button.operator-tree-toggle:hover {
             state.selectedFinding = el.getAttribute('data-finding-card');
             state.findingSelectionTouched = true;
             render();
+            scrollDiagnosticWorkspaceToTop();
           };
           el.addEventListener('click', selectFinding);
           el.addEventListener('keydown', function (event) {
