@@ -128,44 +128,13 @@
     if (ctx && ctx.render) ctx.render();
   }
 
-  function metric(label, value, detail, tone, comparison) {
-    return '<article class="so-profile-kpi"><span>' + esc(label) + '</span><strong>' + value + '</strong><small class="' + (tone || '') + '">' + esc(detail) + '</small>' + (comparison || '') + '</article>';
-  }
-
-  function renderLayerSummary(p, b, baselineId) {
-    var s = p.summary;
-    var q = p.serving.queue;
-    var kv = p.memory.kv;
-    var bs = b && b.summary;
-    var bq = b && b.serving.queue;
-    var bkv = b && b.memory.kv;
-    return '<div class="so-section-title"><h2>上层运行与硬件计数</h2></div>'
-      + '<div class="so-profile-layer-grid">'
-      + '<section class="so-card so-profile-layer-card"><div class="so-card-head"><div><h3>Service</h3><div class="so-finding-summary">请求入口与 decode 服务状态</div></div><span class="so-status success">Completed</span></div><div class="so-card-body"><dl class="so-kv"><dt>吞吐</dt><dd>' + int(s.tps) + ' tok/s' + (bs ? compareLine(s.tps, bs.tps, int(bs.tps) + ' tok/s', 'higher', baselineId) : '') + '</dd><dt>TPOT p50 / p99</dt><dd>' + fmt(s.tpot.p50, 1) + ' / ' + fmt(s.tpot.p99, 1) + ' ms' + (bs ? compareLine(s.tpot.p50, bs.tpot.p50, fmt(bs.tpot.p50, 1) + ' / ' + fmt(bs.tpot.p99, 1) + ' ms', 'lower', baselineId) : '') + '</dd><dt>TTFT p50</dt><dd>' + int(s.ttft) + ' ms' + (bs ? compareLine(s.ttft, bs.ttft, int(bs.ttft) + ' ms', 'lower', baselineId) : '') + '</dd><dt>窗口</dt><dd>' + int(p.meta.steps) + ' steps · ' + fmt(p.meta.duration ? parseFloat(p.meta.duration) : 7.8, 1) + ' s</dd></dl></div></section>'
-      + '<section class="so-card so-profile-layer-card"><div class="so-card-head"><div><h3>Scheduler</h3><div class="so-finding-summary">连续批处理与槽位复用</div></div><span class="so-pill accent">运行稳定</span></div><div class="so-card-body"><dl class="so-kv"><dt>运行中 / 等待中</dt><dd>' + q.running + ' / ' + q.waiting + (bq ? compareLine(q.waiting, bq.waiting, bq.running + ' / ' + bq.waiting, 'lower', baselineId) : '') + '</dd><dt>等待 p50 / p99</dt><dd>' + q.waitP50 + ' / ' + q.waitP99 + ' ms' + (bq ? compareLine(q.waitP50, bq.waitP50, bq.waitP50 + ' / ' + bq.waitP99 + ' ms', 'lower', baselineId) : '') + '</dd><dt>抢占 / 重计算</dt><dd>' + q.preempt + ' / ' + q.recompute + (bq ? compareLine(q.preempt, bq.preempt, bq.preempt + ' / ' + bq.recompute, 'lower', baselineId) : '') + '</dd><dt>Chunked Prefill</dt><dd>' + q.chunkedPrefill + ' 个窗口' + (bq ? compareLine(q.chunkedPrefill, bq.chunkedPrefill, bq.chunkedPrefill + ' 个窗口', 'neutral', baselineId) : '') + '</dd></dl></div></section>'
-      + '<section class="so-card so-profile-layer-card"><div class="so-card-head"><div><h3>Hardware Runtime Counter</h3><div class="so-finding-summary">PMU 与带宽采集状态</div></div><span class="so-status success">已采集</span></div><div class="so-card-body"><dl class="so-kv"><dt>达成带宽</dt><dd>' + fmt(s.traffic.total / s.tpot.p50, 2) + ' TB/s · ' + fmt(s.traffic.total / s.tpot.p50 / p.meta.peakBw * 100, 1) + '% 峰值' + (bs ? compareLine(s.traffic.total / s.tpot.p50, bs.traffic.total / bs.tpot.p50, fmt(bs.traffic.total / bs.tpot.p50, 2) + ' TB/s', 'higher', baselineId) : '') + '</dd><dt>MTE2 / Vector / Cube</dt><dd>' + fmt(s.sol[2].pct, 1) + '% / ' + fmt(s.sol[1].pct, 1) + '% / ' + fmt(s.sol[0].pct, 1) + '%' + (bs ? compareLine(s.sol[2].pct, bs.sol[2].pct, fmt(bs.sol[2].pct, 1) + '% / ' + fmt(bs.sol[1].pct, 1) + '% / ' + fmt(bs.sol[0].pct, 1) + '%', 'higher', baselineId) : '') + '</dd><dt>HBM 流量 / step</dt><dd>' + fmt(s.traffic.total, 2) + ' GB' + (bs ? compareLine(s.traffic.total, bs.traffic.total, fmt(bs.traffic.total, 2) + ' GB', 'lower', baselineId) : '') + '</dd><dt>KV Cache</dt><dd>' + fmt(kv.utilization, 1) + '% · 命中 ' + fmt(kv.hitRate, 1) + '%' + (bkv ? compareLine(kv.hitRate, bkv.hitRate, fmt(bkv.utilization, 1) + '% · 命中 ' + fmt(bkv.hitRate, 1) + '%', 'higher', baselineId) : '') + '</dd></dl></div></section>'
-      + '</div>';
-  }
-
-  function renderKpis(p, b, baselineId) {
-    var s = p.summary;
-    var bs = b && b.summary;
-    return '<div class="so-profile-kpis">'
-      + metric('TPOT · p50', fmt(s.tpot.p50, 1) + '<i> ms</i>', 'p90 ' + fmt(s.tpot.p90, 1) + ' · p99 ' + fmt(s.tpot.p99, 1) + ' ms', '', bs ? compareLine(s.tpot.p50, bs.tpot.p50, fmt(bs.tpot.p50, 1) + ' ms', 'lower', baselineId) : '')
-      + metric('吞吐', int(s.tps) + '<i> tok/s</i>', 'batch ' + p.meta.batch + ' · 平均 ' + fmt(s.batchAvg, 1), '', bs ? compareLine(s.tps, bs.tps, int(bs.tps) + ' tok/s', 'higher', baselineId) : '')
-      + metric('达成带宽', fmt(s.traffic.total / s.tpot.p50, 2) + '<i> TB/s</i>', fmt(s.traffic.total / s.tpot.p50 / p.meta.peakBw * 100, 1) + '% 峰值', 'warn', bs ? compareLine(s.traffic.total / s.tpot.p50, bs.traffic.total / bs.tpot.p50, fmt(bs.traffic.total / bs.tpot.p50, 2) + ' TB/s', 'higher', baselineId) : '')
-      + metric('KV Cache', fmt(s.kvUsed, 2) + '<i> GB</i>', int(p.memory.kv.pagesUsed) + ' / ' + int(p.memory.kv.pagesTotal) + ' 页 · 碎片 ' + fmt(p.memory.kv.fragmentation, 1) + '%', '', bs ? compareLine(s.kvUsed, bs.kvUsed, fmt(bs.kvUsed, 2) + ' GB', 'lower', baselineId) : '')
-      + metric('执行效率', fmt(s.efficiency, 1) + '<i> %</i>', '理论下界 ' + fmt(s.lowerBoundMs, 2) + ' ms', '', bs ? compareLine(s.efficiency, bs.efficiency, fmt(bs.efficiency, 1) + '%', 'higher', baselineId) : '')
-      + '</div>';
-  }
-
   function renderSol(p, b, baselineId) {
     var rows = p.summary.sol.map(function (unit) {
       var bottleneck = unit.pct === Math.max.apply(null, p.summary.sol.map(function (item) { return item.pct; }));
       var baseUnit = b && b.summary.sol.find(function (item) { return item.id === unit.id; });
       return '<div class="so-profile-solrow ' + (bottleneck ? 'is-bottleneck' : '') + '"><span>' + esc(unit.label) + '</span><div class="so-profile-soltrack' + (baseUnit ? ' is-grouped' : '') + '"><span data-unit="' + esc(unit.id) + '" style="width:' + unit.pct + '%"></span>' + (baseUnit ? '<span class="is-baseline" style="width:' + baseUnit.pct + '%"></span>' : '') + '</div><b>' + fmt(unit.pct, 1) + '%' + (baseUnit ? '<small>' + fmt(baseUnit.pct, 1) + '%</small>' : '') + '</b><small>' + esc(unit.detail) + (baseUnit ? compareLine(unit.pct, baseUnit.pct, fmt(baseUnit.pct, 1) + '%', 'higher', baselineId) : '') + '</small></div>';
     }).join('');
-    return '<section class="so-card so-profile-card"><div class="so-card-head"><div><h3>Hardware unit utilization</h3><div class="so-finding-summary">每个 decode step 的时间去向</div></div><div class="so-profile-series-legend"><span><i></i>当前 Run</span>' + (b ? '<span class="is-baseline"><i></i>基线</span>' : '') + '</div></div><div class="so-card-body"><div class="so-profile-sol">' + rows + '</div><div class="so-profile-verdict"><strong>内存搬运是当前长 pole</strong><p>每 step 从 HBM 读取 <code>' + fmt(p.summary.traffic.total, 2) + ' GB</code>，当前达成带宽为 <code>' + fmt(p.summary.traffic.total / p.summary.tpot.p50, 2) + ' TB/s</code>；Cube 仅占 <code>' + fmt(p.summary.sol[0].pct, 1) + '%</code>，优先检查 MTE2 重叠与权重复用。</p></div></div></section>';
+    return '<section class="so-card so-profile-card"><div class="so-card-head"><div><h3>Hardware Unit Utilization</h3><div class="so-finding-summary">执行模型估算的 decode step 时间去向</div></div><div class="so-profile-series-legend"><span><i></i>当前 Run</span>' + (b ? '<span class="is-baseline"><i></i>基线</span>' : '') + '</div></div><div class="so-card-body"><div class="so-profile-sol">' + rows + '</div><div class="so-profile-verdict"><strong>估算结果指向内存搬运长 pole</strong><p>每 step 从 HBM 读取 <code>' + fmt(p.summary.traffic.total, 2) + ' GB</code>，估算带宽为 <code>' + fmt(p.summary.traffic.total / p.summary.tpot.p50, 2) + ' TB/s</code>；Cube 占比估算为 <code>' + fmt(p.summary.sol[0].pct, 1) + '%</code>，可优先检查 MTE2 重叠与权重复用，并在 PMU 可用后验证。</p></div></div></section>';
   }
 
   function renderMix(p, b, baselineId) {
@@ -174,27 +143,6 @@
       var bg = b && b.groups.find(function (item) { return item.id === g.id; });
       return '<button type="button" class="so-profile-mixrow" data-prof-mix="' + esc(g.id) + '"><i style="background:' + (GROUP_COLORS[g.id] || '#8b929a') + '"></i><b>' + esc(g.label) + '</b><strong>' + fmt(g.share, 1) + '%' + (bg ? '<span>' + fmt(bg.share, 1) + '%</span>' : '') + '</strong><small>' + fmt(g.ms, 3) + ' ms · ' + esc(g.detail) + (bg ? compareLine(g.ms, bg.ms, fmt(bg.ms, 3) + ' ms', 'lower', baselineId) : '') + '</small></button>';
     }).join('') + '</div></div></section>';
-  }
-
-  function renderOverview(p, b, baselineId) {
-    return '<div class="so-profile-pane so-profile-overview">'
-      + renderLayerSummary(p, b, baselineId)
-      + '<div class="so-section-title"><h2>全链路性能</h2></div>'
-      + renderKpis(p, b, baselineId)
-      + renderSol(p, b, baselineId)
-      + '<div class="so-profile-grid2">' + renderMix(p, b, baselineId) + renderBatchHistogram(p, b, baselineId) + '</div>'
-      + '</div>';
-  }
-
-  function renderBatchHistogram(p, b, baselineId) {
-    var values = (p.serving && p.serving.batchOverTime) || [];
-    var baseValues = b && b.serving.batchOverTime || [];
-    var max = Math.max.apply(null, values.concat(baseValues, [1]));
-    var bars = values.slice(0, 32).map(function (value, index) {
-      var baseValue = baseValues[index];
-      return '<span><i title="当前 · step ' + (index + 1) + ' · batch ' + value + '" style="height:' + Math.max(12, value / max * 100) + '%"></i>' + (baseValue != null ? '<i class="is-baseline" title="基线 · step ' + (index + 1) + ' · batch ' + baseValue + '" style="height:' + Math.max(12, baseValue / max * 100) + '%"></i>' : '') + '</span>';
-    }).join('');
-    return '<section class="so-card so-profile-card"><div class="so-card-head"><div><h3>Batch 随时间</h3><div class="so-finding-summary">连续批处理窗口的实时 batch</div></div><span class="so-pill">平均 ' + fmt(p.serving && p.serving.batchAvg, 1) + (b ? ' · 基线 ' + fmt(b.serving.batchAvg, 1) : '') + '</span></div><div class="so-card-body"><div class="so-profile-hist' + (b ? ' is-grouped' : '') + '">' + bars + '</div><div class="so-profile-hist-meta"><span>step 1</span><b>' + (b ? '当前 / 基线成组展示' : '当前 Run') + '</b><span>step ' + p.meta.steps + '</span></div></div></section>';
   }
 
   function visibleOps(p) {
@@ -252,7 +200,11 @@
     var columns = [['name', '任务'], ['calls', '调用'], ['totalMs', '总耗时'], ['share', '占比'], ['perLayerUs', '每层'], ['mte2', 'MTE2'], ['achievedBw', '带宽'], ['bound', 'Bound'], ['efficiency', '效率']];
     var heads = columns.map(function (item) { var sorted = s.sortKey === item[0] ? ' is-sorted ' + s.sortDir : ''; return '<th class="' + sorted + '" data-prof-sort="' + item[0] + '">' + item[1] + '</th>'; }).join('');
     var group = s.groupFilter ? p.groups.find(function (item) { return item.id === s.groupFilter; }) : null;
-    return '<div class="so-profile-pane so-profile-ops"><div class="so-prof-toolbar"><input class="so-input so-prof-search" type="search" data-prof-search placeholder="筛选任务或 Scope…" value="' + esc(s.query || '') + '">' + (group ? '<button type="button" class="so-pill accent so-prof-filter" data-prof-clear-filter>' + esc(group.label) + ' ×</button>' : '') + '<span class="so-prof-toolbar-spacer"></span><span class="so-finding-summary">' + list.length + ' / ' + p.ops.length + ' 项 · 合计 ' + fmt(list.reduce(function (sum, op) { return sum + op.totalMs; }, 0), 3) + ' ms' + (baselineId ? ' · 基线' : '') + '</span></div><div class="so-table-wrap so-prof-table-wrap"><table class="so-table so-prof-table"><thead><tr>' + heads + '</tr></thead><tbody>' + list.map(function (op) { var baseOp = b && b.ops.find(function (item) { return item.id === op.id; }); return opRow(op, baseOp, maxShare, baselineId); }).join('') + '</tbody></table></div>' + renderOpDetail(p, b, baselineId) + '</div>';
+    return '<div class="so-profile-pane so-profile-ops">'
+      + '<div class="so-section-title"><h2>硬件与耗时分解</h2></div>'
+      + '<div class="so-profile-grid2">' + renderSol(p, b, baselineId) + renderMix(p, b, baselineId) + '</div>'
+      + '<div class="so-section-title"><h2>算子明细</h2></div>'
+      + '<div class="so-prof-toolbar"><input class="so-input so-prof-search" type="search" data-prof-search placeholder="筛选任务或 Scope…" value="' + esc(s.query || '') + '">' + (group ? '<button type="button" class="so-pill accent so-prof-filter" data-prof-clear-filter>' + esc(group.label) + ' ×</button>' : '') + '<span class="so-prof-toolbar-spacer"></span><span class="so-finding-summary">' + list.length + ' / ' + p.ops.length + ' 项 · 合计 ' + fmt(list.reduce(function (sum, op) { return sum + op.totalMs; }, 0), 3) + ' ms' + (baselineId ? ' · 基线' : '') + '</span></div><div class="so-table-wrap so-prof-table-wrap"><table class="so-table so-prof-table"><thead><tr>' + heads + '</tr></thead><tbody>' + list.map(function (op) { var baseOp = b && b.ops.find(function (item) { return item.id === op.id; }); return opRow(op, baseOp, maxShare, baselineId); }).join('') + '</tbody></table></div>' + renderOpDetail(p, b, baselineId) + '</div>';
   }
 
   function render(tab, comparison) {
@@ -263,7 +215,7 @@
     if (tab === 'ops') return renderOps(p, b, baselineId);
     if (tab === 'memory') return '<div class="so-profile-pane so-profile-source">' + (window.PtoInferenceMemory ? window.PtoInferenceMemory.render(p, b, { baselineId: baselineId, deltaInfo: deltaInfo }) : '<div class="so-empty">访存数据模块尚未加载。</div>') + '</div>';
     if (tab === 'serving') return '<div class="so-profile-pane so-profile-source">' + (window.PtoInferenceServing ? window.PtoInferenceServing.render(p, b, { baselineId: baselineId, deltaInfo: deltaInfo }) : '<div class="so-empty">批处理数据模块尚未加载。</div>') + '</div>';
-    return renderOverview(p, b, baselineId);
+    return '';
   }
 
   function bind(nextCtx) {

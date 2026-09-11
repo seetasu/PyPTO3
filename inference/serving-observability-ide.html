@@ -57,7 +57,7 @@
     .so-tab:hover { color: var(--foreground); }
     .so-tab.is-active { color: var(--so-accent); border-bottom-color: var(--so-accent); }
     .so-grid { display: grid; gap: 12px; }
-    .so-grid.metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .so-grid.metrics { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     .so-grid.two { grid-template-columns: minmax(0, 1.4fr) minmax(300px, .8fr); }
     .so-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .so-card { background: var(--so-panel); border: 1px solid var(--border-default); border-radius: 8px; }
@@ -70,6 +70,17 @@
     .so-metric-delta { color: var(--so-accent); font-size: 11px; margin-top: 7px; }
     .so-metric-delta.warn { color: var(--so-warm); }
     .so-metric-delta.muted { color: var(--so-muted); }
+    .so-data-coverage { display: flex; align-items: center; gap: 12px; min-height: 38px; margin-top: 12px; padding: 0 14px; background: var(--surface-1); }
+    .so-data-coverage strong { color: var(--foreground); font-size: 11px; }
+    .so-data-coverage span { color: var(--foreground-secondary); font-size: 11px; }
+    .so-data-coverage b { color: var(--success); font-weight: 700; }
+    .so-data-coverage b.is-missing { color: var(--foreground-muted); }
+    .so-run-metadata { margin-top: 12px; overflow: hidden; }
+    .so-run-metadata summary { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 14px; color: var(--foreground); cursor: pointer; font-size: 12px; font-weight: 650; list-style: none; }
+    .so-run-metadata summary::-webkit-details-marker { display: none; }
+    .so-run-metadata summary::after { color: var(--foreground-muted); content: '›'; font-size: 17px; transform: rotate(90deg); transition: transform .16s ease; }
+    .so-run-metadata[open] summary::after { transform: rotate(-90deg); }
+    .so-run-metadata__body { padding: 2px 14px 14px; border-top: 1px solid var(--border-subtle); }
     .so-baseline-value { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 8px; color: var(--foreground-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
     .so-compare-state { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 6px; font-size: 10px; font-weight: 650; }
     .so-compare-state::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
@@ -98,6 +109,10 @@
     .so-timeline-label { color: var(--foreground); }
     .so-timeline-time { color: var(--so-muted); text-align: right; font-variant-numeric: tabular-nums; }
     .so-findings { display: grid; gap: 9px; }
+    .so-page-findings { margin: 0 0 14px; }
+    .so-page-findings .so-findings-section-title { margin: 0 0 9px; }
+    .so-page-findings .so-findings-overview .so-finding { padding-top: 12px; padding-bottom: 12px; }
+    .so-page-findings-empty { display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 14px; background: var(--surface-1); color: var(--foreground-secondary); font-size: 11px; }
     .so-finding { padding: 12px; border: 1px solid var(--border-default); border-radius: 7px; background: var(--surface-1); }
     .so-finding:hover { border-color: var(--border-strong); }
     .so-finding-title { font-size: 12px; font-weight: 650; line-height: 1.45; }
@@ -253,7 +268,7 @@
     .so-import-preview pre { white-space: pre-wrap; margin: 0; }
     .so-disabled-row { opacity: .48; }
     .so-callout { padding: 11px 12px; border-left: 3px solid var(--warning); background: var(--tone-warning-bg); color: var(--foreground-secondary); font-size: 11px; line-height: 1.55; }
-    @media (max-width: 1280px) {
+    @media (max-width: 1100px) {
       .so-grid.metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
       .so-grid.two { grid-template-columns: 1fr; }
       .so-context-bar { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) auto; }
@@ -354,38 +369,31 @@
     .so-finding { padding: 12px; background: var(--surface-1); }
     .so-finding:hover { border-color: var(--border-strong); background: var(--surface-2); }
     .so-link { color: var(--primary); }
-    .so-findings-section-title { align-items: flex-end; margin-top: 24px; }
+    .so-findings-section-title { align-items: center; margin: 18px 0 8px; }
     .so-findings-section-title h2 { display: flex; align-items: center; gap: 8px; }
     .so-findings-count { display: inline-flex; min-width: 22px; height: 22px; align-items: center; justify-content: center; border-radius: 999px; background: var(--foreground); color: var(--background); font-size: 10px; font-weight: 700; }
-    .so-findings-overview { gap: 10px; }
-    .so-findings-overview .so-finding { position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 15px 16px 14px 18px; border-left: 4px solid var(--border-default); background: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-2) 100%); box-shadow: var(--shadow-sm); transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
-    .so-findings-overview .so-finding::before { position: absolute; top: 0; bottom: 0; left: 0; width: 4px; content: ''; background: var(--border-default); }
-    .so-findings-overview .so-finding.is-high { border-left-color: var(--danger); background: linear-gradient(135deg, color-mix(in srgb, var(--danger) 7%, var(--surface-1)) 0%, var(--surface-1) 64%); }
-    .so-findings-overview .so-finding.is-high::before { background: var(--danger); }
-    .so-findings-overview .so-finding.is-medium { border-left-color: var(--warning); background: linear-gradient(135deg, color-mix(in srgb, var(--warning) 7%, var(--surface-1)) 0%, var(--surface-1) 64%); }
-    .so-findings-overview .so-finding.is-medium::before { background: var(--warning); }
-    .so-findings-overview .so-finding:hover { border-color: var(--border-strong); box-shadow: 0 8px 18px rgba(32,37,43,.08); transform: translateY(-1px); }
-    .so-findings-overview .so-finding.is-high:hover { border-left-color: var(--danger); }
-    .so-findings-overview .so-finding.is-medium:hover { border-left-color: var(--warning); }
+    .so-findings-overview { gap: 6px; }
+    .so-diagnostic-workspace { display: grid; grid-template-columns: minmax(240px, .58fr) minmax(0, 2.08fr); gap: 16px; align-items: start; margin-top: 18px; }
+    .so-diagnostic-workspace .so-findings-section-title { margin-top: 0; }
+    .so-diagnostic-workspace .so-diagnostic-graph-section-title { margin-top: 0; }
+    .so-findings-overview .so-finding { display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; align-items: center; padding: 12px 13px 12px 16px; border: 0; border-radius: var(--radius-md); background: var(--surface-2); cursor: pointer; transition: background .16s ease, box-shadow .16s ease; }
+    .so-findings-overview .so-finding.is-high { background: color-mix(in srgb, var(--danger) 5%, var(--surface-2)); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--danger) 82%, transparent); }
+    .so-findings-overview .so-finding.is-medium { background: color-mix(in srgb, var(--warning) 5%, var(--surface-2)); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--warning) 76%, transparent); }
+    .so-findings-overview .so-finding.is-high:hover { background: color-mix(in srgb, var(--danger) 8%, var(--surface-2)); }
+    .so-findings-overview .so-finding.is-medium:hover { background: color-mix(in srgb, var(--warning) 8%, var(--surface-2)); }
+    .so-findings-overview .so-finding.is-selected.is-high { background: color-mix(in srgb, var(--danger) 12%, var(--surface-3)); box-shadow: inset 4px 0 0 var(--danger), inset 0 0 0 1px color-mix(in srgb, var(--danger) 32%, var(--border-strong)); }
+    .so-findings-overview .so-finding.is-selected.is-medium { background: color-mix(in srgb, var(--warning) 12%, var(--surface-3)); box-shadow: inset 4px 0 0 var(--warning), inset 0 0 0 1px color-mix(in srgb, var(--warning) 30%, var(--border-strong)); }
+    .so-findings-overview .so-finding:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
     .so-finding-copy { min-width: 0; }
-    .so-finding-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
-    .so-finding-code { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 10px; font-weight: 650; letter-spacing: .04em; }
-    .so-finding-severity { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
-    .so-finding-severity::before { width: 7px; height: 7px; border-radius: 50%; background: currentColor; content: ''; }
-    .so-finding-severity.is-high { color: var(--danger); }
-    .so-finding-severity.is-medium { color: var(--warning); }
-    .so-findings-overview .so-finding-title { font-size: 13px; line-height: 1.4; }
-    .so-findings-overview .so-finding-summary { max-width: 820px; margin-top: 6px; line-height: 1.55; }
-    .so-findings-overview .so-finding-foot { align-items: center; margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border-subtle); }
+    .so-finding-diagnosis { display: -webkit-box; overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 650; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .so-finding-recommendation { display: -webkit-box; margin-top: 5px; overflow: hidden; color: var(--foreground-secondary); font-size: 11px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .so-finding-recommendation span { margin-right: 6px; color: var(--foreground-muted); font-size: 10px; font-weight: 650; letter-spacing: .04em; }
     .so-finding-evidence { min-width: 0; color: var(--foreground-muted); font-family: var(--font-mono); font-size: 10px; overflow-wrap: anywhere; }
-    .so-finding-action { min-width: 132px; min-height: 36px; padding: 0 13px; border-color: var(--primary); box-shadow: 0 3px 8px rgba(24,24,27,.12); font-weight: 650; }
-    .so-finding-action:hover { border-color: var(--primary-hover); background: var(--primary-hover); box-shadow: 0 5px 12px rgba(24,24,27,.16); transform: translateY(-1px); }
-    .so-finding-action span:last-child { font-size: 15px; line-height: 1; }
     @media (max-width: 760px) {
       .so-context-bar { grid-template-columns: 1fr; }
       .so-context-bar .so-button { width: 100%; }
-      .so-findings-overview .so-finding { grid-template-columns: 1fr; gap: 12px; }
-      .so-findings-overview .so-finding-action { width: 100%; }
+      .so-diagnostic-workspace { grid-template-columns: 1fr; gap: 18px; }
+      .so-findings-overview .so-finding { gap: 8px; padding: 10px 10px 10px 13px; }
     }
     .so-table-wrap, .so-trace { border-color: var(--border-subtle); background: var(--surface-1); }
     .so-table th { background: var(--surface-2); color: var(--foreground-muted); }
@@ -587,6 +595,9 @@
     .so-moe-muted-note { margin: 0; color: var(--foreground-muted); font-size: 11px; line-height: 1.5; }
     .so-lane-cap { padding: 10px 14px; border-top: 1px solid var(--border-subtle); color: var(--foreground-muted); font-size: 11px; }
     .so-evidence-dock { margin-top: 12px; }
+    .so-task-inspector-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 14px 9px; }
+    .so-task-inspector-head h3 { margin: 0; color: var(--foreground); font-size: 13px; }
+    .so-task-inspector-head p { margin: 4px 0 0; color: var(--foreground-muted); font-size: 11px; line-height: 1.45; }
     .so-evidence-tabs { display: flex; gap: 2px; padding: 0 10px; border-bottom: 1px solid var(--border-subtle); overflow-x: auto; }
     .so-evidence-tab { border: 0; border-bottom: 2px solid transparent; padding: 10px 9px; background: transparent; color: var(--foreground-secondary); cursor: pointer; font-size: 11px; white-space: nowrap; }
     .so-evidence-tab.is-active { border-bottom-color: var(--primary); color: var(--foreground); font-weight: 650; }
@@ -2452,9 +2463,6 @@ button.operator-tree-toggle:hover {
     .serving-ide .so-observe-compare-toggle { min-height: 34px; flex: 0 0 auto; }
     .serving-ide #inspector-content { display: none; }
     .serving-ide .so-diagnostic-graph-panel { display: grid; gap: 12px; }
-    .serving-ide .so-diagnostic-graph-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 0 2px; color: var(--foreground-secondary); font-size: 12px; }
-    .serving-ide .so-diagnostic-graph-meta strong { color: var(--foreground); font-size: 13px; font-weight: 650; }
-    .serving-ide .so-diagnostic-graph-meta span { color: var(--foreground-muted); font-size: 11px; text-align: right; }
     .serving-ide .so-diagnostic-graph-canvas { min-width: 0; }
     .serving-ide .pto-ide-frame__rail-image {
       width: 18px;
@@ -2465,28 +2473,7 @@ button.operator-tree-toggle:hover {
     }
     .serving-ide .pto-ide-frame__rail-button:hover .pto-ide-frame__rail-image { opacity: var(--ide-frame-icon-opacity-strong); }
     .serving-ide .pto-ide-frame__rail-button.is-selected .pto-ide-frame__rail-image { opacity: 1; filter: none; }
-    .serving-ide .so-findings-overview .so-finding {
-      border: 0;
-      border-radius: var(--radius-md);
-      background: var(--surface-2);
-      box-shadow: none;
-    }
-    .serving-ide .so-findings-overview .so-finding::before { display: none; }
-    .serving-ide .so-findings-overview .so-finding.is-high { background: var(--tone-critical-bg); }
-    .serving-ide .so-findings-overview .so-finding.is-medium { background: var(--tone-warning-bg); }
-    .serving-ide .so-findings-overview .so-finding:hover { border: 0; background: var(--surface-3); box-shadow: none; transform: none; }
-    .serving-ide .so-findings-overview .so-finding.is-high:hover { background: var(--tone-critical-bg); }
-    .serving-ide .so-findings-overview .so-finding.is-medium:hover { background: var(--tone-warning-bg); }
     .serving-ide .so-findings-count { background: var(--surface-3); color: var(--foreground); }
-    .serving-ide .so-finding-action,
-    .serving-ide .so-finding-action:hover {
-      border-color: transparent;
-      background: var(--primary);
-      box-shadow: none;
-      color: var(--primary-foreground);
-      transform: none;
-    }
-    .serving-ide .so-finding-action:hover { background: var(--primary-hover); }
     .serving-ide .so-moe-finding {
       margin-bottom: var(--space-3);
       padding: var(--space-4);
@@ -2695,7 +2682,7 @@ button.operator-tree-toggle:hover {
   <script src="../Design/Toolkit%20Studio/js/inference-profile-data.js?v=20260821-3"></script>
   <script src="../Design/Toolkit%20Studio/js/inference-memory.js?v=20260910-2"></script>
   <script src="../Design/Toolkit%20Studio/js/inference-serving.js?v=20260910-2"></script>
-  <script src="serving-profiler.js?v=20260910-3"></script>
+  <script src="serving-profiler.js?v=20260911-4"></script>
   <script src="candidate-population-lineage/pattern.js?v=20260903-9"></script>
   <script>
 /* Diagnostic graph data. Values are migrated from the former graph and backbone views. */
@@ -3004,6 +2991,8 @@ button.operator-tree-toggle:hover {
         selectedEvent: null,
         selectedTensor: null,
         selectedFinding: null,
+        findingSelectionTouched: false,
+        findingSelectionRunId: null,
         selectedRank: null,
         selectedPhase: null,
         selectedTimeWindow: null,
@@ -3107,8 +3096,7 @@ button.operator-tree-toggle:hover {
         ['ops', '算子'],
         ['memory', '内存'],
         ['serving', '调度'],
-        ['compare', '对比'],
-        ['diagnostic-graph', '诊断图谱']
+        ['compare', '对比']
       ];
 
       var scenarioTemplates = {
@@ -3372,11 +3360,11 @@ button.operator-tree-toggle:hover {
       ];
 
       var runs = [
-        { id: 'RUN-042', name: 'CSA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'csa', kind: 'attention', status: 'Completed', progress: 100, snapshot: '2026-07-26 22:27:10 +08:00', config: 'attention=CSA · startpos=8192 · batch=8', artifact: 'decode_attention_csa_startpos8192' },
-        { id: 'RUN-043', name: 'HCA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'hca', kind: 'attention', status: 'Completed', progress: 100, snapshot: '2026-07-26 22:27:38 +08:00', config: 'attention=HCA · startpos=8192 · batch=8', artifact: 'decode_attention_hca_startpos8192' },
-        { id: 'RUN-044', name: 'SWA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'swa', kind: 'attention', status: 'Completed', progress: 100, snapshot: '2026-07-26 22:28:04 +08:00', config: 'attention=SWA · startpos=8192 · batch=8', artifact: 'decode_attention_swa_startpos8192' },
-        { id: 'RUN-045', name: 'EP8 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep8', kind: 'moe', status: 'Completed', progress: 100, snapshot: '2026-07-26 23:04:02 +08:00', config: 'expert_parallel=8 · balanced routing', artifact: 'moe_ep8_balanced' },
-        { id: 'RUN-046', name: 'EP2 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep2', kind: 'moe', status: 'Completed', progress: 100, snapshot: '2026-07-26 23:14:08 +08:00', config: 'expert_parallel=2 · balanced routing', artifact: 'moe_ep2_balanced' }
+        { id: 'RUN-042', name: 'CSA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'csa', kind: 'attention', status: 'Completed', progress: 100, sloRate: 96.8, snapshot: '2026-07-26 22:27:10 +08:00', config: 'attention=CSA · startpos=8192 · batch=8', artifact: 'decode_attention_csa_startpos8192' },
+        { id: 'RUN-043', name: 'HCA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'hca', kind: 'attention', status: 'Completed', progress: 100, sloRate: 98.1, snapshot: '2026-07-26 22:27:38 +08:00', config: 'attention=HCA · startpos=8192 · batch=8', artifact: 'decode_attention_hca_startpos8192' },
+        { id: 'RUN-044', name: 'SWA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'swa', kind: 'attention', status: 'Completed', progress: 100, sloRate: 99.2, snapshot: '2026-07-26 22:28:04 +08:00', config: 'attention=SWA · startpos=8192 · batch=8', artifact: 'decode_attention_swa_startpos8192' },
+        { id: 'RUN-045', name: 'EP8 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep8', kind: 'moe', status: 'Completed', progress: 100, sloRate: 93.4, snapshot: '2026-07-26 23:04:02 +08:00', config: 'expert_parallel=8 · balanced routing', artifact: 'moe_ep8_balanced' },
+        { id: 'RUN-046', name: 'EP2 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep2', kind: 'moe', status: 'Completed', progress: 100, sloRate: 90.7, snapshot: '2026-07-26 23:14:08 +08:00', config: 'expert_parallel=2 · balanced routing', artifact: 'moe_ep2_balanced' }
       ];
 
       var modelOperators = [
@@ -3589,6 +3577,43 @@ button.operator-tree-toggle:hover {
       function visibleFindings() {
         var evidence = currentEvidence();
         return findings.filter(function (item) { return item.candidate === evidence.id; });
+      }
+      function allRunFindings() {
+        var evidence = currentEvidence();
+        var story = evidence.kind === 'moe' && moeSemanticStories[evidence.id];
+        var combined = visibleFindings().concat(story && story.findings || []);
+        var seen = {};
+        return combined.filter(function (item) {
+          if (!item || seen[item.id]) return false;
+          seen[item.id] = true;
+          return true;
+        });
+      }
+      function findingDestination(item) {
+        if (!item) return 'trace';
+        if (item.compareRunId || /^CMP-/.test(item.id || '')) return 'compare';
+        if (item.evidenceTab === 'memory' || /MEM|memory|buffer|live range/i.test([item.id, item.title, item.evidence].join(' '))) return 'memory';
+        if (item.evidenceTab === 'hints' || /TILE|tile|granularity|perf hint/i.test([item.id, item.title, item.evidence].join(' '))) return 'ops';
+        return 'trace';
+      }
+      function findingsForObserveTab(tab) {
+        return allRunFindings().filter(function (item) { return findingDestination(item) === tab; });
+      }
+      function ensureFindingSelection(items) {
+        if (!items.length) { state.selectedFinding = null; return; }
+        var runId = currentRun().id;
+        if (state.findingSelectionRunId !== runId) {
+          state.findingSelectionRunId = runId;
+          state.findingSelectionTouched = false;
+        }
+        if (!state.findingSelectionTouched || !items.some(function (item) { return item.id === state.selectedFinding; })) state.selectedFinding = items[0].id;
+      }
+      function renderSubpageFindings(tab) {
+        var items = findingsForObserveTab(tab);
+        ensureFindingSelection(items);
+        var labels = { trace: 'Trace', ops: '算子', memory: '内存', serving: '调度' };
+        if (!items.length) return '<section class="so-card so-page-findings-empty" aria-label="' + esc(labels[tab] || tab) + ' 页面诊断发现"><span>本页诊断发现</span><span class="so-status success">未发现异常</span></section>';
+        return '<section class="so-page-findings" aria-label="' + esc(labels[tab] || tab) + ' 页面诊断发现"><div class="so-section-title so-findings-section-title"><h2>本页诊断发现 <span class="so-findings-count">' + items.length + '</span></h2><span class="so-finding-evidence">' + items.filter(function (item) { return item.severity === 'High'; }).length + ' 个高优先级</span></div><div class="so-findings so-findings-overview">' + items.map(findingCard).join('') + '</div></section>';
       }
       function evidenceTaskCount(evidence) { return evidence.totalTaskCount || evidence.taskCount || 0; }
       function evidenceTensorCount(evidence) { return evidence.totalTensorCount || evidence.tensorCount || 0; }
@@ -4083,7 +4108,7 @@ button.operator-tree-toggle:hover {
         return html + '</section>';
       }
       function renderMoeTraceBody(evidence) {
-        return renderMoeFindingStrip(evidence) + renderMoeSummary(evidence) + renderMoeTimelineEmbedded(evidence);
+        return renderMoeSummary(evidence) + renderMoeTimelineEmbedded(evidence);
       }
 
       function renderExplorer() {
@@ -4223,13 +4248,12 @@ button.operator-tree-toggle:hover {
         }).join('') + '</div>';
       }
 
-      function renderDiagnosticGraph() {
+      function renderDiagnosticGraphPanel() {
         var run = currentRun();
         var scenario = currentScenario();
-        var html = observeRunHeader();
-        html += observeTabs();
-        html += '<section class="so-diagnostic-graph-panel" aria-label="诊断图谱"><div class="so-diagnostic-graph-meta"><strong>Diagnostic Reasoning Canvas · 沿证据收窄问题空间</strong><span>基线 ' + esc(state.compareRunId) + ' → 当前 ' + esc(run.id) + ' · ' + esc(scenario.name) + ' · EP8</span></div><div class="so-diagnostic-graph-canvas" data-diagnostic-graph-root></div></section>';
-        return html;
+        var baseline = state.showComparison && state.compareRunId ? '基线 ' + state.compareRunId + ' → ' : '';
+        return '<div class="so-section-title so-diagnostic-graph-section-title"><div><h2>诊断图谱</h2><p>从症状、异常维度到根因与验证建议</p></div><span class="so-finding-evidence">' + esc(baseline + '当前 ' + run.id + ' · ' + scenario.name) + '</span></div>'
+          + '<section class="so-diagnostic-graph-panel" aria-label="诊断图谱"><div class="so-diagnostic-graph-canvas" data-diagnostic-graph-root></div></section>';
       }
 
       function mountDiagnosticGraph() {
@@ -4246,6 +4270,31 @@ button.operator-tree-toggle:hover {
         });
       }
 
+      function serviceMetricsFor(run, profile) {
+        var summary = profile && profile.summary;
+        var queue = profile && profile.serving && profile.serving.queue;
+        var kv = profile && profile.memory && profile.memory.kv;
+        var queueWaitP95 = queue && queue.waitP95;
+        if (queueWaitP95 == null && queue && queue.waitP50 != null && queue.waitP99 != null) {
+          queueWaitP95 = queue.waitP50 + (queue.waitP99 - queue.waitP50) * .75;
+        }
+        return {
+          ttft: summary && summary.ttft,
+          tpot: summary && summary.tpot && summary.tpot.p50,
+          throughput: summary && summary.tps,
+          sloRate: run.sloRate == null ? 94.0 : Number(run.sloRate),
+          queueWaitP95: queueWaitP95 == null ? null : roundText(queueWaitP95),
+          kvHeadroom: kv && kv.utilization != null ? roundText(100 - kv.utilization) : null,
+          kvPagesRemaining: kv && kv.pagesTotal != null && kv.pagesUsed != null ? Math.max(0, kv.pagesTotal - kv.pagesUsed) : null,
+          kvPagesTotal: kv && kv.pagesTotal
+        };
+      }
+
+      function renderRunMetadata(run, scenario, evidence, baselineRun, baseEvidence) {
+        var group = evidence.kind === 'moe' ? 'DFX · MoE distributed execution' : 'DFX · Attention execution';
+        return '<details class="so-card so-run-metadata"><summary>Run Metadata / Configuration</summary><div class="so-run-metadata__body"><dl class="so-kv"><dt>Controlled Run</dt><dd class="so-mono">' + esc(run.id) + '</dd><dt>Status / captured</dt><dd>' + esc(run.status + ' · ' + run.snapshot) + '</dd><dt>Scenario snapshot</dt><dd>' + esc(scenario.revision + ' · ' + scenario.name) + '</dd><dt>Configuration</dt><dd>' + esc(run.config) + (baselineRun ? '<span class="so-baseline-inline">基线 · ' + esc(baselineRun.config) + '</span>' : '') + '</dd><dt>Evidence group</dt><dd>' + esc(group) + '</dd><dt>Hierarchy</dt><dd>' + (evidence.kind === 'moe' ? evidence.rankCount + ' Rank → Core → Event' : 'Core → Event') + '</dd><dt>Runtime graph</dt><dd>' + evidenceTaskCount(evidence) + ' Task → ' + evidenceTensorCount(evidence) + ' Tensor → ' + evidenceEdgeCount(evidence) + ' Edge' + (baseEvidence ? baselineInline(evidenceTaskCount(evidence), evidenceTaskCount(baseEvidence), evidenceTaskCount(baseEvidence) + ' Task · ' + evidenceTensorCount(baseEvidence) + ' Tensor · ' + evidenceEdgeCount(baseEvidence) + ' Edge', 'neutral', baselineRun.id) : '') + '</dd><dt>Artifact</dt><dd class="so-mono">' + esc(run.artifact || '—') + '</dd></dl></div></details>';
+      }
+
       function renderOverview() {
         var run = currentRun();
         var scenario = currentScenario();
@@ -4254,37 +4303,58 @@ button.operator-tree-toggle:hover {
         var baseline = comparison.baseline;
         var baselineRun = baseline && baseline.run;
         var baseEvidence = baseline && baseline.evidence;
+        var currentService = serviceMetricsFor(run, comparison.current && comparison.current.profile);
+        var baselineService = baselineRun ? serviceMetricsFor(baselineRun, baseline.profile) : null;
         var html = observeRunHeader();
         html += observeTabs();
         html += '<div class="so-grid metrics">';
-        html += metric('Execution window', value(evidence.window, ' μs'), evidence.kind === 'moe' ? evidence.rankCount + ' ranks 取最大窗口' : evidence.coreCount + ' cores', '', baselineMarkup(evidence.window, baseEvidence && baseEvidence.window, baseEvidence ? roundText(baseEvidence.window) + ' μs' : '', 'lower', baselineRun && baselineRun.id));
-        html += metric('Runtime events', value(evidence.eventCount, ''), (evidence.rawTraceEventCount || evidence.eventCount) + ' trace records', '', baselineMarkup(evidence.eventCount, baseEvidence && baseEvidence.eventCount, baseEvidence ? baseEvidence.eventCount : '', 'neutral', baselineRun && baselineRun.id));
-        html += metric('Task / Tensor', value(evidenceTaskCount(evidence), ''), evidenceTensorCount(evidence) + ' tensors · ' + evidenceEdgeCount(evidence) + ' edges', '', baselineMarkup(evidenceTaskCount(evidence), baseEvidence && evidenceTaskCount(baseEvidence), baseEvidence ? evidenceTaskCount(baseEvidence) + ' tasks · ' + evidenceTensorCount(baseEvidence) + ' tensors' : '', 'neutral', baselineRun && baselineRun.id));
-        html += metric('Diagnostic evidence', value((evidence.hintGroups || []).length, ' groups'), (evidence.hints || []).length + ' hint occurrences · ' + (evidence.memorySections || []).length + ' memory kernels', (evidence.hints || []).length ? 'warn' : '', baselineMarkup((evidence.hints || []).length, baseEvidence && (baseEvidence.hints || []).length, baseEvidence ? (baseEvidence.hints || []).length + ' occurrences' : '', 'neutral', baselineRun && baselineRun.id));
+        html += metric('TTFT', value(currentService.ttft == null ? '—' : roundText(currentService.ttft), currentService.ttft == null ? '' : ' ms'), 'p50 · 越低越好', '', baselineService ? baselineMarkup(currentService.ttft, baselineService.ttft, roundText(baselineService.ttft) + ' ms', 'lower', baselineRun.id) : '');
+        html += metric('TPOT', value(currentService.tpot == null ? '—' : roundText(currentService.tpot), currentService.tpot == null ? '' : ' ms'), 'p50 · 越低越好', '', baselineService ? baselineMarkup(currentService.tpot, baselineService.tpot, roundText(baselineService.tpot) + ' ms', 'lower', baselineRun.id) : '');
+        html += metric('Queue Wait · P95', value(currentService.queueWaitP95 == null ? '—' : Number(currentService.queueWaitP95).toFixed(1), currentService.queueWaitP95 == null ? '' : ' ms'), '请求排队 · 越低越好', '', baselineService ? baselineMarkup(currentService.queueWaitP95, baselineService.queueWaitP95, Number(baselineService.queueWaitP95).toFixed(1) + ' ms', 'lower', baselineRun.id) : '');
+        html += metric('Throughput', value(currentService.throughput == null ? '—' : Number(currentService.throughput).toLocaleString('en-US'), currentService.throughput == null ? '' : ' tok/s'), '持续输出 · 越高越好', '', baselineService ? baselineMarkup(currentService.throughput, baselineService.throughput, Number(baselineService.throughput).toLocaleString('en-US') + ' tok/s', 'higher', baselineRun.id) : '');
+        html += metric('SLO 达成率', value(currentService.sloRate.toFixed(1), '%'), currentService.sloRate >= 98 ? '达到目标 · ≥ 98%' : '未达到目标 · ≥ 98%', currentService.sloRate >= 98 ? '' : 'warn', baselineService ? baselineMarkup(currentService.sloRate, baselineService.sloRate, baselineService.sloRate.toFixed(1) + '%', 'higher', baselineRun.id) : '');
+        html += metric('KV Headroom', value(currentService.kvHeadroom == null ? '—' : Number(currentService.kvHeadroom).toFixed(1), currentService.kvHeadroom == null ? '' : '%'), currentService.kvPagesRemaining == null ? '容量余量 · 越高越好' : currentService.kvPagesRemaining + ' / ' + currentService.kvPagesTotal + ' 页可用', currentService.kvHeadroom != null && currentService.kvHeadroom < 15 ? 'warn' : '', baselineService ? baselineMarkup(currentService.kvHeadroom, baselineService.kvHeadroom, Number(baselineService.kvHeadroom).toFixed(1) + '%', 'higher', baselineRun.id) : '');
         html += '</div>';
-        html += '<div class="so-grid two" style="margin-top:12px">';
-        html += '<section class="so-card"><div class="so-card-head"><h3>Evidence scope</h3>' + status(run.status) + '</div><div class="so-card-body"><dl class="so-kv"><dt>Controlled Run</dt><dd class="so-mono">' + esc(run.id) + baselineInline(0, 0, baselineRun ? '' : '—', 'neutral', '') + '</dd><dt>Scenario snapshot</dt><dd>' + esc(scenario.revision) + '</dd><dt>Run configuration</dt><dd>' + esc(run.config) + (baselineRun ? '<span class="so-baseline-inline">基线 · ' + esc(baselineRun.config) + '</span>' : '') + '</dd><dt>Hierarchy</dt><dd>' + (evidence.kind === 'moe' ? evidence.rankCount + ' Rank → Core → Event' : 'Core → Event') + (baseEvidence ? baselineInline(evidence.rankCount || evidence.coreCount, baseEvidence.rankCount || baseEvidence.coreCount, (baseEvidence.kind === 'moe' ? baseEvidence.rankCount + ' Rank' : baseEvidence.coreCount + ' Core'), 'neutral', baselineRun.id) : '') + '</dd><dt>Runtime graph</dt><dd>' + evidenceTaskCount(evidence) + ' Task → ' + evidenceTensorCount(evidence) + ' Tensor → ' + evidenceEdgeCount(evidence) + ' Edge' + (baseEvidence ? baselineInline(evidenceTaskCount(evidence), evidenceTaskCount(baseEvidence), evidenceTaskCount(baseEvidence) + ' Task · ' + evidenceTensorCount(baseEvidence) + ' Tensor · ' + evidenceEdgeCount(baseEvidence) + ' Edge', 'neutral', baselineRun.id) : '') + '</dd><dt>Core execution</dt><dd>AIC ' + (evidence.aicoreCount || 0) + ' · AICPU ' + (evidence.aicpuCount || 0) + (baseEvidence ? baselineInline((evidence.aicoreCount || 0) + (evidence.aicpuCount || 0), (baseEvidence.aicoreCount || 0) + (baseEvidence.aicpuCount || 0), 'AIC ' + (baseEvidence.aicoreCount || 0) + ' · AICPU ' + (baseEvidence.aicpuCount || 0), 'neutral', baselineRun.id) : '') + '</dd></dl></div></section>';
-        html += '<section class="so-card"><div class="so-card-head"><h3>Evidence coverage</h3><span class="so-pill accent">DFX linked</span></div><div class="so-card-body"><dl class="so-kv"><dt>Timeline</dt><dd>' + evidence.eventCount + ' complete events' + (baseEvidence ? baselineInline(evidence.eventCount, baseEvidence.eventCount, baseEvidence.eventCount + ' complete events', 'neutral', baselineRun.id) : '') + '</dd><dt>Dependency graph</dt><dd>' + evidenceEdgeCount(evidence) + ' creator / explicit / tensormap edges' + (baseEvidence ? baselineInline(evidenceEdgeCount(evidence), evidenceEdgeCount(baseEvidence), evidenceEdgeCount(baseEvidence) + ' edges', 'neutral', baselineRun.id) : '') + '</dd><dt>Tensor metadata</dt><dd>identity · version · shape · dtype · stride · offset · storage</dd><dt>Memory report</dt><dd>' + (evidence.memorySections || []).length + ' kernel sections · ' + esc(evidence.memory) + (baseEvidence ? baselineInline((evidence.memorySections || []).length, (baseEvidence.memorySections || []).length, (baseEvidence.memorySections || []).length + ' kernel sections', 'neutral', baselineRun.id) : '') + '</dd><dt>Perf hints</dt><dd>' + (evidence.hintGroups || []).length + ' grouped problems · ' + (evidence.hints || []).length + ' occurrences' + (baseEvidence ? baselineInline((evidence.hints || []).length, (baseEvidence.hints || []).length, (baseEvidence.hintGroups || []).length + ' groups · ' + (baseEvidence.hints || []).length + ' occurrences', 'neutral', baselineRun.id) : '') + '</dd><dt>PMU</dt><dd><span class="so-status neutral">未采集</span></dd></dl></div></section>';
-        html += '</div>';
-        var runFindings = visibleFindings();
-        html += '<div class="so-section-title so-findings-section-title"><div><h2>诊断发现 <span class="so-findings-count">' + runFindings.length + '</span></h2><p>从结论直接进入相关证据</p></div><span class="so-finding-evidence">' + runFindings.filter(function (item) { return item.severity === 'High'; }).length + ' 个高优先级</span></div>';
-        html += '<div class="so-findings so-findings-overview">' + (runFindings.length ? runFindings.map(findingCard).join('') : '<div class="so-empty">当前 Run 尚未生成 Finding。</div>') + '</div>';
-        if (window.PtoServingProfiler) html += window.PtoServingProfiler.render('overview', comparison);
+        html += '<section class="so-card so-data-coverage" aria-label="Data Coverage"><strong>Data Coverage</strong><span>Trace <b>✓</b> · Memory <b>✓</b> · PMU <b class="is-missing">—</b></span></section>';
+        html += renderRunMetadata(run, scenario, evidence, baselineRun, baseEvidence);
+        var runFindings = allRunFindings();
+        ensureFindingSelection(runFindings);
+        html += '<div class="so-diagnostic-workspace"><section class="so-findings-column" aria-labelledby="run-findings-title"><div class="so-section-title so-findings-section-title"><h2 id="run-findings-title">诊断发现 <span class="so-findings-count">' + runFindings.length + '</span></h2><span class="so-finding-evidence">' + runFindings.filter(function (item) { return item.severity === 'High'; }).length + ' 个高优先级</span></div><div class="so-findings so-findings-overview">' + (runFindings.length ? runFindings.map(findingCard).join('') : '<div class="so-empty">当前 Run 尚未生成 Finding。</div>') + '</div></section><section class="so-diagnostic-graph-column" aria-label="诊断图谱">' + renderDiagnosticGraphPanel() + '</section></div>';
         return html;
+      }
+
+      function findingRecommendation(item) {
+        if (item.recommendation) return item.recommendation;
+        var key = [item.id, item.title, item.story, item.evidence].join(' ');
+        if (item.id === 'DFX-RANK-001') return '先定位最长 Rank 的 dispatch_wait，再检查路由负载。';
+        if (item.id === 'MOE-F-001') return '重新分配热点 Expert，平衡 Rank 4 的 routed tokens。';
+        if (item.id === 'MOE-F-002') return '先消除上游 Rank 4 长尾，再验证 Rank 7 等待回落。';
+        if (item.id === 'MOE-F-003') return '优化 Rank 4 Gather / Combine，并复核 token 分布。';
+        if (/MEM|buffer|live range|memory/i.test(key)) return '缩短 buffer live range，验证复用或降低 pipeline depth。';
+        if (/TILE|tile|granularity|PH001/i.test(key)) return '调整 innermost tile 粒度，重跑对比 TPOT 与 MTE2。';
+        if (/RANK|routing|dispatch|gather|expert|MOE/i.test(key)) return '平衡 routed tokens 与热点 Expert，消除 Rank 长尾。';
+        if (/qk_pv|attention|kernel/i.test(key)) return '验证 qk_pv 与前置投影融合，重跑 critical path。';
+        if (/CMP|compare|baseline/i.test(key)) return '固定 workload，仅改一个变量后重跑对比。';
+        return '定位最长贡献项，只改一个变量后重跑验证。';
+      }
+
+      function compactFindingText(text, limit) {
+        var value = String(text || '').replace(/\s+/g, ' ').trim();
+        return value.length > limit ? value.slice(0, limit - 1) + '…' : value;
+      }
+
+      function findingBrief(item) {
+        var diagnosis = compactFindingText(item.title || item.summary || '发现异常', 42);
+        var recommendation = compactFindingText(findingRecommendation(item), 46);
+        return '诊断：' + diagnosis + '；建议：' + recommendation;
       }
 
       function findingCard(item) {
         var severityClass = item.severity === 'High' ? 'is-high' : 'is-medium';
-        var findingRun = item.candidate ? runForEvidence(item.candidate) : null;
-        var candidateMeta = findingRun ? '<span class="so-pill">' + esc(findingRun.id) + '</span>' : '';
-        var continuesInvestigation = item.id === 'DFX-RANK-001' && item.candidate === 'ep8';
-        var actionAttributes = continuesInvestigation
-          ? ' data-continue-investigation'
-          : item.compareRunId
-          ? ' data-compare-open-trace="' + esc(item.compareRunId) + '"'
-          : ' data-finding="' + esc(item.id) + '" data-event="' + esc(item.event || '') + '"';
-        var actionLabel = continuesInvestigation ? '继续调查' : item.action;
-        return '<article class="so-finding ' + severityClass + '"><div class="so-finding-copy"><div class="so-finding-head"><span class="so-finding-code">' + esc(item.id) + '</span><span class="so-finding-severity ' + severityClass + '">' + esc(item.severity) + '</span></div><div class="so-finding-title">' + esc(item.title) + '</div><div class="so-finding-summary">' + esc(item.summary) + '</div><div class="so-finding-foot"><span class="so-pill ' + (item.severity === 'High' ? 'warm' : '') + '">' + esc(item.severity === 'High' ? 'High impact' : 'Perf guidance') + '</span>' + candidateMeta + '<span class="so-finding-evidence">' + esc(item.evidence) + '</span></div></div><button class="so-button primary so-finding-action" type="button"' + actionAttributes + '><span>' + esc(actionLabel) + '</span><span aria-hidden="true">→</span></button></article>';
+        var selectedClass = state.selectedFinding === item.id ? ' is-selected' : '';
+        var diagnosis = compactFindingText(item.title || item.summary || '发现异常', 52);
+        var recommendation = compactFindingText(findingRecommendation(item), 48);
+        return '<article class="so-finding ' + severityClass + selectedClass + '" role="button" tabindex="0" aria-pressed="' + (state.selectedFinding === item.id) + '" aria-label="' + esc(findingBrief(item)) + '" data-finding-card="' + esc(item.id) + '"><div class="so-finding-copy"><div class="so-finding-diagnosis">' + esc(diagnosis) + '</div><div class="so-finding-recommendation"><span>建议</span>' + esc(recommendation) + '</div></div></article>';
       }
 
       function filteredTraceEvents(evidence) {
@@ -4452,11 +4522,11 @@ button.operator-tree-toggle:hover {
       }
 
       function renderEvidenceDock(evidence) {
-        var tabs = [['summary', 'Summary'], ['tensors', 'Tensors'], ['dependencies', 'Dependencies'], ['memory', 'Memory'], ['hints', 'Perf Hints'], ['source', 'Source']];
-        var base = baselineEvidence();
-        var baseRun = activeBaselineRun();
-        var summary = base ? '<div class="so-baseline-dock">基线 · ' + roundText(base.window) + ' μs · ' + evidenceTaskCount(base) + ' tasks · ' + evidenceEdgeCount(base) + ' edges · ' + (base.hints || []).length + ' hints</div>' : '';
-        return '<section class="so-card so-evidence-dock"><div class="so-evidence-tabs">' + tabs.map(function (tab) { return '<button class="so-evidence-tab ' + (state.evidenceTab === tab[0] ? 'is-active' : '') + '" data-evidence-tab="' + tab[0] + '">' + tab[1] + '</button>'; }).join('') + '</div>' + summary + '<div class="so-evidence-body">' + renderEvidenceBody(evidence) + '</div></section>';
+        var tabs = [['summary', 'Summary'], ['tensors', 'Tensors'], ['dependencies', 'Dependencies']];
+        if (!tabs.some(function (tab) { return tab[0] === state.evidenceTab; })) state.evidenceTab = 'summary';
+        var event = selectedEvent();
+        var taskLabel = event && event.taskId ? 'Task ' + event.taskId : 'No task selected';
+        return '<section class="so-card so-evidence-dock" aria-label="Selected Task Inspector"><div class="so-task-inspector-head"><div><h3>Selected Task Inspector</h3><p>当前 Task 的 runtime、tensor 与一跳 dependency 上下文</p></div><span class="so-pill">' + esc(taskLabel) + '</span></div><div class="so-evidence-tabs">' + tabs.map(function (tab) { return '<button class="so-evidence-tab ' + (state.evidenceTab === tab[0] ? 'is-active' : '') + '" data-evidence-tab="' + tab[0] + '">' + tab[1] + '</button>'; }).join('') + '</div><div class="so-evidence-body">' + renderEvidenceBody(evidence) + '</div></section>';
       }
 
       function renderTrace() {
@@ -4467,6 +4537,7 @@ button.operator-tree-toggle:hover {
         var html = observeRunHeader();
         html += observeTabs();
         if (state.dfxStatus !== 'ready') return html + '<div class="so-grid two" style="margin-top:12px">' + dfxStatusCard() + '</div>';
+        html += renderSubpageFindings('trace');
         html += '<div class="so-workbench-toolbar"><div><span class="so-pill accent">' + esc(currentRun().id + ' · ' + currentRun().name) + '</span><select class="so-select so-compact-select" data-trace-preset><option value="all" ' + (state.tracePreset === 'all' ? 'selected' : '') + '>All events</option><option value="long" ' + (state.tracePreset === 'long' ? 'selected' : '') + '>Long-pole events</option><option value="wait" ' + (state.tracePreset === 'wait' ? 'selected' : '') + '>Wait / gather</option></select><input class="so-input so-search" data-trace-search value="' + esc(state.traceSearch) + '" placeholder="Search function / task / core"><span class="so-pill">' + filteredTraceEvents(evidence).length + ' / ' + evidence.eventCount + ' events</span></div><div><div class="so-view-toggle" role="tablist" aria-label="Trace 视图"><button type="button" role="tab" aria-selected="' + (state.traceView === 'timeline') + '" class="' + (state.traceView === 'timeline' ? 'is-active' : '') + '" data-trace-view="timeline">Timeline</button><button type="button" role="tab" aria-selected="' + (state.traceView === 'dependency') + '" class="' + (state.traceView === 'dependency' ? 'is-active' : '') + '" data-trace-view="dependency">Dependency Graph</button></div><button class="so-button" data-action="trace-zoom-out">−</button><span class="so-pill">' + state.traceZoom + '×</span><button class="so-button" data-action="trace-zoom-in">＋</button></div></div>';
         if (evidence.kind !== 'moe') html += traceLegend();
         if (evidence.kind === 'moe' && state.traceView === 'timeline') {
@@ -6485,10 +6556,10 @@ button.operator-tree-toggle:hover {
           if (state.observeTab === 'overview') html = renderOverview();
           else if (state.observeTab === 'trace') html = renderTrace();
           else if (state.observeTab === 'compare') html = renderCompare();
-          else if (state.observeTab === 'diagnostic-graph') html = renderDiagnosticGraph();
           else {
             html = observeRunHeader();
             html += observeTabs();
+            html += renderSubpageFindings(state.observeTab);
             html += window.PtoServingProfiler ? window.PtoServingProfiler.render(state.observeTab, comparisonContext()) : '<div class="so-empty">Profiler 尚未加载。</div>';
           }
         } else if (state.route === 'scenarios') html = renderScenarios();
@@ -6505,7 +6576,7 @@ button.operator-tree-toggle:hover {
         document.getElementById('inspector-content').innerHTML = state.route === 'scenario-new' ? '' : renderInspector();
         bind();
         writeHash();
-        if (state.route === 'observe' && state.observeTab === 'diagnostic-graph') {
+        if (state.route === 'observe' && state.observeTab === 'overview') {
           window.requestAnimationFrame(mountDiagnosticGraph);
         }
         if (state.route === 'scenario-new') {
@@ -6981,11 +7052,26 @@ button.operator-tree-toggle:hover {
         document.querySelectorAll('[data-request-id]').forEach(function (el) {
           el.addEventListener('click', function () { state.selectedRequest = el.getAttribute('data-request-id'); state.selectedEvent = null; render(); });
         });
+        document.querySelectorAll('[data-finding-card]').forEach(function (el) {
+          var selectFinding = function () {
+            state.selectedFinding = el.getAttribute('data-finding-card');
+            state.findingSelectionTouched = true;
+            render();
+          };
+          el.addEventListener('click', selectFinding);
+          el.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectFinding(); }
+          });
+        });
         document.querySelectorAll('[data-continue-investigation]').forEach(function (el) {
           el.addEventListener('click', function () {
             state.route = 'observe';
-            state.observeTab = 'diagnostic-graph';
+            state.observeTab = 'overview';
             render();
+            window.requestAnimationFrame(function () {
+              var graphSection = document.querySelector('.so-diagnostic-graph-section-title');
+              if (graphSection) graphSection.scrollIntoView({ block: 'start' });
+            });
           });
         });
         document.querySelectorAll('[data-event]').forEach(function (el) {
