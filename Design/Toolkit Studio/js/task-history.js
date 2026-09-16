@@ -201,7 +201,7 @@
   const latest = (t) => t.runs[0];
   const FILTERS = [['all', '全部'], ['op', '算子'], ['model', '模型'], ['live', '产物在库']];
 
-  const st = { task: TASKS[0].id, run: TASKS[0].runs[0].id, artifact: 'compile', artifactGroup: 'input', compareRuns: [], filter: 'all', tab: 'sum' };
+  const st = { task: TASKS[0].id, run: TASKS[0].runs[0].id, artifact: 'compile', artifactGroup: 'input', compareRuns: [], filter: 'all', tab: 'overview', selection: null, inspectorBeforeRun: null };
   let els = null;
 
   function matches(t) {
@@ -231,10 +231,13 @@
     let detail = null;
     const stage0 = $('.kf-stage[data-stage="0"]');
     if (stage0) {
-      detail = document.createElement('section');
-      detail.className = 'kf-rd';
-      detail.id = 'runDetail';
-      stage0.insertBefore(detail, stage0.firstChild);
+      detail = $('#runDetail', stage0);
+      if (!detail) {
+        detail = document.createElement('section');
+        detail.className = 'kf-rd';
+        detail.id = 'runDetail';
+        stage0.insertBefore(detail, stage0.firstChild);
+      }
     }
 
     els = { root, detail, list: $('#thList', root), filters: $('#thFilters', root), compareBox: $('#thCompareBox', root) };
@@ -253,9 +256,12 @@
      stops being the active stage. Nothing is duplicated, and every listener
      inside that stage survives the move. */
   const PANELS = [
-    { k: 'sum', label: '总览' },
-    { k: 'slice', label: '运行切片' },
-    { k: 'ir', label: 'IR Pass 快照', from: '.kf-stage[data-stage="2"]' }
+    { k: 'overview', label: 'Overview' },
+    { k: 'correctness', label: 'Correctness', from: '.kf-stage[data-stage="3"]' },
+    { k: 'execution', label: 'Execution' },
+    { k: 'compilation', label: 'Compilation', from: '.kf-stage[data-stage="2"]' },
+    { k: 'performance', label: 'Performance' },
+    { k: 'resources', label: 'Resources' }
   ];
   let borrowed = null;
 
@@ -291,10 +297,10 @@
     borrowInto(p.from, panel);
   }
 
-  /* The composition fan owns its own tab. Its kernel leaves hand off to the
-     compile guard, which lives on the IR tab, so selecting one switches there
-     with that kernel already open. */
-  function renderSlice(panel) {
+  /* Execution keeps the existing composition fan and trace timeline together.
+     Their selection is handed to the shared object Inspector instead of a
+     second, embedded Inspector. */
+  function renderExecution(panel) {
     if (!window.PTO_FAN) {
       panel.innerHTML = '<p class="kf-rd-note is-dim">运行切片需要 passes_dump 与 dfx_outputs。</p>';
       return;
@@ -304,10 +310,18 @@
     fan.id = 'runFan';
     panel.appendChild(fan);
     window.PTO_FAN.mount(fan, {
-      onKernel(name) {
-        toTab('ir');
-        setTimeout(() => { if (window.PTO_GUARD) window.PTO_GUARD.select(name); }, 80);
+      onSelect(obj) {
+        selectObject(Object.assign({ sourceTab: 'execution' }, obj));
       }
+    });
+    const timeline = document.createElement('div');
+    timeline.id = 'runTimeline';
+    panel.appendChild(timeline);
+    window.PTO_TIMELINE?.mount?.(timeline, {
+      inlineInspector: false,
+      selectedTaskId: st.selection && st.selection.kind === 'task' ? Number(st.selection.id) : null,
+      onSelect(obj) { selectObject(Object.assign({ sourceTab: 'execution' }, obj)); },
+      onClear() { clearSelection(); }
     });
   }
 
@@ -348,7 +362,7 @@
   // artifacts that have a viewer wired up — both are tabs of this page now, so
   // opening one stays inside the run detail instead of navigating away
   const OPEN = {
-    step2: { tab: 'ir', k: 'compile' },
+    step2: { tab: 'compilation', k: 'compile' },
     explorer: { explorer: true, k: 'source' }     // source has no tab; the workspace owns it
   };
   // dfx_outputs/ is what the execution timeline on this page is built from, so
@@ -368,10 +382,10 @@
     return '<section class="kf-rd-summary">' +
       '<div class="kf-rd-head">' +
         '<div class="kf-rd-id">' +
-          '<div class="kf-rd-eyebrow"><span><i></i>RUN SNAPSHOT</span></div>' +
+          '<div class="kf-rd-eyebrow"><span><i></i>运行快照</span></div>' +
           '<div class="kf-rd-titleline"><h2>' + esc(t.title) + '</h2>' +
             '<span class="kf-rd-status is-' + v[1] + '"><i></i>' + v[0] + '</span></div>' +
-          '<div class="kf-rd-run"><span>RUN ID</span><code>' + esc(r.id) + '</code>' +
+          '<div class="kf-rd-run"><span>运行 ID</span><code>' + esc(r.id) + '</code>' +
             '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small></div>' +
         '</div>' +
       '</div>' +
@@ -390,10 +404,10 @@
     }
     return '<p class="kf-rd-verdictline is-' + v[1] + '">' +
       '<b>' + v[0] + '</b>' +
-      (!L ? '<span>归档记录，没有逐项数据可核。</span>'
+      (!L ? '<span>归档记录，无逐项数据。</span>'
         : flags.length
-          ? '<span>无 Error。需要关注 ' + flags.length + ' 处：' + flags.map(esc).join(' · ') + '</span>'
-          : '<span>无 Error，各项检查均无待关注项。</span>') +
+          ? '<span>无 Error · 关注 ' + flags.length + ' 项：' + flags.map(esc).join(' · ') + '</span>'
+          : '<span>无 Error · 无待处理项</span>') +
     '</p>';
   }
 
@@ -412,7 +426,7 @@
       const wait = 100 - work;
       tiles.push(
         { k: 'efficiency', v: Math.round(P.span), u: 'µs', l: '运行效率', t: work < 50 ? 'warn' : 'ok', tag: 'TIME + CHAIN',
-          s: P.chain.n + ' 步关键链 · 全程实测',
+          s: P.chain.n + ' 步关键链 · 实测',
           viz: '<div class="kf-rd-kpi-eff" role="img" aria-label="计算 ' + work + '%，等待 ' + wait + '%">' +
             '<div class="kf-rd-kpi-split" style="--p:' + work + '"><i></i><b></b></div>' +
             '<div class="kf-rd-kpi-eff-legend">' +
@@ -474,7 +488,7 @@
     const legend = '<div class="kf-rd-hleg">' +
       BINS.map(b => '<span><i class="is-' + b.k + '"></i>' + b.l +
         '<em>' + (counts[b.k] || 0) + '</em></span>').join('') +
-      '<span class="kf-rd-hlegn">每个方块 = 1 个 kernel（取它最紧的那块空间）· 颜色只表示用了多少：越深 = 片上缓冲用得越足</span></div>';
+      '<span class="kf-rd-hlegn">每格 = 1 个 kernel · 最紧空间占用</span></div>';
 
     const cell = (k) => {
       const b = binOf(k);
@@ -516,7 +530,7 @@
       : '';
 
     return '<section class="kf-rd-sec">' +
-      '<div class="kf-rd-h">内存水位<small>按每个 kernel 最紧的那块空间着色 · 来自 report/memory_after_AllocateMemoryAddr.txt</small></div>' +
+      '<div class="kf-rd-h">内存水位<small>最紧空间占用 · report/memory_after_AllocateMemoryAddr.txt</small></div>' +
       legend + grid + none +
     '</section>';
   }
@@ -622,11 +636,9 @@
        with report/perf_hints.log. */
     return '<section class="kf-rd-sec">' +
       '<div class="kf-rd-h">性能提示 · ' + (r.hints.length - scalar.length) +
-        ' 条归为 ' + nfind + ' 类根因' +
-        '<small>TileInnermostDimGranularity · ' + esc(spLabel(sp)) +
-        ' · 目标最内维 ≥ ' + want + ' B（= L2 行宽，窄于此则行内剩余部分被浪费）' +
-        ' · report/perf_hints.log 共 ' + r.hints.length + ' 条，已排除 ' + scalar.length +
-        ' 条单元素读写</small></div>' +
+        ' 条 / ' + nfind + ' 类根因' +
+        '<small>' + esc(spLabel(sp)) + ' · 目标最内维 ≥ ' + want + ' B · report ' +
+        r.hints.length + ' 条 · 已排除 ' + scalar.length + ' 条单元素读写</small></div>' +
       cards +
     '</section>';
   }
@@ -642,7 +654,7 @@
         ' 个 kernel 生成了 L0 分块</span></div>' : '';
     const reuseW = r.reuse.bb ? Math.round(r.reuse.ba / r.reuse.bb * 100) : 0;
     return '<section class="kf-rd-sec">' +
-      '<div class="kf-rd-h">意图兑现与优化收益<small>声明的调度是否活到最后 · MemoryReuse 前后</small></div>' +
+      '<div class="kf-rd-h">调度与复用<small>Pipeline 保留 · MemoryReuse 前后</small></div>' +
       '<div class="kf-rd-two">' +
         '<div class="kf-rd-col">' + dem + l0 +
           '<div class="kf-rd-line is-dim"><span>全算子共声明 ' + r.declared + ' 处 pl.pipeline</span></div>' +
@@ -913,7 +925,7 @@
       };
     });
     els.detail.innerHTML = '<section class="kf-rd kf-th-comparison">' +
-      '<div class="kf-th-compare-head"><div><span class="kf-eyebrow">RUN COMPARISON</span><h2>运行对比</h2><p>同一算子：' + esc(task.title) + '</p></div><button type="button" class="kf-th-compare-close" data-th-compare-close>返回运行详情</button></div>' +
+      '<div class="kf-th-compare-head"><div><span class="kf-eyebrow">COMPARISON</span><h2>运行对比</h2><p>' + esc(task.title) + '</p></div><button type="button" class="kf-th-compare-close" data-th-compare-close>返回运行</button></div>' +
       '<div class="kf-th-compare-grid">' + snapshots.map(s => '<article><h3>' + esc(s.title) + '</h3><code>' + esc(s.run) + '</code><dl>' +
         '<div><dt>状态</dt><dd>' + esc(s.verdict) + '</dd></div><div><dt>模型</dt><dd>' + esc(s.model) + '</dd></div>' +
         '<div><dt>目标</dt><dd>' + esc(s.target) + '</dd></div>' +
@@ -932,20 +944,89 @@
     return !!(stage0 && stage0.classList.contains('is-active'));
   }
 
+  function inspectorToggle(open) {
+    const toggle = $('#inspectorToggle');
+    if (!toggle) return;
+    const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+    if (isOpen !== open) toggle.click();
+  }
+
+  function collapseRunInspector() {
+    const toggle = $('#inspectorToggle');
+    if (st.inspectorBeforeRun == null && toggle) st.inspectorBeforeRun = toggle.getAttribute('aria-expanded') === 'true';
+    inspectorToggle(false);
+  }
+
+  function restoreInspector() {
+    if (st.inspectorBeforeRun == null) return;
+    inspectorToggle(st.inspectorBeforeRun);
+    st.inspectorBeforeRun = null;
+  }
+
+  function traceData() { return window.PTO_RUN_TRACE || null; }
+  function objectButton(kind, id, label, sourceTab) {
+    return '<button type="button" class="kf-oi-link" data-ws-select-kind="' + esc(kind) + '" data-ws-select-id="' + esc(id) + '" data-ws-source="' + esc(sourceTab || st.tab) + '">' + esc(label) + '</button>';
+  }
+
+  function objectInspector(selection) {
+    const D = traceData();
+    const L = liveRun();
+    if (!selection) return '<div id="kfObjectInspector" class="kf-oi is-empty"><p>选择 Task、Tensor、Kernel、依赖、Pass 或 Buffer 查看属性与证据。</p></div>';
+    const kind = selection.kind, id = selection.id;
+    let title = kind, meta = String(id), body = '';
+    const section = (label, content) => '<section class="kf-inspector-section"><h2 class="kf-inspector-title">' + label + '</h2>' + content + '</section>';
+    const rows = (items) => dl(items);
+    if (kind === 'task' && D && D.tasks[Number(id)]) {
+      const i = Number(id), t = D.tasks[i], K = D.kernels[t.k] || {};
+      title = t.kn || K.name || 'Task'; meta = t.id || ('task ' + i);
+      const pre = D.edges.filter(e => e[1] === i), suc = D.edges.filter(e => e[0] === i);
+      body = section('身份与状态', rows([['任务 ID', t.id], ['时间', usFmt(t.s) + ' → ' + usFmt(t.e)], ['墙上时间', usFmt(t.e - t.s)], ['下沉 Kernel', (t.ks || []).map(x => x.kn).join(' + ')], ['调度域', t.sc || '—'], ['核心', t.c + ' 核']])) +
+        section('Tensor Flow', t.io && t.io.length ? '<div class="kf-oi-links">' + t.io.map(a => objectButton('tensor', a.x, (a.t === 'in' ? '输入 ' : '输出 ') + a.i + ' · ' + a.d + ' [' + a.sh.join('×') + ']', 'execution')).join('') + '</div>' : '<p class="kf-ri-note is-dim">未采集参数表。</p>') +
+        section('依赖', '<div class="kf-oi-links">' + pre.slice(0, 8).map(e => objectButton('dependency', e[0] + ':' + e[1] + ':' + e[2], '前驱 · ' + (D.tasks[e[0]] || {}).kn, 'execution')).join('') + suc.slice(0, 8).map(e => objectButton('dependency', e[0] + ':' + e[1] + ':' + e[2], '后继 · ' + (D.tasks[e[1]] || {}).kn, 'execution')).join('') + '</div>') +
+        section('动作', '<div class="kf-oi-actions">' + (t.ks || []).map(x => '<button type="button" data-ws-open-kernel="' + esc(x.kn) + '">在 Compilation 查看</button>').join('') + '</div>');
+    } else if (kind === 'tensor' && D && D.tensors[Number(id)]) {
+      const i = Number(id), x = D.tensors[i], refs = D.tasks.filter(t => (t.io || []).some(a => a.x === i));
+      title = 'Tensor ' + i; meta = x.d + ' · ' + num(x.n) + ' 元素';
+      body = section('属性', rows([['dtype', x.d], ['元素', num(x.n)], ['地址', x.a || '—']])) +
+        section('生产与消费', '<div class="kf-oi-links">' + refs.slice(0, 16).map(t => objectButton('task', D.tasks.indexOf(t), t.kn || t.id, 'execution')).join('') + '</div>');
+    } else if (kind === 'dependency' && D) {
+      const parts = String(id).split(':').map(Number), e = [parts[0], parts[1], parts[2]], a = D.tasks[e[0]], b = D.tasks[e[1]];
+      title = 'Dependency'; meta = (a && a.kn || e[0]) + ' → ' + (b && b.kn || e[1]);
+      body = section('关系', rows([['前驱', a ? a.kn : String(e[0])], ['后继', b ? b.kn : String(e[1])], ['类型', ['显式顺序', '数据产出', 'TensorMap'][e[2]] || '—']])) +
+        section('动作', '<div class="kf-oi-links">' + (a ? objectButton('task', e[0], '查看前驱', 'execution') : '') + (b ? objectButton('task', e[1], '查看后继', 'execution') : '') + '</div>');
+    } else if ((kind === 'kernel' || kind === 'buffer') && L) {
+      const k = (window.PTO_IR_KERNELS || {}).kernels?.find(x => x.name === id), m = L.kmem.find(x => x.n === id);
+      title = id; meta = kind === 'buffer' ? 'Buffer' : 'Kernel';
+      body = section('身份与资源', rows([['类型', k ? k.type : '—'], ['最紧空间', m ? spLabel(m.sp) : '—'], ['使用', m ? kb(m.u) + ' / ' + kb(m.lim) + ' · ' + m.p + '%' : '未采集'], ['诊断', m ? m.diag + ' 条' : '—']])) +
+        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-kernel="' + esc(id) + '">在 Compilation 查看</button></div>');
+    } else if (kind === 'pass') {
+      title = id; meta = 'IR Pass';
+      body = section('编译证据', '<p class="kf-ri-note">Pass River 与 IR diff 保留在 Compilation；选择已同步到该视图。</p>') + section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-pass="' + esc(id) + '">打开 Compilation</button></div>');
+    } else if (kind === 'finding') {
+      const f = FINDINGS.find(x => x.k === id);
+      title = f ? f.title : 'Finding'; meta = f ? f.verdict : '';
+      body = section('结论', '<p class="kf-ri-note">' + esc(f ? f.what : '—') + '</p>') + section('下一步', '<div class="kf-oi-actions"><button type="button" data-ws-route="performance">查看性能证据</button></div>');
+    }
+    return '<div id="kfObjectInspector" class="kf-oi"><div class="kf-oi-head"><span>' + esc(kind.toUpperCase()) + '</span><h3>' + esc(title) + '</h3><small>' + esc(meta) + '</small></div>' + body + '</div>';
+  }
+
   function renderInspector() {
     const host = $('#inspector');
     if (!host || !inspectorApplies()) return;
-    const t = TASKS.find(x => x.id === st.task);
-    const r = t && t.runs.find(x => x.id === st.run);
-    host.innerHTML = (t && r)
-      ? runInspector(t, r)
-      : '<div id="kfRunInspector" class="kf-ri"><p class="kf-ri-note">' +
-        '在左侧选择一次运行，这里显示它的来源、耗时构成与遗留项。</p></div>';
+    const t = TASKS.find(x => x.id === st.task), r = t && t.runs.find(x => x.id === st.run);
+    host.innerHTML = objectInspector(st.selection);
     const title = $('#inspectorTitle'), meta = $('#inspectorMeta');
-    if (title) title.textContent = '运行检查器';
-    if (meta) meta.textContent = r
-      ? r.id + (r.live ? ' · 实测' : r.purged ? ' · 已清理' : ' · 归档')
-      : '未选择';
+    if (title) title.textContent = st.selection ? '对象检查器' : '对象检查器';
+    if (meta) meta.textContent = st.selection ? st.selection.kind + ' · ' + st.selection.id : (r ? r.id + ' · 未选择对象' : '未选择');
+  }
+
+  function clearSelection() { st.selection = null; renderInspector(); }
+  function selectObject(obj) {
+    if (!obj || obj.id == null) return;
+    st.selection = { kind: obj.kind, id: String(obj.id), sourceTab: obj.sourceTab || st.tab, runId: st.run };
+    inspectorToggle(true);
+    renderInspector();
+    if (st.tab === 'execution' && obj.kind === 'task') window.PTO_TIMELINE?.selectTask?.(Number(obj.id));
   }
 
   /* demo-v2.js rewrites #inspector on every stage switch, so take it back on
@@ -957,13 +1038,17 @@
   function ownInspector() {
     const host = $('#inspector');
     if (!host || typeof MutationObserver !== 'function') return;
-    host.addEventListener('click', e => { if ($('#kfRunInspector', host)) onRunClick(e); });
+    host.addEventListener('click', e => { if ($('#kfObjectInspector', host)) onRunClick(e); });
 
     const retake = () => {
       // stage 2 must have its borrowed content back before demo-v2 shows it
       // for any reason other than the IR tab
       syncPanel();
-      if (!$('#kfRunInspector', host)) renderInspector();
+      if (inspectorApplies()) {
+        if (!$('#kfObjectInspector', host)) renderInspector();
+      } else {
+        restoreInspector();
+      }
     };
     const watch = (el, opts) => { if (el) new MutationObserver(retake).observe(el, opts); };
     watch(host, { childList: true });
@@ -975,7 +1060,11 @@
   }
 
   // the main column and the right rail are two views of the same selection
-  function renderDetail() { renderDetailBody(); renderInspector(); }
+  function renderDetail() {
+    collapseRunInspector();
+    renderDetailBody();
+    renderInspector();
+  }
 
   function renderDetailBody() {
     if (!els.detail) return;
@@ -984,7 +1073,7 @@
     const t = TASKS.find(x => x.id === st.task);
     const r = t && t.runs.find(x => x.id === st.run);
     if (!t || !r) {
-      els.detail.innerHTML = '<p class="kf-rd-empty">在左侧选择一次运行，查看它产出的全部工件。</p>';
+      els.detail.innerHTML = '<p class="kf-rd-empty">选择一次运行查看结果。</p>';
       return;
     }
     const v = VERDICT[r.verdict] || VERDICT.purged;
@@ -995,7 +1084,7 @@
     if (r.purged) {
       els.detail.innerHTML = head +
         '<p class="kf-rd-note">' + esc(r.note || '产物目录已清理。') + '</p>' +
-        '<p class="kf-rd-note is-dim">该次运行的工件不在工作区中，只能查看结论。</p>';
+        '<p class="kf-rd-note is-dim">工件已清理，仅保留结论。</p>';
       return;
     }
 
@@ -1011,20 +1100,39 @@
         '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div>';
       const panel = $('#runTabPanel', els.detail);
 
-      if (st.tab === 'sum') {
-        /* Reads top-down as the two measurements that matter: where the time
-           went, then what sits on chip. The artifact inventory is in the right
-           rail, so the main column can stay focused on diagnosis. */
-        const gap = '<p class="kf-rd-note is-dim">正确性比对：这次运行没有产出 oracle 输出，需要单独跑验证。</p>';
+      if (st.tab === 'overview') {
+        const D = traceData(), P = D && D.perf;
+        const findingRows = FINDINGS.filter(f => L.byCause[f.k]).map(f =>
+          '<button type="button" class="kf-rw-finding is-' + f.tone + '" data-ws-finding="' + f.k + '">' +
+            '<span>' + esc(f.verdict) + '</span><b>' + esc(f.title) + '</b>' +
+            '<small>' + (L.byCause[f.k] || 0) + ' 条证据 · Performance →</small></button>').join('');
+        const states = [
+          ['Correctness', '未产出 Oracle', 'correctness'],
+          ['Execution', D ? D.counts.tasks + ' Task · ' + D.counts.edges + ' 依赖' : '未采集 Trace', 'execution'],
+          ['Compilation', L.passes + ' Pass · ' + L.kernels + ' Kernel', 'compilation'],
+          ['Performance', P ? Math.round(P.chain.workPct) + '% 关键链在算' : '未采集', 'performance'],
+          ['Resources', L.peakSp + ' 峰值 ' + L.peak + '%', 'resources']
+        ];
         panel.innerHTML =
-          band('性能分析', '搬运宽度的根因，以及 428 个任务在 73 个核上的实际排布') +
-          hintBlock(L) + '<div id="runTimeline"></div>' +
-          band('内存分析', '每个 kernel 的片上水位，以及声明的调度有没有活到最后') +
-          memBlock(L) + intentBlock(L) + gap;
-        // run-timeline.js owns its own state, so it re-renders from scratch here
-        if (window.PTO_TIMELINE) window.PTO_TIMELINE.mount($('#runTimeline', panel));
-      } else if (st.tab === 'slice') {
-        renderSlice(panel);
+          '<section class="kf-rw-health"><div class="kf-rd-h">分析状态<small>按问题进入证据视图</small></div>' +
+            '<div>' + states.map(s => '<button type="button" data-ws-route="' + s[2] + '"><b>' + s[0] + '</b><small>' + esc(s[1]) + '</small></button>').join('') + '</div></section>' +
+          '<section class="kf-rd-sec"><div class="kf-rd-h">Findings<small>按影响排序</small></div>' +
+            (findingRows || '<p class="kf-rd-note is-dim">无待处理 Finding。</p>') + '</section>' +
+          '<details class="kf-rw-evidence"><summary>证据与产物</summary><div class="kf-rw-evidence-body">' +
+            '<p class="kf-rd-note">来源 <code>' + esc(r.dir || '—') + '</code> · ' + esc(r.target || '—') + '</p>' +
+            (r.inventory || []).map(i => '<div><b>' + esc(i.label) + '</b><small>' + esc(i.meta) + '</small><code>' + esc(i.where) + '</code></div>').join('') +
+          '</div></details>';
+      } else if (st.tab === 'execution') {
+        renderExecution(panel);
+      } else if (st.tab === 'performance') {
+        const D = traceData(), P = D && D.perf;
+        panel.innerHTML = band('关键链与核占用', '长路径、等待与核负载') +
+          (P ? riTime(P) + riCores(D, P) : '<p class="kf-rd-note is-dim">未采集运行时性能数据。</p>') +
+          hintBlock(L);
+      } else if (st.tab === 'resources') {
+        panel.innerHTML = band('Compile-time Memory', '片上水位、复用与调度兑现') + memBlock(L) + intentBlock(L) +
+          band('Runtime Resources', '仅展示已采集信号') +
+          '<section class="kf-rw-runtime-empty"><div><b>Heap</b><small>未采集</small></div><div><b>TensorMap</b><small>未采集</small></div><div><b>Ringbuffer</b><small>未采集</small></div></section>';
       } else {
         syncPanel();
       }
@@ -1037,7 +1145,8 @@
           '<span class="is-' + s[0] + '"><i></i>' + esc(s[1]) + '</span>').join('') + '</div>'
       : '';
     // its recorded artifact list is in the right rail too (riArchivedArts)
-    els.detail.innerHTML = head + sig;
+    els.detail.innerHTML = head + sig +
+      '<p class="kf-rd-note is-dim">仅保留运行结论；逐项证据不可下钻。</p>';
   }
 
   function render() {
@@ -1080,6 +1189,7 @@
     if (st.tab === k) return;
     st.tab = k;
     renderDetailBody();
+    renderInspector();
   }
 
   function onRunClick(e) {
@@ -1135,9 +1245,40 @@
     // guard, which is where the buffer detail lives — now one tab over
     const kc = e.target.closest('[data-th-kernel]');
     if (kc) {
-      toTab('ir');
+      toTab('compilation');
       const name = kc.dataset.thKernel;
+      selectObject({ kind: 'buffer', id: name, sourceTab: 'resources' });
       setTimeout(() => { if (window.PTO_GUARD) window.PTO_GUARD.select(name); }, 60);
+      return;
+    }
+    const finding = e.target.closest('[data-ws-finding]');
+    if (finding) {
+      selectObject({ kind: 'finding', id: finding.dataset.wsFinding, sourceTab: 'overview' });
+      toTab('performance');
+      return;
+    }
+    const select = e.target.closest('[data-ws-select-kind]');
+    if (select) {
+      selectObject({ kind: select.dataset.wsSelectKind, id: select.dataset.wsSelectId, sourceTab: select.dataset.wsSource });
+      return;
+    }
+    const route = e.target.closest('[data-ws-route]');
+    if (route) { toTab(route.dataset.wsRoute); return; }
+    const kernel = e.target.closest('[data-ws-open-kernel]');
+    if (kernel) {
+      const name = kernel.dataset.wsOpenKernel;
+      toTab('compilation');
+      selectObject({ kind: 'kernel', id: name, sourceTab: 'compilation' });
+      setTimeout(() => window.PTO_GUARD?.select?.(name), 60);
+      return;
+    }
+    const pass = e.target.closest('[data-ws-open-pass]');
+    if (pass) { toTab('compilation'); return; }
+    const passNode = e.target.closest('[data-kg-p], [data-kg-kp]');
+    if (passNode) {
+      const i = passNode.dataset.kgP || passNode.dataset.kgKp;
+      const name = ((window.PTO_IR_KERNELS || {}).passNames || [])[Number(i)] || ('Pass ' + i);
+      selectObject({ kind: 'pass', id: name, sourceTab: 'compilation' });
       return;
     }
     const tb = e.target.closest('[data-th-tab]');
@@ -1158,7 +1299,7 @@
     }
     const sc = e.target.closest('[data-th-scroll]');
     if (sc) {
-      toTab('sum');
+      toTab('execution');
       const el = els.detail && $('#runTimeline', els.detail);
       if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
       return;
@@ -1194,7 +1335,7 @@
       }
       const run = e.target.closest('[data-th-run]');
       if (run) {
-        st.task = run.dataset.thOf; st.run = run.dataset.thRun; st.artifactGroup = 'input'; st.compareRuns = [];
+        st.task = run.dataset.thOf; st.run = run.dataset.thRun; st.artifactGroup = 'input'; st.compareRuns = []; st.selection = null; st.tab = 'overview';
         render(); renderDetail(); if (!els.compareBox.hidden) renderComparePicker(); toOverview();
         return;
       }
@@ -1202,7 +1343,7 @@
       if (!row) return;
       const id = row.dataset.thTask;
       if (st.task === id) { st.task = null; }
-      else { st.task = id; const t = TASKS.find(x => x.id === id); st.run = t ? latest(t).id : null; st.compareRuns = []; }
+      else { st.task = id; const t = TASKS.find(x => x.id === id); st.run = t ? latest(t).id : null; st.compareRuns = []; st.selection = null; st.tab = 'overview'; }
       render(); renderDetail(); if (!els.compareBox.hidden) renderComparePicker();
       if (st.task) toOverview();
     });
