@@ -769,6 +769,38 @@
 .kf-rt b { font-size: var(--kf-type-sm); font-weight: 600; }
 .kf-rt button[aria-selected="true"] { border-bottom-color: var(--primary); color: var(--foreground); }
 
+/* Run workbench: the centre carries conclusions and relationships; the right
+   IDE pane is reserved for the selected object. These use the existing workbench
+   surfaces and compact record rows rather than introducing a new card system. */
+.kf-rt { overflow-x: auto; scrollbar-width: thin; }
+.kf-rt button { flex: 0 0 auto; }
+.kf-rw-health { display: grid; gap: 8px; }
+.kf-rw-health > div { display: grid; grid-template-columns: repeat(5, minmax(110px, 1fr)); gap: 5px; overflow-x: auto; }
+.kf-rw-health button, .kf-rw-finding, .kf-oi-link, .kf-oi-actions button {
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  color: var(--foreground-secondary); background: color-mix(in srgb, var(--surface-1) 65%, transparent); cursor: pointer; text-align: left;
+}
+.kf-rw-health button { display: grid; min-width: 116px; gap: 3px; padding: 8px 9px; }
+.kf-rw-health button:hover, .kf-rw-finding:hover, .kf-oi-link:hover, .kf-oi-actions button:hover { border-color: color-mix(in srgb, var(--primary) 42%, var(--border-subtle)); background: var(--surface-2); }
+.kf-rw-health b { color: var(--foreground); font: 650 10px var(--font-mono); }
+.kf-rw-health small { color: var(--foreground-muted); font: 8.5px/1.35 var(--font-mono); white-space: nowrap; }
+.kf-rw-finding { display: grid; width: 100%; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px 9px; }
+.kf-rw-finding span { padding: 2px 5px; border-radius: var(--radius-sm); color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); font: 700 8px var(--font-mono); }
+.kf-rw-finding.is-dim span { color: var(--foreground-muted); background: var(--surface-3); }
+.kf-rw-finding b { overflow: hidden; color: var(--foreground); font-size: var(--kf-type-2xs); text-overflow: ellipsis; white-space: nowrap; }
+.kf-rw-finding small { color: var(--foreground-muted); font: 8px var(--font-mono); white-space: nowrap; }
+.kf-rw-evidence { border-top: 1px solid var(--border-subtle); color: var(--foreground-secondary); }
+.kf-rw-evidence summary { padding: 9px 0; cursor: pointer; font-size: var(--kf-type-2xs); }
+.kf-rw-evidence-body { display: grid; gap: 4px; padding: 0 0 8px; }
+.kf-rw-evidence-body > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, .8fr); gap: 2px 8px; padding: 6px 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.kf-rw-evidence-body b { color: var(--foreground); font-size: var(--kf-type-2xs); }.kf-rw-evidence-body small,.kf-rw-evidence-body code { overflow: hidden; color: var(--foreground-muted); font: 8px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }.kf-rw-evidence-body code { grid-column: 1 / -1; }
+.kf-rw-runtime-empty { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.kf-rw-runtime-empty > div { display: grid; gap: 3px; padding: 9px; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); }.kf-rw-runtime-empty b { color: var(--foreground-secondary); font: 600 9px var(--font-mono); }.kf-rw-runtime-empty small { color: var(--foreground-muted); font: 8px var(--font-mono); }
+.kf-oi { display: grid; gap: 12px; }.kf-oi.is-empty { padding: 8px 2px; }.kf-oi.is-empty p { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55; }
+.kf-oi-head { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }.kf-oi-head > span { color: var(--primary); font: 700 8px var(--font-mono); letter-spacing: .08em; }.kf-oi-head h3 { margin: 0; overflow-wrap: anywhere; color: var(--foreground); font-size: var(--kf-type-sm); }.kf-oi-head small { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
+.kf-oi-links,.kf-oi-actions { display: flex; flex-wrap: wrap; gap: 4px; }.kf-oi-link,.kf-oi-actions button { padding: 5px 7px; font: 8.5px/1.3 var(--font-mono); }.kf-oi-actions button { color: var(--primary); }
+@container (max-width: 720px) { .kf-rw-health > div { grid-template-columns: repeat(5, 120px); }.kf-rw-runtime-empty { grid-template-columns: 1fr; }.kf-rw-finding { grid-template-columns: auto minmax(0, 1fr); }.kf-rw-finding small { grid-column: 2; } }
+
 /* ---- section bands --------------------------------------------------------
    One level above .kf-rd-h: they group the sections that answer the same
    question, so the overview reads as three blocks rather than six sections. */

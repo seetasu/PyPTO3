@@ -15,7 +15,7 @@
   const esc = (s) => String(s).replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  const st = { sel: null, tab: 'sum', track: 'both', host: null,
+  const st = { sel: null, tab: 'sum', track: 'both', host: null, opts: {},
                scroll: { tasks: 0, cores: 0 }, reveal: false, edges: true };
 
   const us = (v) => v >= 1000 ? (v / 1000).toFixed(2) + ' ms' : v.toFixed(2) + ' µs';
@@ -333,7 +333,7 @@
             '<div class="kf-tl-thead">核心泳道 · AIC / AIV <b>' + D.counts.lanes + '</b></div>' +
             '<div class="kf-tl-scroll kf-tl-cores">' + laneTrack(D) + '</div>' +
           '</div>' +
-          inspector(D) +
+          (st.opts.inlineInspector === false ? '' : inspector(D)) +
         '</div>' +
       '</section>';
 
@@ -345,24 +345,42 @@
     drawEdges();
   }
 
-  function rerender() { if (st.host) mount(st.host); }
+  function rerender() { if (st.host) mount(st.host, st.opts); }
+
+  function notifySelect() {
+    if (st.sel == null) { st.opts.onClear?.(); return; }
+    st.opts.onSelect?.({ kind: 'task', id: String(st.sel) });
+  }
 
   document.addEventListener('click', (e) => {
     if (!st.host || !st.host.contains(e.target)) return;
     if (e.target.closest('[data-tl-edges]')) { st.edges = !st.edges; rerender(); return; }
-    if (e.target.closest('[data-tl-close]')) { st.sel = null; rerender(); return; }
+    if (e.target.closest('[data-tl-close]')) { st.sel = null; rerender(); notifySelect(); return; }
     const tab = e.target.closest('[data-tl-tab]');
     if (tab) { st.tab = tab.dataset.tlTab; rerender(); return; }
     const b = e.target.closest('[data-tl-task]');
-    if (b) { st.sel = Number(b.dataset.tlTask); st.reveal = true; rerender(); return; }
+    if (b) { st.sel = Number(b.dataset.tlTask); st.reveal = true; rerender(); notifySelect(); return; }
     const k = e.target.closest('[data-tl-kernel]');
     if (k) {                                   // row label: jump to its first task
       const kid = Number(k.dataset.tlKernel);
       const D = data();
       const i = D.tasks.findIndex(t => t.k === kid);
-      if (i >= 0) { st.sel = i; st.reveal = true; rerender(); }
+      if (i >= 0) { st.sel = i; st.reveal = true; rerender(); notifySelect(); }
     }
   });
 
-  window.PTO_TIMELINE = { mount, reset() { st.sel = null; st.tab = 'sum'; } };
+  window.PTO_TIMELINE = {
+    mount(host, opts) {
+      st.opts = opts || {};
+      if (Object.prototype.hasOwnProperty.call(st.opts, 'selectedTaskId') && st.opts.selectedTaskId != null && Number(st.opts.selectedTaskId) !== st.sel) {
+        st.sel = Number(st.opts.selectedTaskId); st.reveal = true;
+      }
+      return mount(host);
+    },
+    selectTask(id) {
+      if (id == null || Number(id) === st.sel) return;
+      st.sel = Number(id); st.reveal = true; rerender();
+    },
+    reset() { st.sel = null; st.tab = 'sum'; }
+  };
 })();
