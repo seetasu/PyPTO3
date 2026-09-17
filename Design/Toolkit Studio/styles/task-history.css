@@ -808,6 +808,15 @@
 .kf-oi { display: grid; gap: 12px; }.kf-oi.is-empty { padding: 8px 2px; }.kf-oi.is-empty p { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55; }
 .kf-oi-head { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }.kf-oi-head > span { color: var(--primary); font: 700 8px var(--font-mono); letter-spacing: .08em; }.kf-oi-head h3 { margin: 0; overflow-wrap: anywhere; color: var(--foreground); font-size: var(--kf-type-sm); }.kf-oi-head small { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
 .kf-oi-links,.kf-oi-actions { display: flex; flex-wrap: wrap; gap: 4px; }.kf-oi-link,.kf-oi-actions button { padding: 5px 7px; font: 8.5px/1.3 var(--font-mono); }.kf-oi-actions button { color: var(--primary); }
+.kf-object-tooltip { position: fixed; z-index: 80; display: none; width: min(360px, calc(100vw - 16px)); max-height: min(520px, calc(100vh - 16px)); overflow: auto; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-1) 94%, transparent); box-shadow: 0 14px 32px rgb(0 0 0 / .14), inset 0 1px 0 rgb(255 255 255 / .025); backdrop-filter: blur(18px) saturate(1.18); }
+.kf-object-tooltip.is-open { display: block; }
+.kf-object-tooltip .kf-oi { gap: 10px; }
+.kf-object-tooltip .kf-inspector-section { display: grid; gap: 5px; }
+.kf-object-tooltip .kf-inspector-title { margin: 0; color: var(--foreground-muted); font: 700 8px var(--font-mono); letter-spacing: .08em; }
+
+/* Run workspace has no right Inspector pane: the center pane claims that width. */
+#ideMainSplit.kf-run-no-inspector > [data-ide-pane="inspector"],
+#ideMainSplit.kf-run-no-inspector > [data-ide-pane="editor-preview"] + .pto-workbench-shell__split-gutter { display: none !important; }
 @container (max-width: 720px) { .kf-rw-health > div { grid-template-columns: repeat(5, 120px); }.kf-rw-runtime-empty { grid-template-columns: 1fr; }.kf-rw-finding { grid-template-columns: auto minmax(0, 1fr); }.kf-rw-finding small { grid-column: 2; } }
 
 /* ---- section bands --------------------------------------------------------
@@ -905,7 +914,7 @@
   border-top: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
 }
 .kf-rd-summary .kf-rd-run > span { color: var(--foreground-muted); font: 700 8px/1 var(--font-mono); letter-spacing: .1em; }
-.kf-rd-summary .kf-rd-run code { color: var(--foreground); font: 650 11px/1.25 var(--font-mono); }
+.kf-rd-summary .kf-rd-run code { color: var(--foreground); font: 650 18px/1.25 var(--font-mono); }
 .kf-rd-summary .kf-rd-run small { color: var(--foreground-muted); font: 8.5px/1.35 var(--font-mono); }
 
 .kf-rd-facts {

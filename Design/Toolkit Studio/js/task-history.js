@@ -314,8 +314,20 @@
   const latest = (t) => t.runs[0];
   const FILTERS = [['all', '全部'], ['op', '算子'], ['model', '模型'], ['live', '产物在库']];
 
-  const st = { task: TASKS[0].id, run: TASKS[0].runs[0].id, artifact: 'compile', artifactGroup: 'input', compareRuns: [], filter: 'all', tab: 'overview', selection: null, inspectorBeforeRun: null };
+  const st = {
+    task: TASKS[0].id,
+    run: TASKS[0].runs[0].id,
+    artifact: 'compile',
+    artifactGroup: 'input',
+    compareRuns: [],
+    filter: 'all',
+    tab: 'overview',
+    selection: null,
+    runSplitSession: null,
+    runSplitSizes: [30, 70]
+  };
   let els = null;
+  let objectTooltip = null, objectTooltipTarget = null, objectTooltipTimer = null;
 
   function matches(t) {
     if (st.filter === 'all') return true;
@@ -353,6 +365,12 @@
       }
     }
 
+    objectTooltip = document.createElement('div');
+    objectTooltip.className = 'kf-object-tooltip';
+    objectTooltip.id = 'runObjectTooltip';
+    objectTooltip.setAttribute('role', 'tooltip');
+    objectTooltip.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(objectTooltip);
     els = { root, detail, list: $('#thList', root), filters: $('#thFilters', root), compareBox: $('#thCompareBox', root) };
     return true;
   }
@@ -492,7 +510,7 @@
      metrics in a separate right-hand column. */
   function headline(t, r, L) {
     const v = getRunDisplayStatus(r), m = getRunModel(r);
-    const title = r.displayId ? 'Run ' + r.displayId : t.title;
+    const title = t.title;
     return '<section class="kf-rd-summary">' +
       '<div class="kf-rd-head">' +
         '<div class="kf-rd-id">' +
@@ -1142,34 +1160,80 @@
     if (toast) { toast.textContent = 'Run #108 已设为可信基线'; toast.classList.add('is-visible'); setTimeout(() => toast.classList.remove('is-visible'), 1800); }
   }
 
-  /* Stage 0 is the run detail page in every activity view, so whether it is on
-     screen is the whole test — which side pane happens to be open is not.
-     Gating on the workflow pane too used to drop the hand-off, because
-     setActivityView() renders the stage (and rewrites the inspector) before it
-     unhides the pane, so the one mutation that mattered arrived while the pane
-     still read as hidden. */
-  function inspectorApplies() {
-    const stage0 = $('.kf-stage[data-stage="0"]');
-    return !!(stage0 && stage0.classList.contains('is-active'));
+  /* Inspector ownership follows the primary Activity rail. Run is the
+     workflow activity as a whole; its internal analysis tabs never change
+     this layout rule. Project and Model Analysis keep their own inspectors. */
+  function runActivityIsActive() {
+    const workflow = $('[data-side-view="workflow"]');
+    const activity = $('#activityWorkflow');
+    return !!((workflow && !workflow.hidden) || (activity && activity.getAttribute('aria-pressed') === 'true'));
   }
 
-  function inspectorToggle(open) {
+  function syncRunInspectorLayout() {
     const toggle = $('#inspectorToggle');
-    if (!toggle) return;
-    const isOpen = toggle.getAttribute('aria-expanded') === 'true';
-    if (isOpen !== open) toggle.click();
-  }
+    const split = $('#ideMainSplit');
+    if (!split) return;
+    const panes = ['explorer', 'editor-preview', 'inspector']
+      .map(name => split.querySelector(':scope > [data-ide-pane="' + name + '"]'));
 
-  function collapseRunInspector() {
-    const toggle = $('#inspectorToggle');
-    if (st.inspectorBeforeRun == null && toggle) st.inspectorBeforeRun = toggle.getAttribute('aria-expanded') === 'true';
-    inspectorToggle(false);
-  }
+    if (runActivityIsActive()) {
+      if (!st.runSplitSession && panes.every(Boolean)) {
+        const storageKey = split.dataset.storageKey;
+        st.runSplitSession = {
+          panes: panes.map(pane => ({
+            flex: pane.style.flex,
+            flexBasis: pane.style.flexBasis,
+            width: pane.style.width
+          })),
+          storageKey,
+          storedSizes: storageKey ? localStorage.getItem(storageKey) : null
+        };
+        const runSizes = st.runSplitSizes || [30, 70];
+        panes[0].style.flex = runSizes[0] + ' 1 0%';
+        panes[0].style.flexBasis = '0%';
+        panes[0].style.width = 'auto';
+        panes[1].style.flex = runSizes[1] + ' 1 0%';
+        panes[1].style.flexBasis = '0%';
+        panes[1].style.width = 'auto';
+      }
+      if (toggle) toggle.hidden = true;
+      split.classList.add('kf-run-no-inspector');
+      return;
+    }
 
-  function restoreInspector() {
-    if (st.inspectorBeforeRun == null) return;
-    inspectorToggle(st.inspectorBeforeRun);
-    st.inspectorBeforeRun = null;
+    if (st.runSplitSession && panes.every(Boolean)) {
+      const widths = panes.slice(0, 2).map(pane => pane.getBoundingClientRect().width);
+      const total = widths[0] + widths[1];
+      if (total > 0) st.runSplitSizes = widths.map(width => width / total * 100);
+
+      panes.forEach((pane, index) => {
+        const saved = st.runSplitSession.panes[index];
+        pane.style.flex = saved.flex;
+        pane.style.flexBasis = saved.flexBasis;
+        pane.style.width = saved.width;
+      });
+      const { storageKey, storedSizes } = st.runSplitSession;
+      if (storageKey) {
+        if (storedSizes == null) localStorage.removeItem(storageKey);
+        else localStorage.setItem(storageKey, storedSizes);
+      }
+      st.runSplitSession = null;
+    }
+    if (!st.runSplitSession && panes.every(Boolean) && toggle?.getAttribute('aria-pressed') === 'true') {
+      const weights = panes.map(pane => parseFloat(pane.style.flex) || 0);
+      const hasLegacyRunDamage = weights[0] > 80 || weights[1] < 15 || weights[2] < 8;
+      if (hasLegacyRunDamage) {
+        [22, 51, 27].forEach((size, index) => {
+          panes[index].style.flex = size + ' 1 0%';
+          panes[index].style.flexBasis = '0%';
+          panes[index].style.width = 'auto';
+        });
+        const storageKey = split.dataset.storageKey;
+        if (storageKey) localStorage.setItem(storageKey, JSON.stringify([22, 51, 27]));
+      }
+    }
+    split.classList.remove('kf-run-no-inspector');
+    if (toggle) toggle.hidden = false;
   }
 
   function traceData() { return window.PTO_RUN_TRACE || null; }
@@ -1269,58 +1333,98 @@
     return '<div id="kfObjectInspector" class="kf-oi"><div class="kf-oi-head"><span>' + esc(kind.toUpperCase()) + '</span><h3>' + esc(title) + '</h3><small>' + esc(meta) + '</small></div>' + body + '</div>';
   }
 
-  function renderInspector() {
-    const host = $('#inspector');
-    if (!host || !inspectorApplies()) return;
-    const t = TASKS.find(x => x.id === st.task), r = t && t.runs.find(x => x.id === st.run);
-    host.innerHTML = objectInspector(st.selection);
-    const title = $('#inspectorTitle'), meta = $('#inspectorMeta');
-    if (title) title.textContent = st.selection ? '对象检查器' : '对象检查器';
-    if (meta) meta.textContent = st.selection ? st.selection.kind + ' · ' + st.selection.id : (r ? r.id + ' · 未选择对象' : '未选择');
+  function hoveredObject(target) {
+    if (!target) return null;
+    if (target.dataset.wsSelectKind) return { kind: target.dataset.wsSelectKind, id: target.dataset.wsSelectId, sourceTab: target.dataset.wsSource || st.tab };
+    if (target.dataset.wsFinding) return { kind: 'finding', id: target.dataset.wsFinding, sourceTab: 'overview' };
+    if (target.matches('[data-kg-p], [data-kg-kp]')) {
+      const i = target.dataset.kgP || target.dataset.kgKp;
+      return { kind: 'pass', id: ((window.PTO_IR_KERNELS || {}).passNames || [])[Number(i)] || ('Pass ' + i), sourceTab: 'compilation' };
+    }
+    return null;
   }
 
-  function clearSelection() { st.selection = null; renderInspector(); }
+  function hideObjectTooltip() {
+    if (!objectTooltip) return;
+    if (objectTooltipTimer) { clearTimeout(objectTooltipTimer); objectTooltipTimer = null; }
+    if (objectTooltipTarget) objectTooltipTarget.removeAttribute('aria-describedby');
+    objectTooltipTarget = null;
+    objectTooltip.classList.remove('is-open');
+    objectTooltip.setAttribute('aria-hidden', 'true');
+  }
+
+  function scheduleObjectTooltipHide() {
+    if (objectTooltipTimer) clearTimeout(objectTooltipTimer);
+    objectTooltipTimer = setTimeout(hideObjectTooltip, 120);
+  }
+
+  function showObjectTooltip(target, obj) {
+    if (!objectTooltip || !obj || obj.id == null) return;
+    if (objectTooltipTimer) { clearTimeout(objectTooltipTimer); objectTooltipTimer = null; }
+    if (objectTooltipTarget && objectTooltipTarget !== target) objectTooltipTarget.removeAttribute('aria-describedby');
+    objectTooltipTarget = target;
+    target.setAttribute('aria-describedby', objectTooltip.id);
+    objectTooltip.innerHTML = objectInspector({ kind: obj.kind, id: String(obj.id), sourceTab: obj.sourceTab || st.tab, runId: st.run }).replace(' id="kfObjectInspector"', '');
+    objectTooltip.classList.add('is-open');
+    objectTooltip.setAttribute('aria-hidden', 'false');
+    const box = target.getBoundingClientRect();
+    const tip = objectTooltip.getBoundingClientRect();
+    const left = Math.max(8, Math.min(box.left, window.innerWidth - tip.width - 8));
+    const top = box.bottom + tip.height + 10 > window.innerHeight ? Math.max(8, box.top - tip.height - 10) : box.bottom + 10;
+    objectTooltip.style.left = Math.round(left) + 'px';
+    objectTooltip.style.top = Math.round(top) + 'px';
+  }
+
+  function bindObjectTooltips() {
+    const onOver = e => {
+      const target = e.target.closest('[data-ws-select-kind], [data-ws-finding], [data-kg-p], [data-kg-kp]');
+      if (!target || target.contains(e.relatedTarget)) return;
+      showObjectTooltip(target, hoveredObject(target));
+    };
+    const onOut = e => {
+      const target = e.target.closest('[data-ws-select-kind], [data-ws-finding], [data-kg-p], [data-kg-kp]');
+      if (target && !target.contains(e.relatedTarget) && !objectTooltip?.contains(e.relatedTarget)) scheduleObjectTooltipHide();
+    };
+    [els.root, els.detail].filter(Boolean).forEach(host => {
+      host.addEventListener('pointerover', onOver);
+      host.addEventListener('pointerout', onOut);
+      host.addEventListener('focusin', onOver);
+      host.addEventListener('focusout', onOut);
+    });
+    objectTooltip?.addEventListener('pointerenter', () => { if (objectTooltipTimer) clearTimeout(objectTooltipTimer); });
+    objectTooltip?.addEventListener('pointerleave', scheduleObjectTooltipHide);
+    objectTooltip?.addEventListener('click', onRunClick);
+  }
+
+  function renderInspector() {
+    // Object detail belongs to the hover tooltip in Run workspace.
+  }
+
+  function clearSelection() { st.selection = null; hideObjectTooltip(); }
   function selectObject(obj) {
     if (!obj || obj.id == null) return;
     st.selection = { kind: obj.kind, id: String(obj.id), sourceTab: obj.sourceTab || st.tab, runId: st.run };
-    inspectorToggle(true);
-    renderInspector();
     if (st.tab === 'execution' && obj.kind === 'task') window.PTO_TIMELINE?.selectTask?.(Number(obj.id));
   }
 
-  /* demo-v2.js rewrites #inspector on every stage switch, so take it back on
-     any signal that could mean stage 0 is showing again. Our own write puts the
-     marker back, so each observer settles after one extra pass. Watching four
-     signals rather than one is deliberate: the inspector body, the title
-     demo-v2 writes just before it, the stage's own class, and the pane's hidden
-     flag do not always fire in the same order. */
-  function ownInspector() {
-    const host = $('#inspector');
-    if (!host || typeof MutationObserver !== 'function') return;
-    host.addEventListener('click', e => { if ($('#kfObjectInspector', host)) onRunClick(e); });
-
-    const retake = () => {
-      // stage 2 must have its borrowed content back before demo-v2 shows it
-      // for any reason other than the IR tab
-      syncPanel();
-      if (inspectorApplies()) {
-        if (!$('#kfObjectInspector', host)) renderInspector();
-      } else {
-        restoreInspector();
-      }
-    };
+  /* demo-v2.js owns Activity switching. Observe the rail and its workflow pane
+     so the right pane is removed for the entire Run activity, independent of
+     Overview / Correctness / Execution / Compilation / Performance / Resources. */
+  function watchRunInspectorLayout() {
+    const retake = () => { syncPanel(); syncRunInspectorLayout(); };
+    if (typeof MutationObserver !== 'function') { retake(); return; }
     const watch = (el, opts) => { if (el) new MutationObserver(retake).observe(el, opts); };
-    watch(host, { childList: true });
-    watch($('#inspectorTitle'), { childList: true, characterData: true, subtree: true });
-    watch($('[data-side-view="workflow"]'), { attributes: true, attributeFilter: ['hidden'] });
-    // every stage's class, so a switch away from stage 0 returns the loan
+    watch($('[data-side-view="workflow"]'), { attributes: true, attributeFilter: ['hidden', 'class'] });
+    watch($('#activityWorkflow'), { attributes: true, attributeFilter: ['aria-pressed', 'class'] });
+    // Stage observation remains only for borrowed Compilation content.
     $$('.kf-stage').forEach(s => watch(s, { attributes: true, attributeFilter: ['class'] }));
-    renderInspector();
+    retake();
   }
 
   // the main column and the right rail are two views of the same selection
   function renderDetail() {
-    collapseRunInspector();
+    syncRunInspectorLayout();
+    hideObjectTooltip();
     renderDetailBody();
     renderInspector();
   }
@@ -1814,7 +1918,9 @@
     }
     const select = e.target.closest('[data-ws-select-kind]');
     if (select) {
-      selectObject({ kind: select.dataset.wsSelectKind, id: select.dataset.wsSelectId, sourceTab: select.dataset.wsSource });
+      const obj = { kind: select.dataset.wsSelectKind, id: select.dataset.wsSelectId, sourceTab: select.dataset.wsSource };
+      selectObject(obj);
+      showObjectTooltip(select, obj);
       return;
     }
     const route = e.target.closest('[data-ws-route]');
@@ -1870,6 +1976,7 @@
   function wire() {
     if (els.root) els.root.addEventListener('click', onRunClick);
     if (els.detail) els.detail.addEventListener('click', onRunClick);
+    bindObjectTooltips();
     // A fix never rewrites the selected historical Run. The linear correctness
     // surface delegates this action to a newly created follow-up Run instead.
     document.addEventListener('click', e => {
@@ -1974,7 +2081,7 @@
   function boot() {
     if (!mount()) return;
     seedStoryRuns();
-    wire(); claimPaneHeader(); hideStageHeaderOnDetail(); ownInspector();
+    wire(); claimPaneHeader(); hideStageHeaderOnDetail(); watchRunInspectorLayout();
     render(); renderDetail();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
