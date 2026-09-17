@@ -499,7 +499,7 @@
                   <div class="kf-compare" id="tensorCompare"></div>
                   <div class="kf-trace-row"><span>算子</span><button class="is-hot">decode_layer</button><span>›</span><span>Task</span><button class="is-hot">fa_work_build</button><span>›</span><span>Tensor</span><button class="is-hot">fa_work_table</button><span>›</span><span>索引</span><button class="is-hot">cursor + wp</button></div>
                 </div>
-                <div class="kf-root-cause"><span>↳</span><div><b>根因 · 96%</b><p>动态索引进入 GM store offset，触发 <code>INDEX / i64</code> 限制。</p></div><button class="btn btn-solid" id="fixAndRerun">应用 fallback 并重跑</button></div>
+                <div class="kf-root-cause"><span>↳</span><div><b>可能根因</b><p>动态索引进入 GM store offset，触发 <code>INDEX / i64</code> 限制。</p></div><button class="btn btn-solid" id="fixAndRerun">应用 fallback 并创建新 Run</button></div>
                 <div class="kf-actions"><button class="btn btn-soft" data-prev>查看编译</button></div>
               </section>
 

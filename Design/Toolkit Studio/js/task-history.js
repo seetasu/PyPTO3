@@ -20,6 +20,58 @@
     blocked: ['编译阻塞', 'bad'], passed: ['编译通过', 'ok'], warn: ['有告警', 'warn'],
     trusted: ['可信基线', 'ok'], running: ['执行中', 'run'], purged: ['产物已清理', 'idle']
   };
+  /* Run state is deliberately separate from diagnostic quality. A completed
+     Run can still carry a correctness failure or a performance warning. */
+  const DOMAIN_ORDER = ['compilation', 'correctness', 'execution', 'performance', 'resources'];
+  const DOMAIN_LABEL = { compilation: 'Compilation', correctness: 'Correctness', execution: 'Execution', performance: 'Performance', resources: 'Resources' };
+  const DOMAIN_VERDICT = {
+    pass: ['PASS', 'ok'], warning: ['WARNING', 'warn'], fail: ['FAIL', 'bad'],
+    not_evaluated: ['NOT EVALUATED', 'idle'], unknown: ['UNKNOWN', 'idle']
+  };
+  const STATE_LABEL = { running: '运行中', completed: '已完成', failed: '失败', incomplete: '不完整', cancelled: '已取消' };
+  const EVIDENCE_STATUS = { available: ['✓', '可用'], partial: ['◐', '部分'], not_collected: ['—', '未采集'], unavailable: ['—', '不可用'] };
+  const EVIDENCE_LABEL = {
+    golden_compare: 'Golden Compare', ir_validation: 'IR Validation', tensor_dump: 'Intermediate Tensor',
+    dependency_graph: 'Dependency Graph', runtime_timeline: 'Runtime Timeline', pmu: 'PMU', scope_stats: 'Runtime Resources',
+    pass_dump: 'Pass Dump', source_location: 'Source Location', args_dump: 'Args Dump', core_trace: 'Core Trace',
+    critical_path: 'Critical Path', memory_map: 'Memory Map'
+  };
+
+  function makeDomains(values) {
+    const unknown = { verdict: 'unknown', summary: '无可用结论' };
+    return DOMAIN_ORDER.reduce((all, key) => { all[key] = Object.assign({}, unknown, values[key] || {}); return all; }, {});
+  }
+  function makeEvidence(values) {
+    return Object.keys(EVIDENCE_LABEL).reduce((all, key) => {
+      all[key] = Object.assign({ status: 'not_collected', label: EVIDENCE_LABEL[key] }, values[key] || {});
+      return all;
+    }, {});
+  }
+  function runModel(state, domains, evidence, findings, extra) {
+    return Object.assign({ state, domains: makeDomains(domains), evidence: makeEvidence(evidence), findings: findings || [], baseline: false }, extra || {});
+  }
+  function getRunModel(run) { return run && run.model || runModel('incomplete', {}, {}, []); }
+  function getDomainVerdict(run, domain) { return getRunModel(run).domains[domain] || { verdict: 'unknown', summary: '无可用结论' }; }
+  function getEvidenceCoverage(run) { return getRunModel(run).evidence; }
+  function getFindings(run) { return getRunModel(run).findings || []; }
+  function runDisplayId(run) { return run && (run.displayId || run.id) || '—'; }
+  function isCompileFailureStory(run) { return !!getRunModel(run).compileStory; }
+  function isCorrectnessFailureStory(run) { return !!getRunModel(run).correctnessStory; }
+  function isPerformanceWarningStory(run) { return !!getRunModel(run).performanceStory; }
+  function isValidatedOptimizationStory(run) { return !!getRunModel(run).optimizationStory; }
+  function getRunDisplayStatus(run) {
+    const m = getRunModel(run), d = m.domains;
+    if (m.baseline) return ['可信基线', 'ok'];
+    if (m.state === 'running') return ['运行中', 'run'];
+    const failed = DOMAIN_ORDER.find(key => d[key].verdict === 'fail');
+    if (failed) return [{ compilation: '编译失败', correctness: '正确性失败', execution: '执行失败', performance: '性能失败', resources: '资源失败' }[failed], 'bad'];
+    const warned = ['performance', 'resources', 'execution', 'compilation', 'correctness'].find(key => d[key].verdict === 'warning');
+    if (warned) return [warned === 'performance' ? '性能告警' : warned === 'resources' ? '资源告警' : DOMAIN_LABEL[warned] + ' 告警', 'warn'];
+    if (m.state === 'failed') return ['运行失败', 'bad'];
+    if (m.state === 'incomplete') return ['证据不完整', 'idle'];
+    if (d.compilation.verdict === 'pass' && d.correctness.verdict === 'pass' && d.execution.verdict === 'pass') return ['已验证', 'ok'];
+    return [STATE_LABEL[m.state] || '未知状态', 'idle'];
+  }
   const DIRLABEL = {
     passes_dump: 'IR 快照', kernels: 'Kernel 源码', orchestration: '编排代码',
     ptoas: '汇编', dfx_outputs: '运行时 Trace', report: '编译报告', debug: '调试'
@@ -122,8 +174,47 @@
       title: 'Decode Layer 融合算子',
       runs: [
         {
+          id: 'run_105', displayId: '#105', time: '12:47', target: 'Ascend 910B',
+          model: runModel('failed', {
+            compilation: { verdict: 'fail', summary: 'LegalizeIndexing verification failed' },
+            correctness: { verdict: 'not_evaluated', summary: 'Compile did not complete' },
+            execution: { verdict: 'not_evaluated', summary: 'No runtime execution' },
+            performance: { verdict: 'not_evaluated', summary: 'No runtime execution' },
+            resources: { verdict: 'unknown', summary: 'No resource evidence' }
+          }, {
+            ir_validation: { status: 'available' }, pass_dump: { status: 'available' }, source_location: { status: 'available' },
+            golden_compare: { status: 'not_collected' }, dependency_graph: { status: 'not_collected' }, runtime_timeline: { status: 'not_collected' },
+            pmu: { status: 'not_collected' }, scope_stats: { status: 'not_collected' }
+          }, [{
+            id: 'F105', severity: 'critical', domain: 'compilation',
+            title: '动态索引在 lowering 后不满足 GM store 地址约束',
+            summary: 'IR verification 在 LegalizeIndexing 后首次失败，设备代码未生成。',
+            location: 'LegalizeIndexing · decode_layer.py:728',
+            affectedObjects: [{ kind: 'pass', id: 'LegalizeIndexing' }, { kind: 'ir_op', id: 'tensor.write[index]' }, { kind: 'source', id: 'decode_layer.py:728' }],
+            evidence: ['Previous pass verification: PASS', 'LegalizeIndexing: FAIL', 'offending op: tensor.write[index]', 'index type / address constraint mismatch', 'source span available'],
+            action: { label: '查看 Compilation', route: 'compilation' }
+          }], {
+            compileStory: true,
+            lineage: 'initial',
+            source: { file: 'decode_layer.py', line: 728 },
+            fix: 'dynamic index → affine fallback'
+          }),
+          artifacts: [Object.assign({}, ART().source, { meta: 'decode_layer.py:728 · source span', tone: 'ok' }), Object.assign({}, ART().compile, { meta: 'LegalizeIndexing · verification failed', tone: 'bad', primary: true })]
+        },
+        {
           id: r ? r.stamp : '20260625_184941', live: !!r,
           verdict: r && r.errors ? 'blocked' : 'passed',
+          model: runModel('completed', {
+            compilation: { verdict: 'pass', summary: '42 Pass · 45 Kernel' },
+            correctness: { verdict: 'pass', summary: '16 / 16 Golden Compare match' },
+            execution: { verdict: 'pass', summary: '428 Task · dependency graph complete' },
+            performance: { verdict: 'warning', summary: '关键链等待占比 61%' },
+            resources: { verdict: 'pass', summary: 'L0B peak 100% · 无溢出' }
+          }, {
+            golden_compare: { status: 'available' }, ir_validation: { status: 'available' },
+            tensor_dump: { status: 'partial' }, dependency_graph: { status: 'available' },
+            runtime_timeline: { status: 'available' }, pmu: { status: 'not_collected' }, scope_stats: { status: 'not_collected' }
+          }, [{ id: 'F001', severity: 'warning', domain: 'performance', title: 'RoPE 的 lo/hi 半维被拆成两次搬运', summary: '实际搬运宽度低于目标，影响 memory efficiency。', affectedObjects: [{ kind: 'kernel', id: 'rope_qkv' }], evidence: ['实际宽度 128 / 256 B', '目标宽度 512 B', '16 次触发'], action: { label: '查看性能证据', route: 'performance' } }]),
           time: r ? r.time : '2026-06-25 18:49:41',
           target: r ? r.target : 'Ascend 910B',   // no real compile duration on disk
           dir: r ? 'Data/' + r.dir : '',
@@ -142,9 +233,19 @@
         },
         { id: '20260624_101233', verdict: 'purged', time: '2026-06-24 10:12:33',
           duration: '1m03s', target: 'Ascend 910B', purged: true,
+          model: runModel('completed', {
+            compilation: { verdict: 'pass', summary: '42 Pass · 44 Kernel' }, correctness: { verdict: 'fail', summary: '首个分歧：Tensor T37' },
+            execution: { verdict: 'pass', summary: '421 Task · timeline complete' }, performance: { verdict: 'not_evaluated', summary: '正确性失败后未评估' }, resources: { verdict: 'pass', summary: 'L0B peak 81%' }
+          }, { golden_compare: { status: 'available' }, ir_validation: { status: 'available' }, tensor_dump: { status: 'available' }, dependency_graph: { status: 'available' }, runtime_timeline: { status: 'available' } },
+          [{ id: 'F002', severity: 'critical', domain: 'correctness', title: '输出从 Tensor T37 开始分歧', summary: 'Golden Compare 首次出现输出不匹配。', affectedObjects: [{ kind: 'tensor', id: '37' }], evidence: ['Golden Compare FAIL', '首个分歧 Tensor T37', '上游 Tensor T36 match'], action: { label: '查看正确性证据', route: 'correctness' } }]),
           note: '产物目录已清理，仅保留结论：AutoTileMatmulL0 前的版本，L0B 尚未打满。' },
-        { id: '20260620_093015', verdict: 'purged', time: '2026-06-20 09:30:15',
+        { id: '20260620_093015', verdict: 'blocked', time: '2026-06-20 09:30:15',
           duration: '3m58s', target: 'Ascend 910B', purged: true,
+          model: runModel('failed', {
+            compilation: { verdict: 'fail', summary: 'AllocateMemoryAddr 未完成' }, correctness: { verdict: 'not_evaluated', summary: '编译失败，未执行' },
+            execution: { verdict: 'not_evaluated', summary: '编译失败，未执行' }, performance: { verdict: 'not_evaluated', summary: '未执行' }, resources: { verdict: 'unknown', summary: '无可用资源结论' }
+          }, { ir_validation: { status: 'partial' } },
+          [{ id: 'F003', severity: 'critical', domain: 'compilation', title: '片上分配无法满足 L0B 约束', summary: '编译在内存分配阶段中止。', affectedObjects: [{ kind: 'buffer', id: 'q_proj' }], evidence: ['AllocateMemoryAddr FAIL', 'L0B requested > limit'], action: { label: '查看编译证据', route: 'compilation' } }]),
           note: '产物目录已清理，仅保留结论：首次跑通全部 42 个 pass。' }
       ]
     });
@@ -156,6 +257,10 @@
       runs: [{
         id: '20260618_100712', verdict: 'trusted', time: '2026-06-18 10:07:12',
         duration: '1m52s', target: 'Ascend 910B', archived: true,
+        model: runModel('completed', {
+          compilation: { verdict: 'pass', summary: '41 Pass · 38 Kernel' }, correctness: { verdict: 'pass', summary: '16 / 16 Golden Compare match' },
+          execution: { verdict: 'pass', summary: '390 Task · dependency graph complete' }, performance: { verdict: 'pass', summary: '关键链预算内' }, resources: { verdict: 'pass', summary: 'UB peak 61%' }
+        }, { golden_compare: { status: 'available' }, ir_validation: { status: 'available' }, tensor_dump: { status: 'available' }, dependency_graph: { status: 'available' }, runtime_timeline: { status: 'available' }, pmu: { status: 'partial' }, scope_stats: { status: 'available' } }, [], { baseline: true }),
         artifacts: [
           Object.assign({}, ART().overview, { meta: 'L14 · RMSNorm + RoPE', tone: 'ok' }),
           Object.assign({}, ART().source, { meta: 'rmsnorm_rope.py · 在资源管理器中打开', tone: 'ok' }),
@@ -173,6 +278,11 @@
       runs: [{
         id: '20260611_163004', verdict: 'warn', time: '2026-06-11 16:30:04',
         duration: '12m04s', target: 'Ascend 910B', archived: true,
+        model: runModel('completed', {
+          compilation: { verdict: 'pass', summary: '61 Kernel · IR Validation pass' }, correctness: { verdict: 'pass', summary: '逐层 checkpoint match' },
+          execution: { verdict: 'pass', summary: '整网替换完成' }, performance: { verdict: 'warning', summary: 'MoE 路由分支未覆盖' }, resources: { verdict: 'unknown', summary: '未采集 Scope Stats' }
+        }, { ir_validation: { status: 'available' }, tensor_dump: { status: 'partial' }, dependency_graph: { status: 'available' }, runtime_timeline: { status: 'partial' } },
+        [{ id: 'F004', severity: 'warning', domain: 'performance', title: 'MoE 路由分支未覆盖', summary: '当前性能结论不覆盖所有路由组合。', affectedObjects: [], evidence: ['覆盖集不完整'], action: { label: '查看性能证据', route: 'performance' } }]),
         artifacts: [
           Object.assign({}, ART().overview, { meta: 'MoE · CSA / HCA', tone: 'ok' }),
           Object.assign({}, ART().source, { label: '模型源码', meta: 'torch_npu 融合替换后', tone: 'ok' }),
@@ -190,6 +300,9 @@
       runs: [{
         id: '20260529_091210', verdict: 'purged', time: '2026-05-29 09:12:10',
         duration: '3m41s', target: 'Ascend 910B', purged: true,
+        model: runModel('cancelled', {
+          compilation: { verdict: 'pass', summary: '实验编译完成' }, correctness: { verdict: 'unknown', summary: '未保留比对结论' }, execution: { verdict: 'unknown', summary: '未保留运行证据' }, performance: { verdict: 'not_evaluated', summary: '方案已替换' }, resources: { verdict: 'unknown', summary: '无可用结论' }
+        }, {}, []),
         note: '实验分支，产物已清理。结论：已被 affine fallback 方案取代。'
       }]
     });
@@ -336,12 +449,12 @@
 
   /* ---------- render ---------- */
   function runRow(t, r) {
-    const v = VERDICT[r.verdict] || VERDICT.purged;
+    const v = getRunDisplayStatus(r);
     const on = r.id === st.run && t.id === st.task;
     return '<button type="button" class="kf-th-run' + (on ? ' is-sel' : '') +
       (r.purged ? ' is-purged' : '') + '" data-th-run="' + r.id + '" data-th-of="' + t.id + '">' +
       '<span class="kf-th-rdot is-' + v[1] + '"></span>' +
-      '<code>' + esc(r.id) + '</code>' +
+      '<code>' + esc(runDisplayId(r)) + '</code>' +
       '<span class="kf-th-rv is-' + v[1] + '">' + v[0] + '</span>' +
       '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small>' +
       (r.live ? '<em>产物在库</em>' : '') +
@@ -378,14 +491,15 @@
      immutable run id and timestamp. The live overview puts the two actionable
      metrics in a separate right-hand column. */
   function headline(t, r, L) {
-    const v = VERDICT[r.verdict] || VERDICT.purged;
+    const v = getRunDisplayStatus(r), m = getRunModel(r);
+    const title = r.displayId ? 'Run ' + r.displayId : t.title;
     return '<section class="kf-rd-summary">' +
       '<div class="kf-rd-head">' +
         '<div class="kf-rd-id">' +
           '<div class="kf-rd-eyebrow"><span><i></i>运行快照</span></div>' +
-          '<div class="kf-rd-titleline"><h2>' + esc(t.title) + '</h2>' +
-            '<span class="kf-rd-status is-' + v[1] + '"><i></i>' + v[0] + '</span></div>' +
-          '<div class="kf-rd-run"><span>运行 ID</span><code>' + esc(r.id) + '</code>' +
+          '<div class="kf-rd-titleline"><h2>' + esc(title) + '</h2>' +
+            '<span class="kf-rd-status is-' + v[1] + '"><i></i>' + esc(STATE_LABEL[m.state] || m.state) + '</span></div>' +
+          '<div class="kf-rd-run"><span>Run</span><code>' + esc(runDisplayId(r)) + '</code>' +
             '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small></div>' +
         '</div>' +
       '</div>' +
@@ -394,7 +508,7 @@
 
   /* one line saying what, if anything, needs attention */
   function verdictLine(r, L) {
-    const v = VERDICT[r.verdict] || VERDICT.passed;
+    const v = getRunDisplayStatus(r);
     const flags = [];
     if (L) {
       if (L.over) flags.push(L.over + " 个 kernel 内存溢出");
@@ -444,6 +558,41 @@
       '<article class="kf-rd-kpi is-' + t.t + ' is-' + t.k + '" style="grid-column:auto;min-width:0;">' +
         '<header><span>' + esc(t.l) + '</span><em>' + esc(t.tag || '') + '</em></header>' +
         '<div class="kf-rd-kpi-main"><b>' + t.v + '<i>' + t.u + '</i></b>' + t.viz + '</div>' +
+        '<small>' + esc(t.s) + '</small>' +
+      '</article>').join('');
+  }
+
+  /* Historical story Runs keep the same composed overview as a measured Run.
+     Their headline tiles come from the immutable Run record rather than the
+     currently mounted trace. */
+  function historicalKpis(r) {
+    const m = getRunModel(r);
+    let tiles = [];
+    if (isCompileFailureStory(r)) {
+      tiles = [
+        { l: 'First failing pass', v: 'FAIL', u: '', t: 'bad', tag: 'COMPILATION', s: 'LegalizeIndexing · IR verification' },
+        { l: 'Evidence', v: '3', u: '项', t: 'ok', tag: 'AVAILABLE', s: 'IR Validation · Pass Dump · Source Location' }
+      ];
+    } else if (isCorrectnessFailureStory(r)) {
+      tiles = [
+        { l: 'First divergence', v: 'T37', u: '', t: 'bad', tag: 'CORRECTNESS', s: 'max_abs_diff 0.382 · repeated-run instability' },
+        { l: 'Ordering evidence', v: '1', u: '项', t: 'warn', tag: 'EXECUTION', s: 'Task #182 → #197 · missing edge' }
+      ];
+    } else if (isPerformanceWarningStory(r)) {
+      tiles = [
+        { l: 'Latency', v: '1.82', u: ' ms', t: 'warn', tag: 'TARGET < 1.50', s: 'Critical Path 1.41 ms · Wait / Stall 37%' },
+        { l: 'Long-pole', v: '214', u: ' µs', t: 'warn', tag: 'TASK #182', s: 'Reference 147 µs · MTE stall 31%' }
+      ];
+    } else if (isValidatedOptimizationStory(r)) {
+      tiles = [
+        { l: 'Latency', v: '1.36', u: ' ms', t: 'ok', tag: 'TARGET ACHIEVED', s: 'Critical Path 0.98 ms · target < 1.50 ms' },
+        { l: 'Resource guard', v: '83', u: '%', t: 'ok', tag: 'L0B PEAK', s: 'within budget · 12 / 12 checkpoints match' }
+      ];
+    }
+    return tiles.map(t =>
+      '<article class="kf-rd-kpi is-' + t.t + '" style="grid-column:auto;min-width:0;">' +
+        '<header><span>' + esc(t.l) + '</span><em>' + esc(t.tag) + '</em></header>' +
+        '<div class="kf-rd-kpi-main"><b>' + esc(t.v) + '<i>' + esc(t.u) + '</i></b></div>' +
         '<small>' + esc(t.s) + '</small>' +
       '</article>').join('');
   }
@@ -906,7 +1055,7 @@
       return;
     }
     els.compareBox.innerHTML = '<div><b>选择同一算子的两次运行</b><small>' + esc(task.title) + '</small></div>' +
-      '<div class="kf-th-compare-options">' + task.runs.map(r => '<label><input type="checkbox" value="' + r.id + '" data-th-compare-run><span>' + esc(r.id) + '</span><em>' + esc((VERDICT[r.verdict] || VERDICT.purged)[0]) + '</em></label>').join('') + '</div>' +
+      '<div class="kf-th-compare-options">' + task.runs.map(r => '<label><input type="checkbox" value="' + r.id + '" data-th-compare-run><span>' + esc(r.id) + '</span><em>' + esc(getRunDisplayStatus(r)[0]) + '</em></label>').join('') + '</div>' +
       '<button type="button" class="kf-th-compare-submit" data-th-compare-submit disabled>开始对比</button>';
   }
 
@@ -914,11 +1063,16 @@
     const task = TASKS.find(t => t.id === st.task);
     const selected = task ? st.compareRuns.map(id => task.runs.find(r => r.id === id)).filter(Boolean) : [];
     if (selected.length !== 2 || !els.detail) return;
+    const run107 = selected.find(r => r.id === 'run_107'), run108 = selected.find(r => r.id === 'run_108');
+    if (run107 && run108) {
+      renderOptimizationComparison(task, run107, run108);
+      return;
+    }
     const live = liveRun();
     const snapshots = selected.map(r => {
       const measured = task.id === 'task_decode' && live && r.id === live.stamp ? live : null;
       return {
-        title: task.title, run: r.id, verdict: (VERDICT[r.verdict] || VERDICT.purged)[0],
+        title: task.title, run: r.id, verdict: getRunDisplayStatus(r)[0],
         model: task.model, target: r.target || '—',
         passes: measured ? measured.passes + ' pass' : '—',
         kernels: measured ? measured.kernels + ' kernel' : '—',
@@ -931,6 +1085,61 @@
         '<div><dt>目标</dt><dd>' + esc(s.target) + '</dd></div>' +
         '<div><dt>Pass</dt><dd>' + esc(s.passes) + '</dd></div><div><dt>Kernel</dt><dd>' + esc(s.kernels) + '</dd></div>' +
       '</dl></article>').join('') + '</div></section>';
+  }
+
+  function renderOptimizationComparison(task, before, after) {
+    const a = getRunModel(before), b = getRunModel(after);
+    const ma = a.compareMetrics, mb = b.compareMetrics;
+    const sourceChange = (b.changes || []).find(x => x.domain === 'source') || {};
+    const compileChange = (b.changes || []).find(x => x.domain === 'compile') || {};
+    const row = (label, x, y, delta) => '<tr><th>' + esc(label) + '</th><td>' + esc(x) + '</td><td>' + esc(y) + '</td><td>' + esc(delta) + '</td></tr>';
+    const change = (label, beforeValue, afterValue) => '<div class="kf-rd-art is-static"><b>' + esc(label) + '</b><code>Before · ' + esc(beforeValue) + '</code><small>After · ' + esc(afterValue) + '</small></div>';
+    els.detail.innerHTML = '<section class="kf-rd kf-th-comparison">' +
+      '<div class="kf-th-compare-head"><div><span class="kf-eyebrow">COMPARISON</span><h2>Run #107 vs Run #108</h2><p>' + esc(task.title) + ' · Change → Evidence → Effect → Outcome</p></div><button type="button" class="kf-th-compare-close" data-th-compare-close>返回运行</button></div>' +
+      '<section class="kf-rd-sec"><div class="kf-rd-h">Outcome<small>优化结果与守护条件</small></div><table class="kf-th-compare-outcome"><thead><tr><th></th><th>#107</th><th>#108</th><th>Δ</th></tr></thead><tbody>' +
+        row('Correctness', 'PASS', 'PASS', 'unchanged') +
+        row('Latency', ma.latency, mb.latency, '-25.3%') +
+        row('Critical Path', ma.criticalPath, mb.criticalPath, '-30.5%') +
+        row('Task #182', ma.task182, mb.task182, '-31.3%') +
+        row('MTE stall', ma.mteStall, mb.mteStall, '-14 pp') +
+        row('Transfer width', ma.transferWidth, mb.transferWidth, '+100%') +
+        row('L0B peak', ma.l0bPeak, mb.l0bPeak, '+2 pp') +
+        row('Kernel count', ma.kernelCount, mb.kernelCount, '—') +
+      '</tbody></table><p class="kf-rd-note">No correctness regression detected. Golden / Oracle unchanged · 12 / 12 checkpoints match.</p></section>' +
+      '<section class="kf-rd-sec"><div class="kf-rd-h">What Changed<small>执行结构未缩减；只改变 Task #182 的 memory behavior</small></div><div class="kf-rd-arts">' +
+        change('Source · ' + (sourceChange.title || 'RoPE transfer'), sourceChange.before || '—', sourceChange.after || '—') +
+        change('Compilation · ' + (compileChange.title || 'Kernel count'), compileChange.before || '45', compileChange.after || '45') +
+        change('Execution · Task topology / dependencies', 'unchanged', 'unchanged') +
+        change('Resources · L0B', '81%', '83% · within budget') +
+      '</div></section>' +
+      '<section class="kf-rd-sec"><div class="kf-rd-h">Why It Improved<small>同一执行路径中，窄搬运变宽，降低 MTE 等待</small></div><div class="kf-oi-links">' +
+        '<span class="kf-oi-evidence">2 × narrow transfer → 1 × wide transfer</span><span class="kf-oi-evidence">↓</span><span class="kf-oi-evidence">256 B → 512 B · MTE stall 31% → 17%</span><span class="kf-oi-evidence">↓</span><span class="kf-oi-evidence">Task #182 · 214 µs → 147 µs</span><span class="kf-oi-evidence">↓</span><span class="kf-oi-evidence">Critical Path · 1.41 ms → 0.98 ms</span><span class="kf-oi-evidence">↓</span><span class="kf-oi-evidence">Latency · 1.82 ms → 1.36 ms</span>' +
+      '</div><p class="kf-rd-note">资源峰值增加 2 pp，但仍在预算内；未通过删减 kernel、task 或牺牲正确性换取性能。</p></section>' +
+      '<div class="kf-oi-actions"><button type="button" data-ws-set-baseline="run_108">设为可信基线</button></div>' +
+    '</section>';
+  }
+
+  function compareCurrentRunWith(runId) {
+    const task = TASKS.find(t => t.id === st.task);
+    if (!task || !task.runs.some(r => r.id === runId) || !task.runs.some(r => r.id === st.run)) return;
+    st.compareRuns = [runId, st.run];
+    renderRunComparison();
+  }
+
+  function setTrustedBaseline(runId) {
+    const task = TASKS.find(t => t.id === st.task);
+    const run = task && task.runs.find(r => r.id === runId);
+    if (!run) return;
+    const model = getRunModel(run);
+    model.baseline = true;
+    model.baselineMeta = {
+      id: 'ptok://qwen3-14b/decode-layer@run108', sourceCommit: '8da1bf09', backend: 'Ascend 910B',
+      environmentFingerprint: 'env:8da1bf09', inputShape: '[16, 40, 128]', compilerVersion: 'PyPTO 0.8', runId: run.id
+    };
+    st.run = run.id; st.selection = null; st.tab = 'overview';
+    render(); renderDetail();
+    const toast = $('#toast');
+    if (toast) { toast.textContent = 'Run #108 已设为可信基线'; toast.classList.add('is-visible'); setTimeout(() => toast.classList.remove('is-visible'), 1800); }
   }
 
   /* Stage 0 is the run detail page in every activity view, so whether it is on
@@ -976,7 +1185,48 @@
     let title = kind, meta = String(id), body = '';
     const section = (label, content) => '<section class="kf-inspector-section"><h2 class="kf-inspector-title">' + label + '</h2>' + content + '</section>';
     const rows = (items) => dl(items);
-    if (kind === 'task' && D && D.tasks[Number(id)]) {
+    const current = TASKS.find(x => x.id === st.task)?.runs.find(x => x.id === st.run);
+    if (isPerformanceWarningStory(current) && kind === 'task' && id === '182') {
+      title = 'Task #182'; meta = 'attention_incore_2';
+      body = section('Kernel', rows([['Kernel', 'attention_incore_2'], ['Duration', '214 µs'], ['Reference', '147 µs'], ['Δ', '+45.6%'], ['Critical Path', 'YES']])) +
+        section('Correctness', rows([['Inputs', 'normal'], ['Output', 'correct'], ['Correctness', 'PASS']])) +
+        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="kernel" data-ws-select-id="attention_incore_2" data-ws-source="performance">查看 Kernel 性能证据</button></div>');
+    } else if (isPerformanceWarningStory(current) && kind === 'kernel' && id === 'attention_incore_2') {
+      title = 'attention_incore_2'; meta = 'Kernel performance evidence';
+      body = section('Transfer evidence', rows([['Observed width', '256 B'], ['Preferred width', '512 B'], ['Occurrences', '16'], ['MTE stall', '31% · reference 17%'], ['PMU coverage', 'partial']])) +
+        section('Finding', '<p class="kf-ri-note">RoPE lo/hi 半维被拆成两次窄搬运，增加搬运次数，并拉长关键路径上的 Task #182。</p>') +
+        section('Potential change', '<p class="kf-ri-note">Combine two 64-element transfers → one 128-element transfer；在 tile 内完成 rotate-half 相关计算。</p>') +
+        section('Expected effect & risk', '<p class="kf-ri-note">Transfer count ↓ · Effective width ↑。额外 temporary tile / local copy 可能抵消收益，必须通过下一次 Run 验证。</p>') +
+        section('Source mapping', '<p class="kf-ri-note"><code>decode_layer.py:728</code> · RoPE block → attention_incore_2</p>') +
+        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-source="decode_layer.py:728" data-ws-source-context="RoPE transfer recommendation">定位 Source</button><button type="button" data-ws-optimize-rerun>应用宽搬运方案并重跑</button></div>');
+    } else if (isCorrectnessFailureStory(current) && kind === 'tensor' && id === '37') {
+      title = 'Tensor T37'; meta = 'attention_out';
+      body = section('属性', rows([['dtype', 'BF16'], ['shape', '[16, 40, 128]'], ['Golden', 'available'], ['Actual', 'mismatch'], ['max_abs_diff', '0.382']])) +
+        section('生产与消费', '<div class="kf-oi-links">' + objectButton('task', '182', 'Producer · Task #182', 'correctness') + objectButton('task', '196', 'Consumer · Task #196', 'correctness') + objectButton('task', '201', 'Consumer · Task #201', 'correctness') + '</div>') +
+        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="task" data-ws-select-id="182" data-ws-source="correctness">查看 Producer Task</button></div>');
+    } else if (isCorrectnessFailureStory(current) && kind === 'task' && id === '182') {
+      title = 'Task #182'; meta = 'attention_incore_2';
+      body = section('Kernel', rows([['Kernel', 'attention_incore_2'], ['Timing', 'completed'], ['Dependency', '3 predecessors · 2 successors']])) +
+        section('Tensor Flow', rows([['Input Q', 'PASS'], ['Input K', 'PASS'], ['Input V', 'PASS'], ['Output T37', 'FAIL']])) +
+        section('诊断提示', '<p class="kf-ri-note">Repeated-run instability detected. Inspect execution ordering before kernel arithmetic.</p>') +
+        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-route="execution">在 Execution 中查看</button></div>');
+    } else if (isCorrectnessFailureStory(current) && kind === 'task' && id === '197') {
+      title = 'Task #197'; meta = 'work_table overwrite';
+      body = section('身份与状态', rows([['Role', 'writer / overwrite'], ['Shared buffer', 'Buffer X / work_table'], ['Ordering', 'missing after Task #182']])) +
+        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="dependency" data-ws-select-id="missing_182_197" data-ws-source="execution">查看缺失依赖</button></div>');
+    } else if (isCorrectnessFailureStory(current) && kind === 'buffer' && id === 'work_table') {
+      title = 'Buffer X'; meta = 'work_table';
+      body = section('Shared buffer lifetime', rows([['Reader', 'Task #182'], ['Writer', 'Task #197'], ['Current ordering', 'No edge']])) +
+        section('证据', '<p class="kf-ri-note">Writer overlaps active reader; repeated runs produce non-deterministic output.</p>') +
+        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="dependency" data-ws-select-id="missing_182_197" data-ws-source="execution">查看 Missing Dependency</button></div>');
+    } else if (isCorrectnessFailureStory(current) && kind === 'dependency' && id === 'missing_182_197') {
+      title = 'Expected ordering'; meta = 'Task #182 → Task #197';
+      body = section('关系', rows([['Reason', 'Shared buffer lifetime'], ['Current state', 'No edge'], ['Observed impact', 'Writer overlaps active reader']])) +
+        section('Evidence', '<div class="kf-oi-links"><span class="kf-oi-evidence">Timeline overlap</span><span class="kf-oi-evidence">Shared buffer</span><span class="kf-oi-evidence">Nondeterministic output</span></div>') +
+        section('Source mapping', '<p class="kf-ri-note"><code>decode_layer.py:728</code> → Task #182 reader → Task #197 overwrite → missing ordering</p>') +
+        section('Proposed fix', '<p class="kf-ri-note"><code>deps=[reader_tid]</code></p>') +
+        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-source="decode_layer.py:728" data-ws-source-context="Runtime task dependency">定位 Source</button><button type="button" data-ws-fix-dependency>添加显式依赖并重跑</button></div>');
+    } else if (kind === 'task' && D && D.tasks[Number(id)]) {
       const i = Number(id), t = D.tasks[i], K = D.kernels[t.k] || {};
       title = t.kn || K.name || 'Task'; meta = t.id || ('task ' + i);
       const pre = D.edges.filter(e => e[1] === i), suc = D.edges.filter(e => e[0] === i);
@@ -1000,12 +1250,21 @@
       body = section('身份与资源', rows([['类型', k ? k.type : '—'], ['最紧空间', m ? spLabel(m.sp) : '—'], ['使用', m ? kb(m.u) + ' / ' + kb(m.lim) + ' · ' + m.p + '%' : '未采集'], ['诊断', m ? m.diag + ' 条' : '—']])) +
         section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-kernel="' + esc(id) + '">在 Compilation 查看</button></div>');
     } else if (kind === 'pass') {
-      title = id; meta = 'IR Pass';
-      body = section('编译证据', '<p class="kf-ri-note">Pass River 与 IR diff 保留在 Compilation；选择已同步到该视图。</p>') + section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-pass="' + esc(id) + '">打开 Compilation</button></div>');
+      if (isCompileFailureStory(current) && id === 'LegalizeIndexing') {
+        title = 'LegalizeIndexing'; meta = 'PASS';
+        body = section('Status', rows([['Status', 'FAIL'], ['Issue', 'IR verification failed'], ['Affected operation', 'tensor.write[index]'], ['Source', 'decode_layer.py:728'], ['Previous pass', 'PASS'], ['Next pass', 'Not executed']])) +
+          section('Compiler failure localized', '<p class="kf-ri-note">LegalizeIndexing 将动态 index lowering 为 GM store 地址计算后，违反 index width / address calculation constraint。</p>') +
+          section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-source="decode_layer.py:728">Open source</button><button type="button" data-ws-fix-rerun>应用静态仿射 fallback 并重跑</button></div>');
+      } else {
+        title = id; meta = 'IR Pass';
+        body = section('编译证据', '<p class="kf-ri-note">Pass River 与 IR diff 保留在 Compilation；选择已同步到该视图。</p>') + section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-pass="' + esc(id) + '">打开 Compilation</button></div>');
+      }
     } else if (kind === 'finding') {
-      const f = FINDINGS.find(x => x.k === id);
-      title = f ? f.title : 'Finding'; meta = f ? f.verdict : '';
-      body = section('结论', '<p class="kf-ri-note">' + esc(f ? f.what : '—') + '</p>') + section('下一步', '<div class="kf-oi-actions"><button type="button" data-ws-route="performance">查看性能证据</button></div>');
+      const f = getFindings(current).find(x => x.id === id) || FINDINGS.find(x => x.k === id);
+      title = f ? f.title : 'Finding'; meta = f ? (DOMAIN_LABEL[f.domain] || f.domain || '') : '';
+      body = section('结论', '<p class="kf-ri-note">' + esc(f ? (f.summary || f.what) : '—') + '</p>') +
+        section('证据', '<div class="kf-oi-links">' + (f && f.evidence || []).map(x => '<span class="kf-oi-evidence">✓ ' + esc(x) + '</span>').join('') + '</div>') +
+        section('下一步', '<div class="kf-oi-actions"><button type="button" data-ws-route="' + esc(f?.action?.route || f?.domain || 'overview') + '">' + esc(f?.action?.label || '查看证据') + '</button></div>');
     }
     return '<div id="kfObjectInspector" class="kf-oi"><div class="kf-oi-head"><span>' + esc(kind.toUpperCase()) + '</span><h3>' + esc(title) + '</h3><small>' + esc(meta) + '</small></div>' + body + '</div>';
   }
@@ -1066,6 +1325,123 @@
     renderInspector();
   }
 
+  function overviewPanel(r, L) {
+    const m = getRunModel(r);
+    const states = DOMAIN_ORDER.map(key => {
+      const d = getDomainVerdict(r, key), verdict = DOMAIN_VERDICT[d.verdict] || DOMAIN_VERDICT.unknown;
+      return '<button type="button" class="is-' + verdict[1] + '" data-ws-route="' + key + '"><b>' + DOMAIN_LABEL[key] + '</b><em>' + verdict[0] + '</em><small>' + esc(d.summary) + '</small></button>';
+    }).join('');
+    const findings = getFindings(r).map(f => {
+      const severity = f.severity === 'critical' ? 'bad' : f.severity === 'warning' ? 'warn' : 'dim';
+      return '<button type="button" class="kf-rw-finding is-' + severity + '" data-ws-finding="' + esc(f.id) + '">' +
+        '<span>' + esc(String(f.severity || 'info').toUpperCase()) + ' · ' + esc(DOMAIN_LABEL[f.domain] || f.domain) + '</span><b>' + esc(f.title) + '</b><small>' + esc(f.location || f.summary) + ' →</small></button>';
+    }).join('') || '<p class="kf-rd-note is-dim">无待处理 Finding。</p>';
+    const evidenceKeys = isCompileFailureStory(r)
+      ? ['ir_validation', 'pass_dump', 'source_location', 'golden_compare', 'runtime_timeline', 'dependency_graph', 'pmu']
+      : Object.keys(getEvidenceCoverage(r));
+    const evidence = evidenceKeys.map(key => {
+      const e = getEvidenceCoverage(r)[key], s = EVIDENCE_STATUS[e.status] || EVIDENCE_STATUS.unavailable;
+      return '<div class="is-' + e.status + '"><b>' + esc(e.label || EVIDENCE_LABEL[key]) + '</b><small>' + s[0] + ' ' + s[1] + '</small></div>';
+    }).join('');
+    const raw = (r.inventory || []).map(i => '<code>' + esc(i.where || i.label) + '</code>').join(' · ') || '<code>无挂载产物目录</code>';
+    const lineage = m.derivedFrom
+      ? '<p class="kf-rd-note">Derived from ' + esc(m.derivedFrom === 'run_105' ? '#105' : m.derivedFrom === 'run_106' ? '#106' : m.derivedFrom === 'run_107' ? '#107' : m.derivedFrom) + ' · ' + esc(m.change || (m.changes || []).join(' · ')) + '</p>' : '';
+    const optimizationActions = isValidatedOptimizationStory(r)
+      ? '<div class="kf-oi-actions"><button type="button" data-ws-compare-with="run_107">与 #107 对比</button></div>' : '';
+    const baseline = m.baseline && m.baselineMeta
+      ? '<p class="kf-rd-note">Trusted Baseline · <code>' + esc(m.baselineMeta.id) + '</code></p>' +
+        '<details class="kf-rw-evidence"><summary>Reproducibility metadata</summary><div class="kf-rw-evidence-body"><p class="kf-rd-note">source commit · ' + esc(m.baselineMeta.sourceCommit) + ' · backend · ' + esc(m.baselineMeta.backend) + ' · environment · ' + esc(m.baselineMeta.environmentFingerprint) + ' · input · ' + esc(m.baselineMeta.inputShape) + ' · compiler · ' + esc(m.baselineMeta.compilerVersion) + ' · Run ID · ' + esc(m.baselineMeta.runId) + '</p></div></details>' : '';
+    return '<section class="kf-rw-health"><div class="kf-rd-h">Analysis Status<small>Domain verdict 与 supporting evidence</small></div><div>' + states + '</div></section>' +
+      '<section class="kf-rd-sec"><div class="kf-rd-h">Findings<small>用户需要处理的问题</small></div>' + findings + lineage + baseline + optimizationActions + '</section>' +
+      '<details class="kf-rw-evidence"><summary>Evidence Coverage 与产物</summary><div class="kf-rw-evidence-body kf-rw-coverage">' + evidence +
+        '<p class="kf-rd-note">Raw artifacts · ' + raw + '</p></div></details>';
+  }
+
+  function domainUnavailablePanel(r, key) {
+    const d = getDomainVerdict(r, key), v = DOMAIN_VERDICT[d.verdict] || DOMAIN_VERDICT.unknown;
+    const prompt = key === 'correctness' && d.verdict === 'not_evaluated'
+      ? 'No golden/oracle data was collected.' : '该 Run 没有挂载此专项的可下钻证据。';
+    const action = key === 'correctness' && d.verdict === 'not_evaluated'
+      ? '<button type="button" data-ws-new-run="correctness">Run correctness validation</button>'
+      : key === 'resources' && d.verdict === 'unknown'
+        ? '<button type="button" data-ws-new-run="resources">重新运行并采集资源数据</button>' : '';
+    return '<section class="kf-rd-sec kf-rw-domain-empty"><div class="kf-rd-h">' + DOMAIN_LABEL[key] + '<small>' + v[0] + ' · ' + esc(d.summary) + '</small></div><p class="kf-rd-note">' + prompt + '</p>' + action + '</section>';
+  }
+
+  function compilationFailureStoryPanel(r) {
+    const passes = [
+      ['Frontend', 'PASS'], ['InlineFunctions', 'PASS'], ['InferLayout', 'PASS'],
+      ['LegalizeIndexing', 'FAIL'], ['AllocateMemory', 'NOT RUN'], ['Codegen', 'NOT RUN']
+    ];
+    return '<section class="kf-rd-sec" aria-label="Compilation failure localized">' +
+      '<div class="kf-rd-h">Compilation<small>Mock compiler evidence · confirmed failure · first failing pass</small></div>' +
+      '<div class="kf-oi-links">' + passes.map(p =>
+        '<button type="button" class="kf-oi-link" data-ws-select-kind="pass" data-ws-select-id="' + esc(p[0]) + '" data-ws-source="compilation"' +
+          (p[0] === 'LegalizeIndexing' ? ' aria-pressed="true"' : '') + '>' + esc(p[0]) + ' · ' + esc(p[1]) + '</button>').join('') +
+      '</div>' +
+      '<div class="kf-rd-h">IR change at LegalizeIndexing<small>Previous pass valid → current lowering creates an invalid GM store address form</small></div>' +
+      '<div class="kf-rd-art"><b>Before</b><code>tensor.write(cache, value, index = dynamic_index)</code><b>After</b><code>gm.store(base + cast_i64(dynamic_index) * stride, value)</code><small>constraint violation · index width / address calculation mismatch</small></div>' +
+      '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="pass" data-ws-select-id="LegalizeIndexing" data-ws-source="compilation">查看失败 Pass</button></div>' +
+    '</section>';
+  }
+
+  function correctnessFailureStoryPanel() {
+    const checkpoints = [
+      ['T31', 'PASS'], ['T34', 'PASS'], ['T35', 'PASS'],
+      ['T37', 'FAIL · First divergence'], ['T41', 'FAIL'], ['Output', 'FAIL']
+    ];
+    return '<section class="kf-rd-sec" aria-label="Correctness failure evidence">' +
+      '<div class="kf-rd-h">Correctness<small>Output mismatch · repeated runs diverge</small></div>' +
+      '<div class="kf-rd-art"><b>Golden vs Actual</b><code>max_abs_diff = 0.382</code><small>相同输入连续执行 3 次：mismatch region A · mismatch region B · partially correct</small></div>' +
+      '<p class="kf-rd-note">结果在重复运行之间变化，优先检查 task ordering / dependency。</p>' +
+      '<div class="kf-rd-h">First divergent tensor<small>Output → Tensor checkpoints → first bad point</small></div>' +
+      '<div class="kf-oi-links">' + checkpoints.map(x =>
+        x[0] === 'T37'
+          ? objectButton('tensor', '37', x[0] + ' · ' + x[1], 'correctness')
+          : '<span class="kf-oi-evidence">' + esc(x[0] + ' · ' + x[1]) + '</span>').join('') +
+      '</div>' +
+      '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="tensor" data-ws-select-id="37" data-ws-source="correctness">定位首个分歧</button></div>' +
+    '</section>';
+  }
+
+  function correctnessExecutionStoryPanel() {
+    return '<section class="kf-rd-sec" aria-label="Ordering evidence">' +
+      '<div class="kf-rd-h">Ordering evidence<small>Task Graph + Timeline</small></div>' +
+      '<div class="kf-oi-links">' +
+        objectButton('task', '182', 'Task #182 · reader', 'execution') +
+        objectButton('buffer', 'work_table', 'Buffer X · work_table', 'execution') +
+        objectButton('task', '197', 'Task #197 · writer / overwrite', 'execution') +
+      '</div>' +
+      '<div class="kf-rd-art"><b>Missing expected ordering</b><code>Task #182  →  Task #197</code><small>#182 still reading · #197 overwrite starts · writer begins before reader finishes</small></div>' +
+      '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="dependency" data-ws-select-id="missing_182_197" data-ws-source="execution">查看 Missing Dependency</button></div>' +
+    '</section>';
+  }
+
+  function performanceWarningStoryPanel() {
+    const chain = ['Task #141', 'Task #178', 'Task #182 · Long pole', 'Task #196', 'Task #201'];
+    return '<section class="kf-rd-sec" aria-label="Performance critical path">' +
+      '<div class="kf-rd-h">Performance<small>时间主要花在哪里？</small></div>' +
+      '<div class="kf-oi-links">' +
+        '<span class="kf-oi-evidence">Latency · 1.82 ms</span><span class="kf-oi-evidence">Target · &lt; 1.50 ms</span><span class="kf-oi-evidence">Critical Path · 1.41 ms</span><span class="kf-oi-evidence">Wait / Stall · 37%</span>' +
+      '</div>' +
+      '<div class="kf-rd-h">Critical Path<small>Task #182 is the current long-pole</small></div>' +
+      '<div class="kf-oi-links">' + chain.map(x => x.indexOf('182') >= 0
+        ? objectButton('task', '182', x + ' · 214 µs · +45.6%', 'performance')
+        : '<span class="kf-oi-evidence">' + esc(x) + '</span>').join(' <span class="kf-oi-evidence">↓</span>') +
+      '</div>' +
+      '<div class="kf-rd-art"><b>Long-pole evidence</b><code>Task #182 · 214 µs  vs reference · 147 µs</code><small>Critical Path · YES · inputs normal · output correct</small></div>' +
+      '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="task" data-ws-select-id="182" data-ws-source="performance">查看 Task #182</button></div>' +
+    '</section>';
+  }
+
+  function performanceResourcesStoryPanel() {
+    return '<section class="kf-rd-sec" aria-label="Resource capacity result">' +
+      '<div class="kf-rd-h">Resources<small>PASS · No capacity violation detected.</small></div>' +
+      '<div class="kf-oi-links"><span class="kf-oi-evidence">L0B peak · 81%</span><span class="kf-oi-evidence">UB peak · 61%</span><span class="kf-oi-evidence">No overflow</span></div>' +
+      '<p class="kf-rd-note">性能差不等于内存容量不足；当前证据指向关键路径上的窄搬运。</p>' +
+    '</section>';
+  }
+
   function renderDetailBody() {
     if (!els.detail) return;
     // never innerHTML over nodes on loan from another stage
@@ -1076,12 +1452,10 @@
       els.detail.innerHTML = '<p class="kf-rd-empty">选择一次运行查看结果。</p>';
       return;
     }
-    const v = VERDICT[r.verdict] || VERDICT.purged;
-
     const LX = r.live ? liveRun() : null;
     const head = headline(t, r, LX);
 
-    if (r.purged) {
+    if (r.purged && !r.model) {
       els.detail.innerHTML = head +
         '<p class="kf-rd-note">' + esc(r.note || '产物目录已清理。') + '</p>' +
         '<p class="kf-rd-note is-dim">工件已清理，仅保留结论。</p>';
@@ -1101,27 +1475,7 @@
       const panel = $('#runTabPanel', els.detail);
 
       if (st.tab === 'overview') {
-        const D = traceData(), P = D && D.perf;
-        const findingRows = FINDINGS.filter(f => L.byCause[f.k]).map(f =>
-          '<button type="button" class="kf-rw-finding is-' + f.tone + '" data-ws-finding="' + f.k + '">' +
-            '<span>' + esc(f.verdict) + '</span><b>' + esc(f.title) + '</b>' +
-            '<small>' + (L.byCause[f.k] || 0) + ' 条证据 · Performance →</small></button>').join('');
-        const states = [
-          ['Correctness', '未产出 Oracle', 'correctness'],
-          ['Execution', D ? D.counts.tasks + ' Task · ' + D.counts.edges + ' 依赖' : '未采集 Trace', 'execution'],
-          ['Compilation', L.passes + ' Pass · ' + L.kernels + ' Kernel', 'compilation'],
-          ['Performance', P ? Math.round(P.chain.workPct) + '% 关键链在算' : '未采集', 'performance'],
-          ['Resources', L.peakSp + ' 峰值 ' + L.peak + '%', 'resources']
-        ];
-        panel.innerHTML =
-          '<section class="kf-rw-health"><div class="kf-rd-h">分析状态<small>按问题进入证据视图</small></div>' +
-            '<div>' + states.map(s => '<button type="button" data-ws-route="' + s[2] + '"><b>' + s[0] + '</b><small>' + esc(s[1]) + '</small></button>').join('') + '</div></section>' +
-          '<section class="kf-rd-sec"><div class="kf-rd-h">Findings<small>按影响排序</small></div>' +
-            (findingRows || '<p class="kf-rd-note is-dim">无待处理 Finding。</p>') + '</section>' +
-          '<details class="kf-rw-evidence"><summary>证据与产物</summary><div class="kf-rw-evidence-body">' +
-            '<p class="kf-rd-note">来源 <code>' + esc(r.dir || '—') + '</code> · ' + esc(r.target || '—') + '</p>' +
-            (r.inventory || []).map(i => '<div><b>' + esc(i.label) + '</b><small>' + esc(i.meta) + '</small><code>' + esc(i.where) + '</code></div>').join('') +
-          '</div></details>';
+        panel.innerHTML = overviewPanel(r, L);
       } else if (st.tab === 'execution') {
         renderExecution(panel);
       } else if (st.tab === 'performance') {
@@ -1132,21 +1486,39 @@
       } else if (st.tab === 'resources') {
         panel.innerHTML = band('Compile-time Memory', '片上水位、复用与调度兑现') + memBlock(L) + intentBlock(L) +
           band('Runtime Resources', '仅展示已采集信号') +
-          '<section class="kf-rw-runtime-empty"><div><b>Heap</b><small>未采集</small></div><div><b>TensorMap</b><small>未采集</small></div><div><b>Ringbuffer</b><small>未采集</small></div></section>';
+          '<section class="kf-rw-runtime-empty"><p>Runtime resource data was not collected for this Run.</p><small>需要 Scope Stats 才能分析 Heap、TensorMap、Ringbuffer。</small><button type="button" data-ws-new-run="resources">重新运行并采集资源数据</button></section>';
       } else {
         syncPanel();
       }
       return;
     }
 
-    // archived runs: no directory in the workspace, only the recorded verdict
+    // Historical runs retain immutable conclusions even when their directory is gone.
     const sig = (r.signals && r.signals.length)
       ? '<div class="kf-rd-signals">' + r.signals.map(s =>
           '<span class="is-' + s[0] + '"><i></i>' + esc(s[1]) + '</span>').join('') + '</div>'
       : '';
+    const storyOverview = (isCompileFailureStory(r) || isCorrectnessFailureStory(r) || isPerformanceWarningStory(r) || isValidatedOptimizationStory(r))
+      ? '<section class="kf-rd-overview" style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.95fr) minmax(0,.85fr);" aria-label="运行快照概览">' +
+          '<div class="kf-rd-overview-left">' + head + '</div>' + historicalKpis(r) + '</section>'
+      : head;
     // its recorded artifact list is in the right rail too (riArchivedArts)
-    els.detail.innerHTML = head + sig +
-      '<p class="kf-rd-note is-dim">仅保留运行结论；逐项证据不可下钻。</p>';
+    els.detail.innerHTML = storyOverview + tabStrip() + '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div>';
+    const panel = $('#runTabPanel', els.detail);
+    if (st.tab === 'overview') panel.innerHTML = overviewPanel(r, null) + sig;
+    else if (st.tab === 'compilation' && isCompileFailureStory(r)) {
+      syncPanel();
+      panel.prepend(document.createRange().createContextualFragment(compilationFailureStoryPanel(r)));
+    } else if (st.tab === 'correctness' && isCorrectnessFailureStory(r)) {
+      panel.innerHTML = correctnessFailureStoryPanel();
+    } else if (st.tab === 'execution' && isCorrectnessFailureStory(r)) {
+      renderExecution(panel);
+      panel.prepend(document.createRange().createContextualFragment(correctnessExecutionStoryPanel(r)));
+    } else if (st.tab === 'performance' && isPerformanceWarningStory(r)) {
+      panel.innerHTML = performanceWarningStoryPanel();
+    } else if (st.tab === 'resources' && isPerformanceWarningStory(r)) {
+      panel.innerHTML = performanceResourcesStoryPanel();
+    } else panel.innerHTML = domainUnavailablePanel(r, st.tab);
   }
 
   function render() {
@@ -1156,7 +1528,7 @@
     els.list.innerHTML = rows.map(t => {
       const open = t.id === st.task;
       const head = latest(t);
-      const v = VERDICT[head.verdict] || VERDICT.purged;
+      const v = getRunDisplayStatus(head);
       const liveN = t.runs.filter(r => r.live).length;
       const sel = open ? (t.runs.find(r => r.id === st.run) || head) : null;
 
@@ -1190,6 +1562,158 @@
     st.tab = k;
     renderDetailBody();
     renderInspector();
+  }
+
+  function createFollowupRun(domain, silent) {
+    const task = TASKS.find(x => x.id === st.task);
+    const previous = task && task.runs.find(x => x.id === st.run);
+    if (!task || !previous) return;
+    if (previous.id === 'run_105') {
+      let next = task.runs.find(x => x.id === 'run_106');
+      if (!next) {
+        next = {
+          id: 'run_106', displayId: '#106', time: '12:48', target: previous.target, duration: '', live: false,
+          model: runModel('completed', {
+            compilation: { verdict: 'pass', summary: '42 Pass · 45 Kernel · 0 blocking error' },
+            correctness: { verdict: 'fail', summary: '输出存在非稳定性数值分歧' },
+            execution: { verdict: 'warning', summary: '检测到 1 个可疑 task ordering' },
+            performance: { verdict: 'not_evaluated', summary: '正确性未通过，暂不评价性能' },
+            resources: { verdict: 'pass', summary: '未发现资源越界' }
+          }, {
+            golden_compare: { status: 'available' }, tensor_dump: { status: 'partial' }, args_dump: { status: 'available' },
+            dependency_graph: { status: 'available' }, runtime_timeline: { status: 'available' }, ir_validation: { status: 'available' },
+            pmu: { status: 'not_collected' }, core_trace: { status: 'not_collected' }, scope_stats: { status: 'not_collected', label: 'Scope Stats' }
+          }, [{
+            id: 'F106', severity: 'critical', domain: 'correctness',
+            title: '输出在相同输入下出现非稳定性分歧',
+            summary: '重复执行结果不一致，误差明显超过正常浮点累加扰动。', location: 'Tensor T37 · First divergence',
+            affectedObjects: [{ kind: 'tensor', id: '37' }],
+            evidence: ['Golden comparison failed', 'max_abs_diff = 0.382', '3 repeated runs produce different mismatched regions'],
+            action: { label: '定位首个分歧', route: 'correctness' }
+          }, {
+            id: 'F106E', severity: 'warning', domain: 'execution',
+            title: 'Task #197 在 Task #182 完成读取前覆盖共享缓冲区',
+            summary: '当前 dependency graph 缺少必要的 ordering edge，导致执行结果随调度时序变化。', location: 'Task #182 → Task #197 · Buffer X',
+            affectedObjects: [{ kind: 'task', id: '182' }, { kind: 'task', id: '197' }, { kind: 'dependency', id: 'missing_182_197' }, { kind: 'buffer', id: 'work_table' }],
+            evidence: ['same buffer involved', '#182 reads buffer', '#197 overwrites buffer', 'no dependency edge exists', 'timeline overlaps', 'repeated runs produce unstable results'],
+            action: { label: '查看 Execution', route: 'execution' }
+          }], {
+            correctnessStory: true, derivedFrom: 'run_105', change: 'dynamic index → affine fallback',
+            source: { file: 'decode_layer.py', line: 728 },
+            objectMap: { tensor: 'T37', producer: 'Task #182', writer: 'Task #197', dependency: 'missing ordering edge', buffer: 'Buffer X / work_table' }
+          }),
+          artifacts: [Object.assign({}, ART().source, { meta: 'decode_layer.py · task ordering source map', tone: 'warn' }), Object.assign({}, ART().correct, { meta: 'T37 · first divergence', tone: 'bad', primary: true })], signals: []
+        };
+        task.runs.unshift(next);
+      }
+      st.run = next.id; st.selection = null; st.tab = 'overview';
+      render(); renderDetail();
+      const toast = $('#toast');
+      if (!silent && toast) { toast.textContent = '已基于 #105 创建新的运行 #106'; toast.classList.add('is-visible'); setTimeout(() => toast.classList.remove('is-visible'), 1800); }
+      return;
+    }
+    if (previous.id === 'run_106') {
+      let next = task.runs.find(x => x.id === 'run_107');
+      if (!next) {
+        next = {
+          id: 'run_107', displayId: '#107', time: '12:51', target: previous.target, duration: '', live: false,
+          model: runModel('completed', {
+            compilation: { verdict: 'pass', summary: '42 Pass · 45 Kernel' },
+            correctness: { verdict: 'pass', summary: '3 / 3 Oracle · 12 / 12 checkpoint match' },
+            execution: { verdict: 'pass', summary: '428 Task · dependency graph complete' },
+            performance: { verdict: 'warning', summary: 'Latency 1.82 ms · target < 1.50 ms' },
+            resources: { verdict: 'pass', summary: 'No overflow · L0B peak 81%' }
+          }, {
+            golden_compare: { status: 'available' }, tensor_dump: { status: 'available', label: 'Tensor Checkpoints' },
+            dependency_graph: { status: 'available' }, runtime_timeline: { status: 'available' }, critical_path: { status: 'available' },
+            pmu: { status: 'partial' }, core_trace: { status: 'not_collected', label: 'Core Swimlane' }, memory_map: { status: 'available' },
+            scope_stats: { status: 'not_collected', label: 'Scope Stats' }
+          }, [{
+            id: 'F107', severity: 'warning', domain: 'performance',
+            title: 'Critical path exceeds latency target',
+            summary: 'End-to-end latency 1.82 ms，目标 < 1.50 ms；Task #182 是当前主要 long-pole。', location: 'Task #182 · attention_incore_2',
+            affectedObjects: [{ kind: 'task', id: '182' }, { kind: 'kernel', id: 'attention_incore_2' }],
+            evidence: ['total latency: 1.82 ms', 'target: < 1.50 ms', 'Task #182 duration: 214 µs', 'baseline/reference task duration: 147 µs', 'Task #182 lies on critical path'],
+            action: { label: '查看 Performance', route: 'performance' }
+          }, {
+            id: 'F107K', severity: 'warning', domain: 'performance',
+            title: 'RoPE lo/hi 半维被拆成两次窄搬运',
+            summary: '连续的 128-element row 被拆成两个 64-element transfer，增加搬运次数，并拉长关键路径上的 Task #182。', location: 'attention_incore_2 · decode_layer.py / RoPE block',
+            affectedObjects: [{ kind: 'kernel', id: 'attention_incore_2' }, { kind: 'source', id: 'decode_layer.py:728' }],
+            evidence: ['Observed width: 256 B', 'Preferred width: 512 B', 'Occurrences: 16', 'Task #182: +45.6% duration'],
+            action: { label: '查看 Kernel 性能证据', route: 'performance' }
+          }], {
+            performanceStory: true, derivedFrom: 'run_106', change: '添加 Task #182 → #197 ordering dependency',
+            source: { file: 'decode_layer.py', line: 728 },
+            objectMap: { longPole: 'Task #182', kernel: 'attention_incore_2', source: 'decode_layer.py:728', criticalPath: ['141', '178', '182', '196', '201'] },
+            compareMetrics: { latency: '1.82 ms', criticalPath: '1.41 ms', task182: '214 µs', mteStall: '31%', transferWidth: '256 B', l0bPeak: '81%', kernelCount: '45' }
+          }),
+          artifacts: [Object.assign({}, ART().source, { meta: 'decode_layer.py · RoPE transfer recommendation', tone: 'warn' }), Object.assign({}, ART().correct, { meta: '12 / 12 checkpoint match', tone: 'ok' })], signals: []
+        };
+        task.runs.unshift(next);
+      }
+      st.run = next.id; st.selection = null; st.tab = 'overview';
+      render(); renderDetail();
+      const toast = $('#toast');
+      if (!silent && toast) { toast.textContent = '已基于 #106 添加 ordering dependency，创建运行 #107'; toast.classList.add('is-visible'); setTimeout(() => toast.classList.remove('is-visible'), 1800); }
+      return;
+    }
+    if (previous.id === 'run_107') {
+      let next = task.runs.find(x => x.id === 'run_108');
+      if (!next) {
+        next = {
+          id: 'run_108', displayId: '#108', time: '12:56', target: previous.target, duration: '', live: false,
+          model: runModel('completed', {
+            compilation: { verdict: 'pass', summary: '42 Pass · 45 Kernel' },
+            correctness: { verdict: 'pass', summary: '3 / 3 Oracle · 12 / 12 checkpoint match' },
+            execution: { verdict: 'pass', summary: 'Task topology unchanged · dependency valid' },
+            performance: { verdict: 'pass', summary: 'Latency 1.36 ms · target < 1.50 ms' },
+            resources: { verdict: 'pass', summary: 'L0B peak 83% · within budget' }
+          }, {
+            golden_compare: { status: 'available' }, tensor_dump: { status: 'available', label: 'Tensor Checkpoints' },
+            dependency_graph: { status: 'available' }, runtime_timeline: { status: 'available' }, critical_path: { status: 'available' },
+            pmu: { status: 'partial' }, memory_map: { status: 'available' }, scope_stats: { status: 'not_collected', label: 'Scope Stats' }
+          }, [{
+            id: 'F108P', severity: 'info', domain: 'performance', title: 'Latency target achieved',
+            summary: '1.36 ms · target < 1.50 ms', location: 'Critical Path 0.98 ms', affectedObjects: [{ kind: 'task', id: '182' }],
+            evidence: ['Task #182: 147 µs', 'transfer width: 512 B', 'MTE stall: 17%'], action: { label: '与 #107 对比', route: 'overview' }
+          }, {
+            id: 'F108V', severity: 'info', domain: 'correctness', title: 'Optimization introduced no correctness regression',
+            summary: '3 / 3 Oracle · 12 / 12 checkpoint match', location: 'Golden / Oracle unchanged', affectedObjects: [],
+            evidence: ['Correctness: PASS', '12 / 12 checkpoints match'], action: { label: '与 #107 对比', route: 'overview' }
+          }], {
+            optimizationStory: true, derivedFrom: 'run_107', change: 'wide transfer optimization',
+            changes: [
+              { domain: 'source', title: '合并 RoPE lo / hi 搬运', before: '2 × 64-element transfer', after: '1 × 128-element transfer' },
+              { domain: 'compile', title: 'Kernel topology unchanged', before: '45 kernels', after: '45 kernels' }
+            ],
+            compareMetrics: { latency: '1.36 ms', criticalPath: '0.98 ms', task182: '147 µs', mteStall: '17%', transferWidth: '512 B', l0bPeak: '83%', kernelCount: '45' },
+            source: { file: 'decode_layer.py', line: 728 }
+          }),
+          artifacts: [], signals: []
+        };
+        task.runs.unshift(next);
+      }
+      st.run = next.id; st.selection = null; st.tab = 'overview';
+      render(); renderDetail();
+      const toast = $('#toast');
+      if (!silent && toast) { toast.textContent = '优化方案已应用，创建新的运行 #108'; toast.classList.add('is-visible'); setTimeout(() => toast.classList.remove('is-visible'), 1800); }
+      return;
+    }
+    const n = task.runs.filter(x => x.id.indexOf(previous.id + '_rerun') === 0).length + 1;
+    const domains = makeDomains({});
+    domains.compilation = { verdict: 'not_evaluated', summary: '等待新运行' };
+    domains.correctness = { verdict: 'not_evaluated', summary: '等待新运行' };
+    domains.execution = { verdict: 'not_evaluated', summary: '等待新运行' };
+    domains.performance = { verdict: 'not_evaluated', summary: '等待新运行' };
+    domains.resources = { verdict: 'not_evaluated', summary: '等待新运行' };
+    const next = {
+      id: previous.id + '_rerun' + n, time: '待调度', target: previous.target, duration: '', live: false,
+      model: runModel('running', domains, {}, [], { parentRunId: previous.id, requestedDomain: domain }), artifacts: [], signals: []
+    };
+    task.runs.unshift(next);                 // prior Run remains immutable
+    st.run = next.id; st.selection = null; st.tab = 'overview';
+    render(); renderDetail();
   }
 
   function onRunClick(e) {
@@ -1232,6 +1756,34 @@
       renderDetail();
       return;
     }
+    const compareWith = e.target.closest('[data-ws-compare-with]');
+    if (compareWith) { compareCurrentRunWith(compareWith.dataset.wsCompareWith); return; }
+    const setBaseline = e.target.closest('[data-ws-set-baseline]');
+    if (setBaseline) { setTrustedBaseline(setBaseline.dataset.wsSetBaseline); return; }
+    const fixRerun = e.target.closest('[data-ws-fix-rerun]');
+    if (fixRerun) { createFollowupRun('compilation'); return; }
+    const fixDependency = e.target.closest('[data-ws-fix-dependency]');
+    if (fixDependency) { createFollowupRun('dependency'); return; }
+    const optimizeRerun = e.target.closest('[data-ws-optimize-rerun]');
+    if (optimizeRerun) { createFollowupRun('performance'); return; }
+    const openSource = e.target.closest('[data-ws-open-source]');
+    if (openSource) {
+      const parts = openSource.dataset.wsOpenSource.split(':');
+      const file = parts[0], line = Number(parts[1]);
+      releaseBorrowed();
+      const sourceButton = document.querySelector('[data-file="' + file + '"]');
+      if (sourceButton) sourceButton.click();
+      setTimeout(() => {
+        const row = $$('#dslEditor > div').find(x => Number($('i', x)?.textContent) === line);
+        if (!row) return;
+        row.classList.add('is-changed');
+        row.setAttribute('aria-label', file + ':' + line + ' · Source → ' + (openSource.dataset.wsSourceContext || 'IR Pass: LegalizeIndexing'));
+        row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 80);
+      return;
+    }
+    const newRun = e.target.closest('[data-ws-new-run]');
+    if (newRun) { createFollowupRun(newRun.dataset.wsNewRun); return; }
     // finding cards open in place; no state is kept, so a tab switch re-collapses
     const fh = e.target.closest('[data-th-find]');
     if (fh) {
@@ -1253,8 +1805,11 @@
     }
     const finding = e.target.closest('[data-ws-finding]');
     if (finding) {
+      const task = TASKS.find(x => x.id === st.task);
+      const run = task && task.runs.find(x => x.id === st.run);
+      const f = getFindings(run).find(x => x.id === finding.dataset.wsFinding);
       selectObject({ kind: 'finding', id: finding.dataset.wsFinding, sourceTab: 'overview' });
-      toTab('performance');
+      toTab(f?.action?.route || f?.domain || 'overview');
       return;
     }
     const select = e.target.closest('[data-ws-select-kind]');
@@ -1315,6 +1870,13 @@
   function wire() {
     if (els.root) els.root.addEventListener('click', onRunClick);
     if (els.detail) els.detail.addEventListener('click', onRunClick);
+    // A fix never rewrites the selected historical Run. The linear correctness
+    // surface delegates this action to a newly created follow-up Run instead.
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#fixAndRerun')) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      createFollowupRun('correctness');
+    }, true);
 
     els.filters.addEventListener('click', e => {
       const b = e.target.closest('[data-th-filter]'); if (!b) return;
@@ -1396,8 +1958,22 @@
     fix();
   }
 
+  /* The four-run sequence is a reviewable fixture, not an interaction-only
+     breadcrumb. Keep each immutable Run visible after a page reload while the
+     same follow-up commands remain available for future runs. */
+  function seedStoryRuns() {
+    const decode = TASKS.find(t => t.id === 'task_decode');
+    if (!decode || !decode.runs.some(r => r.id === 'run_105')) return;
+    st.task = decode.id;
+    st.run = 'run_105';
+    createFollowupRun('compilation', true);
+    createFollowupRun('dependency', true);
+    createFollowupRun('performance', true);
+  }
+
   function boot() {
     if (!mount()) return;
+    seedStoryRuns();
     wire(); claimPaneHeader(); hideStageHeaderOnDetail(); ownInspector();
     render(); renderDetail();
   }
