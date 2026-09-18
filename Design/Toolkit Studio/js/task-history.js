@@ -388,9 +388,9 @@
      inside that stage survives the move. */
   const PANELS = [
     { k: 'overview', label: 'Overview' },
+    { k: 'compilation', label: 'Compilation', from: '.kf-stage[data-stage="2"]' },
     { k: 'correctness', label: 'Correctness', from: '.kf-stage[data-stage="3"]' },
     { k: 'execution', label: 'Execution' },
-    { k: 'compilation', label: 'Compilation', from: '.kf-stage[data-stage="2"]' },
     { k: 'performance', label: 'Performance' },
     { k: 'resources', label: 'Resources' }
   ];
@@ -1464,12 +1464,124 @@
   function domainUnavailablePanel(r, key) {
     const d = getDomainVerdict(r, key), v = DOMAIN_VERDICT[d.verdict] || DOMAIN_VERDICT.unknown;
     const prompt = key === 'correctness' && d.verdict === 'not_evaluated'
-      ? 'No golden/oracle data was collected.' : '该 Run 没有挂载此专项的可下钻证据。';
+      ? '未采集 Golden / Oracle 对比数据。'
+      : key === 'execution' && d.verdict === 'not_evaluated'
+        ? '本次运行未进入 runtime，未生成 Timeline 或依赖数据。'
+        : key === 'performance' && d.verdict === 'not_evaluated'
+          ? '本次运行未产生可用的性能证据。'
+          : key === 'resources' && d.verdict === 'unknown'
+            ? '本次运行未采集运行期资源数据。'
+            : '本次运行未采集此专项的下钻证据。';
     const action = key === 'correctness' && d.verdict === 'not_evaluated'
       ? '<button type="button" data-ws-new-run="correctness">Run correctness validation</button>'
       : key === 'resources' && d.verdict === 'unknown'
         ? '<button type="button" data-ws-new-run="resources">重新运行并采集资源数据</button>' : '';
     return '<section class="kf-rd-sec kf-rw-domain-empty"><div class="kf-rd-h">' + DOMAIN_LABEL[key] + '<small>' + v[0] + ' · ' + esc(d.summary) + '</small></div><p class="kf-rd-note">' + prompt + '</p>' + action + '</section>';
+  }
+
+  function notEvaluatedEvidencePanel(r, key) {
+    const d = getDomainVerdict(r, key), v = DOMAIN_VERDICT[d.verdict] || DOMAIN_VERDICT.unknown;
+    const evidence = getEvidenceCoverage(r);
+    const available = name => hasEvidence(r, name) ? 'available' : 'not collected';
+    const content = {
+      compilation: {
+        title: 'Compilation evidence',
+        signals: ['IR Validation · ' + available('ir_validation'), 'Pass Dump · ' + available('pass_dump'), 'Device code · not generated'],
+        art: ['Compiler gate', 'Compilation did not reach a completed artifact.', '先完成编译，再生成后续专项证据。']
+      },
+      correctness: {
+        title: 'Correctness validation gate',
+        signals: ['Golden Compare · ' + available('golden_compare'), 'Tensor Checkpoints · ' + available('tensor_dump'), 'Output compare · blocked'],
+        art: ['Validation status', 'No output was produced for comparison.', '编译未完成，正确性验证未启动。']
+      },
+      execution: {
+        title: 'Execution gate',
+        signals: ['Device dispatch · not started', 'Dependency Graph · ' + available('dependency_graph'), 'Runtime Timeline · ' + available('runtime_timeline')],
+        art: ['Terminal stage', 'LegalizeIndexing', '编译在设备执行前中止，未创建 Task runtime 记录。']
+      },
+      performance: {
+        title: 'Performance measurement gate',
+        signals: ['End-to-end latency · not measured', 'Critical Path · not built', 'PMU · ' + available('pmu')],
+        art: ['Measurement status', 'No runtime sample', '没有可用于归因的延迟、关键链或硬件计数器。']
+      },
+      resources: {
+        title: 'Resource evidence',
+        signals: ['Compile-time allocation · not reached', 'Runtime Resources · ' + available('runtime_resources'), 'Memory Map · ' + available('memory_map')],
+        art: ['Collection status', 'No runtime resource sample', '未进入设备执行，无法判断 Heap、TensorMap 或 Ringbuffer 使用情况。']
+      }
+    }[key] || {
+      title: DOMAIN_LABEL[key] + ' evidence',
+      signals: [], art: ['Status', 'Not evaluated', '当前 Run 未生成该专项的可下钻结果。']
+    };
+    const isCorrectnessBlocked = key === 'correctness' && d.verdict === 'not_evaluated';
+    const action = isCorrectnessBlocked
+      ? '<button type="button" data-ws-new-run="correctness">Run correctness validation</button>'
+      : key === 'resources' && d.verdict === 'unknown'
+        ? '<button type="button" data-ws-new-run="resources">重新运行并采集资源数据</button>' : '';
+    return '<section class="kf-rd-sec" aria-label="' + esc(DOMAIN_LABEL[key]) + ' evidence">' +
+      '<div class="kf-rd-h">' + esc(content.title) + '<small>' + v[0] + ' · ' + esc(d.summary) + '</small></div>' +
+      '<div class="kf-oi-links">' + content.signals.map(x => '<span class="kf-oi-evidence">' + esc(x) + '</span>').join('') + '</div>' +
+      '<div class="kf-rd-art"><b>' + esc(content.art[0]) + '</b><code>' + esc(content.art[1]) + '</code><small>' + esc(content.art[2]) + '</small></div>' + action +
+    '</section>';
+  }
+
+  function hasEvidence(r, key) {
+    const item = getEvidenceCoverage(r)[key];
+    return !!(item && (item.status === 'available' || item.status === 'partial'));
+  }
+
+  function compilationSummaryPanel(r) {
+    const d = getDomainVerdict(r, 'compilation');
+    return '<section class="kf-rd-sec" aria-label="Compilation result">' +
+      '<div class="kf-rd-h">Compilation<small>' + esc(d.verdict.toUpperCase()) + ' · ' + esc(d.summary) + '</small></div>' +
+      '<div class="kf-oi-links"><span class="kf-oi-evidence">IR Validation · ' + (hasEvidence(r, 'ir_validation') ? 'PASS' : '未采集') + '</span>' +
+        '<span class="kf-oi-evidence">Blocking errors · 0</span><span class="kf-oi-evidence">Device code · generated</span></div>' +
+      '<p class="kf-rd-note">编译链已完成，未发现阻塞性 IR 约束。</p>' +
+    '</section>';
+  }
+
+  function correctnessPassPanel(r) {
+    const d = getDomainVerdict(r, 'correctness');
+    return '<section class="kf-rd-sec" aria-label="Correctness validation result">' +
+      '<div class="kf-rd-h">Correctness<small>PASS · ' + esc(d.summary) + '</small></div>' +
+      '<div class="kf-oi-links"><span class="kf-oi-evidence">Golden Compare · PASS</span>' +
+        '<span class="kf-oi-evidence">Oracle · 3 / 3</span><span class="kf-oi-evidence">Checkpoints · 12 / 12 match</span></div>' +
+      '<div class="kf-rd-art"><b>Validation conclusion</b><code>No divergence detected</code><small>输出与中间 checkpoint 均未发现回归。</small></div>' +
+    '</section>';
+  }
+
+  function executionSummaryPanel(r) {
+    const d = getDomainVerdict(r, 'execution');
+    const fixedOrdering = isPerformanceWarningStory(r) || isValidatedOptimizationStory(r);
+    return '<section class="kf-rd-sec" aria-label="Execution evidence summary">' +
+      '<div class="kf-rd-h">Execution<small>' + esc(d.verdict.toUpperCase()) + ' · ' + esc(d.summary) + '</small></div>' +
+      '<div class="kf-oi-links"><span class="kf-oi-evidence">Dependency Graph · complete</span>' +
+        '<span class="kf-oi-evidence">Runtime Timeline · available</span>' +
+        (fixedOrdering ? '<span class="kf-oi-evidence">Task #182 → #197 · ordered</span>' : '') + '</div>' +
+    '</section>';
+  }
+
+  function validatedPerformancePanel(r) {
+    const m = getRunModel(r), metrics = m.compareMetrics || {};
+    return '<section class="kf-rd-sec" aria-label="Validated performance result">' +
+      '<div class="kf-rd-h">Performance<small>PASS · latency target achieved</small></div>' +
+      '<div class="kf-oi-links"><span class="kf-oi-evidence">Latency · ' + esc(metrics.latency || '1.36 ms') + '</span>' +
+        '<span class="kf-oi-evidence">Target · &lt; 1.50 ms</span><span class="kf-oi-evidence">Critical Path · ' + esc(metrics.criticalPath || '0.98 ms') + '</span>' +
+        '<span class="kf-oi-evidence">Task #182 · ' + esc(metrics.task182 || '147 µs') + '</span></div>' +
+      '<div class="kf-rd-art"><b>Transfer evidence</b><code>256 B → ' + esc(metrics.transferWidth || '512 B') + '</code><small>MTE stall 31% → ' + esc(metrics.mteStall || '17%') + ' · correctness unchanged</small></div>' +
+    '</section>';
+  }
+
+  function resourcesSummaryPanel(r) {
+    const d = getDomainVerdict(r, 'resources'), metrics = getRunModel(r).compareMetrics || {};
+    const knownPeak = metrics.l0bPeak || (isPerformanceWarningStory(r) ? '81%' : '');
+    return '<section class="kf-rd-sec" aria-label="Resource result">' +
+      '<div class="kf-rd-h">Resources<small>' + esc(d.verdict.toUpperCase()) + ' · ' + esc(d.summary) + '</small></div>' +
+      '<div class="kf-oi-links">' + (knownPeak ? '<span class="kf-oi-evidence">L0B peak · ' + esc(knownPeak) + '</span>' : '') +
+        (isPerformanceWarningStory(r) ? '<span class="kf-oi-evidence">UB peak · 61%</span>' : '') +
+        '<span class="kf-oi-evidence">Capacity violation · none</span><span class="kf-oi-evidence">Overflow · none</span></div>' +
+      '<p class="kf-rd-note">No capacity violation detected.' + (hasEvidence(r, 'scope_stats') ? '' : ' Runtime Scope Stats 未采集，不展示 Heap、TensorMap 或 Ringbuffer 数值。') + '</p>' +
+    '</section>';
   }
 
   function compilationFailureStoryPanel(r) {
@@ -1609,20 +1721,36 @@
     // its recorded artifact list is in the right rail too (riArchivedArts)
     els.detail.innerHTML = storyOverview + tabStrip() + '<div class="kf-rtp" id="runTabPanel" role="tabpanel"></div>';
     const panel = $('#runTabPanel', els.detail);
-    if (st.tab === 'overview') panel.innerHTML = overviewPanel(r, null) + sig;
-    else if (st.tab === 'compilation' && isCompileFailureStory(r)) {
-      syncPanel();
-      panel.prepend(document.createRange().createContextualFragment(compilationFailureStoryPanel(r)));
-    } else if (st.tab === 'correctness' && isCorrectnessFailureStory(r)) {
-      panel.innerHTML = correctnessFailureStoryPanel();
-    } else if (st.tab === 'execution' && isCorrectnessFailureStory(r)) {
-      renderExecution(panel);
-      panel.prepend(document.createRange().createContextualFragment(correctnessExecutionStoryPanel(r)));
-    } else if (st.tab === 'performance' && isPerformanceWarningStory(r)) {
-      panel.innerHTML = performanceWarningStoryPanel();
-    } else if (st.tab === 'resources' && isPerformanceWarningStory(r)) {
-      panel.innerHTML = performanceResourcesStoryPanel();
-    } else panel.innerHTML = domainUnavailablePanel(r, st.tab);
+    if (st.tab === 'overview') {
+      panel.innerHTML = overviewPanel(r, null) + sig;
+    } else if (st.tab === 'compilation') {
+      if (isCompileFailureStory(r)) {
+        syncPanel();
+        panel.prepend(document.createRange().createContextualFragment(compilationFailureStoryPanel(r)));
+      } else if (getDomainVerdict(r, 'compilation').verdict === 'pass') {
+        panel.innerHTML = compilationSummaryPanel(r);
+      } else panel.innerHTML = notEvaluatedEvidencePanel(r, 'compilation');
+    } else if (st.tab === 'correctness') {
+      if (isCorrectnessFailureStory(r)) panel.innerHTML = correctnessFailureStoryPanel();
+      else if (getDomainVerdict(r, 'correctness').verdict === 'pass' && hasEvidence(r, 'golden_compare')) panel.innerHTML = correctnessPassPanel(r);
+      else panel.innerHTML = notEvaluatedEvidencePanel(r, 'correctness');
+    } else if (st.tab === 'execution') {
+      if (isCorrectnessFailureStory(r)) {
+        renderExecution(panel);
+        panel.prepend(document.createRange().createContextualFragment(correctnessExecutionStoryPanel(r)));
+      } else if (hasEvidence(r, 'dependency_graph') || hasEvidence(r, 'runtime_timeline')) {
+        renderExecution(panel);
+        panel.prepend(document.createRange().createContextualFragment(executionSummaryPanel(r)));
+      } else panel.innerHTML = notEvaluatedEvidencePanel(r, 'execution');
+    } else if (st.tab === 'performance') {
+      if (isPerformanceWarningStory(r)) panel.innerHTML = performanceWarningStoryPanel();
+      else if (isValidatedOptimizationStory(r)) panel.innerHTML = validatedPerformancePanel(r);
+      else panel.innerHTML = notEvaluatedEvidencePanel(r, 'performance');
+    } else if (st.tab === 'resources') {
+      if (isPerformanceWarningStory(r)) panel.innerHTML = performanceResourcesStoryPanel();
+      else if (getDomainVerdict(r, 'resources').verdict === 'pass') panel.innerHTML = resourcesSummaryPanel(r);
+      else panel.innerHTML = notEvaluatedEvidencePanel(r, 'resources');
+    }
   }
 
   function render() {

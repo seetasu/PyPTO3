@@ -23,8 +23,8 @@
   <link rel="stylesheet" href="./styles/qwen3-performance-swimlane.css?v=20260907-5" />
   <link rel="stylesheet" href="./styles/fusion-catalog.css?v=20260828-1" />
   <link rel="stylesheet" href="./styles/fusion-hardware.css?v=20260829-2" />
-  <link rel="stylesheet" href="./styles/ir-compile-guard.css?v=20260902-1" />
-  <link rel="stylesheet" href="./styles/task-history.css?v=20260907-27" />
+  <link rel="stylesheet" href="./styles/ir-compile-guard.css?v=20260918-2" />
+  <link rel="stylesheet" href="./styles/task-history.css?v=20260918-28" />
   <link rel="stylesheet" href="./styles/run-fan.css?v=20260904-3" />
   <link rel="stylesheet" href="./styles/run-timeline.css?v=20260902-4" />
   <link rel="stylesheet" href="./styles/typography-responsive.css?v=20260904-3" />
@@ -493,13 +493,29 @@
 
               <section class="kf-stage" data-stage="3" aria-labelledby="stage3Title">
                 <div class="kf-stage-heading compact"><div><span class="kf-eyebrow">CORRECTNESS</span><h1 id="stage3Title">首个分歧</h1></div><span class="kf-state-chip danger" id="labStatus">1 个分歧</span></div>
+                <div class="kf-root-cause" id="rootCause">
+                  <span>↳</span><div><b>可能根因</b><p>动态索引进入 GM store offset，触发 <code>INDEX / i64</code> 限制。</p></div><button class="btn btn-solid" id="fixAndRerun">应用 fallback 并创建新 Run</button>
+                </div>
                 <div class="kf-oracles" id="oracleCards"></div>
                 <div class="kf-divergence">
-                  <div class="kf-divergence-head"><div><span class="kf-danger-dot"></span><b>首个阻塞</b><code>decode_layer → fa_work_build → tensor.write[index]</code></div><span>codegen <b>index vs i64</b></span></div>
-                  <div class="kf-compare" id="tensorCompare"></div>
-                  <div class="kf-trace-row"><span>算子</span><button class="is-hot">decode_layer</button><span>›</span><span>Task</span><button class="is-hot">fa_work_build</button><span>›</span><span>Tensor</span><button class="is-hot">fa_work_table</button><span>›</span><span>索引</span><button class="is-hot">cursor + wp</button></div>
+                  <div class="kf-divergence-head"><div><span class="kf-danger-dot"></span><b>首个阻塞</b><code>设备 Oracle 未启动</code></div><span>codegen <b>index vs i64</b></span></div>
+                  <div class="kf-trace-row kf-blocking-trace" aria-label="首个阻塞下钻路径"><span>算子</span><button class="is-hot" type="button" data-correctness-focus="write">decode_layer</button><span>›</span><span>Task</span><button class="is-hot" type="button" data-correctness-focus="write">fa_work_build</button><span>›</span><span>Pass</span><button class="is-hot" type="button" data-correctness-focus="write">ISA Emission</button><span>›</span><span>Tensor</span><button class="is-hot" type="button" data-correctness-focus="work-table">fa_work_table</button><span>›</span><span>索引</span><button class="is-hot" type="button" data-correctness-focus="index">cursor + wp</button></div>
+                  <section class="kf-blocking-ir" aria-labelledby="blockingIrTitle">
+                    <header class="kf-blocking-ir__head"><div><span class="kf-eyebrow">IR LOCATION</span><b id="blockingIrTitle">fa_work_table 在阻塞 IR 中的位置</b></div><span>after ISA Emission</span></header>
+                    <div class="kf-blocking-ir__legend" aria-label="IR 图例"><span><i class="is-tensor"></i>Tensor · 已匹配</span><span><i class="is-op"></i>Op</span><span><i class="is-first"></i>首错 Tensor</span><span><i class="is-derived"></i>传播 Tensor</span></div>
+                    <div class="kf-blocking-ir__workspace">
+                      <div class="pto-pass-ir-graph-node-pattern-page kf-blocking-ir__canvas" id="blockingIrGraph" aria-label="decode_layer 的全量 IR 图"></div>
+                      <aside class="kf-blocking-ir__inspector" id="blockingIrInspector" aria-live="polite">
+                        <header class="kf-blocking-inspector__head"><span class="kf-eyebrow" id="blockingIrEyebrow">FIRST BLOCKED TENSOR</span><b id="blockingIrNodeTitle">fa_work_table</b><small id="blockingIrNodeMeta">[B, MAX_CTX_BLOCKS] · I32 · GM</small></header>
+                        <section class="kf-blocking-inspector__status" id="blockingIrStatus"><b>● First blocked tensor</b><span>上游索引仍为动态值；首次无法完成地址类型归一。</span></section>
+                        <section class="kf-blocking-inspector__section"><h2>Block evidence</h2><dl id="blockingIrMetrics"><div><dt>Pass</dt><dd>ISA Emission</dd></div><div><dt>Task</dt><dd>fa_work_build</dd></div><div><dt>Rule</dt><dd>INDEX / i64</dd></div></dl></section>
+                        <section class="kf-blocking-inspector__section"><h2>Producer boundary</h2><dl id="blockingIrBoundary"><div><dt>Base Tensor</dt><dd>fa_work_table</dd></div><div><dt>Offset</dt><dd>cursor + wp</dd></div><div><dt>Write</dt><dd>tensor.write[index]</dd></div></dl></section>
+                        <section class="kf-blocking-inspector__section"><h2>IR expression</h2><code class="kf-blocking-inspector__code" id="blockingIrExpression">fa_work_table[cursor + wp] = work_item</code></section>
+                        <section class="kf-blocking-inspector__section"><h2>Diagnosis</h2><p class="kf-blocking-inspector__cause" id="blockingIrCause"><b>阻塞范围已缩小到 Tensor write boundary。</b> Tensor 基址可解析，但动态 INDEX 在 GM store offset 降级时与 i64 地址类型冲突。</p><div class="kf-blocking-inspector__actions"><button class="btn btn-ghost" type="button" data-blocking-ir-action="source">定位源码</button><button class="btn btn-ghost" type="button" data-blocking-ir-action="pass">查看 Pass IR</button></div></section>
+                      </aside>
+                    </div>
+                  </section>
                 </div>
-                <div class="kf-root-cause"><span>↳</span><div><b>可能根因</b><p>动态索引进入 GM store offset，触发 <code>INDEX / i64</code> 限制。</p></div><button class="btn btn-solid" id="fixAndRerun">应用 fallback 并创建新 Run</button></div>
                 <div class="kf-actions"><button class="btn btn-soft" data-prev>查看编译</button></div>
               </section>
 
@@ -705,7 +721,7 @@
   <script src="./js/run-trace-data.js?v=20260902-3"></script>
   <script src="./js/run-timeline.js?v=20260902-4"></script>
   <script src="./js/run-fan.js?v=20260904-4"></script>
-  <script src="./js/task-history.js?v=20260908-8"></script>
+  <script src="./js/task-history.js?v=20260918-9"></script>
   <script src="./js/typography-responsive.js?v=20260907-1"></script>
 </body>
 </html>

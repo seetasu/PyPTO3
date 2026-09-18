@@ -61,11 +61,15 @@
 .kf-kg-target { color: var(--foreground-muted); font: var(--kf-type-2xs) var(--font-mono); }
 .kf-kg-hint { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.45; }
 
-/* ---------- summary cards ---------- */
-.kf-kg-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 1px;
-  overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--border-subtle); }
-.kf-kg-card { padding: 6px 8px 7px; background: var(--surface-1); }
-.kf-kg-card dt { color: var(--foreground-muted); font: 8.5px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+/* ---------- summary strip ----------
+   One strip, not five cards: a single hairline outline holds the metrics and
+   vertical rules separate them, so the numbers read as one instrument. */
+.kf-kg-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 0;
+  overflow: hidden; border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  border-radius: var(--radius-md); background: transparent; }
+.kf-kg-card { padding: 6px 11px 7px; background: transparent; }
+.kf-kg-card + .kf-kg-card { border-left: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); }
+.kf-kg-card dt { color: var(--foreground-muted); font: 9px/1 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; }
 .kf-kg-card dd { margin: 4px 0 0; color: var(--foreground-secondary); font: 600 14px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
 .kf-kg-card small { display: block; margin-top: 3px; overflow: hidden; color: var(--foreground-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .kf-kg-card.is-ok dd { color: var(--kg-ok); }
@@ -133,7 +137,7 @@
 
 .kf-kg-sec { padding: 9px 11px 11px; border-bottom: 1px solid var(--border-subtle); }
 .kf-kg-sec:last-child { border-bottom: 0; }
-.kf-kg-sec h4 { margin: 0 0 7px; color: var(--foreground-muted); font: 8.5px/1 var(--font-mono); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.kf-kg-sec h4 { margin: 0 0 7px; color: var(--foreground-secondary); font: 600 9.5px/1 var(--font-sans); letter-spacing: .07em; text-transform: uppercase; }
 .kf-kg-none { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.5; }
 .kf-kg-empty { margin: 0; padding: 20px 12px; color: var(--foreground-muted); font-size: var(--kf-type-xs); text-align: center; }
 
@@ -180,18 +184,24 @@
 /* ---------- compile trace (event timeline for the selected kernel) ----------
    Slots are typed events, not magnitudes: colour = event class, uniform height.
    Line count is deliberately NOT encoded — it measures how much the compiler
-   moved, not what it did to this kernel. */
+   moved, not what it did to this kernel.
+
+   The trace is a working region, not a card: the Pass River inside it is the
+   bounded surface. The heading, the river and the selected-pass detail are
+   separated by spacing and a single rule, so they do not read as a card that
+   contains two more cards. */
 .kf-kg-trace {
   overflow: hidden;
-  border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  border: 0; border-radius: 0;
+  background: transparent;
 }
 .kf-kg-thead {
   display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
   padding: 8px 11px 7px;
 }
-.kf-kg-thead h4 { margin: 0; color: var(--foreground-muted); font: 8.5px/1 var(--font-mono); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
-.kf-kg-thead h4 b { color: var(--foreground); font-size: 11px; letter-spacing: 0; text-transform: none; }
+/* heading is a human label; the source it names stays an identifier */
+.kf-kg-thead h4 { margin: 0; color: var(--foreground-secondary); font: 600 10px/1 var(--font-sans); letter-spacing: .07em; text-transform: uppercase; }
+.kf-kg-thead h4 b { color: var(--foreground); font: 600 10px/1 var(--font-mono); letter-spacing: 0; text-transform: none; }
 .kf-kg-tmeta { margin-left: auto; color: var(--foreground-muted); font: 9px var(--font-mono); }
 
 .kf-kg-track { overflow: hidden; margin: 0 11px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
@@ -226,9 +236,10 @@
 .kf-kg-slot.is-bad i { background: var(--kg-warn); }
 .kf-kg-slot.is-rt i { background: var(--foreground-muted); }
 .kf-kg-slot:hover i { filter: brightness(1.4); }
-/* legend — rendered from the kinds actually present in this kernel's trace */
+/* legend — rendered from the kinds actually present in this kernel's trace.
+   The labels are human words (结构变换 / 普通改动 / 未改动), so sans. */
 .kf-kg-legend { display: flex; flex-wrap: wrap; gap: 4px 11px; margin: 6px 11px 0; }
-.kf-kg-legend span { display: inline-flex; align-items: center; gap: 4px; color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-kg-legend span { display: inline-flex; align-items: center; gap: 4px; color: var(--foreground-muted); font: 9px var(--font-sans); }
 .kf-kg-legend i { display: block; width: 8px; height: 3px; background: var(--border-strong); font-style: normal; }
 .kf-kg-legend i.is-milestone { height: 9px; border-radius: 2px; background: var(--kg-c); }
 .kf-kg-legend i.is-birth { box-shadow: inset 0 0 0 1.5px var(--foreground); }
@@ -246,20 +257,28 @@
 .kf-kg-pdi { padding: 1px 5px; border-radius: var(--radius-sm); color: #fff; font: 600 9px var(--font-mono); }
 .kf-kg-pdhead b { color: var(--foreground); font: 650 12px var(--font-mono); }
 .kf-kg-pdk { margin-left: auto; color: var(--foreground-muted); font: 9px var(--font-mono); }
-.kf-kg-pdesc { margin: 0 0 8px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.5; }
+/* the pass description is prose, and it is the second thing read after the
+   pass name — secondary, not muted */
+.kf-kg-pdesc { margin: 0 0 8px; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.5; }
+/* A metric strip, not a card: the detail panel already opens with a rule, so
+   these only need vertical dividers between them. */
 .kf-kg-pstats {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 1px;
-  overflow: hidden; margin-bottom: 8px; border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm); background: var(--border-subtle);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 0;
+  overflow: hidden; margin-bottom: 8px; border: 0;
+  background: transparent;
 }
-.kf-kg-pstats > div { padding: 5px 7px 6px; background: var(--surface-1); }
-.kf-kg-pstats dt { color: var(--foreground-muted); font: 8px/1 var(--font-mono); letter-spacing: .05em; text-transform: uppercase; }
+.kf-kg-pstats > div { padding: 5px 11px 6px; background: transparent; }
+.kf-kg-pstats > div:first-child { padding-left: 0; }
+.kf-kg-pstats > div + div { border-left: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); }
+.kf-kg-pstats dt { color: var(--foreground-muted); font: 9px/1 var(--font-sans); letter-spacing: .05em; text-transform: uppercase; }
 .kf-kg-pstats dd { margin: 4px 0 0; color: var(--foreground-secondary); font: 600 12px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
 .kf-kg-pstats dd em { margin-left: 5px; color: var(--foreground-muted); font: 400 9px var(--font-mono); font-style: normal; }
 .kf-kg-props { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; }
+/* produced / invalidated 性质是 IR 里的标识符，继续 mono；
+   is-none 这一颗装的是整句说明，按散文处理。 */
 .kf-kg-prop { padding: 1px 5px; border: 1px solid var(--kg-ok); border-radius: 3px; color: var(--kg-ok); font: 9px var(--font-mono); }
 .kf-kg-prop.is-lost { border-style: dashed; border-color: var(--kg-bad); color: var(--kg-bad); }
-.kf-kg-prop.is-none { border-style: dotted; border-color: var(--border-strong); color: var(--foreground-muted); }
+.kf-kg-prop.is-none { border-style: dotted; border-color: var(--border-strong); color: var(--foreground-muted); font-family: var(--font-sans); font-size: 10px; }
 
 /* per-kernel strip inside an expanded row */
 .kf-kg-track.is-mini { margin: 0 0 7px; }
@@ -274,11 +293,13 @@
    execution spine, while meaningful transforms become decision dots and
    mechanical rewrites stay as quiet ticks. The SVG remains horizontally
    scrollable so every real pass keeps its own hit target. */
+/* The river is the working area of this tab, so it keeps a boundary — one
+   step lighter than a container, so it reads as a surface rather than a card. */
 .kf-kg-river-wrap {
   overflow-x: auto;
   overflow-y: hidden;
   margin: 0 11px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--background) 70%, transparent);
   scrollbar-width: thin;
@@ -327,12 +348,12 @@
 }
 
 /* Tooltip now carries the milestone description, so it wraps rather than
-   forcing one long line. */
+   forcing one long line. The description is a sentence, so it is set in sans. */
 .kf-kg-tip {
   position: fixed; z-index: 60; max-width: 268px; padding: 6px 9px;
   border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
   background: var(--surface-1); box-shadow: 0 8px 22px rgb(0 0 0 / .42);
-  color: var(--foreground-muted); font: 10px/1.5 var(--font-mono);
+  color: var(--foreground-secondary); font: 11px/1.5 var(--font-sans);
   opacity: 0; pointer-events: none; transition: opacity 90ms ease; white-space: normal;
 }
 .kf-kg-tip b { display: block; margin-bottom: 3px; color: var(--foreground); }
@@ -344,20 +365,22 @@
 .kf-kg-hunk pre.is-before { color: color-mix(in srgb, var(--warning) 78%, var(--foreground-muted)); background: color-mix(in srgb, var(--warning) 5%, transparent); }
 .kf-kg-hunk pre.is-after { color: color-mix(in srgb, var(--success) 72%, var(--foreground-secondary)); background: color-mix(in srgb, var(--success) 5%, transparent); border-top: 1px solid var(--border-subtle); }
 
-/* ---------- pass visuals ---------- */
+/* ---------- pass visuals ----------
+   The visual belongs to the selected pass, which is already an outlined
+   region; it only needs a quiet ground and the rule above its caption. */
 .kf-kg-visbox {
-  margin: 0 0 8px; padding: 8px 9px 6px;
-  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--background) 60%, transparent);
+  margin: 0 0 8px; padding: 10px 11px 7px;
+  border: 0; border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--background) 55%, transparent);
 }
 .kf-kg-vis { display: block; width: 100%; height: auto; overflow: visible; }
 .kf-kg-visbox figcaption {
   margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border-subtle);
-  color: var(--foreground-muted); font: 9px/1.45 var(--font-mono);
+  color: var(--foreground-muted); font: 10px/1.45 var(--font-sans);
 }
 .kf-kg-raw > summary {
   padding: 4px 0; color: var(--foreground-muted); cursor: pointer;
-  font: 9px var(--font-mono); list-style: none;
+  font: 10px var(--font-sans); list-style: none;
 }
 .kf-kg-raw > summary::-webkit-details-marker { display: none; }
 .kf-kg-raw > summary::before { content: "▸ "; }
@@ -369,9 +392,9 @@
 .kf-kg-facts { display: grid; gap: 3px; }
 .kf-kg-fact-h {
   margin: 2px 0 3px; color: var(--foreground-muted);
-  font: 8.5px/1.4 var(--font-mono); letter-spacing: .04em;
+  font: 9px/1.4 var(--font-sans); letter-spacing: .04em;
 }
-.kf-kg-fact-h code { color: var(--foreground-secondary); font-size: 9.5px; }
+.kf-kg-fact-h code { color: var(--foreground-secondary); font: 9.5px var(--font-mono); }
 .kf-kg-fact {
   display: grid; align-items: center; gap: 8px; width: 100%;
   grid-template-columns: 132px 74px minmax(60px, 1fr) auto;
