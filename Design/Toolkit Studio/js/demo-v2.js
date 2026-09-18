@@ -458,10 +458,70 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     $('#oracleCards').innerHTML = cards.map(c => `<article class="kf-oracle${c[4] ? ' is-fail' : ''}"><span>${c[0]}</span><div><b>${c[1]}</b><small>${c[2]}</small></div><em>${c[3]}</em></article>`).join('');
   }
 
-  function renderTensorCompare() {
-    const values = ['1081', '431', '982', '77', '1532', '94', '611', '128', '205', '731', '44', '899', '1304', '62', '540', '311'];
-    const tensor = (title, blocked) => `<section class="kf-tensor"><header><span>${title}</span><span>argmax · batch 16</span></header><div class="kf-tensor-grid">${values.map((v, i) => `<span class="${blocked && i === 10 ? 'diff' : ''}">${blocked && i === 10 ? '—' : v}</span>`).join('')}</div></section>`;
-    $('#tensorCompare').innerHTML = tensor('Torch golden argmax', false) + tensor('PyPTO device argmax', !state.verified);
+  function renderBlockingIrGraph() {
+    const mount = $('#blockingIrGraph');
+    const inspector = $('#blockingIrInspector');
+    const helper = window.PtoPassIrGraphNodePattern;
+    if (!mount || !inspector || !helper) return;
+
+    const nodes = [
+      { id: 'index', type: 'tensor', x: 30, y: 205, state: 'matched', accent: 'var(--accent)', data: { symbol: 'cursor + wp', shape: ['scalar'], rawShape: ['scalar'], dtype: 'index', format: 'scalar' }, inspector: { eyebrow: 'MATCHED INDEX INPUT', meta: 'scalar · INDEX · runtime value', status: 'Matched index input', statusCopy: '动态标量已进入当前 Task，尚未发生类型归一。', metrics: [['Task', 'fa_work_build'], ['Pass', 'ISA Emission'], ['Value', 'cursor + wp']], boundary: [['Producer', 'runtime orchestration'], ['Consumer', 'index.add'], ['Role', 'store offset']], expression: 'offset = cursor + wp', cause: '<b>地址偏移的来源已确定。</b> 该节点本身不是错误 Tensor；问题发生在它参与 GM store 地址计算之后。' } },
+      { id: 'work-table', type: 'tensor', x: 30, y: 60, state: 'first', accent: 'var(--danger)', data: { symbol: 'fa_work_table', shape: ['B', 'MAX_CTX_BLOCKS'], rawShape: ['B', 'MAX_CTX_BLOCKS'], dtype: 'i32', format: 'GM contiguous' }, inspector: { eyebrow: 'FIRST BLOCKED TENSOR', meta: '[B, MAX_CTX_BLOCKS] · I32 · GM', status: 'First blocked tensor', statusCopy: '上游索引仍为动态值；首次无法完成地址类型归一。', metrics: [['Pass', 'ISA Emission'], ['Task', 'fa_work_build'], ['Rule', 'INDEX / i64']], boundary: [['Base Tensor', 'fa_work_table'], ['Offset', 'cursor + wp'], ['Write', 'tensor.write[index]']], expression: 'fa_work_table[cursor + wp] = work_item', cause: '<b>阻塞范围已缩小到 Tensor write boundary。</b> Tensor 基址可解析，但动态 INDEX 在 GM store offset 降级时与 i64 地址类型冲突。' } },
+      { id: 'q-tile', type: 'tensor', x: 30, y: 350, state: 'matched', accent: 'var(--accent)', data: { symbol: 'q_tile', shape: ['B', 'H', 'D'], rawShape: ['B', 'H', 'D'], dtype: 'bf16', format: 'GM → UB' }, inspector: { eyebrow: 'MATCHED INPUT TENSOR', meta: '[B, H, D] · BF16 · UB', status: 'Matched tensor', statusCopy: 'Query Tile 在首错路径之外，当前没有地址归一异常。', metrics: [['Producer', 'q_proj'], ['State', 'ready'], ['Consumer', 'fa_fused']], boundary: [['Input', 'q_proj'], ['Output', 'q_tile'], ['Task', 'fa_fused']], expression: 'q_tile = q_proj(...)', cause: '<b>该 Tensor 是已确认可用的输入。</b> 它进入 fa_fused，但不会解释 work-table 地址阻塞。' } },
+      { id: 'k-cache', type: 'tensor', x: 260, y: 350, state: 'matched', accent: 'var(--accent)', data: { symbol: 'k_cache', shape: ['KV', 'D'], rawShape: ['KV', 'D'], dtype: 'bf16', format: 'GM paged' }, inspector: { eyebrow: 'MATCHED STATE TENSOR', meta: '[KV, D] · BF16 · GM paged', status: 'Matched tensor', statusCopy: 'K cache 已完成分页地址映射，不是当前阻塞对象。', metrics: [['Producer', 'cache state'], ['State', 'ready'], ['Consumer', 'fa_fused']], boundary: [['State', 'paged K cache'], ['Layout', 'GM paged'], ['Task', 'fa_fused']], expression: 'k_block = k_cache[page_id]', cause: '<b>该 Tensor 与首错 Tensor 分离。</b> 它为 fa_fused 提供匹配的状态输入。' } },
+      { id: 'v-cache', type: 'tensor', x: 500, y: 350, state: 'matched', accent: 'var(--accent)', data: { symbol: 'v_cache', shape: ['KV', 'D'], rawShape: ['KV', 'D'], dtype: 'bf16', format: 'GM paged' }, inspector: { eyebrow: 'MATCHED STATE TENSOR', meta: '[KV, D] · BF16 · GM paged', status: 'Matched tensor', statusCopy: 'V cache 在 PV 阶段被消费，当前不参与首错归因。', metrics: [['Producer', 'cache state'], ['State', 'ready'], ['Consumer', 'pv_matmul']], boundary: [['State', 'paged V cache'], ['Layout', 'GM paged'], ['Task', 'pv_matmul']], expression: 'v_block = v_cache[page_id]', cause: '<b>该 Tensor 仍可用。</b> 后续 PV matmul 的阻塞来自 attention_probs 未产生，而不是 V cache 本身。' } },
+      { id: 'index-add', type: 'op', x: 280, y: 218, state: 'matched', accent: 'var(--primary)', data: { semanticLabel: 'index.add', stage: 'offset compute', latency: '—', outShape: ['index'], ioperands: ['cursor', 'wp'], ooperands: ['offset'] }, inspector: { eyebrow: 'OFFSET PRODUCER', meta: 'scalar · INDEX · IR value', status: 'Offset producer', statusCopy: '生成的 INDEX 将作为 tensor.write 的地址偏移。', metrics: [['Pass', 'ISA Emission'], ['Task', 'fa_work_build'], ['Output', 'offset:index']], boundary: [['Input', 'cursor + wp'], ['Output', 'offset'], ['Consumer', 'tensor.write']], expression: 'offset = index.add(cursor, wp)', cause: '<b>该 Op 保留了动态 INDEX。</b> 它是首错 Tensor 的地址输入，而不是 Tensor 内容的 producer。' } },
+      { id: 'write', type: 'op', x: 520, y: 145, state: 'blocked', accent: 'var(--danger)', data: { semanticLabel: 'tensor.write[index]', stage: 'GM store', latency: 'blocked', outShape: ['B', 'MAX_CTX_BLOCKS'], ioperands: ['T_work', 'offset'], ooperands: ['T_work'] }, inspector: { eyebrow: 'SUSPECT WRITE OP', meta: 'GM store · blocked during ISA Emission', status: 'First blocking boundary', statusCopy: 'Tensor base 与 offset 在此汇合，地址类型无法统一。', metrics: [['Pass', 'ISA Emission'], ['Task', 'fa_work_build'], ['Failure', 'INDEX / i64']], boundary: [['Base', 'fa_work_table'], ['Index', 'offset:index'], ['Result', 'write not emitted']], expression: 'tensor.write(fa_work_table, offset, work_item)', cause: '<b>首个阻塞发生在此 Op。</b> 需要把动态 offset 改写为可证明的仿射 slot，或在 lowering 前完成显式类型归一。' } },
+      { id: 'work-row', type: 'tensor', x: 760, y: 70, state: 'derived', accent: 'var(--warning)', data: { symbol: 'work_row', shape: ['MAX_CTX_BLOCKS'], rawShape: ['MAX_CTX_BLOCKS'], dtype: 'i32', format: 'GM view' }, inspector: { eyebrow: 'PROPAGATED TENSOR', meta: '[MAX_CTX_BLOCKS] · I32 · GM view', status: 'Derived from blocked write', statusCopy: '若 write 可被发射，该 view 将携带相同的地址不确定性。', metrics: [['Origin', 'tensor.write[index]'], ['Pass', 'ISA Emission'], ['State', 'not emitted']], boundary: [['Base', 'fa_work_table'], ['View', 'work_row'], ['Consumer', 'fa_fused']], expression: 'work_row = fa_work_table.view(offset)', cause: '<b>这是由首错 Tensor 衍生的 Tensor。</b> 它使用琥珀色标记，区别于红色的首错 Tensor。' } },
+      { id: 'fa-fused', type: 'op', x: 760, y: 215, state: 'derived', accent: 'var(--primary)', data: { semanticLabel: 'fa_fused', stage: 'attention task', latency: 'not emitted', outShape: ['B', 'H', 'D'], ioperands: ['q_tile', 'k_cache', 'work_row'], ooperands: ['scores'] }, inspector: { eyebrow: 'BLOCKED CONSUMER OP', meta: 'Task · fa_fused · not emitted', status: 'Waiting for blocked work table', statusCopy: '该 Task 依赖 fa_work_table 的合法地址视图。', metrics: [['Task', 'fa_fused'], ['Dependency', 'work_row'], ['State', 'not emitted']], boundary: [['Input', 'q / k / work_row'], ['Output', 'attention_scores'], ['Blocker', 'tensor.write']], expression: 'scores = fa_fused(q_tile, k_cache, work_row)', cause: '<b>下游 Op 尚未获得可执行 IR。</b> 它是首错路径的消费者，不应被误判为根因。' } },
+      { id: 'scores', type: 'tensor', x: 1000, y: 215, state: 'derived', accent: 'var(--warning)', data: { symbol: 'attention_scores', shape: ['B', 'H', 'N'], rawShape: ['B', 'H', 'N'], dtype: 'fp32', format: 'UB' }, inspector: { eyebrow: 'PROPAGATED TENSOR', meta: '[B, H, N] · FP32 · UB', status: 'Derived downstream tensor', statusCopy: '它依赖未发射的 fa_fused，因而没有可验证的设备值。', metrics: [['Producer', 'fa_fused'], ['State', 'not emitted'], ['Role', 'softmax input']], boundary: [['Input', 'q / k / work_row'], ['Output', 'attention_scores'], ['Consumer', 'softmax']], expression: 'attention_scores = qk_matmul(...)', cause: '<b>该 Tensor 在首错路径下游。</b> 琥珀色表示其状态从 fa_work_table 的阻塞推导而来。' } },
+      { id: 'softmax', type: 'op', x: 1240, y: 228, state: 'derived', accent: 'var(--primary)', data: { semanticLabel: 'softmax.prepare', stage: 'vector', latency: 'not emitted', outShape: ['B', 'H', 'N'], ioperands: ['scores'], ooperands: ['probs'] }, inspector: { eyebrow: 'PROPAGATED OP', meta: 'Vector · not emitted', status: 'Waiting for propagated input', statusCopy: '输入 attention_scores 未产生可执行设备值。', metrics: [['Producer', 'fa_fused'], ['Input', 'attention_scores'], ['Output', 'probs']], boundary: [['Input', 'attention_scores'], ['Output', 'attention_probs'], ['Blocker', 'work_row']], expression: 'probs = softmax.prepare(attention_scores)', cause: '<b>该 Op 不在首错边界。</b> 它只传播由 fa_work_table 地址失败引起的不可执行状态。' } },
+      { id: 'probs', type: 'tensor', x: 1480, y: 215, state: 'derived', accent: 'var(--warning)', data: { symbol: 'attention_probs', shape: ['B', 'H', 'N'], rawShape: ['B', 'H', 'N'], dtype: 'bf16', format: 'UB' }, inspector: { eyebrow: 'PROPAGATED TENSOR', meta: '[B, H, N] · BF16 · UB', status: 'Derived downstream tensor', statusCopy: '该 Tensor 需要由 softmax.prepare 发射后才能获得实际数值。', metrics: [['Producer', 'softmax.prepare'], ['State', 'not emitted'], ['Role', 'PV input']], boundary: [['Input', 'attention_scores'], ['Output', 'attention_probs'], ['Consumer', 'pv_matmul']], expression: 'attention_probs = cast_bf16(probs)', cause: '<b>该 Tensor 是下游传播结果。</b> 它与首错 Tensor 使用不同的琥珀色状态。' } },
+      { id: 'pv', type: 'op', x: 1480, y: 350, state: 'derived', accent: 'var(--primary)', data: { semanticLabel: 'pv_matmul', stage: 'cube', latency: 'not emitted', outShape: ['B', 'H', 'D'], ioperands: ['probs', 'v_cache'], ooperands: ['attn_tmp'] }, inspector: { eyebrow: 'PROPAGATED OP', meta: 'Cube · not emitted', status: 'Waiting for propagated input', statusCopy: '概率 Tensor 未产出，因此 PV matmul 无法进入设备执行。', metrics: [['Input', 'probs / v_cache'], ['Output', 'attn_tmp'], ['State', 'not emitted']], boundary: [['Input', 'attention_probs'], ['State', 'v_cache'], ['Output', 'attn_tmp']], expression: 'attn_tmp = pv_matmul(attention_probs, v_cache)', cause: '<b>下游计算被正确地标记为传播状态。</b> 这里不提供错误归因，避免把根因误放到后续算子。' } },
+      { id: 'attn-tmp', type: 'tensor', x: 1720, y: 350, state: 'derived', accent: 'var(--warning)', data: { symbol: 'attn_tmp', shape: ['B', 'H', 'D'], rawShape: ['B', 'H', 'D'], dtype: 'fp32', format: 'UB' }, inspector: { eyebrow: 'PROPAGATED TENSOR', meta: '[B, H, D] · FP32 · UB', status: 'Derived downstream tensor', statusCopy: '该 Tensor 由未发射的 PV matmul 定义。', metrics: [['Producer', 'pv_matmul'], ['State', 'not emitted'], ['Consumer', 'online_softmax']], boundary: [['Input', 'attention_probs'], ['Output', 'attn_tmp'], ['Consumer', 'online_softmax']], expression: 'attn_tmp = pv_matmul(...)', cause: '<b>传播状态继续沿数据流传递。</b> 它与首错 fa_work_table 在视觉和诊断意义上明确区分。' } },
+      { id: 'online', type: 'op', x: 1720, y: 215, state: 'derived', accent: 'var(--primary)', data: { semanticLabel: 'online_softmax', stage: 'vector reduce', latency: 'not emitted', outShape: ['B', 'H', 'D'], ioperands: ['attn_tmp'], ooperands: ['attn_out'] }, inspector: { eyebrow: 'PROPAGATED OP', meta: 'Vector reduce · not emitted', status: 'Waiting for propagated input', statusCopy: 'attn_tmp 没有设备值，在线归约无法执行。', metrics: [['Input', 'attn_tmp'], ['Output', 'attn_out'], ['State', 'not emitted']], boundary: [['Input', 'attn_tmp'], ['State', 'running max / sum'], ['Output', 'attn_out']], expression: 'attn_out = online_softmax(attn_tmp)', cause: '<b>这是下游收敛步骤。</b> 它的不可执行状态由上游首错 Tensor 导致。' } },
+      { id: 'attn-out', type: 'tensor', x: 1960, y: 215, state: 'derived', accent: 'var(--warning)', data: { symbol: 'attn_out', shape: ['B', 'H', 'D'], rawShape: ['B', 'H', 'D'], dtype: 'bf16', format: 'GM' }, inspector: { eyebrow: 'PROPAGATED TENSOR', meta: '[B, H, D] · BF16 · GM', status: 'Derived downstream tensor', statusCopy: 'attention 输出尚未有可验证的设备值。', metrics: [['Producer', 'online_softmax'], ['State', 'not emitted'], ['Consumer', 'out_proj']], boundary: [['Input', 'attn_tmp'], ['Output', 'attn_out'], ['Consumer', 'out_proj']], expression: 'attn_out = cast_bf16(online_out)', cause: '<b>该 Tensor 是首错路径的远端传播结果。</b> 它不能作为定位 INDEX / i64 的直接证据。' } },
+      { id: 'out-proj', type: 'op', x: 1960, y: 350, state: 'derived', accent: 'var(--primary)', data: { semanticLabel: 'out_proj', stage: 'cube', latency: 'not emitted', outShape: ['B', 'D'], ioperands: ['attn_out'], ooperands: ['layer_out'] }, inspector: { eyebrow: 'PROPAGATED OP', meta: 'Cube · not emitted', status: 'Waiting for propagated input', statusCopy: 'attention 输出不可用，输出投影无法发射。', metrics: [['Input', 'attn_out'], ['Output', 'layer_out'], ['State', 'not emitted']], boundary: [['Input', 'attn_out'], ['Output', 'layer_out'], ['Blocker', 'fa_work_table']], expression: 'layer_out = out_proj(attn_out)', cause: '<b>最终投影不是根因。</b> 它仅展示首错 Tensor 对完整算子路径的影响范围。' } },
+      { id: 'layer-out', type: 'tensor', x: 2200, y: 350, state: 'derived', accent: 'var(--warning)', data: { symbol: 'layer_out', shape: ['B', 'D'], rawShape: ['B', 'D'], dtype: 'fp32', format: 'GM' }, inspector: { eyebrow: 'PROPAGATED OUTPUT TENSOR', meta: '[B, D] · FP32 · GM', status: 'Final propagated tensor', statusCopy: '最终输出没有设备侧结果，因为首个 Tensor write 尚未被发射。', metrics: [['Producer', 'out_proj'], ['State', 'not emitted'], ['Oracle', 'not started']], boundary: [['Input', 'attn_out'], ['Output', 'layer_out'], ['Oracle', 'device blocked']], expression: 'layer_out = out_proj(attn_out)', cause: '<b>这是完整 IR 路径的末端 Tensor。</b> 它汇总了首错 fa_work_table 的阻塞影响，但不参与根因归因。' } }
+    ];
+
+    const updateInspector = (node) => {
+      const data = node.inspector;
+      inspector.dataset.state = node.state;
+      $('#blockingIrEyebrow').textContent = data.eyebrow;
+      $('#blockingIrNodeTitle').textContent = node.data.semanticLabel || node.data.symbol;
+      $('#blockingIrNodeMeta').textContent = data.meta;
+      $('#blockingIrStatus').innerHTML = `<b>● ${data.status}</b><span>${data.statusCopy}</span>`;
+      $('#blockingIrMetrics').innerHTML = data.metrics.map(([key, value]) => `<div><dt>${key}</dt><dd>${value}</dd></div>`).join('');
+      $('#blockingIrBoundary').innerHTML = data.boundary.map(([key, value]) => `<div><dt>${key}</dt><dd>${value}</dd></div>`).join('');
+      $('#blockingIrExpression').textContent = data.expression;
+      $('#blockingIrCause').innerHTML = data.cause;
+    };
+    const selectNode = (node, element) => {
+      mount.querySelectorAll('.node-card').forEach((card) => card.classList.toggle('selected', card === element));
+      updateInspector(node);
+    };
+
+    const stage = document.createElement('div');
+    stage.className = 'kf-blocking-ir__stage';
+    stage.innerHTML = `<span class="kf-blocking-ir__stage-label" style="left:30px">01 · ADDRESS</span><span class="kf-blocking-ir__stage-label" style="left:520px">02 · WORK TABLE</span><span class="kf-blocking-ir__stage-label" style="left:1000px">03 · ATTENTION</span><span class="kf-blocking-ir__stage-label" style="left:1960px">04 · OUTPUT</span><svg class="kf-blocking-ir__edge-layer" viewBox="0 0 2420 500" aria-hidden="true"><defs><marker id="blockingIrArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--border-strong)"/></marker><marker id="blockingIrArrowDanger" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--danger)"/></marker><marker id="blockingIrArrowDerived" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="var(--warning)"/></marker></defs><path class="kf-blocking-ir__edge" d="M206 254H280" marker-end="url(#blockingIrArrow)"/><path class="kf-blocking-ir__edge is-blocked" d="M456 254C480 254 492 181 520 181" marker-end="url(#blockingIrArrowDanger)"/><path class="kf-blocking-ir__edge is-blocked" d="M206 109C360 109 390 181 520 181" marker-end="url(#blockingIrArrowDanger)"/><path class="kf-blocking-ir__edge is-derived" d="M696 181C720 181 730 119 760 119" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M848 168V215" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M696 181C730 181 730 251 760 251" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M206 399C480 399 510 251 760 251" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M436 399C610 399 630 251 760 251" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M936 251H1000" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M1176 264H1240" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M1416 264H1480" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M1568 313V350" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M676 399C1090 399 1230 386 1480 386" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M1656 386H1720" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M1808 350V287" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M1896 251H1960" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M2048 313V350" marker-end="url(#blockingIrArrowDerived)"/><path class="kf-blocking-ir__edge is-derived" d="M2136 386H2200" marker-end="url(#blockingIrArrowDerived)"/></svg>`;
+    mount.replaceChildren(stage);
+    nodes.forEach((node) => {
+      const element = helper.buildNodeCardElement({ id: node.id, type: node.type, frame: { width: 176 }, data: node.data }, { compact: true, accent: node.accent, selected: node.id === 'work-table' });
+      element.classList.add(`is-${node.state}`);
+      element.dataset.blockingIrNode = node.id;
+      element.style.left = `${node.x}px`;
+      element.style.top = `${node.y}px`;
+      element.tabIndex = 0;
+      element.setAttribute('aria-label', node.data.semanticLabel || node.data.symbol);
+      element.addEventListener('click', () => selectNode(node, element));
+      element.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectNode(node, element); }
+      });
+      stage.appendChild(element);
+      node.element = element;
+    });
+    selectNode(nodes.find((node) => node.id === 'work-table'), nodes.find((node) => node.id === 'work-table').element);
   }
 
   function renderGraph() {
@@ -4055,7 +4115,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   renderRecipes();
   renderPasses();
   renderOracles();
-  renderTensorCompare();
+  renderBlockingIrGraph();
   renderGraph();
   renderFullSource();
   goTo(1);
@@ -4072,6 +4132,22 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
 
   document.addEventListener('click', (event) => {
     if (!event.target.closest('#envControl') && !event.target.closest('#envFingerprintPanel')) setEnvironmentPanel(false);
+    const blockingIrAction = event.target.closest('[data-blocking-ir-action]');
+    if (blockingIrAction) {
+      toast(blockingIrAction.dataset.blockingIrAction === 'source'
+        ? '已定位 decode_layer.py · fa_work_build · 动态索引写入'
+        : '已打开 ISA Emission 前的 Pass IR 快照');
+      return;
+    }
+    const correctnessFocus = event.target.closest('[data-correctness-focus]');
+    if (correctnessFocus) {
+      const node = $(`[data-blocking-ir-node="${correctnessFocus.dataset.correctnessFocus}"]`);
+      if (node) {
+        node.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        node.click();
+      }
+      return;
+    }
     const selector = event.target.closest('[data-model-selector]');
     if (!selector) closeModelSelector();
     const selectorTrigger = event.target.closest('[data-model-selector-trigger]');

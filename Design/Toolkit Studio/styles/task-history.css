@@ -73,7 +73,7 @@
   background: color-mix(in srgb, var(--primary) 16%, transparent);
 }
 
-.kf-th-list { display: grid; gap: 4px; }
+.kf-th-list { display: grid; gap: 12px; }
 .kf-th-empty { margin: 0; padding: 16px 8px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); text-align: center; }
 
 /* Keep the selected task title as the list anchor. Only the metadata that is
@@ -83,33 +83,40 @@
 .kf-th-item.is-open > .kf-th-row .kf-th-time { display: none; }
 .kf-th-item.is-open > .kf-th-row { grid-template-areas: "dot title ."; }
 
-.kf-th-item {
-  position: relative; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
-}
-.kf-th-item.is-open { border-color: color-mix(in srgb, var(--primary) 32%, var(--border-subtle)); }
+/* A Task is a group, not a card. The parent/child relation is carried by
+   spacing, title weight and the guide beside its Runs — so the item itself
+   draws no outline, and only the open Task gets the weakest surface tint. */
+.kf-th-item { position: relative; }
 
 .kf-th-row {
-  display: grid; width: 100%; align-items: center; gap: 4px 7px;
+  display: grid; width: 100%; align-items: center; gap: 3px 8px;
   grid-template-columns: 8px minmax(0, 1fr) auto;
   grid-template-areas: "dot title verdict" "dot sub time";
-  padding: 8px 9px; border: 0; background: transparent; cursor: pointer; text-align: left;
+  padding: 6px 9px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; cursor: pointer; text-align: left;
   padding-right: 34px;
 }
 .kf-th-row:hover { background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
-.kf-th-item.is-open .kf-th-row { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+.kf-th-item.is-open > .kf-th-row { background: color-mix(in srgb, var(--primary) 6%, transparent); }
 .kf-th-dot { grid-area: dot; width: 7px; height: 7px; border-radius: 50%; background: var(--foreground-muted); }
 .kf-th-dot.is-ok { background: var(--success); box-shadow: 0 0 7px color-mix(in srgb, var(--success) 60%, transparent); }
 .kf-th-dot.is-bad { background: var(--danger); box-shadow: 0 0 7px color-mix(in srgb, var(--danger) 60%, transparent); }
 .kf-th-dot.is-warn { background: var(--warning); }
 .kf-th-dot.is-run { background: var(--primary); }
 .kf-th-dot.is-idle { background: var(--border-strong); }
-.kf-th-title { grid-area: title; overflow: hidden; color: var(--foreground-secondary); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.kf-th-verdict { grid-area: verdict; padding: 0 5px; border-radius: 3px; font: 600 8.5px/14px var(--font-mono); white-space: nowrap; }
-.kf-th-verdict.is-ok { color: var(--success); background: color-mix(in srgb, var(--success) 15%, transparent); }
-.kf-th-verdict.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
-.kf-th-verdict.is-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent); }
-.kf-th-verdict.is-idle { color: var(--foreground-muted); background: var(--surface-3); }
+/* Task = the stable entity: sans, one step heavier than its Runs, promoted to
+   primary while it is the open parent. */
+.kf-th-title {
+  grid-area: title; overflow: hidden; color: var(--foreground-secondary);
+  font-family: var(--font-sans); font-size: 13px; font-weight: 600;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.kf-th-item.is-open > .kf-th-row .kf-th-title { color: var(--foreground); }
+/* Status reads as a word, not as a plate: one semantic colour, no chip. */
+.kf-th-verdict { grid-area: verdict; color: var(--foreground-muted); font-family: var(--font-sans); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.kf-th-verdict.is-ok { color: var(--success); }
+.kf-th-verdict.is-bad { color: var(--danger); }
+.kf-th-verdict.is-warn { color: var(--warning); }
 .kf-th-sub { grid-area: sub; overflow: hidden; color: var(--foreground-muted); font: 9px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .kf-th-time { grid-area: time; color: var(--foreground-muted); font: 8.5px var(--font-mono); white-space: nowrap; }
 
@@ -117,7 +124,7 @@
 .kf-th-arts { padding: 2px 7px 7px; }
 .kf-th-arts-h {
   margin: 2px 0 5px; color: var(--foreground-muted);
-  font: 8px/1 var(--font-mono); letter-spacing: .07em; text-transform: uppercase;
+  font: 8px/1 var(--font-sans); letter-spacing: .07em; text-transform: uppercase;
 }
 .kf-th-art {
   display: grid; width: 100%; align-items: center; gap: 3px 7px;
@@ -163,35 +170,46 @@
 .kf-th-meta dd { margin: 3px 0 0; overflow: hidden; color: var(--foreground-secondary); font: 9px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .kf-th-meta code { color: var(--foreground-muted); font-size: 8.5px; }
 
-/* ---------- run history inside a task ---------- */
-.kf-th-runs { padding: 2px 7px 6px; }
+/* ---------- run history inside a task ----------
+   Runs are the Task's executions, so they are indented one level and held by a
+   single hairline guide instead of a second card. The line says "these runs
+   belong to that task" and nothing more. */
+.kf-th-runs {
+  margin: 1px 0 2px 15px; padding: 3px 0 4px 13px;
+  border-left: 1px solid var(--border-subtle);
+}
 .kf-th-run {
-  display: grid; width: 100%; align-items: center; gap: 3px 7px;
+  display: grid; width: 100%; align-items: center; gap: 3px 8px;
   grid-template-columns: 6px minmax(0, 1fr) auto;
   grid-template-areas: "d id verdict" "d time live";
-  padding: 5px 7px; margin-bottom: 2px; border: 0;
-  border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-2) 35%, transparent);
+  padding: 5px 8px; margin-bottom: 1px; border: 0;
+  border-radius: var(--radius-sm); background: transparent;
   cursor: pointer; text-align: left;
 }
 .kf-th-run:last-child { margin-bottom: 0; }
-.kf-th-run:hover { background: color-mix(in srgb, var(--surface-2) 75%, transparent); }
-.kf-th-run.is-sel { background: color-mix(in srgb, var(--primary) 14%, transparent); box-shadow: inset 2px 0 0 var(--primary); }
+.kf-th-run:hover { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+/* Current run: a tint plus a 2px indicator, never a border around the row. */
+.kf-th-run.is-sel {
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+  box-shadow: inset 2px 0 0 var(--primary);
+}
 .kf-th-run.is-purged { opacity: .62; }
 .kf-th-rdot { grid-area: d; width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
 .kf-th-rdot.is-ok { background: var(--success); }
 .kf-th-rdot.is-bad { background: var(--danger); }
 .kf-th-rdot.is-warn { background: var(--warning); }
 .kf-th-rdot.is-idle { background: var(--border-strong); }
-.kf-th-run > code { grid-area: id; overflow: hidden; color: var(--foreground-secondary); font: 10px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
-.kf-th-rv { grid-area: verdict; padding: 0 4px; border-radius: 3px; font: 600 8px/13px var(--font-mono); white-space: nowrap; }
-.kf-th-rv.is-ok { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
-.kf-th-rv.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
-.kf-th-rv.is-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
-.kf-th-rv.is-idle { color: var(--foreground-muted); background: var(--surface-3); }
+.kf-th-run > code { grid-area: id; overflow: hidden; color: var(--foreground-secondary); font: 11px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+/* The dot carries the first status signal; this word only names it. */
+.kf-th-rv { grid-area: verdict; color: var(--foreground-muted); font-family: var(--font-sans); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.kf-th-rv.is-ok { color: var(--success); }
+.kf-th-rv.is-bad { color: var(--danger); }
+.kf-th-rv.is-warn { color: var(--warning); }
+.kf-th-rv.is-idle { color: var(--foreground-muted); }
 .kf-th-run > small { grid-area: time; color: var(--foreground-muted); font: 8.5px var(--font-mono); }
 .kf-th-run > em {
   grid-area: live; padding: 0 4px; border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
-  border-radius: 3px; color: var(--primary); font: 7.5px/12px var(--font-mono); font-style: normal;
+  border-radius: 3px; color: var(--primary); font: 9px/12px var(--font-sans); font-style: normal;
 }
 
 /* run artifact inventory */
@@ -228,11 +246,13 @@
 .kf-rd-verdict.is-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent); }
 .kf-rd-verdict.is-idle { color: var(--foreground-muted); background: var(--surface-3); }
 
+/* Section heading — human label, so sans. It sits one level above the values
+   it introduces, hence secondary rather than muted. */
 .kf-rd-h {
-  color: var(--foreground-muted); font: 9px/1 var(--font-mono);
-  font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--foreground-secondary); font: 600 9px/1 var(--font-sans);
+  letter-spacing: .08em; text-transform: uppercase;
 }
-.kf-rd-h code { margin-left: 6px; color: var(--foreground-secondary); font-size: 10px; letter-spacing: 0; text-transform: none; }
+.kf-rd-h code { margin-left: 6px; color: var(--foreground-secondary); font: 10px var(--font-mono); letter-spacing: 0; text-transform: none; }
 
 .kf-rd-signals { display: flex; flex-wrap: wrap; gap: 6px; }
 .kf-rd-signals span {
@@ -249,13 +269,16 @@
 .kf-rd-signals .is-bad { border-color: color-mix(in srgb, var(--danger) 28%, var(--border-subtle)); }
 
 .kf-rd-arts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+/* Evidence / artifact blocks are rows, not cards: a left accent marks them and
+   the code they carry keeps the attention. */
 .kf-rd-art {
-  display: grid; gap: 6px; padding: 11px 12px 10px; text-align: left; cursor: pointer;
-  border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-1) 60%, transparent);
+  display: grid; gap: 6px; padding: 9px 12px 9px 11px; text-align: left; cursor: pointer;
+  border: 0; border-left: 2px solid var(--border-subtle);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: color-mix(in srgb, var(--surface-1) 45%, transparent);
 }
-.kf-rd-art:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--border-subtle)); background: var(--surface-2); }
-.kf-rd-art.is-sel { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, var(--surface-2)); }
+.kf-rd-art:hover { border-left-color: var(--primary); background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+.kf-rd-art.is-sel { border-left-color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); }
 .kf-rd-art-top { display: flex; align-items: center; gap: 7px; }
 .kf-rd-art-top i { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
 .kf-rd-art.is-ok .kf-rd-art-top i { background: var(--success); }
@@ -295,13 +318,13 @@
 .kf-rd-dir code { margin-left: 6px; color: var(--foreground-secondary); font-size: 10px; }
 .kf-rd-grp { display: grid; gap: 7px; }
 .kf-rd-h small {
-  margin-left: 8px; color: var(--foreground-muted); font: 9px var(--font-mono);
+  margin-left: 8px; color: var(--foreground-muted); font: 10px var(--font-sans);
   font-weight: 400; letter-spacing: 0; text-transform: none;
 }
-.kf-rd-art-path { color: var(--foreground-muted); font: 8.5px var(--font-mono); opacity: .72; }
+.kf-rd-art-path { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
 .kf-rd-art.is-static { cursor: default; }
-.kf-rd-art.is-static:hover { border-color: var(--border-subtle); background: color-mix(in srgb, var(--surface-1) 60%, transparent); }
-.kf-rd-art.is-primary { border-color: color-mix(in srgb, var(--primary) 35%, var(--border-subtle)); }
+.kf-rd-art.is-static:hover { border-left-color: var(--border-subtle); background: color-mix(in srgb, var(--surface-1) 45%, transparent); }
+.kf-rd-art.is-primary { border-left-color: color-mix(in srgb, var(--primary) 45%, var(--border-subtle)); }
 .kf-rd-art-go.is-off { color: var(--foreground-muted); opacity: .55; }
 .kf-rd-art:hover .kf-rd-art-go.is-off { color: var(--foreground-muted); opacity: .55; }
 
@@ -379,9 +402,14 @@
 .kf-rd-line.is-ok { border-left-color: var(--success); }
 .kf-rd-line.is-warn { border-left-color: var(--warning); }
 .kf-rd-line.is-dim { border-left-color: var(--border-subtle); color: var(--foreground-muted); }
-.kf-rd-reuse { display: grid; gap: 6px; padding: 9px 10px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.kf-rd-reuse {
+  display: grid; gap: 6px; padding: 9px 10px;
+  border: 0; border-left: 2px solid var(--border-subtle);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: color-mix(in srgb, var(--surface-1) 45%, transparent);
+}
 .kf-rd-rbar { display: grid; grid-template-columns: 46px 1fr; align-items: center; gap: 8px; }
-.kf-rd-rbar span { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-rd-rbar span { color: var(--foreground-muted); font-family: var(--font-sans); font-size: 10px; }
 .kf-rd-rbar i { display: block; height: 14px; border-radius: 3px; background: var(--surface-3); }
 .kf-rd-rbar i.is-before { background: color-mix(in srgb, var(--foreground-muted) 42%, transparent); }
 .kf-rd-rbar i.is-after { background: var(--success); }
@@ -397,7 +425,7 @@
 }
 .kf-rd-sec .kf-rd-art > b { color: var(--foreground); font-size: var(--kf-type-2xs); font-weight: 650; }
 .kf-rd-sec .kf-rd-art > .kf-rd-art-meta { grid-column: 1 / -1; font-size: 9px; }
-.kf-rd-sec .kf-rd-art > code { grid-column: 1 / -1; color: var(--foreground-muted); font: 8.5px var(--font-mono); opacity: .7; }
+.kf-rd-sec .kf-rd-art > code { grid-column: 1 / -1; color: var(--foreground-muted); font: 8.5px var(--font-mono); }
 .kf-rd-sec .kf-rd-art > .kf-rd-art-go { grid-column: 2; grid-row: 1; opacity: 1; }
 
 /* ---------- memory heatmap (memBlock in js/task-history.js) ----------
@@ -409,12 +437,13 @@
 .kf-rd-hleg > span { display: inline-flex; align-items: center; gap: 5px; color: var(--foreground-muted); font: 9px var(--font-mono); }
 .kf-rd-hleg i { width: 11px; height: 11px; border: 1px solid var(--border-subtle); border-radius: 2px; }
 .kf-rd-hleg em { color: var(--foreground-secondary); font: 600 9px var(--font-mono); font-style: normal; }
-.kf-rd-hlegn { margin-left: auto; opacity: .75; }
+.kf-rd-hlegn { margin-left: auto; }
 
 .kf-rd-hgrp { margin-top: 10px; }
 .kf-rd-hh { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+/* space identifier stays mono; the annotation around it reads as prose */
 .kf-rd-hh b { color: var(--foreground-secondary); font: 650 var(--kf-type-2xs) var(--font-mono); }
-.kf-rd-hh span { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-rd-hh span { color: var(--foreground-muted); font-family: var(--font-sans); font-size: 11px; }
 .kf-rd-hh em { color: var(--danger); font-style: normal; font-weight: 600; }
 
 .kf-rd-heat { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 4px; }
@@ -452,7 +481,7 @@
 .kf-rd-full {
   justify-self: start; margin-top: 1px; padding: 0 4px; border-radius: 2px;
   background: color-mix(in srgb, var(--warning) 26%, transparent);
-  color: var(--warning); font: 600 8px var(--font-mono);
+  color: var(--warning); font: 600 9px var(--font-sans);
 }
 .kf-rd-full.is-over { background: color-mix(in srgb, var(--danger) 30%, transparent); color: var(--danger); }
 /* functions that never allocate on chip — present, but not part of the scale */
@@ -495,11 +524,14 @@
 .kf-rd-hint tr:hover .kf-rd-src { color: var(--foreground-secondary); }
 
 /* ---- perf-hint findings ---------------------------------------------------
-   One card per root cause. Closed, it shows only the verdict tag and the
-   derived facts — its conclusion. The 现象/为什么/怎么改 prose opens on click,
-   and the raw perf_hints.log rows sit in a <details> one step further in. */
-.kf-rd-find { margin-top: 10px; padding: 11px 13px 12px; border: 1px solid var(--border-subtle);
-  border-left: 3px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-2); }
+   One finding per root cause, drawn as a row with a verdict-coloured spine
+   rather than a card. Closed, it shows only the verdict tag and the derived
+   facts — its conclusion. The 现象/为什么/怎么改 prose opens on click, and the
+   raw perf_hints.log rows sit in a <details> one step further in. */
+.kf-rd-find { margin-top: 10px; padding: 10px 12px 11px; border: 0;
+  border-left: 3px solid var(--border-strong);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
 .kf-rd-find.is-warn { border-left-color: var(--warning); }
 .kf-rd-find.is-dim { border-left-color: var(--border-strong); background: transparent; }
 /* The header IS the toggle: the click target is the card's own verdict line,
@@ -516,7 +548,7 @@
 .kf-rd-findhd:hover .kf-rd-findchev { border-color: var(--primary); }
 .kf-rd-findhd[aria-expanded="true"] .kf-rd-findchev { transform: rotate(-135deg) translateY(-1px); }
 .kf-rd-findtag { flex: none; padding: 1px 6px; border-radius: var(--radius-pill);
-  font: 650 9px/1.6 var(--font-mono); letter-spacing: .02em;
+  font: 650 10px/1.6 var(--font-sans); letter-spacing: .02em;
   background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); }
 .kf-rd-find.is-dim .kf-rd-findtag { background: var(--surface-3); color: var(--foreground-muted); }
 .kf-rd-findn { flex: none; color: var(--foreground-muted); font: 9px var(--font-mono); }
@@ -546,7 +578,7 @@
 .kf-rd-findsrc > summary:hover { color: var(--primary); }
 .kf-rd-findsrc[open] > summary { margin-bottom: 6px; }
 .kf-rd-srcnote { display: block; margin-top: 2px; color: var(--foreground-muted);
-  font-size: 8px; font-style: normal; opacity: .8; }
+  font-size: 8px; font-style: normal; }
 .kf-rd-note.is-dim b { margin-right: 6px; color: var(--foreground-secondary); }
 
 /* ---- run inspector (right rail, runInspector in js/task-history.js) --------
@@ -592,7 +624,6 @@
 }
 
 .kf-ri-note { margin: 8px 0 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55; }
-.kf-ri-note.is-dim { opacity: .8; }
 .kf-ri-note code { color: var(--foreground-secondary); font: 9px var(--font-mono); }
 
 /* work vs wait on the critical chain */
@@ -601,7 +632,8 @@
 .kf-ri-split i.is-work, .kf-ri-splitk i.is-work { background: var(--success); }
 .kf-ri-split i.is-wait, .kf-ri-splitk i.is-wait { background: color-mix(in srgb, var(--warning) 62%, var(--surface-3)); }
 .kf-ri-splitk { display: flex; flex-wrap: wrap; gap: 3px 12px; margin-top: 6px; }
-.kf-ri-splitk span { display: inline-flex; align-items: center; gap: 5px; color: var(--foreground-muted); font: 9px var(--font-mono); }
+/* legend for the split bar — the words 在算 / 在等核 are labels, not values */
+.kf-ri-splitk span { display: inline-flex; align-items: center; gap: 5px; color: var(--foreground-muted); font: 10px var(--font-sans); }
 .kf-ri-splitk i { width: 8px; height: 8px; border-radius: 2px; }
 
 .kf-ri-waits { display: grid; gap: 4px; margin-top: 10px; }
@@ -618,7 +650,7 @@
 .kf-ri-occ { display: grid; gap: 5px; }
 .kf-ri-occ > div { display: grid; grid-template-columns: minmax(0, 84px) minmax(0, 1fr) auto; align-items: center; gap: 7px; }
 .kf-ri-occ span { color: var(--foreground-secondary); font: 9px var(--font-mono); }
-.kf-ri-occ em { margin-left: 5px; color: var(--foreground-muted); font-style: normal; opacity: .8; }
+.kf-ri-occ em { margin-left: 5px; color: var(--foreground-muted); font-style: normal; }
 .kf-ri-occ i { display: block; min-width: 2px; height: 9px; border-radius: 2px; background: var(--surface-3); }
 .kf-ri-occ i.is-aic { background: var(--primary); }
 .kf-ri-occ i.is-aiv { background: color-mix(in srgb, var(--primary) 45%, var(--surface-3)); }
@@ -779,40 +811,53 @@
 .kf-rt { overflow-x: auto; scrollbar-width: thin; }
 .kf-rt button { flex: 0 0 auto; }
 .kf-rw-health { display: grid; gap: 8px; }
-.kf-rw-health > div { display: grid; grid-template-columns: repeat(5, minmax(110px, 1fr)); gap: 5px; overflow-x: auto; }
-.kf-rw-health button, .kf-rw-finding, .kf-oi-link, .kf-oi-actions button {
+/* the five-domain strip — :not() keeps the section heading above it from being
+   caught by this rule and squeezed into a 110px column */
+.kf-rw-health > div:not(.kf-rd-h) { display: grid; grid-template-columns: repeat(5, minmax(110px, 1fr)); gap: 5px; overflow-x: auto; }
+.kf-rw-finding, .kf-oi-link, .kf-oi-actions button {
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   color: var(--foreground-secondary); background: color-mix(in srgb, var(--surface-1) 65%, transparent); cursor: pointer; text-align: left;
 }
-.kf-rw-health button { display: grid; min-width: 116px; gap: 3px; padding: 8px 9px; }
+/* The five domain entries stay clickable, so they keep their outline — but as
+   outlined cells, not as five filled cards. */
+.kf-rw-health button {
+  display: grid; min-width: 116px; gap: 3px; padding: 8px 9px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  color: var(--foreground-secondary); background: transparent; cursor: pointer; text-align: left;
+}
 .kf-rw-health button:hover, .kf-rw-finding:hover, .kf-oi-link:hover, .kf-oi-actions button:hover { border-color: color-mix(in srgb, var(--primary) 42%, var(--border-subtle)); background: var(--surface-2); }
-.kf-rw-health b { color: var(--foreground); font: 650 10px var(--font-mono); }
-.kf-rw-health em { color: var(--foreground-muted); font: 700 7.5px var(--font-mono); font-style: normal; letter-spacing: .04em; }
+.kf-rw-health b { color: var(--foreground); font-family: var(--font-sans); font-size: 12px; font-weight: 650; }
+.kf-rw-health em { color: var(--foreground-muted); font: 700 7.5px var(--font-sans); font-style: normal; letter-spacing: .04em; }
 .kf-rw-health button.is-ok em { color: var(--success); }.kf-rw-health button.is-warn em { color: var(--warning); }.kf-rw-health button.is-bad em { color: var(--danger); }
-.kf-rw-health small { color: var(--foreground-muted); font: 8.5px/1.35 var(--font-mono); white-space: nowrap; }
+.kf-rw-health small { color: var(--foreground-muted); font-family: var(--font-sans); font-size: 11px; line-height: 1.35; }
 .kf-rw-finding { display: grid; width: 100%; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px 9px; }
-.kf-rw-finding span { padding: 2px 5px; border-radius: var(--radius-sm); color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); font: 700 8px var(--font-mono); }
+.kf-rw-finding span { padding: 2px 5px; border-radius: var(--radius-sm); color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); font: 700 9px var(--font-sans); }
 .kf-rw-finding.is-dim span { color: var(--foreground-muted); background: var(--surface-3); }
 .kf-rw-finding b { overflow: hidden; color: var(--foreground); font-size: var(--kf-type-2xs); text-overflow: ellipsis; white-space: nowrap; }
-.kf-rw-finding small { color: var(--foreground-muted); font: 8px var(--font-mono); white-space: nowrap; }
+/* the supporting line under a finding is a sentence, not an identifier */
+.kf-rw-finding small { color: var(--foreground-muted); font-family: var(--font-sans); font-size: 11px; white-space: nowrap; }
 .kf-rw-evidence { border-top: 1px solid var(--border-subtle); color: var(--foreground-secondary); }
 .kf-rw-evidence summary { padding: 9px 0; cursor: pointer; font-size: var(--kf-type-2xs); }
-.kf-rw-evidence-body { display: grid; gap: 4px; padding: 0 0 8px; }
-.kf-rw-evidence-body > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, .8fr); gap: 2px 8px; padding: 6px 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
-.kf-rw-evidence-body b { color: var(--foreground); font-size: var(--kf-type-2xs); }.kf-rw-evidence-body small,.kf-rw-evidence-body code { overflow: hidden; color: var(--foreground-muted); font: 8px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }.kf-rw-evidence-body code { grid-column: 1 / -1; }
+.kf-rw-evidence-body { display: grid; gap: 0; padding: 0 0 8px; }
+/* Coverage rows are a list, not a row of boxes: alignment already groups each
+   label with its status. */
+.kf-rw-evidence-body > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(100px, .8fr); gap: 2px 8px; padding: 6px 0; border: 0; border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent); border-radius: 0; }
+.kf-rw-evidence-body > div:last-child { border-bottom: 0; }
+.kf-rw-evidence-body b { color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }.kf-rw-evidence-body small { overflow: hidden; color: var(--foreground-muted); font-family: var(--font-sans); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.kf-rw-evidence-body code { grid-column: 1 / -1; overflow: hidden; color: var(--foreground-muted); font: 8px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .kf-rw-coverage { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }.kf-rw-coverage > div { display: flex; min-width: 0; align-items: center; justify-content: space-between; }.kf-rw-coverage > div.is-available small { color: var(--success); }.kf-rw-coverage > div.is-partial small { color: var(--warning); }.kf-rw-coverage > p { grid-column: 1 / -1; }
 .kf-rw-runtime-empty { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
 .kf-rw-runtime-empty > div { display: grid; gap: 3px; padding: 9px; border: 1px dashed var(--border-strong); border-radius: var(--radius-md); }.kf-rw-runtime-empty b { color: var(--foreground-secondary); font: 600 9px var(--font-mono); }.kf-rw-runtime-empty small { color: var(--foreground-muted); font: 8px var(--font-mono); }
-.kf-rw-runtime-empty > p { grid-column: 1 / -1; margin: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }.kf-rw-runtime-empty > button,.kf-rw-domain-empty > button { width: max-content; padding: 5px 8px; border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border-subtle)); border-radius: var(--radius-sm); color: var(--primary); background: transparent; cursor: pointer; font: 8.5px var(--font-mono); }
+.kf-rw-runtime-empty > p { grid-column: 1 / -1; margin: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }.kf-rw-runtime-empty > button,.kf-rw-domain-empty > button { width: max-content; padding: 5px 8px; border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border-subtle)); border-radius: var(--radius-sm); color: var(--primary); background: transparent; cursor: pointer; font-family: var(--font-sans); font-size: 11px; }
 .kf-oi-evidence { padding: 4px 6px; border-radius: var(--radius-sm); color: var(--foreground-secondary); background: var(--surface-3); font: 8px/1.3 var(--font-mono); }
 .kf-oi { display: grid; gap: 12px; }.kf-oi.is-empty { padding: 8px 2px; }.kf-oi.is-empty p { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55; }
-.kf-oi-head { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }.kf-oi-head > span { color: var(--primary); font: 700 8px var(--font-mono); letter-spacing: .08em; }.kf-oi-head h3 { margin: 0; overflow-wrap: anywhere; color: var(--foreground); font-size: var(--kf-type-sm); }.kf-oi-head small { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
-.kf-oi-links,.kf-oi-actions { display: flex; flex-wrap: wrap; gap: 4px; }.kf-oi-link,.kf-oi-actions button { padding: 5px 7px; font: 8.5px/1.3 var(--font-mono); }.kf-oi-actions button { color: var(--primary); }
+/* The eyebrow names the object kind (TASK / KERNEL / PASS) — a UI label. */
+.kf-oi-head { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }.kf-oi-head > span { color: var(--primary); font: 700 9px var(--font-sans); letter-spacing: .08em; }.kf-oi-head h3 { margin: 0; overflow-wrap: anywhere; color: var(--foreground); font-size: var(--kf-type-sm); }.kf-oi-head small { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
+.kf-oi-links,.kf-oi-actions { display: flex; flex-wrap: wrap; gap: 4px; }.kf-oi-link,.kf-oi-actions button { padding: 5px 7px; font-family: var(--font-sans); font-size: 11px; line-height: 1.3; }.kf-oi-actions button { color: var(--primary); }
 .kf-object-tooltip { position: fixed; z-index: 80; display: none; width: min(360px, calc(100vw - 16px)); max-height: min(520px, calc(100vh - 16px)); overflow: auto; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-1) 94%, transparent); box-shadow: 0 14px 32px rgb(0 0 0 / .14), inset 0 1px 0 rgb(255 255 255 / .025); backdrop-filter: blur(18px) saturate(1.18); }
 .kf-object-tooltip.is-open { display: block; }
 .kf-object-tooltip .kf-oi { gap: 10px; }
 .kf-object-tooltip .kf-inspector-section { display: grid; gap: 5px; }
-.kf-object-tooltip .kf-inspector-title { margin: 0; color: var(--foreground-muted); font: 700 8px var(--font-mono); letter-spacing: .08em; }
+.kf-object-tooltip .kf-inspector-title { margin: 0; color: var(--foreground-secondary); font: 700 9px var(--font-sans); letter-spacing: .08em; }
 
 /* Run workspace has no right Inspector pane: the center pane claims that width. */
 #ideMainSplit.kf-run-no-inspector > [data-ide-pane="inspector"],
@@ -880,7 +925,7 @@
 .kf-rd-eyebrow { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
 .kf-rd-eyebrow > span {
   display: inline-flex; align-items: center; gap: 6px; color: var(--primary);
-  font: 700 8.5px/1 var(--font-mono); letter-spacing: .11em;
+  font: 700 9px/1 var(--font-sans); letter-spacing: .11em;
 }
 .kf-rd-eyebrow > span i {
   width: 6px; height: 6px; border-radius: 50%; background: var(--primary);
@@ -898,7 +943,7 @@
   display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px;
   border: 1px solid var(--border-subtle); border-radius: var(--radius-pill);
   color: var(--foreground-secondary); background: color-mix(in srgb, var(--surface-3) 70%, transparent);
-  font: 650 9px/1.3 var(--font-mono); white-space: nowrap;
+  font: 650 11px/1.3 var(--font-sans); white-space: nowrap;
 }
 .kf-rd-status i { width: 5px; height: 5px; border-radius: 50%; background: var(--foreground-muted); }
 .kf-rd-status.is-ok { color: var(--success); border-color: color-mix(in srgb, var(--success) 28%, var(--border-subtle)); }
@@ -913,7 +958,7 @@
   align-items: flex-start; gap: 3px; margin-top: 12px; padding-top: 8px;
   border-top: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
 }
-.kf-rd-summary .kf-rd-run > span { color: var(--foreground-muted); font: 700 8px/1 var(--font-mono); letter-spacing: .1em; }
+.kf-rd-summary .kf-rd-run > span { color: var(--foreground-muted); font: 700 9px/1 var(--font-sans); letter-spacing: .1em; }
 .kf-rd-summary .kf-rd-run code { color: var(--foreground); font: 650 18px/1.25 var(--font-mono); }
 .kf-rd-summary .kf-rd-run small { color: var(--foreground-muted); font: 8.5px/1.35 var(--font-mono); }
 
@@ -992,17 +1037,18 @@
 .kf-rd-kpi.is-memory, .kf-rd-kpi.is-signals { grid-column: span 3; min-height: 112px; }
 
 .kf-rd-kpi > header { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
-.kf-rd-kpi > header span { min-width: 0; overflow: hidden; color: var(--foreground-secondary); font-size: 9px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.kf-rd-kpi > header span { min-width: 0; overflow: hidden; color: var(--foreground-secondary); font-family: var(--font-sans); font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .kf-rd-kpi > header em {
   flex: none; padding: 2px 5px; border-radius: 3px;
   color: var(--kpi-accent); background: color-mix(in srgb, var(--kpi-accent) 12%, transparent);
-  font: 700 7px/1.35 var(--font-mono); font-style: normal; letter-spacing: .03em;
+  font: 700 8px/1.35 var(--font-sans); font-style: normal; letter-spacing: .03em;
 }
 .kf-rd-kpi-main { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 10px; }
 .kf-rd-kpi-main > b { color: var(--foreground); font: 680 clamp(25px, 5.4cqi, 34px)/.95 var(--font-mono); letter-spacing: -.045em; }
 .kf-rd-kpi-main > b > i { margin-left: 3px; color: var(--foreground-muted); font: 600 10px/1 var(--font-mono); font-style: normal; letter-spacing: 0; }
 .kf-rd-kpi > small {
-  display: -webkit-box; overflow: hidden; color: var(--foreground-muted); font: 8.5px/1.4 var(--font-mono);
+  display: -webkit-box; overflow: hidden; color: var(--foreground-muted); font-family: var(--font-sans);
+  font-size: 10px; line-height: 1.4;
   -webkit-box-orient: vertical; -webkit-line-clamp: 2;
 }
 
@@ -1023,7 +1069,7 @@
 .kf-rd-kpi-eff { display: flex; min-width: 0; align-items: center; gap: 12px; }
 .kf-rd-kpi-eff .kf-rd-kpi-split { width: min(102px, 48%); height: 10px; }
 .kf-rd-kpi-eff > span { display: grid; gap: 2px; }
-.kf-rd-kpi-eff > span b { color: var(--foreground-secondary); font: 700 11px/1 var(--font-mono); }
+.kf-rd-kpi-eff > span b { color: var(--foreground-secondary); font: 700 11px/1 var(--font-sans); }
 .kf-rd-kpi-eff > span em { color: var(--foreground-muted); font: 7px/1 var(--font-mono); font-style: normal; letter-spacing: .06em; }
 .kf-rd-kpi.is-efficiency .kf-rd-kpi-main { align-items: stretch; }
 .kf-rd-kpi.is-efficiency .kf-rd-kpi-main > b { align-self: center; flex: none; }
@@ -1037,12 +1083,13 @@
 .kf-rd-kpi-eff-legend { display: flex; min-width: 0; justify-content: space-between; gap: 8px; }
 .kf-rd-kpi-eff-legend > span {
   display: inline-flex; min-width: 0; align-items: center; gap: 5px;
-  color: var(--foreground-muted); font: 8px/1 var(--font-mono); white-space: nowrap;
+  color: var(--foreground-muted); font: 9px/1 var(--font-sans); white-space: nowrap;
 }
 .kf-rd-kpi-eff-legend > span > i { width: 6px; height: 6px; flex: none; border-radius: 2px; background: var(--success); }
 .kf-rd-kpi-eff-legend > span.is-wait > i { background: var(--warning); }
-.kf-rd-kpi-eff-legend > span > b { overflow: hidden; color: var(--foreground-secondary); font: 650 8px/1 var(--font-mono); text-overflow: ellipsis; }
-.kf-rd-kpi.is-efficiency > small { color: color-mix(in srgb, var(--foreground-muted) 72%, transparent); font-size: 8px; }
+.kf-rd-kpi-eff-legend > span > b { overflow: hidden; color: var(--foreground-secondary); font: 650 9px/1 var(--font-sans); text-overflow: ellipsis; }
+/* one downgrade only: muted is already the last step before disabled */
+.kf-rd-kpi.is-efficiency > small { color: var(--foreground-muted); font-size: 10px; }
 .kf-rd-kpi-signal { display: grid; width: min(126px, 48%); grid-template-columns: minmax(44px, 1fr) auto; align-items: center; gap: 8px; }
 .kf-rd-kpi-signal > i { display: block; height: 5px; border-radius: var(--radius-pill); background: linear-gradient(90deg, var(--kpi-accent) calc(var(--p) * 1%), var(--surface-3) 0); }
 .kf-rd-kpi-signal span { display: grid; gap: 1px; }
