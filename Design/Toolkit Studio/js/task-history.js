@@ -324,7 +324,9 @@
     tab: 'overview',
     selection: null,
     runSplitSession: null,
-    runSplitSizes: [30, 70]
+    // Run hides the inspector; this is the explorer width Run is pinned to,
+    // in pixels, carried across Activity switches.
+    runSplitExplorerPx: null
   };
   let els = null;
   let objectTooltip = null, objectTooltipTarget = null, objectTooltipTimer = null;
@@ -1188,11 +1190,16 @@
           storageKey,
           storedSizes: storageKey ? localStorage.getItem(storageKey) : null
         };
-        const runSizes = st.runSplitSizes || [30, 70];
-        panes[0].style.flex = runSizes[0] + ' 1 0%';
-        panes[0].style.flexBasis = '0%';
+        /* Run hides the inspector, so a percentage split would hand the freed
+           column to the explorer too and the left pane would land ~200px wider
+           than Project. Pin the explorer to whatever width Project is showing
+           and let the editor take the rest; the editor keeps a grow value above
+           15 so the legacy-damage repair below never fires on a pinned pane. */
+        const explorerPx = st.runSplitExplorerPx || panes[0].getBoundingClientRect().width || 0;
+        panes[0].style.flex = explorerPx > 0 ? '0 0 ' + explorerPx + 'px' : '30 1 0%';
+        panes[0].style.flexBasis = explorerPx > 0 ? explorerPx + 'px' : '0%';
         panes[0].style.width = 'auto';
-        panes[1].style.flex = runSizes[1] + ' 1 0%';
+        panes[1].style.flex = '70 1 0%';
         panes[1].style.flexBasis = '0%';
         panes[1].style.width = 'auto';
       }
@@ -1202,9 +1209,8 @@
     }
 
     if (st.runSplitSession && panes.every(Boolean)) {
-      const widths = panes.slice(0, 2).map(pane => pane.getBoundingClientRect().width);
-      const total = widths[0] + widths[1];
-      if (total > 0) st.runSplitSizes = widths.map(width => width / total * 100);
+      const width = panes[0].getBoundingClientRect().width;
+      if (width > 0) st.runSplitExplorerPx = width;
 
       panes.forEach((pane, index) => {
         const saved = st.runSplitSession.panes[index];

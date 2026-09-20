@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="./styles/ir-compile-guard.css?v=20260918-2" />
   <link rel="stylesheet" href="./styles/task-history.css?v=20260918-28" />
   <link rel="stylesheet" href="./styles/run-fan.css?v=20260904-3" />
-  <link rel="stylesheet" href="./styles/run-timeline.css?v=20260902-4" />
+  <link rel="stylesheet" href="./styles/run-timeline.css?v=20260920-1" />
   <link rel="stylesheet" href="./styles/typography-responsive.css?v=20260904-3" />
   <style>
     .kf-env-panel { width: 438px; }
@@ -83,6 +83,167 @@
     .kf-env-panel > footer time { color: var(--foreground-muted); font: var(--kf-type-2xs) var(--font-mono); white-space: nowrap; }
     .kf-env-panel > footer button:last-child { padding: 5px 8px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); color: var(--foreground); background: var(--surface-2); }
     @media (max-width: 760px) { .kf-env-panel { right: -48px; width: min(356px, calc(100vw - 24px)); } }
+  </style>
+  <style id="kf-execmap-css">
+    /* ---------- 执行地图（Execution Facets）----------
+       一行 facet tab + 一张全宽表。原来的「对象列表 | 当前对象详情」两栏已删除：
+       同一 facet 下所有对象共用一套 column schema，横向比较交给排序，纵向验证
+       交给下方 Timeline。对象详情不再有面板，改为行内 hover 动作。
+
+       最右侧是一列预留 action zone（普通状态为空）。预留列的意义是：hover 只
+       改变这一列里按钮的 opacity，不参与列宽计算，所以表格永远不会横向跳动。
+       动作按钮只出现在与该对象类型匹配的行上，四个 facet 的动作集合不同。 */
+    .kf-em {
+      --kf-em-line: var(--border-subtle);
+      --kf-em-line2: var(--border-default);
+      --kf-em-soft: var(--foreground-secondary);
+      --kf-em-dim: var(--foreground-muted);
+      --kf-em-blue: var(--primary);
+      --kf-em-cyan: var(--success);
+      --kf-em-amber: var(--warning);
+      --kf-em-pink: var(--danger);
+      container-type: inline-size;
+    }
+    .kf-em button { border: 0; color: inherit; background: transparent; cursor: pointer; font: inherit; }
+
+    /* ---- 运行对象（run-object）----
+       这次 Run 本身，不是可选对象，只做「我现在在看哪一次运行」的锚。radial 的几何
+       全部由一个 --kf-em-orb 推导（inset 用比例而不是固定 px），窄容器里整体缩小即可。 */
+    .kf-em-body { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 12px; align-items: start; }
+    .kf-em-main { min-width: 0; }
+    .kf-em-object {
+      --kf-em-orb: 152px;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 20px 16px 18px;
+      border: 1px solid var(--kf-em-line2); border-radius: var(--radius-md);
+      background:
+        radial-gradient(circle at 50% 32%, color-mix(in srgb, var(--kf-em-blue) 13%, transparent), transparent 58%),
+        color-mix(in srgb, var(--surface-1) 55%, transparent);
+    }
+    .kf-em-obj-id { display: flex; flex-direction: column; align-items: center; width: 100%; }
+    .kf-em-obj-text { text-align: center; }
+    .kf-em-radial {
+      position: relative; width: var(--kf-em-orb); height: var(--kf-em-orb);
+      border-radius: 50%; opacity: .92;
+      background: repeating-conic-gradient(from -90deg,
+        color-mix(in srgb, var(--kf-em-blue) 82%, transparent) 0deg 1.3deg, transparent 1.3deg 4deg);
+    }
+    .kf-em-radial::before {
+      content: ""; position: absolute; inset: calc(var(--kf-em-orb) * .184); border-radius: 50%;
+      border: 1px solid color-mix(in srgb, var(--kf-em-blue) 55%, transparent);
+      background: color-mix(in srgb, var(--surface-1) 88%, #000);
+      box-shadow: inset 0 0 25px color-mix(in srgb, var(--kf-em-blue) 24%, transparent);
+    }
+    .kf-em-radial::after {
+      content: var(--kf-em-ring, "326");
+      position: absolute; inset: calc(var(--kf-em-orb) * .342);
+      display: grid; place-items: center; border-radius: 50%;
+      color: #fff; background: color-mix(in srgb, var(--kf-em-blue) 58%, #0b0e13);
+      font: 700 calc(var(--kf-em-orb) * .118) var(--font-mono);
+    }
+    .kf-em-obj-title { margin-top: 15px; color: var(--foreground); font: 650 12px var(--font-mono); }
+    .kf-em-obj-sub { margin-top: 4px; color: var(--kf-em-dim); font: 10px var(--font-mono); }
+    .kf-em-kpis { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }
+    .kf-em-kpi { padding: 8px 9px; border: 1px solid var(--kf-em-line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-2) 62%, transparent); }
+    .kf-em-kpi b { display: block; color: var(--foreground); font: 650 17px/1.1 var(--font-mono); }
+    .kf-em-kpi span { display: block; margin-top: 3px; color: var(--kf-em-dim); font-size: 10px; }
+
+    /* 阈值 = 196(运行对象) + 12(间距) + 1030(表格最小宽度)。低于它两栏必然挤到表格
+       横向滚动，不如让运行对象横过来当一条信息带，把宽度还给表格。 */
+    @container (max-width: 1238px) {
+      .kf-em-body { grid-template-columns: minmax(0, 1fr); }
+      .kf-em-object { --kf-em-orb: 104px; flex-direction: row; align-items: center; gap: 20px; padding: 14px 16px; }
+      .kf-em-obj-id { flex-direction: row; align-items: center; gap: 16px; width: auto; }
+      .kf-em-obj-text { text-align: left; }
+      .kf-em-obj-title, .kf-em-obj-sub { margin-top: 0; }
+      .kf-em-kpis { width: auto; flex: 1; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 0; }
+    }
+
+    /* ---- facet tabs ---- */
+    .kf-em-tabs { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px; border-bottom: 1px solid var(--kf-em-line2); }
+    .kf-em-tab {
+      display: inline-flex; align-items: baseline; gap: 6px; padding: 8px 13px 7px;
+      border-bottom: 2px solid transparent; color: var(--kf-em-soft);
+      font-size: var(--kf-type-sm); transition: color 120ms ease, border-color 120ms ease;
+    }
+    .kf-em-tab:hover { color: var(--foreground); }
+    .kf-em-tab b { color: var(--kf-em-dim); font: 600 10px var(--font-mono); }
+    .kf-em-tab.is-active { border-bottom-color: var(--kf-em-blue); color: var(--foreground); }
+    .kf-em-tab.is-active b { color: color-mix(in srgb, var(--kf-em-blue) 68%, var(--foreground)); }
+
+    /* ---- table ---- */
+    .kf-em-scroll {
+      overflow: auto; max-height: 344px;
+      border: 1px solid var(--kf-em-line2); border-top: 0;
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+      background: color-mix(in srgb, var(--surface-1) 40%, transparent);
+    }
+    /* min-width 由最宽的一组 hover 动作按钮反推：预留列不参与列宽计算，但它必须有
+       足够宽度容纳按钮，否则窄容器会把第一个按钮挤出预留列。宁可横向滚动。 */
+    .kf-em-table { width: 100%; min-width: 1030px; border-collapse: collapse; table-layout: fixed; }
+    .kf-em-table th {
+      position: sticky; top: 0; z-index: 2; height: 34px; padding: 0 8px;
+      border-bottom: 1px solid var(--kf-em-line2);
+      background: color-mix(in srgb, var(--surface-2) 74%, var(--surface-1));
+      color: var(--kf-em-dim); font: 600 9.5px var(--font-mono);
+      letter-spacing: .07em; text-transform: uppercase; white-space: normal; text-align: left;
+    }
+    .kf-em-sort {
+      display: flex; align-items: center; gap: 4px; width: 100%; min-height: 34px; padding: 3px 0;
+      color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit;
+    }
+    .kf-em-sort.is-r { justify-content: flex-end; }
+    /* 长表头折成两行，不截断也不把列撑宽 */
+    .kf-em-sortl { min-width: 0; line-height: 1.15; overflow-wrap: anywhere; }
+    .kf-em-sort i { flex: 0 0 7px; width: 7px; color: var(--kf-em-dim); font-style: normal; opacity: 0; transition: opacity 110ms ease; }
+    .kf-em-sort:hover { color: var(--kf-em-soft); }
+    .kf-em-sort:hover i { opacity: .5; }
+    .kf-em-sort.is-on { color: var(--kf-em-soft); }
+    .kf-em-sort.is-on i { opacity: 1; color: color-mix(in srgb, var(--kf-em-blue) 72%, var(--foreground)); }
+    .kf-em-sort:focus-visible { outline: 1px solid var(--kf-em-blue); outline-offset: -2px; }
+
+    .kf-em-table td {
+      height: 42px; padding: 0 10px; overflow: hidden;
+      border-bottom: 1px solid var(--kf-em-line);
+      color: var(--kf-em-soft); font: 11px var(--font-mono);
+      white-space: nowrap; text-overflow: ellipsis;
+    }
+    .kf-em-table tbody tr { cursor: pointer; }
+    .kf-em-table tbody tr:hover { background: color-mix(in srgb, var(--surface-2) 44%, transparent); }
+    .kf-em-table tbody tr.is-sel { background: color-mix(in srgb, var(--kf-em-blue) 11%, transparent); }
+    .kf-em-table tbody tr.is-sel td:first-child { box-shadow: inset 2px 0 0 var(--kf-em-blue); }
+    .kf-em-table tbody tr:last-child td { border-bottom: 0; }
+    .kf-em-name { color: var(--foreground); font-weight: 600; }
+    .kf-em-warn { color: var(--kf-em-amber); }
+    .kf-em-strong { color: var(--foreground); }
+
+    .kf-em-ty { display: inline-block; padding: 1px 5px; border-radius: var(--radius-sm); font: 600 9.5px var(--font-mono); }
+    .kf-em-ty.is-aic { color: color-mix(in srgb, var(--kf-em-blue) 74%, #fff); background: color-mix(in srgb, var(--kf-em-blue) 17%, transparent); }
+    .kf-em-ty.is-aiv { color: color-mix(in srgb, var(--kf-em-cyan) 78%, #fff); background: color-mix(in srgb, var(--kf-em-cyan) 17%, transparent); }
+    .kf-em-long { color: var(--kf-em-soft); }
+    .kf-em-long i { color: var(--kf-em-dim); font-style: normal; }
+
+    /* ---- hover action zone ---- */
+    .kf-em-table .kf-em-actcell { padding: 0 8px; }
+    .kf-em-rowact {
+      display: flex; justify-content: flex-end; gap: 4px;
+      opacity: 0; pointer-events: none; transition: opacity 120ms ease;
+    }
+    .kf-em-table tbody tr:hover .kf-em-rowact,
+    .kf-em-table tbody tr.is-sel .kf-em-rowact { opacity: 1; pointer-events: auto; }
+    /* flex-shrink so a narrower container ellipsizes the labels instead of
+       clipping the first button off the left edge of the reserved column */
+    .kf-em-rowact button {
+      flex: 0 1 auto; min-width: 0; height: 26px; padding: 0 8px; overflow: hidden;
+      border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+      color: var(--kf-em-soft); background: color-mix(in srgb, var(--surface-1) 90%, transparent);
+      font: 10px var(--font-sans); white-space: nowrap;
+      transition: color 110ms ease, border-color 110ms ease;
+    }
+    .kf-em-rowact button:hover { border-color: var(--border-strong); color: var(--foreground); }
+    .kf-em-rowact button:active { background: color-mix(in srgb, var(--kf-em-blue) 18%, var(--surface-2)); }
+
+    .kf-em-empty { padding: 26px 12px; color: var(--kf-em-dim); font-size: var(--kf-type-2xs); text-align: center; }
   </style>
 </head>
 <body>
@@ -719,9 +880,410 @@
   <script src="./js/ir-pass-visuals.js?v=20260902-1"></script>
   <script src="./js/ir-compile-guard.js?v=20260907-1"></script>
   <script src="./js/run-trace-data.js?v=20260902-3"></script>
-  <script src="./js/run-timeline.js?v=20260902-4"></script>
+  <script src="./js/run-timeline.js?v=20260920-1"></script>
   <script src="./js/run-fan.js?v=20260904-4"></script>
-  <script src="./js/task-history.js?v=20260918-9"></script>
+  <script src="./js/task-history.js?v=20260920-1"></script>
   <script src="./js/typography-responsive.js?v=20260907-1"></script>
+  <script id="kf-execmap">
+    /* 执行地图（Execution Facets）—— 由 temp_file_execution_map_demo.html 的
+       exec-map 区域演进而来，取代原来的「对象列表 | 当前对象详情」两栏。
+
+       数据（executionData）与渲染（FACETS / render*）分离：接真实 dfx_outputs 时
+       只替换 executionData 的构造，column schema、排序、hover 动作、Timeline 联动
+       都不用动。timelineKernels / lane 是联动锚点，与展示字段分开。
+
+       这一段挂在 js/task-history.js renderExecution() 造的
+       '<section class="kf-rd-sec kf-fan-host">'（组合扇区，js/run-fan.js 挂载）上：
+       包一层 PTO_FAN.mount()，渲染完把宿主掏空换成 facet tab + 表格，宿主元素保留，
+       下方 #runTimeline 不动。 */
+    (function () {
+      'use strict';
+
+      /* ---------- 数据 ---------- */
+      var executionData = {
+        functions: [
+          { id: 'fn-q_proj', name: 'q_proj', executionType: 'AIC', taskInstances: 50,
+            totalDuration: 214, criticalPathContribution: 21, activeCores: 8, expectedCores: 8,
+            avgTaskDuration: 4.28, maxTaskDuration: 28, status: 'ok', timelineKernels: ['q_proj'] },
+          { id: 'fn-k_proj', name: 'k_proj', executionType: 'AIC', taskInstances: 10,
+            totalDuration: 82, criticalPathContribution: 7, activeCores: 8, expectedCores: 8,
+            avgTaskDuration: 8.20, maxTaskDuration: 17, status: 'ok', timelineKernels: ['k_proj'] },
+          { id: 'fn-v_proj', name: 'v_proj', executionType: 'AIC', taskInstances: 10,
+            totalDuration: 76, criticalPathContribution: 6, activeCores: 8, expectedCores: 8,
+            avgTaskDuration: 7.60, maxTaskDuration: 15, status: 'ok', timelineKernels: ['v_proj'] },
+          { id: 'fn-dcr_xgamma', name: 'dcr_xgamma', executionType: 'AIV', taskInstances: 8,
+            totalDuration: 143, criticalPathContribution: 18, activeCores: 6, expectedCores: 8,
+            avgTaskDuration: 17.88, maxTaskDuration: 31, status: 'warn', timelineKernels: ['dcr_xgamma'] },
+          { id: 'fn-down_seed', name: 'down_seed', executionType: 'AIV', taskInstances: 8,
+            totalDuration: 91, criticalPathContribution: 8, activeCores: 8, expectedCores: 8,
+            avgTaskDuration: 11.38, maxTaskDuration: 19, status: 'ok', timelineKernels: ['down_seed'] }
+        ],
+        cores: [
+          { id: 'core-aic-07', name: 'AIC #07', lane: 'AIC_7', type: 'AIC', taskCount: 11,
+            busyTime: 742, busyRatio: 92, idleWaitTime: 64, activeFunctions: 7, loadVsPeers: 14,
+            longestTaskName: 'q_proj', longestTaskDuration: 86, status: 'ok' },
+          { id: 'core-aic-11', name: 'AIC #11', lane: 'AIC_11', type: 'AIC', taskCount: 10,
+            busyTime: 711, busyRatio: 88, idleWaitTime: 97, activeFunctions: 6, loadVsPeers: 10,
+            longestTaskName: 'down_proj', longestTaskDuration: 73, status: 'ok' },
+          { id: 'core-aiv-24', name: 'AIV #24', lane: 'AIV_24', type: 'AIV', taskCount: 8,
+            busyTime: 614, busyRatio: 76, idleWaitTime: 194, activeFunctions: 5, loadVsPeers: 19,
+            longestTaskName: 'dcr_xgamma', longestTaskDuration: 91, status: 'warn' },
+          { id: 'core-aiv-29', name: 'AIV #29', lane: 'AIV_29', type: 'AIV', taskCount: 7,
+            busyTime: 573, busyRatio: 71, idleWaitTime: 235, activeFunctions: 5, loadVsPeers: -2,
+            longestTaskName: 'down_seed', longestTaskDuration: 64, status: 'ok' }
+        ],
+        criticalPaths: [
+          { id: 'path-1', name: 'Path #1', duration: 930, taskCount: 14, runContribution: 94,
+            computeTime: 360, waitTime: 570, longestTaskName: 'q_proj', longestTaskDuration: 168,
+            primaryBlocker: 'dependency wait', timelineKernels: ['q_proj', 'k_proj', 'out_proj', 'down_proj'] },
+          { id: 'path-2', name: 'Path #2', duration: 618, taskCount: 9, runContribution: 62,
+            computeTime: 401, waitTime: 217, longestTaskName: 'down_proj', longestTaskDuration: 132,
+            primaryBlocker: 'AIV wait', timelineKernels: ['gate_proj', 'silu', 'down_proj'] },
+          { id: 'path-3', name: 'Path #3', duration: 412, taskCount: 7, runContribution: 41,
+            computeTime: 287, waitTime: 125, longestTaskName: 'dcr_xgamma', longestTaskDuration: 96,
+            primaryBlocker: 'q_proj → norm', timelineKernels: ['q_proj', 'qk_norm_0', 'dcr_xgamma'] }
+        ],
+        dependencies: [
+          { id: 'dep-q-proj-fan-in', name: 'q_proj fan-in', blockedTasks: 6, edgeCount: 18,
+            waitIntroduced: 121, upstreamProducerCount: 3, downstreamTaskCount: 8,
+            source: 'tensor dependency', criticalPathImpact: 'Yes', timelineKernels: ['q_proj', 'k_proj'] },
+          { id: 'dep-dcr-xgamma-wait', name: 'dcr_xgamma wait', blockedTasks: 4, edgeCount: 9,
+            waitIntroduced: 86, upstreamProducerCount: 2, downstreamTaskCount: 5,
+            source: 'producer-consumer', criticalPathImpact: 'Yes', timelineKernels: ['dcr_xgamma', 'down_proj'] },
+          { id: 'dep-down-seed-chain', name: 'down_seed chain', blockedTasks: 2, edgeCount: 4,
+            waitIntroduced: 37, upstreamProducerCount: 1, downstreamTaskCount: 3,
+            source: 'creator retention', criticalPathImpact: 'No', timelineKernels: ['down_seed', 'down_proj'] }
+        ]
+      };
+
+      /* facet tab 上只显示数量，具体行用默认排序取。 */
+      var FACET_TOTAL = { functions: 45, cores: 73, criticalPaths: 14, dependencies: 126 };
+
+      /* 左侧 run-object：这次 Run 本身。ring 是中心圈里的数字，kpis 是四格总量。 */
+      var RUN_OBJECT = {
+        name: 'decode_fwd_layers',
+        runId: '20260625_184941',
+        ring: '326',
+        kpis: [
+          { v: '326', label: 'Runtime Tasks' },
+          { v: '45', label: 'Functions' },
+          { v: '73', label: 'Active Cores' },
+          { v: '68%', label: 'Parallelism' }
+        ]
+      };
+
+      /* ---------- 单元渲染 ---------- */
+      function us(v) {
+        return v >= 1000 ? (v / 1000).toFixed(2) + ' ms' : v + ' µs';
+      }
+      function typeChip(v) {
+        return '<span class="kf-em-ty is-' + (v === 'AIC' ? 'aic' : 'aiv') + '">' + v + '</span>';
+      }
+      function coverage(r) {
+        var bad = r.activeCores < r.expectedCores;
+        return '<span class="' + (bad ? 'kf-em-warn' : '') + '" title="' +
+          (bad ? '实际执行到的 Core 少于预期，' + (r.expectedCores - r.activeCores) + ' 个 Core 未参与'
+               : '全部预期 Core 都执行到了') + '">' +
+          r.activeCores + ' / ' + r.expectedCores + '</span>';
+      }
+      function longest(name, dur) {
+        return '<span class="kf-em-strong">' + name + '</span> <i>·</i> ' + us(dur);
+      }
+      function flag(v, text) {
+        return '<span class="' + (v ? 'kf-em-warn' : '') + '">' + text + '</span>';
+      }
+
+      /* ---------- column schema：一个 facet 一套，行与行之间字段完全一致 ---------- */
+      var FACETS = [
+        {
+          key: 'functions', label: 'Function',
+          defaultSort: 'totalDuration', defaultDir: 'desc', actionWidth: '30%',
+          columns: [
+            { k: 'name', label: 'Function', align: 'left', w: '11%', cls: 'kf-em-name', tip: true },
+            { k: 'executionType', label: 'Type', align: 'left', w: '7%', render: function (r) { return typeChip(r.executionType); } },
+            { k: 'taskInstances', label: 'Tasks', align: 'right', w: '7%' },
+            { k: 'totalDuration', label: 'Total duration', align: 'right', w: '11%', render: function (r) { return us(r.totalDuration); } },
+            { k: 'criticalPathContribution', label: 'Critical path', align: 'right', w: '10%', render: function (r) { return flag(r.criticalPathContribution >= 15, r.criticalPathContribution + '%'); } },
+            { k: 'coreCoverage', label: 'Core coverage', align: 'right', w: '11%', sort: function (r) { return r.activeCores / r.expectedCores; }, render: coverage },
+            { k: 'avgTaskDuration', label: 'Avg task', align: 'right', w: '8%', render: function (r) { return us(r.avgTaskDuration); } },
+            { k: 'maxTaskDuration', label: 'Max task', align: 'right', w: '7%', render: function (r) { return us(r.maxTaskDuration); } }
+          ],
+          actions: [
+            { label: 'Locate', act: 'locate' },
+            { label: 'Dependency', act: 'deps' },
+            { label: 'Performance', act: 'wsTab', tab: 'performance' },
+            { label: 'Compile', act: 'wsTab', tab: 'compilation' }
+          ]
+        },
+        {
+          key: 'cores', label: 'Core',
+          defaultSort: 'busyRatio', defaultDir: 'desc', actionWidth: '22%',
+          columns: [
+            { k: 'name', label: 'Core', align: 'left', w: '11%', cls: 'kf-em-name', tip: true },
+            { k: 'type', label: 'Type', align: 'left', w: '6%', render: function (r) { return typeChip(r.type); } },
+            { k: 'taskCount', label: 'Tasks', align: 'right', w: '6%' },
+            { k: 'busyTime', label: 'Busy time', align: 'right', w: '10%', render: function (r) { return us(r.busyTime); } },
+            { k: 'busyRatio', label: 'Busy', align: 'right', w: '7%', render: function (r) { return flag(r.busyRatio >= 90, r.busyRatio + '%'); } },
+            { k: 'idleWaitTime', label: 'Idle / Wait', align: 'right', w: '7%', render: function (r) { return us(r.idleWaitTime); } },
+            { k: 'activeFunctions', label: 'Funcs', align: 'right', w: '7%' },
+            { k: 'loadVsPeers', label: 'vs peers', align: 'right', w: '8%', render: function (r) { return flag(Math.abs(r.loadVsPeers) >= 15, (r.loadVsPeers > 0 ? '+' : '') + r.loadVsPeers + '%'); } },
+            { k: 'longestTaskDuration', label: 'Longest task', align: 'right', w: '16%', tip: function (r) { return r.longestTaskName + ' · ' + us(r.longestTaskDuration); }, render: function (r) { return longest(r.longestTaskName, r.longestTaskDuration); } }
+          ],
+          actions: [
+            { label: 'Locate', act: 'locate' },
+            { label: 'Tasks', act: 'tasks' },
+            { label: 'Performance', act: 'wsTab', tab: 'performance' }
+          ]
+        },
+        {
+          key: 'criticalPaths', label: 'Critical Path',
+          defaultSort: 'duration', defaultDir: 'desc', actionWidth: '23%',
+          columns: [
+            { k: 'name', label: 'Path', align: 'left', w: '7%', cls: 'kf-em-name', tip: true },
+            { k: 'duration', label: 'Duration', align: 'right', w: '9%', render: function (r) { return us(r.duration); } },
+            { k: 'taskCount', label: 'Tasks', align: 'right', w: '6%' },
+            { k: 'runContribution', label: 'Run contribution', align: 'right', w: '10%', render: function (r) { return r.runContribution + '%'; } },
+            { k: 'computeTime', label: 'Compute', align: 'right', w: '9%', render: function (r) { return us(r.computeTime); } },
+            { k: 'waitTime', label: 'Wait', align: 'right', w: '9%', render: function (r) { return flag(r.waitTime > r.computeTime, us(r.waitTime)); } },
+            { k: 'longestTaskDuration', label: 'Longest task', align: 'right', w: '14%', tip: function (r) { return r.longestTaskName + ' · ' + us(r.longestTaskDuration); }, render: function (r) { return longest(r.longestTaskName, r.longestTaskDuration); } },
+            { k: 'primaryBlocker', label: 'Primary blocker', align: 'right', w: '13%', tip: true }
+          ],
+          actions: [
+            { label: 'Highlight', act: 'locate' },
+            { label: 'Dependency Graph', act: 'graph' }
+          ]
+        },
+        {
+          key: 'dependencies', label: 'Dependency',
+          defaultSort: 'waitIntroduced', defaultDir: 'desc', actionWidth: '23%',
+          columns: [
+            { k: 'name', label: 'Dependency', align: 'left', w: '13%', cls: 'kf-em-name', tip: true },
+            { k: 'blockedTasks', label: 'Blocked', align: 'right', w: '8%' },
+            { k: 'edgeCount', label: 'Edges', align: 'right', w: '6%' },
+            { k: 'waitIntroduced', label: 'Wait introduced', align: 'right', w: '10%', render: function (r) { return us(r.waitIntroduced); } },
+            { k: 'upstreamProducerCount', label: 'Upstream', align: 'right', w: '8%' },
+            { k: 'downstreamTaskCount', label: 'Downstream', align: 'right', w: '9%' },
+            { k: 'source', label: 'Source', align: 'right', w: '13%', tip: true },
+            { k: 'criticalPathImpact', label: 'Critical path', align: 'right', w: '9%', render: function (r) { return flag(r.criticalPathImpact === 'Yes', r.criticalPathImpact); } }
+          ],
+          actions: [
+            { label: 'Highlight', act: 'locate' },
+            { label: 'Open Graph', act: 'graph' },
+            { label: 'Tasks', act: 'tasks' }
+          ]
+        }
+      ];
+
+      /* ---------- 状态 ---------- */
+      var state = { facet: 'functions', sort: {}, sel: {} };
+
+      function facetOf(key) {
+        for (var i = 0; i < FACETS.length; i++) if (FACETS[i].key === key) return FACETS[i];
+        return FACETS[0];
+      }
+      function sortOf(facet) {
+        if (!state.sort[facet.key]) {
+          state.sort[facet.key] = { key: facet.defaultSort, dir: facet.defaultDir };
+        }
+        return state.sort[facet.key];
+      }
+      function rowsOf(facet) {
+        var s = sortOf(facet);
+        var col = null;
+        for (var i = 0; i < facet.columns.length; i++) if (facet.columns[i].k === s.key) col = facet.columns[i];
+        if (!col) col = facet.columns[0];
+        var read = col.sort || function (r) { return r[col.k]; };
+        var dir = s.dir === 'asc' ? 1 : -1;
+        return executionData[facet.key].slice().sort(function (a, b) {
+          var x = read(a), y = read(b);
+          if (typeof x === 'string' || typeof y === 'string') return String(x).localeCompare(String(y)) * dir;
+          return (x - y) * dir;
+        });
+      }
+
+      /* ---------- 与 Timeline 联动 ----------
+         run-timeline.js 的 setHighlight 收 { kernels | lanes | tasks }，命中的 task
+         加 is-hl、其余加 is-dim —— 只降透明度，不隐藏，所以整次 Run 的形状还在。 */
+      function hlSpec(facet, row) {
+        if (facet.key === 'cores') return { lanes: row.lane ? [row.lane] : [] };
+        return { kernels: row.timelineKernels || (row.name ? [row.name] : []) };
+      }
+      function locate(facet, row, track) {
+        var tl = window.PTO_TIMELINE;
+        if (tl && tl.setHighlight) tl.setHighlight(hlSpec(facet, row), { track: track });
+        var host = document.getElementById('runTimeline');
+        if (host) host.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      function openGraph() {
+        var tl = window.PTO_TIMELINE;
+        if (tl && tl.setEdges) tl.setEdges(true);
+        var host = document.getElementById('runTimeline');
+        if (host) host.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      function runAction(facet, row, action) {
+        if (action.act === 'locate') { locate(facet, row, 'both'); return; }
+        if (action.act === 'tasks') { locate(facet, row, 'tasks'); return; }
+        if (action.act === 'graph') { openGraph(); return; }
+        if (action.act === 'wsTab') {
+          var b = document.querySelector('[data-th-tab="' + action.tab + '"]');
+          if (b) b.click();
+          return;
+        }
+        if (action.act === 'deps') {
+          // 这个 Function 出现在哪组依赖结构里，就选中哪一组
+          var dep = null;
+          for (var i = 0; i < executionData.dependencies.length; i++) {
+            var d = executionData.dependencies[i];
+            if (d.timelineKernels && d.timelineKernels.indexOf(row.name) >= 0) { dep = d; break; }
+          }
+          state.facet = 'dependencies';
+          state.sort.dependencies = null;
+          state.sel.dependencies = dep ? dep.id : null;
+          render();
+          if (dep) locate(facetOf('dependencies'), dep, 'both');
+        }
+      }
+
+      /* ---------- 渲染 ---------- */
+      var host = null;
+
+      function render() {
+        if (!host) return;
+        var facet = facetOf(state.facet);
+        var sel = state.sel[facet.key] || null;
+        var sort = sortOf(facet);
+
+        var tabs = FACETS.map(function (f) {
+          return '<button type="button" role="tab" class="kf-em-tab' + (f.key === facet.key ? ' is-active' : '') +
+            '" data-em-facet="' + f.key + '" aria-selected="' + (f.key === facet.key) + '">' +
+            f.label + '<b>' + FACET_TOTAL[f.key] + '</b></button>';
+        }).join('');
+
+        var cols = facet.columns.map(function (c) {
+          return '<col style="width:' + c.w + '">';
+        }).join('') + '<col style="width:' + facet.actionWidth + '">';
+
+        var head = facet.columns.map(function (c) {
+          var on = c.k === sort.key;
+          var arrow = on ? (sort.dir === 'asc' ? '↑' : '↓') : '↓';
+          return '<th class="is-' + (c.align === 'right' ? 'r' : 'l') + '"' +
+            (on ? ' aria-sort="' + (sort.dir === 'asc' ? 'ascending' : 'descending') + '"' : '') + '>' +
+            '<button type="button" class="kf-em-sort' + (c.align === 'right' ? ' is-r' : '') + (on ? ' is-on' : '') +
+            '" data-em-sort="' + c.k + '" title="按 ' + c.label + ' 排序">' +
+            '<span class="kf-em-sortl">' + c.label + '</span><i>' + arrow + '</i></button></th>';
+        }).join('') + '<th aria-hidden="true"></th>';
+
+        var body = rowsOf(facet).map(function (r) {
+          var cells = facet.columns.map(function (c) {
+            var v = c.render ? c.render(r) : r[c.k];
+            var tip = c.tip === true ? String(r[c.k]) : (typeof c.tip === 'function' ? c.tip(r) : '');
+            return '<td class="is-' + (c.align === 'right' ? 'r' : 'l') + (c.cls ? ' ' + c.cls : '') + '"' +
+              (tip ? ' title="' + tip + '"' : '') + '>' + v + '</td>';
+          }).join('');
+          var acts = facet.actions.map(function (a) {
+            return '<button type="button" data-em-act="' + a.act + '"' +
+              (a.tab ? ' data-em-tab="' + a.tab + '"' : '') + '>' + a.label + '</button>';
+          }).join('');
+          return '<tr data-em-row="' + r.id + '"' + (r.id === sel ? ' class="is-sel" aria-selected="true"' : '') + '>' +
+            cells + '<td class="kf-em-actcell"><div class="kf-em-rowact">' + acts + '</div></td></tr>';
+        }).join('');
+
+        var ro = RUN_OBJECT;
+        host.innerHTML =
+          '<div class="kf-em-body">' +
+            '<div class="kf-em-object">' +
+              '<div class="kf-em-obj-id">' +
+                '<div class="kf-em-radial" style="--kf-em-ring:\'' + ro.ring + '\'"></div>' +
+                '<div class="kf-em-obj-text">' +
+                  '<div class="kf-em-obj-title">' + ro.name + '</div>' +
+                  '<div class="kf-em-obj-sub">' + ro.runId + '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="kf-em-kpis">' + ro.kpis.map(function (k) {
+                return '<div class="kf-em-kpi"><b>' + k.v + '</b><span>' + k.label + '</span></div>';
+              }).join('') + '</div>' +
+            '</div>' +
+            '<div class="kf-em-main">' +
+              '<nav class="kf-em-tabs" role="tablist" aria-label="Execution facets">' + tabs + '</nav>' +
+              '<div class="kf-em-scroll">' +
+                '<table class="kf-em-table"><colgroup>' + cols + '</colgroup>' +
+                '<thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+      }
+
+      function upgrade(el) {
+        if (!el || el.dataset.kfExecmap === '1') return;
+        el.dataset.kfExecmap = '1';
+        el.classList.remove('kf-fan-host');
+        el.classList.add('kf-em');
+        host = el;
+
+        el.addEventListener('click', function (e) {
+          var tab = e.target.closest('[data-em-facet]');
+          if (tab) {
+            if (tab.dataset.emFacet !== state.facet) {
+              state.facet = tab.dataset.emFacet;
+              state.sort[state.facet] = null;   // 切 Tab 回到该 facet 的默认排序
+            }
+            render();
+            var f = facetOf(state.facet);
+            var id = state.sel[f.key];
+            if (id) {
+              var row = executionData[f.key].filter(function (r) { return r.id === id; })[0];
+              if (row) locate(f, row, 'both');
+            }
+            return;
+          }
+
+          var th = e.target.closest('[data-em-sort]');
+          if (th) {
+            var facet = facetOf(state.facet);
+            var s = sortOf(facet);
+            var key = th.dataset.emSort;
+            if (s.key === key) s.dir = s.dir === 'asc' ? 'desc' : 'asc';
+            else { s.key = key; s.dir = 'desc'; }
+            render();
+            return;
+          }
+
+          var act = e.target.closest('[data-em-act]');
+          if (act) {
+            var rowEl = act.closest('[data-em-row]');
+            var f2 = facetOf(state.facet);
+            var row2 = executionData[f2.key].filter(function (r) { return r.id === rowEl.dataset.emRow; })[0];
+            if (row2) runAction(f2, row2, { act: act.dataset.emAct, tab: act.dataset.emTab });
+            return;
+          }
+
+          var tr = e.target.closest('[data-em-row]');
+          if (!tr) return;
+          var f3 = facetOf(state.facet);
+          var id2 = tr.dataset.emRow;
+          state.sel[f3.key] = state.sel[f3.key] === id2 ? null : id2;
+          render();
+          var row3 = executionData[f3.key].filter(function (r) { return r.id === state.sel[f3.key]; })[0];
+          if (row3) locate(f3, row3, 'both');
+          else if (window.PTO_TIMELINE && window.PTO_TIMELINE.clearHighlight) window.PTO_TIMELINE.clearHighlight();
+        });
+
+        render();
+      }
+
+      var fan = window.PTO_FAN;
+      if (fan && typeof fan.mount === 'function') {
+        var mount = fan.mount;
+        fan.mount = function (el, opts) {
+          var ok = mount.call(fan, el, opts);
+          upgrade(el);
+          return ok;
+        };
+      }
+      /* boot() 走 DOMContentLoaded，正常晚于这里；若 Execution 已是当前页签，
+         第一次渲染可能已经发生，补一次。 */
+      upgrade(document.getElementById('runFan'));
+    })();
+  </script>
 </body>
 </html>
