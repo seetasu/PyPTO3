@@ -16,13 +16,41 @@
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const st = { sel: null, tab: 'sum', track: 'both', host: null, opts: {},
-               scroll: { tasks: 0, cores: 0 }, reveal: false, edges: true };
+               scroll: { tasks: 0, cores: 0 }, reveal: false, edges: true,
+               hl: null, revealHl: false, hlTrack: 'both' };
 
   const us = (v) => v >= 1000 ? (v / 1000).toFixed(2) + ' ms' : v.toFixed(2) + ' µs';
   const kbytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB'
                       : b >= 1024 ? Math.round(b / 1024) + ' KB' : b + ' B';
 
   function data() { return window.PTO_RUN_TRACE || null; }
+
+  /* ---------- external highlight ----------
+     Asked for by the Execution facets table ("every task of this kernel / this
+     core / this chain"). Hit blocks get is-hl and the rest is-dim — dimmed, not
+     hidden, so the shape of the run stays readable while one object is traced.
+     Held in state because scrolling and selecting both re-render. */
+  function resolveHighlight(spec) {
+    const D = data();
+    if (!D || !spec) return null;
+    const hit = new Set();
+    (spec.tasks || []).forEach(i => { if (D.tasks[i]) hit.add(Number(i)); });
+    const kernels = spec.kernels ? new Set(spec.kernels) : null;
+    const lanes = spec.lanes ? new Set(spec.lanes) : null;
+    if (kernels || lanes) {
+      const laneNames = D.lanes.map(l => l.n);
+      D.tasks.forEach((t, i) => {
+        if (kernels && t.ks.some(x => kernels.has(x.kn))) { hit.add(i); return; }
+        if (lanes && (t.l || []).some(li => lanes.has(laneNames[li]))) hit.add(i);
+      });
+    }
+    return hit.size ? hit : null;
+  }
+
+  function blockTone(i) {
+    if (!st.hl) return '';
+    return st.hl.has(i) ? ' is-hl' : ' is-dim';
+  }
 
   /* ---------- axis ---------- */
   function axis(D) {
@@ -52,12 +80,14 @@
           '\n' + us(x.s) + ' → ' + us(x.e) + '（wall ' + us(x.e - x.s) + '）' +
           '\n' + x.c + ' 核 · 累计忙碌 ' + us(x.b) +
           (t.ks.length > 1 ? '\n同一任务还下沉为 ' + t.ks.filter(y => y.k !== k.k).map(y => y.kn).join('、') : '');
-        return '<i class="kf-tl-b' + on + '" data-tl-task="' + i + '"' +
+        return '<i class="kf-tl-b' + on + blockTone(i) + '" data-tl-task="' + i + '"' +
           ' style="left:' + (x.s / D.span * 100) + '%;width:' + w + '%"' +
           ' title="' + esc(title) + '"></i>';
       }).join('');
       const hit = mine.some(m => m[1] === st.sel);
+      const hlHit = st.hl && mine.some(m => st.hl.has(m[1]));
       return '<div class="kf-tl-row is-' + be.toLowerCase() + (hit ? ' is-hit' : '') +
+        (hlHit ? ' is-hl-row' : '') +
         '" data-tl-kernel="' + k.k + '">' +
         '<div class="kf-tl-lbl" title="' + esc(name + ' · ' + be + ' · ' + k.n + ' 次调用 · 累计忙碌 ' + us(k.busy) + ' · 最多 ' + k.maxc + ' 核并发') + '"><code>' + esc(name) + '</code>' +
           '<em>' + esc(be) + '</em><b>' + k.n + '</b></div>' +
@@ -76,13 +106,15 @@
         const t = D.tasks[s[1]];
         const w = Math.max(0.16, s[3] / D.span * 100);
         const on = st.sel === s[1] ? ' is-sel' : '';
-        return '<i class="kf-tl-b' + on + '" data-tl-task="' + s[1] + '"' +
+        return '<i class="kf-tl-b' + on + blockTone(s[1]) + '" data-tl-task="' + s[1] + '"' +
           ' style="left:' + (s[2] / D.span * 100) + '%;width:' + w + '%"' +
           ' title="' + esc(l.n + ' · ' + (t ? t.kn : '') + '\n' + us(s[2]) + ' + ' + us(s[3])) + '"></i>';
       }).join('');
       const busy = byLane[li].reduce((a, s) => a + s[3], 0);
       const hit = st.sel != null && D.tasks[st.sel] && D.tasks[st.sel].l.indexOf(li) >= 0;
-      return '<div class="kf-tl-row is-core is-' + l.k.toLowerCase() + (hit ? ' is-hit' : '') + '">' +
+      const hlHit = st.hl && byLane[li].some(s => st.hl.has(s[1]));
+      return '<div class="kf-tl-row is-core is-' + l.k.toLowerCase() + (hit ? ' is-hit' : '') +
+        (hlHit ? ' is-hl-row' : '') + '">' +
         '<div class="kf-tl-lbl" title="' + esc(l.n + ' · 忙碌 ' + us(busy) + ' / ' + us(D.span) + ' · ' + byLane[li].length + ' 段') + '"><code>' + esc(l.n) + '</code>' +
           '<b>' + Math.round(busy / D.span * 100) + '%</b></div>' +
         '<div class="kf-tl-lane">' + blocks + '</div>' +
@@ -296,6 +328,18 @@
     });
   }
 
+  // external highlight reveals the first hit of the track the caller asked for
+  function revealHighlight() {
+    if (!st.hl || !st.host) return;
+    const want = st.hlTrack === 'tasks' ? ['.kf-tl-tasks']
+               : st.hlTrack === 'cores' ? ['.kf-tl-cores']
+               : ['.kf-tl-tasks', '.kf-tl-cores'];
+    want.forEach(sel => {
+      const box = $(sel, st.host);
+      revealIn(box, box && $('.kf-tl-b.is-hl', box));
+    });
+  }
+
   /* ---------- mount ---------- */
   function mount(host) {
     const D = data();
@@ -339,6 +383,7 @@
 
     restoreScroll();
     if (st.reveal) { st.reveal = false; revealSelection(); }
+    if (st.revealHl) { st.revealHl = false; revealHighlight(); }
     // Measured off the rendered blocks. Called synchronously on purpose:
     // getBoundingClientRect forces the layout we need, and rAF does not fire
     // at all while the page is in a hidden tab, which silently lost the edges.
@@ -359,14 +404,17 @@
     const tab = e.target.closest('[data-tl-tab]');
     if (tab) { st.tab = tab.dataset.tlTab; rerender(); return; }
     const b = e.target.closest('[data-tl-task]');
-    if (b) { st.sel = Number(b.dataset.tlTask); st.reveal = true; rerender(); notifySelect(); return; }
+    if (b) { st.sel = Number(b.dataset.tlTask); st.reveal = true; st.hl = null; rerender(); notifySelect(); return; }
     const k = e.target.closest('[data-tl-kernel]');
     if (k) {                                   // row label: jump to its first task
       const kid = Number(k.dataset.tlKernel);
       const D = data();
       const i = D.tasks.findIndex(t => t.k === kid);
-      if (i >= 0) { st.sel = i; st.reveal = true; rerender(); notifySelect(); }
+      if (i >= 0) { st.sel = i; st.reveal = true; st.hl = null; rerender(); notifySelect(); }
+      return;
     }
+    // anything else inside the timeline clears the external highlight
+    if (st.hl) { st.hl = null; rerender(); }
   });
 
   window.PTO_TIMELINE = {
@@ -381,6 +429,26 @@
       if (id == null || Number(id) === st.sel) return;
       st.sel = Number(id); st.reveal = true; rerender();
     },
-    reset() { st.sel = null; st.tab = 'sum'; }
+    /* { kernels | lanes | tasks } — see resolveHighlight. Called by the
+       Execution facets table; pass null to drop the highlight. */
+    setHighlight(spec, opts) {
+      st.hl = resolveHighlight(spec);
+      st.hlTrack = (opts && opts.track) || 'both';
+      st.revealHl = !!st.hl;
+      if (st.host) rerender();
+      return !!st.hl;
+    },
+    clearHighlight() {
+      if (!st.hl) return;
+      st.hl = null;
+      if (st.host) rerender();
+    },
+    setEdges(on) {
+      const next = !!on;
+      if (st.edges === next) return;
+      st.edges = next;
+      if (st.host) rerender();
+    },
+    reset() { st.sel = null; st.tab = 'sum'; st.hl = null; }
   };
 })();
