@@ -1,0 +1,279 @@
+/* Diagnostic semantic trace — the Correctness diagnosis view
+   (js/task-history.js, `correctnessDiagnosisPanel` + `DG`).
+
+   Grammar this pattern enforces, and the reason it is not a reuse of
+   pass-ir-graph-node:
+
+     op      the only node. Plain rectangle, neutral surface, 1px border,
+             no glow, no gradient, no badge, no icon.
+     tensor  never a node. It is an edge label sitting on the wire, and it
+             carries the compare verdict, because that is what was measured.
+     wire    carries the state colour. Exactly one wire is `is-bad`: the first
+             divergence. Anything that went wrong because of it is `is-warn`,
+             which is deliberately weaker so only one thing reads as "look here".
+
+   The runtime expansion is a dashed region inside the same canvas — the
+   semantic graph stays on screen, and the runtime nodes are visibly smaller
+   and more technical than the ops above them. */
+
+.kf-dg {
+  --dg-line: var(--border-subtle);
+  --dg-line2: var(--border-default);
+  display: grid;
+  gap: 14px;
+  /* own query container: the narrow layout below keys off this pane's width,
+     not the viewport — the pane is ~1240px inside a 1680px window. */
+  container-type: inline-size;
+}
+
+/* ---------- result ---------- */
+.kf-dg-result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 232px);
+  align-items: center;
+  gap: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--dg-line2);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+}
+.kf-dg-verdict { display: grid; gap: 2px; padding-right: 16px; border-right: 1px solid var(--dg-line); }
+.kf-dg-verdict span { color: var(--foreground-muted); font: 700 9px var(--font-sans); letter-spacing: .08em; }
+.kf-dg-verdict b { color: var(--danger); font: 700 20px/1.1 var(--font-mono); }
+.kf-dg-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 18px; }
+.kf-dg-cell { display: grid; gap: 3px; min-width: 0; }
+.kf-dg-cell span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-dg-cell b { overflow: hidden; color: var(--foreground); font: 600 12px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.kf-dg-cell b.is-bad { color: var(--danger); }
+.kf-dg-cell b.is-warn { color: var(--warning); }
+.kf-dg-semantics {
+  display: grid; gap: 3px; align-self: stretch; align-content: center;
+  padding-left: 16px; border-left: 1px solid var(--dg-line);
+}
+.kf-dg-semantics span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-dg-semantics b { color: var(--success); font: 600 13px var(--font-mono); }
+.kf-dg-semantics small { color: var(--foreground-muted); font-size: 9px; line-height: 1.45; }
+
+/* ---------- diagnosis trail ---------- */
+.kf-dg-trail { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.kf-dg-trail button {
+  padding: 3px 7px; border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--foreground-muted); background: transparent; font: 10px var(--font-mono);
+}
+.kf-dg-trail button:hover { color: var(--foreground-secondary); background: var(--surface-2); }
+.kf-dg-trail button.is-on { border-color: color-mix(in srgb, var(--primary) 45%, transparent); color: var(--foreground); background: var(--state-selected); }
+.kf-dg-trail i { color: var(--foreground-disabled); font-style: normal; font-size: 10px; }
+
+/* ---------- canvas + aside ---------- */
+.kf-dg-layout {
+  display: grid; grid-template-columns: minmax(0, 1fr) 0; column-gap: 0;
+  transition: grid-template-columns 200ms ease, column-gap 200ms ease;
+}
+.kf-dg-layout.is-inspecting { grid-template-columns: minmax(0, 1fr) 306px; column-gap: 14px; }
+.kf-dg-canvas {
+  position: relative; min-width: 0; padding: 18px 44px 22px;
+  border: 1px solid var(--dg-line); border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--primary) 5%, transparent), transparent 62%),
+    color-mix(in srgb, var(--surface-1) 34%, transparent);
+}
+.kf-dg-aside { min-width: 0; overflow: hidden; }
+.kf-dg-aside .kf-oi {
+  padding: 12px; border: 1px solid var(--dg-line2); border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+}
+.kf-dg-aside .kf-inspector-section { display: grid; gap: 5px; }
+.kf-dg-aside .kf-inspector-title { margin: 0; color: var(--foreground-secondary); font: 700 9px var(--font-sans); letter-spacing: .08em; }
+
+/* ---------- edge wires ---------- */
+.kf-dg-edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.kf-dg-edges path { fill: none; stroke: var(--dg-line2); stroke-width: 1; }
+.kf-dg-edges path.is-ok { stroke: var(--border-strong); }
+.kf-dg-edges path.is-dim { stroke: color-mix(in srgb, var(--border-strong) 55%, transparent); stroke-dasharray: 3 3; }
+.kf-dg-edges path.is-warn { stroke: color-mix(in srgb, var(--danger) 42%, transparent); }
+.kf-dg-edges path.is-bad { stroke: var(--danger); stroke-width: 1.6; }
+
+/* ---------- stages ---------- */
+.kf-dg-stage {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 26px; justify-items: center; align-items: center;
+}
+.kf-dg-stage[data-dg-stage^="link"] { padding: 7px 0 20px; }
+.kf-dg-stage[data-dg-stage="source"] { padding-bottom: 20px; }
+.kf-dg-slot { display: flex; justify-content: center; justify-self: stretch; min-width: 0; }
+.kf-dg-slot.is-center { grid-column: 1 / -1; }
+
+/* ---------- op: the only node ---------- */
+.kf-dg-op {
+  width: 100%; max-width: 172px; min-height: 34px; padding: 0 12px;
+  border: 1px solid var(--dg-line2); border-radius: var(--radius-md);
+  color: var(--foreground); background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+  font: 600 var(--kf-type-xs) var(--font-sans); text-align: center;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+.kf-dg-op:hover { border-color: var(--border-strong); background: var(--surface-3); }
+.kf-dg-op.is-sel { border-color: var(--primary); background: var(--state-selected); }
+
+/* ---------- tensor: an edge label, never a card ---------- */
+.kf-dg-tensor {
+  display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%;
+  padding: 2px 7px; border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--foreground-muted); background: var(--surface-1);
+  font: 10px var(--font-mono); white-space: nowrap;
+}
+.kf-dg-tensor-name { overflow: hidden; text-overflow: ellipsis; }
+.kf-dg-tensor-mark { color: var(--success); font-style: normal; font-size: 9px; }
+.kf-dg-tensor-diff { color: inherit; font-style: normal; font-size: 9px; opacity: .85; }
+.kf-dg-tensor.is-source { color: var(--foreground-secondary); border-color: var(--dg-line2); }
+.kf-dg-tensor.is-ok .kf-dg-tensor-mark { opacity: .75; }
+.kf-dg-tensor.is-dim { color: color-mix(in srgb, var(--foreground-muted) 78%, transparent); }
+.kf-dg-tensor.is-dim .kf-dg-tensor-mark { color: var(--foreground-disabled); }
+
+/* the single strongest element on the page */
+.kf-dg-tensor.is-bad {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 52%, transparent);
+  background: color-mix(in srgb, var(--danger) 11%, var(--surface-1));
+  font-weight: 600;
+}
+.kf-dg-tensor.is-bad .kf-dg-tensor-mark { color: var(--danger); font: 700 8px var(--font-sans); letter-spacing: .07em; }
+
+/* down-stream damage is real but not the finding */
+.kf-dg-tensor.is-warn {
+  color: color-mix(in srgb, var(--danger) 58%, var(--foreground-muted));
+  border-color: color-mix(in srgb, var(--danger) 24%, transparent);
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface-1));
+}
+.kf-dg-tensor.is-warn .kf-dg-tensor-mark { color: inherit; font-size: 8px; }
+
+.kf-dg-tensor.is-sel { border-color: var(--primary); background: var(--state-selected); }
+
+/* ---------- runtime expansion (dashed region, same canvas) ---------- */
+.kf-dg-rt {
+  position: relative; z-index: 1; margin: 6px 0 20px;
+  border: 1px dashed color-mix(in srgb, var(--warning) 38%, var(--dg-line2));
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+.kf-dg-rt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px 7px; border-bottom: 1px dashed color-mix(in srgb, var(--warning) 26%, var(--dg-line)); }
+.kf-dg-rt-title { color: var(--warning); font: 700 9px var(--font-sans); letter-spacing: .1em; text-transform: uppercase; }
+.kf-dg-rt-sub { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-dg-rt-views { display: flex; gap: 2px; margin-left: auto; }
+.kf-dg-rt-views button {
+  padding: 3px 8px; border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--foreground-muted); background: transparent; font-size: 10px;
+}
+.kf-dg-rt-views button:hover { color: var(--foreground-secondary); background: var(--surface-2); }
+.kf-dg-rt-views button.is-on { border-color: var(--dg-line2); color: var(--foreground); background: var(--surface-2); }
+.kf-dg-rt-x { padding: 3px 6px; color: var(--foreground-muted); background: transparent; font-size: 10px; }
+.kf-dg-rt-x:hover { color: var(--foreground); }
+.kf-dg-rt-body { display: grid; gap: 14px; padding: 12px; }
+.kf-dg-rt-body[data-dg-rtbody="tasks"] { grid-template-columns: minmax(0, 244px) minmax(0, 1fr); gap: 22px; align-items: start; }
+
+/* semantic → tensor → task → kernel */
+.kf-dg-rt-map { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+/* 映射链是「语义 → 张量 → 运行时 → Kernel」的纵向链路；flow 必须撑满列宽，
+   否则 hop 的 width:100% 会退化成内容宽度，中文值会被挤到换行。 */
+.kf-dg-rt-flow { display: grid; width: 100%; justify-items: stretch; gap: 2px; }
+.kf-dg-rt-map .kf-dg-rt-hop { width: 100%; }
+.kf-dg-rt-hop {
+  display: grid; gap: 1px; padding: 5px 9px;
+  border: 1px solid var(--dg-line); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.kf-dg-rt-hop b { color: var(--foreground); font: 600 11px var(--font-mono); }
+.kf-dg-rt-hop small { color: var(--foreground-muted); font-size: 9px; }
+.kf-dg-rt-arrow { justify-self: start; color: var(--foreground-disabled); font-style: normal; font-size: 11px; line-height: 1; }
+
+/* compact runtime tasks — smaller and more technical than an op */
+.kf-dg-rt-graph { display: grid; justify-items: center; width: min(100%, 460px); justify-self: center; }
+.kf-dg-rt-task {
+  display: inline-grid; grid-template-columns: auto auto auto; align-items: center; gap: 8px;
+  min-height: 26px; padding: 0 9px;
+  border: 1px solid var(--dg-line2); border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-3) 60%, transparent);
+  text-align: left;
+}
+.kf-dg-rt-task code { color: var(--foreground); font: 600 10px var(--font-mono); }
+.kf-dg-rt-task span { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-dg-rt-task:hover { border-color: var(--border-strong); }
+.kf-dg-rt-task.is-sel { border-color: var(--primary); background: var(--state-selected); }
+.kf-dg-rt-task.is-suspicious { border-color: color-mix(in srgb, var(--warning) 42%, var(--dg-line2)); }
+.kf-dg-rt-role {
+  padding: 0 4px; border-radius: 3px; white-space: nowrap;
+  color: var(--foreground-muted); background: var(--surface-3);
+  font: 700 7.5px var(--font-sans); font-style: normal; letter-spacing: .06em;
+}
+.kf-dg-rt-role.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.kf-dg-rt-role.is-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+
+.kf-dg-stem { display: block; width: 1px; height: 18px; background: var(--dg-line2); }
+.kf-dg-fan { position: relative; display: block; width: 100%; height: 20px; }
+.kf-dg-fan::before { content: ''; position: absolute; top: 0; left: 50%; width: 1px; height: 50%; background: var(--dg-line2); }
+.kf-dg-fan::after { content: ''; position: absolute; top: 50%; left: 25%; width: 50%; height: 1px; background: var(--dg-line2); }
+.kf-dg-fan i { position: absolute; top: 50%; width: 1px; height: 50%; background: var(--dg-line2); }
+.kf-dg-fan i:first-child { left: 25%; }
+.kf-dg-fan i:last-child { left: 75%; }
+.kf-dg-rt-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: 100%; }
+.kf-dg-rt-pair .kf-dg-rt-task { justify-self: center; }
+.kf-dg-rt-note { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-dg-rt-note b { color: var(--warning); }
+
+/* dependency view */
+.kf-dg-dep { display: grid; gap: 8px; }
+.kf-dg-dep-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--dg-line); border-radius: var(--radius-sm); }
+.kf-dg-dep-row code { color: var(--foreground); font: 600 10px var(--font-mono); }
+.kf-dg-dep-row em { color: var(--foreground-muted); font-size: 9px; font-style: normal; }
+.kf-dg-dep-row.is-ok { border-color: color-mix(in srgb, var(--success) 22%, var(--dg-line)); }
+.kf-dg-dep-row.is-warn { border-color: color-mix(in srgb, var(--warning) 34%, var(--dg-line)); }
+.kf-dg-dep-row.is-warn em { color: var(--warning); }
+.kf-dg-dep-wire { flex: 1 1 40px; min-width: 32px; height: 1px; background: var(--dg-line2); }
+.kf-dg-dep-wire.is-missing { background: none; border-top: 1px dashed color-mix(in srgb, var(--warning) 55%, transparent); }
+
+/* timeline view */
+.kf-dg-tl { position: relative; display: grid; gap: 5px; padding: 2px 0; }
+.kf-dg-tl-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 8px; }
+.kf-dg-tl-row code { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-dg-tl-row.is-sel code { color: var(--foreground); }
+.kf-dg-tl-track { position: relative; height: 12px; }
+.kf-dg-tl-track i { position: absolute; top: 2px; height: 8px; border-radius: 2px; background: var(--primary); }
+.kf-dg-tl-track i.is-aiv { background: color-mix(in srgb, var(--success) 78%, var(--primary)); }
+.kf-dg-tl-track i.is-warn { background: color-mix(in srgb, var(--warning) 88%, var(--primary)); }
+.kf-dg-tl-band {
+  position: absolute; top: 0; bottom: 14px; pointer-events: auto; cursor: pointer;
+  border-left: 1px dashed color-mix(in srgb, var(--warning) 60%, transparent);
+  border-right: 1px dashed color-mix(in srgb, var(--warning) 60%, transparent);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+}
+
+/* ---------- compare rows reused by the inspector ---------- */
+.kf-dg-cmp { display: grid; gap: 3px; }
+.kf-dg-cmp span { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 4px 7px; border-radius: var(--radius-sm); background: var(--surface-3); }
+.kf-dg-cmp b { color: var(--foreground); font: 600 10px var(--font-mono); }
+.kf-dg-cmp em { color: var(--foreground-muted); font: 9px var(--font-mono); font-style: normal; }
+.kf-dg-cmp span.is-ok em { color: var(--success); }
+.kf-dg-cmp span.is-bad em { color: var(--danger); }
+.kf-dg-cmp span.is-warn em { color: var(--warning); }
+
+/* ---------- likely cause ---------- */
+.kf-dg-cause {
+  display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px;
+  padding: 11px 13px; border: 1px solid var(--dg-line); border-left: 2px solid var(--warning);
+  border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-1) 45%, transparent);
+}
+.kf-dg-cause > div { display: grid; gap: 3px; }
+.kf-dg-cause > div span { color: var(--foreground-muted); font: 700 9px var(--font-sans); letter-spacing: .08em; text-transform: uppercase; }
+.kf-dg-cause > div b { color: var(--foreground); font-size: var(--kf-type-sm); }
+.kf-dg-cause ul { display: flex; flex-wrap: wrap; gap: 5px 14px; margin: 0; padding: 0; list-style: none; }
+.kf-dg-cause li { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-dg-cause li::before { content: '›'; margin-right: 5px; color: var(--foreground-disabled); }
+
+/* ---------- narrow: inspector drops under the canvas ---------- */
+@container (max-width: 900px) {
+  .kf-dg-result { grid-template-columns: auto minmax(0, 1fr); }
+  .kf-dg-semantics { grid-column: 1 / -1; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--dg-line); }
+  .kf-dg-layout.is-inspecting { grid-template-columns: minmax(0, 1fr); column-gap: 0; row-gap: 12px; }
+  .kf-dg-cause { grid-template-columns: minmax(0, 1fr); }
+  .kf-dg-rt-body[data-dg-rtbody="tasks"] { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+}
