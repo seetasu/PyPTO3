@@ -93,6 +93,59 @@ body.tc-page {
 .tc-search-hit > .v { color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 11px; }
 .tc-search-empty { padding: var(--space-3); color: var(--foreground-muted); font: var(--type-body-sm); }
 
+/* ----------------------------------------------------------- case menu
+ * Opened from the topbar chip. Each row states up front which of the five
+ * layers that dump can actually answer, because the two runs do not carry
+ * the same artifacts. */
+.tc-case-menu {
+  position: absolute;
+  top: 44px; left: 150px;
+  z-index: 60;
+  width: min(360px, calc(100vw - 96px));
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+}
+.tc-case-menu[hidden] { display: none; }
+.tc-case-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+}
+.tc-case-item:hover { background: var(--state-hover); }
+.tc-case-item.is-selected { background: var(--surface-3); }
+.tc-case-item.is-action {
+  color: var(--foreground-secondary);
+  font: var(--type-body-sm);
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+}
+.tc-case-item .hd { display: flex; align-items: baseline; gap: var(--space-2); }
+.tc-case-item .nm { font-family: var(--font-mono); font: var(--type-label); font-family: var(--font-mono); }
+.tc-case-item .sub { margin-left: auto; color: var(--foreground-muted); font: var(--type-micro); }
+.tc-case-item .mt { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.tc-case-item .ly { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.tc-case-item .ly > span {
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  font: var(--type-micro);
+}
+.tc-case-item .ly > .on { background: color-mix(in srgb, var(--success) 20%, transparent); color: var(--success); }
+.tc-case-item .ly > .off {
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+  color: var(--foreground-muted);
+  text-decoration: line-through;
+}
+
 /* --------------------------------------------------------- fingerprint */
 .tc-fingerprint {
   position: absolute;
@@ -119,6 +172,9 @@ body.tc-page {
 .inspector-rail {
   display: flex;
   flex-direction: column;
+  /* the gutter counts into this flex column scrollable area, which would
+   * float a 15px horizontal scrollbar under content that already fits. */
+  overflow-x: hidden;
   padding: 0 var(--tc-gutter) var(--inspector-rail-padding-bottom);
 }
 .inspector-section {
@@ -501,6 +557,38 @@ body.tc-page {
 .tc-evidence-row .a { color: var(--foreground-muted); font: var(--type-micro); text-transform: uppercase; letter-spacing: 0.05em; }
 .tc-evidence-row .l { color: var(--foreground); font-family: var(--font-mono); font-size: 11px; overflow-wrap: anywhere; }
 .tc-evidence-row .v { color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.45; }
+
+/* ----------------------------------------------- launch-skew breakdown
+ * Lives in the E2E inspector: the measured wait against the upper bound the
+ * host-clock offset implies. A row jumps to that wait task on the L2 stage. */
+.inspector-soft-card > .hd { color: var(--foreground); font: var(--type-label); }
+.inspector-soft-card > .bd { color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.45; }
+
+.tc-skewrows { display: grid; gap: 1px; }
+.tc-skewrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 54px 54px 40px;
+  gap: var(--space-2);
+  align-items: baseline;
+  width: 100%;
+  padding: 2px var(--space-1);
+  margin-inline: calc(var(--space-1) * -1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--foreground-secondary);
+  font: var(--type-body-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.tc-skewrow:hover { background: var(--state-hover); color: var(--foreground); }
+.tc-skewrow.is-head { cursor: default; color: var(--foreground-muted); font: var(--type-micro); text-transform: uppercase; letter-spacing: 0.05em; }
+.tc-skewrow.is-head:hover { background: transparent; }
+.tc-skewrow > .l { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tc-skewrow > .n { font-family: var(--font-mono); text-align: right; }
+.tc-skewrow > .n.muted { color: var(--foreground-muted); }
+/* a wait that fills most of the bound is the one the skew actually explains */
+.tc-skewrow > .n.hot { color: var(--warning); }
 
 .tc-note { margin: 0; color: var(--foreground-secondary); font: var(--type-body); line-height: 1.55; }
 .tc-note strong { color: var(--foreground); font-weight: 600; }

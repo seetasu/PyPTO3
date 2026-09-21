@@ -1,8 +1,8 @@
 /* =============================================================
  * Tuning Console
  *
- * One real on-device run (Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617)
- * opened as a working surface for the tuning loop:
+ * Two real on-device runs, switchable from the topbar case chip, opened as a
+ * working surface for the tuning loop:
  *   E2E  -> L2 schedule -> L1/L0 core pipeline -> compiler lowering -> ISA / layout
  *
  * Every number rendered here comes from data.js, which build-data.cjs derives
@@ -16,9 +16,20 @@
 (function () {
   'use strict';
 
-  const D = window.TUNING_RUN;
+  const RUNS = window.TUNING_RUNS;
+  const CASES = window.TUNING_CASES;
   const SW = window.PtoSwimlaneTaskPattern;
-  const CYC_PER_US = D.case.clockHz / 1e6;   /* trace clock: 50 MHz */
+
+  /* The active case. Everything derived from it is rebuilt by loadCase(),
+   * because the two dumps do not carry the same artifacts: one has host
+   * STRACE spans and two ranks, the other has neither. */
+  let D = RUNS[CASES[0].id];
+  let CYC_PER_US = D.case.clockHz ? D.case.clockHz / 1e6 : null;
+  let TRACE_MATCH = {};
+  let findingById = {};
+  let tasksOf = {};
+  const hasE2E = () => !!D.e2e;
+  const multiRank = () => D.case.ranks.length > 1;
 
   /* ------------------------------------------------------------- state */
   const S = {
@@ -75,53 +86,86 @@
    * aic / aiv / aicpu lane-kind colors. No page-local palette. */
   const CMAP = SW.createTaskColormap();
 
-  /* ---------------------------------------------------- derived at boot */
-  /* Which invocation does each rank's device trace correspond to?
-   * Reconcile the trace span against the host-reported device_wall.sched. */
-  const TRACE_MATCH = {};
-  Object.keys(D.ranks).forEach((rank) => {
-    const span = D.ranks[rank].swimlane.spanUs;
-    let best = null;
-    Object.keys(D.e2e[rank]).forEach((inv) => {
-      const sp = D.e2e[rank][inv]['chip.run.runner_run.device_wall.sched'];
-      if (!sp) return;
-      const diff = Math.abs(sp.us - span);
-      if (!best || diff < best.diff) best = { inv: +inv, hostUs: sp.us, diff: diff };
-    });
-    TRACE_MATCH[rank] = best;
-  });
-
-  const findingById = {};
-  D.findings.forEach((f) => { findingById[f.id] = f; });
-
-  const taskByTag = {};
-  const tasksOf = {};
-  Object.keys(D.ranks).forEach((rank) => {
-    tasksOf[rank] = {};
-    D.ranks[rank].tasks.forEach((t) => { tasksOf[rank][t.tag] = t; });
-  });
+  /* ------------------------------------------------- derived per case */
   const curTask = () => tasksOf[S.rank][S.task] || R().tasks[0];
-
-  /* seed the ledger with the locked baseline, straight from the artifacts */
-  S.ledger.push({
-    id: 'B0',
-    state: 'baseline',
-    title: '基线锁定 · ' + D.case.program,
-    findingId: null,
-    hypothesis: '固定 shape / dtype / 平台 / 卡数 / 工具链，作为后续所有对比的唯一基准。',
-    change: D.case.runDir + '（' + D.case.capturedAt + '，platform ' + D.case.toolchain.platform + '）',
-    correctness: 'distributed_meta.json 记录 ' + D.case.params.length + ' 个绑定参数，schema ' + D.case.metaSchema,
-    perf: 'rank0 device_wall ' + us(D.e2e.rank0[2]['chip.run.runner_run.device_wall'].us)
-      + ' / rank1 ' + us(D.e2e.rank1[2]['chip.run.runner_run.device_wall'].us) + '（inv=2）',
-    keep: '保留为基线',
-  });
   let ledgerSeq = 0;
+
+  function loadCase(id) {
+    D = RUNS[id];
+    CYC_PER_US = D.case.clockHz ? D.case.clockHz / 1e6 : null;
+
+    /* Which invocation does each rank's device trace correspond to?
+     * Reconcile the trace span against the host-reported device_wall.sched.
+     * Without host spans there is nothing to reconcile against. */
+    TRACE_MATCH = {};
+    Object.keys(D.ranks).forEach((rank) => {
+      if (!D.e2e || !D.e2e[rank]) { TRACE_MATCH[rank] = null; return; }
+      const span = D.ranks[rank].swimlane.spanUs;
+      let best = null;
+      Object.keys(D.e2e[rank]).forEach((inv) => {
+        const sp = D.e2e[rank][inv]['chip.run.runner_run.device_wall.sched'];
+        if (!sp) return;
+        const diff = Math.abs(sp.us - span);
+        if (!best || diff < best.diff) best = { inv: +inv, hostUs: sp.us, diff: diff };
+      });
+      TRACE_MATCH[rank] = best;
+    });
+
+    findingById = {};
+    D.findings.forEach((f) => { findingById[f.id] = f; });
+
+    tasksOf = {};
+    Object.keys(D.ranks).forEach((rank) => {
+      tasksOf[rank] = {};
+      D.ranks[rank].tasks.forEach((t) => { tasksOf[rank][t.tag] = t; });
+    });
+
+    /* state that only makes sense inside one case */
+    S.rank = D.defaultRank;
+    S.finding = null;
+    S.focus = null;
+    S.focusEvidence = false;
+    S.findingLevel = 'all';
+    S.laneFilter = 'all';
+    S.critOnly = false;
+    S.task = tasksOf[S.rank][D.derived.worstHandoff]
+      ? D.derived.worstHandoff : R().tasks[0].tag;
+    S.hintSite = D.tileSites.length ? D.tileSites[0].key : null;
+    S.pass = D.passes.length ? D.passes[Math.min(17, D.passes.length - 1)].idx : 0;
+    S.t0 = 0;
+    S.t1 = R().swimlane.spanUs;
+    /* the E2E tab stays selectable: its absence page is the explanation */
+
+    /* the ledger belongs to the case: a baseline for one run is not a
+     * baseline for the other */
+    S.ledger.length = 0;
+    ledgerSeq = 0;
+    S.ledger.push({
+      id: 'B0',
+      state: 'baseline',
+      title: '基线锁定 · ' + D.case.program,
+      findingId: null,
+      hypothesis: '固定 shape / dtype / 平台 / 卡数 / 工具链，作为后续所有对比的唯一基准。',
+      change: D.case.runDir + '（' + D.case.capturedAt + '，platform ' + D.case.toolchain.platform + '）',
+      correctness: D.case.params.length
+        ? 'distributed_meta.json 记录 ' + D.case.params.length + ' 个绑定参数，schema ' + D.case.metaSchema
+        : '本 dump 无 distributed_meta.json：绑定参数未记录，正确性基准缺口',
+      perf: hasE2E()
+        ? D.case.ranks.map((r) => r + ' device_wall '
+            + us(D.e2e[r][TRACE_MATCH[r].inv]['chip.run.runner_run.device_wall'].us)).join(' / ')
+          + '（inv=' + TRACE_MATCH[D.defaultRank].inv + '）'
+        : '本 dump 无 host STRACE log：device_wall 不可得，基线只能用 trace span '
+          + us(R().swimlane.spanUs),
+      keep: '保留为基线',
+    });
+  }
   const openExperiment = () => S.ledger.find((r) => r.state === 'open') || null;
 
   /* ============================================================ tables */
   function table(cols, rows, opts) {
     const o = opts || {};
     const wrap = el('div', 'tc-table-scroll');
+    if (o.tall) wrap.dataset.tall = 'true';
     const t = el('table', 'tc-table');
     const thead = el('thead');
     const tr = el('tr');
@@ -448,16 +492,23 @@
   ];
 
   function viewE2E(stage) {
+    if (!hasE2E()) { viewE2EAbsent(stage); return; }
     /* --- gates: what must be true before any number is trusted --- */
-    const invCount = Object.keys(D.e2e.rank0).length;
+    const invCount = Object.keys(D.e2e[D.defaultRank]).length;
     const gates = [
       {
-        k: 'Case 固定', state: 'pass', v: 'locked',
-        d: D.case.params.length + ' 个绑定参数 · ' + D.case.backend + ' · ' + D.case.ranks.length + ' rank · ' + D.case.numCores + ' core',
+        k: 'Case 固定', state: D.case.params.length ? 'pass' : 'warn',
+        v: D.case.params.length ? 'locked' : '未记录',
+        d: (D.case.params.length ? D.case.params.length + ' 个绑定参数' : '无 distributed_meta.json')
+          + ' · ' + D.case.backend + ' · ' + D.case.ranks.length + ' rank · ' + D.case.numCores + ' core',
       },
       {
-        k: '工具链', state: 'pass', v: D.case.toolchain.platform,
-        d: 'pto-isa ' + D.case.toolchain.ptoIsaRevision.slice(0, 10) + ' · runtime ' + D.case.toolchain.runtimeName,
+        k: '工具链', state: D.case.toolchain.ptoIsaRevision ? 'pass' : 'warn',
+        v: D.case.toolchain.platform,
+        d: (D.case.toolchain.ptoIsaRevision
+          ? 'pto-isa ' + D.case.toolchain.ptoIsaRevision.slice(0, 10)
+          : '无 binary_context.json')
+          + ' · runtime ' + (D.case.toolchain.runtimeName || '未记录'),
       },
       {
         k: '迭代次数', state: 'warn', v: 'n = ' + invCount,
@@ -590,6 +641,43 @@
       { label: 'AIV 占用', num: true, cell: (r) => pct(r.aiv) },
     ], recRows, { onPick: (r) => { S.rank = r.rank; render(); } }));
     stage.appendChild(recSec);
+  }
+
+  /* The L2 dump has no host STRACE log, so there is no end-to-end layer to
+   * show. This is a state, not an error: name the missing artifact, say what
+   * it would have answered, and point at the layer that still works. */
+  function viewE2EAbsent(stage) {
+    const sec = el('section');
+    sec.appendChild(sectionHead('端到端', '本 dump 缺少 host STRACE log'));
+    sec.appendChild(table([
+      { label: '缺失产物', cell: (r) => esc(r[0]), mono: true },
+      { label: '本可回答', cell: (r) => esc(r[1]) },
+      { label: '状态', cell: () => '<span class="bad">缺失</span>' },
+    ], [
+      ['dfx_outputs/**/host.*.log', 'chip.run / bind / runner_run / device_wall 的 span 树'],
+      ['  └ inv=', '本次录制里程序被调用了几次（迭代次数 n）'],
+      ['  └ device_wall', '设备墙钟，调优的主指标与复测基准'],
+      ['  └ bind.prebuilt', 'JIT 建图是否命中缓存，第一次调用能不能用'],
+      ['distributed_meta.json', '绑定参数的 shape / dtype，case 是否固定'],
+    ], {}));
+    stage.appendChild(sec);
+
+    const alt = el('section');
+    alt.appendChild(sectionHead('仍然可测', '设备侧 trace 完整'));
+    const R0 = R();
+    alt.appendChild(tiles([
+      { k: 'trace span', v: num(R0.swimlane.spanUs, 1), u: 'us（设备钟）' },
+      { k: '任务', v: String(R0.tasks.length) },
+      { k: '块', v: String(R0.swimlane.blocks.reduce((a, b) => a + b.length, 0)) },
+      { k: '关键路径', v: R0.critical.tags.length, u: '节点' },
+      { k: 'AIC 占用', v: pct(R0.occupancy.aicUtil), tone: R0.occupancy.aicUtil < 40 ? 'bad' : 'good' },
+      { k: 'AIV 占用', v: pct(R0.occupancy.aivUtil), tone: R0.occupancy.aivUtil < 40 ? 'bad' : null },
+    ]));
+    const jump = el('div', 'tc-actions');
+    jump.appendChild(btn('去 L2 调度', { on: () => { S.view = 'l2'; render(); } }));
+    jump.appendChild(btn('去 ISA / 布局', { variant: 'ghost', on: () => { S.view = 'isa'; render(); } }));
+    alt.appendChild(jump);
+    stage.appendChild(alt);
   }
 
   /* ========================================================= L2 view */
@@ -1267,13 +1355,19 @@
       r.appendChild(p);
       return r;
     };
-    const depthMsg = B.atLimit
-      ? ' · 同配置实测回退：' + D.depthSites[0].file + ':' + D.depthSites[0].line
-      : B.depthState === 'fail' ? ' · 超出，MemoryReuse 降至 depth 1'
-        : B.depthState === 'warn' ? ' · 余量不足以容纳同驻 tile' : '';
-    verdict.appendChild(vrow(B.depthState, B.depthState === 'pass' ? 'depth' : 'depth ↓',
-      'stage ' + B.T.depth + ' × max(L,R) = <strong>' + kb(B.depthNeed) + '</strong> / '
-      + kb(B.freeLR) + ' free = ' + pct(B.depthRatio * 100, 0) + depthMsg));
+    if (B.freeLR == null) {
+      verdict.appendChild(vrow('warn', 'depth ?',
+        'stage ' + B.T.depth + ' × max(L,R) = <strong>' + kb(B.depthNeed)
+        + '</strong>，但本 dump 无 PH-MR-001，Left/Right 可用字节未知 · 无法判定'));
+    } else {
+      const depthMsg = B.atLimit
+        ? ' · 同配置实测回退：' + D.depthSites[0].file + ':' + D.depthSites[0].line
+        : B.depthState === 'fail' ? ' · 超出，MemoryReuse 降至 depth 1'
+          : B.depthState === 'warn' ? ' · 余量不足以容纳同驻 tile' : '';
+      verdict.appendChild(vrow(B.depthState, B.depthState === 'pass' ? 'depth' : 'depth ↓',
+        'stage ' + B.T.depth + ' × max(L,R) = <strong>' + kb(B.depthNeed) + '</strong> / '
+        + kb(B.freeLR) + ' free = ' + pct(B.depthRatio * 100, 0) + depthMsg));
+    }
     verdict.appendChild(vrow(B.lineOk ? 'pass' : 'warn', B.lineOk ? 'cache line' : '末维不足',
       'N × ' + B.ab.label + ' = <strong>' + B.innermost + 'B</strong> / ' + B.cacheLine + 'B'
       + (B.lineOk ? '' : ' · 需 ' + B.ab.mult + ' 元素倍数（≥ ' + B.needElems + ' 个 ' + B.ab.label + '）')));
@@ -1354,21 +1448,35 @@
 
     if (S.compilerTab === 'depth') {
       const sec = el('section');
-      sec.appendChild(sectionHead('软流水深度回退',
-        D.depthSites.length + ' 个源码点，' + D.hints.filter((h) => h.code === 'PH-MR-001').length + ' 条 PH-MR-001'));
-      sec.appendChild(table([
-        { label: '源码点', mono: true, cell: (s) => esc(s.module + ':' + s.line) },
-        { label: '空间', cell: (s) => s.units.join(' / '), mono: true },
-        { label: '组数', key: 'groupCount', num: true },
-        { label: '请求 → 实得', num: true, cell: (s) => s.maxReqDepth + ' → <span class="bad">' + s.fittedDepth + '</span>' },
-        { label: '每 stage', num: true, cell: (s) => kb(s.perStageB) },
-        { label: '可用', num: true, cell: (s) => kb(s.freeB) },
-        { label: '需求 / 可用', cell: (s) => bar((s.perStageB * s.maxReqDepth) / s.freeB, 'bad') },
-      ], D.depthSites.map((s) => Object.assign({
-        __selected: s.key === S.hintSite, __subject: !!subjectSiteSet()[s.key],
-      }, s)), {
-        onPick: (s) => { S.hintSite = s.key; S.focus = 'hint'; render(); },
-      }));
+      if (!D.depthSites.length) {
+        /* MemoryReuse never reported a degradation here. That is a different
+         * statement from "we found nothing", so spell out what was checked. */
+        sec.appendChild(sectionHead('软流水深度回退', '本 run 无 PH-MR-001'));
+        sec.appendChild(table([
+          { label: '事实', cell: (r) => esc(r[0]), mono: true },
+          { label: '含义', cell: (r) => esc(r[1]) },
+        ], [
+          ['PH-MR-001 × 0', 'MemoryReuse 未报告过任何一次深度回退'],
+          ['pl.pipeline × ' + D.pipelineSites.length, '请求的 stage 都放得下，或该 kernel 未进 MemoryReuse'],
+          ['Left / Right / Vec 可用字节 缺失', '片上预算试算器无本 run 实测上限可对账'],
+        ], {}));
+      } else {
+        sec.appendChild(sectionHead('软流水深度回退',
+          D.depthSites.length + ' 个源码点，' + D.hints.filter((h) => h.code === 'PH-MR-001').length + ' 条 PH-MR-001'));
+        sec.appendChild(table([
+          { label: '源码点', mono: true, cell: (s) => esc(s.module + ':' + s.line) },
+          { label: '空间', cell: (s) => s.units.join(' / '), mono: true },
+          { label: '组数', key: 'groupCount', num: true },
+          { label: '请求 → 实得', num: true, cell: (s) => s.maxReqDepth + ' → <span class="bad">' + s.fittedDepth + '</span>' },
+          { label: '每 stage', num: true, cell: (s) => kb(s.perStageB) },
+          { label: '可用', num: true, cell: (s) => kb(s.freeB) },
+          { label: '需求 / 可用', cell: (s) => bar((s.perStageB * s.maxReqDepth) / s.freeB, 'bad') },
+        ], D.depthSites.map((s) => Object.assign({
+          __selected: s.key === S.hintSite, __subject: !!subjectSiteSet()[s.key],
+        }, s)), {
+          onPick: (s) => { S.hintSite = s.key; S.focus = 'hint'; render(); },
+        }));
+      }
       stage.appendChild(sec);
 
       const stageGroups = {};
@@ -1450,12 +1558,14 @@
     const have = el('section');
     have.appendChild(sectionHead('工具链与约束', 'binary_context · Pass dump · L0 tile'));
     have.appendChild(tiles([
-      { k: 'platform', v: D.case.toolchain.platform },
-      { k: 'pto-isa', v: D.case.toolchain.ptoIsaRevision.slice(0, 8), u: 'revision' },
-      { k: 'runtime', v: D.case.toolchain.runtimeName.split('_')[0], u: D.case.toolchain.runtimeRevision.slice(0, 8) },
+      { k: 'platform', v: D.case.toolchain.platform || D.case.backend },
+      { k: 'pto-isa', v: D.case.toolchain.ptoIsaRevision ? D.case.toolchain.ptoIsaRevision.slice(0, 8) : '—', u: 'revision' },
+      { k: 'runtime', v: (D.case.toolchain.runtimeName || '—').split('_')[0],
+        u: D.case.toolchain.runtimeRevision ? D.case.toolchain.runtimeRevision.slice(0, 8) : (D.case.toolchain.aicpuThreads ? D.case.toolchain.aicpuThreads + ' AICPU 线程' : '') },
       { k: 'cache line', v: cacheLine, u: 'B' },
       { k: 'L0 tile 形状', v: D.l0Tiles.length, u: '种（AutoTileMatmulL0）' },
-      { k: 'Left/Right 可用', v: kb(D.budgets.Right.freeB), u: 'MemoryReuse 报告' },
+      { k: 'Left/Right 可用', v: D.budgets.Right ? kb(D.budgets.Right.freeB) : '—',
+        u: D.budgets.Right ? 'MemoryReuse 报告' : '无 PH-MR-001' },
     ]));
     stage.appendChild(have);
 
@@ -1467,23 +1577,52 @@
       { label: 'dtype', key: 'dtype', mono: true },
       { label: '字节', num: true, cell: (r) => kb(r.bytes) },
       { label: '末维', num: true, cell: (r) => (r.innermostB >= cacheLine ? '<span class="ok">' : '<span class="warn">') + r.innermostB + 'B</span>' },
-      { label: '占 ' + kb(D.budgets.Right.freeB), cell: (r) => (r.mem === 'Acc' ? '—' : bar(r.bytes / D.budgets.Right.freeB, r.bytes > D.budgets.Right.freeB ? 'bad' : 'neutral')) },
+      { label: D.budgets.Right ? '占 ' + kb(D.budgets.Right.freeB) : '相对最大',
+        cell: (r) => {
+          const base = D.budgets.Right ? D.budgets.Right.freeB
+            : Math.max.apply(null, D.l0Tiles.map((x) => x.bytes));
+          return r.mem === 'Acc' ? '—' : bar(r.bytes / base, r.bytes > base ? 'bad' : 'neutral');
+        } },
       { label: '出现', key: 'n', num: true },
     ], D.l0Tiles.map((r) => Object.assign({ shape: '[' + r.rows + ',' + r.cols + ']' }, r)), {}));
     stage.appendChild(lay);
 
     const missing = el('section');
-    missing.appendChild(sectionHead('缺失产物', '本 dump 不含 PTOAS / VPTO 级记录'));
-    missing.appendChild(table([
-      { label: '产物', cell: (r) => esc(r[0]), mono: true },
-      { label: '用于', cell: (r) => esc(r[1]) },
-      { label: '状态', cell: () => '<span class="bad">缺失</span>' },
-    ], [
+    const A = D.case.artifacts;
+
+    /* PTOAS sources, when this dump carries them */
+    if (A.ptoas) {
+      const src = el('section');
+      const units = D.case.ptoasUnits;
+      const maxPto = Math.max.apply(null, units.map((u) => u.ptoLines));
+      src.appendChild(sectionHead('PTOAS 单元', units.length + ' 个 · .pto → .cpp · '
+        + Object.keys(A.kernelDirs).map((k) => k + ' ' + A.kernelDirs[k]).join(' / ')));
+      src.appendChild(table([
+        { label: '单元', key: 'name', mono: true },
+        { label: '.pto 行', key: 'ptoLines', num: true },
+        { label: '', cell: (r) => bar(r.ptoLines / maxPto, r.ptoLines === maxPto ? 'warn' : 'neutral') },
+        { label: '.cpp 行', num: true, cell: (r) => (r.cppLines == null ? '—' : r.cppLines) },
+        { label: '展开比', num: true, cell: (r) => (r.cppLines == null ? '—'
+          : num(r.cppLines / r.ptoLines, 2) + 'x') },
+      ], units.slice().sort((a, b) => b.ptoLines - a.ptoLines), { tall: true }));
+      stage.appendChild(src);
+    }
+
+    /* what is still missing — computed, not a fixed list */
+    const gaps = [
+      [A.ptoas ? null : 'ptoas/*.pto', '每个 kernel 的 PTOAS 源与展开后的 cpp'],
+      [Object.keys(A.kernelDirs).length ? null : 'kernels/', '实际编译出的 AIC / AIV 二进制'],
       ['PTOAS TileLib 模板记录', '模板候选与选中原因'],
       ['VPTO scheduler 排布报告', '依赖、延迟、寄存器压力、重物化'],
       ['cycle cost model 预测', '与实测块时长对账'],
       ['PMU counter', 'Cube / Vec / MTE / FIXPIPE，需单独建 PMU-on 基线'],
-    ], {}));
+    ].filter((r) => r[0]);
+    missing.appendChild(sectionHead('缺失产物', gaps.length + ' 项'));
+    missing.appendChild(table([
+      { label: '产物', cell: (r) => esc(r[0]), mono: true },
+      { label: '用于', cell: (r) => esc(r[1]) },
+      { label: '状态', cell: () => '<span class="bad">缺失</span>' },
+    ], gaps, {}));
     stage.appendChild(missing);
   }
 
@@ -1532,7 +1671,7 @@
 
   function renderRunInspector(host, title, meta) {
     title.textContent = D.case.program;
-    meta.textContent = D.case.toolchain.platform;
+    meta.textContent = D.case.toolchain.platform || D.case.backend;
 
     const s1 = inspectorSection('运行对象', D.case.runDir.slice(0, 16) + '…');
     s1.appendChild(kv([
@@ -1541,14 +1680,16 @@
       ['ranks', D.case.ranks.join(', ') + ' · ' + D.case.device],
       ['核', D.case.numCores + '（AIC ' + D.case.aicCount + ' / AIV ' + D.case.aivCount + '）'],
       ['callables', String(D.case.callables)],
-      ['绑定参数', String(D.case.params.length)],
-      ['pto-isa', D.case.toolchain.ptoIsaRevision.slice(0, 12)],
-      ['runtime', D.case.toolchain.runtimeName],
+      ['绑定参数', D.case.params.length ? String(D.case.params.length) : '未记录'],
+      ['pto-isa', D.case.toolchain.ptoIsaRevision ? D.case.toolchain.ptoIsaRevision.slice(0, 12) : '—'],
+      ['runtime', D.case.toolchain.runtimeName || '—'],
     ]));
     host.appendChild(s1);
 
-    const s2 = inspectorSection('两卡对比', 'inv=' + TRACE_MATCH.rank0.inv + ' / ' + TRACE_MATCH.rank1.inv);
-    const a = D.ranks.rank0, b = D.ranks.rank1;
+    if (!multiRank() || !hasE2E()) { renderRunInspectorSingle(host); return; }
+    const RK = D.case.ranks;
+    const s2 = inspectorSection('两卡对比', 'inv=' + TRACE_MATCH[RK[0]].inv + ' / ' + TRACE_MATCH[RK[1]].inv);
+    const a = D.ranks[RK[0]], b = D.ranks[RK[1]];
     s2.appendChild(kv([
       ['device_wall', num(D.e2e.rank0[2]['chip.run.runner_run.device_wall'].us, 1) + ' / '
         + num(D.e2e.rank1[2]['chip.run.runner_run.device_wall'].us, 1) + ' us'],
@@ -1558,9 +1699,42 @@
       ['关键路径', a.critical.tags.length + ' / ' + b.critical.tags.length + ' 节点'],
       ['调度器占用', pct(a.scheduler.perLaneUtil) + ' / ' + pct(b.scheduler.perLaneUtil)],
     ]));
+    /* the observation, then what the host clock says causes it */
     s2.appendChild(el('div', 'inspector-soft-card is-warning',
       'rank0 更慢却更闲：+' + num(a.swimlane.spanUs - b.swimlane.spanUs, 0) + ' us span，'
       + '−' + num(b.occupancy.aicUtil - a.occupancy.aicUtil, 1) + ' pt AIC 占用'));
+    const K = D.launchSkew;
+    if (K) {
+      const cause = el('div', 'inspector-soft-card');
+      cause.appendChild(el('span', 'hd', 'rank1 晚发 ' + num(K.runnerUs, 1) + ' us'));
+      cause.appendChild(el('span', 'bd', 'AIC busy ' + num(K.work.rank0.aic.busy, 0) + ' / '
+        + num(K.work.rank1.aic.busy, 0) + ' us（差 '
+        + pct(Math.abs(K.work.rank0.aic.busy - K.work.rank1.aic.busy) / K.work.rank1.aic.busy * 100, 2)
+        + '）——计算量相同，多出来的 span 是等待'));
+      const rows = el('div', 'tc-skewrows');
+      const hd = el('div', 'tc-skewrow is-head');
+      ['wait', 'rank0 等', '错峰上界', '占比'].forEach((t, i) => hd.appendChild(el('span', i ? 'n' : 'l', t)));
+      rows.appendChild(hd);
+      K.checks.forEach((c) => {
+        const r = el('button', 'tc-skewrow');
+        r.type = 'button';
+        r.appendChild(el('span', 'l', c.callable.replace(/_wait$/, '')));
+        r.appendChild(el('span', 'n', num(c.measured, 1)));
+        r.appendChild(el('span', 'n muted', num(c.bound, 1)));
+        r.appendChild(el('span', 'n' + (c.fitPct >= 80 ? ' hot' : ''), pct(c.fitPct, 0)));
+        r.addEventListener('click', () => {
+          S.rank = 'rank0'; S.view = 'l2'; S.task = c.tag0; S.focus = 'task';
+          const t = tasksOf.rank0[c.tag0];
+          if (t) { const pad = Math.max(40, t.span * 0.35); setWindow(t.start - pad, t.end + pad); }
+          render();
+        });
+        rows.appendChild(r);
+      });
+      cause.appendChild(rows);
+      cause.appendChild(el('span', 'bd', (K.allUnderBound ? '4 个 wait 全部落在上界内' : '有 wait 超出上界')
+        + ' · 合计 ' + num(K.measuredSum, 0) + ' / ' + num(K.boundSum, 0) + ' us'));
+      s2.appendChild(cause);
+    }
     host.appendChild(s2);
 
     const s3 = inspectorSection('瓶颈队列', 'top 3');
@@ -1933,6 +2107,9 @@
   function renderDock() {
     const body = $('#dockBody');
     body.textContent = '';
+    /* the ready-queue tooltip lives outside #dockBody, so clear it by hand */
+    const staleTip = document.querySelector('[data-tc-tip="readyq"]');
+    if (staleTip) staleTip.remove();
     const rank = R();
     $('[data-bind="dockMeta"]').textContent = S.rank + ' · 与上方时间轴同窗口 '
       + num(S.t0, 0) + '–' + num(S.t1, 0) + ' us';
@@ -1985,7 +2162,28 @@
       return;
     }
 
-    /* ready queue */
+    /* ready queue
+     * shared_ready_queue is a Chrome-trace counter (ph "C"): each sample says
+     * how many tasks are dependency-satisfied but not yet dispatched, split by
+     * engine. A counter holds its value until the next sample, so it is drawn
+     * as a step — the same semantics build-data.cjs integrates busyTime with. */
+    const SERIES = [
+      { key: 'AIC', idx: 1, token: '--danger' },
+      { key: 'AIV', idx: 2, token: '--warning' },
+      { key: 'MIX', idx: 3, token: '--accent' },
+    ];
+    const legend = el('div', 'tc-legend');
+    SERIES.forEach((sr) => {
+      const item = el('span');
+      const swatch = el('i');
+      swatch.style.background = cssVar(sr.token);
+      item.appendChild(swatch);
+      item.appendChild(el('span', null, sr.key + ' ready · peak ' + rank.readyStat.peak[sr.key]));
+      legend.appendChild(item);
+    });
+    legend.appendChild(el('span', 'tc-readout', rank.readyQueue.length + ' 个采样点 · 悬停读数'));
+    body.appendChild(legend);
+
     const host = el('div', 'tc-canvas-strip');
     host.style.flex = '0 0 auto';
     const canvas = el('canvas');
@@ -1999,27 +2197,50 @@
       { k: 'AIC 核占用', v: pct(rank.occupancy.aicUtil), tone: rank.occupancy.aicUtil < 40 ? 'bad' : null },
       { k: 'AIV 核占用', v: pct(rank.occupancy.aivUtil) },
     ]));
+
+    const q = rank.readyQueue;
+    /* last sample whose timestamp is <= t */
+    const sampleAt = (t) => {
+      let lo = 0, hi = q.length - 1, hit = -1;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        if (q[mid][0] <= t) { hit = mid; lo = mid + 1; } else { hi = mid - 1; }
+      }
+      return hit;
+    };
+
+    let hoverX = null;   /* pointer position, canvas css px */
+    let geom = null;     /* written by draw(), read by the pointer handler */
+
     const draw = () => {
       const w = host.clientWidth || 700;
       const h = 92;
       const ctx = fitCanvas(canvas, w, h);
       const x0 = 46, plotW = Math.max(40, w - x0 - 12), y0 = 18, hh = h - 40;
+      geom = { x0: x0, plotW: plotW, y0: y0, hh: hh };
       drawTimeRuler(ctx, x0, plotW, 10, S.t0, S.t1);
       const peak = Math.max(rank.readyStat.peak.AIC, rank.readyStat.peak.AIV, 1);
       const sx = (t) => x0 + ((t - S.t0) / (S.t1 - S.t0)) * plotW;
-      [['AIC', 1, '--danger'], ['AIV', 2, '--warning'], ['MIX', 3, '--accent']].forEach((cfg) => {
+      const sy = (v) => y0 + hh - (v / peak) * hh;
+      SERIES.forEach((sr) => {
         ctx.beginPath();
         ctx.moveTo(x0, y0 + hh);
-        rank.readyQueue.forEach((q) => {
-          ctx.lineTo(clamp(sx(q[0]), x0, x0 + plotW), y0 + hh - (q[cfg[1]] / peak) * hh);
+        let prevY = y0 + hh;
+        q.forEach((sample) => {
+          const x = clamp(sx(sample[0]), x0, x0 + plotW);
+          const y = sy(sample[sr.idx]);
+          ctx.lineTo(x, prevY);   /* hold the previous value up to this sample */
+          ctx.lineTo(x, y);       /* then step */
+          prevY = y;
         });
+        ctx.lineTo(x0 + plotW, prevY);
         ctx.lineTo(x0 + plotW, y0 + hh);
         ctx.closePath();
-        ctx.fillStyle = cssVar(cfg[2]);
+        ctx.fillStyle = cssVar(sr.token);
         ctx.globalAlpha = 0.3;
         ctx.fill();
         ctx.globalAlpha = 0.9;
-        ctx.strokeStyle = cssVar(cfg[2]);
+        ctx.strokeStyle = cssVar(sr.token);
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.globalAlpha = 1;
@@ -2030,7 +2251,70 @@
       ctx.textBaseline = 'middle';
       ctx.fillText(String(peak), x0 - 6, y0 + 4);
       ctx.fillText('0', x0 - 6, y0 + hh);
+
+      /* crosshair: the read head the tooltip is reporting */
+      if (hoverX != null) {
+        const hx = clamp(hoverX, x0, x0 + plotW);
+        const i = sampleAt(S.t0 + ((hx - x0) / plotW) * (S.t1 - S.t0));
+        ctx.save();
+        ctx.strokeStyle = cssVar('--foreground-secondary');
+        ctx.globalAlpha = 0.55;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(hx) + 0.5, y0 - 6);
+        ctx.lineTo(Math.round(hx) + 0.5, y0 + hh);
+        ctx.stroke();
+        ctx.restore();
+        if (i >= 0) {
+          SERIES.forEach((sr) => {
+            ctx.beginPath();
+            ctx.arc(hx, sy(q[i][sr.idx]), 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = cssVar(sr.token);
+            ctx.fill();
+          });
+        }
+      }
     };
+
+    /* the shared pattern owns the tooltip chrome; only the rows are ours */
+    const tipRow = (k, v, cls) => '<div class="pto-swimlane-task-tooltip__row">'
+      + '<span class="pto-swimlane-task-tooltip__key">' + esc(k) + '</span>'
+      + '<span class="pto-swimlane-task-tooltip__value' + (cls ? ' ' + cls : '') + '">'
+      + esc(v) + '</span></div>';
+
+    /* the tooltip lives on the frame layer: .tc-canvas-strip clips to its
+     * rounded corners, and the strip is only 92px tall. */
+    const tipLayer = document.querySelector('.tc-frame');
+    const tip = SW.createTooltip();
+    tip.dataset.tcTip = 'readyq';
+    tipLayer.appendChild(tip);
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (!geom) return;
+      hoverX = event.clientX - canvas.getBoundingClientRect().left;
+      draw();
+      const hx = clamp(hoverX, geom.x0, geom.x0 + geom.plotW);
+      const t = S.t0 + ((hx - geom.x0) / geom.plotW) * (S.t1 - S.t0);
+      const i = sampleAt(t);
+      if (i < 0) { SW.hideTooltip(tip); return; }
+      const held = (i + 1 < q.length ? q[i + 1][0] : q[q.length - 1][0]) - q[i][0];
+      const total = q[i][1] + q[i][2] + q[i][3];
+      const html = '<div class="pto-swimlane-task-tooltip__title">t = ' + num(t, 1) + ' us</div>'
+        + tipRow('采样', num(q[i][0], 2) + ' us · #' + (i + 1) + '/' + q.length)
+        + tipRow('保持', num(held, 2) + ' us')
+        + tipRow('AIC ready', String(q[i][1]), q[i][1] > 0 ? 'is-warn' : '')
+        + tipRow('AIV ready', String(q[i][2]))
+        + tipRow('MIX ready', String(q[i][3]))
+        + tipRow('待派发合计', String(total));
+      SW.showTooltip(tip, { counterReadout: true }, event,
+        { bounds: tipLayer, target: canvas, getTooltipHtml: () => html });
+    });
+    canvas.addEventListener('pointerleave', () => {
+      hoverX = null;
+      draw();
+      SW.hideTooltip(tip);
+    });
+
     requestAnimationFrame(draw);
     if (body.__ro) body.__ro.disconnect();
     body.__ro = new ResizeObserver(draw);
@@ -2086,7 +2370,7 @@
 
     if (S.termTab === 'output') {
       const lines = [];
-      Object.keys(D.e2e).forEach((rank) => {
+      Object.keys(D.e2e || {}).forEach((rank) => {
         Object.keys(D.e2e[rank]).forEach((inv) => {
           lines.push('# ' + rank + ' inv=' + inv);
           Object.keys(D.e2e[rank][inv]).forEach((name) => {
@@ -2100,25 +2384,79 @@
       return;
     }
 
+    /* Artifact inventory for the active case: present rows carry what they
+     * answer, absent rows say so instead of being dropped silently. */
+    const A = D.case.artifacts;
+    const rankDir = (r) => 'dfx_outputs/' + (multiRank() ? r + '/d0/' : '');
     const rows = [
-      ['distributed_meta.json', D.case.params.length + ' 个绑定参数，schema ' + D.case.metaSchema],
-      ['dfx_outputs/rank0/d0/merged_swimlane_*.json', 'Worker + Scheduler view，' + D.ranks.rank0.tasks.length + ' 任务 / '
-        + D.ranks.rank0.swimlane.blocks.reduce((a, b) => a + b.length, 0) + ' 块'],
-      ['dfx_outputs/rank1/d0/merged_swimlane_*.json', D.ranks.rank1.tasks.length + ' 任务 / '
-        + D.ranks.rank1.swimlane.blocks.reduce((a, b) => a + b.length, 0) + ' 块'],
-      ['dfx_outputs/rank*/d0/deps.json', 'block_num / scope / early_dispatch / 绑定张量'],
-      ['dfx_outputs/rank*/d0/name_map.json', D.case.callables + ' 个 callable'],
-      ['dfx_outputs/rank*/d0/host.*.log', 'STRACE host span（bind / runner_run / device_wall / sched）'],
-      ['report/perf_hints.log', D.hints.length + ' 条 perf hint（PH001 / PH-MR-001）'],
-      ['passes_dump/', D.passes.length + ' 个 IR dump，' + D.passes[0].lines + ' → ' + D.passes[D.passes.length - 1].lines + ' 行'],
-      ['next_levels/decode_csa_test/cache/', 'binary_context + ' + D.case.callables + ' 个 incore 二进制'],
-      ['next_levels/.../binary_context.json', 'platform ' + D.case.toolchain.platform + ' · pto-isa '
-        + D.case.toolchain.ptoIsaRevision.slice(0, 12) + ' · runtime ' + D.case.toolchain.runtimeName],
-    ];
+      ['distributed_meta.json', A.distributedMeta
+        ? D.case.params.length + ' 个绑定参数，schema ' + D.case.metaSchema : '缺失'],
+    ].concat(D.case.ranks.map((r) => [
+      rankDir(r) + 'merged_swimlane_*.json',
+      'Worker + Scheduler view，' + D.ranks[r].tasks.length + ' 任务 / '
+        + D.ranks[r].swimlane.blocks.reduce((a, b) => a + b.length, 0) + ' 块',
+    ])).concat([
+      [rankDir(D.defaultRank) + 'deps.json', 'scope / 绑定张量'
+        + (D.ranks[D.defaultRank].tasks[0].blockNum != null ? ' / block_num / early_dispatch' : '')],
+      [rankDir(D.defaultRank) + 'name_map.json', D.case.callables + ' 个 callable（level ' + D.case.level + '）'],
+      [rankDir(D.defaultRank) + 'host.*.log', A.hostSpans
+        ? 'STRACE host span（bind / runner_run / device_wall / sched）' : '缺失 —— 无 E2E 层'],
+      ['report/perf_hints.log', D.hints.length + ' 条 perf hint（'
+        + Array.from(new Set(D.hints.map((h) => h.code))).sort().join(' / ') + '）'],
+      ['passes_dump/', D.passes.length + ' 个 IR dump，' + D.passes[0].lines
+        + ' → ' + D.passes[D.passes.length - 1].lines + ' 行'],
+      ['chip_swimlane_records.json', A.chipSwimlaneRecords
+        ? '核清单与时钟频率' : '缺失 —— 核数由 trace 线程名推得'],
+      ['binary_context.json', A.binaryContext
+        ? 'platform ' + D.case.toolchain.platform + ' · pto-isa '
+          + D.case.toolchain.ptoIsaRevision.slice(0, 12) + ' · runtime ' + D.case.toolchain.runtimeName
+        : '缺失'],
+      ['ptoas/', A.ptoas ? A.ptoas + ' 个单元（.pto + .cpp）' : '缺失'],
+      ['kernels/', Object.keys(A.kernelDirs).length
+        ? Object.keys(A.kernelDirs).map((k) => k + ' ' + A.kernelDirs[k]).join(' · ') : '缺失'],
+      ['orchestration/', A.orchestration.length ? A.orchestration.join(' · ') : '缺失'],
+      ['kernel_config.py', A.kernelConfig
+        ? 'runtime ' + (D.case.toolchain.runtimeName || '—')
+          + (D.case.toolchain.aicpuThreads ? ' · ' + D.case.toolchain.aicpuThreads + ' AICPU 线程' : '')
+        : '缺失'],
+    ]);
     body.appendChild(table([
       { label: '产物', cell: (r) => esc(r[0]), mono: true },
       { label: '内容', cell: (r) => esc(r[1]) },
     ], rows, {}));
+  }
+
+  /* One device, or no host spans: there is no cross-rank comparison to make,
+   * so the inspector reports this run on its own terms. */
+  function renderRunInspectorSingle(host) {
+    const R0 = R();
+    const s2 = inspectorSection('本次运行', D.case.ranks.length + ' 个执行单元');
+    s2.appendChild(kv([
+      ['trace span', num(R0.swimlane.spanUs, 1) + ' us'],
+      ['device_wall', hasE2E()
+        ? num(D.e2e[S.rank][TRACE_MATCH[S.rank].inv]['chip.run.runner_run.device_wall'].us, 1) + ' us'
+        : '无 host log'],
+      ['AIC 占用', pct(R0.occupancy.aicUtil)],
+      ['AIV 占用', pct(R0.occupancy.aivUtil)],
+      ['关键路径', R0.critical.tags.length + ' 节点'],
+      ['调度器占用', pct(R0.scheduler.perLaneUtil)],
+    ]));
+    if (!hasE2E()) {
+      s2.appendChild(el('div', 'inspector-soft-card is-warning',
+        '无 host STRACE log：迭代次数、device_wall、bind 缓存命中都不可得，'
+        + '基线只能锁在 trace span ' + num(R0.swimlane.spanUs, 1) + ' us 上'));
+    }
+    host.appendChild(s2);
+
+    const s3 = inspectorSection('瓶颈队列', 'top ' + Math.min(3, D.findings.length));
+    D.findings.slice(0, 3).forEach((f) => {
+      s3.appendChild(btn(f.id + ' · ' + f.title, {
+        variant: 'ghost', size: 'sm',
+        on: () => { S.finding = f.id; S.focus = 'finding'; applyFocus(f); render(); },
+      }));
+    });
+    host.appendChild(s3);
+    host.appendChild(renderLedger());
   }
 
   /* ========================================================= chrome */
@@ -2187,7 +2525,7 @@
       })), S.task, (v) => { S.task = v; S.focus = 'task'; render(); })));
     }
 
-    if (S.view === 'l2' || S.view === 'l1') {
+    if ((S.view === 'l2' || S.view === 'l1') && multiRank()) {
       right.appendChild(field('rank', select(Object.keys(D.ranks).map((r) => ({ id: r, label: r })), S.rank,
         (v) => {
           S.rank = v;
@@ -2228,12 +2566,16 @@
           render();
         },
       });
-      Object.keys(D.e2e[rank]).forEach((inv) => {
-        row(2, 'inv=' + inv + (m.inv === +inv ? ' · traced' : ''),
-          us(D.e2e[rank][inv]['chip.run.runner_run.device_wall'].us, 0), {
-            on: () => { S.rank = rank; S.view = 'e2e'; render(); },
-          });
-      });
+      if (D.e2e && D.e2e[rank]) {
+        Object.keys(D.e2e[rank]).forEach((inv) => {
+          row(2, 'inv=' + inv + (m && m.inv === +inv ? ' · traced' : ''),
+            us(D.e2e[rank][inv]['chip.run.runner_run.device_wall'].us, 0), {
+              on: () => { S.rank = rank; S.view = 'e2e'; render(); },
+            });
+        });
+      } else {
+        row(2, 'host.*.log', '缺失');
+      }
     });
     row(0, 'artifacts', D.passes.length + ' passes');
     row(1, 'report/perf_hints.log', D.hints.length, {
@@ -2317,7 +2659,7 @@
     const open = openExperiment();
     const items = [
       ['case', D.case.program],
-      ['rank', S.rank + ' inv=' + TRACE_MATCH[S.rank].inv],
+      ['rank', S.rank + (TRACE_MATCH[S.rank] ? ' inv=' + TRACE_MATCH[S.rank].inv : ' · 无 host log')],
       ['span', us(rank.swimlane.spanUs, 1)],
       ['tasks', String(rank.tasks.length)],
       ['crit', rank.critical.tags.length + ' 节点'],
@@ -2491,17 +2833,71 @@
   }
 
   /* ------------------------------------------------------------- boot */
+  /* Switching case swaps the whole dataset. The two dumps carry different
+   * artifacts, so every layer re-derives what it can and says what it cannot. */
+  function switchCase(id) {
+    if (id === D.case.id) { toggleCaseMenu(false); return; }
+    loadCase(id);
+    S.tile = defaultTile();
+    toggleCaseMenu(false);
+    renderFingerprint();
+    render();
+  }
+
+  function toggleCaseMenu(force) {
+    const menu = $('#caseMenu');
+    const chip = document.querySelector('[data-act="toggle-fingerprint"]');
+    const open = force === undefined ? menu.hidden : force;
+    menu.hidden = !open;
+    chip.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) toggleFingerprint(false);
+  }
+
+  function renderCaseMenu() {
+    const menu = $('#caseMenu');
+    menu.textContent = '';
+    CASES.forEach((c) => {
+      const run = RUNS[c.id];
+      const b = el('button', 'tc-case-item' + (c.id === D.case.id ? ' is-selected' : ''));
+      b.type = 'button';
+      const hd = el('div', 'hd');
+      hd.appendChild(el('span', 'nm', c.label));
+      hd.appendChild(el('span', 'sub', c.sub));
+      b.appendChild(hd);
+      /* say up front which layers this dump can answer */
+      const layers = el('div', 'ly');
+      [
+        ['E2E', !!run.e2e],
+        ['L2', true],
+        ['L1/L0', true],
+        ['编译器', run.passes.length > 0],
+        ['ISA', run.case.artifacts.ptoas > 0],
+      ].forEach((pair) => {
+        layers.appendChild(el('span', pair[1] ? 'on' : 'off', pair[0]));
+      });
+      b.appendChild(layers);
+      b.appendChild(el('div', 'mt', run.ranks[run.defaultRank].tasks.length + ' 任务 · '
+        + run.findings.length + ' 条瓶颈 · ' + run.hints.length + ' 条提示'));
+      b.addEventListener('click', () => switchCase(c.id));
+      menu.appendChild(b);
+    });
+    const fp = el('button', 'tc-case-item is-action', 'Case fingerprint …');
+    fp.type = 'button';
+    fp.addEventListener('click', () => { toggleCaseMenu(false); toggleFingerprint(true); });
+    menu.appendChild(fp);
+  }
+
   function boot() {
     if (window.PtoIdeFrame) window.PtoIdeFrame.initAll();
-    S.t0 = 0;
-    S.t1 = R().swimlane.spanUs;
+    loadCase(CASES[0].id);
     S.tile = defaultTile();
     S.view = 'e2e';
     S.focus = null;
+    renderCaseMenu();
     renderFingerprint();
     render();
 
-    document.querySelector('[data-act="toggle-fingerprint"]').addEventListener('click', () => toggleFingerprint());
+    document.querySelector('[data-act="toggle-fingerprint"]').addEventListener('click', () => toggleCaseMenu());
     document.querySelector('[data-act="theme"]').addEventListener('click', () => {
       const root = document.documentElement;
       root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
@@ -2531,6 +2927,9 @@
       if (!e.target.closest('.tc-search')) { $('#searchResults').hidden = true; }
       if (!e.target.closest('#fingerprint') && !e.target.closest('[data-act="toggle-fingerprint"]')) {
         toggleFingerprint(false);
+      }
+      if (!e.target.closest('#caseMenu') && !e.target.closest('[data-act="toggle-fingerprint"]')) {
+        toggleCaseMenu(false);
       }
     });
     document.addEventListener('keydown', (e) => {
