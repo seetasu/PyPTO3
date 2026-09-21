@@ -17,7 +17,7 @@
 
   const st = { sel: null, tab: 'sum', track: 'both', host: null, opts: {},
                scroll: { tasks: 0, cores: 0 }, reveal: false, edges: true,
-               hl: null, revealHl: false, hlTrack: 'both' };
+               hl: null, revealHl: false, hlTrack: 'both', range: null };
 
   const us = (v) => v >= 1000 ? (v / 1000).toFixed(2) + ' ms' : v.toFixed(2) + ' µs';
   const kbytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB'
@@ -53,10 +53,15 @@
   }
 
   /* ---------- axis ---------- */
+  function domain(D) {
+    const r = st.range;
+    if (!r || !isFinite(r.from) || !isFinite(r.to) || r.to <= r.from) return { from: 0, to: D.span, span: D.span };
+    return { from: Math.max(0, r.from), to: Math.min(D.span, r.to), span: Math.max(1, Math.min(D.span, r.to) - Math.max(0, r.from)) };
+  }
   function axis(D) {
-    const step = 100, out = [];
-    for (let t = 0; t <= D.span; t += step) {
-      out.push('<span style="left:' + (t / D.span * 100) + '%">' + t + '</span>');
+    const q = domain(D), step = q.span <= 80 ? 10 : q.span <= 180 ? 20 : 100, out = [];
+    for (let t = Math.ceil(q.from / step) * step; t <= q.to; t += step) {
+      out.push('<span style="left:' + ((t - q.from) / q.span * 100) + '%">' + t + '</span>');
     }
     return '<div class="kf-tl-axis"><div class="kf-tl-lbl">时间 µs</div>' +
       '<div class="kf-tl-ax">' + out.join('') + '</div></div>';
@@ -64,6 +69,7 @@
 
   /* ---------- track 1: logical tasks, grouped by kernel ---------- */
   function taskTrack(D) {
+    const q = domain(D);
     // one row per kernel that actually executed, earliest first
     const rows = D.kroll.slice().sort((a, b) => a.s - b.s);
     return rows.map(k => {
@@ -74,14 +80,16 @@
       const mine = [];
       D.tasks.forEach((t, i) => t.ks.forEach(x => { if (x.k === k.k) mine.push([t, i, x]); }));
       const blocks = mine.map(([t, i, x]) => {
-        const w = Math.max(0.16, (x.e - x.s) / D.span * 100);
+        if (x.e < q.from || x.s > q.to) return '';
+        const from = Math.max(q.from, x.s), to = Math.min(q.to, x.e);
+        const w = Math.max(0.16, (to - from) / q.span * 100);
         const on = st.sel === i ? ' is-sel' : '';
         const title = name + ' · ' + t.r + 't' + t.ti +
           '\n' + us(x.s) + ' → ' + us(x.e) + '（wall ' + us(x.e - x.s) + '）' +
           '\n' + x.c + ' 核 · 累计忙碌 ' + us(x.b) +
           (t.ks.length > 1 ? '\n同一任务还下沉为 ' + t.ks.filter(y => y.k !== k.k).map(y => y.kn).join('、') : '');
         return '<i class="kf-tl-b' + on + blockTone(i) + '" data-tl-task="' + i + '"' +
-          ' style="left:' + (x.s / D.span * 100) + '%;width:' + w + '%"' +
+          ' style="left:' + ((from - q.from) / q.span * 100) + '%;width:' + w + '%"' +
           ' title="' + esc(title) + '"></i>';
       }).join('');
       const hit = mine.some(m => m[1] === st.sel);
@@ -98,16 +106,19 @@
 
   /* ---------- track 2: physical cores ---------- */
   function laneTrack(D) {
+    const q = domain(D);
     const byLane = [];
     D.lanes.forEach(() => byLane.push([]));
     D.segs.forEach(s => { if (byLane[s[0]]) byLane[s[0]].push(s); });
     return D.lanes.map((l, li) => {
       const blocks = byLane[li].map(s => {
+        if (s[2] + s[3] < q.from || s[2] > q.to) return '';
         const t = D.tasks[s[1]];
-        const w = Math.max(0.16, s[3] / D.span * 100);
+        const from = Math.max(q.from, s[2]), to = Math.min(q.to, s[2] + s[3]);
+        const w = Math.max(0.16, (to - from) / q.span * 100);
         const on = st.sel === s[1] ? ' is-sel' : '';
         return '<i class="kf-tl-b' + on + blockTone(s[1]) + '" data-tl-task="' + s[1] + '"' +
-          ' style="left:' + (s[2] / D.span * 100) + '%;width:' + w + '%"' +
+          ' style="left:' + ((from - q.from) / q.span * 100) + '%;width:' + w + '%"' +
           ' title="' + esc(l.n + ' · ' + (t ? t.kn : '') + '\n' + us(s[2]) + ' + ' + us(s[3])) + '"></i>';
       }).join('');
       const busy = byLane[li].reduce((a, s) => a + s[3], 0);
@@ -352,12 +363,13 @@
     const wideT = D.tasks.reduce((a, t, i) =>
       (t.e - t.s) > (a ? D.tasks[a].e - D.tasks[a].s : -1) ? i : a, null);
     const W = D.tasks[wideT];
+    const q = domain(D);
 
     host.innerHTML =
       '<section class="kf-rd-sec kf-tl">' +
         '<div class="kf-rd-h">执行时间线' +
           '<small>' + D.counts.tasks + ' 个逻辑任务落到 ' + D.counts.kernels + ' 个 kernel · ' +
-          D.counts.lanes + ' 个核心 · 全程 ' + us(D.span) +
+          D.counts.lanes + ' 个核心 · ' + (st.range ? '当前窗口 ' + us(q.from) + ' → ' + us(q.to) : '全程 ' + us(D.span)) +
           ' · 来自 dfx_outputs/</small></div>' +
         '<div class="kf-tl-hint">' +
           '<span><i class="is-aic"></i>AIC（Cube）</span>' +
@@ -429,6 +441,10 @@
       if (id == null || Number(id) === st.sel) return;
       st.sel = Number(id); st.reveal = true; rerender();
     },
+    focusRange(range) {
+      st.range = range && isFinite(range.from) && isFinite(range.to) ? { from: Number(range.from), to: Number(range.to) } : null;
+      if (st.host) rerender();
+    },
     /* { kernels | lanes | tasks } — see resolveHighlight. Called by the
        Execution facets table; pass null to drop the highlight. */
     setHighlight(spec, opts) {
@@ -449,6 +465,6 @@
       st.edges = next;
       if (st.host) rerender();
     },
-    reset() { st.sel = null; st.tab = 'sum'; st.hl = null; }
+    reset() { st.sel = null; st.tab = 'sum'; st.hl = null; st.range = null; }
   };
 })();

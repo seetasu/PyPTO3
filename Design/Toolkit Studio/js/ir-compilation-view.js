@@ -57,6 +57,9 @@
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const kb = b => (b >= 1024 ? (b / 1024).toFixed(b >= 10240 ? 0 : 1) + ' KB' : b + ' B');
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+  const runStamp = () => (String(K.source || '').match(/\d{8}_\d{6}/) || [null])[0];
+  const trace = () => window.PTO_RUN_TRACE || null;
+  const runContext = () => window.PTO_RUN_CONTEXT || {};
 
   /* ---------- 派生量（与 ir-compile-guard.js 口径一致，避免同一界面两套算法） ---------- */
   function worstMem(k) {
@@ -241,7 +244,7 @@
   const st = {
     kernel: null, filter: 'issues', compact: false, findOn: null,
     /* 工作区页签：kernel = Kernel 列表 + 详情；trace = 借用来的编译 IR 全流程 */
-    pane: 'kernel'
+    pane: 'kernel', artifact: null
   };
   let host = null;
 
@@ -274,31 +277,22 @@
     let e = 0;
     K.kernels.forEach(k => { e += diagOf(k).error; });
     const pass = e === 0;
-    /* 设备侧的 AIC / AIV 计数直接数 kernels[].type，不写死 8 / 31 */
-    const dev = K.kernels.reduce((a, k) => {
-      if (k.type === 'AIC' || k.type === 'AIV') a[k.type] = (a[k.type] || 0) + 1;
-      return a;
-    }, {});
-    const devValue = ['AIC', 'AIV'].filter(t => dev[t]).map(t => t + ' ' + dev[t]).join(' · ') || '—';
-    const stratValue = STRATA.length
-      ? STRATA[0].id + '–' + STRATA[STRATA.length - 1].id + ' · ' + STRATA.length + ' 层'
-      : '—';
-
-    /* 判定块与字段组都跟 Correctness 的 .kf-dg-verdict / .kf-dg-cell 同一套版式：
-       标签 + 值两行，不再往格子里塞第三行说明。 */
-    const cell = (label, value, tone) =>
-      '<div class="kc-scell"><span>' + esc(label) + '</span><b' + (tone ? ' class="is-' + tone + '"' : '') + '>' +
-      esc(value) + '</b></div>';
-
-    return '<div class="kc-summary">' +
-      '<div class="kc-summary__outcome"><span>编译</span><b class="' + (pass ? 'is-ok' : 'is-bad') + '">' + (pass ? 'PASS' : 'FAIL') + '</b></div>' +
-      cell('阻塞诊断', e ? e + ' 个 error' : '无阻塞', e ? 'bad' : 'ok') +
-      cell('IR 变化', changed + ' / ' + PASSMETA.length, changed ? 'warn' : 'ok') +
-      cell('受影响 Kernel', String(K.kernels.length), '') +
-      cell('设备 Kernel', devValue, '') +
-      cell('编译层', stratValue, '') +
-      cell('IR 快照', PASSMETA.length + ' 个', '') +
-    '</div>';
+    const s = findingSets();
+    const findingCount = FINDINGS.filter(f => (s[f.id] || []).length).length;
+    const meta = [PASSMETA.length + ' Pass', K.kernels.length + ' Generated Kernels', K.target].filter(Boolean).join(' · ');
+    return '<section class="kc-summary">' +
+      '<div class="kc-summary__outcome"><span>Compilation</span><b class="' + (pass ? 'is-ok' : 'is-bad') + '">' + (pass ? 'PASS' : 'FAIL') + '</b>' +
+        '<small>' + esc(meta) + '</small></div>' +
+      '<div class="kc-summary__evidence"><b class="' + (pass ? 'is-ok' : 'is-bad') + '">' +
+        (pass ? 'IR Validation passed' : 'IR Validation failed') + '</b>' +
+        '<span>' + (findingCount ? findingCount + ' 个 findings 需要复核' : '没有需要复核的 findings') + '</span></div>' +
+      '<div class="kc-summary__metrics" aria-label="编译摘要指标">' +
+        '<span>L0B peak <b>' + esc(String(Math.max.apply(null, K.kernels.map(k => worstMem(k).space === 'Right' ? worstMem(k).p : 0)))) + '%</b><em>容量结论在 Resources</em></span>' +
+        '<span>意图变化 <b>' + esc(String(s.intent.length)) + '</b><em>需要 Runtime evidence</em></span>' +
+        '<span>性能提示 <b>' + esc(String(s.perf.reduce((n, k) => n + perfHintsOf(k), 0))) + '</b><em>静态信号</em></span>' +
+        '<span>IR 变化 <b>' + esc(changed + ' / ' + PASSMETA.length) + '</b><em>Pass snapshots</em></span>' +
+      '</div>' +
+    '</section>';
   }
 
   function findingsHTML() {
@@ -327,11 +321,14 @@
           '，需要到 Performance 验证实际影响。';
         count = hits.length + ' Kernel · ' + recs.length + ' 处';
       }
-      return '<button type="button" class="kc-finding is-' + f.tone + (st.findOn === f.id ? ' is-on' : '') +
-        '" data-kc-find="' + f.id + '">' +
+      const top = hits.slice().sort((a, b) => worstMem(b).p - worstMem(a).p)[0];
+      const runtime = f.route === 'performance' && top ?
+        '<button type="button" class="kc-finding-action" data-kc-runtime="' + esc(top.name) + '" data-kc-finding="' + esc(f.id) + '">在 Runtime 中验证影响 →</button>' : '';
+      return '<div class="kc-finding is-' + f.tone + (st.findOn === f.id ? ' is-on' : '') + '">' +
+        '<button type="button" class="kc-finding-main" data-kc-find="' + f.id + '">' +
         '<span class="kc-fico">' + esc(f.icon) + '</span>' +
         '<span class="kc-fbody"><b>' + esc(f.title) + '</b><small>' + esc(desc) + '</small></span>' +
-        '<em>' + esc(count) + '</em></button>';
+        '<em>' + esc(count) + '</em></button>' + runtime + '</div>';
     }).join('') + '</div>';
   }
 
@@ -445,6 +442,56 @@
     return s ? s.name : id;
   }
 
+  function traceKernel(name) {
+    const D = trace();
+    return D && (D.kernels || []).find(k => k.name === name) || null;
+  }
+  function kernelArtifacts(name) {
+    const tk = traceKernel(name);
+    return tk && Array.isArray(tk.files) ? tk.files.map(f => ({ path: f[0], size: f[1] })) : [];
+  }
+  function artifactKind(path) {
+    if (/\.pto$/i.test(path)) return 'PTO-ISA';
+    if (/\.o$/i.test(path)) return 'Binary metadata';
+    return 'Generated C++';
+  }
+  function artifactPanelHTML() {
+    const a = st.artifact;
+    if (!a) return '';
+    const choices = kernelArtifacts(a.kernel || '').map(f => '<button type="button" class="' +
+      (f.path === a.path ? 'is-on' : '') + '" data-kc-artifact="' + esc(f.path) + '" data-kc-size="' + f.size + '">' +
+      esc(f.path.split('/').pop()) + '</button>').join('');
+    const binary = /\.o$/i.test(a.path);
+    const body = binary
+      ? '<p class="kc-artifact-unavailable">二进制文件不在浏览器内展开。可用信息：' + esc(a.path) + ' · ' + esc(kb(a.size)) + '</p>'
+      : a.loading
+        ? '<p class="kc-artifact-unavailable">正在读取当前 Run 的产物…</p>'
+        : a.error
+          ? '<p class="kc-artifact-unavailable">无法读取该产物：' + esc(a.error) + '</p>'
+          : '<pre class="kc-artifact-code">' + esc(a.content || '') + '</pre>';
+    return '<section class="kc-artifact-drawer" aria-label="生成产物查看器">' +
+      '<header><div><span>' + esc(artifactKind(a.path)) + '</span><b>' + esc(a.path) + '</b><small>' + esc(kb(a.size)) + ' · 当前 Run</small></div>' +
+      '<button type="button" data-kc-artifact-close aria-label="关闭产物查看器">×</button></header>' +
+      '<nav class="kc-artifact-choices" aria-label="当前 Kernel 生成产物">' + choices + '</nav>' + body + '</section>';
+  }
+  function artifactsRawHTML() {
+    const inv = (K.inventory || []).filter(i => i.g === 'codegen' || i.g === 'compile');
+    if (!inv.length) return '';
+    const currentName = current() && current().name;
+    const item = i => {
+      if (i.k === 'ir') return '<button type="button" data-kc-tab="trace">' + esc(i.label) + '<code>' + esc(i.where || i.meta || '') + '</code></button>';
+      if (i.g === 'codegen' && currentName && kernelArtifacts(currentName).length) {
+        return '<button type="button" data-kc-code="' + esc(currentName) + '">' + esc(i.label) + '<code>' + esc(i.where || i.meta || '') + '</code></button>';
+      }
+      const file = (i.where || '').indexOf('/') >= 0 && !/\/$/.test(i.where || '') ? i.where : '';
+      return file
+        ? '<button type="button" data-kc-raw-file="' + esc(file) + '">' + esc(i.label) + '<code>' + esc(i.where || i.meta || '') + '</code></button>'
+        : '<span><b>' + esc(i.label) + '</b><code>' + esc(i.where || i.meta || '') + '</code></span>';
+    };
+    return '<details class="kc-raw-artifacts"><summary>Artifacts &amp; raw outputs <small>按需查看当前 Run 的编译证据</small></summary>' +
+      '<div>' + inv.map(item).join('') + '</div></details>';
+  }
+
   /* --- Kernel 阶段 --- */
   function kernelStageHTML(k) {
     const tagCls = k.type === 'AIC' ? 'is-aic' : k.type === 'AIV' ? 'is-aiv' : 'is-other';
@@ -475,6 +522,7 @@
       const h = k.perf[0];
       lines.push('  hint       最小内层 ' + h.innermost + ' 元素 · ' + h.bytes + ' B · 目标 ' + K.perfMinInnermost + ' B');
     }
+    const artifacts = kernelArtifacts(k.name);
 
     const metaTags = [];
     const w = worstMem(k);
@@ -492,7 +540,9 @@
         '<span class="' + t[1] + '">' + esc(t[0]) + '</span>').join('') + '</div>' +
       '<div class="kc-code"><div class="kc-code-head"><span>' + esc(k.name) + '</span>' +
       '<span>' + esc((k.type || '') + ' Kernel') + '</span></div>' +
-      '<div class="kc-code-body">' + esc(lines.join('\n')) + '</div></div></section>';
+      '<div class="kc-code-body">' + esc(lines.join('\n')) + '</div></div>' +
+      (artifacts.length ? '<button type="button" class="kc-code-action" data-kc-code="' + esc(k.name) + '">View generated code <span>→</span></button>' : '') +
+      '</section>';
   }
 
   function kernelSummary(k) {
@@ -531,6 +581,9 @@
 
     const F = FINDINGS.find(f => f.kind === kind) || FINDINGS[0];
 
+    const runtimeAction = traceKernel(k.name)
+      ? '<button type="button" data-kc-runtime="' + esc(k.name) + '" data-kc-finding="' + esc(kind) + '">在 Runtime 中验证影响 →</button>'
+      : '';
     return '<div class="kc-dhead"><div><h3>' + esc(k.name) + '</h3>' +
       '<p>' + esc(range) + ' · 直接按 源码 → 关键 Pass → 最终 Kernel 阅读整个编译变化</p></div>' +
       '<div class="kc-badges">' + badges.map(b =>
@@ -546,7 +599,7 @@
           '<div class="kc-journey-track' + (st.compact ? ' is-compact' : '') + '" data-kc-track>' +
           track.join('') + '</div></div></div>' +
       '<div class="kc-next"><b>下一步</b><span>' + esc(F.next) + '</span>' +
-      '<button type="button" data-kc-route="' + esc(F.route) + '">' + esc(F.routeLabel) + ' →</button></div>';
+      runtimeAction + '</div>' + artifactPanelHTML();
   }
 
   /* ---------- 装配 ---------- */
@@ -558,7 +611,8 @@
         '<p>把底层编译信号转成可定位、可解释、可继续验证的发现</p></div></div>' +
       findingsHTML() +
       /* 工作区两个页签：Kernel 列表 + 详情 / 编译 IR 全流程（借用 #kgTrace）。
-         页签 1 把原来的小节标题和两栏网格收进同一个容器。 */
+         页签名已经写明是「Kernel 工作区」，面板头也写着「Kernel 列表」，
+         所以这里不再重复一个小节标题。 */
       '<nav class="kc-tabs" role="tablist" aria-label="编译工作区">' +
         '<button type="button" role="tab" class="kc-tab' + (st.pane === 'kernel' ? ' is-on' : '') + '"' +
           ' data-kc-tab="kernel" aria-selected="' + (st.pane === 'kernel') + '">Kernel 工作区</button>' +
@@ -566,8 +620,6 @@
           ' data-kc-tab="trace" aria-selected="' + (st.pane === 'trace') + '">编译 IR 全流程</button>' +
       '</nav>' +
       '<section class="kc-pane" data-kc-pane="kernel">' +
-        '<div class="kc-sect"><div><h2>Kernel</h2>' +
-          '<p>从最终设备执行单元回溯：源码 → 关键编译变化 → 最终结果</p></div></div>' +
         '<div class="kc-work">' +
           '<section class="kc-list-panel"><div class="kc-lhead"><b>Kernel 列表</b>' +
             '<span class="kc-filter">' +
@@ -579,6 +631,7 @@
         '</div>' +
       '</section>' +
       '<section class="kc-pane" data-kc-pane="trace"></section>' +
+      artifactsRawHTML() +
       '</section>';
   }
 
@@ -659,11 +712,51 @@
     if (box && box.scrollIntoView) box.scrollIntoView({ block: 'nearest' });
   }
 
+  function findingIdFor(kernel, kind) {
+    const found = (runContext().findings || []).find(f =>
+      (f.affectedObjects || []).some(o => o.kind === 'kernel' && o.id === kernel));
+    return found ? found.id : kind;
+  }
+  function routeRuntime(kernel, kind) {
+    if (!traceKernel(kernel)) return;
+    const context = {
+      runId: runContext().runId || runStamp(), from: 'compilation',
+      findingId: findingIdFor(kernel, kind), kernelName: kernel
+    };
+    window.dispatchEvent(new CustomEvent('pto:compilation-runtime', { detail: context }));
+  }
+  function findingKernelForRuntime(kind, fallback) {
+    if (kind !== 'perf') return fallback;
+    const byRunFinding = (runContext().findings || []).find(f =>
+      (f.affectedObjects || []).some(o => o.kind === 'kernel' && traceKernel(o.id)));
+    return (byRunFinding && byRunFinding.affectedObjects.find(o => o.kind === 'kernel').id) || fallback;
+  }
+  async function openArtifact(path, size, kernel) {
+    const binary = /\.o$/i.test(path);
+    st.artifact = { path, size, kernel: kernel || (st.artifact && st.artifact.kernel) || '', loading: !binary, content: '', error: '' };
+    paintDetail();
+    if (binary) return;
+    try {
+      const url = '../../Data/' + encodeURIComponent(K.source) + '/' + path.split('/').map(encodeURIComponent).join('/');
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      st.artifact = { path, size, kernel: st.artifact.kernel, loading: false, content: await response.text(), error: '' };
+    } catch (error) {
+      st.artifact = { path, size, kernel: st.artifact.kernel, loading: false, content: '', error: error && error.message ? error.message : 'unavailable' };
+    }
+    paintDetail();
+  }
+
   function onClick(e) {
     const tb = e.target.closest('[data-kc-tab]');
     if (tb) { st.pane = tb.dataset.kcTab === 'trace' ? 'trace' : 'kernel'; showPane(); return; }
     const fid = e.target.closest('[data-kc-find]');
     if (fid) { markFind(fid.dataset.kcFind); return; }
+    const runtime = e.target.closest('[data-kc-runtime]');
+    if (runtime) {
+      routeRuntime(findingKernelForRuntime(runtime.dataset.kcFinding, runtime.dataset.kcRuntime), runtime.dataset.kcFinding || kindOf(current()));
+      return;
+    }
     const kid = e.target.closest('[data-kc-kernel]');
     if (kid) { pickKernel(kid.dataset.kcKernel, { scroll: true }); return; }
     const flt = e.target.closest('[data-kc-filter]');
@@ -683,6 +776,17 @@
       if (st.compact && sc) sc.scrollLeft = 0;
       return;
     }
+    const code = e.target.closest('[data-kc-code]');
+    if (code) {
+      const files = kernelArtifacts(code.dataset.kcCode);
+      if (files.length) openArtifact(files[0].path, files[0].size, code.dataset.kcCode);
+      return;
+    }
+    if (e.target.closest('[data-kc-artifact-close]')) { st.artifact = null; paintDetail(); return; }
+    const artifact = e.target.closest('[data-kc-artifact]');
+    if (artifact) { openArtifact(artifact.dataset.kcArtifact, Number(artifact.dataset.kcSize || 0)); return; }
+    const raw = e.target.closest('[data-kc-raw-file]');
+    if (raw) { openArtifact(raw.dataset.kcRawFile, 0, ''); return; }
     const rt = e.target.closest('[data-kc-route]');
     if (rt) {
       const btn = document.querySelector('[data-th-tab="' + rt.dataset.kcRoute + '"]');

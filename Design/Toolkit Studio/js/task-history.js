@@ -211,7 +211,7 @@
           id: r ? r.stamp : '20260625_184941', live: !!r,
           verdict: r && r.errors ? 'blocked' : 'passed',
           model: runModel('completed', {
-            compilation: { verdict: 'pass', summary: '42 Pass · 45 Kernel' },
+            compilation: { verdict: 'pass', summary: r ? r.passes + ' Pass · ' + r.kernels + ' Kernel' : '—' },
             correctness: { verdict: 'pass', summary: '16 / 16 Golden Compare match' },
             execution: { verdict: 'pass', summary: '428 Task · dependency graph complete' },
             performance: { verdict: 'warning', summary: '关键链等待占比 61%' },
@@ -329,6 +329,7 @@
     filter: 'all',
     tab: 'overview',
     selection: null,
+    runtimeContext: null,
     runSplitSession: null,
     // Run hides the inspector; this is the explorer width Run is pinned to,
     // in pixels, carried across Activity switches.
@@ -464,7 +465,10 @@
 
   function renderCompilationTab(panel, r) {
     const view = window.PTO_COMPILATION;
-    if (view && view.ready && compilationDataMatches(r) && view.render(panel)) return;
+    if (view && view.ready && compilationDataMatches(r)) {
+      window.PTO_RUN_CONTEXT = { runId: r.id, findings: getFindings(r) };
+      if (view.render(panel)) return;
+    }
     syncPanel();
   }
 
@@ -475,6 +479,14 @@
     if (!window.PTO_FAN) {
       panel.innerHTML = '<p class="kf-rd-note is-dim">运行切片需要 passes_dump 与 dfx_outputs。</p>';
       return;
+    }
+    const D = window.PTO_RUN_TRACE, ctx = st.runtimeContext;
+    const indices = D && ctx ? runtimeIndices(D, ctx.kernelName) : [];
+    const focus = indices.length ? runtimeFocus(D, ctx, indices) : null;
+    if (ctx && focus != null) {
+      const task = D.tasks[focus];
+      panel.innerHTML = '<section class="kf-cv-context kf-cv-context--execution"><span>From Compilation</span><b>' +
+        esc(ctx.findingId) + ' · ' + esc(ctx.kernelName) + ' · Task ' + esc(task.id) + '</b></section>';
     }
     const fan = document.createElement('section');
     fan.className = 'kf-rd-sec kf-fan-host';
@@ -490,10 +502,21 @@
     panel.appendChild(timeline);
     window.PTO_TIMELINE?.mount?.(timeline, {
       inlineInspector: false,
-      selectedTaskId: st.selection && st.selection.kind === 'task' ? Number(st.selection.id) : null,
-      onSelect(obj) { selectObject(Object.assign({ sourceTab: 'execution' }, obj)); },
+      selectedTaskId: focus != null ? focus : (st.selection && st.selection.kind === 'task' ? Number(st.selection.id) : null),
+      onSelect(obj) {
+        if (ctx) st.runtimeContext = Object.assign({}, ctx, { taskIndex: Number(obj.id) });
+        selectObject(Object.assign({ sourceTab: 'execution' }, obj));
+      },
       onClear() { clearSelection(); }
     });
+    if (focus != null) {
+      const task = D.tasks[focus], pad = Math.max(16, (task.e - task.s) * 1.5);
+      window.PTO_TIMELINE?.focusRange?.({ from: task.s - pad, to: task.e + pad });
+      window.PTO_TIMELINE?.setHighlight?.({ tasks: [focus] }, { track: 'both' });
+    } else {
+      window.PTO_TIMELINE?.focusRange?.(null);
+      window.PTO_TIMELINE?.clearHighlight?.();
+    }
   }
 
   function tabStrip() {
@@ -2292,6 +2315,64 @@
     '</section>';
   }
 
+  const rtUs = v => v >= 1000 ? (v / 1000).toFixed(2) + ' ms' : Number(v).toFixed(2) + ' µs';
+  function runtimeIndices(D, kernel) {
+    return D.tasks.map((t, i) => t.kn === kernel ? i : -1).filter(i => i >= 0);
+  }
+  function runtimeFocus(D, ctx, indices) {
+    if (indices.indexOf(Number(ctx.taskIndex)) >= 0) return Number(ctx.taskIndex);
+    const chained = ((D.perf || {}).chain || {}).steps || [];
+    const hit = chained.find(s => indices.indexOf(s.i) >= 0);
+    if (hit) return hit.i;
+    return indices.slice().sort((a, b) => (D.tasks[b].e - D.tasks[b].s) - (D.tasks[a].e - D.tasks[a].s))[0];
+  }
+  function runtimeNode(D, i, side) {
+    const t = D.tasks[i];
+    if (!t) return '';
+    const K = D.kernels[t.k] || {};
+    return '<button type="button" class="kf-cv-node is-' + side + '" data-runtime-task="' + i + '">' +
+      '<code>' + esc(t.kn) + '</code><small>' + esc(rtUs(t.s) + ' → ' + rtUs(t.e) + ' · ' + (K.be || '—')) + '</small></button>';
+  }
+  function localDependencyHTML(D, focus) {
+    const up = D.edges.filter(e => e[1] === focus).map(e => e[0]);
+    const down = D.edges.filter(e => e[0] === focus).map(e => e[1]);
+    const cap = (list, side) => list.slice(0, 6).map(i => runtimeNode(D, i, side)).join('') +
+      (list.length > 6 ? '<span class="kf-cv-more">+' + (list.length - 6) + ' 个同层任务</span>' : '');
+    return '<section class="kf-cv-dependency" aria-label="局部依赖上下文">' +
+      '<header><div><b>Dependency context</b><small>当前 Task 的 1-hop 上下游</small></div>' +
+      '<button type="button" data-th-tab="execution">View full dependency graph →</button></header>' +
+      '<div class="kf-cv-graph"><div class="kf-cv-hop"><span>Upstream · ' + up.length + '</span>' + cap(up, 'up') + '</div>' +
+      '<i>↓</i>' + runtimeNode(D, focus, 'focus') + '<i>↓</i>' +
+      '<div class="kf-cv-hop"><span>Downstream · ' + down.length + '</span>' + cap(down, 'down') + '</div></div></section>';
+  }
+  function renderCompilationRuntime(panel, r, ctx) {
+    const D = window.PTO_RUN_TRACE;
+    const indices = D ? runtimeIndices(D, ctx.kernelName) : [];
+    if (!D || !indices.length) {
+      panel.innerHTML = '<section class="kf-rd-sec"><div class="kf-rd-h">Runtime evidence<small>当前 Run 未找到与该 Kernel 对应的 Task</small></div></section>';
+      return;
+    }
+    const focus = runtimeFocus(D, ctx, indices), task = D.tasks[focus], backend = (D.kernels[task.k] || {}).be || '—';
+    const runs = indices.map(i => D.tasks[i]);
+    const from = Math.min.apply(null, runs.map(t => t.s)), to = Math.max.apply(null, runs.map(t => t.e));
+    const longest = indices.slice().sort((a, b) => (D.tasks[b].e - D.tasks[b].s) - (D.tasks[a].e - D.tasks[a].s))[0];
+    const chain = (((D.perf || {}).chain || {}).steps || []).filter(s => indices.indexOf(s.i) >= 0);
+    const chainFacts = chain.length ? chain.map(s => 'Wait ' + rtUs(s.wait) + ' · Run ' + rtUs(s.run)).join(' / ') : '不在当前关键链记录中';
+    const selection = indices.length > 1 ? '<nav class="kf-cv-task-list" aria-label="选择运行时任务">' + indices.map(i => {
+      const t = D.tasks[i];
+      return '<button type="button" class="' + (i === focus ? 'is-on' : '') + '" data-runtime-task="' + i + '"><code>' + esc(t.id) + '</code><span>' + esc(rtUs(t.e - t.s)) + '</span></button>';
+    }).join('') + '</nav>' : '';
+    const summary = indices.length === 1
+      ? '1 logical runtime task · ' + rtUs(task.s) + ' → ' + rtUs(task.e) + ' · ' + task.c + ' ' + backend + ' cores'
+      : indices.length + ' logical runtime tasks · span ' + rtUs(from) + ' → ' + rtUs(to) + ' · longest ' + rtUs(D.tasks[longest].e - D.tasks[longest].s);
+    panel.innerHTML = '<section class="kf-cv" data-compilation-runtime>' +
+      '<header class="kf-cv-context"><span>From Compilation</span><b>' + esc(ctx.findingId) + ' · ' + esc(ctx.kernelName) + '</b></header>' +
+      '<section class="kf-cv-summary"><div><span>Runtime evidence</span><b>' + esc(ctx.kernelName) + '</b><small>' + esc(summary) + '</small></div>' +
+      '<div><span>Critical chain</span><b>' + esc(chainFacts) + '</b><small>运行时行为是验证证据，不单独判定瓶颈。</small></div></section>' +
+      selection + localDependencyHTML(D, focus) +
+      '<div class="kf-cv-execution-next"><span>Timeline 位于 Execution</span><button type="button" data-th-tab="execution">在 Execution 中查看已定位的时间线 →</button></div></section>';
+  }
+
   function performanceResourcesStoryPanel() {
     return '<section class="kf-rd-sec" aria-label="Resource capacity result">' +
       '<div class="kf-rd-h">Resources<small>PASS · No capacity violation detected.</small></div>' +
@@ -2401,7 +2482,8 @@
         panel.prepend(document.createRange().createContextualFragment(executionSummaryPanel(r)));
       } else panel.innerHTML = notEvaluatedEvidencePanel(r, 'execution');
     } else if (st.tab === 'performance') {
-      if (isPerformanceWarningStory(r)) panel.innerHTML = performanceWarningStoryPanel();
+      if (st.runtimeContext && compilationDataMatches(r) && String(st.runtimeContext.runId) === String(r.id)) renderCompilationRuntime(panel, r, st.runtimeContext);
+      else if (isPerformanceWarningStory(r)) panel.innerHTML = performanceWarningStoryPanel();
       else if (isValidatedOptimizationStory(r)) panel.innerHTML = validatedPerformancePanel(r);
       else panel.innerHTML = notEvaluatedEvidencePanel(r, 'performance');
     } else if (st.tab === 'resources') {
@@ -2607,6 +2689,12 @@
   }
 
   function onRunClick(e) {
+    const runtimeTask = e.target.closest('[data-runtime-task]');
+    if (runtimeTask && st.runtimeContext) {
+      st.runtimeContext = Object.assign({}, st.runtimeContext, { taskIndex: Number(runtimeTask.dataset.runtimeTask) });
+      renderDetailBody();
+      return;
+    }
     const compareOpen = e.target.closest('[data-th-compare-open]');
     if (compareOpen) {
       if (compareOpen.disabled) return;
@@ -2769,6 +2857,16 @@
     if (els.root) els.root.addEventListener('click', onRunClick);
     if (els.detail) els.detail.addEventListener('click', onRunClick);
     bindObjectTooltips();
+    window.addEventListener('pto:compilation-runtime', event => {
+      const ctx = event.detail || {};
+      const task = TASKS.find(t => t.id === st.task);
+      const run = task && task.runs.find(r => r.id === st.run);
+      if (!run || !compilationDataMatches(run) || String(ctx.runId) !== String(run.id)) return;
+      st.runtimeContext = Object.assign({}, ctx, { taskIndex: null });
+      st.tab = 'performance';
+      renderDetailBody();
+      renderInspector();
+    });
     // A fix never rewrites the selected historical Run. The linear correctness
     // surface delegates this action to a newly created follow-up Run instead.
     document.addEventListener('click', e => {

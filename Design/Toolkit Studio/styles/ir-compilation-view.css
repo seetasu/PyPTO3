@@ -23,28 +23,27 @@
 }
 
 /* ---------- 1. 编译结论摘要 ----------
-   先回答是否通过，再给六个结论字段。整条摘要跟 Correctness 的 .kf-dg-result
-   同一套版式：判定块 = 标签 + 判定值，字段组 = 标签 + 值，都是两行。 */
+   结论优先于发现，指标仅提供后续判断所需的背景，避免把通过态误读成 KPI 告警。 */
 .kc-summary {
-  display: grid; grid-template-columns: minmax(200px, 1.2fr) repeat(6, minmax(0, 1fr));
+  display: grid; grid-template-columns: minmax(240px, 1.2fr) minmax(220px, 1fr);
   border: 1px solid var(--kc-line2); border-radius: var(--radius-md);
   overflow: hidden; background: color-mix(in srgb, var(--surface-1) 55%, transparent);
 }
-/* 判定块沿用 Correctness 的 .kf-dg-verdict：同样的 label 字号/字重/字距、
-   同样的 20px mono 判定值、同样的 2px 行距。不另起一套。 */
-.kc-summary__outcome { display: grid; gap: 2px; min-width: 0; padding: 10px 12px; border-right: 1px solid var(--kc-line); }
+.kc-summary__outcome { display: grid; gap: 3px; min-width: 0; padding: 13px 15px; border-right: 1px solid var(--kc-line); }
 .kc-summary__outcome > span { color: var(--foreground-muted); font: 700 9px var(--font-sans); letter-spacing: .08em; }
-.kc-summary__outcome > b { color: var(--danger); font: 700 20px/1.1 var(--font-mono); }
+.kc-summary__outcome > b { color: var(--danger); font: 700 24px/1.1 var(--font-mono); }
 .kc-summary__outcome > b.is-ok { color: var(--success); }
-/* 字段组沿用 Correctness 的 .kf-dg-cell：标签 --kf-type-2xs 灰、值 600 12px mono、
-   3px 行距、溢出省略。padding 仍是本条的 cell 内边距（.kf-dg-cell 那边由卡片给）。 */
-.kc-scell { display: grid; gap: 3px; min-width: 0; padding: 10px 12px; border-right: 1px solid var(--kc-line); }
-.kc-scell:last-child { border-right: 0; }
-.kc-scell span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
-.kc-scell b { overflow: hidden; color: var(--foreground); font: 600 12px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
-.kc-scell b.is-ok { color: var(--success); }
-.kc-scell b.is-warn { color: var(--warning); }
-.kc-scell b.is-bad { color: var(--danger); }
+.kc-summary__outcome small { color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }
+.kc-summary__evidence { display: grid; align-content: center; gap: 5px; min-width: 0; padding: 13px 15px; }
+.kc-summary__evidence b { color: var(--foreground); font-size: 12px; }
+.kc-summary__evidence b.is-ok { color: var(--success); }
+.kc-summary__evidence b.is-bad { color: var(--danger); }
+.kc-summary__evidence span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kc-summary__metrics { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--kc-line); }
+.kc-summary__metrics span { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: baseline; padding: 8px 15px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kc-summary__metrics span + span { border-left: 1px solid var(--kc-line); }
+.kc-summary__metrics b { color: var(--foreground-secondary); font: 600 10px var(--font-mono); text-align: right; }
+.kc-summary__metrics em { grid-column: 1 / -1; overflow: hidden; color: var(--foreground-disabled); font-size: 8.5px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- 小节标题 ---------- */
 .kc-sect { display: flex; align-items: flex-end; justify-content: space-between; margin: 4px 2px 0; }
@@ -54,13 +53,15 @@
 /* ---------- 2. Findings ---------- */
 .kc-findings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .kc-finding {
-  display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px;
-  align-items: start; padding: 11px 12px; text-align: left; cursor: pointer;
+  display: grid; gap: 0; min-width: 0;
   border: 1px solid var(--kc-line); border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface-1) 45%, transparent);
 }
 .kc-finding:hover { border-color: var(--border-strong); background: var(--state-hover); }
 .kc-finding.is-on { border-color: color-mix(in srgb, var(--primary) 50%, var(--kc-line2)); background: var(--state-selected); }
+.kc-finding-main { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: start; width: 100%; padding: 11px 12px; text-align: left; cursor: pointer; border: 0; border-radius: 0; background: transparent; }
+.kc-finding-action { justify-self: start; margin: 0 12px 11px 48px; padding: 0; border: 0; border-radius: 0; background: transparent; color: color-mix(in srgb, var(--primary) 75%, var(--foreground)); cursor: pointer; font-size: 9.5px; }
+.kc-finding-action:hover { color: var(--primary); }
 .kc-fico {
   display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--radius-sm);
   color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent);
@@ -73,7 +74,7 @@
   display: block; margin-top: 4px; color: var(--foreground-muted);
   font-size: var(--kf-type-2xs); line-height: 1.5;
 }
-.kc-finding > em { color: var(--foreground-secondary); font-size: 10px; font-family: var(--font-mono); font-style: normal; white-space: nowrap; }
+.kc-finding-main > em { color: var(--foreground-secondary); font-size: 10px; font-family: var(--font-mono); font-style: normal; white-space: nowrap; }
 
 /* ---------- 3. 工作区：Kernel 工作区 / 编译 IR 全流程 两个页签 ----------
    两个页签各自是一块面板：页签 1 = Kernel 小节标题 + 列表/详情两栏，
@@ -275,14 +276,39 @@
 }
 .kc-next button:hover { color: var(--primary); }
 
+.kc-code-action { margin-top: 9px; padding: 0; border: 0; border-radius: 0; background: transparent; color: color-mix(in srgb, var(--primary) 75%, var(--foreground)); cursor: pointer; font-size: 9.5px; }
+.kc-code-action:hover { color: var(--primary); }
+.kc-artifact-drawer { margin: 0 14px 14px; border-top: 1px solid var(--kc-line); background: var(--surface-1); }
+.kc-artifact-drawer header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 0; }
+.kc-artifact-drawer header div { display: grid; gap: 2px; min-width: 0; }
+.kc-artifact-drawer header span, .kc-artifact-drawer header small { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kc-artifact-drawer header b { overflow: hidden; color: var(--foreground); font: 600 10px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.kc-artifact-drawer header > button { padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--foreground-muted); cursor: pointer; font-size: 16px; }
+.kc-artifact-choices { display: flex; flex-wrap: wrap; gap: 5px; padding-bottom: 9px; }
+.kc-artifact-choices button { padding: 3px 6px; border: 1px solid var(--kc-line2); border-radius: 4px; background: transparent; color: var(--foreground-muted); cursor: pointer; font: 8.5px var(--font-mono); }
+.kc-artifact-choices button.is-on { border-color: var(--primary); color: var(--foreground); background: var(--state-selected); }
+.kc-artifact-code { max-height: 320px; margin: 0; overflow: auto; padding: 10px; border: 1px solid var(--kc-line2); border-radius: var(--radius-sm); color: var(--foreground-secondary); background: color-mix(in srgb, var(--surface-2) 55%, transparent); font: 9px/1.65 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.kc-artifact-unavailable { margin: 0; padding: 12px; border: 1px solid var(--kc-line); border-radius: var(--radius-sm); color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kc-raw-artifacts { border-top: 1px solid var(--kc-line); padding-top: 10px; color: var(--foreground-secondary); }
+.kc-raw-artifacts summary { cursor: pointer; font-size: 11px; }
+.kc-raw-artifacts summary small { margin-left: 6px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kc-raw-artifacts > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 9px; }
+.kc-raw-artifacts span, .kc-raw-artifacts button { display: grid; gap: 2px; min-width: 0; padding: 7px 8px; text-align: left; background: color-mix(in srgb, var(--surface-1) 45%, transparent); }
+.kc-raw-artifacts button { border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--foreground-secondary); cursor: pointer; }
+.kc-raw-artifacts button:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--kc-line2)); background: var(--state-hover); }
+.kc-raw-artifacts b, .kc-raw-artifacts button { color: var(--foreground-secondary); font-size: 10px; }
+.kc-raw-artifacts code { overflow: hidden; color: var(--foreground-muted); font-size: 8.5px; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Source 阶段没有独立源码块时的说明 */
 .kc-src-missing { min-height: 148px; display: grid; place-items: center; padding: 16px; text-align: center; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.6; }
 
 /* ---------- 窄容器回落 ---------- */
 @container (max-width: 1180px) {
-  .kc-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kc-summary__outcome { grid-column: span 2; border-right: 0; border-bottom: 1px solid var(--kc-line); }
-  .kc-scell:nth-child(odd) { border-right: 0; }
+  .kc-summary { grid-template-columns: 1fr; }
+  .kc-summary__outcome { border-right: 0; border-bottom: 1px solid var(--kc-line); }
+  .kc-summary__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kc-summary__metrics span:nth-child(odd) { border-left: 0; }
   .kc-findings { grid-template-columns: minmax(0, 1fr); }
   .kc-work { grid-template-columns: minmax(0, 1fr); }
+  .kc-raw-artifacts > div { grid-template-columns: minmax(0, 1fr); }
 }

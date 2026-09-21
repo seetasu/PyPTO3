@@ -1147,3 +1147,33 @@
 .kf-rd-overview > .kf-rd-kpi-eff-legend > span > b {
   overflow: visible; font-size: 6.5px; text-overflow: clip;
 }
+
+/* Compilation → Runtime：保持来自编译发现的上下文，只展开当前逻辑任务的一跳依赖。 */
+.kf-cv { display: grid; gap: 12px; min-width: 0; }
+.kf-cv-context { display: flex; align-items: baseline; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
+.kf-cv-context span { color: var(--foreground-muted); font: 700 9px var(--font-sans); letter-spacing: .08em; }
+.kf-cv-context b { color: var(--foreground-secondary); font: 600 11px var(--font-mono); }
+.kf-cv-context--execution { margin: 0 0 10px; }
+.kf-cv-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.kf-cv-summary > div { display: grid; gap: 4px; min-width: 0; }
+.kf-cv-summary span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-cv-summary b { overflow: hidden; color: var(--foreground); font: 600 12px/1.35 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.kf-cv-summary small { color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.5; }
+.kf-cv-task-list { display: flex; flex-wrap: wrap; gap: 5px; }
+.kf-cv-task-list button { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: transparent; color: var(--foreground-muted); cursor: pointer; }
+.kf-cv-task-list button.is-on { border-color: var(--primary); background: var(--state-selected); color: var(--foreground); }
+.kf-cv-task-list code { font-size: 9px; }.kf-cv-task-list span { font: 9px var(--font-mono); }
+.kf-cv-dependency { border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); padding: 11px 0; }
+.kf-cv-dependency header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.kf-cv-dependency header div { display: grid; gap: 3px; }.kf-cv-dependency header b { color: var(--foreground); font-size: 11px; }.kf-cv-dependency header small { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-cv-dependency header button { padding: 0; border: 0; border-radius: 0; background: transparent; color: color-mix(in srgb, var(--primary) 75%, var(--foreground)); cursor: pointer; font-size: 9.5px; white-space: nowrap; }
+.kf-cv-graph { display: grid; justify-items: center; gap: 7px; margin-top: 10px; }
+.kf-cv-hop { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; max-width: 100%; }.kf-cv-hop > span { width: 100%; color: var(--foreground-muted); text-align: center; font-size: 8.5px; }.kf-cv-graph > i { color: var(--foreground-disabled); font-style: normal; }
+.kf-cv-node { display: grid; gap: 2px; min-width: 120px; max-width: 168px; padding: 6px 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-1); color: var(--foreground-secondary); cursor: pointer; text-align: left; }
+.kf-cv-node code { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }.kf-cv-node small { overflow: hidden; color: var(--foreground-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.kf-cv-node.is-focus { min-width: 180px; border-color: color-mix(in srgb, var(--primary) 60%, var(--border-default)); background: var(--state-selected); color: var(--foreground); }.kf-cv-node.is-up { border-color: color-mix(in srgb, var(--success) 32%, var(--border-subtle)); }.kf-cv-node.is-down { border-color: color-mix(in srgb, var(--warning) 34%, var(--border-subtle)); }
+.kf-cv-more { align-self: center; color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-cv-execution-next { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; }
+.kf-cv-execution-next span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kf-cv-execution-next button { padding: 0; border: 0; border-radius: 0; background: transparent; color: color-mix(in srgb, var(--primary) 75%, var(--foreground)); cursor: pointer; font-size: 9.5px; }
+@container (max-width: 560px) { .kf-cv-summary { grid-template-columns: 1fr; } .kf-cv-dependency header { align-items: flex-start; } .kf-cv-dependency header button { white-space: normal; text-align: right; } }
