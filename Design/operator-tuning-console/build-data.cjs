@@ -788,6 +788,99 @@ const findings = [
   },
 ];
 
+/* --------------------------------------------------- finding -> subjects
+ * A finding is only useful if the reader can see it on the stage. Each one
+ * names the concrete objects the centre view should mark (tasks, source
+ * sites, scheduler phases), so the stage can number them instead of leaving
+ * the reader to guess which parts the inspector is talking about.          */
+const taskByTag = {};
+tasks.forEach((t) => { taskByTag[t.tag] = t; });
+
+const SUBJECTS = {
+  F1: {
+    view: 'l2',
+    tasks: waitTasks.map((t) => t.tag),
+  },
+  F2: {
+    view: 'l1',
+    tasks: [worstHandoff.tag],
+  },
+  F3: {
+    view: 'e2e',
+    ranks: ['rank0', 'rank1'],
+  },
+  F4: {
+    view: 'compiler', tab: 'depth',
+    sites: depthSiteList.map((s) => s.key),
+  },
+  F5: {
+    view: 'compiler', tab: 'granularity',
+    sites: tileSiteList.slice(0, 12).map((s) => s.key),
+    files: tileFileList.map((f) => f.file),
+  },
+  F6: {
+    view: 'l2', overlay: 'sched',
+    schedPhases: ['complete', 'dispatch'],
+  },
+  F7: {
+    view: 'l2', overlay: 'ready',
+    lanes: lanes.filter((l) => l.kind === 'aic').sort((a, b) => a.util - b.util).slice(0, 6).map((l) => l.name),
+  },
+  F8: {
+    view: 'l1',
+    tasks: [worstImb.tag],
+  },
+  F9: {
+    view: 'l1',
+    tasks: [qkpv.tag],
+  },
+  F10: {
+    view: 'l2',
+    absent: true,
+  },
+};
+findings.forEach((f) => {
+  const s = SUBJECTS[f.id] || {};
+  f.subjects = {
+    view: s.view || (f.focus && f.focus.view) || 'l2',
+    tab: s.tab || null,
+    overlay: s.overlay || null,
+    tasks: s.tasks || [],
+    lanes: s.lanes || [],
+    sites: s.sites || [],
+    files: s.files || [],
+    ranks: s.ranks || [],
+    schedPhases: s.schedPhases || [],
+    absent: !!s.absent,
+  };
+  /* chips shown in the centre evidence bar, each one jumpable */
+  f.chips = []
+    .concat(f.subjects.tasks.map((tag) => {
+      const t = taskByTag[tag];
+      return { kind: 'task', id: tag, label: t ? t.callable : tag, value: t ? t.span + ' us' : '' };
+    }))
+    .concat(f.subjects.sites.map((key) => {
+      const d = depthSiteList.find((x) => x.key === key);
+      const g = tileSiteList.find((x) => x.key === key);
+      return {
+        kind: 'site', id: key, label: key,
+        value: d ? 'depth ' + d.maxReqDepth + '→' + d.fittedDepth : (g ? g.minB + 'B' : ''),
+      };
+    }))
+    .concat(f.subjects.lanes.map((name) => {
+      const l = lanes.find((x) => x.name === name);
+      return { kind: 'lane', id: name, label: name, value: l ? r2(l.util) + '%' : '' };
+    }))
+    .concat(f.subjects.ranks.map((r) => ({
+      kind: 'rank', id: r, label: r,
+      value: e2e[r][2]['chip.run.runner_run.device_wall'].us + ' us',
+    })))
+    .concat(f.subjects.schedPhases.map((p) => ({
+      kind: 'phase', id: p, label: 'phase ' + p,
+      value: schedPhases[p] ? schedPhases[p].us + ' us' : '',
+    })));
+});
+
 /* ---------------------------------------------------------------- write */
 const payload = {
   generatedBy: 'Design/operator-tuning-console/build-data.cjs',

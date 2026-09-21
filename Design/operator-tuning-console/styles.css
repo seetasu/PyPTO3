@@ -9,6 +9,13 @@
 html, body { height: 100%; }
 
 body.tc-page {
+  /* One spine for the whole page. Pane bodies take the same 10px gutter the
+   * shared .pto-ide-frame__pane-header uses, and every inset surface bleeds
+   * back out by its own cell padding, so the text inside a table, a card or a
+   * list row lands on exactly the same vertical line as the section title
+   * above it. */
+  --tc-gutter: 10px;
+  --tc-bleed: calc(var(--space-2) * -1);
   margin: 0;
   overflow: hidden;
   background: var(--ide-frame-page-bg);
@@ -105,8 +112,57 @@ body.tc-page {
 .tc-fp-grid dt { color: var(--foreground-muted); }
 .tc-fp-grid dd { margin: 0; font-family: var(--font-mono); overflow-wrap: anywhere; }
 
+/* --------------------------------------------- inspector section family
+ * Documented in references/quick-reference.md and tokenised in
+ * tokens/components.css, but not shipped as CSS — implemented here against
+ * those tokens so head and kicker stay on one line. */
+.inspector-rail {
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--tc-gutter) var(--inspector-rail-padding-bottom);
+}
+.inspector-section {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  padding: var(--inspector-section-padding-y) 0;
+  border-top: 1px solid var(--inspector-section-divider);
+}
+.inspector-section:first-child { border-top: 0; }
+.inspector-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.inspector-section-title {
+  margin: 0;
+  color: var(--foreground-secondary);
+  font: var(--type-label);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.inspector-section-kicker {
+  margin-left: auto;
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+/* a head with no title keeps its kicker on the left */
+.inspector-section-head > .inspector-section-kicker:first-child { margin-left: 0; }
+
+.inspector-soft-card {
+  display: grid;
+  gap: var(--inspector-soft-card-gap);
+  padding: var(--inspector-soft-card-padding);
+  border-radius: var(--inspector-soft-card-radius);
+  background: var(--inspector-soft-card-bg);
+}
+
 /* ------------------------------------------------------------ explorer */
-.tc-explorer { display: flex; flex-direction: column; gap: 0; padding: 0; }
+.tc-explorer { display: flex; flex-direction: column; gap: 0; padding: 0 var(--tc-gutter); }
 .tc-explorer .inspector-section:last-child { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 
 .tc-tree { display: grid; gap: 1px; }
@@ -117,6 +173,8 @@ body.tc-page {
   align-items: baseline;
   width: 100%;
   padding: 4px var(--space-2);
+  /* bleed back out so the row label sits on the pane gutter, VS Code style */
+  margin-inline: var(--tc-bleed);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -133,7 +191,7 @@ body.tc-page {
 .tc-tree-row[data-depth="2"] { padding-left: 32px; font-family: var(--font-mono); }
 .tc-tree-row > .m { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
 
-.tc-chipbar { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-bottom: var(--space-2); }
+.tc-chipbar { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 
 .tc-findings { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; gap: var(--space-1); align-content: start; }
 .tc-finding {
@@ -141,6 +199,8 @@ body.tc-page {
   gap: 3px;
   width: 100%;
   padding: var(--space-2);
+  padding-left: calc(var(--space-2) - 2px);
+  margin-inline: var(--tc-bleed);
   border: 0;
   border-left: 2px solid var(--border-default);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
@@ -162,7 +222,8 @@ body.tc-page {
 .tc-finding.is-logged .id::after { content: " ●"; color: var(--success); }
 
 /* ---------------------------------------------------------- view stage */
-.tc-stage { display: flex; flex-direction: column; gap: var(--space-4); overflow: auto; }
+.tc-stage { display: flex; flex-direction: column; gap: var(--space-4); overflow: auto;
+  padding: var(--space-3) var(--tc-gutter) var(--space-4); }
 .tc-stage > section { display: flex; flex-direction: column; gap: var(--space-2); }
 .tc-stage-fill { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 
@@ -185,11 +246,80 @@ body.tc-page {
 }
 .tc-readout { color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
 
+/* ------------------------------------------------- finding evidence bar
+ * Sits at the top of the centre stage while a bottleneck is active and says,
+ * in the same place the reader is looking, which objects on this screen carry
+ * its evidence. Without it the inspector text and the canvas never line up. */
+.tc-findingbar {
+  flex: 0 0 auto;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  padding-left: calc(var(--space-2) - 3px);
+  margin-inline: var(--tc-bleed);
+  border-left: 3px solid var(--primary);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+}
+.tc-findingbar[data-sev="high"] { border-left-color: var(--danger); }
+.tc-findingbar[data-sev="medium"] { border-left-color: var(--warning); }
+.tc-findingbar[data-sev="low"] { border-left-color: var(--accent); }
+
+.tc-findingbar .hd { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.tc-findingbar .hd .id { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 11px; }
+.tc-findingbar .hd .ti { font: var(--type-title-3); color: var(--foreground); }
+.tc-findingbar .hd .mt { color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 11px; }
+.tc-findingbar .hd .acts { display: flex; gap: var(--space-2); margin-left: auto; }
+
+.tc-evchips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.tc-evchips > .lead {
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tc-evchip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 3px var(--space-2) 3px var(--space-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  color: var(--foreground);
+  font: var(--type-body-sm);
+  cursor: pointer;
+}
+.tc-evchip:hover { border-color: var(--border-strong); background: var(--surface-4); }
+.tc-evchip.is-current { border-color: var(--foreground-secondary); }
+/* numbered marker: same number the canvas draws next to the evidence bar */
+.tc-evchip > .mk {
+  width: 18px; height: 18px;
+  display: inline-grid; place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--foreground) 14%, transparent);
+  color: var(--foreground);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.tc-evchip > .nm { font-family: var(--font-mono); }
+.tc-evchip > .vl { color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 11px; }
+
+.tc-table tbody tr.is-subject td { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.tc-table tbody tr.is-subject td:first-child { box-shadow: inset 2px 0 0 var(--primary); }
+
+/* clickable evidence row in the inspector */
+.tc-evidence-row.is-linked { cursor: pointer; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.tc-evidence-row.is-linked:hover { background: var(--state-hover); border-left-color: var(--foreground-secondary); }
+.tc-evidence-row .a .jump { color: var(--primary); text-transform: none; letter-spacing: 0; }
+
 /* ---------------------------------------------------------- gate strip */
-.tc-gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: var(--space-2); }
+.tc-gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: var(--space-2);
+  margin-inline: var(--tc-bleed); }
 .tc-gate {
   display: grid; gap: 2px;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--surface-2) 70%, transparent);
 }
@@ -202,10 +332,11 @@ body.tc-page {
 .tc-gate[data-state="info"] .v { color: var(--foreground); }
 
 /* ------------------------------------------------------- metric tiles */
-.tc-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: var(--space-2); }
+.tc-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: var(--space-2);
+  margin-inline: var(--tc-bleed); }
 .tc-tile {
   display: grid; gap: 2px;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--surface-2) 70%, transparent);
 }
@@ -245,6 +376,7 @@ body.tc-page {
 .tc-table td .warn { color: var(--warning); }
 .tc-table td .ok { color: var(--success); }
 .tc-table-scroll {
+  margin-inline: var(--tc-bleed);
   max-height: 420px;
   overflow: auto;
   border-radius: var(--radius-lg);
@@ -278,6 +410,7 @@ body.tc-page {
 /* --------------------------------------------------------- canvas host */
 .tc-canvas-host {
   position: relative;
+  margin-inline: var(--tc-bleed);
   flex: 1 1 auto;
   min-height: 220px;
   overflow: auto;
@@ -289,6 +422,7 @@ body.tc-page {
 .tc-canvas-host canvas.tc-lanes { cursor: crosshair; }
 .tc-canvas-strip {
   position: relative;
+  margin-inline: var(--tc-bleed);
   flex: 0 0 auto;
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--surface-1) 55%, transparent);
@@ -299,19 +433,6 @@ body.tc-page {
 .tc-legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
 .tc-legend span { display: inline-flex; align-items: center; gap: 5px; color: var(--foreground-secondary); font: var(--type-micro); }
 .tc-legend i { width: 9px; height: 9px; border-radius: 2px; }
-
-/* ---------------------------------------------------------- empty state */
-.tc-empty {
-  display: grid; gap: var(--space-3);
-  padding: var(--space-5);
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
-}
-.tc-empty h3 { margin: 0; font: var(--type-title-3); }
-.tc-empty p { margin: 0; color: var(--foreground-secondary); font: var(--type-body); }
-.tc-empty ul { margin: 0; padding-left: 20px; color: var(--foreground-secondary); font: var(--type-body); }
-.tc-empty ul li { margin-bottom: 4px; }
-.tc-empty code { font-family: var(--font-mono); font-size: 12px; color: var(--foreground); }
 
 /* -------------------------------------------------------- tile budget */
 .tc-calc { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); gap: var(--space-4); }
@@ -383,8 +504,8 @@ body.tc-page {
 }
 .tc-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 
-.tc-ledger { display: grid; gap: var(--space-2); }
-.tc-ledger-item { display: grid; gap: 4px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface-2) 65%, transparent); }
+.tc-ledger { display: grid; gap: var(--space-2); margin-inline: var(--tc-bleed); }
+.tc-ledger-item { display: grid; gap: 4px; padding: var(--space-2); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface-2) 65%, transparent); }
 .tc-ledger-item .hd { display: flex; align-items: baseline; gap: var(--space-2); }
 .tc-ledger-item .hd .id { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 11px; }
 .tc-ledger-item .hd .st { margin-left: auto; font: var(--type-micro); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -400,9 +521,12 @@ body.tc-page {
 .tc-ledger-step[data-done="false"] > .v { color: var(--foreground-disabled); }
 
 /* -------------------------------------------------------- bottom dock */
-.tc-dock-body { display: flex; flex-direction: column; gap: var(--space-2); overflow: hidden; }
+.tc-dock-body { display: flex; flex-direction: column; gap: var(--space-2); overflow: hidden;
+  padding: var(--space-2) var(--tc-gutter) var(--space-3); }
+.pto-ide-frame__terminal-body { padding-inline: var(--tc-gutter); }
 
-#terminalTabs { display: flex; gap: var(--space-1); }
+.pto-ide-frame__terminal-tabs { padding-inline: var(--tc-gutter); }
+#terminalTabs { display: flex; gap: var(--space-1); margin-inline: var(--tc-bleed); }
 .pto-ide-frame__terminal-tab { cursor: pointer; padding: 2px var(--space-2); border-radius: var(--radius-sm); }
 .pto-ide-frame__terminal-tab:hover { background: var(--state-hover); }
 .tc-term-list { display: grid; gap: 1px; }
@@ -412,6 +536,7 @@ body.tc-page {
   gap: var(--space-2);
   width: 100%;
   padding: 2px var(--space-2);
+  margin-inline: var(--tc-bleed);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
