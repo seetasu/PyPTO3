@@ -440,6 +440,48 @@ body.tc-page {
 }
 .tc-table-scroll[data-tall="true"] { max-height: 620px; }
 
+/* ----------------------------------------------- Pass evidence workspace
+ * Borrow the Toolkit Studio Pass River grammar: IR forms sit above a coloured
+ * stage band, and selected Passes are decisions on a single execution spine.
+ * The river and detail panel share one selection state. */
+.tc-pass-workspace { --tc-s0: #4e7c90; --tc-s1: #57808c; --tc-s2: #6e8288; --tc-s3: #a2814f; --tc-s4: #bc7440; --tc-s5: #c4612f; --tc-s6: #ce5622; }
+.tc-pass-river { margin-inline: var(--tc-bleed); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: color-mix(in srgb, var(--background) 72%, transparent); }
+.tc-pass-river-head { display: flex; justify-content: space-between; gap: var(--space-3); padding: 8px 11px 7px; border-bottom: 1px solid var(--border-subtle); color: var(--foreground-muted); font: 600 10px var(--font-mono); }
+.tc-pass-river-scroll { overflow-x: auto; overflow-y: hidden; padding: 8px 12px 4px; }
+.tc-pass-river-scene { position: relative; height: 126px; margin-left: 64px; }
+.tc-pass-river-label { position: absolute; left: -62px; top: 10px; color: var(--foreground-muted); font: 10px var(--font-sans); white-space: nowrap; }
+.tc-pass-river-seq-label { top: 77px; }
+.tc-pass-form-band { position: absolute; top: 4px; height: 24px; padding: 5px 10px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--tc-tone) 38%, var(--border-default)); border-radius: 999px; color: var(--foreground-muted); background: color-mix(in srgb, var(--surface-2) 72%, transparent); font: 600 10px/1 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.tc-pass-stage-band { position: absolute; top: 49px; height: 70px; border: 1px solid color-mix(in srgb, var(--tc-tone) 34%, var(--border-subtle)); border-radius: 12px; background: color-mix(in srgb, var(--tc-tone) 5%, transparent); }
+.tc-pass-stage-band > span { display: block; padding-top: 9px; color: color-mix(in srgb, var(--tc-tone) 65%, var(--foreground-muted)); font: 11px var(--font-sans); text-align: center; white-space: nowrap; }
+.tc-pass-river-spine { position: absolute; top: 101px; right: 10px; left: 10px; height: 1px; background: color-mix(in srgb, var(--foreground) 23%, transparent); }
+.tc-pass-river-node { position: absolute; z-index: 1; top: 83px; width: 22px; height: 37px; padding: 0; border: 0; background: transparent; cursor: pointer; transform: translateX(-50%); }
+.tc-pass-river-node > .dot { position: absolute; top: 10px; left: 50%; display: block; width: 3px; height: 16px; background: color-mix(in srgb, var(--foreground) 46%, transparent); transform: translateX(-50%); }
+.tc-pass-river-node > .idx { position: absolute; top: 28px; left: 50%; color: color-mix(in srgb, var(--tc-tone) 72%, var(--foreground)); font: 700 10px var(--font-mono); transform: translateX(-50%); }
+.tc-pass-river-node.is-touch > .dot { height: 7px; margin-top: 5px; background: color-mix(in srgb, var(--tc-tone) 55%, transparent); }
+.tc-pass-river-node.is-same > .dot { height: 1px; margin-top: 8px; background: color-mix(in srgb, var(--foreground) 24%, transparent); }
+.tc-pass-river-node.is-struct > .dot, .tc-pass-river-node.is-intent > .dot, .tc-pass-river-node.is-bad > .dot, .tc-pass-river-node.is-memory > .dot, .tc-pass-river-node.is-runtime > .dot { width: 14px; height: 14px; margin-top: -3px; border: 2px solid var(--background); border-radius: 50%; background: var(--tc-tone); box-shadow: 0 0 0 1px color-mix(in srgb, var(--tc-tone) 70%, transparent), 0 0 16px color-mix(in srgb, var(--tc-tone) 28%, transparent); }
+.tc-pass-river-node.is-selected > .dot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--foreground) 72%, transparent), 0 0 18px color-mix(in srgb, var(--tc-tone) 45%, transparent); }
+.tc-pass-river-node:hover > .dot { filter: brightness(1.25); }
+.tc-pass-river-legend { display: flex; flex-wrap: wrap; gap: 5px 13px; padding: 3px 11px 9px; color: var(--foreground-muted); font: 10px var(--font-sans); }
+.tc-pass-river-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.tc-pass-river-legend i { width: 8px; height: 3px; background: color-mix(in srgb, var(--foreground) 40%, transparent); }
+.tc-pass-river-legend .is-struct, .tc-pass-river-legend .is-intent, .tc-pass-river-legend .is-bad, .tc-pass-river-legend .is-memory, .tc-pass-river-legend .is-runtime { width: 9px; height: 9px; border-radius: 2px; background: var(--tc-tone); }
+.tc-pass-river-legend .is-same { height: 1px; opacity: .55; }
+.tc-pass-workspace [data-stratum="s0"] { --tc-tone: var(--tc-s0); }.tc-pass-workspace [data-stratum="s1"] { --tc-tone: var(--tc-s1); }.tc-pass-workspace [data-stratum="s2"] { --tc-tone: var(--tc-s2); }.tc-pass-workspace [data-stratum="s3"] { --tc-tone: var(--tc-s3); }.tc-pass-workspace [data-stratum="s4"] { --tc-tone: var(--tc-s4); }.tc-pass-workspace [data-stratum="s5"] { --tc-tone: var(--tc-s5); }.tc-pass-workspace [data-stratum="s6"] { --tc-tone: var(--tc-s6); }
+.tc-pass-river-legend .is-struct { --tc-tone: var(--tc-s1); }.tc-pass-river-legend .is-intent { --tc-tone: var(--success); }.tc-pass-river-legend .is-bad { --tc-tone: var(--warning); }.tc-pass-river-legend .is-memory { --tc-tone: #617be8; }.tc-pass-river-legend .is-runtime { --tc-tone: var(--foreground-muted); }
+.tc-pass-workspace-body { margin-inline: var(--tc-bleed); border-top: 1px solid var(--border-subtle); }
+.tc-pass-detail { display: flex; flex-direction: column; min-width: 0; gap: var(--space-3); padding: var(--space-3) 0 0; overflow: auto; }
+.tc-pass-detail-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-3); }
+.tc-pass-detail-head > :last-child { margin-left: auto; }
+.tc-pass-detail h3 { margin: 2px 0 0; color: var(--foreground); font: var(--type-title-2); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.tc-pass-detail .eyebrow, .tc-pass-links .label, .tc-pass-scopes > .label, .tc-pass-diff-side > .label { color: var(--foreground-muted); font: var(--type-micro); letter-spacing: .05em; text-transform: uppercase; }
+.tc-pass-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); }
+.tc-pass-metric { display: grid; gap: 2px; padding: 7px 11px; background: transparent; }.tc-pass-metric + .tc-pass-metric { border-left: 1px solid var(--border-subtle); }
+.tc-pass-metric .k, .tc-pass-metric .sub { color: var(--foreground-muted); font: var(--type-micro); }.tc-pass-metric strong { color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 14px; }
+.tc-pass-links, .tc-pass-scopes { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }.tc-pass-scope { display: inline-flex; gap: var(--space-2); padding: 3px var(--space-2); border: 1px solid var(--border-default); border-radius: var(--radius-pill); color: var(--foreground-secondary); font-size: 11px; }.tc-pass-scope code { color: var(--foreground); font-family: var(--font-mono); }
+.tc-pass-hunks, .tc-pass-diff-list { display: grid; gap: var(--space-2); }.tc-pass-hunk, .tc-pass-diff-card { overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-1) 65%, transparent); }.tc-pass-hunk > .h, .tc-pass-diff-card > .h { padding: 5px var(--space-2); border-bottom: 1px solid var(--border-subtle); color: var(--foreground-secondary); font: var(--type-micro); font-family: var(--font-mono); }.tc-pass-code { max-height: 220px; margin: 0; padding: var(--space-2); overflow: auto; color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 11px; line-height: 1.55; white-space: pre; }.tc-pass-diff-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }.tc-pass-diff-side { min-width: 0; }.tc-pass-diff-side + .tc-pass-diff-side { border-left: 1px solid var(--border-subtle); }.tc-pass-diff-side > .label { display: block; padding: 4px var(--space-2); }.tc-pass-diff-side[data-side="before"] .tc-pass-code { background: color-mix(in srgb, var(--danger) 7%, transparent); }.tc-pass-diff-side[data-side="after"] .tc-pass-code { background: color-mix(in srgb, var(--success) 7%, transparent); }.tc-pass-empty { padding: var(--space-3); border: 1px dashed var(--border-default); border-radius: var(--radius-md); color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.5; }
+
 /* inline proportional bar inside a table cell (data-viz) */
 .tc-bar { position: relative; display: block; height: 14px; min-width: 60px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
 .tc-bar > i { position: absolute; inset: 0 auto 0 0; display: block; border-radius: 3px; background: var(--primary); }
@@ -673,4 +715,10 @@ body.tc-page {
   .pto-ide-frame__topbar-center { display: none; }
   .tc-calc { grid-template-columns: minmax(0, 1fr); }
   .tc-spanrow { grid-template-columns: 148px minmax(0, 1fr) 76px minmax(0, 1fr) 76px; }
+}
+@media (max-width: 760px) {
+  .tc-pass-metrics, .tc-pass-diff-grid { grid-template-columns: minmax(0, 1fr); }
+  .tc-pass-metric + .tc-pass-metric { border-top: 1px solid var(--border-subtle); border-left: 0; }
+  .tc-pass-river-head { align-items: flex-start; flex-direction: column; }
+  .tc-pass-diff-side + .tc-pass-diff-side { border-top: 1px solid var(--border-subtle); border-left: 0; }
 }

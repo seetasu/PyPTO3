@@ -48,6 +48,7 @@
     t0: 0, t1: 0,
     compilerTab: 'passes',
     pass: 17,
+    passMode: 'overview',
     hintSite: null,
     hintModule: 'all',
     dockMode: 'sched',
@@ -132,6 +133,7 @@
       ? D.derived.worstHandoff : R().tasks[0].tag;
     S.hintSite = D.tileSites.length ? D.tileSites[0].key : null;
     S.pass = D.passes.length ? D.passes[Math.min(17, D.passes.length - 1)].idx : 0;
+    S.passMode = 'overview';
     S.t0 = 0;
     S.t1 = R().swimlane.spanUs;
     /* the E2E tab stays selectable: its absence page is the explanation */
@@ -1404,46 +1406,187 @@
   /* ==================================================== compiler view */
   function viewCompiler(stage) {
     if (S.compilerTab === 'passes') {
-      const maxLines = Math.max.apply(null, D.passes.map((p) => p.lines));
-      const sec = el('section');
-      sec.appendChild(sectionHead('IR 规模与改写点', D.passes[0].lines + ' → ' + D.passes[D.passes.length - 1].lines + ' 行'));
-      const passTable = table([
-        { label: '#', key: 'idx', num: true },
-        { label: 'Pass', key: 'name', mono: true },
-        { label: 'IR 行', key: 'lines', num: true },
-        { label: '', cell: (p) => bar(p.lines / maxLines, Math.abs(p.delta) > 500 ? 'warn' : 'neutral') },
-        {
-          label: 'Δ', num: true,
-          cell: (p) => (p.delta === 0 ? '<span style="opacity:.4">0</span>'
-            : (p.delta > 0 ? '<span class="warn">+' : '<span class="ok">') + p.delta + '</span>'),
-        },
-        { label: 'pipeline', cell: (p) => p.counts.pipeline, num: true },
-        { label: 'matmul', cell: (p) => p.counts.matmul, num: true },
-        { label: 'Left/Right', cell: (p) => p.counts.left + ' / ' + p.counts.right, num: true },
-        { label: 'Acc', cell: (p) => p.counts.acc, num: true },
-      ], D.passes.map((p) => Object.assign({ __selected: p.idx === S.pass }, p)), {
-        onPick: (p) => { S.pass = p.idx; S.focus = 'pass'; render(); },
-      });
-      passTable.dataset.tall = 'true';
-      sec.appendChild(passTable);
-      stage.appendChild(sec);
+      const detailByPass = {};
+      (D.passEvidence || []).forEach((d) => { detailByPass[d.idx] = d; });
+      const selected = D.passes.find((p) => p.idx === S.pass) || D.passes[0];
+      const detail = detailByPass[selected.idx] || { add: 0, del: 0, groups: 0, scopes: [], hunks: [], links: [] };
+      const changed = D.passes.filter((p) => {
+        const d = detailByPass[p.idx];
+        return d && (d.add || d.del);
+      }).length;
+      const sec = el('section', 'tc-pass-workspace');
+      sec.appendChild(sectionHead('编译 IR 全流程 · ' + D.case.program,
+        changed + ' / ' + Math.max(0, D.passes.length - 1) + ' 个 Pass 改动了 IR'));
 
-      const pair = D.irPairs[0];
-      if (pair) {
-        const irSec = el('section');
-        irSec.appendChild(sectionHead('AutoTileMatmulL0',
-          pair.beforeFile + ' → ' + pair.afterFile + '（subject ' + pair.subject + '）'));
-        const pre = el('pre', 'tc-term-static');
-        pre.textContent = '- ' + pair.before.map((l) => l.trim()).join('\n- ')
-          + '\n\n+ ' + pair.after.map((l) => l.trim()).join('\n+ ');
-        const box = el('div', 'tc-canvas-strip');
-        box.style.padding = 'var(--space-3)';
-        box.style.maxHeight = '260px';
-        box.style.overflow = 'auto';
-        box.appendChild(pre);
-        irSec.appendChild(box);
-        stage.appendChild(irSec);
+      /* The river is a view of the same selected-pass state as the evidence
+       * panel below.  Its strata describe IR form, its dots describe actual
+       * snapshot changes — no separate, decorative pipeline is introduced. */
+      const strata = [
+        { id: 's0', label: 'S0 · 前端', form: 'Tensor IR', until: 0 },
+        { id: 's1', label: 'S1 · 规范化张量', form: 'SSA / Tensor', until: 9 },
+        { id: 's2', label: 'S2 · 层级化', form: 'Structured IR', until: 12 },
+        { id: 's3', label: 'S3 · Tile', form: 'Tile IR', until: 21 },
+        { id: 's4', label: 'S4 · 双核 Kernel', form: 'AIC / AIV Kernel', until: 28 },
+        { id: 's5', label: 'S5 · 物理内存', form: 'MemRef / 物理内存', until: 34 },
+        { id: 's6', label: 'S6 · 运行时', form: 'Runtime IR', until: Infinity },
+      ];
+      const stratumFor = (p) => strata.find((s) => p.idx <= s.until) || strata[strata.length - 1];
+      const kindFor = (p, d) => {
+        if (!p.idx || !(d.add || d.del)) return 'same';
+        if (/MemoryReuse/.test(p.name) && D.depthSites.some((s) => s.fittedDepth < s.maxReqDepth)) return 'bad';
+        if (/MemRef|Memory|Addr|Layout/.test(p.name)) return 'memory';
+        if (/Runtime|Host|CallDirection|CommDomain/.test(p.name)) return 'runtime';
+        if (/Inline|Outline|Unroll|Split|Expand|LowerPipeline/.test(p.name)) return 'struct';
+        if (/Tile|Pipeline|Prefetch|Matmul/.test(p.name)) return 'intent';
+        return 'touch';
+      };
+      const groups = [];
+      D.passes.forEach((p, i) => {
+        const s = stratumFor(p);
+        const last = groups[groups.length - 1];
+        if (!last || last.id !== s.id) groups.push({ id: s.id, label: s.label, form: s.form, from: i, to: i });
+        else last.to = i;
+      });
+      const river = el('div', 'tc-pass-river');
+      const riverHead = el('div', 'tc-pass-river-head');
+      riverHead.appendChild(el('span', null, '相邻快照 · ' + D.passes[0].lines + ' → ' + D.passes[D.passes.length - 1].lines + ' 行'));
+      riverHead.appendChild(el('span', null, changed + ' 个关键事件 · ' + D.passes.length + ' 个 Pass'));
+      river.appendChild(riverHead);
+      const riverScroll = el('div', 'tc-pass-river-scroll');
+      const riverScene = el('div', 'tc-pass-river-scene');
+      riverScene.style.minWidth = Math.max(1040, D.passes.length * 28) + 'px';
+      const formLabel = el('span', 'tc-pass-river-label', 'IR 形态');
+      riverScene.appendChild(formLabel);
+      groups.forEach((group) => {
+        const band = el('div', 'tc-pass-form-band');
+        band.dataset.stratum = group.id;
+        band.style.left = (group.from / D.passes.length * 100) + '%';
+        band.style.width = ((group.to - group.from + 1) / D.passes.length * 100) + '%';
+        band.textContent = group.form;
+        riverScene.appendChild(band);
+      });
+      const sequenceLabel = el('span', 'tc-pass-river-label tc-pass-river-seq-label', '执行序 →');
+      riverScene.appendChild(sequenceLabel);
+      const spine = el('i', 'tc-pass-river-spine'); riverScene.appendChild(spine);
+      groups.forEach((group) => {
+        const box = el('div', 'tc-pass-stage-band');
+        box.dataset.stratum = group.id;
+        box.style.left = (group.from / D.passes.length * 100) + '%';
+        box.style.width = ((group.to - group.from + 1) / D.passes.length * 100) + '%';
+        box.appendChild(el('span', null, group.label));
+        riverScene.appendChild(box);
+      });
+      D.passes.forEach((p, i) => {
+        const d = detailByPass[p.idx] || {};
+        const kind = kindFor(p, d);
+        const b = el('button', 'tc-pass-river-node is-' + kind + (p.idx === selected.idx ? ' is-selected' : ''));
+        b.type = 'button'; b.dataset.stratum = stratumFor(p).id;
+        b.style.left = ((i + 0.5) / D.passes.length * 100) + '%';
+        b.title = String(p.idx).padStart(2, '0') + ' · ' + p.name + (d.add || d.del ? ' · +' + d.add + ' / −' + d.del : ' · 未改动 IR');
+        b.setAttribute('aria-label', b.title);
+        b.appendChild(el('i', 'dot'));
+        if (kind !== 'touch' && kind !== 'same') b.appendChild(el('span', 'idx', String(p.idx).padStart(2, '0')));
+        b.addEventListener('click', () => { S.pass = p.idx; S.focus = 'pass'; S.passMode = 'overview'; render(); });
+        riverScene.appendChild(b);
+      });
+      riverScroll.appendChild(riverScene); river.appendChild(riverScroll);
+      const legend = el('div', 'tc-pass-river-legend');
+      [['struct', '结构变换'], ['intent', '意图相关'], ['bad', '意图被破坏'], ['memory', '内存'], ['runtime', '运行时'], ['touch', '普通改动'], ['same', '未改动']]
+        .forEach(([kind, label]) => { const item = el('span'); item.appendChild(el('i', 'is-' + kind)); item.appendChild(el('span', null, label)); legend.appendChild(item); });
+      river.appendChild(legend);
+      sec.appendChild(river);
+
+      const body = el('div', 'tc-pass-workspace-body');
+
+      const work = el('div', 'tc-pass-detail');
+      const head = el('div', 'tc-pass-detail-head');
+      const title = el('div');
+      title.appendChild(el('span', 'eyebrow', selected.idx === 0 ? '流水线输入' : 'Pass #' + selected.idx + ' · 从 ' + detail.from));
+      title.appendChild(el('h3', null, selected.name));
+      head.appendChild(title);
+      const modes = el('div', 'segmented-control segmented-control-muted');
+      [['overview', '变化概览'], ['diff', '代码 Diff']].forEach(([id, label]) => {
+        modes.appendChild(btn(label, { size: 'sm', selected: S.passMode === id,
+          on: () => { S.passMode = id; render(); } }));
+      });
+      head.appendChild(modes);
+      work.appendChild(head);
+
+      const metrics = el('div', 'tc-pass-metrics');
+      [
+        ['IR 行', selected.lines, selected.delta === 0 ? '与上一快照等长' : (selected.delta > 0 ? '+' : '') + selected.delta],
+        ['实测变更', detail.add + ' + / ' + detail.del + ' −', detail.groups + ' 个改写区域'],
+        ['受影响作用域', String(detail.scopes.length), detail.scopes.length ? detail.scopes.slice(0, 2).map((s) => s.name).join(' · ') : '无'],
+      ].forEach(([k, v, sub]) => {
+        const m = el('div', 'tc-pass-metric');
+        m.appendChild(el('span', 'k', k)); m.appendChild(el('strong', null, v)); m.appendChild(el('span', 'sub', sub));
+        metrics.appendChild(m);
+      });
+      work.appendChild(metrics);
+
+      if (detail.links && detail.links.length) {
+        const links = el('div', 'tc-pass-links');
+        links.appendChild(el('span', 'label', '运行内关联'));
+        detail.links.forEach((link) => {
+          links.appendChild(btn(link.label, { size: 'sm', on: () => {
+            if (link.findingId && findingById[link.findingId]) {
+              S.finding = link.findingId; S.focus = 'finding'; applyFocus(findingById[link.findingId]);
+            } else if (link.view) S.view = link.view;
+            render();
+          } }));
+        });
+        work.appendChild(links);
       }
+
+      if (!detail.add && !detail.del) {
+        work.appendChild(el('div', 'tc-pass-empty', selected.idx === 0
+          ? '前端 IR 是流水线的事实起点；选择后续 Pass 查看相邻快照的改写证据。'
+          : '相邻快照逐行一致：这个 Pass 在本次编译输入上是空操作。'));
+      } else if (S.passMode === 'overview') {
+        const scopes = el('div', 'tc-pass-scopes');
+        scopes.appendChild(el('span', 'label', '受影响作用域'));
+        detail.scopes.forEach((scope) => {
+          const chip = el('span', 'tc-pass-scope');
+          chip.appendChild(el('code', null, scope.name));
+          chip.appendChild(el('span', null, scope.lines + ' 行变更'));
+          scopes.appendChild(chip);
+        });
+        work.appendChild(scopes);
+        const hunkList = el('div', 'tc-pass-hunks');
+        detail.hunks.slice(0, 3).forEach((hunk, i) => {
+          const card = el('article', 'tc-pass-hunk');
+          card.appendChild(el('div', 'h', '改写区域 ' + (i + 1) + ' · ' + hunk.scopes.join(' / ')));
+          const pre = el('pre', 'tc-pass-code');
+          pre.textContent = hunk.before.map((line) => '− ' + line).join('\n')
+            + (hunk.beforeMore ? '\n− … ' + hunk.beforeMore + ' 行' : '')
+            + (hunk.before.length && hunk.after.length ? '\n' : '')
+            + hunk.after.map((line) => '+ ' + line).join('\n')
+            + (hunk.afterMore ? '\n+ … ' + hunk.afterMore + ' 行' : '');
+          card.appendChild(pre);
+          hunkList.appendChild(card);
+        });
+        work.appendChild(hunkList);
+      } else {
+        const diffList = el('div', 'tc-pass-diff-list');
+        detail.hunks.forEach((hunk, i) => {
+          const card = el('article', 'tc-pass-diff-card');
+          card.appendChild(el('div', 'h', '区域 ' + (i + 1) + ' · ' + hunk.scopes.join(' / ')
+            + ' · 前 ' + hunk.beforeLine + ' / 后 ' + hunk.afterLine + ' 行'));
+          const grid = el('div', 'tc-pass-diff-grid');
+          [['删除', hunk.before, hunk.beforeMore, 'before'], ['新增', hunk.after, hunk.afterMore, 'after']].forEach(([label, lines, more, side]) => {
+            const sideEl = el('div', 'tc-pass-diff-side'); sideEl.dataset.side = side;
+            sideEl.appendChild(el('span', 'label', label));
+            const pre = el('pre', 'tc-pass-code');
+            pre.textContent = lines.length ? lines.join('\n') + (more ? '\n… ' + more + ' 行' : '') : '—';
+            sideEl.appendChild(pre); grid.appendChild(sideEl);
+          });
+          card.appendChild(grid); diffList.appendChild(card);
+        });
+        work.appendChild(diffList);
+      }
+      body.appendChild(work);
+      sec.appendChild(body);
+      stage.appendChild(sec);
     }
 
     if (S.compilerTab === 'depth') {

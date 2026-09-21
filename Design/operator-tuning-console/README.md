@@ -87,7 +87,7 @@ E2E 不是：它的职责就是**比较**。四个区块里三个本来就同时
 `S.rank` 仍然存在，含义变成「带去 L2 / L1 的那个 rank」：在两张表里点行即可选中，被选中的 rank 在
 `调用剖分` 的列头和数值上加重，状态条上也始终写着 `rank rank0 inv=2`。
 
-其余位置一律用「标题 + 计数 / 单位」做小标题，例如 `门禁 · 4 项`、`IR 规模与改写点 · 1794 → 4950 行`、
+其余位置一律用「标题 + 计数 / 单位」做小标题，例如 `门禁 · 4 项`、`编译 IR 全流程 · 51 / 51 个 Pass 改动了 IR`、
 `缺失产物 · 本 dump 不含 PTOAS / VPTO 级记录`。原来的 ISA 空状态是一段散文加项目符号，现在是一张三列表
 （产物 / 用于 / 状态），四行全部标红「缺失」。
 
@@ -222,7 +222,7 @@ node Design/operator-tuning-console/build-data.cjs
 | `dfx_outputs/rank*/d0/deps.json` | `block_num` / `scope` / `early_dispatch` / 每个任务的绑定张量 |
 | `dfx_outputs/rank*/d0/name_map.json` | 64 个 callable id → 名字 |
 | `report/perf_hints.log` | 230 条 perf hint：197 条 PH001（搬运末维粒度，累计 261 次命中）+ 33 条 PH-MR-001（软流水深度回退） |
-| `passes_dump/` | 52 份 IR dump 的行数、Δ 行、`pl.pipeline` / `tile.matmul` / `Mem.Left·Right·Acc·Vec` 计数；AutoTileMatmulL0 的真实 L0 tile 形状与 55 个 pipeline 站点；一段真实 before/after IR |
+| `passes_dump/` | 52 份 IR dump 的行数、DSL / 内存空间计数；每个相邻快照的真实增删行、受影响函数和最多 6 个改写片段；AutoTileMatmulL0 的真实 L0 tile 形状与 55 个 pipeline 站点 |
 | `next_levels/.../binary_context.json` | platform、pto-isa revision、runtime 名与 revision → 工具链指纹 |
 
 ### 两个视角，不要混

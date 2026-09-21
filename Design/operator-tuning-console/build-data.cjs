@@ -845,6 +845,102 @@ const irPairs = (function () {
   }];
 })();
 
+/* ------------------------------------------------ Pass change evidence
+ *
+ * The console used to retain only aggregate IR line counts.  Keep a compact
+ * evidence index for every adjacent snapshot instead: exact added/removed
+ * line totals, the affected function scopes, and a handful of representative
+ * hunks.  This is deliberately built from the very same passes_dump files as
+ * the rest of this case, rather than borrowing a second demo's prepared UI
+ * data (which could belong to a different run).
+ *
+ * Unique-line anchors give us stable, useful hunks for these generated Python
+ * dumps without shipping all 40–50 full snapshots into the tuning console.
+ */
+function scopeAt(lines, line) {
+  for (let i = Math.min(line, lines.length - 1); i >= 0; i--) {
+    const m = lines[i].match(/^\s*def\s+([A-Za-z_]\w*)\s*\(/);
+    if (m) return m[1];
+  }
+  return '<program>';
+}
+
+function uniqueAnchors(before, after) {
+  const a = new Map(); const b = new Map();
+  before.forEach((line, i) => {
+    const k = line.trimEnd();
+    a.set(k, a.has(k) ? -1 : i);
+  });
+  after.forEach((line, i) => {
+    const k = line.trimEnd();
+    b.set(k, b.has(k) ? -1 : i);
+  });
+  const pairs = [];
+  a.forEach((i, k) => {
+    const j = b.get(k);
+    if (i >= 0 && j >= 0) pairs.push([i, j]);
+  });
+  pairs.sort((x, y) => x[0] - y[0]);
+  const tails = []; const prev = Array(pairs.length).fill(-1);
+  pairs.forEach((pair, i) => {
+    let lo = 0; let hi = tails.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (pairs[tails[mid]][1] < pair[1]) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo) prev[i] = tails[lo - 1];
+    tails[lo] = i;
+  });
+  const out = [];
+  for (let i = tails.length ? tails[tails.length - 1] : -1; i >= 0; i = prev[i]) out.push(pairs[i]);
+  return out.reverse();
+}
+
+function passEvidence(before, after) {
+  const anchors = [[-1, -1]].concat(uniqueAnchors(before, after), [[before.length, after.length]]);
+  let add = 0; let del = 0; let groups = 0;
+  const scopeCounts = {}; const hunks = [];
+  for (let n = 1; n < anchors.length; n++) {
+    const [pa, pb] = anchors[n - 1];
+    const [na, nb] = anchors[n];
+    const a0 = pa + 1; const b0 = pb + 1;
+    const aPart = before.slice(a0, na); const bPart = after.slice(b0, nb);
+    if (!aPart.length && !bPart.length) continue;
+    groups++;
+    del += aPart.length; add += bPart.length;
+    const scopes = Array.from(new Set([scopeAt(before, a0), scopeAt(after, b0)]));
+    scopes.forEach((scope) => { scopeCounts[scope] = (scopeCounts[scope] || 0) + aPart.length + bPart.length; });
+    hunks.push({
+      beforeLine: a0 + 1,
+      afterLine: b0 + 1,
+      before: aPart.slice(0, 5).map((line) => line.trimEnd()),
+      after: bPart.slice(0, 5).map((line) => line.trimEnd()),
+      beforeMore: Math.max(0, aPart.length - 5),
+      afterMore: Math.max(0, bPart.length - 5),
+      scopes: scopes,
+      weight: aPart.length + bPart.length,
+    });
+  }
+  return {
+    add: add, del: del, groups: groups,
+    scopes: Object.entries(scopeCounts).sort((x, y) => y[1] - x[1]).slice(0, 8)
+      .map(([name, lines]) => ({ name: name, lines: lines })),
+    hunks: hunks.sort((x, y) => y.weight - x.weight).slice(0, 6),
+  };
+}
+
+const passEvidenceIndex = (function () {
+  let previous = null;
+  return passFiles.map((file, i) => {
+    const lines = fs.readFileSync(path.join(passDir, file), 'utf8').split('\n');
+    const detail = previous == null ? { add: 0, del: 0, groups: 0, scopes: [], hunks: [] }
+      : passEvidence(previous, lines);
+    previous = lines;
+    return { idx: passes[i].idx, from: i ? passes[i - 1].name : null, ...detail };
+  });
+})();
+
 /* ------------------------------------------------------------- findings */
 const pick = (name) => tasks.filter((t) => t.callable === name)[0];
 
@@ -1176,6 +1272,21 @@ findings.forEach((f) => {
     })));
 });
 
+/* Cross-layer links are emitted only where this run has direct evidence.
+ * They keep Pass inspection inside the tuning loop, not beside it. */
+const findingIds = new Set(findings.map((f) => f.id));
+passEvidenceIndex.forEach((detail) => {
+  const pass = passes.find((p) => p.idx === detail.idx);
+  detail.links = [];
+  if (!pass) return;
+  if (pass.name === 'MemoryReuse' && findingIds.has('F4')) {
+    detail.links.push({ findingId: 'F4', label: '关联 F4 · 软流水深度回退' });
+  }
+  if (pass.name === 'AutoTileMatmulL0' && l0Tiles.length) {
+    detail.links.push({ view: 'isa', label: '查看 ISA / 布局中的 L0 tile' });
+  }
+});
+
 /* ---------------------------------------------------------------- write */
 const payload = {
   generatedBy: 'Design/operator-tuning-console/build-data.cjs',
@@ -1190,6 +1301,7 @@ const payload = {
   depthSites: depthSiteList,
   budgets: budgets,
   passes: passes,
+  passEvidence: passEvidenceIndex,
   pipelineSites: pipelineSites,
   l0Tiles: l0Tiles,
   dsl: dsl,
