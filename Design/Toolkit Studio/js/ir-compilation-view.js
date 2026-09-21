@@ -240,7 +240,9 @@
   /* ---------- state ---------- */
   const st = {
     kernel: null, filter: 'issues', compact: false,
-    passOpen: false, openPass: null, findOn: null
+    passOpen: false, openPass: null, findOn: null,
+    /* 工作区页签：kernel = Kernel 列表 + 详情；trace = 借用来的编译 IR 全流程 */
+    pane: 'kernel'
   };
   let host = null;
 
@@ -591,6 +593,25 @@
       ['是否进入关键链', isKey ? '是 · 对解释当前 Finding 有价值' : '否']
     ] : [['当前 Kernel', k ? k.name : '—'], ['状态', '未采集']];
 
+    /* 点开一个 Pass 时，把「影响 N 个 Kernel」展开成具体名单：只有在这个 Pass
+       里诞生（born）或真的被改写（changed）的才算，按变更条数排序。 */
+    const chg = i >= 0 ? K.kernels
+      .map(x => ({ k: x, kp: (x.passes || [])[i] }))
+      .filter(x => x.kp && (x.kp.st === 'changed' || x.kp.st === 'born'))
+      .sort((a, b) => b.kp.n - a.kp.n || a.k.name.localeCompare(b.k.name)) : [];
+    const chgList = chg.length
+      ? '<div class="kc-pchg"><div class="kc-pchg-head"><b>这个 Pass 有变更的 Kernel</b>' +
+          '<span>' + chg.length + ' / ' + K.kernels.length + ' 个</span></div>' +
+          '<div class="kc-pchg-list">' + chg.map(x => {
+            const born = x.kp.st === 'born';
+            return '<span class="kc-pchg-item' + (born ? ' is-born' : '') + '">' +
+              '<i>' + esc(x.k.type.slice(0, 3).toUpperCase()) + '</i>' +
+              '<b>' + esc(x.k.name) + '</b>' +
+              '<em>' + (born ? '在此 Pass 诞生' : '变更 ' + x.kp.n + ' 处') + '</em>' +
+            '</span>';
+          }).join('') + '</div></div>'
+      : '';
+
     const ir = (before || after)
       ? '<div class="kc-ir">' +
           '<div class="kc-ir-col"><h5><span>变化前</span><small>' + esc(PASSNAMES[i]) + ' 之前</small></h5>' +
@@ -619,7 +640,7 @@
               esc((meta.gain.length ? '获得 ' + meta.gain.join(' · ') : '') +
                   (meta.lose.length ? (meta.gain.length ? '，' : '') + '失去 ' + meta.lose.join(' · ') : '')) +
               '</b><small>' + esc(meta.c || '') + (meta.l ? ' · IR ' + meta.l + ' 行' : '') + '</small></div></div>'
-            : '') + '</div>' +
+            : '') + chgList + '</div>' +
         '<div class="kc-pdetail-sec"><h6>对当前 Kernel 的影响</h6>' +
           '<div class="kc-pd-list">' + impact.map(x =>
             '<div class="kc-pd-item"><label>' + esc(x[0]) + '</label><b>' + esc(x[1]) + '</b></div>').join('') +
@@ -635,17 +656,28 @@
       '<div class="kc-sect"><div><h2>需要关注</h2>' +
         '<p>把底层编译信号转成可定位、可解释、可继续验证的发现</p></div></div>' +
       findingsHTML() +
-      '<div class="kc-sect"><div><h2>Kernel</h2>' +
-        '<p>从最终设备执行单元回溯：源码 → 关键编译变化 → 最终结果</p></div></div>' +
-      '<div class="kc-work">' +
-        '<section class="kc-list-panel"><div class="kc-lhead"><b>Kernel 列表</b>' +
-          '<span class="kc-filter">' +
-            '<button type="button" data-kc-filter="issues" class="' + (st.filter === 'issues' ? 'is-on' : '') + '">需要关注</button>' +
-            '<button type="button" data-kc-filter="all" class="' + (st.filter === 'all' ? 'is-on' : '') + '">全部 ' + K.kernels.length + '</button>' +
-          '</span></div>' +
-          '<div class="kc-list" data-kc-list>' + listHTML() + '</div></section>' +
-        '<section class="kc-detail" data-kc-detail>' + detailHTML() + '</section>' +
-      '</div>' +
+      /* 工作区两个页签：Kernel 列表 + 详情 / 编译 IR 全流程（借用 #kgTrace）。
+         页签 1 把原来的小节标题和两栏网格收进同一个容器。 */
+      '<nav class="kc-tabs" role="tablist" aria-label="编译工作区">' +
+        '<button type="button" role="tab" class="kc-tab' + (st.pane === 'kernel' ? ' is-on' : '') + '"' +
+          ' data-kc-tab="kernel" aria-selected="' + (st.pane === 'kernel') + '">Kernel 工作区</button>' +
+        '<button type="button" role="tab" class="kc-tab' + (st.pane === 'trace' ? ' is-on' : '') + '"' +
+          ' data-kc-tab="trace" aria-selected="' + (st.pane === 'trace') + '">编译 IR 全流程</button>' +
+      '</nav>' +
+      '<section class="kc-pane" data-kc-pane="kernel">' +
+        '<div class="kc-sect"><div><h2>Kernel</h2>' +
+          '<p>从最终设备执行单元回溯：源码 → 关键编译变化 → 最终结果</p></div></div>' +
+        '<div class="kc-work">' +
+          '<section class="kc-list-panel"><div class="kc-lhead"><b>Kernel 列表</b>' +
+            '<span class="kc-filter">' +
+              '<button type="button" data-kc-filter="issues" class="' + (st.filter === 'issues' ? 'is-on' : '') + '">需要关注</button>' +
+              '<button type="button" data-kc-filter="all" class="' + (st.filter === 'all' ? 'is-on' : '') + '">全部 ' + K.kernels.length + '</button>' +
+            '</span></div>' +
+            '<div class="kc-list" data-kc-list>' + listHTML() + '</div></section>' +
+          '<section class="kc-detail" data-kc-detail>' + detailHTML() + '</section>' +
+        '</div>' +
+      '</section>' +
+      '<section class="kc-pane" data-kc-pane="trace"></section>' +
       '<section class="kc-pass">' +
         '<button type="button" class="kc-pass-toggle" data-kc-passtoggle>' +
           '<span>完整 Pass 轨迹</span>' +
@@ -659,9 +691,44 @@
         '</div></section></section>';
   }
 
+  /* 页签切换只改 class，不重画 —— 页签 2 里挂的是从 kernelGuard 借来的 #kgTrace
+     实体节点，重画会把它冲掉。 */
+  function showPane() {
+    if (!host) return;
+    $$('[data-kc-pane]', host).forEach(p => p.classList.toggle('is-on', p.dataset.kcPane === st.pane));
+    $$('[data-kc-tab]', host).forEach(b => {
+      const on = b.dataset.kcTab === st.pane;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-selected', String(on));
+    });
+    if (st.pane === 'trace') attachTrace();
+  }
+
+  /* 把 compile guard 的编译 IR 全流程搬进页签 2。同一时刻只有一个宿主：
+     这里 appendChild(e) 之后它就不在 #kernelGuard 里了，归还见 release()。 */
+  function attachTrace() {
+    const box = $('[data-kc-pane="trace"]', host);
+    if (!box) return;
+    const G = window.PTO_GUARD;
+    const el = G && G.traceEl ? G.traceEl() : null;
+    if (!el) {
+      box.innerHTML = '<p class="kc-pane-missing">编译 IR 全流程需要 compile guard 的 Pass 数据，本次视图没有加载。</p>';
+      return;
+    }
+    if (el.parentElement !== box) {
+      box.innerHTML = '';              // 清掉上一次的占位文案
+      box.appendChild(el);
+    }
+    // 两个页签看的是同一个 Kernel：切过来时把 guard 的选中态对齐，
+    // activate() 会顺带把还没画过的河流图补上。
+    if (G.select && st.kernel && byName(st.kernel)) G.select(st.kernel);
+    else if (G.activate) G.activate();
+  }
+
   function paint() {
     if (!host) return;
     host.innerHTML = shellHTML();
+    showPane();
   }
   function paintList() {
     const box = $('[data-kc-list]', host);
@@ -705,12 +772,15 @@
         st.filter = issueSet()[top.name] ? st.filter : 'all';
       }
     }
+    st.pane = 'kernel';          // 命中结果在列表里，先切回工作区页签
     paint();
     const box = $('.kc-work', host);
     if (box && box.scrollIntoView) box.scrollIntoView({ block: 'nearest' });
   }
 
   function onClick(e) {
+    const tb = e.target.closest('[data-kc-tab]');
+    if (tb) { st.pane = tb.dataset.kcTab === 'trace' ? 'trace' : 'kernel'; showPane(); return; }
     const fid = e.target.closest('[data-kc-find]');
     if (fid) { markFind(fid.dataset.kcFind); return; }
     const kid = e.target.closest('[data-kc-kernel]');
@@ -783,10 +853,20 @@
       pickKernel(String(name), { scroll: true });
       return true;
     },
+    /* task-history 的 syncPanel() 靠它判断这块面板现在归谁：是本视图自绘的
+       .kc，还是从 stage 2 搬来的 DOM。判错就会把新视图冲掉。 */
+    owns(node) { return !!node && host === node; },
+    /* task-history 在重写 #runTabPanel 之前必须先调这个：页签 2 里挂的
+       #kgTrace 是从 kernelGuard 借来的实体节点，被 innerHTML 冲掉就成了游离
+       节点，归还后再也长不回 stage 2 的 Kernel Guard 里。 */
+    release() {
+      if (window.PTO_GUARD && window.PTO_GUARD.traceHome) window.PTO_GUARD.traceHome();
+      host = null;
+    },
     /* 供调试与验收用：当前状态快照 */
     state() {
       return { kernel: st.kernel, filter: st.filter, compact: st.compact,
-        openPass: st.openPass, passOpen: st.passOpen,
+        openPass: st.openPass, passOpen: st.passOpen, pane: st.pane,
         keyPasses: (current() ? keyPasses(current()).map(p => p.name) : []) };
     },
     ready: true

@@ -64,12 +64,8 @@
 .kf-dg-trail button.is-on { border-color: color-mix(in srgb, var(--primary) 45%, transparent); color: var(--foreground); background: var(--state-selected); }
 .kf-dg-trail i { color: var(--foreground-disabled); font-style: normal; font-size: 10px; }
 
-/* ---------- canvas + aside ---------- */
-.kf-dg-layout {
-  display: grid; grid-template-columns: minmax(0, 1fr) 0; column-gap: 0;
-  transition: grid-template-columns 200ms ease, column-gap 200ms ease;
-}
-.kf-dg-layout.is-inspecting { grid-template-columns: minmax(0, 1fr) 306px; column-gap: 14px; }
+/* ---------- canvas ---------- */
+.kf-dg-layout { display: grid; grid-template-columns: minmax(0, 1fr); }
 .kf-dg-canvas {
   position: relative; min-width: 0; padding: 18px 44px 22px;
   border: 1px solid var(--dg-line); border-radius: var(--radius-lg);
@@ -77,14 +73,6 @@
     radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--primary) 5%, transparent), transparent 62%),
     color-mix(in srgb, var(--surface-1) 34%, transparent);
 }
-.kf-dg-aside { min-width: 0; overflow: hidden; }
-.kf-dg-aside .kf-oi {
-  padding: 12px; border: 1px solid var(--dg-line2); border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
-}
-.kf-dg-aside .kf-inspector-section { display: grid; gap: 5px; }
-.kf-dg-aside .kf-inspector-title { margin: 0; color: var(--foreground-secondary); font: 700 9px var(--font-sans); letter-spacing: .08em; }
-
 /* ---------- edge wires ---------- */
 .kf-dg-edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .kf-dg-edges path { fill: none; stroke: var(--dg-line2); stroke-width: 1; }
@@ -334,15 +322,6 @@
 .kf-dg-tlx-sum li { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
 .kf-dg-tlx-sum li::before { content: '›'; margin-right: 5px; color: var(--foreground-disabled); }
 
-/* ---------- compare rows reused by the inspector ---------- */
-.kf-dg-cmp { display: grid; gap: 3px; }
-.kf-dg-cmp span { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 4px 7px; border-radius: var(--radius-sm); background: var(--surface-3); }
-.kf-dg-cmp b { color: var(--foreground); font: 600 10px var(--font-mono); }
-.kf-dg-cmp em { color: var(--foreground-muted); font: 9px var(--font-mono); font-style: normal; }
-.kf-dg-cmp span.is-ok em { color: var(--success); }
-.kf-dg-cmp span.is-bad em { color: var(--danger); }
-.kf-dg-cmp span.is-warn em { color: var(--warning); }
-
 /* ---------- likely cause ---------- */
 .kf-dg-cause {
   display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px;
@@ -356,10 +335,9 @@
 .kf-dg-cause li { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
 .kf-dg-cause li::before { content: '›'; margin-right: 5px; color: var(--foreground-disabled); }
 
-/* ---------- narrow: inspector drops under the canvas ---------- */
+/* ---------- narrow ---------- */
 @container (max-width: 900px) {
   .kf-dg-result { grid-template-columns: auto minmax(0, 1fr); }
   .kf-dg-semantics { grid-column: 1 / -1; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--dg-line); }
-  .kf-dg-layout.is-inspecting { grid-template-columns: minmax(0, 1fr); column-gap: 0; row-gap: 12px; }
   .kf-dg-cause { grid-template-columns: minmax(0, 1fr); }
 }

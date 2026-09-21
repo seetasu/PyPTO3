@@ -604,6 +604,29 @@
       const dl = (a, b) => (prev && b !== undefined && a - b !== 0 ? (a - b > 0 ? '+' : '') + (a - b) : '±0');
       const hk = p.hunks && p.hunks[0];
 
+      /* 「影响 39 / 45 个 kernel」是个计数，看不出是谁。这里把它展开成名单：
+         只有在这个 Pass 里诞生（born）或真的被改写（changed）的 Kernel 才在列，
+         按变更条数从多到少排。 */
+      const changedKs = K.kernels
+        .map(k => ({ k, kp: (k.passes || [])[p.i] }))
+        .filter(x => x.kp && (x.kp.st === 'changed' || x.kp.st === 'born'))
+        .sort((a, b) => b.kp.n - a.kp.n || a.k.name.localeCompare(b.k.name));
+      const changedList = changedKs.length
+        ? '<div class="kf-kg-pchg">' +
+            '<div class="kf-kg-pchg-head"><b>这个 Pass 有变更的 Kernel</b>' +
+              '<span>' + changedKs.length + ' / ' + K.kernels.length + ' 个</span></div>' +
+            '<div class="kf-kg-pchg-list">' + changedKs.map(x => {
+              const born = x.kp.st === 'born';
+              return '<span class="kf-kg-pchg-item' + (born ? ' is-born' : '') + '">' +
+                '<i style="color:' + (TYPE_C[x.k.type] || TYPE_C.Unknown) + '">' +
+                  esc(x.k.type.slice(0, 3).toUpperCase()) + '</i>' +
+                '<b>' + esc(x.k.name) + '</b>' +
+                '<em>' + (born ? '在此 Pass 诞生' : '变更 ' + x.kp.n + ' 处') + '</em>' +
+              '</span>';
+            }).join('') + '</div>' +
+          '</div>'
+        : '';
+
       detail =
         '<div class="kf-kg-pdetail">' +
           '<div class="kf-kg-pdhead">' +
@@ -623,6 +646,7 @@
             stat('tile 算子', p.o.ti, dl(p.o.ti, prev && prev.o.ti)) +
             stat('MemRef', p.o.mr, dl(p.o.mr, prev && prev.o.mr)) +
           '</div>' +
+          changedList +
           '<div class="kf-kg-props">' + props + '</div>' +
           visualFor(p) +
           (hk ? '<details class="kf-kg-raw"><summary>查看这一步的 IR diff</summary>' +
@@ -1010,6 +1034,14 @@
   // Let other panels drill into one kernel here (the run detail heatmap does).
   window.PTO_GUARD = {
     activate: activateVisuals,
+    /* #kgTrace 会被 Run → Compilation 借去当独立页签（见 ir-compilation-view.js）。
+       用引用而不是 querySelector，节点被搬走、或被 innerHTML 冲成游离节点后
+       仍能拿回来；归还用 appendChild —— kernelGuard 的末子节点就是它。 */
+    traceEl() { return els && els.trace ? els.trace : null; },
+    traceHome() {
+      const home = document.getElementById('kernelGuard');
+      if (els && els.trace && home && els.trace.parentElement !== home) home.appendChild(els.trace);
+    },
     select(name) {
       if (!els || !K.kernels.some(k => k.name === name)) return false;
       st.sel = name; st.pass = null; st.kpass = null;

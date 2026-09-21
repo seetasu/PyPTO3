@@ -59,6 +59,12 @@
   function isCorrectnessFailureStory(run) { return !!getRunModel(run).correctnessStory; }
   function isPerformanceWarningStory(run) { return !!getRunModel(run).performanceStory; }
   function isValidatedOptimizationStory(run) { return !!getRunModel(run).optimizationStory; }
+  /* 这一次 Run 的 Correctness 页签自绘诊断视图：正确性失败的 Run 用它，
+     磁盘上那次真实 Run 也用它（沿用 compilationDataMatches 的「数据归属」判定，
+     不额外写死 run id），其余历史 Run 保持原样。 */
+  function usesCorrectnessDiagnosis(run) {
+    return isCorrectnessFailureStory(run) || compilationDataMatches(run);
+  }
   function getRunDisplayStatus(run) {
     const m = getRunModel(run), d = m.domains;
     if (m.baseline) return ['可信基线', 'ok'];
@@ -329,7 +335,10 @@
     runSplitExplorerPx: null
   };
   let els = null;
-  let objectTooltip = null, objectTooltipTarget = null, objectTooltipTimer = null;
+  let objectTooltip = null, objectTooltipTarget = null, objectTooltipTimer = null, objectTooltipShowTimer = null;
+  /* 悬浮不立刻出卡，留一点反应时间；已打开时切换目标直接跟随 */
+  const TOOLTIP_SHOW_DELAY = 260;
+  const TOOLTIP_GAP = 12;
 
   function matches(t) {
     if (st.filter === 'all') return true;
@@ -418,8 +427,19 @@
   /* Called whenever the active stage changes: stage 2 must have its content
      back before demo-v2 shows it for any reason other than the IR tab. */
   function syncPanel() {
-    const stage0 = $('.kf-stage[data-stage="0"]');
     const panel = $('#runTabPanel');
+    /* Compilation 页签交给 PTO_COMPILATION 之后，面板里是自绘的 .kc 视图，
+       而不是从 stage 2 搬来的 DOM。watchRunInspectorLayout 的 MutationObserver
+       会绕过 renderDetailBody 直接再跑一次 syncPanel，不在这里挡住就会把新视图
+       冲掉换成 Kernel Guard，并把借给它当页签的 #kgTrace 甩成游离节点。 */
+    if (window.PTO_COMPILATION?.owns?.(panel)) {
+      window.PTO_GUARD?.activate?.();
+      return;
+    }
+    /* Correctness 页签自绘诊断视图时，面板里是我们的 .kf-dg-* 结构，
+       同样不能被借用 stage 3 的 DOM 冲掉。 */
+    if (panel && panel.querySelector('[data-dg-canvas]')) { releaseBorrowed(); return; }
+    const stage0 = $('.kf-stage[data-stage="0"]');
     const p = PANELS.find(x => x.k === st.tab);
     if (!panel || !p || !p.from || !stage0 || !stage0.classList.contains('is-active')) {
       releaseBorrowed();
@@ -428,6 +448,7 @@
     window.PTO_GUARD?.activate?.();
     if (borrowed && borrowed.from === p.from && panel.contains(borrowed.nodes[0])) return;
     releaseBorrowed();
+    window.PTO_COMPILATION?.release?.();   // 归还 #kgTrace，否则它会跟着面板一起被冲掉
     panel.innerHTML = '';        // after the release, only our own leftovers remain
     borrowInto(p.from, panel);
   }
@@ -1286,41 +1307,25 @@
         section('Expected effect & risk', '<p class="kf-ri-note">Transfer count ↓ · Effective width ↑。额外 temporary tile / local copy 可能抵消收益，必须通过下一次 Run 验证。</p>') +
         section('Source mapping', '<p class="kf-ri-note"><code>decode_layer.py:728</code> · RoPE block → attention_incore_2</p>') +
         section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-source="decode_layer.py:728" data-ws-source-context="RoPE transfer recommendation">定位 Source</button><button type="button" data-ws-optimize-rerun>应用宽搬运方案并重跑</button></div>');
-    } else if (isCorrectnessFailureStory(current) && kind === 'op' && dgOp(id)) {
+    } else if (usesCorrectnessDiagnosis(current) && kind === 'op' && dgOp(id)) {
       const o = dgOp(id);
-      const outs = DG.edges.filter(e => e.from === o.id && e.via).map(e => dgTensor(e.via)).filter(Boolean);
       title = o.name; meta = '语义计算 · ' + o.be;
-      body = section('语义', rows([['Op', o.name], ['后端', o.be], ['输入数', String(o.ins)], ['输出数', String(o.outs)]])) +
-        section('源码', '<p class="kf-ri-note"><code>' + esc(o.src) + '</code></p>') +
-        (outs.length ? section('比对', '<div class="kf-dg-cmp">' + outs.map(t =>
-            '<span class="is-' + (DG_STATE_TONE[t.state] || 'dim') + '"><b>' + esc(t.name) + '</b><em>' +
-            esc(t.state === 'match' ? '匹配' : t.state === 'first' ? '不一致 · 首个分歧' :
-                t.state === 'propagated' ? '不一致 · 下游传播' : '无参考基准') + '</em></span>').join('') + '</div>') : '') +
-        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-source="' + esc(o.src) + '" data-ws-source-context="' + esc(o.name) + '">定位源码</button></div>');
-    } else if (isCorrectnessFailureStory(current) && kind === 'tensor' && dgTensor(id)) {
+      body = section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-source="' + esc(o.src) + '" data-ws-source-context="' + esc(o.name) + '">定位源码</button></div>');
+    } else if (usesCorrectnessDiagnosis(current) && kind === 'tensor' && dgTensor(id)) {
       const t = dgTensor(id);
-      const prod = dgProducerOp(t.id), cons = dgConsumers(t.id);
       const rProd = dgRuntimeProducer(t.id);
-      const rCons = rProd ? dgRuntimeConsumers(rProd.id) : [];
       const verdict = t.state === 'match' ? '匹配' : t.state === 'unchecked' ? '无参考基准' : '不一致';
       const stateRows = [['状态', verdict], ['首个分歧', t.state === 'first' ? '是' : t.state === 'propagated' ? '否 · 下游传播' : '—']];
       if (t.ref && t.act) stateRows.push(['最大绝对误差', String(t.maxAbs)], ['最大相对误差', String(t.maxRel)]);
-      stateRows.push(['参考基准', t.ref ? 'PyTorch checkpoint' : '—'], ['实测', t.act ? 'Args Dump · Run #106' : '—']);
       title = t.name; meta = t.tid + ' · ' + t.shape + ' · ' + t.dtype;
       body = section('比对状态', rows(stateRows)) +
-        section('语义层', rows([
-          ['产生自', prod ? prod.name : '—'],
-          ['被消费于', cons.length ? cons.map(o => o.name).join(' / ') : '—']])) +
-        (rProd ? section('运行时层', rows([
-          ['生产者 Task', '#' + rProd.id],
-          ['消费者 Task', rCons.length ? rCons.map(x => '#' + x.id).join(' / ') : '—']])) : '') +
         section('动作', '<div class="kf-oi-actions">' +
           (rProd
             ? '<button type="button" data-dg-select-kind="task" data-dg-select-id="' + rProd.id + '">定位运行时生产者</button>'
             : '') +
           '<button type="button" data-dg-' + (dg.runtime ? 'collapse' : 'expand') + '>' + (dg.runtime ? '收起运行时' : '展开运行时') + '</button>' +
         '</div>');
-    } else if (isCorrectnessFailureStory(current) && kind === 'task' && dgTask(id)) {
+    } else if (usesCorrectnessDiagnosis(current) && kind === 'task' && dgTask(id)) {
       const t = dgTask(id);
       const pred = DG.runtimeChain.filter(x => x.to === t.id).map(x => x.from);
       const succ = DG.runtimeChain.filter(x => x.from === t.id).map(x => x.to);
@@ -1353,7 +1358,7 @@
           (t.role === 'suspicious' || t.role === 'producer' ? '不稳定 · 3 次运行在该区域结果不一致' : '稳定') + '</p>') +
         section('动作', '<div class="kf-oi-actions">' +
           '<button type="button" data-dg-view="timeline">查看时间线</button></div>');
-    } else if (isCorrectnessFailureStory(current) && kind === 'timeline') {
+    } else if (usesCorrectnessDiagnosis(current) && kind === 'timeline') {
       const T = DG.timeline, ov = T.overlap, a = dgTask(ov.a), b = dgTask(ov.b);
       const dur = ov.to - ov.from;
       title = '时间线证据'; meta = '共享 buffer ' + T.buffer + ' 的读写重叠';
@@ -1363,12 +1368,12 @@
         section('解读', '<p class="kf-ri-note">生产者在读路径结束前，写入方已开始覆盖同一块 buffer，' +
           '可能造成 early overwrite。这与 repeated-run unstable 一致。</p>') +
         section('动作', '<div class="kf-oi-actions"><button type="button" data-dg-select-kind="dependency" data-dg-select-id="missing_182_197">查看缺失依赖</button></div>');
-    } else if (isCorrectnessFailureStory(current) && kind === 'buffer' && id === 'B2') {
+    } else if (usesCorrectnessDiagnosis(current) && kind === 'buffer' && id === 'B2') {
       title = 'B2'; meta = '共享 buffer';
       body = section('共享 buffer 生命周期', rows([['读取方', 'Task #182 · AICore 7'], ['写入方', 'Task #197 · AICore 5'], ['当前排序', '无依赖边']])) +
         section('证据', '<p class="kf-ri-note">写入方与仍在执行的读取方重叠 48 μs；重复运行产出非确定性结果。</p>') +
         section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="dependency" data-ws-select-id="missing_182_197" data-ws-source="execution">查看缺失依赖</button></div>');
-    } else if (isCorrectnessFailureStory(current) && kind === 'dependency' && id === 'missing_182_197') {
+    } else if (usesCorrectnessDiagnosis(current) && kind === 'dependency' && id === 'missing_182_197') {
       title = '预期排序'; meta = 'Task #182 → Task #197';
       body = section('关系', rows([['原因', '共享 buffer 生命周期'], ['当前状态', '无依赖边'], ['实际影响', '写入方与仍在执行的读取方重叠']])) +
         section('证据', '<div class="kf-oi-links"><span class="kf-oi-evidence">时间线重叠</span><span class="kf-oi-evidence">共享 buffer</span><span class="kf-oi-evidence">输出非确定性</span></div>') +
@@ -1436,9 +1441,14 @@
     return null;
   }
 
+  function cancelObjectTooltipShow() {
+    if (objectTooltipShowTimer) { clearTimeout(objectTooltipShowTimer); objectTooltipShowTimer = null; }
+  }
+
   function hideObjectTooltip() {
     if (!objectTooltip) return;
     if (objectTooltipTimer) { clearTimeout(objectTooltipTimer); objectTooltipTimer = null; }
+    cancelObjectTooltipShow();
     if (objectTooltipTarget) objectTooltipTarget.removeAttribute('aria-describedby');
     objectTooltipTarget = null;
     objectTooltip.classList.remove('is-open');
@@ -1446,12 +1456,26 @@
   }
 
   function scheduleObjectTooltipHide() {
+    cancelObjectTooltipShow();
     if (objectTooltipTimer) clearTimeout(objectTooltipTimer);
     objectTooltipTimer = setTimeout(hideObjectTooltip, 120);
   }
 
+  /* 未打开时延时出现；已经打开时直接切换，避免连续浏览时反复等待 */
+  function scheduleObjectTooltipShow(target, obj) {
+    if (!objectTooltip || !obj || obj.id == null) return;
+    if (objectTooltipTimer) { clearTimeout(objectTooltipTimer); objectTooltipTimer = null; }
+    if (objectTooltip.classList.contains('is-open')) { cancelObjectTooltipShow(); showObjectTooltip(target, obj); return; }
+    cancelObjectTooltipShow();
+    objectTooltipShowTimer = setTimeout(() => {
+      objectTooltipShowTimer = null;
+      if (target.isConnected) showObjectTooltip(target, obj);
+    }, TOOLTIP_SHOW_DELAY);
+  }
+
   function showObjectTooltip(target, obj) {
     if (!objectTooltip || !obj || obj.id == null) return;
+    cancelObjectTooltipShow();
     if (objectTooltipTimer) { clearTimeout(objectTooltipTimer); objectTooltipTimer = null; }
     if (objectTooltipTarget && objectTooltipTarget !== target) objectTooltipTarget.removeAttribute('aria-describedby');
     objectTooltipTarget = target;
@@ -1459,12 +1483,17 @@
     objectTooltip.innerHTML = objectInspector({ kind: obj.kind, id: String(obj.id), sourceTab: obj.sourceTab || st.tab, runId: st.run }).replace(' id="kfObjectInspector"', '');
     objectTooltip.classList.add('is-open');
     objectTooltip.setAttribute('aria-hidden', 'false');
+    /* 卡片贴在目标左右两侧，纵向与目标居中对齐 */
     const box = target.getBoundingClientRect();
     const tip = objectTooltip.getBoundingClientRect();
-    const left = Math.max(8, Math.min(box.left, window.innerWidth - tip.width - 8));
-    const top = box.bottom + tip.height + 10 > window.innerHeight ? Math.max(8, box.top - tip.height - 10) : box.bottom + 10;
-    objectTooltip.style.left = Math.round(left) + 'px';
-    objectTooltip.style.top = Math.round(top) + 'px';
+    const maxLeft = window.innerWidth - tip.width - 8;
+    const right = box.right + TOOLTIP_GAP;
+    const left = box.left - TOOLTIP_GAP - tip.width;
+    let x = right <= maxLeft ? right : left;
+    if (x < 8) x = Math.max(8, Math.min(right, maxLeft));
+    const y = Math.max(8, Math.min(box.top + box.height / 2 - tip.height / 2, window.innerHeight - tip.height - 8));
+    objectTooltip.style.left = Math.round(x) + 'px';
+    objectTooltip.style.top = Math.round(y) + 'px';
   }
 
   const HOVER_TARGET = '[data-ws-select-kind], [data-ws-finding], [data-kg-p], [data-kg-kp], [data-dg-select-kind]';
@@ -1473,7 +1502,7 @@
     const onOver = e => {
       const target = e.target.closest(HOVER_TARGET);
       if (!target || target.contains(e.relatedTarget)) return;
-      showObjectTooltip(target, hoveredObject(target));
+      scheduleObjectTooltipShow(target, hoveredObject(target));
     };
     const onOut = e => {
       const target = e.target.closest(HOVER_TARGET);
@@ -1865,10 +1894,6 @@
     return DG.tensors.find(t => t.id === id) || null;
   }
   function dgTask(id) { return DG.tasks.find(t => t.id === String(id)) || null; }
-  function dgProducerOp(tid) { const e = DG.edges.find(x => x.via === tid); return e ? dgOp(e.from) : null; }
-  /* tensor 的语义消费者 = 以它为 via 的那条边的终点 op。
-     注意不能用 x.from === tid：tensor 是边的标签，不是边的起点。 */
-  function dgConsumers(tid) { return DG.edges.filter(x => x.via === tid && x.to).map(x => dgOp(x.to)).filter(Boolean); }
   function dgStateText(state) {
     return state === 'match' ? '匹配'
       : state === 'first' ? '不一致'
@@ -1878,9 +1903,6 @@
   function dgRuntimeProducer(tid) {
     const e = DG.runtimeChain.find(x => x.via === tid);
     return e ? dgTask(e.from) : null;
-  }
-  function dgRuntimeConsumers(taskId) {
-    return DG.runtimeChain.filter(x => x.from === taskId).map(x => dgTask(x.to)).filter(Boolean);
   }
   /* 这一行的色调只由角色决定，避免和 role 两处各写一份判断 */
   function dgTimelineTone(t) {
@@ -2190,23 +2212,13 @@
     '</section>';
   }
 
-  /* 右侧详情复用现有 objectInspector()，不新增第二个 Inspector */
-  function dgAside() {
-    const sel = dg.sel;
-    const inner = sel
-      ? objectInspector({ kind: sel.kind, id: String(sel.id), sourceTab: 'correctness', runId: st.run })
-          .replace(' id="kfObjectInspector"', '')
-      : '<div class="kf-oi is-empty"><p>选择 Graph 中的 Op、Tensor 或 Runtime Task 查看比对证据。</p></div>';
-    return '<aside class="kf-dg-aside" data-dg-aside aria-live="polite">' + inner + '</aside>';
-  }
-
+  /* 对象详情只保留 hover tooltip，画布右侧不再挂常驻容器 */
   function correctnessDiagnosisPanel() {
     return '<section class="kf-rd-sec kf-dg" aria-label="正确性诊断">' +
       dgResult() +
       dgTrail() +
-      '<div class="kf-dg-layout' + (dg.sel ? ' is-inspecting' : '') + '">' +
+      '<div class="kf-dg-layout">' +
         dgCanvas() +
-        dgAside() +
       '</div>' +
       dgCause() +
     '</section>';
@@ -2292,6 +2304,9 @@
     if (!els.detail) return;
     // never innerHTML over nodes on loan from another stage
     releaseBorrowed();
+    // 同理：Compilation 的第二个页签借用了 stage 2 的 #kgTrace，
+    // 不先还回去，重写 #runTabPanel 会把那个实体节点冲成游离节点。
+    window.PTO_COMPILATION?.release?.();
     const t = TASKS.find(x => x.id === st.task);
     const r = t && t.runs.find(x => x.id === st.run);
     if (!t || !r) {
@@ -2331,6 +2346,10 @@
           hintBlock(L);
       } else if (st.tab === 'compilation') {
         renderCompilationTab(panel, r);
+      } else if (st.tab === 'correctness' && usesCorrectnessDiagnosis(r)) {
+        dgReset(r.id);
+        panel.innerHTML = correctnessDiagnosisPanel();
+        dgDraw(panel); dgWatch();
       } else if (st.tab === 'resources') {
         panel.innerHTML = band('Compile-time Memory', '片上水位、复用与调度兑现') + memBlock(L) + intentBlock(L) +
           band('Runtime Resources', '仅展示已采集信号') +
