@@ -498,13 +498,46 @@
     const timeline = document.createElement('div');
     timeline.id = 'runTimeline';
     panel.appendChild(timeline);
-    if (measured) panel.insertAdjacentHTML('beforeend', xfAttribution(D, P, L));
+    window.PTO_TIMELINE?.mount?.(timeline, {
+      inlineInspector: false,
+      selectedTaskId: st.selection && st.selection.kind === 'task' ? Number(st.selection.id) : null,
+      onSelect(obj) { selectObject(Object.assign({ sourceTab: 'execution' }, obj)); },
+      onClear() { clearSelection(); }
+    });
+  }
 
-    if (fanHost) {
-      window.PTO_FAN.mount(fanHost, {
-        onSelect(obj) { selectObject(Object.assign({ sourceTab: 'execution' }, obj)); }
-      });
+  /* 当前真实 Run 的 Execution 页签。Performance 在此 Run 中是 Execution 的
+     一个证据维度，而非独立页签，因此 Compilation 的上下文直接落到这里。 */
+  function renderExecutionTab(panel, run) {
+    const D = window.PTO_RUN_TRACE, ctx = st.runtimeContext;
+    const indices = D && ctx ? runtimeIndices(D, ctx.kernelName) : [];
+    const focus = indices.length ? runtimeFocus(D, ctx, indices) : null;
+    if (ctx && focus != null) {
+      const task = D.tasks[focus];
+      const backend = (D.kernels[task.k] || {}).be || '—';
+      const chain = (((D.perf || {}).chain || {}).steps || []).find(s => s.i === focus);
+      const chainText = chain ? 'Wait ' + rtUs(chain.wait) + ' · Run ' + rtUs(chain.run) : '不在当前关键链记录中';
+      const summary = indices.length === 1
+        ? '1 logical runtime task · ' + rtUs(task.s) + ' → ' + rtUs(task.e) + ' · ' + task.c + ' ' + backend + ' cores'
+        : indices.length + ' logical runtime tasks · 当前选择 ' + task.id + ' · ' + rtUs(task.e - task.s);
+      panel.insertAdjacentHTML('beforeend', '<section class="kf-cv-context kf-cv-context--execution">' +
+        '<span>From Compilation</span><b>' + esc(runtimeFindingLabel(ctx.findingId)) + ' · ' + esc(ctx.kernelName) +
+        ' · Task ' + esc(task.id) + '</b></section>' +
+        '<section class="kf-cv-summary"><div><span>Runtime evidence</span><b>' + esc(ctx.kernelName) + '</b><small>' +
+        esc(summary) +
+        '</small></div><div><span>Critical chain</span><b>' + esc(chainText) +
+        '</b><small>这是运行时证据，不单独判定瓶颈。</small></div></section>' + localDependencyHTML(D, focus));
     }
+    const fan = document.createElement('section');
+    fan.className = 'kf-rd-sec kf-fan-host';
+    fan.id = 'runFan';
+    panel.appendChild(fan);
+    window.PTO_FAN?.mount?.(fan, {
+      onSelect(obj) { selectObject(Object.assign({ sourceTab: 'execution' }, obj)); }
+    });
+    const timeline = document.createElement('div');
+    timeline.id = 'runTimeline';
+    panel.appendChild(timeline);
     window.PTO_TIMELINE?.mount?.(timeline, {
       inlineInspector: false,
       selectedTaskId: focus != null ? focus : (st.selection && st.selection.kind === 'task' ? Number(st.selection.id) : null),
@@ -2327,6 +2360,15 @@
   }
 
   const rtUs = v => v >= 1000 ? (v / 1000).toFixed(2) + ' ms' : Number(v).toFixed(2) + ' µs';
+  function runtimeFindingLabel(id) {
+    const labels = {
+      mem: 'Memory capacity',
+      perf: 'Performance finding',
+      intent: 'Pipeline intent',
+      all: 'Compilation finding'
+    };
+    return labels[id] || id;
+  }
   function runtimeIndices(D, kernel) {
     return D.tasks.map((t, i) => t.kn === kernel ? i : -1).filter(i => i >= 0);
   }
@@ -2342,7 +2384,7 @@
     if (!t) return '';
     const K = D.kernels[t.k] || {};
     return '<button type="button" class="kf-cv-node is-' + side + '" data-runtime-task="' + i + '">' +
-      '<code>' + esc(t.kn) + '</code><small>' + esc(rtUs(t.s) + ' → ' + rtUs(t.e) + ' · ' + (K.be || '—')) + '</small></button>';
+      '<code>' + esc(t.kn) + '</code><small>' + esc('Task ' + t.id + ' · ' + rtUs(t.s) + ' → ' + rtUs(t.e) + ' · ' + (K.be || '—')) + '</small></button>';
   }
   function localDependencyHTML(D, focus) {
     const up = D.edges.filter(e => e[1] === focus).map(e => e[0]);
@@ -2351,7 +2393,7 @@
       (list.length > 6 ? '<span class="kf-cv-more">+' + (list.length - 6) + ' 个同层任务</span>' : '');
     return '<section class="kf-cv-dependency" aria-label="局部依赖上下文">' +
       '<header><div><b>Dependency context</b><small>当前 Task 的 1-hop 上下游</small></div>' +
-      '<button type="button" data-th-tab="execution">View full dependency graph →</button></header>' +
+      '<button type="button" data-runtime-full>查看完整执行依赖 ↓</button></header>' +
       '<div class="kf-cv-graph"><div class="kf-cv-hop"><span>Upstream · ' + up.length + '</span>' + cap(up, 'up') + '</div>' +
       '<i>↓</i>' + runtimeNode(D, focus, 'focus') + '<i>↓</i>' +
       '<div class="kf-cv-hop"><span>Downstream · ' + down.length + '</span>' + cap(down, 'down') + '</div></div></section>';
@@ -2377,7 +2419,7 @@
       ? '1 logical runtime task · ' + rtUs(task.s) + ' → ' + rtUs(task.e) + ' · ' + task.c + ' ' + backend + ' cores'
       : indices.length + ' logical runtime tasks · span ' + rtUs(from) + ' → ' + rtUs(to) + ' · longest ' + rtUs(D.tasks[longest].e - D.tasks[longest].s);
     panel.innerHTML = '<section class="kf-cv" data-compilation-runtime>' +
-      '<header class="kf-cv-context"><span>From Compilation</span><b>' + esc(ctx.findingId) + ' · ' + esc(ctx.kernelName) + '</b></header>' +
+      '<header class="kf-cv-context"><span>From Compilation</span><b>' + esc(runtimeFindingLabel(ctx.findingId)) + ' · ' + esc(ctx.kernelName) + '</b></header>' +
       '<section class="kf-cv-summary"><div><span>Runtime evidence</span><b>' + esc(ctx.kernelName) + '</b><small>' + esc(summary) + '</small></div>' +
       '<div><span>Critical chain</span><b>' + esc(chainFacts) + '</b><small>运行时行为是验证证据，不单独判定瓶颈。</small></div></section>' +
       selection + localDependencyHTML(D, focus) +
@@ -2695,6 +2737,12 @@
   }
 
   function onRunClick(e) {
+    const runtimeFull = e.target.closest('[data-runtime-full]');
+    if (runtimeFull) {
+      const fullGraph = document.getElementById('runFan');
+      if (fullGraph && fullGraph.scrollIntoView) fullGraph.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     const runtimeTask = e.target.closest('[data-runtime-task]');
     if (runtimeTask && st.runtimeContext) {
       st.runtimeContext = Object.assign({}, st.runtimeContext, { taskIndex: Number(runtimeTask.dataset.runtimeTask) });
@@ -2885,7 +2933,7 @@
       const run = task && task.runs.find(r => r.id === st.run);
       if (!run || !compilationDataMatches(run) || String(ctx.runId) !== String(run.id)) return;
       st.runtimeContext = Object.assign({}, ctx, { taskIndex: null });
-      st.tab = 'performance';
+      st.tab = 'execution';
       renderDetailBody();
       renderInspector();
     });
