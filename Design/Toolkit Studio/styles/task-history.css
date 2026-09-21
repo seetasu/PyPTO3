@@ -1147,3 +1147,131 @@
 .kf-rd-overview > .kf-rd-kpi-eff-legend > span > b {
   overflow: visible; font-size: 6.5px; text-overflow: clip;
 }
+
+/* Compilation → Execution context. This block is self-contained so the
+   handoff remains legible even when the Compilation workspace is not mounted. */
+.kf-cv-context {
+  display: flex; min-width: 0; align-items: center; gap: 9px;
+  padding: 10px 12px; border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface-1));
+}
+.kf-cv-context > span {
+  flex: none; padding: 2px 7px; border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border-subtle));
+  border-radius: var(--radius-pill); color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+  font: 600 9px/1.4 var(--font-mono); letter-spacing: .02em;
+}
+.kf-cv-context > b {
+  min-width: 0; overflow: hidden; color: var(--foreground);
+  font: 600 11px/1.4 var(--font-mono); text-overflow: ellipsis; white-space: nowrap;
+}
+.kf-cv-context--execution { margin-top: 12px; }
+
+.kf-cv-summary {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden; border: 1px solid var(--border-subtle); border-top: 0;
+  background: color-mix(in srgb, var(--surface-1) 78%, transparent);
+}
+.kf-cv-summary > div { display: grid; min-width: 0; gap: 4px; padding: 11px 12px 12px; }
+.kf-cv-summary > div + div { border-left: 1px solid var(--border-subtle); }
+.kf-cv-summary span {
+  color: var(--foreground-muted); font: 600 9px/1.2 var(--font-sans);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.kf-cv-summary b {
+  overflow: hidden; color: var(--foreground); font: 600 12px/1.4 var(--font-mono);
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.kf-cv-summary small { color: var(--foreground-muted); font: 10px/1.5 var(--font-sans); }
+
+.kf-cv-dependency {
+  overflow: hidden; margin-bottom: 14px; border: 1px solid var(--border-subtle); border-top: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: color-mix(in srgb, var(--surface-1) 78%, transparent);
+}
+.kf-cv-dependency > header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 12px; border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--surface-2) 54%, transparent);
+}
+.kf-cv-dependency > header > div { display: flex; min-width: 0; align-items: baseline; gap: 8px; }
+.kf-cv-dependency > header b { color: var(--foreground-secondary); font: 600 11px/1.3 var(--font-sans); }
+.kf-cv-dependency > header small { color: var(--foreground-muted); font: 9px/1.3 var(--font-sans); }
+.kf-cv-dependency > header button,
+.kf-cv-execution-next button {
+  flex: none; padding: 4px 7px; border: 0; border-radius: var(--radius-sm);
+  color: var(--primary); background: transparent; cursor: pointer;
+  font: 600 9px/1.4 var(--font-sans);
+}
+.kf-cv-dependency > header button:hover,
+.kf-cv-execution-next button:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+
+.kf-cv-graph {
+  display: grid; grid-template-columns: minmax(0, 1fr) 16px minmax(176px, .62fr) 16px minmax(0, 1fr);
+  align-items: center; gap: 8px; padding: 12px;
+}
+.kf-cv-graph > i {
+  color: var(--foreground-muted); font: 14px/1 var(--font-mono); font-style: normal;
+  text-align: center; transform: rotate(-90deg);
+}
+.kf-cv-hop { display: grid; min-width: 0; grid-template-columns: repeat(auto-fit, minmax(142px, 1fr)); gap: 5px; }
+.kf-cv-hop > span {
+  grid-column: 1 / -1; color: var(--foreground-muted); font: 600 8px/1.3 var(--font-mono);
+  letter-spacing: .05em; text-transform: uppercase;
+}
+.kf-cv-node {
+  display: grid; min-width: 0; gap: 3px; padding: 7px 8px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  color: var(--foreground-secondary); background: var(--surface-2); cursor: pointer;
+  font: inherit; text-align: left;
+}
+.kf-cv-node:hover { border-color: var(--border-strong); background: var(--surface-3); }
+.kf-cv-node code {
+  overflow: hidden; color: inherit; font: 600 10px/1.3 var(--font-mono);
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.kf-cv-node small {
+  overflow: hidden; color: var(--foreground-muted); font: 8px/1.35 var(--font-mono);
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.kf-cv-node.is-focus {
+  border-color: color-mix(in srgb, var(--primary) 72%, var(--border-default));
+  color: var(--foreground); background: color-mix(in srgb, var(--primary) 13%, var(--surface-2));
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+.kf-cv-node.is-up { border-left-color: color-mix(in srgb, var(--foreground-muted) 70%, var(--border-subtle)); }
+.kf-cv-node.is-down { border-left-color: color-mix(in srgb, var(--success) 62%, var(--border-subtle)); }
+.kf-cv-more {
+  display: grid; min-height: 42px; place-items: center; padding: 5px;
+  border: 1px dashed var(--border-subtle); border-radius: var(--radius-sm);
+  color: var(--foreground-muted); font: 8px/1.3 var(--font-mono);
+}
+
+.kf-cv-task-list {
+  display: flex; overflow-x: auto; gap: 5px; padding: 9px 10px;
+  border: 1px solid var(--border-subtle); border-top: 0; scrollbar-width: thin;
+}
+.kf-cv-task-list button {
+  display: flex; flex: 0 0 auto; align-items: center; gap: 6px; padding: 5px 7px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  color: var(--foreground-muted); background: var(--surface-2); cursor: pointer;
+}
+.kf-cv-task-list button.is-on { border-color: var(--primary); color: var(--foreground); }
+.kf-cv-task-list code, .kf-cv-task-list span { color: inherit; font: 9px/1.2 var(--font-mono); }
+.kf-cv-execution-next {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--foreground-muted);
+  background: var(--surface-1); font-size: 10px;
+}
+
+@media (max-width: 900px) {
+  .kf-cv-graph { grid-template-columns: 1fr; }
+  .kf-cv-graph > i { transform: none; }
+}
+@media (max-width: 640px) {
+  .kf-cv-summary { grid-template-columns: 1fr; }
+  .kf-cv-summary > div + div { border-top: 1px solid var(--border-subtle); border-left: 0; }
+  .kf-cv-dependency > header, .kf-cv-context { align-items: flex-start; flex-direction: column; }
+  .kf-cv-dependency > header > div { align-items: flex-start; flex-direction: column; gap: 2px; }
+}
