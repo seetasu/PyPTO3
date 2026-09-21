@@ -503,7 +503,7 @@
     const maxDev = Math.max.apply(null, rows.map((r) => r.dev));
     const secTab = el('section');
     secTab.appendChild(sectionHead('每 rank / 每次调用', 'device_wall 为设备时钟',
-      el('span', 'tc-readout', '点行切换 L2 视图的 rank')));
+      el('span', 'tc-readout', '点行 = 选中要带去 L2 / L1 的 rank')));
     secTab.appendChild(table([
       { label: 'Rank', key: 'rank', mono: true },
       { label: 'inv', key: 'inv', num: true },
@@ -522,25 +522,40 @@
     }));
     stage.appendChild(secTab);
 
-    /* --- hierarchical span breakdown for the selected rank, traced invocation --- */
-    const inv = TRACE_MATCH[S.rank].inv;
-    const sp = D.e2e[S.rank][inv];
-    const total = sp['chip.run'].us;
+    /* --- hierarchical span breakdown, both ranks on one shared scale --- */
+    const rankKeys = Object.keys(D.ranks);
+    const spans = {};
+    rankKeys.forEach((r) => { spans[r] = D.e2e[r][TRACE_MATCH[r].inv]; });
+    /* one denominator for every bar, so the two columns compare directly */
+    const total = Math.max.apply(null, rankKeys.map((r) => spans[r]['chip.run'].us));
     const secBreak = el('section');
-    secBreak.appendChild(sectionHead('调用剖分 · ' + S.rank + ' inv=' + inv,
-      'STRACE host span · device_wall 及子段用设备时钟'));
+    secBreak.appendChild(sectionHead('调用剖分', rankKeys.length + ' rank · 共用刻度 · STRACE host span，device_wall 及子段为设备时钟'));
     const rowsWrap = el('div', 'tc-spanrows');
+    const shead = el('div', 'tc-spanrow tc-spanhead');
+    shead.appendChild(el('span', 'lbl', 'span'));
+    rankKeys.forEach((r) => {
+      shead.appendChild(el('span', 'h' + (r === S.rank ? ' is-armed' : ''), r + ' inv=' + TRACE_MATCH[r].inv));
+      shead.appendChild(el('span', 'h val' + (r === S.rank ? ' is-armed' : ''), 'us'));
+    });
+    rowsWrap.appendChild(shead);
     SPAN_TREE.forEach((entry) => {
       const name = entry[0];
       const depth = entry[1];
-      const span = sp[name];
-      if (!span) return;
+      if (!rankKeys.some((r) => spans[r][name])) return;
       const row = el('div', 'tc-spanrow');
       row.dataset.depth = depth;
       row.appendChild(el('span', 'lbl', name.replace(/^chip\.run\.?/, '') || 'chip.run'));
       const tone = /graph_build/.test(name) ? 'warn' : /device_wall$/.test(name) ? 'good' : /sched/.test(name) ? 'neutral' : null;
-      row.appendChild(bar(span.us / total, tone));
-      row.appendChild(el('span', 'val', num(span.us, 2) + ' us'));
+      rankKeys.forEach((r) => {
+        const span = spans[r][name];
+        if (!span) {
+          row.appendChild(el('span', 'tc-bar-empty'));
+          row.appendChild(el('span', 'val muted', '—'));
+          return;
+        }
+        row.appendChild(bar(span.us / total, tone));
+        row.appendChild(el('span', 'val' + (r === S.rank ? ' is-armed' : ''), num(span.us, 2)));
+      });
       rowsWrap.appendChild(row);
     });
     secBreak.appendChild(rowsWrap);
@@ -2172,7 +2187,7 @@
       })), S.task, (v) => { S.task = v; S.focus = 'task'; render(); })));
     }
 
-    if (S.view === 'e2e' || S.view === 'l2' || S.view === 'l1') {
+    if (S.view === 'l2' || S.view === 'l1') {
       right.appendChild(field('rank', select(Object.keys(D.ranks).map((r) => ({ id: r, label: r })), S.rank,
         (v) => {
           S.rank = v;

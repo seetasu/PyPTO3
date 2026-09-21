@@ -392,15 +392,31 @@ body.tc-page {
 .tc-bar > i[data-tone="neutral"] { background: var(--accent); }
 .tc-bar > i[data-tone="good"] { background: var(--success); }
 
-/* hierarchical span bars for the end-to-end breakdown */
+/* hierarchical span bars for the end-to-end breakdown.
+ * Two rank columns on one shared denominator: E2E's job is the comparison,
+ * so neither column is "the current rank" and there is nothing to switch. */
 .tc-spanrows { display: grid; gap: 3px; }
 .tc-spanrow {
   display: grid;
-  grid-template-columns: 208px minmax(0, 1fr) 96px;
-  gap: var(--space-3);
+  grid-template-columns: 188px minmax(0, 1fr) 84px minmax(0, 1fr) 84px;
+  gap: var(--space-2) var(--space-3);
   align-items: center;
   font: var(--type-body-sm);
 }
+.tc-spanhead { padding-bottom: 3px; border-bottom: 1px solid var(--border-subtle); }
+.tc-spanhead .lbl { color: var(--foreground-muted); font-family: var(--font-sans); }
+.tc-spanhead .h {
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tc-spanhead .h.val { text-align: right; }
+/* the rank L2 / L1 will open with — set by clicking a row in the tables above */
+.tc-spanhead .h.is-armed { color: var(--foreground-secondary); }
+.tc-spanrow .val.is-armed { color: var(--foreground); }
+.tc-spanrow .val.muted { color: var(--foreground-disabled); }
+.tc-bar-empty { display: block; height: 14px; }
 .tc-spanrow .lbl { color: var(--foreground-secondary); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tc-spanrow .val { color: var(--foreground); font-family: var(--font-mono); text-align: right; }
 .tc-spanrow[data-depth="1"] .lbl { padding-left: 14px; }
@@ -568,5 +584,5 @@ body.tc-page {
 @media (max-width: 1240px) {
   .pto-ide-frame__topbar-center { display: none; }
   .tc-calc { grid-template-columns: minmax(0, 1fr); }
-  .tc-spanrow { grid-template-columns: 160px minmax(0, 1fr) 84px; }
+  .tc-spanrow { grid-template-columns: 148px minmax(0, 1fr) 76px minmax(0, 1fr) 76px; }
 }
