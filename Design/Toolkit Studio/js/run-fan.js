@@ -87,7 +87,7 @@
   function facets() {
     const C = K(), T = D();
     const out = [
-      { k: 'fn', n: C.kernels.length, label: '生成函数', sub: 'passes_dump 末态' },
+      { k: 'fn', n: C.kernels.length, label: '生成 Kernel', sub: 'passes_dump 末态' },
       { k: 'pass', n: C.passNames.length, label: '编译 Pass', sub: '逐 pass 快照' }
     ];
     if (T) out.push({ k: 'core', n: T.counts.lanes, label: '参与核心', sub: 'dfx 泳道' });
