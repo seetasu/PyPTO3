@@ -646,6 +646,17 @@
     // 新增 Design Demo 时，在此数组追加一项即可出现在启动台。
     const demos = [
       {
+        title: "算子调优控制台",
+        subtitle: "Tuning Console · 五层闭环",
+        category: "内存与性能",
+        status: "新增",
+        version: "01 / Console",
+        description: "以一次真实上板执行（DeepSeek V4 decode_csa，双 rank、72 核、4038 个任务块）为对象，把调优闭环做成可操作界面：端到端分 rank 对账、L2 泳道与关键路径、单核 kernel/setup/hand-off 三口径拆解、片上预算试算、230 条编译提示按源码点归位，并用实验台账强制每轮只验证一个假设。",
+        href: "Design/operator-tuning-console/index.html",
+        preview: "Design/assets/launch-previews/tuning-console.svg",
+        tags: ["Chip Swimlane", "Critical Path", "MemoryReuse", "Tile Budget", "实验台账"]
+      },
+      {
         title: "调试与调优工作台",
         subtitle: "Debug & Tuning Replay Workbench",
         category: "开发工具",
@@ -832,6 +843,17 @@
         href: "Insight/nvidia_dynamo_ux_product_analysis.html",
         preview: "Design/assets/launch-previews/dynamo-study.png",
         tags: ["NVIDIA Dynamo", "UX Research", "Serving", "Profiler"]
+      },
+      {
+        title: "Pass Transform Explorer",
+        subtitle: "逐 Pass 检查真实编译产物",
+        category: "开发工具",
+        status: "新增",
+        version: "01 / Explorer",
+        description: "直接解析 passes_dump 的 52 / 42 份 IR 快照：Pass 时间线按改动量排序，代码 Diff 精确到 token，五种结构图（调用、控制流、数据流、任务 DAG、内存）做前后对照，并用实测增量说明每个 Pass 究竟做了什么优化。",
+        href: "Design/pass-transform-explorer/index.html",
+        preview: "Design/assets/launch-previews/pass-atlas.png",
+        tags: ["Pass Diff", "IR Graph", "MemoryReuse", "Task DAG", "passes_dump"]
       },
       {
         title: "PyPTO Pass Atlas",

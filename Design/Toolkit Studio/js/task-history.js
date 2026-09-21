@@ -405,9 +405,15 @@
     { k: 'compilation', label: 'Compilation', from: '.kf-stage[data-stage="2"]' },
     { k: 'correctness', label: 'Correctness', from: '.kf-stage[data-stage="3"]' },
     { k: 'execution', label: 'Execution' },
-    { k: 'performance', label: 'Performance' },
     { k: 'resources', label: 'Resources' }
   ];
+  /* Performance 不再是页签。延迟结论（端到端 / 关键链 / 等待 / 核占用）和它的
+     证据（时间轴 / 依赖 / 泳道）来自同一份 dfx_outputs，拆成两个页签的结果是
+     结论与证据隔着一次点击，而且同一条关键链在两边各算了一遍。旧的
+     performance 路由 —— Overview 的 domain 卡、Finding 的 route、执行地图的
+     行动作 —— 统一改道到 execution。 */
+  const TAB_ALIAS = { performance: 'execution' };
+  const toTabKey = (k) => TAB_ALIAS[k] || k;
   let borrowed = null;
 
   function releaseBorrowed() {
@@ -480,14 +486,6 @@
       panel.innerHTML = '<p class="kf-rd-note is-dim">运行切片需要 passes_dump 与 dfx_outputs。</p>';
       return;
     }
-    const D = window.PTO_RUN_TRACE, ctx = st.runtimeContext;
-    const indices = D && ctx ? runtimeIndices(D, ctx.kernelName) : [];
-    const focus = indices.length ? runtimeFocus(D, ctx, indices) : null;
-    if (ctx && focus != null) {
-      const task = D.tasks[focus];
-      panel.innerHTML = '<section class="kf-cv-context kf-cv-context--execution"><span>From Compilation</span><b>' +
-        esc(ctx.findingId) + ' · ' + esc(ctx.kernelName) + ' · Task ' + esc(task.id) + '</b></section>';
-    }
     const fan = document.createElement('section');
     fan.className = 'kf-rd-sec kf-fan-host';
     fan.id = 'runFan';
@@ -500,6 +498,13 @@
     const timeline = document.createElement('div');
     timeline.id = 'runTimeline';
     panel.appendChild(timeline);
+    if (measured) panel.insertAdjacentHTML('beforeend', xfAttribution(D, P, L));
+
+    if (fanHost) {
+      window.PTO_FAN.mount(fanHost, {
+        onSelect(obj) { selectObject(Object.assign({ sourceTab: 'execution' }, obj)); }
+      });
+    }
     window.PTO_TIMELINE?.mount?.(timeline, {
       inlineInspector: false,
       selectedTaskId: focus != null ? focus : (st.selection && st.selection.kind === 'task' ? Number(st.selection.id) : null),
@@ -1579,7 +1584,11 @@
     const m = getRunModel(r);
     const states = DOMAIN_ORDER.map(key => {
       const d = getDomainVerdict(r, key), verdict = DOMAIN_VERDICT[d.verdict] || DOMAIN_VERDICT.unknown;
-      return '<button type="button" class="is-' + verdict[1] + '" data-ws-route="' + key + '"><b>' + DOMAIN_LABEL[key] + '</b><em>' + verdict[0] + '</em><small>' + esc(d.summary) + '</small></button>';
+      /* Verdict 域仍是五个（一次 Run 可以又对又慢，结论必须分开说），但
+         Performance 的证据已经并进 Execution，卡片直接指向合并后的页签，
+         并在卡上写明去处，免得用户回来找一个不存在的页签。 */
+      const where = toTabKey(key);
+      return '<button type="button" class="is-' + verdict[1] + '" data-ws-route="' + where + '"><b>' + DOMAIN_LABEL[key] + '</b><em>' + verdict[0] + '</em><small>' + esc(d.summary) + '</small>' + (where === key ? '' : '<i class="kf-rw-route">证据在 ' + DOMAIN_LABEL[where] + '</i>') + '</button>';
     }).join('');
     const findings = getFindings(r).map(f => {
       const severity = f.severity === 'critical' ? 'bad' : f.severity === 'warning' ? 'warn' : 'dim';
@@ -1641,9 +1650,11 @@
         art: ['Validation status', 'No output was produced for comparison.', '编译未完成，正确性验证未启动。']
       },
       execution: {
-        title: 'Execution gate',
-        signals: ['Device dispatch · not started', 'Dependency Graph · ' + available('dependency_graph'), 'Runtime Timeline · ' + available('runtime_timeline')],
-        art: ['Terminal stage', 'LegalizeIndexing', '编译在设备执行前中止，未创建 Task runtime 记录。']
+        title: 'Execution & performance gate',
+        signals: ['Device dispatch · not started', 'Dependency Graph · ' + available('dependency_graph'),
+                  'Runtime Timeline · ' + available('runtime_timeline'), 'End-to-end latency · not measured',
+                  'Critical Path · not built', 'PMU · ' + available('pmu')],
+        art: ['Terminal stage', 'LegalizeIndexing', '编译在设备执行前中止，未创建 Task runtime 记录，也没有延迟与关键链可归因。']
       },
       performance: {
         title: 'Performance measurement gate',
@@ -2419,12 +2430,7 @@
       if (st.tab === 'overview') {
         panel.innerHTML = overviewPanel(r, L);
       } else if (st.tab === 'execution') {
-        renderExecution(panel);
-      } else if (st.tab === 'performance') {
-        const D = traceData(), P = D && D.perf;
-        panel.innerHTML = band('关键链与核占用', '长路径、等待与核负载') +
-          (P ? riTime(P) + riCores(D, P) : '<p class="kf-rd-note is-dim">未采集运行时性能数据。</p>') +
-          hintBlock(L);
+        renderExecutionTab(panel, r);
       } else if (st.tab === 'compilation') {
         renderCompilationTab(panel, r);
       } else if (st.tab === 'correctness' && usesCorrectnessDiagnosis(r)) {
@@ -2482,8 +2488,7 @@
         panel.prepend(document.createRange().createContextualFragment(executionSummaryPanel(r)));
       } else panel.innerHTML = notEvaluatedEvidencePanel(r, 'execution');
     } else if (st.tab === 'performance') {
-      if (st.runtimeContext && compilationDataMatches(r) && String(st.runtimeContext.runId) === String(r.id)) renderCompilationRuntime(panel, r, st.runtimeContext);
-      else if (isPerformanceWarningStory(r)) panel.innerHTML = performanceWarningStoryPanel();
+      if (isPerformanceWarningStory(r)) panel.innerHTML = performanceWarningStoryPanel();
       else if (isValidatedOptimizationStory(r)) panel.innerHTML = validatedPerformancePanel(r);
       else panel.innerHTML = notEvaluatedEvidencePanel(r, 'performance');
     } else if (st.tab === 'resources') {
@@ -2529,7 +2534,8 @@
   /* Both the main column and the right rail live outside the side pane and
      carry the same three affordances, so they share one handler. data-step is
      still left to demo-v2's document-level delegation. */
-  function toTab(k) {
+  function toTab(key) {
+    const k = toTabKey(key);
     if (st.tab === k) return;
     st.tab = k;
     renderDetailBody();
@@ -2795,6 +2801,22 @@
       const obj = { kind: select.dataset.wsSelectKind, id: select.dataset.wsSelectId, sourceTab: select.dataset.wsSource };
       selectObject(obj);
       showObjectTooltip(select, obj);
+      return;
+    }
+    /* ① 结论 → ③ 证据：等待条把同名 kernel 的全部任务和关键链上的那一个
+       task 一起点亮，其余降透明度，整次 Run 的形状保持可见。再点一次取消。 */
+    const xfLocate = e.target.closest('[data-xf-locate]');
+    if (xfLocate) {
+      const on = xfLocate.getAttribute('aria-pressed') !== 'true';
+      $$('[data-xf-locate]', els.detail).forEach(b => b.setAttribute('aria-pressed', 'false'));
+      if (on) {
+        xfLocate.setAttribute('aria-pressed', 'true');
+        window.PTO_TIMELINE?.setHighlight?.(
+          { kernels: [xfLocate.dataset.xfLocate], tasks: [Number(xfLocate.dataset.xfTask)] },
+          { track: 'both' });
+      } else window.PTO_TIMELINE?.clearHighlight?.();
+      const tlHost = els.detail && $('#runTimeline', els.detail);
+      if (tlHost) tlHost.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
     }
     const route = e.target.closest('[data-ws-route]');
