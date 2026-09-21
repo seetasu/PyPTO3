@@ -1,0 +1,336 @@
+/* Run → Compilation 的内容区。
+   参考稿 pypto_compilation_redesign_v6.html 的信息架构（Summary → Findings →
+   Kernel 列表 + Source→关键 Pass→Kernel 横向链 → 下一步 → 完整 Pass 轨迹），
+   但视觉语法全部走项目已有 token，不引入第二套色板。
+
+   三条硬约束，改动前先读：
+   1. 横向滚动必须真实生效 —— 每一级祖先都要 min-width:0，且不能 overflow:hidden。
+      取 `.kc` / `.kc-detail` / `.kc-flow` / `.kc-journey-scroll` 任意一级加上
+      min-width:auto 或 overflow:hidden，链路就会被压回一屏。
+   2. 只有代码区有边框。Source / Pass / Kernel 三个阶段本身不套 Card。
+   3. 每次新增 <button> 类都要同时显式清掉 border 与 background —— 本项目的全局
+      按钮样式会给裸 button 加白底和边框（已经踩过四次）。 */
+
+.kc {
+  --kc-aic: var(--primary);
+  --kc-aiv: var(--success);
+  --kc-line: var(--border-subtle);
+  --kc-line2: var(--border-default);
+  --kc-w: 360px;
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+/* ---------- 1. Summary ---------- */
+.kc-summary {
+  display: grid; grid-template-columns: minmax(0, 1.15fr) repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--kc-line2); border-radius: var(--radius-md);
+  overflow: hidden; background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+}
+.kc-scell { min-width: 0; padding: 10px 12px; border-right: 1px solid var(--kc-line); }
+.kc-scell:last-child { border-right: 0; }
+.kc-scell span { display: block; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kc-scell b { display: block; margin-top: 5px; color: var(--foreground); font-weight: 600; font-size: 16px; font-family: var(--font-mono); }
+.kc-scell small {
+  display: block; margin-top: 4px; overflow: hidden; white-space: nowrap;
+  color: var(--foreground-muted); font-size: 9px; font-family: var(--font-mono); text-overflow: ellipsis;
+}
+.kc-scell b.is-ok { color: var(--success); }
+.kc-scell b.is-warn { color: var(--warning); }
+.kc-scell b.is-bad { color: var(--danger); }
+
+/* ---------- 小节标题 ---------- */
+.kc-sect { display: flex; align-items: flex-end; justify-content: space-between; margin: 4px 2px 0; }
+.kc-sect h2 { margin: 0; color: var(--foreground); font-size: var(--kf-type-sm); font-weight: 600; }
+.kc-sect p { margin: 3px 0 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+
+/* ---------- 2. Findings ---------- */
+.kc-findings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.kc-finding {
+  display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px;
+  align-items: start; padding: 11px 12px; text-align: left; cursor: pointer;
+  border: 1px solid var(--kc-line); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-1) 45%, transparent);
+}
+.kc-finding:hover { border-color: var(--border-strong); background: var(--state-hover); }
+.kc-finding.is-on { border-color: color-mix(in srgb, var(--primary) 50%, var(--kc-line2)); background: var(--state-selected); }
+.kc-fico {
+  display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--radius-sm);
+  color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent);
+  font-weight: 700; font-size: 12px; font-family: var(--font-sans);
+}
+.kc-finding.is-info .kc-fico { color: var(--primary); background: color-mix(in srgb, var(--primary) 15%, transparent); }
+.kc-fbody { min-width: 0; }
+.kc-fbody b { display: block; color: var(--foreground); font-size: 11px; }
+.kc-fbody small {
+  display: block; margin-top: 4px; color: var(--foreground-muted);
+  font-size: var(--kf-type-2xs); line-height: 1.5;
+}
+.kc-finding > em { color: var(--foreground-secondary); font-size: 10px; font-family: var(--font-mono); font-style: normal; white-space: nowrap; }
+
+/* ---------- 3. Kernel 工作区 ---------- */
+.kc-work { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 10px; align-items: start; }
+.kc-list-panel, .kc-detail {
+  min-width: 0; border: 1px solid var(--kc-line); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-1) 40%, transparent);
+}
+.kc-lhead {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 42px; padding: 0 12px; border-bottom: 1px solid var(--kc-line);
+}
+.kc-lhead b { color: var(--foreground); font-size: 11px; }
+.kc-filter { display: flex; border: 1px solid var(--kc-line2); border-radius: var(--radius-sm); overflow: hidden; }
+.kc-filter button {
+  padding: 3px 7px; border: 0; border-radius: 0; background: transparent;
+  color: var(--foreground-muted); cursor: pointer; font-size: 9.5px;
+}
+.kc-filter button.is-on { background: var(--surface-3); color: var(--foreground); }
+.kc-list { max-height: 560px; overflow: auto; }
+.kc-item {
+  display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 8px; align-items: center;
+  width: 100%; padding: 9px 11px; text-align: left; cursor: pointer;
+  border: 0; border-bottom: 1px solid var(--kc-line); border-radius: 0; background: transparent;
+}
+.kc-item:hover { background: var(--state-hover); }
+.kc-item.is-on { background: var(--state-selected); box-shadow: inset 2px 0 0 var(--primary); }
+.kc-ty {
+  display: grid; place-items: center; height: 17px; padding: 0 3px; border-radius: 4px;
+  overflow: hidden; white-space: nowrap;
+  font-size: 8px; font-family: var(--font-mono);
+}
+.kc-ty.is-aic { color: color-mix(in srgb, var(--kc-aic) 74%, #fff); background: color-mix(in srgb, var(--kc-aic) 17%, transparent); }
+.kc-ty.is-aiv { color: color-mix(in srgb, var(--kc-aiv) 78%, #fff); background: color-mix(in srgb, var(--kc-aiv) 17%, transparent); }
+.kc-ty.is-other { color: var(--foreground-muted); background: var(--surface-3); }
+.kc-iname { overflow: hidden; color: var(--foreground-secondary); font-size: 11px; font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.kc-imeta {
+  margin-top: 3px; overflow: hidden; color: var(--foreground-muted);
+  font-size: var(--kf-type-2xs); text-overflow: ellipsis; white-space: nowrap;
+}
+.kc-istate { font-size: 9px; font-family: var(--font-mono); white-space: nowrap; }
+.kc-istate.is-ok { color: var(--success); }
+.kc-istate.is-warn { color: var(--warning); }
+.kc-list-empty { padding: 14px 12px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+
+/* ---------- 3b. Kernel 详情：横向编译链 ---------- */
+.kc-dhead {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+  padding: 12px 14px; border-bottom: 1px solid var(--kc-line);
+}
+.kc-dhead h3 { margin: 0; color: var(--foreground); font-weight: 600; font-size: 15px; font-family: var(--font-mono); }
+.kc-dhead p { margin: 5px 0 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kc-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.kc-badge {
+  padding: 3px 6px; border-radius: 4px; white-space: nowrap;
+  color: var(--foreground-muted); background: var(--surface-3); font-size: 8.5px; font-family: var(--font-mono);
+}
+.kc-badge.is-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent); }
+.kc-badge.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
+.kc-badge.is-ok { color: var(--success); background: color-mix(in srgb, var(--success) 15%, transparent); }
+
+.kc-flow { min-width: 0; padding: 12px 14px 14px; }
+.kc-flow-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.kc-flow-title { min-width: 0; }
+.kc-flow-title b { display: block; color: var(--foreground); font-size: 11px; }
+.kc-flow-title small { display: block; margin-top: 4px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.5; }
+.kc-compare {
+  flex: 0 0 auto; padding: 6px 9px; white-space: nowrap; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--kc-line2));
+  border-radius: var(--radius-sm);
+  color: color-mix(in srgb, var(--primary) 70%, var(--foreground));
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  font-size: 9.5px;
+}
+.kc-compare:hover { border-color: var(--primary); }
+
+/* 横向滚动的三级：scroll 拿宽度并滚，track 撑到内容宽度，stage 定宽不被压扁。
+   任何一级被压回 100% 都会让「拖动看后续阶段」失效。 */
+.kc-journey-scroll {
+  width: 100%; min-width: 0; margin-top: 12px;
+  overflow-x: auto; overflow-y: hidden;
+  padding: 0 0 12px;
+  scrollbar-width: auto;
+  scrollbar-color: var(--border-strong) var(--surface-1);
+  overscroll-behavior-x: contain;
+}
+.kc-journey-scroll::-webkit-scrollbar { height: 9px; }
+.kc-journey-scroll::-webkit-scrollbar-track { border-radius: 99px; background: var(--surface-1); }
+.kc-journey-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid var(--surface-1); border-radius: 99px; background: var(--border-strong);
+}
+.kc-journey-track {
+  display: flex; align-items: flex-start; gap: 12px;
+  width: max-content; min-width: max-content; padding-right: 16px;
+}
+
+.kc-stage { flex: 0 0 var(--kc-w); width: var(--kc-w); min-width: var(--kc-w); }
+.kc-stage-head {
+  display: flex; align-items: center; gap: 7px;
+  min-height: 26px; padding: 0 2px 7px;
+}
+.kc-icon {
+  display: grid; place-items: center; flex: 0 0 22px; width: 22px; height: 18px;
+  border: 1px solid currentColor; border-radius: 4px; line-height: 1;
+  font-size: 8px; font-family: var(--font-mono);
+}
+.kc-kind { font-size: 8px; font-family: var(--font-mono); letter-spacing: .08em; white-space: nowrap; }
+.kc-stage.is-source .kc-icon, .kc-stage.is-source .kc-kind { color: color-mix(in srgb, var(--primary) 62%, var(--foreground-muted)); }
+.kc-stage.is-pass .kc-icon, .kc-stage.is-pass .kc-kind { color: var(--foreground-muted); }
+.kc-stage.is-pass.is-warn .kc-icon, .kc-stage.is-pass.is-warn .kc-kind { color: var(--warning); }
+.kc-stage.is-kernel .kc-icon, .kc-stage.is-kernel .kc-kind { color: color-mix(in srgb, var(--warning) 78%, var(--foreground-muted)); }
+.kc-stage-head b {
+  margin-left: 4px; overflow: hidden; color: var(--foreground);
+  font-weight: 600; font-size: 10px; font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap;
+}
+
+.kc-desc { min-height: 42px; padding: 0 2px; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.6; }
+.kc-meta { display: flex; flex-wrap: wrap; gap: 5px; margin: 7px 2px 9px; }
+.kc-meta span {
+  padding: 2px 5px; border-radius: 4px; white-space: nowrap;
+  color: var(--foreground-muted); background: var(--surface-3); font-size: 8.5px; font-family: var(--font-mono);
+}
+.kc-meta span.is-warn { color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent); }
+.kc-meta span.is-ok { color: var(--success); background: color-mix(in srgb, var(--success) 15%, transparent); }
+.kc-meta span.is-bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
+
+/* 只有代码区有边框，三个阶段本身都是平的 */
+.kc-code {
+  border: 1px solid var(--kc-line2); border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--surface-1);
+}
+.kc-stage.is-source .kc-code { border-top-color: color-mix(in srgb, var(--primary) 55%, var(--kc-line2)); }
+.kc-stage.is-pass .kc-code { border-top-color: var(--border-strong); }
+.kc-stage.is-pass.is-warn .kc-code { border-top-color: color-mix(in srgb, var(--warning) 60%, var(--kc-line2)); }
+.kc-stage.is-kernel .kc-code { border-top-color: color-mix(in srgb, var(--warning) 70%, var(--kc-line2)); }
+.kc-code-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  height: 28px; padding: 0 9px; border-bottom: 1px solid var(--kc-line);
+  color: var(--foreground-muted); font-size: 8.5px; font-family: var(--font-mono);
+}
+.kc-code-head span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kc-code-body {
+  min-height: 148px; max-height: 214px; overflow: auto; padding: 9px 11px;
+  color: var(--foreground-secondary); font-size: 9px; line-height: 1.65; font-family: var(--font-mono);
+  /* IR dump 里的标识符可以很长，pre-wrap 不会断长 token，
+     必须补 overflow-wrap，否则代码框内部会出现横向滚动条。 */
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.kc-code-body .kc-hl { border-radius: 3px; color: color-mix(in srgb, var(--primary) 60%, var(--foreground)); background: color-mix(in srgb, var(--primary) 14%, transparent); }
+.kc-code-body .kc-hl-warn { border-radius: 3px; color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.kc-code-body .kc-dim { color: var(--foreground-disabled); }
+
+.kc-pass-act {
+  margin: 7px 0 0 2px; padding: 0; text-align: left; cursor: pointer;
+  border: 0; border-radius: 0; background: transparent;
+  color: color-mix(in srgb, var(--primary) 68%, var(--foreground-muted)); font-size: 8.5px;
+}
+.kc-pass-act:hover { color: var(--primary); }
+
+.kc-arrow { flex: 0 0 22px; align-self: flex-start; margin-top: 104px; color: var(--foreground-disabled); text-align: center; font-size: 15px; }
+.kc-gap { flex: 0 0 28px; align-self: flex-start; margin-top: 102px; color: var(--foreground-disabled); text-align: center; font-weight: 700; font-size: 17px; line-height: 1; font-family: var(--font-mono); }
+.kc-arrow.is-pair { display: none; }
+
+/* 折叠 Pass：只留源码与 Kernel 两端做对比 */
+.kc-journey-track.is-compact .kc-stage.is-pass,
+.kc-journey-track.is-compact .kc-gap,
+.kc-journey-track.is-compact .kc-arrow { display: none; }
+.kc-journey-track.is-compact .kc-arrow.is-pair { display: block; margin-top: 120px; }
+.kc-journey-track.is-compact { --kc-w: 520px; }
+.kc-journey-track.is-compact .kc-code-body { min-height: 210px; max-height: 300px; }
+
+/* ---------- 4. 下一步 ---------- */
+.kc-next {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  border: 1px solid var(--kc-line); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-1) 40%, transparent);
+}
+.kc-next b { flex: 0 0 auto; color: var(--foreground); font-size: 11px; }
+.kc-next span { flex: 1; min-width: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }
+.kc-next button {
+  flex: 0 0 auto; padding: 0; cursor: pointer; border: 0; border-radius: 0;
+  background: transparent; color: color-mix(in srgb, var(--primary) 75%, var(--foreground-secondary));
+  font-size: 10px; white-space: nowrap;
+}
+.kc-next button:hover { color: var(--primary); }
+
+/* ---------- 5. 完整 Pass 轨迹 ---------- */
+.kc-pass { border: 1px solid var(--kc-line); border-radius: var(--radius-md); overflow: hidden; }
+.kc-pass-toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; padding: 10px 12px; text-align: left; cursor: pointer;
+  border: 0; border-radius: 0; background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+  color: var(--foreground-secondary); font-size: 11px;
+}
+.kc-pass-toggle:hover { color: var(--foreground); }
+.kc-pass-toggle small { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kc-pass-body { display: none; }
+.kc-pass-body.is-open { display: block; }
+.kc-pass-lane { display: flex; flex-direction: column; gap: 7px; padding: 11px 12px 0; }
+.kc-stratum { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kc-stratum > span {
+  flex: 0 0 88px; color: var(--foreground-muted); font-size: 8.5px; font-family: var(--font-mono);
+}
+.kc-stratum-nodes { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.kc-pnode {
+  padding: 4px 7px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--kc-line2); border-radius: 4px;
+  color: var(--foreground-muted); background: transparent; font-size: 8.5px; font-family: var(--font-mono);
+}
+.kc-pnode:hover { border-color: var(--border-strong); color: var(--foreground); }
+.kc-pnode.is-changed { border-color: color-mix(in srgb, var(--warning) 45%, var(--kc-line2)); color: var(--warning); }
+.kc-pnode.is-key { border-color: color-mix(in srgb, var(--primary) 50%, var(--kc-line2)); color: color-mix(in srgb, var(--primary) 70%, var(--foreground)); }
+.kc-pnode.is-on { box-shadow: inset 0 0 0 1px var(--primary); color: var(--foreground); }
+.kc-pnode.is-muted { opacity: .55; }
+.kc-pass-note { margin: 0; padding: 10px 12px 12px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.6; }
+
+.kc-pdetail { display: none; }
+.kc-pdetail.is-open { display: block; border-top: 1px solid var(--kc-line); }
+.kc-pdetail-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border-bottom: 1px solid var(--kc-line);
+}
+.kc-pdetail-head b { color: var(--foreground); font-weight: 600; font-size: 11px; font-family: var(--font-mono); }
+.kc-pdetail-head small { margin-left: 8px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kc-pdetail-head button {
+  padding: 4px 8px; cursor: pointer; border: 1px solid var(--kc-line2);
+  border-radius: var(--radius-sm); background: transparent;
+  color: var(--foreground-secondary); font-size: 9px;
+}
+.kc-pdetail-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); }
+.kc-pdetail-sec { min-width: 0; padding: 12px; border-right: 1px solid var(--kc-line); }
+.kc-pdetail-sec:last-child { border-right: 0; }
+.kc-pdetail-sec h6 { margin: 0 0 7px; color: var(--foreground); font-size: 10px; }
+.kc-pdetail-sec p { margin: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.6; }
+.kc-pd-list { display: grid; gap: 6px; margin-top: 7px; }
+.kc-pd-item { padding: 8px 9px; border: 1px solid var(--kc-line); border-radius: var(--radius-sm); background: var(--surface-1); }
+.kc-pd-item label { display: block; color: var(--foreground-muted); font-size: 8px; font-family: var(--font-mono); }
+.kc-pd-item b { display: block; margin-top: 4px; color: var(--foreground); font-size: 10px; }
+.kc-pd-item small { display: block; margin-top: 4px; color: var(--foreground-muted); font-size: 9px; line-height: 1.45; }
+
+/* IR 前后对比 */
+.kc-ir { display: grid; grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); }
+.kc-ir-col { min-width: 0; border: 1px solid var(--kc-line); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-1); }
+.kc-ir-col h5 {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 0; padding: 7px 9px; border-bottom: 1px solid var(--kc-line);
+  color: var(--foreground-secondary); font-weight: 600; font-size: 9.5px; font-family: var(--font-mono);
+}
+.kc-ir-col h5 small { color: var(--foreground-muted); font-weight: 400; }
+.kc-ir-code { min-height: 150px; max-height: 260px; overflow: auto; padding: 9px 11px; color: var(--foreground-secondary); font-size: 9px; line-height: 1.7; font-family: var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.kc-ir-mid { display: grid; place-items: center; color: var(--foreground-disabled); font-size: 16px; }
+.kc-ir-note { margin: 7px 0 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55; }
+
+/* Source 阶段没有独立源码块时的说明 */
+.kc-src-missing { min-height: 148px; display: grid; place-items: center; padding: 16px; text-align: center; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.6; }
+
+/* ---------- 窄容器回落 ---------- */
+@container (max-width: 1180px) {
+  .kc-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kc-scell:nth-child(3) { border-right: 0; }
+  .kc-findings { grid-template-columns: minmax(0, 1fr); }
+  .kc-work { grid-template-columns: minmax(0, 1fr); }
+  .kc-pdetail-body { grid-template-columns: minmax(0, 1fr); }
+  .kc-pdetail-sec { border-right: 0; border-bottom: 1px solid var(--kc-line); }
+  .kc-ir { grid-template-columns: minmax(0, 1fr); }
+  .kc-ir-mid { padding: 8px 0; }
+}
