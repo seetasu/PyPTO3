@@ -22,20 +22,26 @@
   gap: 14px;
 }
 
-/* ---------- 1. Summary ---------- */
+/* ---------- 1. 编译结论摘要 ----------
+   先回答是否通过，再给六个结论字段。整条摘要跟 Correctness 的 .kf-dg-result
+   同一套版式：判定块 = 标签 + 判定值，字段组 = 标签 + 值，都是两行。 */
 .kc-summary {
-  display: grid; grid-template-columns: minmax(0, 1.15fr) repeat(4, minmax(0, 1fr));
+  display: grid; grid-template-columns: minmax(200px, 1.2fr) repeat(6, minmax(0, 1fr));
   border: 1px solid var(--kc-line2); border-radius: var(--radius-md);
   overflow: hidden; background: color-mix(in srgb, var(--surface-1) 55%, transparent);
 }
-.kc-scell { min-width: 0; padding: 10px 12px; border-right: 1px solid var(--kc-line); }
+/* 判定块沿用 Correctness 的 .kf-dg-verdict：同样的 label 字号/字重/字距、
+   同样的 20px mono 判定值、同样的 2px 行距。不另起一套。 */
+.kc-summary__outcome { display: grid; gap: 2px; min-width: 0; padding: 10px 12px; border-right: 1px solid var(--kc-line); }
+.kc-summary__outcome > span { color: var(--foreground-muted); font: 700 9px var(--font-sans); letter-spacing: .08em; }
+.kc-summary__outcome > b { color: var(--danger); font: 700 20px/1.1 var(--font-mono); }
+.kc-summary__outcome > b.is-ok { color: var(--success); }
+/* 字段组沿用 Correctness 的 .kf-dg-cell：标签 --kf-type-2xs 灰、值 600 12px mono、
+   3px 行距、溢出省略。padding 仍是本条的 cell 内边距（.kf-dg-cell 那边由卡片给）。 */
+.kc-scell { display: grid; gap: 3px; min-width: 0; padding: 10px 12px; border-right: 1px solid var(--kc-line); }
 .kc-scell:last-child { border-right: 0; }
-.kc-scell span { display: block; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
-.kc-scell b { display: block; margin-top: 5px; color: var(--foreground); font-weight: 600; font-size: 16px; font-family: var(--font-mono); }
-.kc-scell small {
-  display: block; margin-top: 4px; overflow: hidden; white-space: nowrap;
-  color: var(--foreground-muted); font-size: 9px; font-family: var(--font-mono); text-overflow: ellipsis;
-}
+.kc-scell span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
+.kc-scell b { overflow: hidden; color: var(--foreground); font: 600 12px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .kc-scell b.is-ok { color: var(--success); }
 .kc-scell b.is-warn { color: var(--warning); }
 .kc-scell b.is-bad { color: var(--danger); }
@@ -242,13 +248,6 @@
 .kc-code-body .kc-hl-warn { border-radius: 3px; color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
 .kc-code-body .kc-dim { color: var(--foreground-disabled); }
 
-.kc-pass-act {
-  margin: 7px 0 0 2px; padding: 0; text-align: left; cursor: pointer;
-  border: 0; border-radius: 0; background: transparent;
-  color: color-mix(in srgb, var(--primary) 68%, var(--foreground-muted)); font-size: 8.5px;
-}
-.kc-pass-act:hover { color: var(--primary); }
-
 .kc-arrow { flex: 0 0 22px; align-self: flex-start; margin-top: 104px; color: var(--foreground-disabled); text-align: center; font-size: 15px; }
 .kc-gap { flex: 0 0 28px; align-self: flex-start; margin-top: 102px; color: var(--foreground-disabled); text-align: center; font-weight: 700; font-size: 17px; line-height: 1; font-family: var(--font-mono); }
 .kc-arrow.is-pair { display: none; }
@@ -276,102 +275,14 @@
 }
 .kc-next button:hover { color: var(--primary); }
 
-/* ---------- 5. 完整 Pass 轨迹 ---------- */
-.kc-pass { border: 1px solid var(--kc-line); border-radius: var(--radius-md); overflow: hidden; }
-.kc-pass-toggle {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  width: 100%; padding: 10px 12px; text-align: left; cursor: pointer;
-  border: 0; border-radius: 0; background: color-mix(in srgb, var(--surface-2) 60%, transparent);
-  color: var(--foreground-secondary); font-size: 11px;
-}
-.kc-pass-toggle:hover { color: var(--foreground); }
-.kc-pass-toggle small { color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
-.kc-pass-body { display: none; }
-.kc-pass-body.is-open { display: block; }
-.kc-pass-lane { display: flex; flex-direction: column; gap: 7px; padding: 11px 12px 0; }
-.kc-stratum { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.kc-stratum > span {
-  flex: 0 0 88px; color: var(--foreground-muted); font-size: 8.5px; font-family: var(--font-mono);
-}
-.kc-stratum-nodes { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
-.kc-pnode {
-  padding: 4px 7px; cursor: pointer; white-space: nowrap;
-  border: 1px solid var(--kc-line2); border-radius: 4px;
-  color: var(--foreground-muted); background: transparent; font-size: 8.5px; font-family: var(--font-mono);
-}
-.kc-pnode:hover { border-color: var(--border-strong); color: var(--foreground); }
-.kc-pnode.is-changed { border-color: color-mix(in srgb, var(--warning) 45%, var(--kc-line2)); color: var(--warning); }
-.kc-pnode.is-key { border-color: color-mix(in srgb, var(--primary) 50%, var(--kc-line2)); color: color-mix(in srgb, var(--primary) 70%, var(--foreground)); }
-.kc-pnode.is-on { box-shadow: inset 0 0 0 1px var(--primary); color: var(--foreground); }
-.kc-pnode.is-muted { opacity: .55; }
-.kc-pass-note { margin: 0; padding: 10px 12px 12px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.6; }
-
-.kc-pdetail { display: none; }
-.kc-pdetail.is-open { display: block; border-top: 1px solid var(--kc-line); }
-.kc-pdetail-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 10px 12px; border-bottom: 1px solid var(--kc-line);
-}
-.kc-pdetail-head b { color: var(--foreground); font-weight: 600; font-size: 11px; font-family: var(--font-mono); }
-.kc-pdetail-head small { margin-left: 8px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
-.kc-pdetail-head button {
-  padding: 4px 8px; cursor: pointer; border: 1px solid var(--kc-line2);
-  border-radius: var(--radius-sm); background: transparent;
-  color: var(--foreground-secondary); font-size: 9px;
-}
-.kc-pdetail-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); }
-.kc-pdetail-sec { min-width: 0; padding: 12px; border-right: 1px solid var(--kc-line); }
-.kc-pdetail-sec:last-child { border-right: 0; }
-.kc-pdetail-sec h6 { margin: 0 0 7px; color: var(--foreground); font-size: 10px; }
-.kc-pdetail-sec p { margin: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.6; }
-.kc-pd-list { display: grid; gap: 6px; margin-top: 7px; }
-.kc-pd-item { padding: 8px 9px; border: 1px solid var(--kc-line); border-radius: var(--radius-sm); background: var(--surface-1); }
-.kc-pd-item label { display: block; color: var(--foreground-muted); font-size: 8px; font-family: var(--font-mono); }
-.kc-pd-item b { display: block; margin-top: 4px; color: var(--foreground); font-size: 10px; }
-.kc-pd-item small { display: block; margin-top: 4px; color: var(--foreground-muted); font-size: 9px; line-height: 1.45; }
-
-/* 「这个 Pass 有变更的 Kernel」名单：把影响计数展开成具体是哪些 Kernel。
-   最多可能到 40 项，给固定上限 + 内部滚动，别把下面的 IR 前后对照顶出屏幕。 */
-.kc-pchg { margin-top: 9px; }
-.kc-pchg-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
-.kc-pchg-head b { color: var(--foreground-secondary); font-size: 10px; }
-.kc-pchg-head span { color: var(--foreground-muted); font-size: var(--kf-type-2xs); font-family: var(--font-mono); }
-.kc-pchg-list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 112px; overflow: auto; }
-.kc-pchg-item {
-  display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 6px; white-space: nowrap;
-  border: 1px solid var(--kc-line); border-radius: 4px;
-}
-.kc-pchg-item i { color: var(--foreground-muted); font-size: 8px; font-family: var(--font-mono); font-style: normal; }
-.kc-pchg-item b { color: var(--foreground-secondary); font-size: 10px; font-family: var(--font-mono); font-weight: 400; }
-.kc-pchg-item em { color: var(--foreground-muted); font-size: 9px; font-family: var(--font-mono); font-style: normal; }
-/* 在这个 Pass 里诞生的 Kernel 是「无中生有」，和「被改写」不是一回事 */
-.kc-pchg-item.is-born { border-color: color-mix(in srgb, var(--primary) 45%, var(--kc-line2)); }
-.kc-pchg-item.is-born em { color: color-mix(in srgb, var(--primary) 72%, var(--foreground-muted)); }
-
-/* IR 前后对比 */
-.kc-ir { display: grid; grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); }
-.kc-ir-col { min-width: 0; border: 1px solid var(--kc-line); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-1); }
-.kc-ir-col h5 {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  margin: 0; padding: 7px 9px; border-bottom: 1px solid var(--kc-line);
-  color: var(--foreground-secondary); font-weight: 600; font-size: 9.5px; font-family: var(--font-mono);
-}
-.kc-ir-col h5 small { color: var(--foreground-muted); font-weight: 400; }
-.kc-ir-code { min-height: 150px; max-height: 260px; overflow: auto; padding: 9px 11px; color: var(--foreground-secondary); font-size: 9px; line-height: 1.7; font-family: var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
-.kc-ir-mid { display: grid; place-items: center; color: var(--foreground-disabled); font-size: 16px; }
-.kc-ir-note { margin: 7px 0 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.55; }
-
 /* Source 阶段没有独立源码块时的说明 */
 .kc-src-missing { min-height: 148px; display: grid; place-items: center; padding: 16px; text-align: center; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.6; }
 
 /* ---------- 窄容器回落 ---------- */
 @container (max-width: 1180px) {
-  .kc-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .kc-scell:nth-child(3) { border-right: 0; }
+  .kc-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kc-summary__outcome { grid-column: span 2; border-right: 0; border-bottom: 1px solid var(--kc-line); }
+  .kc-scell:nth-child(odd) { border-right: 0; }
   .kc-findings { grid-template-columns: minmax(0, 1fr); }
   .kc-work { grid-template-columns: minmax(0, 1fr); }
-  .kc-pdetail-body { grid-template-columns: minmax(0, 1fr); }
-  .kc-pdetail-sec { border-right: 0; border-bottom: 1px solid var(--kc-line); }
-  .kc-ir { grid-template-columns: minmax(0, 1fr); }
-  .kc-ir-mid { padding: 8px 0; }
 }

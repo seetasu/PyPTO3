@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="./styles/ir-compile-guard.css?v=20260921-2" />
   <link rel="stylesheet" href="./styles/task-history.css?v=20260918-28" />
   <link rel="stylesheet" href="./styles/diagnostic-semantic-trace.css?v=20260920-12" />
-  <link rel="stylesheet" href="./styles/ir-compilation-view.css?v=20260921-2" />
+  <link rel="stylesheet" href="./styles/ir-compilation-view.css?v=20260921-6" />
   <link rel="stylesheet" href="./styles/run-fan.css?v=20260904-3" />
   <link rel="stylesheet" href="./styles/run-timeline.css?v=20260920-1" />
   <link rel="stylesheet" href="./styles/typography-responsive.css?v=20260904-3" />
@@ -881,11 +881,11 @@
   <script src="./js/ir-kernels-data.js?v=20260903-4"></script>
   <script src="./js/ir-pass-visuals.js?v=20260902-1"></script>
   <script src="./js/ir-compile-guard.js?v=20260921-2"></script>
-  <script src="./js/ir-compilation-view.js?v=20260921-2"></script>
+  <script src="./js/ir-compilation-view.js?v=20260921-6"></script>
   <script src="./js/run-trace-data.js?v=20260902-3"></script>
   <script src="./js/run-timeline.js?v=20260920-1"></script>
-  <script src="./js/run-fan.js?v=20260904-4"></script>
-  <script src="./js/task-history.js?v=20260921-1"></script>
+  <script src="./js/run-fan.js?v=20260921-2"></script>
+  <script src="./js/task-history.js?v=20260921-3"></script>
   <script src="./js/typography-responsive.js?v=20260907-1"></script>
   <script id="kf-execmap">
     /* 执行地图（Execution Facets）—— 由 temp_file_execution_map_demo.html 的
@@ -969,7 +969,7 @@
         ring: '326',
         kpis: [
           { v: '326', label: 'Runtime Tasks' },
-          { v: '45', label: 'Functions' },
+          { v: '45', label: 'Kernels' },
           { v: '73', label: 'Active Cores' },
           { v: '68%', label: 'Parallelism' }
         ]
@@ -999,10 +999,12 @@
       /* ---------- column schema：一个 facet 一套，行与行之间字段完全一致 ---------- */
       var FACETS = [
         {
-          key: 'functions', label: 'Function',
+          /* 行就是 Kernel（同一个 kernel 的多次 task 实例聚成一行）；key 沿用
+             历史上的 'functions' 作为数据键，面向用户的名词统一是 Kernel。 */
+          key: 'functions', label: 'Kernel',
           defaultSort: 'totalDuration', defaultDir: 'desc', actionWidth: '30%',
           columns: [
-            { k: 'name', label: 'Function', align: 'left', w: '11%', cls: 'kf-em-name', tip: true },
+            { k: 'name', label: 'Kernel', align: 'left', w: '11%', cls: 'kf-em-name', tip: true },
             { k: 'executionType', label: 'Type', align: 'left', w: '7%', render: function (r) { return typeChip(r.executionType); } },
             { k: 'taskInstances', label: 'Tasks', align: 'right', w: '7%' },
             { k: 'totalDuration', label: 'Total duration', align: 'right', w: '11%', render: function (r) { return us(r.totalDuration); } },
@@ -1028,7 +1030,7 @@
             { k: 'busyTime', label: 'Busy time', align: 'right', w: '10%', render: function (r) { return us(r.busyTime); } },
             { k: 'busyRatio', label: 'Busy', align: 'right', w: '7%', render: function (r) { return flag(r.busyRatio >= 90, r.busyRatio + '%'); } },
             { k: 'idleWaitTime', label: 'Idle / Wait', align: 'right', w: '7%', render: function (r) { return us(r.idleWaitTime); } },
-            { k: 'activeFunctions', label: 'Funcs', align: 'right', w: '7%' },
+            { k: 'activeFunctions', label: 'Kernels', align: 'right', w: '7%' },
             { k: 'loadVsPeers', label: 'vs peers', align: 'right', w: '8%', render: function (r) { return flag(Math.abs(r.loadVsPeers) >= 15, (r.loadVsPeers > 0 ? '+' : '') + r.loadVsPeers + '%'); } },
             { k: 'longestTaskDuration', label: 'Longest task', align: 'right', w: '16%', tip: function (r) { return r.longestTaskName + ' · ' + us(r.longestTaskDuration); }, render: function (r) { return longest(r.longestTaskName, r.longestTaskDuration); } }
           ],
@@ -1133,7 +1135,7 @@
           return;
         }
         if (action.act === 'deps') {
-          // 这个 Function 出现在哪组依赖结构里，就选中哪一组
+          // 这个 Kernel 出现在哪组依赖结构里，就选中哪一组
           var dep = null;
           for (var i = 0; i < executionData.dependencies.length; i++) {
             var d = executionData.dependencies[i];

@@ -1038,8 +1038,8 @@
   }
 
   function riScale(L, D) {
-    const rows = [['编译 pass', num(L.passes)], ['生成函数', num(L.kernels)]];
-    if (D) rows.push(['逻辑任务', num(D.counts.tasks)], ['下沉 kernel', num(D.counts.kernels)],
+    const rows = [['编译 pass', num(L.passes)], ['生成 Kernel', num(L.kernels)]];
+    if (D) rows.push(['逻辑任务', num(D.counts.tasks)], ['下沉 Kernel', num(D.counts.kernels)],
                      ['参与核心', num(D.counts.lanes)], ['依赖边', num(D.counts.edges)],
                      ['张量', num(D.counts.tensors)]);
     const TL = { AIV: 'AIV · Vector', AIC: 'AIC · Cube', Spmd: 'SPMD 壳',
@@ -1049,8 +1049,8 @@
       '<h2 class="kf-inspector-title">运行规模</h2>' + dl(rows) +
       '<div class="kf-ri-types">' + Object.keys(L.types).sort((a, b) => L.types[b] - L.types[a])
         .map(k => '<span>' + esc(TL[k] || k) + '<b>' + L.types[k] + '</b></span>').join('') + '</div>' +
-      (D ? '<p class="kf-ri-note is-dim">' + L.kernels + ' 个函数里有 ' + shell +
-        ' 个是编排 / SPMD / Group 壳，不产出独立的设备 kernel —— 所以运行时只看到 ' +
+      (D ? '<p class="kf-ri-note is-dim">' + L.kernels + ' 个 Kernel 里有 ' + shell +
+        ' 个是编排 / SPMD / Group 壳，不发射到设备 —— 所以 dfx 泳道里只看到 ' +
         D.counts.kernels + ' 个。</p>' : '') +
     '</section>';
   }
@@ -2870,9 +2870,18 @@
     createFollowupRun('performance', true);
   }
 
+  /* 打开 Run 视图时默认落在磁盘上那次真实运行，而不是演示脚本刚生成的
+     follow-up —— 只有它有 passes_dump / dfx_outputs。判定用 live 标记，
+     不写死 run id，换一批数据也不会指错。 */
+  function selectDefaultRun() {
+    const task = TASKS.find(t => t.id === st.task) || TASKS[0];
+    st.run = (task.runs.find(r => r.live) || latest(task)).id;
+  }
+
   function boot() {
     if (!mount()) return;
     seedStoryRuns();
+    selectDefaultRun();
     wire(); claimPaneHeader(); hideStageHeaderOnDetail(); watchRunInspectorLayout();
     render(); renderDetail();
   }

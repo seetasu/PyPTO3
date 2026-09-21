@@ -1,7 +1,7 @@
 /* Run → Compilation 内容区。
 
    信息架构来自参考稿 pypto_compilation_redesign_v6.html：
-     Summary → 需要关注 → Kernel 列表 + (Source → 关键 Pass → Kernel) → 下一步 → 完整 Pass 轨迹
+     摘要 → 需要关注 → 工作区（Kernel 列表 + Source → 关键 Pass → Kernel｜编译 IR 全流程）
    视觉语法走项目已有 token，不引入第二套色板；没有第二份 Object Inspector，
    Pass 下钻就在主视图里就地展开。
 
@@ -239,8 +239,7 @@
 
   /* ---------- state ---------- */
   const st = {
-    kernel: null, filter: 'issues', compact: false,
-    passOpen: false, openPass: null, findOn: null,
+    kernel: null, filter: 'issues', compact: false, findOn: null,
     /* 工作区页签：kernel = Kernel 列表 + 详情；trace = 借用来的编译 IR 全流程 */
     pane: 'kernel'
   };
@@ -271,30 +270,34 @@
 
   /* ---------- 渲染 ---------- */
   function summaryHTML() {
-    const withMem = K.kernels.filter(k => Object.keys(k.mem || {}).length);
-    const peak = K.kernels.reduce((a, k) => Math.max(a, worstMem(k).p), 0);
-    const peakK = K.kernels.find(k => worstMem(k).p === peak);
-    const s = findingSets();
-    let e = 0, w = 0, p = 0;
-    K.kernels.forEach(k => { const c = diagOf(k); e += c.error; w += c.warn; p += c.perf; });
-    const tb = K.kernels.reduce((a, k) => a + ((k.reuse && k.reuse.before.b) || 0), 0);
-    const ta = K.kernels.reduce((a, k) => a + ((k.reuse && k.reuse.after.b) || 0), 0);
-    const diagText = (e ? e + 'E ' : '') + (w ? w + 'W ' : '') + p + 'P';
+    const changed = PASSMETA.filter(p => p.d === null || p.d > 0).length;
+    let e = 0;
+    K.kernels.forEach(k => { e += diagOf(k).error; });
+    const pass = e === 0;
+    /* 设备侧的 AIC / AIV 计数直接数 kernels[].type，不写死 8 / 31 */
+    const dev = K.kernels.reduce((a, k) => {
+      if (k.type === 'AIC' || k.type === 'AIV') a[k.type] = (a[k.type] || 0) + 1;
+      return a;
+    }, {});
+    const devValue = ['AIC', 'AIV'].filter(t => dev[t]).map(t => t + ' ' + dev[t]).join(' · ') || '—';
+    const stratValue = STRATA.length
+      ? STRATA[0].id + '–' + STRATA[STRATA.length - 1].id + ' · ' + STRATA.length + ' 层'
+      : '—';
 
-    const cell = (label, value, note, tone) =>
+    /* 判定块与字段组都跟 Correctness 的 .kf-dg-verdict / .kf-dg-cell 同一套版式：
+       标签 + 值两行，不再往格子里塞第三行说明。 */
+    const cell = (label, value, tone) =>
       '<div class="kc-scell"><span>' + esc(label) + '</span><b' + (tone ? ' class="is-' + tone + '"' : '') + '>' +
-      esc(value) + '</b><small>' + esc(note) + '</small></div>';
+      esc(value) + '</b></div>';
 
     return '<div class="kc-summary">' +
-      cell('Kernel', String(K.kernels.length), withMem.length + ' 个占用片上', '') +
-      cell('片上内存峰值', peak + '%',
-        peakK ? peakK.name + ' · ' + (SPACE_LABEL[worstMem(peakK).space] || worstMem(peakK).space) : '',
-        peak >= 90 ? 'bad' : peak >= 70 ? 'warn' : 'ok') +
-      cell('诊断', diagText, e ? '有阻塞' : '无阻塞', e ? 'bad' : w ? 'warn' : 'ok') +
-      cell('意图未兑现', String(s.intent.length),
-        s.intent.length ? s.intent.slice(0, 2).map(k => k.name).join(' · ') : '全部兑现',
-        s.intent.length ? 'warn' : 'ok') +
-      cell('复用收益', (tb ? Math.round((1 - ta / tb) * 100) : 0) + '%', kb(tb) + ' → ' + kb(ta), 'ok') +
+      '<div class="kc-summary__outcome"><span>编译</span><b class="' + (pass ? 'is-ok' : 'is-bad') + '">' + (pass ? 'PASS' : 'FAIL') + '</b></div>' +
+      cell('阻塞诊断', e ? e + ' 个 error' : '无阻塞', e ? 'bad' : 'ok') +
+      cell('IR 变化', changed + ' / ' + PASSMETA.length, changed ? 'warn' : 'ok') +
+      cell('受影响 Kernel', String(K.kernels.length), '') +
+      cell('设备 Kernel', devValue, '') +
+      cell('编译层', stratValue, '') +
+      cell('IR 快照', PASSMETA.length + ' 个', '') +
     '</div>';
   }
 
@@ -434,9 +437,7 @@
           (p.st === 'born' ? '在此 Pass 诞生' : '变更 ' + p.n + ' 处') + '</span>' +
         (meta && meta.gain && meta.gain.length ? '<span>' + esc('+' + meta.gain.join(' ')) + '</span>' : '') +
       '</div>' +
-      code +
-      '<button type="button" class="kc-pass-act" data-kc-openpass="' + esc(p.name) + '">' +
-      '查看完整 Pass 解释与 IR 差异 →</button></section>';
+      code + '</section>';
   }
 
   function stratumName(id) {
@@ -548,106 +549,6 @@
       '<button type="button" data-kc-route="' + esc(F.route) + '">' + esc(F.routeLabel) + ' →</button></div>';
   }
 
-  /* ---------- 完整 Pass 轨迹 ---------- */
-  function passTrackHTML() {
-    const k = current();
-    const keys = k ? keyPasses(k) : [];
-    const keySet = {};
-    keys.forEach(p => { keySet[p.i] = true; });
-    return STRATA.map(s => {
-      const nodes = PASSMETA.filter(p => p.i >= s.from && p.i <= s.to);
-      if (!nodes.length) return '';
-      return '<div class="kc-stratum"><span>' + esc(s.name) + ' <em class="kc-dim">S' +
-        esc(String(s.id).replace(/^S/, '')) + '</em></span>' +
-        '<span class="kc-stratum-nodes">' + nodes.map(p => {
-          const kp = k && (k.passes || [])[p.i];
-          const changed = kp && kp.st !== 'absent' && kp.st !== 'same';
-          const cls = 'kc-pnode' + (keySet[p.i] ? ' is-key' : changed ? ' is-changed' : ' is-muted') +
-            (st.openPass === p.name ? ' is-on' : '');
-          return '<button type="button" class="' + cls + '" data-kc-pass="' + esc(p.name) + '" title="' +
-            esc((p.desc || '').slice(0, 90)) + '">' + esc(p.name) + '</button>';
-        }).join('') + '</span></div>';
-    }).join('');
-  }
-
-  function passDetailHTML() {
-    if (!st.openPass) {
-      return '<div class="kc-pdetail-head"><div><b>选择一个 Pass</b>' +
-        '<small>看它做什么、为什么与当前 Kernel 有关、以及 IR 前后差异</small></div></div>';
-    }
-    const name = st.openPass;
-    const i = PASSNAMES.indexOf(name);
-    const meta = i >= 0 ? PASSMETA[i] : null;
-    const k = current();
-    const kp = k && i >= 0 ? (k.passes || [])[i] : null;
-    const before = irExcerpt(meta, 'before', 9);
-    const after = irExcerpt(meta, 'after', 9);
-    const facts = irScaleFacts(meta);
-    const keys = k ? keyPasses(k) : [];
-    const isKey = keys.some(p => p.name === name);
-
-    const impact = kp ? [
-      ['当前 Kernel', k.name],
-      ['状态', kp.st === 'born' ? '在此 Pass 诞生' : kp.st === 'changed' ? '发生变更' : kp.st === 'absent' ? '此 Pass 不涉及该 Kernel' : '无变化'],
-      ['变更条数', String(kp.n)],
-      ['是否进入关键链', isKey ? '是 · 对解释当前 Finding 有价值' : '否']
-    ] : [['当前 Kernel', k ? k.name : '—'], ['状态', '未采集']];
-
-    /* 点开一个 Pass 时，把「影响 N 个 Kernel」展开成具体名单：只有在这个 Pass
-       里诞生（born）或真的被改写（changed）的才算，按变更条数排序。 */
-    const chg = i >= 0 ? K.kernels
-      .map(x => ({ k: x, kp: (x.passes || [])[i] }))
-      .filter(x => x.kp && (x.kp.st === 'changed' || x.kp.st === 'born'))
-      .sort((a, b) => b.kp.n - a.kp.n || a.k.name.localeCompare(b.k.name)) : [];
-    const chgList = chg.length
-      ? '<div class="kc-pchg"><div class="kc-pchg-head"><b>这个 Pass 有变更的 Kernel</b>' +
-          '<span>' + chg.length + ' / ' + K.kernels.length + ' 个</span></div>' +
-          '<div class="kc-pchg-list">' + chg.map(x => {
-            const born = x.kp.st === 'born';
-            return '<span class="kc-pchg-item' + (born ? ' is-born' : '') + '">' +
-              '<i>' + esc(x.k.type.slice(0, 3).toUpperCase()) + '</i>' +
-              '<b>' + esc(x.k.name) + '</b>' +
-              '<em>' + (born ? '在此 Pass 诞生' : '变更 ' + x.kp.n + ' 处') + '</em>' +
-            '</span>';
-          }).join('') + '</div></div>'
-      : '';
-
-    const ir = (before || after)
-      ? '<div class="kc-ir">' +
-          '<div class="kc-ir-col"><h5><span>变化前</span><small>' + esc(PASSNAMES[i]) + ' 之前</small></h5>' +
-            '<div class="kc-ir-code">' + (before || '<span class="kc-dim">该 hunk 无删除行</span>') + '</div></div>' +
-          '<div class="kc-ir-mid">→</div>' +
-          '<div class="kc-ir-col"><h5><span>变化后</span><small>' + esc(PASSNAMES[i]) + ' 之后</small></h5>' +
-            '<div class="kc-ir-code">' + (after || '<span class="kc-dim">该 hunk 无新增行</span>') + '</div></div>' +
-        '</div>' +
-        '<p class="kc-ir-note">这是整个 IR 的变更 hunk（来自 passes_dump）。' +
-        '它与「该 Pass 对 ' + esc(k ? k.name : '当前 Kernel') + ' 的变更 ' + (kp ? kp.n : 0) +
-        ' 处」是两个不同口径。</p>'
-      : '<div class="kc-ir"><div class="kc-ir-col"><h5><span>IR 规模</span><small>该 pass 无行级 diff</small></h5>' +
-        '<div class="kc-ir-code">' +
-        (facts.length ? facts.map(f => esc(f[0].padEnd(8, ' ') + f[1])).join('\n') : '无可用计数') +
-        '</div></div></div>' +
-        '<p class="kc-ir-note">该 Pass 的 dump 没有行级 diff，因此这里给出整体 IR 的真实计数，而不是编一段差异。</p>';
-
-    return '<div class="kc-pdetail-head"><div><b>' + esc(name) + '</b>' +
-      '<small>' + esc(meta ? stratumName(meta.s) + ' · 第 ' + (i + 1) + ' / ' + PASSMETA.length + ' 个 Pass' : '') + '</small></div>' +
-      '<button type="button" data-kc-passclose>收起说明</button></div>' +
-      '<div class="kc-pdetail-body">' +
-        '<div class="kc-pdetail-sec"><h6>这个 Pass 在做什么</h6><p>' +
-          esc((meta && meta.desc) || '未采集该 Pass 的说明。') + '</p>' +
-          (meta && (meta.gain.length || meta.lose.length)
-            ? '<div class="kc-pd-list"><div class="kc-pd-item"><label>能力变化</label><b>' +
-              esc((meta.gain.length ? '获得 ' + meta.gain.join(' · ') : '') +
-                  (meta.lose.length ? (meta.gain.length ? '，' : '') + '失去 ' + meta.lose.join(' · ') : '')) +
-              '</b><small>' + esc(meta.c || '') + (meta.l ? ' · IR ' + meta.l + ' 行' : '') + '</small></div></div>'
-            : '') + chgList + '</div>' +
-        '<div class="kc-pdetail-sec"><h6>对当前 Kernel 的影响</h6>' +
-          '<div class="kc-pd-list">' + impact.map(x =>
-            '<div class="kc-pd-item"><label>' + esc(x[0]) + '</label><b>' + esc(x[1]) + '</b></div>').join('') +
-          '</div>' + ir + '</div>' +
-      '</div>';
-  }
-
   /* ---------- 装配 ---------- */
   function shellHTML() {
     const rows = listRows();
@@ -678,17 +579,7 @@
         '</div>' +
       '</section>' +
       '<section class="kc-pane" data-kc-pane="trace"></section>' +
-      '<section class="kc-pass">' +
-        '<button type="button" class="kc-pass-toggle" data-kc-passtoggle>' +
-          '<span>完整 Pass 轨迹</span>' +
-          '<small>' + PASSMETA.length + ' Pass · 默认只突出对当前 Kernel 有解释价值的变化　⌄</small></button>' +
-        '<div class="kc-pass-body' + (st.passOpen ? ' is-open' : '') + '" data-kc-passbody>' +
-          '<div class="kc-pass-lane" data-kc-lane>' + passTrackHTML() + '</div>' +
-          '<div class="kc-pdetail' + (st.openPass ? ' is-open' : '') + '" data-kc-pdetail>' + passDetailHTML() + '</div>' +
-          '<p class="kc-pass-note">这里的「关键变化」不等于「所有发生过变化的 Pass」：' +
-          '节点高亮用的是每个 Kernel 真实的 pass 变更计数，进入横向关键链的则是其中能解释当前' +
-          '结构 / 资源占用 / 诊断结果的那几个。专家可以继续查看完整轨迹与原始 dump。</p>' +
-        '</div></section></section>';
+      '</section>';
   }
 
   /* 页签切换只改 class，不重画 —— 页签 2 里挂的是从 kernelGuard 借来的 #kgTrace
@@ -738,22 +629,12 @@
     const box = $('[data-kc-detail]', host);
     if (box) box.innerHTML = detailHTML();
   }
-  function paintLane() {
-    const lane = $('[data-kc-lane]', host);
-    if (lane) lane.innerHTML = passTrackHTML();
-    const d = $('[data-kc-pdetail]', host);
-    if (d) {
-      d.innerHTML = passDetailHTML();
-      d.classList.toggle('is-open', !!st.openPass);
-    }
-  }
 
   function pickKernel(name, opts) {
     if (!byName(name)) return;
     st.kernel = name;
     opts = opts || {};
     if (!issueSet()[name]) st.filter = 'all';
-    st.openPass = null;
     paint();
     if (opts.scroll) {
       const on = $('.kc-item.is-on', host);
@@ -802,26 +683,6 @@
       if (st.compact && sc) sc.scrollLeft = 0;
       return;
     }
-    const op = e.target.closest('[data-kc-openpass]');
-    if (op) {
-      st.passOpen = true;
-      st.openPass = op.dataset.kcOpenpass;
-      const body = $('[data-kc-passbody]', host);
-      if (body) body.classList.add('is-open');
-      paintLane();
-      const d = $('[data-kc-pdetail]', host);
-      if (d && d.scrollIntoView) d.scrollIntoView({ block: 'nearest' });
-      return;
-    }
-    const pn = e.target.closest('[data-kc-pass]');
-    if (pn) { st.openPass = pn.dataset.kcPass; paintLane(); return; }
-    if (e.target.closest('[data-kc-passclose]')) { st.openPass = null; paintLane(); return; }
-    if (e.target.closest('[data-kc-passtoggle]')) {
-      st.passOpen = !st.passOpen;
-      const body = $('[data-kc-passbody]', host);
-      if (body) body.classList.toggle('is-open', st.passOpen);
-      return;
-    }
     const rt = e.target.closest('[data-kc-route]');
     if (rt) {
       const btn = document.querySelector('[data-th-tab="' + rt.dataset.kcRoute + '"]');
@@ -866,7 +727,7 @@
     /* 供调试与验收用：当前状态快照 */
     state() {
       return { kernel: st.kernel, filter: st.filter, compact: st.compact,
-        openPass: st.openPass, passOpen: st.passOpen, pane: st.pane,
+        findOn: st.findOn, pane: st.pane,
         keyPasses: (current() ? keyPasses(current()).map(p => p.name) : []) };
     },
     ready: true
