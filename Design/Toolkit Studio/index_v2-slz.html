@@ -24,7 +24,7 @@
   <link rel="stylesheet" href="./styles/fusion-catalog.css?v=20260828-1" />
   <link rel="stylesheet" href="./styles/fusion-hardware.css?v=20260829-2" />
   <link rel="stylesheet" href="./styles/ir-compile-guard.css?v=20260921-2" />
-  <link rel="stylesheet" href="./styles/task-history.css?v=20260918-28" />
+  <link rel="stylesheet" href="./styles/task-history.css?v=20260921-29" />
   <link rel="stylesheet" href="./styles/diagnostic-semantic-trace.css?v=20260920-12" />
   <link rel="stylesheet" href="./styles/ir-compilation-view.css?v=20260921-6" />
   <link rel="stylesheet" href="./styles/run-fan.css?v=20260904-3" />
@@ -885,7 +885,7 @@
   <script src="./js/run-trace-data.js?v=20260902-3"></script>
   <script src="./js/run-timeline.js?v=20260920-1"></script>
   <script src="./js/run-fan.js?v=20260921-2"></script>
-  <script src="./js/task-history.js?v=20260921-3"></script>
+  <script src="./js/task-history.js?v=20260921-13"></script>
   <script src="./js/typography-responsive.js?v=20260907-1"></script>
   <script id="kf-execmap">
     /* 执行地图（Execution Facets）—— 由 temp_file_execution_map_demo.html 的
@@ -895,7 +895,7 @@
        只替换 executionData 的构造，column schema、排序、hover 动作、Timeline 联动
        都不用动。timelineKernels / lane 是联动锚点，与展示字段分开。
 
-       这一段挂在 js/task-history.js renderExecution() 造的
+       这一段挂在 js/task-history.js renderExecutionTab() 造的
        '<section class="kf-rd-sec kf-fan-host">'（组合扇区，js/run-fan.js 挂载）上：
        包一层 PTO_FAN.mount()，渲染完把宿主掏空换成 facet tab + 表格，宿主元素保留，
        下方 #runTimeline 不动。 */
@@ -960,7 +960,50 @@
       };
 
       /* facet tab 上只显示数量，具体行用默认排序取。 */
-      var FACET_TOTAL = { functions: 45, cores: 73, criticalPaths: 14, dependencies: 126 };
+      var FACET_TOTAL = { functions: 45, cores: 73, criticalPaths: 3, dependencies: 126 };
+
+      /* ---------- 与 ① 结论对口径 ----------
+         合并之前，同一条关键链在两处各算了一遍：执行地图写 930 µs / 14 tasks，
+         性能页写 993 µs / 14 步；run-object 写 326 Runtime Tasks / 45 Functions，
+         下面的 Timeline 写 428 个逻辑任务 / 39 个 kernel。四个数字两两矛盾，
+         读者无从判断哪个对。
+
+         现在凡是 trace 能算出来的，一律从 PTO_RUN_TRACE 推：Path #1 就是 ①
+         用的那条关键链，run-object 的计数就是 Timeline 用的那套计数。剩下的
+         mock 行（Path #2/#3、Dependency、Core 明细）保持原样，等真实
+         dfx_outputs 接进来再替换。 */
+      function reconcileWithTrace() {
+        var T = window.PTO_RUN_TRACE;
+        if (!T) return;
+        var c = T.counts || {};
+        if (c.tasks) {
+          RUN_OBJECT.ring = String(c.tasks);
+          RUN_OBJECT.kpis = [
+            { v: String(c.tasks), label: 'Runtime Tasks' },
+            { v: String(c.kernels), label: 'Functions' },
+            { v: String(c.lanes), label: 'Active Cores' },
+            { v: String(c.edges), label: 'Dependencies' }
+          ];
+          FACET_TOTAL.functions = c.kernels;
+          FACET_TOTAL.cores = c.lanes;
+          FACET_TOTAL.dependencies = c.edges;
+        }
+        var P = T.perf, ch = P && P.chain;
+        if (!ch || !ch.steps || !ch.steps.length) return;
+        var slow = ch.steps[0], blocker = ch.steps[0];
+        ch.steps.forEach(function (s) {
+          if (s.run > slow.run) slow = s;
+          if (s.wait > blocker.wait) blocker = s;
+        });
+        executionData.criticalPaths[0] = {
+          id: 'path-1', name: 'Path #1',
+          duration: Math.round(P.span), taskCount: ch.n, runContribution: 100,
+          computeTime: Math.round(ch.work), waitTime: Math.round(ch.wait),
+          longestTaskName: slow.kn, longestTaskDuration: Math.round(slow.run),
+          primaryBlocker: blocker.kn + ' 前等待',
+          timelineKernels: ch.steps.map(function (s) { return s.kn; })
+        };
+      }
 
       /* 左侧 run-object：这次 Run 本身。ring 是中心圈里的数字，kpis 是四格总量。 */
       var RUN_OBJECT = {
@@ -997,6 +1040,9 @@
       }
 
       /* ---------- column schema：一个 facet 一套，行与行之间字段完全一致 ---------- */
+      /* facet 的顺序就是归因的顺序：先问整条链多久（Critical Path），
+         再问哪条边引入了等待（Dependency），再落到具体函数（Function）和
+         核（Core）。原来的 Function 优先是按"对象大小"排的，不是按作业顺序。 */
       var FACETS = [
         {
           /* 行就是 Kernel（同一个 kernel 的多次 task 实例聚成一行）；key 沿用
@@ -1046,7 +1092,7 @@
           columns: [
             { k: 'name', label: 'Path', align: 'left', w: '7%', cls: 'kf-em-name', tip: true },
             { k: 'duration', label: 'Duration', align: 'right', w: '9%', render: function (r) { return us(r.duration); } },
-            { k: 'taskCount', label: 'Tasks', align: 'right', w: '6%' },
+            { k: 'taskCount', label: 'Steps', align: 'right', w: '6%' },
             { k: 'runContribution', label: 'Run contribution', align: 'right', w: '10%', render: function (r) { return r.runContribution + '%'; } },
             { k: 'computeTime', label: 'Compute', align: 'right', w: '9%', render: function (r) { return us(r.computeTime); } },
             { k: 'waitTime', label: 'Wait', align: 'right', w: '9%', render: function (r) { return flag(r.waitTime > r.computeTime, us(r.waitTime)); } },
@@ -1055,7 +1101,8 @@
           ],
           actions: [
             { label: 'Highlight', act: 'locate' },
-            { label: 'Dependency Graph', act: 'graph' }
+            { label: 'Dependency Graph', act: 'graph' },
+            { label: '归因', act: 'step', to: 'xfStep4' }
           ]
         },
         {
@@ -1076,11 +1123,14 @@
             { label: 'Open Graph', act: 'graph' },
             { label: 'Tasks', act: 'tasks' }
           ]
-        }
+        },
       ];
 
-      /* ---------- 状态 ---------- */
-      var state = { facet: 'functions', sort: {}, sel: {} };
+      /* ---------- 状态 ----------
+         默认停在 Critical Path：它接着 ① 的结论说话（"最长的等待在 X 之前"
+         → "这条链一共多久、算了多久、等了多久"）。原来默认停在 Function，
+         等于先看一张按对象大小排的清单，再自己找回关键链。 */
+      var state = { facet: 'criticalPaths', sort: {}, sel: {} };
 
       function facetOf(key) {
         for (var i = 0; i < FACETS.length; i++) if (FACETS[i].key === key) return FACETS[i];
@@ -1125,7 +1175,13 @@
         var host = document.getElementById('runTimeline');
         if (host) host.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
+      /* ② → ④：行动作不再跨页签，只在同一条漏斗里往下走一段。 */
+      function toStep(id) {
+        var el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
       function runAction(facet, row, action) {
+        if (action.act === 'step') { toStep(action.to); return; }
         if (action.act === 'locate') { locate(facet, row, 'both'); return; }
         if (action.act === 'tasks') { locate(facet, row, 'tasks'); return; }
         if (action.act === 'graph') { openGraph(); return; }
@@ -1154,6 +1210,7 @@
 
       function render() {
         if (!host) return;
+        reconcileWithTrace();
         var facet = facetOf(state.facet);
         var sel = state.sel[facet.key] || null;
         var sort = sortOf(facet);
@@ -1185,9 +1242,14 @@
             return '<td class="is-' + (c.align === 'right' ? 'r' : 'l') + (c.cls ? ' ' + c.cls : '') + '"' +
               (tip ? ' title="' + tip + '"' : '') + '>' + v + '</td>';
           }).join('');
-          var acts = facet.actions.map(function (a) {
+          /* 跳段的动作只在那一段真的存在时才给：历史 Run 没有 ④ 归因
+             （它的 trace 不是自己的），按钮就不该出现。 */
+          var acts = facet.actions.filter(function (a) {
+            return a.act !== 'step' || document.getElementById(a.to);
+          }).map(function (a) {
             return '<button type="button" data-em-act="' + a.act + '"' +
-              (a.tab ? ' data-em-tab="' + a.tab + '"' : '') + '>' + a.label + '</button>';
+              (a.tab ? ' data-em-tab="' + a.tab + '"' : '') +
+              (a.to ? ' data-em-to="' + a.to + '"' : '') + '>' + a.label + '</button>';
           }).join('');
           return '<tr data-em-row="' + r.id + '"' + (r.id === sel ? ' class="is-sel" aria-selected="true"' : '') + '>' +
             cells + '<td class="kf-em-actcell"><div class="kf-em-rowact">' + acts + '</div></td></tr>';
@@ -1258,7 +1320,7 @@
             var rowEl = act.closest('[data-em-row]');
             var f2 = facetOf(state.facet);
             var row2 = executionData[f2.key].filter(function (r) { return r.id === rowEl.dataset.emRow; })[0];
-            if (row2) runAction(f2, row2, { act: act.dataset.emAct, tab: act.dataset.emTab });
+            if (row2) runAction(f2, row2, { act: act.dataset.emAct, tab: act.dataset.emTab, to: act.dataset.emTo });
             return;
           }
 

@@ -404,9 +404,15 @@
     { k: 'compilation', label: 'Compilation', from: '.kf-stage[data-stage="2"]' },
     { k: 'correctness', label: 'Correctness', from: '.kf-stage[data-stage="3"]' },
     { k: 'execution', label: 'Execution' },
-    { k: 'performance', label: 'Performance' },
     { k: 'resources', label: 'Resources' }
   ];
+  /* Performance 不再是页签。延迟结论（端到端 / 关键链 / 等待 / 核占用）和它的
+     证据（时间轴 / 依赖 / 泳道）来自同一份 dfx_outputs，拆成两个页签的结果是
+     结论与证据隔着一次点击，而且同一条关键链在两边各算了一遍。旧的
+     performance 路由 —— Overview 的 domain 卡、Finding 的 route、执行地图的
+     行动作 —— 统一改道到 execution。 */
+  const TAB_ALIAS = { performance: 'execution' };
+  const toTabKey = (k) => TAB_ALIAS[k] || k;
   let borrowed = null;
 
   function releaseBorrowed() {
@@ -468,26 +474,161 @@
     syncPanel();
   }
 
-  /* Execution keeps the existing composition fan and trace timeline together.
-     Their selection is handed to the shared object Inspector instead of a
-     second, embedded Inspector. */
-  function renderExecution(panel) {
-    if (!window.PTO_FAN) {
-      panel.innerHTML = '<p class="kf-rd-note is-dim">运行切片需要 passes_dump 与 dfx_outputs。</p>';
-      return;
+  /* ---------- Execution 页签：Execution ∪ Performance ----------------------
+     原来的两个页签是同一份 dfx_outputs 的两种投影：Execution 给结构（时间轴、
+     依赖、核泳道），Performance 给同一份 trace 的聚合结论（端到端、关键链、
+     等待、核占用）。拆开的代价不只是多一次点击 —— 同一条关键链在两边各算了
+     一遍，执行地图报 930 µs / 14 步，性能页报 993 µs / 14 步，读者无法判断哪
+     个是对的。
+
+     合并后按性能作业的真实顺序排成一条四段漏斗，每段只回答一个问题：
+
+       ① 结论   这次运行的时间花在哪 —— 在算 vs 在等，以及最长的几次等待
+       ② 定位   谁在拖 —— 关键链 / 依赖 / 函数 / 核 四个切面（执行地图）
+       ③ 证据   在时间轴上确认 —— 428 个逻辑任务 / 73 条核泳道
+       ④ 归因   为什么慢、能改什么 —— 核占用失衡、搬运宽度、相邻证据
+
+     上一段驱动下一段：① 的等待条和 ② 的行选中都走 PTO_TIMELINE.setHighlight，
+     命中的块 is-hl、其余 is-dim —— 只降透明度不隐藏，所以整次 Run 的形状一直
+     在，读者能看见"这一步落在整条时间轴的哪个位置"。
+
+     端到端时间、关键链步数、在算 / 在等的拆分只有 PTO_RUN_TRACE.perf.chain 一
+     个出处，页面别处要用就从这里取，不再有第二套算法。 */
+  const XF = [
+    ['1', '结论', '这次运行的时间花在哪'],
+    ['2', '定位', '谁在拖'],
+    ['3', '证据', '在时间轴上确认'],
+    ['4', '归因', '为什么慢 · 能改什么']
+  ];
+  function xfBand(i, right) {
+    const x = XF[i];
+    return '<div class="kf-rd-band kf-xf-band" id="xfStep' + x[0] + '"><span class="kf-xf-no">' + x[0] + '</span>' +
+      '<b>' + x[1] + '</b><small>' + x[2] + '</small>' +
+      (right ? '<em>' + esc(right) + '</em>' : '') + '</div>';
+  }
+
+  /* ① 结论 —— 只有实测 Run 才走这里。历史 Run 的结论是当时记录下来的，
+     把当前挂载的 trace 数字贴上去就是造假。 */
+  function xfVerdict(P) {
+    const c = P.chain;
+    const work = Math.max(0, Math.min(100, Math.round(c.workPct)));
+    const waits = c.steps.slice().sort((a, b) => b.wait - a.wait).filter(x => x.wait > 0).slice(0, 5);
+    const top = waits.length ? waits[0].wait : 1;
+    const lead = work < 50
+      ? '等的时间比算的多 —— 缩短等待比让单个 kernel 更快更划算。'
+      : '时间主要花在计算上 —— 继续压缩单个 kernel 的耗时最划算。';
+    return xfBand(0, '端到端 ' + usFmt(P.span)) +
+      '<section class="kf-xf-verdict">' +
+        '<div class="kf-xf-time">' +
+          '<div class="kf-ri-split">' +
+            '<i class="is-work" style="width:' + c.workPct.toFixed(1) + '%"></i>' +
+            '<i class="is-wait" style="width:' + (100 - c.workPct).toFixed(1) + '%"></i>' +
+          '</div>' +
+          '<div class="kf-ri-splitk">' +
+            '<span><i class="is-work"></i>在算 ' + usFmt(c.work) + ' · ' + work + '%</span>' +
+            '<span><i class="is-wait"></i>在等核 ' + usFmt(c.wait) + ' · ' + (100 - work) + '%</span>' +
+          '</div>' +
+          '<p class="kf-xf-lead">关键链 ' + c.n + ' 步，端到端 ' + usFmt(P.span) + '。' + lead + '</p>' +
+        '</div>' +
+        '<div class="kf-xf-waits">' +
+          '<div class="kf-xf-waits-h">关键链上最长的几次等待<small>点一行，在下方时间轴上定位</small></div>' +
+          waits.map(x => {
+            const share = c.wait ? Math.round(x.wait / c.wait * 100) : 0;
+            return '<button type="button" class="kf-xf-wait" data-xf-locate="' + esc(x.kn) + '"' +
+              ' data-xf-task="' + x.i + '" aria-pressed="false"' +
+              ' title="' + esc(x.kn) + ' 之前等了 ' + usFmt(x.wait) + '，它自己跑了 ' + usFmt(x.run) + '">' +
+              '<code>' + esc(x.kn) + '</code>' +
+              '<i style="width:' + Math.round(x.wait / top * 100) + '%"></i>' +
+              '<b>' + usFmt(x.wait) + '</b><em>' + share + '%</em></button>';
+          }).join('') +
+          '<p class="kf-rd-note is-dim">最长的一次等待发生在 <code>' + esc(waits[0].kn) +
+            '</code> 之前，占关键链全部等待时间的 ' +
+            (c.wait ? Math.round(waits[0].wait / c.wait * 100) : 0) + '%。</p>' +
+        '</div>' +
+      '</section>';
+  }
+
+  /* ④ 归因 —— 两类可操作的根因，加一条通往相邻证据的路。
+     搬运宽度提示来自编译期 report/perf_hints.log，不是运行时采样：它解释
+     "为什么某个 kernel 慢"，不解释"这次运行有多慢"，所以标题上写明出处。 */
+  function xfAttribution(D, P, L) {
+    let out = xfBand(3);
+    const kinds = ['AIC', 'AIV', 'AICPU'];
+    out += '<section class="kf-rd-sec"><div class="kf-rd-h">核占用' +
+      '<small>全芯片平均忙碌 ' + P.busyPct.toFixed(1) + '% · 负载是否均衡</small></div>' +
+      '<div class="kf-ri-occ">' + kinds.map(k => {
+        const o = P.occ[k]; if (!o) return '';
+        return '<div><span>' + k + '<em>' + o.n + ' 核</em></span>' +
+          '<i class="is-' + k.toLowerCase() + '" style="width:' + Math.round(o.pct) + '%"></i>' +
+          '<b>' + o.pct.toFixed(1) + '%</b></div>';
+      }).join('') + '</div>' +
+      '<p class="kf-rd-note">Cube 侧接近 Vector 侧的三倍，负载并不均衡。最耗时的是 <code>' +
+        esc(P.top.kn) + '</code>：累计忙碌 ' + usFmt(P.top.busy) + '，占全芯片忙碌时间的 ' +
+        P.top.pct.toFixed(1) + '%，铺在 ' + P.top.cores + ' 个核上。</p></section>';
+    if (!L) return out;
+    out += hintBlock(L);
+    const links = [];
+    if (L.atLimit) links.push(['resources', L.atLimit + ' 个 kernel 填满 ' +
+      spLabel(L.kmem[0].sp) + '（零余量）→ Resources']);
+    if (L.demotedK.length) links.push(['resources', L.demotedK.length +
+      ' 处流水被降级为串行 → Resources']);
+    links.push(['compilation', '编译期 IR 与 Pass 链 → Compilation']);
+    out += '<section class="kf-rd-sec"><div class="kf-rd-h">相邻证据' +
+      '<small>不是运行时采集，但会改变这次运行的时间</small></div>' +
+      '<div class="kf-oi-links">' + links.map(l =>
+        '<button type="button" class="kf-oi-link" data-ws-route="' + l[0] + '">' +
+          esc(l[1]) + '</button>').join('') + '</div></section>';
+    return out;
+  }
+
+  /* 一个页签，四段，顺序即作业顺序。② 与 ③ 是 DOM 挂载（执行地图 / 时间轴），
+     所以整段不能一次 innerHTML 写完，按段追加。 */
+  function renderExecutionTab(panel, r) {
+    const D = traceData(), P = D && D.perf;
+    const L = r.live ? liveRun() : null;
+    const measured = !!r.live && !!P;
+    const hasRuntime = !!D && (measured || hasEvidence(r, 'runtime_timeline') || hasEvidence(r, 'dependency_graph'));
+    if (!hasRuntime) { panel.innerHTML = notEvaluatedEvidencePanel(r, 'execution'); return; }
+
+    panel.innerHTML =
+      (measured
+        ? xfVerdict(P)
+        : xfBand(0) + (isCorrectnessFailureStory(r) ? correctnessExecutionStoryPanel()
+                     : isPerformanceWarningStory(r) ? performanceWarningStoryPanel()
+                     : isValidatedOptimizationStory(r) ? validatedPerformancePanel(r)
+                     : executionSummaryPanel(r))) +
+      xfBand(1, measured ? '四个切面共用一套时间口径' : '结构参考');
+
+    /* 历史 Run 没有自己的 dfx_outputs：② 和 ③ 用的是当前挂载的那次 trace。
+       合并成一个页签之后这件事就藏不住了 —— ① 写 1.82 ms，② 写 993 µs，同屏
+       可见。与其悄悄混在一起，不如把出处写在段头下面。 */
+    if (!measured) {
+      panel.insertAdjacentHTML('beforeend',
+        '<p class=\"kf-rd-note is-dim\">下面的切片与时间轴来自 <code>' + esc(D.source || (window.PTO_IR_KERNELS || {}).source || '已挂载的 trace') +
+        '</code>，不是这次 Run 的采样：本次 Run 未保留自己的 dfx_outputs，' +
+        '这里只用来看结构，时间数字以 ① 的结论为准。</p>');
     }
-    const fan = document.createElement('section');
-    fan.className = 'kf-rd-sec kf-fan-host';
-    fan.id = 'runFan';
-    panel.appendChild(fan);
-    window.PTO_FAN.mount(fan, {
-      onSelect(obj) {
-        selectObject(Object.assign({ sourceTab: 'execution' }, obj));
-      }
-    });
+
+    /* 骨架先按 ①②③④ 的顺序一次性搭完，再挂载 ② 和 ③ 的组件。
+       顺序不能反：执行地图的行动作要判断「④ 归因这一段在不在」来决定给不给
+       跳段按钮，挂载时 ④ 必须已经在 DOM 里。 */
+    const fanHost = window.PTO_FAN ? document.createElement('section') : null;
+    if (fanHost) {
+      fanHost.className = 'kf-rd-sec kf-fan-host';
+      fanHost.id = 'runFan';
+      panel.appendChild(fanHost);
+    }
+    panel.insertAdjacentHTML('beforeend', xfBand(2, '来自 dfx_outputs/'));
     const timeline = document.createElement('div');
     timeline.id = 'runTimeline';
     panel.appendChild(timeline);
+    if (measured) panel.insertAdjacentHTML('beforeend', xfAttribution(D, P, L));
+
+    if (fanHost) {
+      window.PTO_FAN.mount(fanHost, {
+        onSelect(obj) { selectObject(Object.assign({ sourceTab: 'execution' }, obj)); }
+      });
+    }
     window.PTO_TIMELINE?.mount?.(timeline, {
       inlineInspector: false,
       selectedTaskId: st.selection && st.selection.kind === 'task' ? Number(st.selection.id) : null,
@@ -1556,7 +1697,11 @@
     const m = getRunModel(r);
     const states = DOMAIN_ORDER.map(key => {
       const d = getDomainVerdict(r, key), verdict = DOMAIN_VERDICT[d.verdict] || DOMAIN_VERDICT.unknown;
-      return '<button type="button" class="is-' + verdict[1] + '" data-ws-route="' + key + '"><b>' + DOMAIN_LABEL[key] + '</b><em>' + verdict[0] + '</em><small>' + esc(d.summary) + '</small></button>';
+      /* Verdict 域仍是五个（一次 Run 可以又对又慢，结论必须分开说），但
+         Performance 的证据已经并进 Execution，卡片直接指向合并后的页签，
+         并在卡上写明去处，免得用户回来找一个不存在的页签。 */
+      const where = toTabKey(key);
+      return '<button type="button" class="is-' + verdict[1] + '" data-ws-route="' + where + '"><b>' + DOMAIN_LABEL[key] + '</b><em>' + verdict[0] + '</em><small>' + esc(d.summary) + '</small>' + (where === key ? '' : '<i class="kf-rw-route">证据在 ' + DOMAIN_LABEL[where] + '</i>') + '</button>';
     }).join('');
     const findings = getFindings(r).map(f => {
       const severity = f.severity === 'critical' ? 'bad' : f.severity === 'warning' ? 'warn' : 'dim';
@@ -1618,9 +1763,11 @@
         art: ['Validation status', 'No output was produced for comparison.', '编译未完成，正确性验证未启动。']
       },
       execution: {
-        title: 'Execution gate',
-        signals: ['Device dispatch · not started', 'Dependency Graph · ' + available('dependency_graph'), 'Runtime Timeline · ' + available('runtime_timeline')],
-        art: ['Terminal stage', 'LegalizeIndexing', '编译在设备执行前中止，未创建 Task runtime 记录。']
+        title: 'Execution & performance gate',
+        signals: ['Device dispatch · not started', 'Dependency Graph · ' + available('dependency_graph'),
+                  'Runtime Timeline · ' + available('runtime_timeline'), 'End-to-end latency · not measured',
+                  'Critical Path · not built', 'PMU · ' + available('pmu')],
+        art: ['Terminal stage', 'LegalizeIndexing', '编译在设备执行前中止，未创建 Task runtime 记录，也没有延迟与关键链可归因。']
       },
       performance: {
         title: 'Performance measurement gate',
@@ -2338,12 +2485,7 @@
       if (st.tab === 'overview') {
         panel.innerHTML = overviewPanel(r, L);
       } else if (st.tab === 'execution') {
-        renderExecution(panel);
-      } else if (st.tab === 'performance') {
-        const D = traceData(), P = D && D.perf;
-        panel.innerHTML = band('关键链与核占用', '长路径、等待与核负载') +
-          (P ? riTime(P) + riCores(D, P) : '<p class="kf-rd-note is-dim">未采集运行时性能数据。</p>') +
-          hintBlock(L);
+        renderExecutionTab(panel, r);
       } else if (st.tab === 'compilation') {
         renderCompilationTab(panel, r);
       } else if (st.tab === 'correctness' && usesCorrectnessDiagnosis(r)) {
@@ -2393,17 +2535,7 @@
       else if (getDomainVerdict(r, 'correctness').verdict === 'pass' && hasEvidence(r, 'golden_compare')) panel.innerHTML = correctnessPassPanel(r);
       else panel.innerHTML = notEvaluatedEvidencePanel(r, 'correctness');
     } else if (st.tab === 'execution') {
-      if (isCorrectnessFailureStory(r)) {
-        renderExecution(panel);
-        panel.prepend(document.createRange().createContextualFragment(correctnessExecutionStoryPanel(r)));
-      } else if (hasEvidence(r, 'dependency_graph') || hasEvidence(r, 'runtime_timeline')) {
-        renderExecution(panel);
-        panel.prepend(document.createRange().createContextualFragment(executionSummaryPanel(r)));
-      } else panel.innerHTML = notEvaluatedEvidencePanel(r, 'execution');
-    } else if (st.tab === 'performance') {
-      if (isPerformanceWarningStory(r)) panel.innerHTML = performanceWarningStoryPanel();
-      else if (isValidatedOptimizationStory(r)) panel.innerHTML = validatedPerformancePanel(r);
-      else panel.innerHTML = notEvaluatedEvidencePanel(r, 'performance');
+      renderExecutionTab(panel, r);
     } else if (st.tab === 'resources') {
       if (isPerformanceWarningStory(r)) panel.innerHTML = performanceResourcesStoryPanel();
       else if (getDomainVerdict(r, 'resources').verdict === 'pass') panel.innerHTML = resourcesSummaryPanel(r);
@@ -2447,7 +2579,8 @@
   /* Both the main column and the right rail live outside the side pane and
      carry the same three affordances, so they share one handler. data-step is
      still left to demo-v2's document-level delegation. */
-  function toTab(k) {
+  function toTab(key) {
+    const k = toTabKey(key);
     if (st.tab === k) return;
     st.tab = k;
     renderDetailBody();
@@ -2707,6 +2840,22 @@
       const obj = { kind: select.dataset.wsSelectKind, id: select.dataset.wsSelectId, sourceTab: select.dataset.wsSource };
       selectObject(obj);
       showObjectTooltip(select, obj);
+      return;
+    }
+    /* ① 结论 → ③ 证据：等待条把同名 kernel 的全部任务和关键链上的那一个
+       task 一起点亮，其余降透明度，整次 Run 的形状保持可见。再点一次取消。 */
+    const xfLocate = e.target.closest('[data-xf-locate]');
+    if (xfLocate) {
+      const on = xfLocate.getAttribute('aria-pressed') !== 'true';
+      $$('[data-xf-locate]', els.detail).forEach(b => b.setAttribute('aria-pressed', 'false'));
+      if (on) {
+        xfLocate.setAttribute('aria-pressed', 'true');
+        window.PTO_TIMELINE?.setHighlight?.(
+          { kernels: [xfLocate.dataset.xfLocate], tasks: [Number(xfLocate.dataset.xfTask)] },
+          { track: 'both' });
+      } else window.PTO_TIMELINE?.clearHighlight?.();
+      const tlHost = els.detail && $('#runTimeline', els.detail);
+      if (tlHost) tlHost.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
     }
     const route = e.target.closest('[data-ws-route]');

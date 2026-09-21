@@ -1147,3 +1147,64 @@
 .kf-rd-overview > .kf-rd-kpi-eff-legend > span > b {
   overflow: visible; font-size: 6.5px; text-overflow: clip;
 }
+
+/* ---- Execution 漏斗（Execution ∪ Performance）-----------------------------
+   Performance 曾经是一个独立页签，和 Execution 读的是同一份 dfx_outputs：一边
+   给结论（端到端、关键链、等待、核占用），一边给证据（时间轴、依赖、泳道）。
+   合并后按作业顺序排成四段 —— 结论 / 定位 / 证据 / 归因 —— 每段一个带编号的
+   段头。编号不是装饰：它让读者从任何一段往回数，就知道自己跳过了哪一步。 */
+.kf-xf-band { align-items: center; margin-top: 20px; }
+.kf-rtp > .kf-xf-band:first-child { margin-top: 2px; }
+.kf-xf-no {
+  display: grid; flex: 0 0 auto; place-items: center; width: 17px; height: 17px;
+  border-radius: 50%; color: var(--surface-1);
+  background: color-mix(in srgb, var(--primary) 78%, var(--foreground));
+  font: 650 10px var(--font-mono);
+}
+.kf-xf-band em {
+  margin-left: auto; color: var(--foreground-muted);
+  font: 9.5px var(--font-mono); font-style: normal; white-space: nowrap;
+}
+
+/* ① 结论：左边是时间怎么分，右边是最长的几次等待。并排是因为它们是同一句话
+   的两半 ——「多数时间在等」和「等在这几处」。 */
+.kf-xf-verdict {
+  display: grid; grid-template-columns: minmax(0, .88fr) minmax(0, 1.12fr); gap: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+}
+@container (max-width: 720px) { .kf-xf-verdict { grid-template-columns: minmax(0, 1fr); gap: 14px; } }
+.kf-xf-time { min-width: 0; }
+.kf-xf-time .kf-ri-split { height: 14px; }
+.kf-xf-time .kf-ri-splitk span { font-size: 10.5px; }
+.kf-xf-lead { margin: 11px 0 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.6; }
+.kf-xf-waits { min-width: 0; }
+.kf-xf-waits-h {
+  display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;
+  color: var(--foreground); font-size: var(--kf-type-2xs); font-weight: 650;
+}
+.kf-xf-waits-h small { color: var(--foreground-muted); font-size: 9.5px; font-weight: 400; }
+/* 一行 = 一次等待。它是按钮，不是静态条：点它就在 ③ 的时间轴上点亮同名
+   kernel 的全部任务，再点一次取消。 */
+.kf-xf-wait {
+  display: grid; width: 100%; grid-template-columns: minmax(0, 104px) minmax(0, 1fr) 56px 30px;
+  align-items: center; gap: 8px; padding: 3px 5px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: inherit; background: transparent; cursor: pointer; font: inherit; text-align: left;
+}
+.kf-xf-wait:hover { border-color: var(--border-default); background: color-mix(in srgb, var(--surface-2) 55%, transparent); }
+.kf-xf-wait[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--primary) 52%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.kf-xf-wait code { overflow: hidden; color: var(--foreground-secondary); font: 9.5px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.kf-xf-wait[aria-pressed="true"] code { color: var(--foreground); }
+.kf-xf-wait i { display: block; min-width: 2px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--warning) 55%, var(--surface-3)); }
+.kf-xf-wait b { color: var(--foreground); font: 9.5px var(--font-mono); text-align: right; }
+.kf-xf-wait em { color: var(--foreground-muted); font: 9px var(--font-mono); font-style: normal; text-align: right; }
+.kf-xf-waits .kf-rd-note { margin-top: 9px; }
+
+/* Overview 的 domain 卡：verdict 还是五个，但 Performance 的证据搬到了
+   Execution，卡上得写明去处，否则用户会回来找一个不存在的页签。 */
+.kf-rw-route { color: var(--foreground-muted); font: 9.5px var(--font-sans); font-style: normal; }
