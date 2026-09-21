@@ -1,6 +1,9 @@
 /* Compile guard — kernel-centric view (stage 2) */
 
-.kf-kg {
+/* 变量同时挂在 .kf-kg 与 .kf-kg-trace 上：Run → Compilation 会把 #kgTrace 借走
+   当独立页签，那时它已经不在 .kf-kg 里了，stratum 色和 ok/warn/bad 不能丢。 */
+.kf-kg,
+.kf-kg-trace {
   --kg-ok:   var(--success);
   --kg-warn: var(--warning);
   --kg-bad:  var(--danger);
@@ -14,7 +17,9 @@
   --irp-s4: #BC7440;
   --irp-s5: #C4612F;
   --irp-s6: #CE5622;
+}
 
+.kf-kg {
   display: grid;
   gap: 9px;
   margin-bottom: 12px;
@@ -279,6 +284,24 @@
 .kf-kg-prop { padding: 1px 5px; border: 1px solid var(--kg-ok); border-radius: 3px; color: var(--kg-ok); font: 9px var(--font-mono); }
 .kf-kg-prop.is-lost { border-style: dashed; border-color: var(--kg-bad); color: var(--kg-bad); }
 .kf-kg-prop.is-none { border-style: dotted; border-color: var(--border-strong); color: var(--foreground-muted); font-family: var(--font-sans); font-size: 10px; }
+
+/* 「这个 Pass 有变更的 Kernel」——把 kf-kg-pdk 上的计数展开成名单。
+   名单可能到 40 项，所以给固定上限 + 内部滚动，不让它把 IR diff 推到屏幕外。 */
+.kf-kg-pchg { margin-bottom: 8px; }
+.kf-kg-pchg-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+.kf-kg-pchg-head b { color: var(--foreground-secondary); font: 600 10px var(--font-sans); }
+.kf-kg-pchg-head span { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-kg-pchg-list { display: flex; flex-wrap: wrap; gap: 3px; max-height: 112px; overflow: auto; }
+.kf-kg-pchg-item {
+  display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 6px;
+  border: 1px solid var(--border-subtle); border-radius: 3px; white-space: nowrap;
+}
+.kf-kg-pchg-item i { font: 400 8px var(--font-mono); font-style: normal; }
+.kf-kg-pchg-item b { color: var(--foreground-secondary); font: 400 10px var(--font-mono); }
+.kf-kg-pchg-item em { color: var(--foreground-muted); font: 400 9px var(--font-mono); font-style: normal; }
+/* 在这个 Pass 里诞生的 Kernel 是「无中生有」，和「被改写」不是一回事 */
+.kf-kg-pchg-item.is-born { border-color: color-mix(in srgb, var(--primary) 45%, var(--border-subtle)); }
+.kf-kg-pchg-item.is-born em { color: color-mix(in srgb, var(--primary) 72%, var(--foreground-muted)); }
 
 /* per-kernel strip inside an expanded row */
 .kf-kg-track.is-mini { margin: 0 0 7px; }
