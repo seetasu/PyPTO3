@@ -390,6 +390,8 @@
      inside that stage survives the move. */
   const PANELS = [
     { k: 'overview', label: 'Overview' },
+    // compilation 的 from 只服务「编译失败」Run：那条路径仍借用 stage 2 的
+    // Kernel Guard + 失败故事。pass 的 Run 走 renderCompilationTab()，不再搬 DOM。
     { k: 'compilation', label: 'Compilation', from: '.kf-stage[data-stage="2"]' },
     { k: 'correctness', label: 'Correctness', from: '.kf-stage[data-stage="3"]' },
     { k: 'execution', label: 'Execution' },
@@ -428,6 +430,21 @@
     releaseBorrowed();
     panel.innerHTML = '';        // after the release, only our own leftovers remain
     borrowInto(p.from, panel);
+  }
+
+  /* Compilation 页签：只有当这次 Run 就是 IR 数据产出的那一次时，才交给新的
+     PTO_COMPILATION 渲染；其余情况（历史 Run、编译失败 Run）保持原有行为。
+     这样不会把 20260625_184941 的编译数据贴到别的 Run 上。 */
+  function compilationDataMatches(r) {
+    const K = window.PTO_IR_KERNELS;
+    if (!K || !K.source || !r || !r.id) return false;
+    return String(K.source).indexOf(String(r.id)) >= 0;
+  }
+
+  function renderCompilationTab(panel, r) {
+    const view = window.PTO_COMPILATION;
+    if (view && view.ready && compilationDataMatches(r) && view.render(panel)) return;
+    syncPanel();
   }
 
   /* Execution keeps the existing composition fan and trace timeline together.
@@ -1283,51 +1300,73 @@
     } else if (isCorrectnessFailureStory(current) && kind === 'tensor' && dgTensor(id)) {
       const t = dgTensor(id);
       const prod = dgProducerOp(t.id), cons = dgConsumers(t.id);
+      const rProd = dgRuntimeProducer(t.id);
+      const rCons = rProd ? dgRuntimeConsumers(rProd.id) : [];
       const verdict = t.state === 'match' ? '匹配' : t.state === 'unchecked' ? '无参考基准' : '不一致';
       const stateRows = [['状态', verdict], ['首个分歧', t.state === 'first' ? '是' : t.state === 'propagated' ? '否 · 下游传播' : '—']];
       if (t.ref && t.act) stateRows.push(['最大绝对误差', String(t.maxAbs)], ['最大相对误差', String(t.maxRel)]);
       stateRows.push(['参考基准', t.ref ? 'PyTorch checkpoint' : '—'], ['实测', t.act ? 'Args Dump · Run #106' : '—']);
       title = t.name; meta = t.tid + ' · ' + t.shape + ' · ' + t.dtype;
       body = section('比对状态', rows(stateRows)) +
-        (prod ? section('语义', '<div class="kf-dg-cmp"><span class="is-dim"><b>生产者</b><em>' + esc(prod.name) + '</em></span></div>') : '') +
-        (t.prod ? section('运行时映射', rows([['生产者任务', '#' + t.prod.task], ['Kernel', t.prod.kernel],
-            ['形状', t.shape], ['dtype', t.dtype]])) : '') +
-        (cons.length ? section('消费者', '<div class="kf-oi-links">' + cons.map(o => objectButton('op', o.id, o.name, 'correctness')).join('') + '</div>') : '') +
+        section('语义层', rows([
+          ['产生自', prod ? prod.name : '—'],
+          ['被消费于', cons.length ? cons.map(o => o.name).join(' / ') : '—']])) +
+        (rProd ? section('运行时层', rows([
+          ['生产者 Task', '#' + rProd.id],
+          ['消费者 Task', rCons.length ? rCons.map(x => '#' + x.id).join(' / ') : '—']])) : '') +
         section('动作', '<div class="kf-oi-actions">' +
-          (t.prod
-            ? '<button type="button" data-dg-select-kind="task" data-dg-select-id="' + t.prod.task + '">定位生产者</button>'
+          (rProd
+            ? '<button type="button" data-dg-select-kind="task" data-dg-select-id="' + rProd.id + '">定位运行时生产者</button>'
             : '') +
-          '<button type="button" data-dg-' + (dg.runtime ? 'collapse' : 'expand') + '>' + (dg.runtime ? '收起运行时' : '展开运行时生产者') + '</button>' +
+          '<button type="button" data-dg-' + (dg.runtime ? 'collapse' : 'expand') + '>' + (dg.runtime ? '收起运行时' : '展开运行时') + '</button>' +
         '</div>');
     } else if (isCorrectnessFailureStory(current) && kind === 'task' && dgTask(id)) {
       const t = dgTask(id);
-      const roleZh = { producer: '生产者', consumer: '消费者', upstream: '上游', suspicious: '可疑 · 同 buffer 写入' }[t.role] || t.role;
-      title = 'Task #' + t.id; meta = t.kernel;
-      body = section('Kernel', rows([['Kernel', t.kernel], ['角色', roleZh], ['状态', '已完成']])) +
-        section('张量流转', ('<div class="kf-dg-cmp">' +
-            ['q_rotated', 'k_rotated', 'v'].map(n => { const x = dgTensor(n); return '<span class="is-' + DG_STATE_TONE[x.state] + '"><b>' + n + '</b><em>匹配</em></span>'; }).join('') +
-            (t.role === 'suspicious'
-              ? '<span class="is-warn"><b>work_table</b><em>覆盖写入</em></span>'
-              : '<span class="is-bad"><b>attention_out</b><em>不一致</em></span>') + '</div>')) +
-        section('依赖', rows([['前驱', t.id === '182' ? '3' : '1'], ['后继', t.id === '182' ? '2' : t.id === '197' ? '0' : '1']])) +
+      const pred = DG.runtimeChain.filter(x => x.to === t.id).map(x => x.from);
+      const succ = DG.runtimeChain.filter(x => x.from === t.id).map(x => x.to);
+      const outTensors = t.writes.map(n => {
+        const x = dgTensor(n), st = x ? dgStateText(x.state) : '';
+        return n + (st ? ' · ' + st : '');
+      });
+      /* 时间线字段：core / 起止 / 耗时 / 访问，以及与本 task 相关的 overlap 判定 */
+      const tlRow = DG.timeline.rows.find(r => r.task === t.id);
+      let tlRows = null;
+      if (tlRow) {
+        const ov = DG.timeline.overlap, dur = ov.to - ov.from;
+        tlRows = [['核心', t.core], ['开始', tlRow.s + ' μs'], ['结束', tlRow.e + ' μs'],
+                  ['耗时', (tlRow.e - tlRow.s) + ' μs'], ['访问', dgAccessText(t)]];
+        if (t.id === ov.a) tlRows.push(['重叠', '#' + ov.b + ' 在读窗口内与之重叠 ' + dur + ' μs'],
+                                      ['状态', '检测到可疑交互']);
+        else if (t.id === ov.b) tlRows.push(['冲突候选', '与 Task #' + ov.a + ' 重叠 ' + dur + ' μs']);
+      }
+      title = 'Task #' + t.id; meta = t.core + ' · ' + t.label;
+      body = section('角色', rows([['角色', dgRoleText(t)], ['语义映射', t.semantic || '—']])) +
+        (tlRows ? section('时间线', rows(tlRows)) : '') +
+        (t.reads.length || outTensors.length ? section('张量', rows([
+          ['输入张量', t.reads.length ? t.reads.join(' · ') : '—'],
+          ['输出张量', outTensors.length ? outTensors.join(' · ') : '—']])) : '') +
+        section('依赖', rows([
+          ['前驱', pred.length ? pred.map(x => 'Task #' + x).join(' / ')
+            : t.expectsAfter ? '缺失 · 应排在 Task #' + t.expectsAfter + ' 之后' : '—'],
+          ['后继', succ.length ? succ.map(x => 'Task #' + x).join(' / ') : '—']])) +
         section('重复运行稳定性', '<p class="kf-ri-note">' +
           (t.role === 'suspicious' || t.role === 'producer' ? '不稳定 · 3 次运行在该区域结果不一致' : '稳定') + '</p>') +
         section('动作', '<div class="kf-oi-actions">' +
-          '<button type="button" data-dg-view="dependency">查看依赖</button>' +
           '<button type="button" data-dg-view="timeline">查看时间线</button></div>');
     } else if (isCorrectnessFailureStory(current) && kind === 'timeline') {
-      title = 'Task #197'; meta = '可疑重叠 · work_table';
-      body = section('观测', rows([['读取方', 'Task #182'], ['写入方', 'Task #197'], ['重叠时长', '48 µs'], ['共享 buffer', 'work_table']])) +
-        section('含义', '<p class="kf-ri-note">#197 在 #182 完成读取前就开始写入同一块 buffer，可能造成 buffer overwrite / ordering issue。</p>') +
+      const T = DG.timeline, ov = T.overlap, a = dgTask(ov.a), b = dgTask(ov.b);
+      const dur = ov.to - ov.from;
+      title = '时间线证据'; meta = '共享 buffer ' + T.buffer + ' 的读写重叠';
+      body = section('重叠窗口', rows([['区间', ov.from + ' → ' + ov.to + ' μs'], ['时长', dur + ' μs']])) +
+        section('读写冲突', rows([['读方', 'Task #' + a.id + ' · ' + a.core + ' 读共享 buffer ' + T.buffer],
+          ['写方', 'Task #' + b.id + ' · ' + b.core + ' 写共享 buffer ' + T.buffer]])) +
+        section('解读', '<p class="kf-ri-note">生产者在读路径结束前，写入方已开始覆盖同一块 buffer，' +
+          '可能造成 early overwrite。这与 repeated-run unstable 一致。</p>') +
         section('动作', '<div class="kf-oi-actions"><button type="button" data-dg-select-kind="dependency" data-dg-select-id="missing_182_197">查看缺失依赖</button></div>');
-    } else if (isCorrectnessFailureStory(current) && kind === 'task' && id === '197') {
-      title = 'Task #197'; meta = 'work_table 覆盖写入';
-      body = section('身份与状态', rows([['角色', '写入方 / 覆盖'], ['共享 buffer', 'Buffer X / work_table'], ['排序', '应在 Task #182 之后，当前缺失']])) +
-        section('动作', '<div class="kf-oi-actions"><button type="button" data-dg-select-kind="dependency" data-dg-select-id="missing_182_197">查看缺失依赖</button></div>');
-    } else if (isCorrectnessFailureStory(current) && kind === 'buffer' && id === 'work_table') {
-      title = 'Buffer X'; meta = 'work_table';
-      body = section('共享 buffer 生命周期', rows([['读取方', 'Task #182'], ['写入方', 'Task #197'], ['当前排序', '无依赖边']])) +
-        section('证据', '<p class="kf-ri-note">写入方与仍在执行的读取方重叠；重复运行产出非确定性结果。</p>') +
+    } else if (isCorrectnessFailureStory(current) && kind === 'buffer' && id === 'B2') {
+      title = 'B2'; meta = '共享 buffer';
+      body = section('共享 buffer 生命周期', rows([['读取方', 'Task #182 · AICore 7'], ['写入方', 'Task #197 · AICore 5'], ['当前排序', '无依赖边']])) +
+        section('证据', '<p class="kf-ri-note">写入方与仍在执行的读取方重叠 48 μs；重复运行产出非确定性结果。</p>') +
         section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="dependency" data-ws-select-id="missing_182_197" data-ws-source="execution">查看缺失依赖</button></div>');
     } else if (isCorrectnessFailureStory(current) && kind === 'dependency' && id === 'missing_182_197') {
       title = '预期排序'; meta = 'Task #182 → Task #197';
@@ -1713,13 +1752,11 @@
       { id: 'softmax_p', name: 'softmax_p', tid: 'T39', shape: '[16, 40, 40]', dtype: 'FP32',
         state: 'unchecked', ref: false, act: true },
       { id: 'attention_out', name: 'attention_out', tid: 'T37', shape: '[16, 40, 128]', dtype: 'BF16',
-        state: 'first', ref: true, act: true, maxAbs: 0.214, maxRel: 0.083,
-        prod: { task: '182', kernel: 'attention_incore_2' } },
+        state: 'first', ref: true, act: true, maxAbs: 0.214, maxRel: 0.083 },
       { id: 'projected_out', name: 'projected_out', tid: 'T40', shape: '[16, 40, 5120]', dtype: 'BF16',
         state: 'unchecked', ref: false, act: true },
       { id: 'out', name: 'out', tid: 'T41', shape: '[16, 40, 5120]', dtype: 'BF16',
-        state: 'propagated', ref: true, act: true, maxAbs: 0.382, maxRel: 0.117,
-        prod: { task: '182', kernel: 'attention_incore_2', via: 'attention_out' } }
+        state: 'propagated', ref: true, act: true, maxAbs: 0.382, maxRel: 0.117 }
     ],
 
     /* 每个 op 行下方挂的 tensor 标签，按生产它的 op 所在列对齐 */
@@ -1754,23 +1791,45 @@
       { from: 'residual', via: 'out', to: null }
     ],
 
-    /* ---------- 运行时：attention_out 的 producer 附近一跳 ---------- */
+    /* ---------- 运行时：attention_out 的 producer → consumer 这一段 ---------- */
+    /* 本轮只做一一对应的局部故事：1 个 Semantic Op ↔ 1 个 Runtime Task，
+       不做 lowering / tiling 的 fanout（所以 attention_out 只有一个 consumer）。
+       Task 之间的 tensor 只作为「边标签」出现，不是节点。 */
     tasks: [
-      { id: '178', kernel: 'rope_qkv', role: 'upstream', note: '写 q_rotated / k_rotated' },
-      { id: '182', kernel: 'attention_incore_2', role: 'producer', note: '写 attention_out' },
-      { id: '196', kernel: 'attention_out_cast', role: 'consumer', note: '读 attention_out' },
-      { id: '201', kernel: 'out_proj_tile', role: 'consumer', note: '读 attention_out' },
-      { id: '197', kernel: 'work_table_fill', role: 'suspicious', note: '写同一块 work_table' }
+      { id: '178', role: 'upstream', label: '上游任务', core: 'AICore 3',
+        reads: [], writes: ['q_rotated', 'k_rotated', 'v'],
+        note: '准备 q / k / v' },
+      { id: '182', role: 'producer', label: '生产者', core: 'AICore 7',
+        reads: ['q_rotated', 'k_rotated', 'v'], writes: ['attention_out'],
+        shared: { buffer: 'B2', op: 'read' },
+        semantic: 'Attention', note: '读共享 buffer B2 · 产生 attention_out' },
+      { id: '196', role: 'consumer', label: '消费者', core: 'AICore 2',
+        reads: ['attention_out'], writes: [],
+        semantic: 'Output Projection', note: '消费 attention_out' },
+      { id: '197', role: 'suspicious', label: '可疑写入', core: 'AICore 5',
+        reads: [], writes: [], shared: { buffer: 'B2', op: 'write' },
+        expectsAfter: '182', note: '写共享 buffer B2 · 缺少与 Task #182 的排序依赖' }
     ],
 
-    /* ---------- timeline（mock 微秒）---------- */
-    timeline: { span: 240, rows: [
-      { task: '178', s: 0, e: 46, be: 'AIV' },
-      { task: '182', s: 58, e: 164, be: 'AIC' },
-      { task: '197', s: 116, e: 196, be: 'AIV' },
-      { task: '196', s: 178, e: 214, be: 'AIV' },
-      { task: '201', s: 186, e: 232, be: 'AIC' }
-    ], overlap: { from: 116, to: 164, label: '可疑重叠' } },
+    /* 运行时链路的边。via 指向 DG.tensors 里的 tensor，用它决定边的颜色/状态。 */
+    runtimeChain: [
+      { from: '178', to: '182', via: null,            label: 'q_rotated · k_rotated · v' },
+      { from: '182', to: '196', via: 'attention_out', label: 'attention_out' }
+    ],
+
+    /* ---------- timeline：不是性能 profiling，是 correctness 证据 ----------
+       单位 μs。base/span 定义横轴量程，tickStep 同时决定刻度与网格线密度。
+       这张图的唯一目的：让人直接读出「#197 在 #182 读完共享 buffer B2 之前就开始写入」。 */
+    timeline: {
+      base: 100, span: 300, tickStep: 50, buffer: 'B2',
+      rows: [
+        { task: '178', s: 104, e: 146 },
+        { task: '182', s: 158, e: 286 },
+        { task: '197', s: 238, e: 344 },
+        { task: '196', s: 322, e: 381 }
+      ],
+      overlap: { from: 238, to: 286, a: '182', b: '197' }
+    },
 
     /* ---------- 结果摘要 ---------- */
     result: {
@@ -1807,7 +1866,42 @@
   }
   function dgTask(id) { return DG.tasks.find(t => t.id === String(id)) || null; }
   function dgProducerOp(tid) { const e = DG.edges.find(x => x.via === tid); return e ? dgOp(e.from) : null; }
-  function dgConsumers(tid) { return DG.edges.filter(x => x.from === tid && x.to).map(x => dgOp(x.to)).filter(Boolean); }
+  /* tensor 的语义消费者 = 以它为 via 的那条边的终点 op。
+     注意不能用 x.from === tid：tensor 是边的标签，不是边的起点。 */
+  function dgConsumers(tid) { return DG.edges.filter(x => x.via === tid && x.to).map(x => dgOp(x.to)).filter(Boolean); }
+  function dgStateText(state) {
+    return state === 'match' ? '匹配'
+      : state === 'first' ? '不一致'
+      : state === 'propagated' ? '不一致 · 下游传播' : '';
+  }
+  /* tensor ↔ runtime task 的映射，全部从 runtimeChain 推出来，不额外存字段 */
+  function dgRuntimeProducer(tid) {
+    const e = DG.runtimeChain.find(x => x.via === tid);
+    return e ? dgTask(e.from) : null;
+  }
+  function dgRuntimeConsumers(taskId) {
+    return DG.runtimeChain.filter(x => x.from === taskId).map(x => dgTask(x.to)).filter(Boolean);
+  }
+  /* 这一行的色调只由角色决定，避免和 role 两处各写一份判断 */
+  function dgTimelineTone(t) {
+    return t.role === 'producer' ? 'focus'
+      : t.role === 'suspicious' ? 'risk'
+      : t.role === 'consumer' ? 'dim' : 'calm';
+  }
+  /* 时间线里的「访问」：共享 buffer 优先，其次张量读写 */
+  function dgAccessText(t) {
+    const p = [];
+    if (t.shared) p.push((t.shared.op === 'read' ? '读' : '写') + '共享 buffer ' + t.shared.buffer);
+    if (t.writes.length) p.push('写 ' + t.writes.join(' / '));
+    else if (!t.shared && t.reads.length) p.push('读 ' + t.reads.join(' / '));
+    return p.length ? p.join(' · ') : '—';
+  }
+  function dgRoleText(t) {
+    if (t.role === 'producer') return t.label + ' · 产生 ' + t.writes.join(' / ');
+    if (t.role === 'consumer') return t.label + ' · 消费 ' + t.reads.join(' / ');
+    if (t.role === 'suspicious') return t.label + ' · 覆盖共享 buffer ' + (t.shared ? t.shared.buffer : '—');
+    return t.label;
+  }
 
   function dgReset(runId) {
     if (dg.run === runId) return;
@@ -1863,88 +1957,130 @@
 
   /* ---------- 运行时展开区 ---------- */
   function dgRoleChip(t) {
-    if (t.role === 'producer') return '<em class="kf-dg-rt-role is-bad">生产者</em>';
-    if (t.role === 'suspicious') return '<em class="kf-dg-rt-role is-warn">可疑</em>';
-    if (t.role === 'upstream') return '<em class="kf-dg-rt-role">上游</em>';
-    return '<em class="kf-dg-rt-role">消费者</em>';
+    const tone = t.role === 'producer' ? ' is-bad' : t.role === 'suspicious' ? ' is-warn' : '';
+    return '<em class="kf-dg-rt-role' + tone + '">' + esc(t.label) + '</em>';
   }
 
+  /* Task 是这一层的节点，比 Semantic Op 更小更紧凑；本轮不显示 Kernel。 */
   function dgRuntimeTask(t) {
     const on = dg.sel && dg.sel.kind === 'task' && dg.sel.id === t.id;
     return '<button type="button" class="kf-dg-rt-task is-' + t.role + (on ? ' is-sel' : '') +
-      '" data-dg-select-kind="task" data-dg-select-id="' + t.id + '" title="' + esc(t.kernel + ' · ' + t.note) + '">' +
-      '<code>#' + t.id + '</code>' +
-      '<span>' + esc(t.kernel) + '</span>' +
+      '" data-dg-select-kind="task" data-dg-select-id="' + t.id + '"' +
+      ' title="' + esc('Task #' + t.id + ' · ' + t.note) + '">' +
+      '<code>Task #' + t.id + '</code>' +
       dgRoleChip(t) + '</button>';
   }
 
+  /* Task 之间的 tensor 是边标签，不是节点：节点列居中，标签挂在竖直连线右侧 */
+  function dgRuntimeLink(e) {
+    const tone = e.via ? (DG_STATE_TONE[dgTensor(e.via)?.state] || 'dim') : 'dim';
+    return '<span class="kf-dg-rt-link is-' + tone + '">' +
+      '<i class="kf-dg-rt-slug" aria-hidden="true"></i>' +
+      '<small>' + esc(e.label) + '</small></span>';
+  }
+
+  /* 单列链路：直接嵌在 semantic graph 的数据流里，不是左右分栏。 */
   function dgRuntimeTasks() {
     const t = id => DG.tasks.find(x => x.id === id);
-    const chain = per => '<div class="kf-dg-rt-flow">' +
-      per.map(x => '<span class="kf-dg-rt-hop"><b>' + esc(x[0]) + '</b><small>' + esc(x[1]) + '</small>' +
-        (x[2] ? '<code>' + esc(x[2]) + '</code>' : '') + '</span>').join('<i class="kf-dg-rt-arrow">↓</i>') +
-      '</div>';
-    return '<div class="kf-dg-rt-map">' + chain([
-      ['语义计算', 'Attention'],
-      ['张量', 'attention_out'],
-      ['运行时生产者', 'Task #182'],
-      ['Kernel', 'attention_incore_2']
-    ]) + '</div>' +
-      '<div class="kf-dg-rt-graph">' +
-        dgRuntimeTask(t('178')) +
-        '<span class="kf-dg-stem" aria-hidden="true"></span>' +
-        dgRuntimeTask(t('182')) +
-        '<span class="kf-dg-fan" aria-hidden="true"><i></i></span>' +
-        '<div class="kf-dg-rt-pair">' + dgRuntimeTask(t('196')) + dgRuntimeTask(t('201')) + '</div>' +
+    const L = DG.runtimeChain;
+    return '<div class="kf-dg-rt-chain">' +
+      '<span class="kf-dg-rt-stem is-entry" aria-hidden="true"></span>' +
+      dgRuntimeTask(t('178')) +
+      dgRuntimeLink(L[0]) +
+      dgRuntimeTask(t('182')) +
+      dgRuntimeLink(L[1]) +
+      dgRuntimeTask(t('196')) +
+      '<span class="kf-dg-rt-stem is-exit" aria-hidden="true"></span>' +
       '</div>';
   }
 
-  function dgRuntimeDependency() {
-    return '<div class="kf-dg-dep">' +
-        '<div class="kf-dg-dep-row is-ok">' +
-          '<code>#178</code><span class="kf-dg-dep-wire"></span><code>#182</code>' +
-          '<em>预期依赖 · 已满足</em></div>' +
-        '<div class="kf-dg-dep-row is-warn">' +
-          '<code>#182</code><span class="kf-dg-dep-wire is-missing">- - - ?</span><code>#197</code>' +
-          '<em>缺失排序依赖 · 共享 work_table</em></div>' +
-      '</div>';
+  /* 每行左侧固定列 + 右侧 time bar。core 与起止时间不再隐藏。 */
+  function dgTimelineRow(r, i) {
+    const T = DG.timeline, ov = T.overlap, t = dgTask(r.task);
+    const pct = v => (v - T.base) / T.span * 100;
+    const on = dg.sel && dg.sel.kind === 'task' && dg.sel.id === t.id;
+    return '<button type="button" class="kf-dg-tlx-row is-' + dgTimelineTone(t) + (on ? ' is-sel' : '') + '"' +
+      ' style="grid-row:' + (3 + i) + '" data-dg-select-kind="task" data-dg-select-id="' + t.id + '"' +
+      ' title="' + esc('Task #' + t.id + ' · ' + t.core + ' · ' + r.s + ' → ' + r.e + ' μs · ' + t.note) + '">' +
+      '<code class="kf-dg-tlx-id">#' + t.id + '</code>' +
+      '<em class="kf-dg-tlx-role">' + esc(t.label) + '</em>' +
+      '<span class="kf-dg-tlx-core">' + esc(t.core) + '</span>' +
+      '<span class="kf-dg-tlx-range">' + r.s + ' → ' + r.e + '<i> μs</i></span>' +
+      '<span class="kf-dg-tlx-dur">' + (r.e - r.s) + ' μs</span>' +
+      '<span class="kf-dg-tlx-track">' +
+        '<i class="kf-dg-tlx-bar" style="left:' + pct(r.s) + '%;width:' +
+          ((r.e - r.s) / T.span * 100) + '%"></i>' +
+      '</span></button>';
+  }
+
+  function dgTimelineAxis() {
+    const T = DG.timeline;
+    const n = Math.round(T.span / T.tickStep);
+    let ticks = '';
+    for (let i = 0; i <= n; i++) ticks += '<i style="left:' + (i / n * 100) + '%">' + (T.base + i * T.tickStep) + '</i>';
+    return '<div class="kf-dg-tlx-axis" style="grid-row:2"><span></span><span></span><span></span><span></span><span></span>' +
+      '<span class="kf-dg-tlx-ticks">' + ticks + '</span></div>';
   }
 
   function dgRuntimeTimeline() {
-    const T = DG.timeline;
-    const rows = T.rows.map(r => {
-      const on = dg.sel && dg.sel.kind === 'task' && dg.sel.id === r.task;
-      const bad = r.task === '182' || r.task === '197';
-      return '<div class="kf-dg-tl-row' + (on ? ' is-sel' : '') + '">' +
-        '<code>#' + r.task + '</code>' +
-        '<span class="kf-dg-tl-track">' +
-          '<i class="is-' + r.be.toLowerCase() + (bad ? ' is-warn' : '') + '" style="left:' +
-            (r.s / T.span * 100) + '%;width:' + ((r.e - r.s) / T.span * 100) + '%"></i>' +
-        '</span></div>';
-    }).join('');
-    return '<div class="kf-dg-tl">' +
-      '<button type="button" class="kf-dg-tl-band" data-dg-select-kind="timeline" data-dg-select-id="overlap_182_197" style="left:' +
-        'calc(104px + (100% - 104px) * ' + (T.overlap.from / T.span) + ')' +
-        ';width:calc((100% - 104px) * ' + ((T.overlap.to - T.overlap.from) / T.span) + ')"></button>' +
-      rows + '</div>' +
-      '<p class="kf-dg-rt-note"><b>↑ 可疑重叠</b> · #197 在 #182 读完同一块 buffer 前 48 µs 就开始写入</p>';
+    const T = DG.timeline, ov = T.overlap, a = dgTask(ov.a), b = dgTask(ov.b);
+    const ra = T.rows.find(r => r.task === a.id), rb = T.rows.find(r => r.task === b.id);
+    const dur = ov.to - ov.from;
+    const n = Math.round(T.span / T.tickStep);
+    const pct = v => (v - T.base) / T.span * 100;
+
+    /* 所有子项都显式给行号：跨行标注带是显式定位的，会先占住它那两行，
+       若其余子项走自动排布就会被挤到后面的空行上、对应行高塌成 0。 */
+    const head = '<div class="kf-dg-tlx-head" style="grid-row:1"><span>任务</span><span>角色</span><span>核心</span>' +
+      '<span>时间区间 (μs)</span><span>耗时</span><span>时间线</span></div>';
+
+    /* 重叠带跨 #182 / #197 两行：靠 grid-row 定位，高度自动跟随行高与行距，
+       不写死像素；画在 bar 之上，否则整段落在两条 bar 内部等于没画。 */
+    const ra0 = T.rows.findIndex(r => r.task === ov.a), rb0 = T.rows.findIndex(r => r.task === ov.b);
+    const lo = Math.min(ra0, rb0), hi = Math.max(ra0, rb0);
+    const span = '<div class="kf-dg-tlx-span" style="grid-row:' + (3 + lo) + ' / ' + (4 + hi) + '">' +
+      '<span class="kf-dg-tlx-band" style="left:' + pct(ov.from) + '%;width:' +
+      ((ov.to - ov.from) / T.span * 100) + '%"></span></div>';
+
+    /* 尺寸标注与上面那条跨行重叠带共用同一 x 区间，视觉上直接对应 */
+    const ovl = '<div class="kf-dg-tlx-ovlrow" style="grid-row:' + (3 + T.rows.length) + '">' + '<span></span>'.repeat(5) +
+      '<span class="kf-dg-tlx-ovlcell">' +
+        '<button type="button" class="kf-dg-tlx-ovl" data-dg-select-kind="timeline" data-dg-select-id="overlap_182_197"' +
+        ' style="left:' + pct(ov.from) + '%;width:' + ((ov.to - ov.from) / T.span * 100) + '%">' +
+          '<b>可疑重叠 ' + dur + ' μs</b><em>' + ov.from + ' → ' + ov.to + ' μs</em></button>' +
+      '</span></div>';
+
+    const sum = '<div class="kf-dg-tlx-sum">' +
+      '<div class="kf-dg-tlx-sum-h"><span>可疑重叠</span><b>' + dur + ' μs</b></div>' +
+      '<p>#' + b.id + ' 在 #' + a.id + ' 读完共享 buffer ' + T.buffer + ' 之前 ' + dur +
+        ' μs 就开始写入。该重叠与 repeated-run unstable 的现象一致，提示存在 ordering / buffer overwrite 风险。</p>' +
+      '<ul>' +
+        '<li>Task #' + a.id + '（' + a.label + '）· ' + a.core + ' · ' + ra.s + ' → ' + ra.e +
+          ' μs，重叠窗口内正在读共享 buffer ' + T.buffer + '</li>' +
+        '<li>Task #' + b.id + '（' + b.label + '）· ' + b.core + ' · ' + rb.s + ' → ' + rb.e +
+          ' μs，提前写同一块 buffer</li>' +
+        '<li>重叠窗口 ' + ov.from + ' → ' + ov.to + ' μs · ' + dur + ' μs</li>' +
+      '</ul></div>';
+
+    return '<div class="kf-dg-tlx" style="--kf-tlx-n:' + n + '">' + head + dgTimelineAxis() +
+      T.rows.map(dgTimelineRow).join('') + span + ovl + '</div>' + sum;
   }
 
   function dgRuntime() {
     if (!dg.runtime) return '';
-    const views = [['tasks', '任务'], ['dependency', '依赖'], ['timeline', '时间线']];
-    const body = dg.view === 'dependency' ? dgRuntimeDependency()
-      : dg.view === 'timeline' ? dgRuntimeTimeline()
-      : dgRuntimeTasks();
+    const views = [['tasks', '任务'], ['timeline', '时间线']];
+    /* 只有两个视图，任何未知的 dg.view 都回落到任务，标签高亮不会落空 */
+    const view = dg.view === 'timeline' ? 'timeline' : 'tasks';
+    const body = view === 'timeline' ? dgRuntimeTimeline() : dgRuntimeTasks();
     return '<div class="kf-dg-rt" data-dg-rt>' +
       '<div class="kf-dg-rt-head">' +
         '<span class="kf-dg-rt-title">运行时执行</span>' +
-        '<span class="kf-dg-rt-sub">Attention → attention_out 的运行时实现</span>' +
+        '<span class="kf-dg-rt-sub">attention_out · Task #182 → Task #196</span>' +
         '<span class="kf-dg-rt-views">' + views.map(v =>
-          '<button type="button" class="' + (dg.view === v[0] ? 'is-on' : '') + '" data-dg-view="' + v[0] + '">' + v[1] + '</button>').join('') + '</span>' +
+          '<button type="button" class="' + (view === v[0] ? 'is-on' : '') + '" data-dg-view="' + v[0] + '">' + v[1] + '</button>').join('') + '</span>' +
         '<button type="button" class="kf-dg-rt-x" data-dg-collapse title="收起 Runtime">收起</button>' +
       '</div>' +
-      '<div class="kf-dg-rt-body" data-dg-rtbody="' + dg.view + '">' + body + '</div>' +
+      '<div class="kf-dg-rt-body" data-dg-rtbody="' + view + '">' + body + '</div>' +
     '</div>';
   }
 
@@ -2087,7 +2223,7 @@
   /* selection 走同一条 selectObject 链路，只是多刷一次图 */
   function dgSelect(kind, id) {
     if (kind === 'tensor' && id === 'attention_out') dg.runtime = true;
-    if (kind === 'task' && ['196', '201', '197', '178', '182'].indexOf(String(id)) >= 0) dg.runtime = true;
+    if (kind === 'task' && ['196', '197', '178', '182'].indexOf(String(id)) >= 0) dg.runtime = true;
     dg.sel = { kind: kind, id: String(id) };
     selectObject({ kind: kind, id: String(id), sourceTab: 'correctness' });
     dgRender();
@@ -2101,7 +2237,8 @@
       const view = e.target.closest('[data-dg-view]');
       if (view) { dg.view = view.dataset.dgView; dgRender(); return; }
       const rt = e.target.closest('[data-dg-collapse], [data-dg-expand]');
-      if (rt) { dg.runtime = !!rt.dataset.dgExpand || false; dgRender(); return; }
+      // data-dg-expand 没有值，dataset 拿到的是空字符串，不能用 !! 判断
+      if (rt) { dg.runtime = rt.hasAttribute('data-dg-expand'); dgRender(); return; }
     });
   }
 
@@ -2118,7 +2255,7 @@
       '<div class="kf-rd-h">排序证据<small>Task Graph + Timeline</small></div>' +
       '<div class="kf-oi-links">' +
         objectButton('task', '182', 'Task #182 · 读取方', 'execution') +
-        objectButton('buffer', 'work_table', 'Buffer X · work_table', 'execution') +
+        objectButton('buffer', 'B2', 'B2 · 共享 buffer', 'execution') +
         objectButton('task', '197', 'Task #197 · 写入方 / 覆盖', 'execution') +
       '</div>' +
       '<div class="kf-rd-art"><b>缺少预期排序</b><code>Task #182  →  Task #197</code><small>#182 仍在读取 · #197 开始覆盖写入 · 写入方先于读取方完成</small></div>' +
@@ -2192,6 +2329,8 @@
         panel.innerHTML = band('关键链与核占用', '长路径、等待与核负载') +
           (P ? riTime(P) + riCores(D, P) : '<p class="kf-rd-note is-dim">未采集运行时性能数据。</p>') +
           hintBlock(L);
+      } else if (st.tab === 'compilation') {
+        renderCompilationTab(panel, r);
       } else if (st.tab === 'resources') {
         panel.innerHTML = band('Compile-time Memory', '片上水位、复用与调度兑现') + memBlock(L) + intentBlock(L) +
           band('Runtime Resources', '仅展示已采集信号') +
@@ -2221,7 +2360,10 @@
         syncPanel();
         panel.prepend(document.createRange().createContextualFragment(compilationFailureStoryPanel(r)));
       } else if (getDomainVerdict(r, 'compilation').verdict === 'pass') {
-        panel.innerHTML = compilationSummaryPanel(r);
+        const view = window.PTO_COMPILATION;
+        if (!(view && view.ready && compilationDataMatches(r) && view.render(panel))) {
+          panel.innerHTML = compilationSummaryPanel(r);
+        }
       } else panel.innerHTML = notEvaluatedEvidencePanel(r, 'compilation');
     } else if (st.tab === 'correctness') {
       if (isCorrectnessFailureStory(r)) {
@@ -2322,14 +2464,14 @@
           }, {
             id: 'F106E', severity: 'warning', domain: 'execution',
             title: 'Task #197 在 Task #182 完成读取前覆盖共享缓冲区',
-            summary: '当前 dependency graph 缺少必要的 ordering edge，导致执行结果随调度时序变化。', location: 'Task #182 → Task #197 · Buffer X',
-            affectedObjects: [{ kind: 'task', id: '182' }, { kind: 'task', id: '197' }, { kind: 'dependency', id: 'missing_182_197' }, { kind: 'buffer', id: 'work_table' }],
+            summary: '当前 dependency graph 缺少必要的 ordering edge，导致执行结果随调度时序变化。', location: 'Task #182 → Task #197 · 共享 buffer B2',
+            affectedObjects: [{ kind: 'task', id: '182' }, { kind: 'task', id: '197' }, { kind: 'dependency', id: 'missing_182_197' }, { kind: 'buffer', id: 'B2' }],
             evidence: ['涉及同一块 buffer', '#182 读取该 buffer', '#197 覆盖写入该 buffer', '两者之间不存在依赖边', '时间线出现重叠', '重复运行结果不稳定'],
             action: { label: '查看 Execution', route: 'execution' }
           }], {
             correctnessStory: true, derivedFrom: 'run_105', change: 'dynamic index → affine fallback',
             source: { file: 'decode_layer.py', line: 728 },
-            objectMap: { tensor: 'T37', producer: 'Task #182', writer: 'Task #197', dependency: 'missing ordering edge', buffer: 'Buffer X / work_table' }
+            objectMap: { tensor: 'T37', producer: 'Task #182', writer: 'Task #197', dependency: 'missing ordering edge', buffer: '共享 buffer B2' }
           }),
           artifacts: [Object.assign({}, ART().source, { meta: 'decode_layer.py · 任务排序源码映射', tone: 'warn' }), Object.assign({}, ART().correct, { meta: 'T37 · 首个分歧点', tone: 'bad', primary: true })], signals: []
         };
@@ -2555,7 +2697,12 @@
       const name = kernel.dataset.wsOpenKernel;
       toTab('compilation');
       selectObject({ kind: 'kernel', id: name, sourceTab: 'compilation' });
-      setTimeout(() => window.PTO_GUARD?.select?.(name), 60);
+      // 新的 Compilation 视图在 #runTabPanel 里，先把它选中；stage 2 的
+      // Kernel Guard 仍照旧同步，两者互不影响。
+      setTimeout(() => {
+        window.PTO_COMPILATION?.selectKernel?.(name);
+        window.PTO_GUARD?.select?.(name);
+      }, 60);
       return;
     }
     const pass = e.target.closest('[data-ws-open-pass]');
