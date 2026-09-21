@@ -853,11 +853,50 @@
 /* The eyebrow names the object kind (TASK / KERNEL / PASS) — a UI label. */
 .kf-oi-head { display: grid; gap: 3px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }.kf-oi-head > span { color: var(--primary); font: 700 9px var(--font-sans); letter-spacing: .08em; }.kf-oi-head h3 { margin: 0; overflow-wrap: anywhere; color: var(--foreground); font-size: var(--kf-type-sm); }.kf-oi-head small { color: var(--foreground-muted); font: 8.5px var(--font-mono); }
 .kf-oi-links,.kf-oi-actions { display: flex; flex-wrap: wrap; gap: 4px; }.kf-oi-link,.kf-oi-actions button { padding: 5px 7px; font-family: var(--font-sans); font-size: 11px; line-height: 1.3; }.kf-oi-actions button { color: var(--primary); }
-.kf-object-tooltip { position: fixed; z-index: 80; display: none; width: min(360px, calc(100vw - 16px)); max-height: min(520px, calc(100vh - 16px)); overflow: auto; padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-1) 94%, transparent); box-shadow: 0 14px 32px rgb(0 0 0 / .14), inset 0 1px 0 rgb(255 255 255 / .025); backdrop-filter: blur(18px) saturate(1.18); }
+.kf-object-tooltip {
+  position: fixed; z-index: 80; display: none;
+  width: min(376px, calc(100vw - 16px)); max-height: min(520px, calc(100vh - 16px));
+  overflow: auto; padding: var(--space-3);
+  border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  color: var(--foreground); background: var(--surface-2); box-shadow: var(--shadow-md);
+}
 .kf-object-tooltip.is-open { display: block; }
 .kf-object-tooltip .kf-oi { gap: 10px; }
-.kf-object-tooltip .kf-inspector-section { display: grid; gap: 5px; }
+.kf-object-tooltip .kf-inspector-section { display: grid; gap: 5px; margin: 0; padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle); }
 .kf-object-tooltip .kf-inspector-title { margin: 0; color: var(--foreground-secondary); font: 700 9px var(--font-sans); letter-spacing: .08em; }
+.kf-object-tooltip dl { display: grid; gap: var(--space-1); margin: 0; }
+.kf-object-tooltip dl > div { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: var(--space-2); align-items: baseline; }
+.kf-object-tooltip dt { color: var(--foreground-muted); font: var(--type-micro); }
+.kf-object-tooltip dd { min-width: 0; margin: 0; color: var(--foreground-secondary); font: var(--type-mono); overflow-wrap: anywhere; }
+
+/* Correctness runtime task tooltip: identity → timing → data flow → evidence. */
+.kf-object-tooltip .kf-oi--task { gap: 0; }
+.kf-task-tip-head { display: grid; gap: var(--space-1); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+.kf-task-tip-id { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.kf-task-tip-id > span { color: var(--primary); font: var(--type-mono); font-weight: var(--font-weight-bold); }
+.kf-task-tip-id > em { color: var(--foreground-muted); font: var(--type-label); font-style: normal; }
+.kf-task-tip-id > em.is-bad { color: var(--danger); }
+.kf-task-tip-id > em.is-warn { color: var(--warning); }
+.kf-task-tip-head h3 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
+.kf-task-tip-head small { color: var(--foreground-muted); font: var(--type-mono); }
+.kf-task-tip-metrics {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle);
+}
+.kf-task-tip-metrics > div { display: grid; gap: 2px; min-width: 0; padding: 0 var(--space-2); }
+.kf-task-tip-metrics > div:first-child { padding-left: 0; }
+.kf-task-tip-metrics > div + div { border-left: 1px solid var(--border-subtle); }
+.kf-task-tip-metrics span { color: var(--foreground-muted); font: var(--type-micro); }
+.kf-task-tip-metrics b { color: var(--foreground); font: var(--type-mono); }
+.kf-task-tip-section { display: grid; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--border-subtle); }
+.kf-task-tip-section h2 { margin: 0; color: var(--foreground-secondary); font: var(--type-label); }
+.kf-task-tip-finding { display: grid; gap: var(--space-1); margin-top: var(--space-2); padding: var(--space-2); border-radius: var(--radius-sm); background: var(--tone-critical-bg); }
+.kf-task-tip-finding.is-warn { background: var(--tone-warning-bg); }
+.kf-task-tip-finding span { color: var(--danger); font: var(--type-micro); }
+.kf-task-tip-finding.is-warn span { color: var(--warning); }
+.kf-task-tip-finding b { color: var(--foreground); font: var(--type-body-sm); }
+.kf-task-tip-finding small { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.kf-task-tip-actions { padding-top: var(--space-2); }
 
 /* Run workspace has no right Inspector pane: the center pane claims that width. */
 #ideMainSplit.kf-run-no-inspector > [data-ide-pane="inspector"],
