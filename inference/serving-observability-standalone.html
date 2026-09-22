@@ -10321,7 +10321,7 @@ body.serving-workbench {--so-link-text:#9db7ff}
 .serving-workbench .so-trace-layout > div {min-width:0}
 
 /* One shared, non-shrinking header geometry for every Observe tab. */
-.serving-workbench .so-observe-chrome {display:grid;grid-template-rows:minmax(44px,auto) 44px;row-gap:8px;flex:0 0 auto;width:100%;min-width:0;margin:0 0 16px;box-sizing:border-box}
+.serving-workbench .so-observe-chrome {display:grid;grid-template-rows:44px 44px;row-gap:8px;flex:0 0 auto;width:100%;min-width:0;margin:0 0 16px;box-sizing:border-box}
 .serving-workbench .so-observe-chrome > .so-content-header {min-width:0;min-height:44px;margin:0;box-sizing:border-box}
 .serving-workbench .so-observe-chrome > .so-tabs {justify-self:center;align-self:start;margin:0;height:44px;min-height:44px;max-height:44px;box-sizing:border-box;overflow-y:hidden}
 .serving-workbench .so-observe-chrome > .so-tabs .tab-control-item {height:34px;min-height:34px;box-sizing:border-box}
@@ -10346,6 +10346,60 @@ body.serving-workbench {--so-link-text:#9db7ff}
 .serving-workbench .so-tabs::-webkit-scrollbar {display:none;width:0;height:0}
 
 .serving-workbench .dg-node--diagnosis .dg-node__action {border-top:0;padding-top:0;justify-content:flex-end}
+
+/* Observe title row must not change height when tab content changes. */
+.serving-workbench .so-observe-chrome > .so-content-header {height:44px;min-height:44px;max-height:44px;flex-wrap:nowrap;align-items:center}
+.serving-workbench .so-observe-chrome .so-content-header > div:first-child {flex:1 1 0;min-width:0}
+.serving-workbench .so-observe-chrome h1 {margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:24px}
+.serving-workbench .so-observe-chrome .so-header-actions {flex:0 1 auto;min-width:0;flex-wrap:nowrap}
+.serving-workbench .so-observe-chrome .so-observe-baseline-controls {display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;min-width:0}
+.serving-workbench .so-observe-chrome .so-observe-baseline {min-width:0;flex:1 1 auto}
+.serving-workbench .so-observe-chrome .so-observe-baseline__label {white-space:nowrap;flex-shrink:0}
+.serving-workbench .so-observe-chrome .so-observe-baseline__select {width:200px;min-width:0;max-width:100%;height:32px;box-sizing:border-box}
+.serving-workbench .so-observe-chrome .so-observe-compare-toggle {flex-shrink:0;white-space:nowrap}
+@media (max-width:700px) {
+ .serving-workbench .so-observe-chrome {grid-template-rows:80px 44px}
+ .serving-workbench .so-observe-chrome > .so-content-header {display:grid;grid-template-rows:32px 40px;gap:8px;height:80px;min-height:80px;max-height:80px}
+ .serving-workbench .so-observe-chrome .so-header-actions {justify-content:flex-start}
+}
+
+/* Keep Observe chrome outside the tab content's scroll and sizing context. */
+.serving-workbench .has-observe-chrome {display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.serving-workbench .has-observe-chrome > .so-observe-chrome {height:126px;min-height:126px;max-height:126px;flex:0 0 126px;margin:0;padding:14px 18px 16px;align-content:start}
+.serving-workbench .has-observe-chrome > .sw-main-scroll {flex:1 1 0;min-height:0}
+.serving-ide.serving-workbench .app-main.is-observe-page {padding-top:0}
+@media (max-width:700px) {
+ .serving-workbench .has-observe-chrome > .so-observe-chrome {height:162px;min-height:162px;max-height:162px;flex-basis:162px}
+}
+
+/* A single title-band contract, including its top/bottom whitespace. */
+.serving-workbench .has-observe-chrome > .so-observe-chrome {height:126px;min-height:126px;max-height:126px;flex-basis:126px;padding:0 18px 16px;grid-template-rows:58px 44px;row-gap:8px}
+.serving-workbench .so-observe-chrome > .so-run-titlebar {display:flex;position:relative;height:58px;min-height:58px;max-height:58px;flex:0 0 58px;box-sizing:border-box;padding:0;margin:0;align-items:center;flex-wrap:nowrap;gap:12px;overflow:hidden}
+.serving-workbench .so-run-titlebar > div:first-child {display:flex;align-items:center;height:100%;min-width:0;margin:0;padding:0}
+.serving-workbench .so-run-titlebar h1 {display:block;margin:0;padding:0;font-size:17px;line-height:24px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.serving-workbench .so-run-titlebar .so-header-actions {height:100%;align-items:center}
+@media (max-width:700px) {
+ .serving-workbench .so-run-titlebar .so-header-actions {max-width:52%}
+ .serving-workbench .so-run-titlebar .so-observe-baseline__select {width:110px}
+}
+
+/* Metrics panel follows the intrinsic width of one unwrapped row. */
+.serving-workbench .so-metrics-float,
+.serving-workbench .so-metrics-float[open],
+.serving-workbench .so-metrics-float:hover,
+.serving-workbench .so-metrics-float:focus-within {width:max-content;max-width:none;box-sizing:border-box}
+.serving-workbench .so-metrics-float .so-grid.metrics {flex-wrap:nowrap;width:max-content;max-width:none;box-sizing:border-box;overflow:visible;scroll-snap-type:none}
+.serving-workbench .so-metrics-float .so-metrics-body {box-sizing:border-box;min-width:0;max-height:none;overflow:visible}
+.serving-workbench .so-run-metric {width:216px;max-width:none;min-width:216px;flex:0 0 216px}
+.serving-workbench .so-metrics-float > summary {white-space:normal;overflow-wrap:anywhere}
+/* Explicit dark scrollbars across every workbench scroll container. */
+.serving-workbench,.serving-workbench * {scrollbar-width:thin;scrollbar-color:#666 #1b1b1b}
+.serving-workbench::-webkit-scrollbar,.serving-workbench *::-webkit-scrollbar {width:8px;height:8px}
+.serving-workbench::-webkit-scrollbar-track,.serving-workbench *::-webkit-scrollbar-track {background:#1b1b1b}
+.serving-workbench::-webkit-scrollbar-thumb,.serving-workbench *::-webkit-scrollbar-thumb {background:#666;border:2px solid #1b1b1b;border-radius:999px}
+.serving-workbench::-webkit-scrollbar-thumb:hover,.serving-workbench *::-webkit-scrollbar-thumb:hover {background:#888}
+.serving-workbench::-webkit-scrollbar-corner,.serving-workbench *::-webkit-scrollbar-corner {background:#1b1b1b}
+.serving-workbench #serving-explorer-pane .pto-ide-frame__pane-body,.serving-workbench .so-tabs {scrollbar-width:none}
 
 /* PTO PRODUCT CSS END */
 </style>
@@ -17791,7 +17845,7 @@ window.PtoDfxEvidence = { load: function () {
 
       function observeRunHeader() {
         var run = currentRun();
-        return header(run.id + ' · ' + run.name, '', observeBaselineControl());
+        return header(run.id + ' · ' + run.name, '', observeBaselineControl()).replace('class="so-content-header"', 'class="so-content-header so-run-titlebar"').replace(/<div class="so-eyebrow">.*?<\/div>/, '');
       }
 
       function observeBaselineControl() {
@@ -19983,17 +20037,35 @@ window.PtoDfxEvidence = { load: function () {
         var navigationKey = state.route + ':' + state.observeTab;
         if (main.dataset.navigationKey !== navigationKey) document.querySelector('.sw-main-scroll').scrollTop = 0;
         main.dataset.navigationKey = navigationKey;
+        var scrollPane = document.querySelector('.sw-main-scroll');
+        var chrome = document.querySelector('.so-observe-chrome');
+        scrollPane.parentElement.classList.toggle('has-observe-chrome', state.route === 'observe');
         main.innerHTML = html;
         if (state.route === 'observe') {
-          var chrome = document.createElement('div');
-          chrome.className = 'so-observe-chrome';
           var runHeader = main.querySelector(':scope > .so-content-header');
           var navigation = main.querySelector(':scope > .so-tabs');
           if (runHeader && navigation) {
-            main.prepend(chrome);
-            chrome.append(runHeader, navigation);
+            if (!chrome) {
+              chrome = document.createElement('div');
+              chrome.className = 'so-observe-chrome';
+              scrollPane.before(chrome);
+              chrome.append(runHeader, navigation);
+            } else {
+              // Preserve the title band across tab changes; only update Run controls when needed.
+              var currentHeader = chrome.querySelector('.so-run-titlebar');
+              if (chrome.dataset.headerMarkup !== runHeader.outerHTML) currentHeader.replaceWith(runHeader);
+              else runHeader.remove();
+              navigation.remove();
+              chrome.querySelectorAll('[data-observe-tab]').forEach(function (tab) {
+                var selected = tab.dataset.observeTab === state.observeTab;
+                tab.classList.toggle('is-selected', selected);
+                tab.setAttribute('aria-selected', String(selected));
+              });
+            }
+            // The hidden eyebrow must not encode the active tab in the persistent title.
+            chrome.dataset.headerMarkup = chrome.querySelector('.so-run-titlebar').outerHTML;
           }
-        }
+        } else if (chrome) chrome.remove();
 
         main.classList.toggle('is-observe-page', state.route === 'observe');
         main.classList.toggle('is-canvas-overview', state.route === 'observe' && state.observeTab === 'overview');
@@ -20361,6 +20433,8 @@ window.PtoDfxEvidence = { load: function () {
           });
         });
         document.querySelectorAll('[data-observe-tab]').forEach(function (el) {
+          if (el.dataset.tabBound) return;
+          el.dataset.tabBound = 'true';
           el.addEventListener('click', function () { state.route = 'observe'; state.observeTab = el.getAttribute('data-observe-tab'); render(); });
         });
         document.querySelectorAll('[data-architecture-view]').forEach(function (el) {
@@ -20738,16 +20812,16 @@ window.PtoDfxEvidence = { load: function () {
         var traceSearch = document.querySelector('[data-trace-search]');
         if (traceSearch) traceSearch.addEventListener('change', function () { state.traceSearch = traceSearch.value; state.selectedEvent = null; state.laneLimit = 18; render(); });
         var observeBaseline = document.querySelector('[data-observe-baseline]');
-        if (observeBaseline) observeBaseline.addEventListener('change', function () {
+        if (observeBaseline) observeBaseline.onchange = function () {
           state.observeBaseline = observeBaseline.value;
           syncRunContext();
           render();
-        });
+        };
         var observeComparisonToggle = document.querySelector('[data-observe-comparison-toggle]');
-        if (observeComparisonToggle) observeComparisonToggle.addEventListener('click', function () {
+        if (observeComparisonToggle) observeComparisonToggle.onclick = function () {
           state.showComparison = !state.showComparison;
           render();
-        });
+        };
         document.querySelectorAll('[data-compare-picker]').forEach(function (el) {
           el.addEventListener('click', function () { state.comparePickerOpen = !state.comparePickerOpen; render(); });
         });
@@ -20907,6 +20981,8 @@ window.PtoDfxEvidence = { load: function () {
 
       try {
         syncFromHash();
+        // Every fresh page load starts with comparison visible, including old shared links.
+        state.showComparison = true;
       } catch (routeError) {
         console.warn('Route state could not be restored; the default page will be shown.', routeError);
       }
