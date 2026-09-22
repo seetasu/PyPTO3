@@ -840,7 +840,7 @@
 .kf-rw-finding b { overflow: hidden; color: var(--foreground); font-size: var(--kf-type-2xs); text-overflow: ellipsis; white-space: nowrap; }
 /* the supporting line under a finding is a sentence, not an identifier */
 .kf-rw-finding small { color: var(--foreground-muted); font-family: var(--font-sans); font-size: 11px; white-space: nowrap; }
-.kf-rw-finding--numerical > div { display: grid; min-width: 0; gap: 2px; }.kf-rw-finding--numerical i { color: var(--primary); font: 700 8px var(--font-mono); font-style: normal; letter-spacing: .08em; }.kf-rw-finding--numerical small { display: flex; gap: 7px; overflow: hidden; }.kf-rw-finding--numerical mark { overflow: hidden; padding: 0; color: var(--foreground-muted); background: transparent; text-overflow: ellipsis; white-space: nowrap; }.kf-rw-finding--numerical em { color: var(--primary); font: 600 10px var(--font-sans); font-style: normal; white-space: nowrap; }
+.kf-rw-finding--numerical > div { display: grid; min-width: 0; gap: 2px; }.kf-rw-finding--numerical small { display: flex; gap: 7px; overflow: hidden; }.kf-rw-finding--numerical mark { overflow: hidden; padding: 0; color: var(--foreground-muted); background: transparent; text-overflow: ellipsis; white-space: nowrap; }.kf-rw-finding--numerical em { color: var(--primary); font: 600 10px var(--font-sans); font-style: normal; white-space: nowrap; }
 .kf-rw-evidence { border-top: 1px solid var(--border-subtle); color: var(--foreground-secondary); }
 .kf-rw-evidence summary { padding: 9px 0; cursor: pointer; font-size: var(--kf-type-2xs); }
 .kf-rw-evidence-body { display: grid; gap: 0; padding: 0 0 8px; }
