@@ -13,11 +13,11 @@ Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/
 
 ## 这个 Demo 是什么形态
 
-一个 IDE 形态的工作台，工作单元是**瓶颈队列里的一条条目**：
+一个 IDE 形态的工作台，两个真实 case 可切换，工作单元是**瓶颈队列里的一条条目**：
 
 | 区域 | 内容 |
 |---|---|
-| Explorer | 运行树（program → rank/device → invocation → 产物）+ **瓶颈队列**（10 条，按实测影响排序，可按层筛选） |
+| Explorer | 运行树（program → rank/device → invocation → 产物）+ **瓶颈队列**（10 条，按层从 E2E 往下排，severity 为人工标注，可按层筛选） |
 | 中心 | 五个层级视图，用页面级 Tab 切换：E2E / L2 调度 / L1·L0 / 编译器 / ISA·布局 |
 | Inspector | 跟随当前视图的对象（Run / 任务 / 提示 / Pass / 瓶颈条目）+ **实验台账**编辑器 |
 | 底部 Dock | Visualization（AICPU 调度 / Ready queue / 核占用）与 Terminal（Problems / Output / Artifacts）互斥切换 |
@@ -87,9 +87,122 @@ E2E 不是：它的职责就是**比较**。四个区块里三个本来就同时
 `S.rank` 仍然存在，含义变成「带去 L2 / L1 的那个 rank」：在两张表里点行即可选中，被选中的 rank 在
 `调用剖分` 的列头和数值上加重，状态条上也始终写着 `rank rank0 inv=2`。
 
-其余位置一律用「标题 + 计数 / 单位」做小标题，例如 `门禁 · 4 项`、`IR 规模与改写点 · 1794 → 4950 行`、
+其余位置一律用「标题 + 计数 / 单位」做小标题，例如 `门禁 · 4 项`、`编译 IR 全流程 · 51 / 51 个 Pass 改动了 IR`、
 `缺失产物 · 本 dump 不含 PTOAS / VPTO 级记录`。原来的 ISA 空状态是一段散文加项目符号，现在是一张三列表
 （产物 / 用于 / 状态），四行全部标红「缺失」。
+
+---
+
+## 两 rank 怎么对齐的（F3 的推导）
+
+两份 host log 的 `ts=` 来自**同一台主机的 CLOCK_MONOTONIC**（pid 2263908 / 2263922，连号），
+所以两份各自从 t=0 起算的设备 trace 可以摆到同一条绝对轴上：
+
+```
+rank0  chip.run.runner_run  ts = 1717978439221135 ns
+rank1  chip.run.runner_run  ts = 1717978440374926 ns   →  rank1 晚 1153.79 us
+```
+
+把这个偏移加到 rank1 各 `*_wait` 的到达时刻上，就得到 **rank0 在该点最多能等多久的上界**
+（rank0 可以在 rank1 的数据落地时就被释放，而落地不晚于 rank1 自己走到 wait，所以是上界不是等式）：
+
+| wait | rank0 到达 | rank1 到达（对齐后） | 上界 | 实测 | 占上界 |
+|---|---|---|---|---|---|
+| `cp_token_allgather_payload_wait` | 268.10 | 1385.33 | 1117.23 | **1080.52** | 96.7% |
+| `o_group_a2a_wait` | 3732.34 | 4450.71 | 718.37 | **663.00** | 92.3% |
+| `cp_token_allgather_readback_wait` | 1371.56 | 1491.09 | 119.53 | 47.02 | 39.3% |
+| `tp_o_rs_wait` | 4779.52 | 4822.25 | 42.73 | 1.28 | 3.0% |
+| | | | **1997.86** | **1791.82** | 89.7% |
+
+四个全部落在上界内，两个主导项贴到 92–97%。配合「两卡 AIC busy 只差 0.67%、任务与块数完全相同」，
+负载不均的零假设被排除——**rank0 不是慢，是先到**。
+
+这条推导有两处不是实测:
+
+1. 跨 rank 时钟同步是从同一主机的 mono `ts` 推的，dump 里没有显式的同步记录
+2. 上界成立只说明「等待可以被错峰解释」，不证明错峰是唯一成因
+
+两条都写进了 F3 的护栏，不在正文里冒充结论。错峰本身产生在
+`runner_run` 123109.06 us（host 钟）对 `device_wall` 5132.80 us（设备钟）这段未拆解的主机时间里，
+dump 内没有更细的 span 可归因。
+
+---
+
+## Ready queue 图表
+
+`shared_ready_queue` 是 trace 里的 counter 事件（`ph: "C"`），每个采样点给出当刻
+「依赖已满足但尚未被 AICPU 派发」的任务数，按引擎分三路。rank0 有 1128 个采样点，rank1 有 1016 个。
+
+- **三条线**：AIC（danger）/ AIV（warning）/ MIX（accent），图例里各自带本 rank 的峰值
+- **阶梯而非折线**：counter 的值保持到下一个采样点，所以两点之间画成水平段再跳变。
+  这跟 `build-data.cjs` 积分 `busyTime` 的口径一致——如果画成线性插值，图和数字就是两套说法
+- **悬停读数**：十字准星 + 三个系列的点，tooltip 给出光标时刻 `t`、命中的采样点编号与时间戳、
+  这个值**保持多久**、三路各自的值和待派发合计。tooltip 用 `swimlane-task` pattern 的
+  `createTooltip / showTooltip / hideTooltip`，只有行内容是本页的
+- 图表与 L2 页签共用时间窗口：在 L2 缩放 / 平移后，dock 的刻度、曲线和悬停换算一起跟着变
+
+---
+
+## 两个 case
+
+顶栏的 case chip 打开切换菜单。两份 dump 不是同一个程序,也不带同样的产物 ——
+菜单里每一行直接标出它能回答哪几层:
+
+| | decode_csa | decode_fwd_layers |
+|---|---|---|
+| 模型 | DeepSeek V4 flash_dspark | Qwen3 14B decode_layer |
+| 层级 | L3,2 rank | L2,1 device |
+| 采集 | 2026-09-03 | 2026-06-25 |
+| span | 4879.82 / 3774.04 us | 993.24 us |
+| 任务 / 块 | 84 / 4038(每 rank) | 426 / 579 |
+| AIC / AIV 占用 | 32.2% / 37.5% | 70.9% / 20.4% |
+| **E2E** | ✅ host STRACE,2 次调用 | ❌ **无 host log** |
+| L2 调度 | ✅ | ✅ |
+| L1 / L0 | ✅ | ✅ |
+| 编译器 | ✅ 52 pass,PH001 + PH-MR-001 | ✅ 42 pass,**仅 PH001** |
+| **ISA / 布局** | ❌ 无 PTOAS 产物 | ✅ **38 个 .pto + .cpp** |
+| 瓶颈条目 | 10 条(F1–F10) | 7 条(F2、F5–F10) |
+
+两份正好互补,但**不能拼在一起读**:不同模型、不同卡数、不同采集时间。
+
+### 缺席是一种状态,不是错误
+
+切到 decode_fwd_layers 时:
+
+- **E2E 页签仍然可点**,显示的是一张缺失清单 —— `host.*.log` 缺失 →
+  `inv=`(迭代次数)、`device_wall`、`bind.prebuilt` 全部不可得,下面跟一块"仍然可测"的设备侧读数
+- **瓶颈队列少 3 条**:F1(无 `*_wait`,单卡)、F3(无 host 钟,无法对齐)、F4(无 PH-MR-001)。
+  少的条目直接不生成,不占位、不补零
+- **流水深度页签**不画空表,而是列出"PH-MR-001 × 0 / pl.pipeline × 38 / Left-Right 可用字节缺失"三条事实
+- **片上预算试算器**的 depth 判定变成 `无法判定` —— 没有实测 free 字节可以对账
+- **rank 选择器消失**(只有一个执行单元),状态条写 `device0 · 无 host log`
+- **ISA 页签**反过来有真内容:38 个 PTOAS 单元的 `.pto → .cpp` 行数与展开比
+
+生成器里这是一张 `CAN` 表,每条瓶颈只有在本 dump 真能支撑时才生成:
+
+```js
+const CAN = {
+  F1: waitTasks.length > 0,      F2: !!worstHandoff,
+  F3: !!launchSkew,              F4: depthDegraded.length > 0,
+  ...
+};
+const findings = [ CAN.F1 && {...}, CAN.F2 && {...}, ... ].filter(Boolean);
+```
+
+### 两份 trace 的格式差异
+
+同一个 `merged_swimlane`,两次采集的 swimlane level 不同,generator 里做了归一:
+
+| | decode_csa | decode_fwd_layers |
+|---|---|---|
+| setup 时间 | 块事件上的 `local_setup_us` | **独立的 `setup` 事件** |
+| `duration-us` | setup + kernel | **kernel only** |
+| `kernel-duration-us` | 有 | 无 |
+| ready 计数器 | `shared_ready_queue` | 多一组 `local_ready_buf_T{0,1,2}`(已过滤) |
+| 调度相位 | dispatch / complete / release / early_dispatch / resolve / dummy | wire / dispatch / complete / release / resolve |
+
+两边都归一成 `{dur = setup + kernel, kdur = kernel, setup}`,所以"一个块的三种口径"
+在两个 case 下是同一个意思。
 
 ---
 
@@ -104,12 +217,12 @@ node Design/operator-tuning-console/build-data.cjs
 | 产物 | 提取出来的东西 |
 |---|---|
 | `distributed_meta.json` | 55 个绑定参数的 shape / dtype / 方向 → Case fingerprint |
-| `dfx_outputs/rank{0,1}/d0/host.*.log` | STRACE host span（bind / runner_run / device_wall / graph_build / sched / orch）→ E2E 剖分 |
+| `dfx_outputs/rank{0,1}/d0/host.*.log` | STRACE host span（bind / runner_run / device_wall / graph_build / sched / orch）→ E2E 剖分；`ts=` 还用来对齐两 rank，见下 |
 | `dfx_outputs/rank{0,1}/d0/merged_swimlane_*.json` | Worker View（pid 4）每块的 `duration-us` / `kernel-duration-us` / `local_setup_us` / CoreId；Scheduler View（pid 3）同一块的 `dispatch-time-us → finish-time-us`；AICPU scheduler phase；`shared_ready_queue` 计数器；dependency / hb_violation flow |
 | `dfx_outputs/rank*/d0/deps.json` | `block_num` / `scope` / `early_dispatch` / 每个任务的绑定张量 |
 | `dfx_outputs/rank*/d0/name_map.json` | 64 个 callable id → 名字 |
 | `report/perf_hints.log` | 230 条 perf hint：197 条 PH001（搬运末维粒度，累计 261 次命中）+ 33 条 PH-MR-001（软流水深度回退） |
-| `passes_dump/` | 52 份 IR dump 的行数、Δ 行、`pl.pipeline` / `tile.matmul` / `Mem.Left·Right·Acc·Vec` 计数；AutoTileMatmulL0 的真实 L0 tile 形状与 55 个 pipeline 站点；一段真实 before/after IR |
+| `passes_dump/` | 52 份 IR dump 的行数、DSL / 内存空间计数；每个相邻快照的真实增删行、受影响函数和最多 6 个改写片段；AutoTileMatmulL0 的真实 L0 tile 形状与 55 个 pipeline 站点 |
 | `next_levels/.../binary_context.json` | platform、pto-isa revision、runtime 名与 revision → 工具链指纹 |
 
 ### 两个视角，不要混
@@ -134,13 +247,16 @@ E2E 视图会把 host 报的 `device_wall.sched` 与设备 trace 的跨度对齐
 
 ---
 
-## 十条瓶颈条目（全部由数据推导，非人工填写）
+## 瓶颈条目（全部由数据推导，非人工填写）
+
+下表是 **decode_csa** 的 10 条。decode_fwd_layers 只生成得出 7 条（缺 F1 / F3 / F4），
+理由见上面的「两个 case」。
 
 | ID | 层 | 结论 | 实测依据 |
 |---|---|---|---|
 | F1 | L2 | 通信等待独占关键路径 36.72% | 4 个 `*_wait` 任务合计 1791.8 / 4879.8 us，全部单块单核 |
 | F2 | L1 | `csa_merge_pack_publish` hand-off 比核上计算还贵 | AICPU 1032.1 us vs 核上 387.4 us（+644.6）；核上 57.8% 是 setup |
-| F3 | E2E | rank0 / rank1 device_wall 偏斜 1.28x | 5132.8 vs 4017.3 us；rank0 更慢但核占用更低（32.2% vs 41.4%） |
+| F3 | E2E | rank1 晚发 1153.79 us，rank0 在集合点替它等 | 两卡 AIC busy 差 0.67%，4 个 `*_wait` 全部落在错峰上界内（1792 / 1998 us） |
 | F4 | 编译器 | 9 处软流水深度被降到 1 | 33 条 PH-MR-001；Left/Right 32–64 KB/stage vs 64 KB free |
 | F5 | 编译器 | 261 次搬运末维 < 512B cache line | 最小 4B，覆盖 9 个算子文件、192 个源码点 |
 | F6 | L2 | AICPU 调度器平均占用 42.3% | 3 线程合计 busy 6143.9 us；complete 3452.6 us / 4038 次 = 0.855 us/次 |
