@@ -10170,7 +10170,7 @@ body.pto-ide-frame { min-width:320px; margin:0; }
 .serving-workbench .app-main.is-canvas-overview {height:100%; min-height:0; display:flex; flex-direction:column; padding-bottom:0}
 .serving-workbench .so-content-header {flex:none; margin-bottom:var(--space-2)}
 .serving-workbench .so-content-header h1 {font:var(--type-title-2)}
-.serving-workbench .so-tabs {display:flex;position:static; transform:none; flex:none; align-self:center; width:max-content; max-width:100%; margin:var(--space-2) auto var(--space-4); overflow:auto}
+.serving-workbench .so-tabs {display:flex;position:static; transform:none; flex:none; align-self:center; width:max-content; max-width:100%; margin:var(--space-2) auto var(--space-4); overflow-x:auto;overflow-y:hidden;scrollbar-width:none;background:#292929;border-color:#3b3b3b}
 .serving-workbench .so-canvas-stage {min-height:240px; flex:1; margin:0}
 .serving-workbench .diagnostic-graph {--dg-canvas:transparent; --dg-grid:var(--border-subtle); background:transparent}
 .serving-workbench .so-metrics-float {position:absolute; left:var(--space-4); bottom:var(--space-4); max-width:calc(100% - 240px); background:var(--surface-2); border:0; box-shadow:var(--shadow-lg); border-radius:var(--radius-lg); backdrop-filter:none}
@@ -10191,7 +10191,7 @@ body.pto-ide-frame { min-width:320px; margin:0; }
 .serving-workbench .dg-evidence-attachment__trigger {min-width:0; width:auto; height:auto}
 .serving-workbench .diagnostic-graph__toolbar {top:auto;bottom:var(--space-3);right:var(--space-3);background:var(--surface-2);border:0;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);gap:var(--space-1);padding:var(--space-1)}
 .serving-workbench .dg-node {width:320px;min-height:160px;padding:var(--space-4);gap:var(--space-4);background:#242424;border:1px solid var(--border-default);border-radius:var(--radius-xl);opacity:1;filter:none}
-.serving-workbench .dg-node.is-abnormal {width:320px;background:#332500;border-color:#66582f;box-shadow:none}
+.serving-workbench .dg-node.is-abnormal {width:320px;background:linear-gradient(to bottom,#805900 0%,#654600 100%);border-color:#66582f;box-shadow:none}
 .serving-workbench .dg-node.is-unresolved {background:#242424;border:1px dashed #777}
 .serving-workbench .dg-node.is-normal,.serving-workbench .dg-node.is-dimmed {opacity:1;filter:none}
 .serving-workbench .dg-node__head {display:flex;align-items:center;justify-content:space-between;gap:var(--space-3)}
@@ -10247,7 +10247,7 @@ body.serving-workbench {
 }
 .serving-workbench [data-ide-toggle="inspector"][hidden] {display:none}
 .serving-workbench .so-tabs {height:44px;box-sizing:border-box;padding:4px}
-.serving-workbench .so-tabs .tab-control-item {height:36px;min-height:36px;padding:0 14px;font-size:14px}
+.serving-workbench .so-tabs .tab-control-item {height:34px;min-height:34px;box-sizing:border-box;flex-shrink:0;padding:0 14px;font-size:14px}
 .serving-workbench .so-tabs .tab-control-item.is-selected,
 .serving-workbench .so-tabs .tab-control-item[aria-selected="true"] {background:#fff;color:#141414}
 .serving-workbench .so-observe-compare-toggle.is-selected {background:var(--surface-3);color:var(--foreground);border-color:var(--border-strong)}
@@ -10319,6 +10319,97 @@ body.serving-workbench {--so-link-text:#9db7ff}
 
 .serving-workbench .so-trace-layout {display:block;min-width:0;width:100%}
 .serving-workbench .so-trace-layout > div {min-width:0}
+
+/* One shared, non-shrinking header geometry for every Observe tab. */
+.serving-workbench .so-observe-chrome {display:grid;grid-template-rows:44px 44px;row-gap:8px;flex:0 0 auto;width:100%;min-width:0;margin:0 0 16px;box-sizing:border-box}
+.serving-workbench .so-observe-chrome > .so-content-header {min-width:0;min-height:44px;margin:0;box-sizing:border-box}
+.serving-workbench .so-observe-chrome > .so-tabs {justify-self:center;align-self:start;margin:0;height:44px;min-height:44px;max-height:44px;box-sizing:border-box;overflow-y:hidden}
+.serving-workbench .so-observe-chrome > .so-tabs .tab-control-item {height:34px;min-height:34px;box-sizing:border-box}
+.serving-workbench .sw-main-scroll {scrollbar-gutter:stable;overflow-anchor:none}
+
+/* Next action: opaque blue surface with readable text. */
+.serving-workbench .dg-node.dg-node--diagnosis {background:linear-gradient(to bottom,#2d60c6 0%,#2853aa 100%);border:1px dashed #a9c4ff;color:#fff}
+.serving-workbench .dg-node--diagnosis .dg-node__title,
+.serving-workbench .dg-node--diagnosis .dg-node__status,
+.serving-workbench .dg-node--diagnosis .dg-node__action-title {color:#fff}
+.serving-workbench .dg-node.dg-node--diagnosis .dg-node__summary,
+.serving-workbench .dg-node--diagnosis .dg-node__eyebrow,
+.serving-workbench .dg-node--diagnosis .dg-node__action-eyebrow {color:#edf3ff}
+.serving-workbench .dg-node--diagnosis .dg-node__action {border-top-color:#a9c4ff}
+.serving-workbench .dg-node--diagnosis .dg-node__action .btn {background:#080808;color:#fff;border-color:#080808}
+.serving-workbench .dg-node--diagnosis .dg-node__action .btn:hover {background:#242424}
+
+/* Keep native scrolling without platform-dependent scrollbar gutters. */
+.serving-workbench #serving-explorer-pane .pto-ide-frame__pane-body {overflow-x:hidden;overflow-y:auto;scrollbar-width:none;scrollbar-gutter:auto}
+.serving-workbench #explorer-content {min-width:0;min-height:0;box-sizing:border-box}
+.serving-workbench #serving-explorer-pane .pto-ide-frame__pane-body::-webkit-scrollbar,
+.serving-workbench .so-tabs::-webkit-scrollbar {display:none;width:0;height:0}
+
+.serving-workbench .dg-node--diagnosis .dg-node__action {border-top:0;padding-top:0;justify-content:flex-end}
+
+/* Observe title row must not change height when tab content changes. */
+.serving-workbench .so-observe-chrome > .so-content-header {height:44px;min-height:44px;max-height:44px;flex-wrap:nowrap;align-items:center}
+.serving-workbench .so-observe-chrome .so-content-header > div:first-child {flex:1 1 0;min-width:0}
+.serving-workbench .so-observe-chrome h1 {margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:24px}
+.serving-workbench .so-observe-chrome .so-header-actions {flex:0 1 auto;min-width:0;flex-wrap:nowrap}
+.serving-workbench .so-observe-chrome .so-observe-baseline-controls {display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;min-width:0}
+.serving-workbench .so-observe-chrome .so-observe-baseline {min-width:0;flex:1 1 auto}
+.serving-workbench .so-observe-chrome .so-observe-baseline__label {white-space:nowrap;flex-shrink:0}
+.serving-workbench .so-observe-chrome .so-observe-baseline__select {width:200px;min-width:0;max-width:100%;height:32px;box-sizing:border-box}
+.serving-workbench .so-observe-chrome .so-observe-compare-toggle {flex-shrink:0;white-space:nowrap}
+@media (max-width:700px) {
+ .serving-workbench .so-observe-chrome {grid-template-rows:80px 44px}
+ .serving-workbench .so-observe-chrome > .so-content-header {display:grid;grid-template-rows:32px 40px;gap:8px;height:80px;min-height:80px;max-height:80px}
+ .serving-workbench .so-observe-chrome .so-header-actions {justify-content:flex-start}
+}
+
+/* Keep Observe chrome outside the tab content's scroll and sizing context. */
+.serving-workbench .has-observe-chrome {display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.serving-workbench .has-observe-chrome > .so-observe-chrome {height:126px;min-height:126px;max-height:126px;flex:0 0 126px;margin:0;padding:14px 18px 16px;align-content:start}
+.serving-workbench .has-observe-chrome > .sw-main-scroll {flex:1 1 0;min-height:0}
+.serving-ide.serving-workbench .app-main.is-observe-page {padding-top:0}
+@media (max-width:700px) {
+ .serving-workbench .has-observe-chrome > .so-observe-chrome {height:162px;min-height:162px;max-height:162px;flex-basis:162px}
+}
+
+/* A single title-band contract, including its top/bottom whitespace. */
+.serving-workbench .has-observe-chrome > .so-observe-chrome {height:126px;min-height:126px;max-height:126px;flex-basis:126px;padding:0 18px 16px;grid-template-rows:58px 44px;row-gap:8px}
+.serving-workbench .so-observe-chrome > .so-run-titlebar {display:flex;position:relative;height:58px;min-height:58px;max-height:58px;flex:0 0 58px;box-sizing:border-box;padding:0;margin:0;align-items:center;flex-wrap:nowrap;gap:12px;overflow:hidden}
+.serving-workbench .so-run-titlebar > div:first-child {display:flex;align-items:center;height:100%;min-width:0;margin:0;padding:0}
+.serving-workbench .so-run-titlebar h1 {display:block;margin:0;padding:0;font-size:17px;line-height:24px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.serving-workbench .so-run-titlebar .so-header-actions {height:100%;align-items:center}
+@media (max-width:700px) {
+ .serving-workbench .so-run-titlebar .so-header-actions {max-width:52%}
+ .serving-workbench .so-run-titlebar .so-observe-baseline__select {width:110px}
+}
+
+/* Metrics panel follows the intrinsic width of one unwrapped row. */
+.serving-workbench .so-metrics-float,
+.serving-workbench .so-metrics-float[open],
+.serving-workbench .so-metrics-float:hover,
+.serving-workbench .so-metrics-float:focus-within {width:max-content;max-width:none;box-sizing:border-box}
+.serving-workbench .so-metrics-float .so-grid.metrics {flex-wrap:nowrap;width:max-content;max-width:none;box-sizing:border-box;overflow:visible;scroll-snap-type:none}
+.serving-workbench .so-metrics-float .so-metrics-body {box-sizing:border-box;min-width:0;max-height:none;overflow:visible}
+.serving-workbench .so-run-metric {width:216px;max-width:none;min-width:216px;flex:0 0 216px}
+.serving-workbench .so-metrics-float > summary {white-space:normal;overflow-wrap:anywhere}
+/* Explicit dark scrollbars across every workbench scroll container. */
+.serving-workbench,.serving-workbench * {scrollbar-width:thin;scrollbar-color:#666 #1b1b1b}
+.serving-workbench::-webkit-scrollbar,.serving-workbench *::-webkit-scrollbar {width:8px;height:8px}
+.serving-workbench::-webkit-scrollbar-track,.serving-workbench *::-webkit-scrollbar-track {background:#1b1b1b}
+.serving-workbench::-webkit-scrollbar-thumb,.serving-workbench *::-webkit-scrollbar-thumb {background:#666;border:2px solid #1b1b1b;border-radius:999px}
+.serving-workbench::-webkit-scrollbar-thumb:hover,.serving-workbench *::-webkit-scrollbar-thumb:hover {background:#888}
+.serving-workbench::-webkit-scrollbar-corner,.serving-workbench *::-webkit-scrollbar-corner {background:#1b1b1b}
+.serving-workbench #serving-explorer-pane .pto-ide-frame__pane-body,.serving-workbench .so-tabs {scrollbar-width:none}
+
+/* Nested evidence rows share the card gradient without restarting it. */
+.serving-workbench .dg-node.is-abnormal .dg-evidence-rail,
+.serving-workbench .dg-node.is-abnormal .dg-evidence-attachment,
+.serving-workbench .dg-node.is-abnormal .dg-inline-evidence {background:transparent}
+
+.serving-workbench .dg-node.is-abnormal {border-color:#9b7a29}
+.serving-workbench .dg-node.is-abnormal .dg-node__summary,
+.serving-workbench .dg-node.is-abnormal .dg-node__eyebrow,
+.serving-workbench .dg-node.is-abnormal .dg-evidence-attachment__title {color:#f2e4c5}
 
 /* PTO PRODUCT CSS END */
 </style>
@@ -15312,7 +15403,7 @@ window.PtoDfxEvidence = { load: function () {
       set('kernel', {title:'Tile / Kernel', signal:hints.some(x => x.code === 'PH001') ? 'PH001' : '待验证', summary:'检查 tile 粒度，不能只用 hint 判定性能根因。', evidenceRefs:['hint-counts']});
       set('communication', {title:'依赖 / 等待', signal:(evidence.edges || []).length + ' edges', summary:'依赖关系不能替代 ready / blocked 原因日志。'});
       set('hypothesis', {title:'Buffer 共存或 Tile 粒度是否影响执行？'});
-      set('diagnosis', {title:'保留待验证解释，逐项控制变量', action:{eyebrow:'Experiment suggestion',title:'验证 buffer / tile 配置',label:'前往验证'}});
+      set('diagnosis', {title:'通过调整配置并对比运行结果，验证优化是否有效', summary:'', action:{eyebrow:'验证方式',title:'修改一项配置，与当前 Run 对比',summary:'保持模型、输入和硬件一致，每次只修改一项配置，比较修改前后的执行耗时。',label:'创建验证实验'}});
       graph.edges.forEach(edge => {
         if (edge.label) edge.label = ({locate:'定位执行窗口',promote:'检查事件',continue:'检查编译提示',support:'多份独立证据',diagnose:'制定验证计划'})[edge.relation] || edge.label;
       });
@@ -16364,7 +16455,7 @@ window.PtoDfxEvidence = { load: function () {
         const head = el('div', 'dg-node__head');
         const numeric = String(node.signal || '').match(/^([\d.,]+)\s*(.*)$/);
         const missing = node.signal === '未采集';
-        const category = numeric ? (node.category || typeTitle[node.kind]) : node.title;
+        const category = node.kind === 'diagnosis' ? '下一步' : numeric ? (node.category || typeTitle[node.kind]) : node.title;
         if (missing) item.classList.add('is-unresolved');
         head.append(el('span', 'dg-node__eyebrow', category), el('span', 'dg-node__status', missing ? '未采集' : node.state === 'unresolved' ? '待验证' : numeric ? '当前值' : node.signal));
         item.append(head);
@@ -16381,7 +16472,8 @@ window.PtoDfxEvidence = { load: function () {
           const actionSection = el('div', 'dg-node__action'); actionSection.title = node.action.summary;
           const actionCopy = el('div', 'dg-node__action-copy'); actionCopy.append(el('span', 'dg-node__action-eyebrow', node.action.eyebrow), el('strong', 'dg-node__action-title', node.action.title));
           const action = el('button', 'btn btn-solid btn-compact', node.action.label); action.type = 'button'; action.dataset.dgScenario = 'true';
-          actionSection.append(actionCopy, action); item.append(actionSection);
+          if (node.kind !== 'diagnosis') actionSection.append(actionCopy);
+          actionSection.append(action); item.append(actionSection);
         }
         (node.findings || []).forEach(finding => {
           const marker = el('div', 'dg-finding-marker');
@@ -16518,10 +16610,16 @@ window.PtoDfxEvidence = { load: function () {
         }
         const path = svg('path', {class: `dg-edge ${relationClass(edge.relation)}`, d: roundedOrthogonalPath(points)}); path.dataset.dgEdge = edge.id; path.append(svg('title')); path.querySelector('title').textContent = edge.label || edge.relation; this.edgeSvg.append(path);
         if (edge.label) {
-          const group = svg('g', {class: 'dg-edge-label'}); const width = Math.max(60, edge.label.length * 7 + 16);
+          const group = svg('g', {class: 'dg-edge-label'});
           const horizontalSegments = points.slice(0, -1).map((point, index) => ({from: point, to: points[index + 1], length: Math.abs(points[index + 1].x - point.x)})).filter(segment => segment.from.y === segment.to.y).sort((a, b) => b.length - a.length);
           const segment = horizontalSegments[0] || {from: start, to: end}; const labelX = (segment.from.x + segment.to.x) / 2; const labelY = segment.from.y - 15;
-          group.setAttribute('transform', `translate(${labelX} ${labelY})`); group.append(svg('rect', {x: -width / 2, y: -10, width, height: 20, rx: 4}), svg('text', {y: 4})); group.lastChild.textContent = edge.label; this.edgeSvg.append(group);
+          group.setAttribute('transform', `translate(${labelX} ${labelY})`);
+          const background = svg('rect', {y: -12, height: 24, rx: 12});
+          const labelText = svg('text', {y: 0, 'dominant-baseline': 'central'});
+          labelText.textContent = edge.label; group.append(background, labelText); this.edgeSvg.append(group);
+          const measuredWidth = labelText.getComputedTextLength?.() || Array.from(edge.label).reduce((sum, char) => sum + (/[^\x00-\xff]/.test(char) ? 12 : 7), 0);
+          const width = Math.ceil(measuredWidth) + 24;
+          background.setAttribute('x', -width / 2); background.setAttribute('width', width);
         }
       }); this.updateFocus();
     }
@@ -17757,7 +17855,7 @@ window.PtoDfxEvidence = { load: function () {
 
       function observeRunHeader() {
         var run = currentRun();
-        return header(run.id + ' · ' + run.name, '', observeBaselineControl());
+        return header(run.id + ' · ' + run.name, '', observeBaselineControl()).replace('class="so-content-header"', 'class="so-content-header so-run-titlebar"').replace(/<div class="so-eyebrow">.*?<\/div>/, '');
       }
 
       function observeBaselineControl() {
@@ -19949,7 +20047,36 @@ window.PtoDfxEvidence = { load: function () {
         var navigationKey = state.route + ':' + state.observeTab;
         if (main.dataset.navigationKey !== navigationKey) document.querySelector('.sw-main-scroll').scrollTop = 0;
         main.dataset.navigationKey = navigationKey;
+        var scrollPane = document.querySelector('.sw-main-scroll');
+        var chrome = document.querySelector('.so-observe-chrome');
+        scrollPane.parentElement.classList.toggle('has-observe-chrome', state.route === 'observe');
         main.innerHTML = html;
+        if (state.route === 'observe') {
+          var runHeader = main.querySelector(':scope > .so-content-header');
+          var navigation = main.querySelector(':scope > .so-tabs');
+          if (runHeader && navigation) {
+            if (!chrome) {
+              chrome = document.createElement('div');
+              chrome.className = 'so-observe-chrome';
+              scrollPane.before(chrome);
+              chrome.append(runHeader, navigation);
+            } else {
+              // Preserve the title band across tab changes; only update Run controls when needed.
+              var currentHeader = chrome.querySelector('.so-run-titlebar');
+              if (chrome.dataset.headerMarkup !== runHeader.outerHTML) currentHeader.replaceWith(runHeader);
+              else runHeader.remove();
+              navigation.remove();
+              chrome.querySelectorAll('[data-observe-tab]').forEach(function (tab) {
+                var selected = tab.dataset.observeTab === state.observeTab;
+                tab.classList.toggle('is-selected', selected);
+                tab.setAttribute('aria-selected', String(selected));
+              });
+            }
+            // The hidden eyebrow must not encode the active tab in the persistent title.
+            chrome.dataset.headerMarkup = chrome.querySelector('.so-run-titlebar').outerHTML;
+          }
+        } else if (chrome) chrome.remove();
+
         main.classList.toggle('is-observe-page', state.route === 'observe');
         main.classList.toggle('is-canvas-overview', state.route === 'observe' && state.observeTab === 'overview');
         document.querySelector('.sw-main-scroll').classList.toggle('is-overview', state.route === 'observe' && state.observeTab === 'overview');
@@ -20316,6 +20443,8 @@ window.PtoDfxEvidence = { load: function () {
           });
         });
         document.querySelectorAll('[data-observe-tab]').forEach(function (el) {
+          if (el.dataset.tabBound) return;
+          el.dataset.tabBound = 'true';
           el.addEventListener('click', function () { state.route = 'observe'; state.observeTab = el.getAttribute('data-observe-tab'); render(); });
         });
         document.querySelectorAll('[data-architecture-view]').forEach(function (el) {
@@ -20693,16 +20822,16 @@ window.PtoDfxEvidence = { load: function () {
         var traceSearch = document.querySelector('[data-trace-search]');
         if (traceSearch) traceSearch.addEventListener('change', function () { state.traceSearch = traceSearch.value; state.selectedEvent = null; state.laneLimit = 18; render(); });
         var observeBaseline = document.querySelector('[data-observe-baseline]');
-        if (observeBaseline) observeBaseline.addEventListener('change', function () {
+        if (observeBaseline) observeBaseline.onchange = function () {
           state.observeBaseline = observeBaseline.value;
           syncRunContext();
           render();
-        });
+        };
         var observeComparisonToggle = document.querySelector('[data-observe-comparison-toggle]');
-        if (observeComparisonToggle) observeComparisonToggle.addEventListener('click', function () {
+        if (observeComparisonToggle) observeComparisonToggle.onclick = function () {
           state.showComparison = !state.showComparison;
           render();
-        });
+        };
         document.querySelectorAll('[data-compare-picker]').forEach(function (el) {
           el.addEventListener('click', function () { state.comparePickerOpen = !state.comparePickerOpen; render(); });
         });
@@ -20862,6 +20991,8 @@ window.PtoDfxEvidence = { load: function () {
 
       try {
         syncFromHash();
+        // Every fresh page load starts with comparison visible, including old shared links.
+        state.showComparison = true;
       } catch (routeError) {
         console.warn('Route state could not be restored; the default page will be shown.', routeError);
       }
