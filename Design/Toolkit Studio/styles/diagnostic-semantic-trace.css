@@ -95,7 +95,7 @@
 /* ---------- result ---------- */
 .kf-dg-result {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(0, 232px);
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 18px;
   padding: 12px 14px;
@@ -112,6 +112,12 @@
 .kf-dg-cell b { overflow: hidden; color: var(--foreground); font: 600 12px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .kf-dg-cell b.is-bad { color: var(--danger); }
 .kf-dg-cell b.is-warn { color: var(--warning); }
+.kf-dg-location { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--dg-line); }
+.kf-dg-location > span { color: var(--foreground-secondary); font-size: var(--kf-type-2xs); }
+.kf-dg-location .kf-dg-cells { grid-template-columns: .8fr 1.4fr 1fr 1.5fr; }
+.kf-dg-location .kf-dg-cell b { white-space: normal; overflow-wrap: anywhere; }
+.kf-dg-location small { color: var(--foreground-muted); font-size: 10px; line-height: 1.45; }
+@media (max-width: 760px) { .kf-dg-location .kf-dg-cells { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .kf-dg-semantics {
   display: grid; gap: 3px; align-self: stretch; align-content: center;
   padding-left: 16px; border-left: 1px solid var(--dg-line);

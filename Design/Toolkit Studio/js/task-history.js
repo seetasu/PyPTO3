@@ -341,6 +341,7 @@
   };
   let els = null;
   let objectTooltip = null, objectTooltipTarget = null, objectTooltipTimer = null, objectTooltipShowTimer = null;
+  let fixPreview = null;
   /* 悬浮不立刻出卡，留一点反应时间；已打开时切换目标直接跟随 */
   const TOOLTIP_SHOW_DELAY = 260;
   const TOOLTIP_GAP = 12;
@@ -387,6 +388,15 @@
     objectTooltip.setAttribute('role', 'tooltip');
     objectTooltip.setAttribute('aria-hidden', 'true');
     document.body.appendChild(objectTooltip);
+
+    /* 修复预览（轻量 dialog）：挂在 body 上，不进 run detail 的 DOM —— 页签
+       切换重写 #runTabPanel 时不会被冲掉，也不用参与借用 / 归还流程。 */
+    fixPreview = document.createElement('div');
+    fixPreview.className = 'kf-rw-fix-modal';
+    fixPreview.id = 'runFixPreview';
+    fixPreview.hidden = true;
+    document.body.appendChild(fixPreview);
+
     els = { root, detail, list: $('#thList', root), filters: $('#thFilters', root), compareBox: $('#thCompareBox', root) };
     return true;
   }
@@ -476,16 +486,26 @@
   function renderCompilationTab(panel, r) {
     const view = window.PTO_COMPILATION;
     if (view && view.ready) {
+      // #109 reuses the loaded workspace; only its numerical evidence differs.
+      const compilerFixture = r.id === 'run_109';
+      const profile = compilerFixture ? window.PTO_CORRECTNESS_DIAGNOSTICS?.get?.(r.id) : null;
+      const entry = compilerFixture ? Object.assign({}, st.compilationEntry || { from: 'compilation' }, {
+        runId: r.id,
+        finding: '数值精度 · 输出不一致',
+        failureMode: 'Semantic',
+        intent: '正在定位编译语义分歧',
+        numericalValidation: profile?.compiler?.numericalValidation || view.numericalFixtures.compiler_semantic_error
+      }) : st.compilationEntry;
       window.PTO_RUN_CONTEXT = {
         runId: r.id,
         findings: getFindings(r),
-        compilationEntry: st.compilationEntry,
-        numericalValidation: st.compilationEntry?.numericalValidation || null
+        compilationEntry: entry,
+        numericalValidation: entry?.numericalValidation || null
       };
-      if (st.compilationEntry?.numericalValidation) {
-        view.setNumericalContext?.(st.compilationEntry.numericalValidation, st.compilationEntry);
+      if (entry?.numericalValidation) {
+        view.setNumericalContext?.(entry.numericalValidation, entry);
       } else view.clearNumericalContext?.();
-      if ((compilationDataMatches(r) || st.compilationEntry?.numericalValidation) && view.render(panel)) return;
+      if ((compilerFixture || compilationDataMatches(r) || entry?.numericalValidation) && view.render(panel)) return;
     }
     syncPanel();
   }
@@ -1511,7 +1531,7 @@
         section('证据', '<div class="kf-oi-links"><span class="kf-oi-evidence">时间线重叠</span><span class="kf-oi-evidence">共享 buffer</span><span class="kf-oi-evidence">输出非确定性</span></div>') +
         section('源码映射', '<p class="kf-ri-note"><code>decode_layer.py:728</code> → Task #182 读取 → Task #197 覆盖写入 → 排序依赖缺失</p>') +
         section('建议修复', '<p class="kf-ri-note"><code>deps=[reader_tid]</code></p>') +
-        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-source="decode_layer.py:728" data-ws-source-context="Runtime task dependency">定位源码</button><button type="button" data-ws-fix-dependency>添加显式依赖并重跑</button></div>');
+        section('动作', '<div class="kf-oi-actions"><button type="button" data-ws-open-source="decode_layer.py:728" data-ws-source-context="Runtime task dependency">定位源码</button><button type="button" data-ws-fix-dependency>预览修复</button></div>');
     } else if (kind === 'task' && D && D.tasks[Number(id)]) {
       const i = Number(id), t = D.tasks[i], K = D.kernels[t.k] || {};
       title = t.kn || K.name || 'Task'; meta = t.id || ('task ' + i);
@@ -1664,6 +1684,59 @@
     // Object detail belongs to the hover tooltip in Run workspace.
   }
 
+  /* ---------- 修复预览 ----------
+     #106 → 执行 → 查看缺失依赖 的下一步。这里只做「看」：不写真实 patch、不碰
+     源码文件。应用时直接复用既有的 createFollowupRun('dependency') 生成 #107，
+     和这条链路原来的行为一致，只是中间多了一次确认。 */
+  function fixPreviewHTML() {
+    const diff = [
+      'with pl.at(',
+      '    level=pl.Level.CORE_GROUP,',
+      '<span class="kf-rw-fix-add">+   deps=[reader_tid]</span>',
+      '):'
+    ].join('\n');
+    return '<section class="kf-rw-fix-dialog" role="dialog" aria-modal="true" aria-labelledby="fixPreviewTitle">' +
+      '<header><div><span class="kf-eyebrow">FIX PREVIEW</span><h2 id="fixPreviewTitle">修复预览</h2></div>' +
+        '<button type="button" data-rw-fix-close aria-label="关闭">×</button></header>' +
+      '<div class="kf-rw-fix-body">' +
+        '<div><h3>运行时问题</h3><p><code>Task #182 → Task #197</code> 缺少排序依赖</p></div>' +
+        '<div><h3>源码映射</h3><p><code>decode_layer.py:728</code></p></div>' +
+        '<div><h3>建议修改</h3><pre>' + diff + '</pre></div>' +
+        '<div><h3>说明</h3><p>Task #182 是当前 Run 的 runtime ID；<br>源码通过 <code>reader_tid</code> 建立 dependency。</p></div>' +
+      '</div>' +
+      '<footer class="kf-rw-fix-actions"><button type="button" class="btn" data-rw-fix-cancel>取消</button>' +
+        '<button type="button" class="btn btn-solid" data-rw-fix-apply>应用修改并重新运行</button></footer>' +
+    '</section>';
+  }
+
+  function openFixPreview() {
+    if (!fixPreview) return;
+    hideObjectTooltip();
+    fixPreview.innerHTML = fixPreviewHTML();
+    fixPreview.hidden = false;
+    const cancel = fixPreview.querySelector('[data-rw-fix-cancel]');
+    if (cancel && cancel.focus) cancel.focus({ preventScroll: true });
+  }
+
+  function closeFixPreview() {
+    if (!fixPreview || fixPreview.hidden) return;
+    fixPreview.hidden = true;
+    fixPreview.innerHTML = '';
+  }
+
+  function bindFixPreview() {
+    if (!fixPreview) return;
+    fixPreview.addEventListener('click', e => {
+      if (e.target === fixPreview) { closeFixPreview(); return; }   // 点遮罩关闭
+      if (e.target.closest('[data-rw-fix-close], [data-rw-fix-cancel]')) { closeFixPreview(); return; }
+      if (e.target.closest('[data-rw-fix-apply]')) {
+        closeFixPreview();
+        createFollowupRun('dependency');
+      }
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFixPreview(); });
+  }
+
   function clearSelection() { st.selection = null; hideObjectTooltip(); }
   function selectObject(obj) {
     if (!obj || obj.id == null) return;
@@ -1709,7 +1782,7 @@
       if (f.domain === 'correctness' && profile?.type === 'numerical') {
         const first = profile.tensors?.find(t => t.id === profile.firstDivergence?.id);
         const firstLabel = [profile.firstDivergence?.id, first?.tid].filter(Boolean).join(' / ') || '—';
-        const firstCaption = profile.firstDivergence?.kind === 'pass' ? '首个异常 Pass' : '首个分歧';
+        const firstCaption = profile.firstDivergence?.kind === 'pass' ? '首个数值分歧 Pass' : '首个分歧 Tensor';
         const maxAbs = profile.result?.maxAbs != null ? profile.result.maxAbs : '—';
         return '<button type="button" class="kf-rw-finding kf-rw-finding--numerical is-' + severity + '" data-ws-finding="' + esc(f.id) + '">' +
           '<span>' + esc(String(f.severity || 'info').toUpperCase()) + ' · ' + DOMAIN_LABEL.correctness + '</span><div><i>NUMERICAL</i><b>输出不一致</b><small>最大绝对误差 · ' + esc(maxAbs) + ' <mark>' + esc(firstCaption) + ' · ' + esc(firstLabel) + '</mark></small></div><em>查看诊断 →</em></button>';
@@ -2262,21 +2335,21 @@
       gate('预期差异', expected.status === 'none' ? '未声明允许的差异' : (expected.reason || '需要复核'), expected.status === 'none' ? 'pass' : 'unknown'),
       gate('结构校验', (structural.status || 'unknown').toUpperCase(), structural.status),
       gate('数值校验', numerical.status === 'pass' ? numerical.passed + ' / ' + numerical.total + ' Pass' : (numerical.status || 'unknown').toUpperCase(), numerical.status),
-      gate('设备结果', DG.result?.verdict === 'fail' ? 'MISMATCH' : (DG.result?.verdict || 'unknown').toUpperCase(), DG.result?.verdict)
+      gate('设备结果', DG.deviceResult?.label || 'NOT EVALUATED', DG.deviceResult?.status || 'not_evaluated')
     ];
     return '<section class="kf-dg-diagnosis" aria-label="数值精度诊断 Gate">' +
       '<header class="kf-dg-diagnosis-head"><div><h2>正确性</h2><span>数值精度（Numerical Accuracy）</span></div>' +
-        '<p><b>' + esc(DG.diagnosis?.routeLabel || '继续定位') + '</b>' +
-        '<small>' + esc(DG.diagnosis?.rationale || '') + '</small></p></header>' +
+        '<p><small>' + esc(DG.diagnosis?.rationale || '') + '</small></p></header>' +
       '<div class="kf-dg-gates" role="list">' + gates.join('') + '</div>' +
     '</section>';
   }
 
   function dgResult() {
     const R = DG.result;
-    const compilerDivergence = DG.compiler?.numericalValidation?.status === 'fail' && DG.compiler?.numericalValidation?.firstDivergentPass != null;
-    const direction = compilerDivergence ? '编译' : '运行时数据';
-    const lens = compilerDivergence ? '编译语义变换' : '执行排序';
+    const diagnosis = DG.diagnosis || {};
+    const first = DG.firstDivergence || {};
+    const tensor = DG.tensors.find(t => t.id === first.id);
+    const divergence = first.kind === 'pass' ? 'Pass · ' + first.id : 'Tensor · ' + first.id + (tensor?.tid ? ' / ' + tensor.tid : '');
     const cell = (k, v, tone) => '<div class="kf-dg-cell"><span>' + k + '</span><b class="' + (tone || '') + '">' + v + '</b></div>';
     return '<section class="kf-dg-result" aria-label="正确性结果">' +
       '<div class="kf-dg-verdict"><span>正确性</span><b>' + esc((R.verdict || 'unknown').toUpperCase()) + '</b></div>' +
@@ -2284,11 +2357,14 @@
         cell('输出', R.output) +
         cell('最大绝对误差', R.maxAbs, 'is-bad') +
         cell('最大相对误差', R.maxRel) +
-        cell(compilerDivergence ? '首个异常 Pass' : '重复运行', compilerDivergence ? DG.compiler.numericalValidation.firstDivergentPass : (DG.repeatability?.summary || '—'), compilerDivergence ? 'is-bad' : (DG.repeatability?.stable ? '' : 'is-warn')) +
+        (DG.repeatability ? cell('重复运行', DG.repeatability.summary || '—', DG.repeatability.stable ? '' : 'is-warn') : '') +
       '</div>' +
-      '<div class="kf-dg-semantics">' +
-        '<span>调查方向</span><b>' + direction + '</b>' +
-        '<small>' + lens + '</small>' +
+      '<div class="kf-dg-location"><span>诊断定位</span><div class="kf-dg-cells">' +
+        cell('现象', esc(diagnosis.symptom || '—')) +
+        '<div class="kf-dg-cell"><span>失效模式</span><b>' + esc(diagnosis.failureMode || '—') + '</b><small>' + esc(diagnosis.failureModeDescription || '') + '</small></div>' +
+        cell('根因域', esc(diagnosis.causeDomain || '—')) +
+        cell(first.kind === 'pass' ? '首个数值分歧 Pass' : '首个分歧 Tensor', esc(divergence), 'is-bad') +
+      '</div>' +
       '</div>' +
     '</section>';
   }
@@ -2300,8 +2376,8 @@
 
   function dgCompilerDivergence() {
     const numerical = DG.compiler.numericalValidation;
-    return '<section class="kf-rd-art" aria-label="首个异常编译 Pass">' +
-      '<b>首个分歧</b><code>' + esc(numerical.firstDivergentPass) + '</code>' +
+    return '<section class="kf-rd-art" aria-label="首个数值分歧 Pass">' +
+      '<b>首个数值分歧 Pass</b><code>' + esc(numerical.firstDivergentPass) + '</code>' +
       '<small>该 Pass 后的 Host IR execution 首次偏离 Golden；后续 Pass 持续 MISMATCH。</small>' +
     '</section>';
   }
@@ -2318,7 +2394,7 @@
     const C = DG.cause;
     const numerical = DG.compiler?.numericalValidation || {};
     const action = numerical.status === 'fail' && numerical.firstDivergentPass != null
-      ? '<div class="kf-oi-actions"><button type="button" data-dg-route="compilation">在「编译」中查看首个异常 Pass</button></div>'
+      ? '<div class="kf-oi-actions"><button type="button" data-dg-route="compilation">在「编译」中查看首个数值分歧 Pass</button></div>'
       : DG.diagnosis?.category === 'runtime_data_error'
         ? '<div class="kf-oi-actions"><button type="button" data-dg-route="execution">在「执行」中查看排序证据</button></div>'
         : '';
@@ -2619,7 +2695,9 @@
     if (st.tab === 'overview') {
       panel.innerHTML = overviewPanel(r, null) + sig;
     } else if (st.tab === 'compilation') {
-      if (isCompileFailureStory(r)) {
+      if (r.id === 'run_109') {
+        renderCompilationTab(panel, r);
+      } else if (isCompileFailureStory(r)) {
         syncPanel();
         panel.prepend(document.createRange().createContextualFragment(compilationFailureStoryPanel(r)));
       } else if (getDomainVerdict(r, 'compilation').verdict === 'pass') {
@@ -2923,7 +3001,7 @@
     const fixRerun = e.target.closest('[data-ws-fix-rerun]');
     if (fixRerun) { createFollowupRun('compilation'); return; }
     const fixDependency = e.target.closest('[data-ws-fix-dependency]');
-    if (fixDependency) { createFollowupRun('dependency'); return; }
+    if (fixDependency) { openFixPreview(); return; }
     const optimizeRerun = e.target.closest('[data-ws-optimize-rerun]');
     if (optimizeRerun) { createFollowupRun('performance'); return; }
     const openSource = e.target.closest('[data-ws-open-source]');
@@ -3055,6 +3133,7 @@
     if (els.root) els.root.addEventListener('click', onRunClick);
     if (els.detail) els.detail.addEventListener('click', onRunClick);
     bindObjectTooltips();
+    bindFixPreview();
     window.addEventListener('pto:compilation-runtime', event => {
       const ctx = event.detail || {};
       const task = TASKS.find(t => t.id === st.task);
@@ -3185,10 +3264,10 @@
         id: 'F109', severity: 'critical', domain: 'correctness',
         title: 'ExpandMixedKernel 引入数值语义偏差',
         summary: '结构校验通过，但该 Pass 后的 Host IR execution 首次偏离 PyTorch Golden。',
-        location: 'ExpandMixedKernel · 首个异常 Pass',
+        location: 'ExpandMixedKernel · 首个数值分歧 Pass',
         affectedObjects: [{ kind: 'pass', id: 'ExpandMixedKernel' }],
         evidence: ['PyTorch Golden 有效', 'Tolerance 有效', '结构校验: PASS', '数值校验: FAIL', '后续 Pass: MISMATCH'],
-        action: { label: '定位首个异常 Pass', route: 'correctness' }
+        action: { label: '定位首个数值分歧 Pass', route: 'correctness' }
       }], {
         correctnessStory: true, fixture: true, fixtureLabel: '编译器语义错误',
         source: { file: 'decode_layer.py', line: 728 }
