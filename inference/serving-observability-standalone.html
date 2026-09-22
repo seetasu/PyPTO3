@@ -93,7 +93,7 @@
     .so-status.danger { color: var(--so-danger); }
     .so-status.neutral { color: var(--so-muted); }
     .so-pill { display: inline-flex; align-items: center; border: 1px solid var(--border-default); border-radius:var(--radius-pill); color: var(--so-muted); padding: 3px 7px; font-size: 12px; white-space: nowrap; }
-    .so-pill.accent { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 36%, transparent); }
+    .so-pill.accent { color:var(--so-link-text); border-color: color-mix(in srgb, var(--primary) 36%, transparent); }
     .so-pill.warm { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 36%, transparent); }
     .so-kv { display: grid; grid-template-columns: 130px minmax(0,1fr); gap: var(--space-2) var(--space-3); font-size: 12px; }
     .so-kv dt { color: var(--so-muted); }
@@ -194,7 +194,7 @@
     .so-compare-metric-table td:first-child { overflow: visible; text-overflow: clip; white-space: normal; }
     .so-compare-metric-table td:first-child b { display: block; color: var(--foreground); font-size: 12px; line-height: 1.28; }
     .so-compare-metric-table td:first-child span { display: block; margin-top: 2px; color: var(--foreground-muted); font-size: 12px; }
-    .so-compare-metric-table .is-current { color: var(--primary); font-weight: 700; }
+    .so-compare-metric-table .is-current { color:var(--so-link-text); font-weight: 700; }
     .so-compare-metric-table .is-best { color: var(--success); font-weight: 700; }
     .so-compare-scatter { min-width: 0; padding: 14px; }
     .so-compare-scatter svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -342,10 +342,10 @@
     .so-kv dd, .so-finding-title, .so-config-row span:not(:first-child), .so-inspector-title h2, .so-inspector-title h3, .so-inspector-block h3 { color: var(--foreground); }
     .so-metric-label, .so-kv dt, .so-finding-summary, .so-metric-delta.muted, .so-card p, .so-section-title p, .so-field label, .so-field small, .so-timeline-time, .so-trace-label small, .so-trace-note, .so-legend, .so-inspector-title p, .so-inspector-block h3, .so-modal-head p { color: var(--foreground-muted); }
     .so-metric-value { color: var(--foreground); font-size: 24px; }
-    .so-metric-delta { color: var(--primary); }
+    .so-metric-delta { color:var(--so-link-text); }
     .so-metric-delta.warn, .so-pill.warm { color: var(--warning); }
     .so-pill { border-color: var(--border-default); background: var(--surface-1); color: var(--foreground-secondary); }
-    .so-pill.accent { border-color: rgba(53,111,174,.3); background: rgba(53,111,174,.08); color: var(--primary); }
+    .so-pill.accent { border-color: rgba(53,111,174,.3); background: rgba(53,111,174,.08); color:var(--so-link-text); }
     .so-status.success { color: var(--success); }
     .so-status.warn { color: var(--warning); }
     .so-status.danger { color: var(--danger); }
@@ -355,7 +355,7 @@
     .so-bar > span { background: var(--success); }
     .so-finding { padding: var(--space-3); background: var(--surface-1); }
     .so-finding:hover { border-color: var(--border-strong); background: var(--surface-2); }
-    .so-link { color: var(--primary); }
+    .so-link { color:var(--so-link-text); }
     .so-findings-section-title { align-items: center; margin: 18px 0 var(--space-2); }
     .so-findings-section-title h2 { display: flex; align-items: center; gap: var(--space-2); }
     .so-findings-count { display: inline-flex; min-width: 22px; height: 22px; align-items: center; justify-content: center; border-radius:var(--radius-pill); background: var(--foreground); color: var(--background); font-size: 12px; font-weight: 700; }
@@ -394,7 +394,7 @@
     .so-trace-label { color: var(--foreground-secondary); }
     .so-trace-canvas { background-image: linear-gradient(90deg, transparent 24.9%, var(--border-subtle) 25%, transparent 25.1%, transparent 49.9%, var(--border-subtle) 50%, transparent 50.1%, transparent 74.9%, var(--border-subtle) 75%, transparent 75.1%); }
     .so-trace-event-link { border-color: var(--border-default); background: var(--surface-1); color: var(--foreground-secondary); }
-    .so-trace-event-link:hover, .so-trace-event-link.is-selected { border-color: var(--primary); color: var(--primary); }
+    .so-trace-event-link:hover, .so-trace-event-link.is-selected { border-color: var(--primary); color:var(--so-link-text); }
     .so-inspector-title h2, .so-inspector-title h3, .so-inspector-block h3 { color: var(--foreground); }
     .so-inspector-block h3 { color: var(--foreground-muted); }
     .so-modal-backdrop { background: rgba(32,37,43,.28); }
@@ -450,7 +450,7 @@
     .so-moe-relation-controls label { display: inline-flex; align-items: center; gap: 6px; color: var(--foreground-secondary); font-size: 12px; white-space: nowrap; }
     .so-moe-relation-controls input { accent-color: var(--primary); }
     .so-moe-relation-chip { min-height: 26px; border: 1px solid var(--border-default); border-radius:var(--radius-sm); padding: 0 var(--space-2); background: var(--surface-1); color: var(--foreground-secondary); cursor: pointer; font-size: 12px; }
-    .so-moe-relation-chip.is-active { border-color: rgba(53,111,174,.35); background: var(--state-selected); color: var(--primary); font-weight: 650; }
+    .so-moe-relation-chip.is-active { border-color: rgba(53,111,174,.35); background: var(--state-selected); color:var(--so-link-text); font-weight: 650; }
     .so-moe-timeline-scroll { overflow-x: auto; padding: 0 var(--space-3) var(--space-3); }
     .so-moe-timeline-stage { --so-moe-label-column: 188px; --so-moe-meta-column: 210px; position: relative; min-width: 980px; padding-bottom: 2px; }
     .so-moe-axis { display: grid; grid-template-columns: var(--so-moe-label-column) minmax(0,1fr) var(--so-moe-meta-column); align-items: end; gap: 0; padding: 0 0 6px; color: var(--foreground-muted); font-size: 12px; }
@@ -627,7 +627,7 @@
     .so-model-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 18px var(--space-5) 13px; }
     .so-model-card-head h2 { margin: 0 0 6px; font-size: 18px; letter-spacing: -.02em; }
     .so-model-card-head p { margin: 0; color: var(--foreground-secondary); font-size:14px; }
-    .so-model-card-action { color: var(--primary); font-size: 12px; font-weight: 650; white-space: nowrap; }
+    .so-model-card-action { color:var(--so-link-text); font-size: 12px; font-weight: 650; white-space: nowrap; }
     .so-model-card-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 0 var(--space-5) 18px; border: 1px solid var(--border-subtle); border-radius:var(--radius-md); overflow: hidden; background: var(--border-subtle); }
     .so-model-card-meta div { padding: 10px var(--space-3); background: var(--surface-2); }
     .so-model-card-meta span { display: block; color: var(--foreground-muted); font-size: 12px; }
@@ -661,7 +661,7 @@
     .so-operator-row:hover, .so-operator-row.is-selected { border-color: var(--primary); background: var(--state-selected); }
     .so-operator-name strong { display: block; font-size: 12px; }
     .so-operator-name span, .so-operator-row > span { color: var(--foreground-muted); }
-    .so-operator-share { color: var(--primary); font-weight: 650; }
+    .so-operator-share { color:var(--so-link-text); font-weight: 650; }
     .so-operator-status { color: var(--success); }
     .so-model-selection { margin: 0 14px 14px; padding: 10px var(--space-3);  background: var(--state-selected); color: var(--foreground-secondary); font-size: 12px; }
    .so-model-selection strong { color: var(--foreground); }
@@ -1534,7 +1534,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
     .so-template-card.is-active { border-color: var(--primary); background: var(--state-selected); box-shadow:none; }
     .so-template-card strong { display: block; font-size: 12px; line-height: 1.35; }
     .so-template-card span { display: block; margin-top: 5px; color: var(--foreground-muted); font-size: 12px; line-height: 1.4; }
-    .so-template-card.is-active span { color: var(--primary-hover); }
+    .so-template-card.is-active span { color:var(--so-link-text); }
     .so-builder-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px var(--space-3); margin-top: 14px; }
     .so-builder-field.full { grid-column: 1 / -1; }
     .so-builder-field label { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: 6px; color: var(--foreground-secondary); font-size: 12px; }
@@ -1544,7 +1544,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
     .so-traffic-patterns { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
     .so-segment-button { padding: var(--space-2) 6px; border: 1px solid var(--border-default); border-radius:var(--radius-sm); background: var(--surface-2); color: var(--foreground-secondary); font-size: 12px; cursor: pointer; }
     .so-segment-button:hover { background: var(--state-hover); }
-    .so-segment-button.is-active { border-color: var(--primary); background: var(--state-selected); color: var(--primary-hover); font-weight: 650; }
+    .so-segment-button.is-active { border-color: var(--primary); background: var(--state-selected); color:var(--so-link-text); font-weight: 650; }
     .so-observation-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
     .so-observation-item { display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 10px; border: 1px solid var(--border-subtle); border-radius:var(--radius-md); background: var(--surface-2); }
     .so-observation-item input { margin: 2px 0 0; accent-color: var(--primary); }
@@ -1555,7 +1555,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
     .so-preview-head h2 { margin: 0; font-size: 14px; }
     .so-preview-head p { margin: var(--space-1) 0 0; color: var(--foreground-secondary); font-size:14px; line-height: 1.4; }
     .so-preview-body { padding: 13px 14px 15px; }
-    .so-plan-badge { display: inline-flex; align-items: center; gap: 6px; padding: var(--space-1) var(--space-2); border: 1px solid color-mix(in srgb, var(--primary) 46%, var(--border-default)); border-radius:var(--radius-pill); background: color-mix(in srgb, var(--primary) 12%, var(--surface-2)); color: var(--primary-hover); font-size: 12px; white-space: nowrap; }
+    .so-plan-badge { display: inline-flex; align-items: center; gap: 6px; padding: var(--space-1) var(--space-2); border: 1px solid color-mix(in srgb, var(--primary) 46%, var(--border-default)); border-radius:var(--radius-pill); background: color-mix(in srgb, var(--primary) 12%, var(--surface-2)); color:var(--so-link-text); font-size: 12px; white-space: nowrap; }
     .so-plan-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
     .so-traffic-chart { position: relative; border: 1px solid var(--border-subtle); border-radius:var(--radius-md); background: linear-gradient(180deg, var(--surface-2), var(--surface-1)); }
     .so-traffic-chart svg { display: block; width: 100%; height: 132px; }
@@ -1569,7 +1569,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
     .so-preview-readout strong { color: var(--foreground); font-size: 12px; }
     .so-viz-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 11px; }
     .so-viz-tab { padding: 7px 5px; border: 1px solid var(--border-default); border-radius:var(--radius-sm); background: var(--surface-2); color: var(--foreground-secondary); font-size: 12px; cursor: pointer; }
-    .so-viz-tab.is-active { border-color: var(--primary); background: var(--state-selected); color: var(--primary-hover); font-weight: 650; }
+    .so-viz-tab.is-active { border-color: var(--primary); background: var(--state-selected); color:var(--so-link-text); font-weight: 650; }
     .so-routing-flow { display: grid; grid-template-columns: 104px 34px minmax(118px, 1fr); align-items: center; gap: 7px 6px; min-width: 0; }
     .so-routing-flow > .so-flow-arrow:nth-child(4) { display: none; }
     .so-routing-flow > .so-node-grid { grid-column: 1 / -1; margin-top: 3px; padding-top: 9px; border-top: 1px solid var(--border-subtle); }
@@ -1597,7 +1597,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
     .so-device-load i { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
     .so-device.is-warm .so-device-load i { background: var(--warning); }
     .so-device.is-hot .so-device-load i { background: var(--danger); }
-    .so-device-chip { display: inline-flex; margin: var(--space-1) 3px 0 0; padding: 2px var(--space-1); border-radius:var(--radius-sm); background: color-mix(in srgb, var(--primary) 14%, var(--surface-2)); color: var(--primary); font-size: 12px; }
+    .so-device-chip { display: inline-flex; margin: var(--space-1) 3px 0 0; padding: 2px var(--space-1); border-radius:var(--radius-sm); background: color-mix(in srgb, var(--primary) 14%, var(--surface-2)); color:var(--so-link-text); font-size: 12px; }
     .so-communication-note { display: flex; align-items: center; gap: 7px; margin: 9px 0 0; padding: 7px 9px;  background: color-mix(in srgb, #8f7aa8 12%, var(--surface-2)); color: var(--foreground-secondary); font-size:14px; line-height: 1.4; }
     .so-twin-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: 11px; padding: 9px 10px; border: 1px solid var(--border-default); border-radius:var(--radius-md); background: linear-gradient(180deg, var(--surface-1), var(--surface-2)); }
     .so-twin-layer-context { min-width: 0; }
@@ -1748,7 +1748,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
     .so-dse-knob-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; align-items: start; padding: 9px 10px; }
     .so-dse-knob-summary span { display: block; color: var(--foreground-muted); font-size:14px; letter-spacing: .06em; text-transform: uppercase; }
     .so-dse-knob-summary strong { display: block; margin-top: var(--space-1); overflow: hidden; font-size:14px; line-height: 1.4; text-overflow: ellipsis; }
-    .so-dse-edit { min-height: 28px; padding: 0 var(--space-2); border: 0; border-radius:var(--radius-sm); background: transparent; color: var(--primary); cursor: pointer; font-size: 12px; }
+    .so-dse-edit { min-height: 28px; padding: 0 var(--space-2); border: 0; border-radius:var(--radius-sm); background: transparent; color:var(--so-link-text); cursor: pointer; font-size: 12px; }
     .so-dse-edit:hover { background: var(--state-selected); }
     .so-dse-knob-form { display: grid; gap: 9px; padding: 2px 10px 10px; }
     .so-dse-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
@@ -1759,7 +1759,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
     .so-dse-field .so-input { min-height: 34px; padding: 7px var(--space-2); font-size: 12px; }
     .so-dse-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
     .so-dse-mode button { min-height: 35px; border: 1px solid var(--border-default); border-radius:var(--radius-sm); background: var(--surface-1); color: var(--foreground-secondary); cursor: pointer; font-size: 12px; }
-    .so-dse-mode button.is-active { border-color: var(--primary); background: var(--state-selected); color: var(--primary-hover); font-weight: 650; }
+    .so-dse-mode button.is-active { border-color: var(--primary); background: var(--state-selected); color:var(--so-link-text); font-weight: 650; }
     .so-dse-update { padding: 11px var(--space-3) var(--space-3); border-top: 1px solid var(--border-subtle); background: var(--surface-2); }
     .so-dse-search-mode { padding: var(--space-3); border-top: 1px solid var(--border-subtle); }
     .so-dse-search-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); margin-bottom: 10px; }
@@ -1775,7 +1775,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
     .so-dse-search-tab.is-active b { color: var(--foreground); }
     .so-dse-brute-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: var(--space-2); }
     .so-dse-brute-mode { min-height: 28px; padding: 5px 6px; border: 1px solid var(--border-subtle); border-radius:var(--radius-sm); background: var(--surface-1); color: var(--foreground-muted); cursor: pointer; font-size: 12px; }
-    .so-dse-brute-mode.is-active { border-color: var(--primary); background: var(--state-selected); color: var(--primary-hover); font-weight: 650; }
+    .so-dse-brute-mode.is-active { border-color: var(--primary); background: var(--state-selected); color:var(--so-link-text); font-weight: 650; }
     .so-dse-search-copy { min-height: 72px; margin-top: 9px; padding: 9px 10px;  border-radius:var(--radius-sm); background: color-mix(in srgb, var(--primary) 8%, var(--surface-2)); }
     .so-dse-search-copy strong { color: var(--foreground); font-size: 12px; }
     .so-dse-search-copy p { margin: 5px 0 0; color: var(--foreground-secondary); font-size:14px; line-height: 1.55; }
@@ -2294,7 +2294,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
     .so-register-scope-item h3 { margin: 0; font-size: 13px; }
     .so-register-scope-item p { min-height: 42px; margin: var(--space-2) 0 var(--space-3); color: var(--foreground-secondary); font-size:14px; line-height: 1.55; }
     .so-register-scope-checks { display: flex; gap: var(--space-2); flex-wrap: wrap; }
-    .so-register-scope-action { display: block; margin-top: var(--space-3); color: var(--primary); font-size: 12px; font-weight: 650; }
+    .so-register-scope-action { display: block; margin-top: var(--space-3); color:var(--so-link-text); font-size: 12px; font-weight: 650; }
     .so-register-scope-detail { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr); gap: var(--space-4); margin-top: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-2); }
     .so-register-scope-detail h3 { margin: 0; font-size: 13px; }
     .so-register-scope-detail p { margin: var(--space-2) 0 0; color: var(--foreground-secondary); font-size:14px; line-height: 1.55; }
@@ -2428,7 +2428,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
   height: 30px;
   border-radius:var(--radius-md);
   background: color-mix(in srgb, var(--primary) 20%, var(--surface-4));
-  color: var(--primary);
+  color:var(--so-link-text);
   font-size: var(--kf-type-sm);
 }
 .kf-model-obs-entry b { font-size: var(--kf-type-sm); }
@@ -2441,7 +2441,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
   white-space: nowrap;
 }
 .kf-model-obs-entry em {
-  color: var(--primary);
+  color:var(--so-link-text);
   font: 700 var(--kf-type-sm)/1 var(--font-sans);
   font-style: normal;
 }
@@ -2476,7 +2476,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
   border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--border-subtle));
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--primary) 12%, transparent);
-  color: var(--primary);
+  color:var(--so-link-text);
   font: 600 var(--kf-type-xs)/1 var(--font-sans);
   cursor: pointer;
 }
@@ -2544,7 +2544,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
   font-size: var(--kf-type-2xs);
   cursor: pointer;
 }
-.kf-prof-crumb button:hover { color: var(--primary); text-decoration: underline; }
+.kf-prof-crumb button:hover { color:var(--so-link-text); text-decoration: underline; }
 .kf-prof-crumb b { color: var(--foreground-secondary); font-weight: 600; }
 .kf-prof-head h2 { margin: 0; font-size: var(--kf-type-lg); letter-spacing: -.01em; }
 .kf-prof-head p { margin: var(--space-1) 0 0; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.4 var(--font-mono); }
@@ -2866,7 +2866,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
 }
 .kf-prof-table thead th:first-child { text-align: left; }
 .kf-prof-table thead th:hover { color: var(--foreground); }
-.kf-prof-table thead th.is-sorted { color: var(--primary); }
+.kf-prof-table thead th.is-sorted { color:var(--so-link-text); }
 .kf-prof-table thead th.is-sorted::after { content: ' ▾'; }
 .kf-prof-table thead th.is-sorted.asc::after { content: ' ▴'; }
 .kf-prof-table tbody tr { border-bottom: 1px solid var(--border-subtle); cursor: pointer; }
@@ -2976,7 +2976,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
 .kf-prof-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 13px 15px; }
 
 /* ---------- 时间线 ---------- */
-.kf-prof-btn.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); }
+.kf-prof-btn.is-on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); color:var(--so-link-text); }
 .kf-prof-tlthresh { display: inline-flex; align-items: center; gap: 6px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); }
 .kf-prof-tlthresh select {
   height: 26px;
@@ -3156,7 +3156,7 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
   color: var(--danger);
   font: 600 var(--kf-type-2xs)/1 var(--font-mono);
 }
-.kf-prof-bwavg b { color: var(--primary); }
+.kf-prof-bwavg b { color:var(--so-link-text); }
 
 .kf-prof-pagegrid { display: grid; grid-template-columns: repeat(32, 1fr); gap: 2px; }
 .kf-prof-pagegrid > i { aspect-ratio: 1; border-radius:var(--radius-sm); }
@@ -3194,7 +3194,7 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
 .kf-prof-lane.is-baseline { grid-template-columns: 118px minmax(0,1fr); min-height: 10px; opacity: .48; }
 .kf-prof-lane.is-baseline .kf-prof-lanetrack { height: 9px; }
 .kf-prof-lane-missing { height: 9px; color: var(--foreground-muted); font: 12px/9px var(--font-sans); }
-.kf-prof-now { padding: 1px 5px; border-radius:var(--radius-sm); background: color-mix(in srgb, var(--primary) 20%, transparent); color: var(--primary); font: 700 var(--kf-type-2xs)/1.5 var(--font-sans); font-style: normal; }
+.kf-prof-now { padding: 1px 5px; border-radius:var(--radius-sm); background: color-mix(in srgb, var(--primary) 20%, transparent); color:var(--so-link-text); font: 700 var(--kf-type-2xs)/1.5 var(--font-sans); font-style: normal; }
 
 /* ---------- 并行与通信 ---------- */
 .kf-prof-topo { width: 100%; height: auto; }
@@ -3275,7 +3275,7 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
 .kf-prof-runmenu button.is-active { background: color-mix(in srgb, var(--primary) 12%, transparent); box-shadow:none; }
 .kf-prof-runmenu b { font: 600 var(--kf-type-xs)/1.3 var(--font-mono); }
 .kf-prof-runmenu small { grid-column: 1 / 3; color: var(--foreground-muted); font: var(--kf-type-2xs)/1.3 var(--font-sans); }
-.kf-prof-runmenu em { color: var(--primary); font: 700 var(--kf-type-2xs)/1 var(--font-mono); font-style: normal; }
+.kf-prof-runmenu em { color:var(--so-link-text); font: 700 var(--kf-type-2xs)/1 var(--font-mono); font-style: normal; }
 .kf-prof-runwrap { position: relative; }
 
 /* ---------- 诊断建议 ---------- */
@@ -3328,7 +3328,7 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
   text-align: left;
 }
 .kf-prof-soon li { display: grid; grid-template-columns: 15px minmax(0, 1fr); gap: 9px; color: var(--foreground-secondary); font-size: var(--kf-type-xs); line-height: 1.5; }
-.kf-prof-soon li::before { content: '·'; color: var(--primary); font-weight: 700; text-align: center; }
+.kf-prof-soon li::before { content: '·'; color:var(--so-link-text); font-weight: 700; text-align: center; }
 .kf-prof-soon li b { color: var(--foreground); }
 
 /* Styles: serving-profiler.css */
@@ -3416,7 +3416,7 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
 .so-prof-table-wrap { overflow-x: auto; }
 .so-prof-table { min-width: 940px; }
 .so-prof-table th { cursor: pointer; user-select: none; }
-.so-prof-table th.is-sorted { color: var(--primary); }
+.so-prof-table th.is-sorted { color:var(--so-link-text); }
 .so-prof-table th.is-sorted::after { content: ' ▾'; }
 .so-prof-table th.is-sorted.asc::after { content: ' ▴'; }
 .so-prof-table td { font-family: var(--font-mono); }
@@ -3429,7 +3429,7 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
 .so-prof-bound { display: inline-block; border-radius:var(--radius-sm); padding: 2px 6px; font: 700 12px/1.5 var(--font-mono); }
 .so-prof-bound.mte2 { background: rgba(166,106,34,.13); color: var(--warning); }
 .so-prof-bound.vector { background: rgba(47,122,90,.13); color: var(--success); }
-.so-prof-bound.cube { background: rgba(53,111,174,.13); color: var(--primary); }
+.so-prof-bound.cube { background: rgba(53,111,174,.13); color:var(--so-link-text); }
 .so-prof-detail { margin-top: var(--space-3); }
 .so-prof-note { margin: 0; padding: 11px 15px; border-bottom: 1px solid var(--border-subtle); color: var(--foreground-secondary); font-size:14px; line-height: 1.55; }
 .so-prof-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -3511,7 +3511,7 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
 .pto-candidate-lineage__svg .stage-label {
   fill: var(--foreground-secondary);
   font: var(--text-label);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-label);
   transition: fill var(--duration-fast) var(--easing-default);
@@ -3536,12 +3536,12 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
 
 .pto-candidate-lineage__svg .candidate-name {
   fill: var(--foreground);
-  font: 700 12px / 1 var(--font-mono);
+  font: 700 10px / 1 var(--font-mono);
 }
 
 .pto-candidate-lineage__svg .stage-caption {
   fill: var(--foreground-muted);
-  font: 500 12px / 1 var(--font-mono);
+  font: 500 10px / 1 var(--font-mono);
   pointer-events: none;
 }
 
@@ -3596,7 +3596,7 @@ select.kf-prof-search:disabled { color: var(--foreground-disabled); cursor: not-
 
 .pto-candidate-lineage__svg .sweep-branch-title {
   fill: var(--foreground);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: var(--font-weight-bold);
 }
 
@@ -3650,7 +3650,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
 
 .pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-1 { fill: var(--danger); color: var(--danger); }
 .pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-2 { fill: var(--warning); color: var(--warning); }
-.pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-3 { fill: var(--primary-hover); color: var(--primary-hover); }
+.pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-3 { fill: var(--primary-hover); color:var(--so-link-text); }
 .pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-4 { fill: var(--accent); color: var(--accent); }
 .pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-5 { fill: var(--success); color: var(--success); }
 .pto-candidate-lineage__svg .lineage-ribbon.is-reject.tone-6 { fill: var(--foreground-muted); color: var(--foreground-muted); }
@@ -3718,7 +3718,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
 .pto-candidate-lineage__svg .lineage-transition-orb.is-converge { stroke: var(--danger); }
 
 .pto-candidate-lineage__svg .lineage-transition-value {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: var(--font-weight-bold);
 }
 
@@ -3738,7 +3738,7 @@ box-shadow:0 0 0 3px var(--focus-ring);}
 .pto-candidate-lineage__svg .lineage-branch-label,
 .pto-candidate-lineage__svg .lineage-reject-label {
   fill: var(--foreground-secondary);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: var(--font-weight-medium);
 }
 
@@ -3999,8 +3999,8 @@ button:focus-visible,summary:focus-visible,a:focus-visible {box-shadow:0 0 0 3px
 .so-metrics-float > summary {cursor:pointer;padding:10px 14px;font-size:14px;white-space:nowrap}
 .so-metrics-float > summary span {color:var(--foreground-muted);margin-left:var(--space-4);font-size:14px}
 .so-metrics-float .so-metrics-body {display:none;padding:10px;max-height:60vh;overflow:auto}
-.so-metrics-float[open] .so-metrics-body,.so-metrics-float:hover .so-metrics-body,.so-metrics-float:focus-within .so-metrics-body {display:block}
-.so-metrics-float:hover,.so-metrics-float[open],.so-metrics-float:focus-within {width:min(1000px,calc(100% - 36px));max-width:calc(100% - 36px)}
+.so-metrics-float[open] .so-metrics-body {display:block}
+.so-metrics-float[open] {width:min(1000px,calc(100% - 36px));max-width:calc(100% - 36px)}
 .so-metrics-float .so-grid.metrics {grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
 .so-metrics-float .so-metric {padding:12px}
 .so-metrics-float .so-metric-value {font-size: 21px}
@@ -4169,7 +4169,7 @@ button:focus-visible,summary:focus-visible,a:focus-visible {box-shadow:0 0 0 3px
             .tp-shard + .tp-shard { border-left-color: var(--line); }
             .tp0 { background: linear-gradient(90deg, var(--tp0-soft), color-mix(in srgb, var(--tp0) 7%, var(--surface-3))); }
             .tp1 { background: linear-gradient(90deg, color-mix(in srgb, var(--tp1) 7%, var(--surface-3)), var(--tp1-soft)); }
-            .tp0 .tp-badge { color: var(--primary-hover); }
+            .tp0 .tp-badge { color:var(--so-link-text); }
             .tp1 .tp-badge { color: var(--accent); }
             .cut-mark { background: linear-gradient(transparent, var(--primary-hover) 18%, var(--primary-hover) 82%, transparent); }
             .ep-group { border-color: var(--border-subtle); background: var(--surface-3); }
@@ -10170,11 +10170,11 @@ body.pto-ide-frame { min-width:320px; margin:0; }
 .serving-workbench .app-main.is-canvas-overview {height:100%; min-height:0; display:flex; flex-direction:column; padding-bottom:0}
 .serving-workbench .so-content-header {flex:none; margin-bottom:var(--space-2)}
 .serving-workbench .so-content-header h1 {font:var(--type-title-2)}
-.serving-workbench .so-tabs {position:static; transform:none; flex:none; align-self:center; width:max-content; max-width:100%; margin:var(--space-2) auto var(--space-4); overflow:auto}
+.serving-workbench .so-tabs {display:flex;position:static; transform:none; flex:none; align-self:center; width:max-content; max-width:100%; margin:var(--space-2) auto var(--space-4); overflow:auto}
 .serving-workbench .so-canvas-stage {min-height:240px; flex:1; margin:0}
 .serving-workbench .diagnostic-graph {--dg-canvas:transparent; --dg-grid:var(--border-subtle); background:transparent}
 .serving-workbench .so-metrics-float {position:absolute; left:var(--space-4); bottom:var(--space-4); max-width:calc(100% - 240px); background:var(--surface-2); border:0; box-shadow:var(--shadow-lg); border-radius:var(--radius-lg); backdrop-filter:none}
-.serving-workbench .so-metrics-float:hover,.serving-workbench .so-metrics-float[open],.serving-workbench .so-metrics-float:focus-within {width:min(1000px,calc(100% - 32px));max-width:calc(100% - 32px)}
+.serving-workbench .so-metrics-float[open] {width:min(1000px,calc(100% - 32px));max-width:calc(100% - 32px)}
 .serving-workbench .so-card {border:0; box-shadow:none; background:var(--surface-2); border-radius:var(--radius-lg)}
 .serving-workbench .so-card .so-card {background:transparent; border:0; box-shadow:none}
 .serving-workbench .so-card-head,.serving-workbench .so-card-body {padding:var(--space-4)}
@@ -10226,7 +10226,7 @@ body.pto-ide-frame { min-width:320px; margin:0; }
 .so-dep-column {min-width:225px;gap:var(--space-3)}
 .so-dep-column .node-card {position:relative;flex:none;cursor:pointer}
 .so-dep-graph {overflow:auto}
-.so-pto-search {width:100%;margin-bottom:var(--space-2)}
+.serving-workbench .so-pto-search {display:block;box-sizing:border-box;width:calc(100% - 24px);max-width:calc(100% - 24px);min-width:0;flex-shrink:0;margin:var(--space-2) 12px}
 .so-pto-inspector-body {padding:var(--space-4);overflow:auto;min-height:0;flex:1}
 .so-pto-inspector-body .so-inspector-block {border:0;border-top:1px solid var(--border-subtle);padding:var(--space-4) 0}
 .so-pto-inspector-body .so-card {background:transparent}
@@ -10235,6 +10235,91 @@ button:disabled {opacity:var(--button-disabled-opacity);pointer-events:none}
 @media(max-width:900px) {.pto-ide-frame__topbar-center {display:none}}
 @media(max-width:700px) {.serving-workbench .so-metrics-float{max-width:calc(100% - 32px)} .so-memory-pattern-host{height:65vh}}
 
+
+/* Opaque foregrounds keep secondary labels readable on report surfaces. */
+body.serving-workbench {
+  --foreground:#f2f2f2;
+  --foreground-secondary:#c7c7c7;
+  --foreground-muted:#ababab;
+  --text-primary:var(--foreground);
+  --text-secondary:var(--foreground-secondary);
+  --text-muted:var(--foreground-muted);
+}
+.serving-workbench [data-ide-toggle="inspector"][hidden] {display:none}
+.serving-workbench .so-tabs {height:44px;box-sizing:border-box;padding:4px}
+.serving-workbench .so-tabs .tab-control-item {height:36px;min-height:36px;padding:0 14px;font-size:14px}
+.serving-workbench .so-tabs .tab-control-item.is-selected,
+.serving-workbench .so-tabs .tab-control-item[aria-selected="true"] {background:#fff;color:#141414}
+.serving-workbench .so-observe-compare-toggle.is-selected {background:var(--surface-3);color:var(--foreground);border-color:var(--border-strong)}
+.serving-workbench .so-metrics-float > summary {font-size:14px}
+.serving-workbench .so-metric-label,.serving-workbench .so-baseline-value,
+.serving-workbench .so-metric-delta,.serving-workbench .so-data-coverage {font-size:14px}
+
+.serving-workbench .dg-node--diagnosis .dg-node__eyebrow,
+.serving-workbench .dg-node__action-eyebrow {color:var(--foreground-secondary)}
+.serving-workbench .dg-edge-label.is-dimmed,
+.serving-workbench .dg-evidence-attachment.is-dimmed {opacity:1;filter:none}
+.serving-workbench .so-fabric-rail.is-communication {color:#c5b1e0}
+.serving-workbench .so-dse-search-copy code {color:#74cbea}
+.serving-workbench .dg-note__bar {color:#50584f}
+.serving-workbench .dg-note__bar.is-hot {color:#75472e}
+.serving-workbench .dg-node__action-title {font-size:14px}
+
+body.serving-workbench {--so-link-text:#9db7ff}
+.serving-workbench .kf-prof-tag.vector {color:#79e5b3}
+.serving-workbench .kf-prof-tag.cube {color:var(--so-link-text)}
+.serving-workbench .kf-prof-topo .plinklabel {fill:var(--so-link-text)}
+
+/* Runtime metric cards: opaque surfaces and a single horizontal comparison row. */
+.serving-workbench .so-metrics-float .so-grid.metrics {display:flex;gap:12px;overflow-x:auto;padding:2px 4px 8px;scroll-snap-type:x proximity}
+.serving-workbench .so-run-metric {flex:0 0 216px;box-sizing:border-box;background:#000;border:0;border-radius:18px;padding:14px;box-shadow:0 6px 12px #0005;scroll-snap-align:start}
+.serving-workbench .so-run-metric header {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px}
+.serving-workbench .so-run-metric .so-metric-label {font-size:14px;color:#ababab;line-height:1.4}
+.serving-workbench .so-run-metric-trend {display:inline-flex;align-items:center;gap:5px;flex-shrink:0;padding:5px 8px;border-radius:10px;background:#333;color:#fff;font-size:14px;font-weight:650}
+.serving-workbench .so-run-metric-trend.regressed {background:#c90046}
+.serving-workbench .so-run-metric-trend.improved {background:#006b49}
+.serving-workbench .so-run-metric-trend > span {font-size:20px;line-height:1}
+.serving-workbench .so-run-metric-number {display:flex;justify-content:center;align-items:baseline;gap:8px;margin:12px 0;color:#fff;font-size:36px;line-height:1.2;font-variant-numeric:tabular-nums;letter-spacing:-.035em}
+.serving-workbench .so-run-metric-number > span {font-size:16px;letter-spacing:0}
+.serving-workbench .so-run-metric footer {display:grid;gap:6px;border-top:1px solid #292929;padding-top:10px;color:#ababab;font-size:14px;line-height:1.5}
+
+.serving-workbench #serving-explorer-pane .pto-ide-frame__pane-body {min-width:0}
+.serving-workbench #explorer-content .so-nav-item.is-active,
+.serving-workbench #explorer-content .so-nav-child.is-active,
+.serving-workbench #explorer-content .so-nav-accordion-trigger.is-active {background:#2b2b2b;color:var(--foreground)}
+
+.serving-workbench .so-metrics-float .so-metrics-body {padding:4px 8px 6px}
+.serving-workbench .so-metrics-float > summary {padding:7px 12px}
+.serving-workbench .so-metrics-float .so-run-metadata {margin-top:4px}
+
+.serving-workbench #explorer-content .so-nav-child > span:first-child {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.serving-workbench #explorer-content .so-nav-object-meta {flex-shrink:0}
+.serving-workbench .so-run-status-icon {display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:var(--success);font-size:14px}
+
+/* Keep header/tab margin behavior identical across all Observe routes. */
+.serving-workbench .app-main.is-observe-page {display:flex;flex-direction:column}
+.serving-workbench .app-main.is-observe-page > * {flex-shrink:0}
+.serving-workbench .app-main.is-canvas-overview > .so-canvas-stage {flex:1;min-height:0}
+
+/* Match swimlane/index.html normal single-line lane metrics. */
+.serving-workbench .so-trace-row,.serving-workbench .so-trace-row.is-baseline {min-height:16px}
+.serving-workbench .so-trace-canvas,.serving-workbench .so-trace-row.is-baseline .so-trace-canvas {height:16px;opacity:1}
+.serving-workbench .so-trace-label,.serving-workbench .so-trace-row.is-baseline .so-trace-label {padding:0 8px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.serving-workbench .so-trace-label small {display:none}
+.serving-workbench .so-trace-missing {height:16px;line-height:16px}
+
+.serving-workbench .so-trace-controls {display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.serving-workbench .so-trace-controls > div:first-child {display:flex;flex:1 1 320px;min-width:0;gap:8px;flex-wrap:nowrap}
+.serving-workbench .so-trace-controls .so-compact-select {width:150px;min-width:0;flex:0 1 150px}
+.serving-workbench .so-trace-controls .so-search {width:100%;min-width:0;max-width:none;flex:1 1 160px;box-sizing:border-box}
+.serving-workbench .so-trace-controls > div:last-child {display:flex;flex:0 1 auto;min-width:0;gap:8px;flex-wrap:nowrap}
+.serving-workbench .so-trace-controls .so-view-toggle {min-width:0;flex-shrink:1}
+.serving-workbench .so-trace-controls .so-view-toggle button {white-space:nowrap}
+@media(max-width:600px) {.serving-workbench .so-trace-controls > div:last-child {gap:4px;width:100%}.serving-workbench .so-trace-controls .so-view-toggle button {padding:6px;font-size:12px}.serving-workbench .so-trace-controls > div:last-child > .btn {padding:6px;min-width:28px}}
+
+.serving-workbench .so-trace-layout {display:block;min-width:0;width:100%}
+.serving-workbench .so-trace-layout > div {min-width:0}
+
 /* PTO PRODUCT CSS END */
 </style>
 </head>
@@ -10242,7 +10327,7 @@ button:disabled {opacity:var(--button-disabled-opacity);pointer-events:none}
   <header class="pto-ide-frame__topbar">
     <div class="pto-ide-frame__topbar-left"><strong>Serving Observability</strong></div>
     <div class="pto-ide-frame__topbar-center"><button class="btn btn-ghost latest-run-link" data-action="open-latest-run" title="打开最近一次 Run"><span class="latest-run-label">最近</span><strong id="latest-run-id"></strong><span id="latest-run-name"></span><span id="latest-run-status"></span><span id="latest-run-time"></span></button></div>
-    <div class="pto-ide-frame__topbar-right"><button class="btn" data-action="import-config">导入 CLI</button><button class="btn btn-solid" data-action="start-run">发起 Controlled Run</button><button class="btn btn-icon btn-ghost" data-ide-toggle="inspector" aria-controls="serving-inspector-pane" aria-expanded="false" aria-pressed="false" title="Inspector" aria-label="Inspector"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg></button></div>
+    <div class="pto-ide-frame__topbar-right"><button class="btn" data-action="import-config">导入 CLI</button><button class="btn" data-action="start-run">发起 Controlled Run</button><button class="btn btn-icon btn-ghost" data-ide-toggle="inspector" hidden aria-controls="serving-inspector-pane" aria-expanded="false" aria-pressed="false" title="Inspector" aria-label="Inspector"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg></button></div>
   </header>
   <div class="pto-ide-frame__body">
     <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" data-ide-slot="activity-rail" aria-label="Activity rail">
@@ -10274,7 +10359,7 @@ button:disabled {opacity:var(--button-disabled-opacity);pointer-events:none}
             </button>
           </nav>
     <div class="pto-ide-frame__workarea">
-      <div class="pto-ide-frame__split" data-ide-split="standalone-main" data-split-direction="horizontal" data-storage-key="serving-observability-pto-v1" data-pixel-sizes="300" data-sizes="24,54,22" data-min-size="180,320,220">
+      <div class="pto-ide-frame__split" data-ide-split="standalone-main" data-split-direction="horizontal" data-storage-key="serving-observability-pto-v3" data-pixel-sizes="300" data-sizes="24,54,22" data-min-size="180,320,220">
         <aside id="serving-explorer-pane" class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer">
           <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">Workspace</span></header>
           <div class="pto-ide-frame__pane-body"><input class="so-input so-pto-search" type="search" id="serving-nav-search" placeholder="搜索导航" aria-label="搜索导航"><div id="explorer-content" class="app-nav"></div><div class="explorer-context"><span>Run Scenario</span><strong id="sidebar-scenario"></strong><span id="sidebar-status"></span></div></div>
@@ -15461,7 +15546,15 @@ window.PtoDfxEvidence = { load: function () {
     const width = Math.max(minimumWidth, Math.round(svg.clientWidth || minimumWidth));
     const height = Math.max(MIN_HEIGHT, Math.round(svg.clientHeight || MIN_HEIGHT));
     const leftInset = Math.max(48, Math.min(64, width * .05));
-    const finalLabelReserve = stages[stages.length - 1].candidateLabels.length ? 220 : leftInset;
+    const finalLabels = stages[stages.length - 1].candidateLabels;
+    const labelWidth = finalLabels.reduce((maximum, label) => {
+      const probe = svgNode('text', { class: 'candidate-name', visibility: 'hidden' }, label);
+      svg.append(probe);
+      const measured = typeof probe.getComputedTextLength === 'function' ? probe.getComputedTextLength() : 0;
+      probe.remove();
+      return Math.max(maximum, measured || String(label).length * 7);
+    }, 0);
+    const finalLabelReserve = finalLabels.length ? labelWidth + 54 : leftInset;
     const step = (width - leftInset - finalLabelReserve) / Math.max(1, stages.length - 1);
     const verticalScale = height / BASE_HEIGHT;
     const centerY = 96 * verticalScale;
@@ -15474,8 +15567,9 @@ window.PtoDfxEvidence = { load: function () {
         height: cloud.baseHeight * verticalScale
       };
     });
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    return { width, height, verticalScale, centerY, stages: laidOutStages };
+    // Reserve a separate header band above all branches and rejection annotations.
+    svg.setAttribute('viewBox', `0 -60 ${width} ${height + 60}`);
+    return { width, height, verticalScale, centerY, finalLabelReserve, stages: laidOutStages };
   }
 
   function stageBounds(stage, centerY) {
@@ -15564,13 +15658,13 @@ window.PtoDfxEvidence = { load: function () {
       'data-candidate-count': stage.count
     });
     selectionLookup.set(stage.id, { id: stage.id, kind: 'stage', item: stage, stageIndex });
-    appendStageLabel(group, { centerX: stage.x, dotY: 28 * chart.verticalScale, label: stage.label });
+    appendStageLabel(group, { centerX: stage.x, dotY: -30, label: stage.label });
 
     group.append(svgNode('rect', {
       class: 'stage-plane',
       x: bounds.left - 10,
       y: bounds.top - 12,
-      width: Math.max(40, stage.width + 20),
+      width: isFinal && stage.candidateLabels.length ? chart.finalLabelReserve - 14 : Math.max(40, stage.width + 20),
       height: stage.height + 24,
       rx: 12
     }));
@@ -15786,7 +15880,7 @@ window.PtoDfxEvidence = { load: function () {
         branchGroup.append(svgNode('text', {
           class: 'sweep-branch-outcome is-reject',
           x: rejectEndX + 7,
-          y: rejectEndY + 3,
+          y: rejectEndY - 8,
           'text-anchor': 'start'
         }, String(branch.outcome || '')));
       }
@@ -16432,18 +16526,9 @@ window.PtoDfxEvidence = { load: function () {
       }); this.updateFocus();
     }
     applyCamera() { this.world.style.transform = `translate(${this.camera.x}px,${this.camera.y}px) scale(${this.camera.k})`; this.zoomOutput.value = `${Math.round(this.camera.k * 100)}%`; this.zoomOutput.textContent = this.zoomOutput.value; }
-    initialView() {
-      this.fit();
-      // A full fit can reduce evidence text to 6px. Start readable; Fit remains explicit.
-      if (this.camera.k < .72) {
-        const first = this.positions.get(this.primaryPath()[0]);
-        this.camera = {x: 20, y: this.viewport.clientHeight / 2 - (first.y + first.height / 2) * .72, k: .72};
-        this.userCameraMoved = true;
-        this.applyCamera();
-      }
-    }
-    fit() { const width = parseFloat(this.world.style.getPropertyValue('--dg-world-width')) || 1600; const height = parseFloat(this.world.style.getPropertyValue('--dg-world-height')) || 900; const pad = 34; const k = Math.min((this.viewport.clientWidth - pad * 2) / width, (this.viewport.clientHeight - pad * 2) / height); this.camera.k = Math.max(.08, k); this.camera.x = (this.viewport.clientWidth - width * this.camera.k) / 2; this.camera.y = (this.viewport.clientHeight - height * this.camera.k) / 2; this.applyCamera(); }
-    setScale(next, point) { this.userCameraMoved = true; const old = this.camera.k; const k = clamp(next, .1, 3); const anchor = point || {x: this.viewport.clientWidth / 2, y: this.viewport.clientHeight / 2}; this.camera.x = anchor.x - (anchor.x - this.camera.x) * k / old; this.camera.y = anchor.y - (anchor.y - this.camera.y) * k / old; this.camera.k = k; this.overlay.replaceChildren(); this.noteEvidenceId = null; this.applyCamera(); }
+    initialView() { this.fit(); }
+    fit() { const width = parseFloat(this.world.style.getPropertyValue('--dg-world-width')) || 1600; const height = parseFloat(this.world.style.getPropertyValue('--dg-world-height')) || 900; const pad = 34; const k = Math.min((this.viewport.clientWidth - pad * 2) / width, (this.viewport.clientHeight - pad * 2) / height); this.camera.k = Math.max(.01, k); this.camera.x = (this.viewport.clientWidth - width * this.camera.k) / 2; this.camera.y = 20; this.applyCamera(); }
+    setScale(next, point) { this.userCameraMoved = true; const old = this.camera.k; const k = clamp(next, .01, 3); const anchor = point || {x: this.viewport.clientWidth / 2, y: this.viewport.clientHeight / 2}; this.camera.x = anchor.x - (anchor.x - this.camera.x) * k / old; this.camera.y = anchor.y - (anchor.y - this.camera.y) * k / old; this.camera.k = k; this.overlay.replaceChildren(); this.noteEvidenceId = null; this.applyCamera(); }
     semanticEdges() { return this.data.edges; }
     focusFor(id) { return new Set([id, ...this.semanticEdges().filter(edge => edge.source === id || edge.target === id).flatMap(edge => [edge.source, edge.target])]); }
     updateFocus() { const focused = this.selectedId ? this.focusFor(this.selectedId) : null; const edgesById = new Map(this.semanticEdges().map(edge => [edge.id, edge])); this.nodeElements.forEach((item, id) => { item.classList.toggle('is-selected', id === this.selectedId); item.classList.toggle('is-dimmed', Boolean(focused && !focused.has(id))); }); this.evidenceElements.forEach((item, id) => { const [nodeId] = id.split(':'); item.classList.toggle('is-dimmed', Boolean(focused && !focused.has(nodeId))); }); this.edgeSvg.querySelectorAll('.dg-edge').forEach(path => { const edge = edgesById.get(path.dataset.dgEdge); const related = !focused || (focused.has(edge.source) && focused.has(edge.target)); path.classList.toggle('is-related', Boolean(focused && related)); path.classList.toggle('is-dimmed', Boolean(focused && !related)); }); this.edgeSvg.querySelectorAll('.dg-edge-label').forEach(label => label.classList.toggle('is-dimmed', Boolean(focused && !label.previousElementSibling.classList.contains('is-related')))); }
@@ -16533,7 +16618,7 @@ window.PtoDfxEvidence = { load: function () {
           selectedDetail: null,
           status: 'idle'
         },
-        explorerSections: { model: false, scenarios: false, observe: true },
+        explorerSections: { model: true, scenarios: true, observe: true },
         scenarioCreatedNotice: null,
         scenarioDraft: {
           template: 'latency',
@@ -17592,7 +17677,7 @@ window.PtoDfxEvidence = { load: function () {
         }).join('');
         var runChildren = runs.map(function (item) {
           var active = state.route === 'observe' && state.runId === item.id;
-          return '<button class="so-nav-child ' + (active ? 'is-active' : '') + '" type="button" data-explorer-run="' + esc(item.id) + '"><span>' + esc(item.id + ' · ' + item.name) + '</span><span class="so-nav-object-meta">' + esc(item.status) + '</span></button>';
+          return '<button class="so-nav-child ' + (active ? 'is-active' : '') + '" type="button" data-explorer-run="' + esc(item.id) + '"><span>' + esc(item.id + ' · ' + item.name) + '</span><span class="so-nav-object-meta">' + (item.status === 'Completed' ? '<span class="so-run-status-icon" role="img" aria-label="Completed" title="Completed">✓</span>' : esc(item.status)) + '</span></button>';
         }).join('');
         var html = '';
         html += '<div class="so-nav-group"><div class="so-nav-group-title">WORKSPACE</div>';
@@ -17613,7 +17698,7 @@ window.PtoDfxEvidence = { load: function () {
         explorer.querySelectorAll('[data-explorer-section]').forEach(function (el) {
           el.addEventListener('click', function () {
             var section = el.getAttribute('data-explorer-section');
-            Object.keys(state.explorerSections).forEach(function (key) { state.explorerSections[key] = key === section && !state.explorerSections[key]; });
+            state.explorerSections[section] = !state.explorerSections[section];
             renderExplorer();
           });
         });
@@ -17835,15 +17920,21 @@ window.PtoDfxEvidence = { load: function () {
         var baselineService = baselineRun ? serviceMetricsFor(baselineRun, baseline.profile) : null;
         var html = observeRunHeader();
         html += observeTabs();
-        html += '<div class="so-canvas-stage"><details class="so-metrics-float"><summary>运行指标 <span>' + esc(run.id) + ' · TTFT ' + roundText(currentService.ttft) + ' ms · ' + Number(currentService.throughput).toLocaleString('en-US') + ' tok/s</span></summary><div class="so-metrics-body"><div class="so-grid metrics">';
-        html += metric('TTFT', value(currentService.ttft == null ? '—' : roundText(currentService.ttft), currentService.ttft == null ? '' : ' ms'), 'p50 · 越低越好', '', baselineService ? baselineMarkup(currentService.ttft, baselineService.ttft, roundText(baselineService.ttft) + ' ms', 'lower', baselineRun.id) : '');
-        html += metric('TPOT', value(currentService.tpot == null ? '—' : roundText(currentService.tpot), currentService.tpot == null ? '' : ' ms'), 'p50 · 越低越好', '', baselineService ? baselineMarkup(currentService.tpot, baselineService.tpot, roundText(baselineService.tpot) + ' ms', 'lower', baselineRun.id) : '');
-        html += metric('Queue Wait · P95', value(currentService.queueWaitP95 == null ? '—' : Number(currentService.queueWaitP95).toFixed(1), currentService.queueWaitP95 == null ? '' : ' ms'), '请求排队 · 越低越好', '', baselineService ? baselineMarkup(currentService.queueWaitP95, baselineService.queueWaitP95, Number(baselineService.queueWaitP95).toFixed(1) + ' ms', 'lower', baselineRun.id) : '');
-        html += metric('Throughput', value(currentService.throughput == null ? '—' : Number(currentService.throughput).toLocaleString('en-US'), currentService.throughput == null ? '' : ' tok/s'), '持续输出 · 越高越好', '', baselineService ? baselineMarkup(currentService.throughput, baselineService.throughput, Number(baselineService.throughput).toLocaleString('en-US') + ' tok/s', 'higher', baselineRun.id) : '');
-        html += metric('SLO 达成率', value(currentService.sloRate.toFixed(1), '%'), currentService.sloRate >= 98 ? '达到目标 · ≥ 98%' : '未达到目标 · ≥ 98%', currentService.sloRate >= 98 ? '' : 'warn', baselineService ? baselineMarkup(currentService.sloRate, baselineService.sloRate, baselineService.sloRate.toFixed(1) + '%', 'higher', baselineRun.id) : '');
-        html += metric('KV Headroom', value(currentService.kvHeadroom == null ? '—' : Number(currentService.kvHeadroom).toFixed(1), currentService.kvHeadroom == null ? '' : '%'), currentService.kvPagesRemaining == null ? '容量余量 · 越高越好' : currentService.kvPagesRemaining + ' / ' + currentService.kvPagesTotal + ' 页可用', currentService.kvHeadroom != null && currentService.kvHeadroom < 15 ? 'warn' : '', baselineService ? baselineMarkup(currentService.kvHeadroom, baselineService.kvHeadroom, Number(baselineService.kvHeadroom).toFixed(1) + '%', 'higher', baselineRun.id) : '');
+        html += '<div class="so-canvas-stage"><details class="so-metrics-float"' + (state.metricsOpen !== false ? ' open' : '') + '><summary>运行指标 <span>' + esc(run.id) + ' · TTFT ' + roundText(currentService.ttft) + ' ms · ' + Number(currentService.throughput).toLocaleString('en-US') + ' tok/s</span></summary><div class="so-metrics-body"><div class="so-grid metrics">';
+        function runMetric(label, current, base, unit, note, direction, digits) {
+          function formatted(number) { return number == null ? '—' : Number(number).toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits }); }
+          var diff = state.showComparison && current != null && base != null ? compareValue(current, base, direction) : null;
+          var arrow = diff && Number(current) !== Number(base) ? (Number(current) > Number(base) ? '↗' : '↘') : '→';
+          var badge = diff ? '<span class="so-run-metric-trend ' + diff.status + '" aria-label="' + esc(diff.label + ' ' + diff.delta) + '"><span aria-hidden="true">' + arrow + '</span>' + esc(diff.delta) + '</span>' : '';
+          return '<article class="so-run-metric"><header><span class="so-metric-label">' + esc(label) + '</span>' + badge + '</header><div class="so-run-metric-number">' + formatted(current) + (current == null ? '' : '<span>' + esc(unit) + '</span>') + '</div><footer>' + (state.showComparison ? '<div>基线 ' + formatted(base) + (base == null ? '' : ' ' + esc(unit)) + '</div>' : '') + '<div>' + esc(note) + '</div></footer></article>';
+        }
+        html += runMetric('TTFT', currentService.ttft, baselineService && baselineService.ttft, 'ms', 'p50 · 越低越好', 'lower', 0);
+        html += runMetric('TPOT', currentService.tpot, baselineService && baselineService.tpot, 'ms', 'p50 · 越低越好', 'lower', 1);
+        html += runMetric('Queue Wait · P95', currentService.queueWaitP95, baselineService && baselineService.queueWaitP95, 'ms', '请求排队 · 越低越好', 'lower', 1);
+        html += runMetric('Throughput', currentService.throughput, baselineService && baselineService.throughput, 'tok/s', '持续输出 · 越高越好', 'higher', 0);
+        html += runMetric('SLO 达成率', currentService.sloRate, baselineService && baselineService.sloRate, '%', currentService.sloRate >= 98 ? '达到目标 · ≥ 98%' : '未达到目标 · ≥ 98%', 'higher', 1);
+        html += runMetric('KV Headroom', currentService.kvHeadroom, baselineService && baselineService.kvHeadroom, '%', currentService.kvPagesRemaining == null ? '容量余量 · 越高越好' : currentService.kvPagesRemaining + ' / ' + currentService.kvPagesTotal + ' 页可用', 'higher', 1);
         html += '</div>';
-        html += '<section class="so-card panel-shell panel-shell-quiet so-data-coverage" aria-label="Data Coverage"><strong>Data Coverage</strong><span>Trace <b>✓</b> · Memory <b>✓</b> · PMU <b class="is-missing">—</b></span></section>';
         html += renderRunMetadata(run, scenario, evidence, baselineRun, baseEvidence);
         html += '</div></details>';
         var runFindings = allRunFindings();
@@ -17932,7 +18023,7 @@ window.PtoDfxEvidence = { load: function () {
           var currentRow = '<div class="so-trace-row"><div class="so-trace-label">' + esc(laneDisplayLabel(lane.label)) + '<small>' + events.length + ' events · 当前</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" id="' + canvasId + '" data-trace-source="current" data-trace-lane="' + esc(lane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="' + esc(laneDisplayLabel(lane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer aria-label="' + esc(laneDisplayLabel(lane.label)) + ' events"></div></div></div>';
           var baselineRow = baseLane
             ? '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(baseLane.label)) + '<small>' + baseLane.events.length + ' events</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" data-trace-source="baseline" data-trace-lane="' + esc(baseLane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="基线 ' + esc(laneDisplayLabel(baseLane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer></div></div></div>'
-            : '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(lane.label)) + '</div><div class="so-trace-missing">基线无对应 Lane</div></div>';
+            : '';
           return currentRow + baselineRow;
         }).join('');
         if (lanes.length > shown.length) html += '<div class="so-lane-cap">已渲染 ' + shown.length + ' / ' + lanes.length + ' lanes。<button class="so-link" data-action="show-more-lanes">继续展开</button></div>';
@@ -17947,14 +18038,14 @@ window.PtoDfxEvidence = { load: function () {
       }
 
       var servingTaskColors = window.PtoSwimlaneTaskPattern.createTaskColormap();
+      var tracePalette = ['#4433d5', '#692bd1', '#007fa5', '#1558c6', '#108e90', '#5546df', '#7a3bd5', '#126eae', '#3465d4', '#237e99'];
       function traceColor(event) {
-        return servingTaskColors.colorForTask({laneKind: event.coreType || event.kind || 'other'}, 'engine');
+        var label = String(event.label || event.task || event.funcName || 'unknown');
+        var hash = 2166136261;
+        for (var i = 0; i < label.length; i++) { hash ^= label.charCodeAt(i); hash = Math.imul(hash, 16777619); }
+        return tracePalette[(hash >>> 0) % tracePalette.length];
       }
-      function traceLegend() {
-        return '<div class="so-trace-legend">' + ['aic','aiv','other'].map(function(kind) {
-          return '<span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="background:' + servingTaskColors.colorForLaneKind(kind) + '"></i>' + kind.toUpperCase() + '</span>';
-        }).join('') + '<span>基线位于对应泳道下方；悬停查看事件详情</span></div>';
-      }
+      function traceLegend() { return ''; }
 
       function traceTooltipHtml(item) {
         var event = item.event || {};
@@ -18117,12 +18208,12 @@ window.PtoDfxEvidence = { load: function () {
         html += observeTabs();
         if (state.dfxStatus !== 'ready') return html + '<div class="so-grid two" style="margin-top:12px">' + dfxStatusCard() + '</div>';
         html += renderSubpageFindings('trace');
-        html += '<div class="so-workbench-toolbar"><div><span class="so-pill accent">' + esc(currentRun().id + ' · ' + currentRun().name) + '</span><select class="so-select so-compact-select" data-trace-preset><option value="all" ' + (state.tracePreset === 'all' ? 'selected' : '') + '>All events</option><option value="long" ' + (state.tracePreset === 'long' ? 'selected' : '') + '>Long-pole events</option><option value="wait" ' + (state.tracePreset === 'wait' ? 'selected' : '') + '>Wait / gather</option></select><input class="so-input so-search" data-trace-search value="' + esc(state.traceSearch) + '" placeholder="Search function / task / core"><span class="so-pill">' + filteredTraceEvents(evidence).length + ' / ' + evidence.eventCount + ' events</span></div><div><div class="so-view-toggle" role="tablist" aria-label="Trace 视图"><button type="button" role="tab" aria-selected="' + (state.traceView === 'timeline') + '" class="' + (state.traceView === 'timeline' ? 'is-active' : '') + '" data-trace-view="timeline">Timeline</button><button type="button" role="tab" aria-selected="' + (state.traceView === 'dependency') + '" class="' + (state.traceView === 'dependency' ? 'is-active' : '') + '" data-trace-view="dependency">Dependency Graph</button></div><button class="btn" data-action="trace-zoom-out">−</button><span class="so-pill">' + state.traceZoom + '×</span><button class="btn" data-action="trace-zoom-in">＋</button></div></div>';
+        html += '<div class="so-workbench-toolbar so-trace-controls"><div><select class="so-select so-compact-select" data-trace-preset><option value="all" ' + (state.tracePreset === 'all' ? 'selected' : '') + '>All events</option><option value="long" ' + (state.tracePreset === 'long' ? 'selected' : '') + '>Long-pole events</option><option value="wait" ' + (state.tracePreset === 'wait' ? 'selected' : '') + '>Wait / gather</option></select><input class="so-input so-search" data-trace-search value="' + esc(state.traceSearch) + '" placeholder="Search function / task / core"></div><div><div class="so-view-toggle" role="tablist" aria-label="Trace 视图"><button type="button" role="tab" aria-selected="' + (state.traceView === 'timeline') + '" class="' + (state.traceView === 'timeline' ? 'is-active' : '') + '" data-trace-view="timeline">Timeline</button><button type="button" role="tab" aria-selected="' + (state.traceView === 'dependency') + '" class="' + (state.traceView === 'dependency' ? 'is-active' : '') + '" data-trace-view="dependency">Dependency Graph</button></div><button class="btn" data-action="trace-zoom-out">−</button><span class="so-pill">' + state.traceZoom + '×</span><button class="btn" data-action="trace-zoom-in">＋</button></div></div>';
         if (evidence.kind !== 'moe') html += traceLegend();
         if (evidence.kind === 'moe' && state.traceView === 'timeline') {
-          html += '<div class="so-analysis-layout">' + renderHierarchy(evidence) + '<div>' + renderMoeTraceBody(evidence) + renderEvidenceDock(evidence) + '</div></div>';
+          html += '<div class="so-trace-layout"><div>' + renderMoeTraceBody(evidence) + renderEvidenceDock(evidence) + '</div></div>';
         } else {
-          html += '<div class="so-analysis-layout">' + renderHierarchy(evidence) + '<div>';
+          html += '<div class="so-trace-layout"><div>';
           if (evidence.ranks && !state.selectedRank && state.traceView === 'timeline') html += renderRankOverview(evidence);
           else if (state.traceView === 'dependency') html += renderDependencyGraph(evidence);
           else html += '<div class="so-trace-scroll"><div class="so-trace"><div class="so-trace-scale"><span>0 μs</span><span>' + Math.round(sharedWindow * .25) + ' μs</span><span>' + Math.round(sharedWindow * .5) + ' μs</span><span>' + Math.round(sharedWindow * .75) + ' μs</span><span>' + sharedWindow + ' μs</span></div>' + traceRows(evidence, baseEvidence) + '<div class="so-trace-note">' + esc(evidence.label) + ' · ' + evidenceTaskCount(evidence) + ' tasks · ' + evidenceTensorCount(evidence) + ' tensors · ' + evidenceEdgeCount(evidence) + ' dependency edges' + (baseEvidence ? '<span class="so-baseline-inline">基线 · ' + evidenceTaskCount(baseEvidence) + ' tasks · ' + evidenceTensorCount(baseEvidence) + ' tensors · 共享时间轴 ' + roundText(sharedWindow) + ' μs</span>' : '') + '</div></div></div>';
@@ -19526,7 +19617,7 @@ window.PtoDfxEvidence = { load: function () {
         var run = currentRun();
         var scenario = currentScenario();
         var evidence = currentEvidence();
-        var html = header(run.id + ' · ' + run.name, '', '<button class="btn btn-solid" data-action="start-run">发起 Benchmark</button>');
+        var html = header(run.id + ' · ' + run.name, '', '<button class="btn" data-action="start-run">发起 Benchmark</button>');
         html += '<div class="so-card panel-shell panel-shell-quiet"><div class="so-card-head"><h3>' + esc(run.id + ' · ' + run.name) + '</h3>' + status(run.status) + '</div><div class="so-card-body"><div class="so-grid two"><dl class="so-kv"><dt>Model / Variant</dt><dd>' + esc(scenario.model + ' / Flash Decode') + '</dd><dt>Scenario</dt><dd><button class="btn btn-compact" type="button" data-scenario-detail="' + esc(scenario.id) + '" aria-label="打开当前 Run 所属 Scenario：' + esc(scenario.name) + '"><span class="so-pill accent">' + esc(scenario.revision) + '</span><span>' + esc(scenario.name) + '</span><span aria-hidden="true">→</span></button></dd><dt>Workload</dt><dd>' + esc(scenario.workload) + '</dd><dt>Hardware</dt><dd>' + esc(scenario.hardware) + '</dd><dt>Runtime</dt><dd class="so-mono">pypto-serving 0.4.2</dd></dl><dl class="so-kv"><dt>Snapshot</dt><dd>' + esc(run.snapshot) + '</dd><dt>Run config</dt><dd class="so-code">' + esc(run.config) + '</dd><dt>Artifact</dt><dd class="so-mono">' + esc(run.artifact) + '</dd><dt>Evidence</dt><dd>' + evidence.eventCount + ' events · ' + evidenceTaskCount(evidence) + ' tasks · ' + evidenceEdgeCount(evidence) + ' edges</dd></dl></div><div class="so-divider"></div><div class="so-grid three"><div><div class="so-metric-label">状态链</div><div style="margin-top:8px">' + ['Ready', 'Preparing', 'Running', 'Collecting evidence', 'Completed'].map(function (item) { return '<div style="margin:7px 0">' + status(item) + '</div>'; }).join('') + '</div></div><div><div class="so-metric-label">当前进度</div><div class="so-metric-value">' + run.progress + '%</div><div class="so-bar" style="margin-top:10px"><span style="width:' + run.progress + '%"></span></div><div class="so-finding-summary" style="margin-top:8px">' + (run.status === 'Completed' ? 'Evidence 可用性已确认' : 'Controlled Benchmark 正在推进') + '</div></div><div><div class="so-metric-label">异常状态</div><div style="margin-top:8px">' + status('Failed') + '<div class="so-finding-summary">保留用于异常 Run 表达</div><div style="margin-top:12px">' + status('Completed with limited evidence') + '<div class="so-finding-summary">当前 Run 未触发</div></div></div></div></div></div></div>';
         return html;
       }
@@ -19859,6 +19950,7 @@ window.PtoDfxEvidence = { load: function () {
         if (main.dataset.navigationKey !== navigationKey) document.querySelector('.sw-main-scroll').scrollTop = 0;
         main.dataset.navigationKey = navigationKey;
         main.innerHTML = html;
+        main.classList.toggle('is-observe-page', state.route === 'observe');
         main.classList.toggle('is-canvas-overview', state.route === 'observe' && state.observeTab === 'overview');
         document.querySelector('.sw-main-scroll').classList.toggle('is-overview', state.route === 'observe' && state.observeTab === 'overview');
         document.querySelector('.so-workarea').classList.toggle('is-scenarios', state.route === 'scenarios');
@@ -19909,9 +20001,9 @@ window.PtoDfxEvidence = { load: function () {
           var rect = canvas.getBoundingClientRect();
           var width = Math.max(620, canvas.clientWidth || rect.width || 620);
           var dpr = window.devicePixelRatio || 1;
-          var canvasHeight = source === 'baseline' ? 36 : 58;
-          var barY = source === 'baseline' ? 8 : 14;
-          var barHeight = source === 'baseline' ? 17 : 27;
+          var canvasHeight = 16;
+          var barY = 2;
+          var barHeight = 11;
           canvas.width = width * dpr;
           canvas.height = canvasHeight * dpr;
           var ctx = canvas.getContext('2d');
@@ -20132,16 +20224,15 @@ window.PtoDfxEvidence = { load: function () {
         });
         var metricsDock = document.querySelector('.so-metrics-float');
         if (metricsDock) {
-          var pinned = false;
-          metricsDock.addEventListener('mouseenter', function () { metricsDock.open = true; });
-          metricsDock.addEventListener('mouseleave', function () { if (!pinned) metricsDock.open = false; });
-          metricsDock.addEventListener('focusin', function () { metricsDock.open = true; });
-          metricsDock.addEventListener('focusout', function (event) { if (!pinned && !metricsDock.contains(event.relatedTarget)) metricsDock.open = false; });
+          function setMetricsOpen(open) { state.metricsOpen = open; metricsDock.open = open; }
           metricsDock.querySelector('summary').addEventListener('click', function (event) {
-            event.preventDefault(); pinned = !pinned; metricsDock.open = pinned;
+            event.preventDefault(); setMetricsOpen(!metricsDock.open);
           });
+          metricsDock.closest('.so-canvas-stage').addEventListener('click', function (event) {
+            if (!metricsDock.contains(event.target)) setMetricsOpen(false);
+          }, true);
           metricsDock.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape') { pinned = false; metricsDock.open = false; }
+            if (event.key === 'Escape') setMetricsOpen(false);
           });
         }
         document.querySelectorAll('[data-route]').forEach(function (el) {
@@ -20802,6 +20893,22 @@ window.PtoDfxEvidence = { load: function () {
   </script>
   <script>
     window.servingIdeFrame = window.PtoIdeFrame.init(document.body);
+    // Inspector initialization replaces pixel sizes with proportional flex values.
+    // Restore the Explorer's initial pixel width after all pane toggles initialize.
+    function restoreExplorerWidth() {
+      var pane = document.getElementById('serving-explorer-pane');
+      if (!pane.hidden) {
+        pane.style.flex = '0 0 300px';
+        pane.style.width = '300px';
+        var editor = document.querySelector('[data-ide-pane="editor-preview"]');
+        editor.style.flex = '1 1 0%';
+        editor.style.minWidth = '0';
+      }
+    }
+    restoreExplorerWidth();
+    document.querySelector('[data-ide-toggle="explorer"]').addEventListener('click', restoreExplorerWidth);
+    document.querySelector('[data-ide-toggle="inspector"]').addEventListener('click', restoreExplorerWidth);
+
     document.querySelector('[data-serving-search]').addEventListener('click', function() {
       if (document.body.dataset.explorerCollapsed === 'true') document.querySelector('[data-ide-toggle="explorer"]').click();
       document.getElementById('serving-nav-search').focus();
