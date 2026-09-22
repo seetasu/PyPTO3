@@ -10191,7 +10191,7 @@ body.pto-ide-frame { min-width:320px; margin:0; }
 .serving-workbench .dg-evidence-attachment__trigger {min-width:0; width:auto; height:auto}
 .serving-workbench .diagnostic-graph__toolbar {top:auto;bottom:var(--space-3);right:var(--space-3);background:var(--surface-2);border:0;border-radius:var(--radius-lg);box-shadow:var(--shadow-md);gap:var(--space-1);padding:var(--space-1)}
 .serving-workbench .dg-node {width:320px;min-height:160px;padding:var(--space-4);gap:var(--space-4);background:#242424;border:1px solid var(--border-default);border-radius:var(--radius-xl);opacity:1;filter:none}
-.serving-workbench .dg-node.is-abnormal {width:320px;background:#332500;border-color:#66582f;box-shadow:none}
+.serving-workbench .dg-node.is-abnormal {width:320px;background:linear-gradient(to bottom,#805900 0%,#654600 100%);border-color:#66582f;box-shadow:none}
 .serving-workbench .dg-node.is-unresolved {background:#242424;border:1px dashed #777}
 .serving-workbench .dg-node.is-normal,.serving-workbench .dg-node.is-dimmed {opacity:1;filter:none}
 .serving-workbench .dg-node__head {display:flex;align-items:center;justify-content:space-between;gap:var(--space-3)}
@@ -10328,7 +10328,7 @@ body.serving-workbench {--so-link-text:#9db7ff}
 .serving-workbench .sw-main-scroll {scrollbar-gutter:stable;overflow-anchor:none}
 
 /* Next action: opaque blue surface with readable text. */
-.serving-workbench .dg-node.dg-node--diagnosis {background:#234a91;border:1px dashed #a9c4ff;color:#fff}
+.serving-workbench .dg-node.dg-node--diagnosis {background:linear-gradient(to bottom,#2d60c6 0%,#2853aa 100%);border:1px dashed #a9c4ff;color:#fff}
 .serving-workbench .dg-node--diagnosis .dg-node__title,
 .serving-workbench .dg-node--diagnosis .dg-node__status,
 .serving-workbench .dg-node--diagnosis .dg-node__action-title {color:#fff}
@@ -10400,6 +10400,16 @@ body.serving-workbench {--so-link-text:#9db7ff}
 .serving-workbench::-webkit-scrollbar-thumb:hover,.serving-workbench *::-webkit-scrollbar-thumb:hover {background:#888}
 .serving-workbench::-webkit-scrollbar-corner,.serving-workbench *::-webkit-scrollbar-corner {background:#1b1b1b}
 .serving-workbench #serving-explorer-pane .pto-ide-frame__pane-body,.serving-workbench .so-tabs {scrollbar-width:none}
+
+/* Nested evidence rows share the card gradient without restarting it. */
+.serving-workbench .dg-node.is-abnormal .dg-evidence-rail,
+.serving-workbench .dg-node.is-abnormal .dg-evidence-attachment,
+.serving-workbench .dg-node.is-abnormal .dg-inline-evidence {background:transparent}
+
+.serving-workbench .dg-node.is-abnormal {border-color:#9b7a29}
+.serving-workbench .dg-node.is-abnormal .dg-node__summary,
+.serving-workbench .dg-node.is-abnormal .dg-node__eyebrow,
+.serving-workbench .dg-node.is-abnormal .dg-evidence-attachment__title {color:#f2e4c5}
 
 /* PTO PRODUCT CSS END */
 </style>
@@ -15393,7 +15403,7 @@ window.PtoDfxEvidence = { load: function () {
       set('kernel', {title:'Tile / Kernel', signal:hints.some(x => x.code === 'PH001') ? 'PH001' : '待验证', summary:'检查 tile 粒度，不能只用 hint 判定性能根因。', evidenceRefs:['hint-counts']});
       set('communication', {title:'依赖 / 等待', signal:(evidence.edges || []).length + ' edges', summary:'依赖关系不能替代 ready / blocked 原因日志。'});
       set('hypothesis', {title:'Buffer 共存或 Tile 粒度是否影响执行？'});
-      set('diagnosis', {title:'验证优化是否有效', summary:'', action:{eyebrow:'验证方式',title:'修改一项配置，与当前 Run 对比',summary:'保持模型、输入和硬件一致，每次只修改一项配置，比较修改前后的执行耗时。',label:'创建验证实验'}});
+      set('diagnosis', {title:'通过调整配置并对比运行结果，验证优化是否有效', summary:'', action:{eyebrow:'验证方式',title:'修改一项配置，与当前 Run 对比',summary:'保持模型、输入和硬件一致，每次只修改一项配置，比较修改前后的执行耗时。',label:'创建验证实验'}});
       graph.edges.forEach(edge => {
         if (edge.label) edge.label = ({locate:'定位执行窗口',promote:'检查事件',continue:'检查编译提示',support:'多份独立证据',diagnose:'制定验证计划'})[edge.relation] || edge.label;
       });
