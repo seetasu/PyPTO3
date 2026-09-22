@@ -331,6 +331,7 @@
     selection: null,
     runtimeContext: null,
     compilationEntry: null,
+    executionEntry: null,
     runSplitSession: null,
     // Run hides the inspector; this is the explorer width Run is pinned to,
     // in pixels, carried across Activity switches.
@@ -472,13 +473,17 @@
 
   function renderCompilationTab(panel, r) {
     const view = window.PTO_COMPILATION;
-    if (view && view.ready && compilationDataMatches(r)) {
+    if (view && view.ready) {
       window.PTO_RUN_CONTEXT = {
         runId: r.id,
         findings: getFindings(r),
-        compilationEntry: st.compilationEntry
+        compilationEntry: st.compilationEntry,
+        numericalValidation: st.compilationEntry?.numericalValidation || null
       };
-      if (view.render(panel)) return;
+      if (st.compilationEntry?.numericalValidation) {
+        view.setNumericalContext?.(st.compilationEntry.numericalValidation, st.compilationEntry);
+      } else view.clearNumericalContext?.();
+      if ((compilationDataMatches(r) || st.compilationEntry?.numericalValidation) && view.render(panel)) return;
     }
     syncPanel();
   }
@@ -581,7 +586,7 @@
       '<code>' + esc(runDisplayId(r)) + '</code>' +
       '<span class="kf-th-rv is-' + v[1] + '">' + v[0] + '</span>' +
       '<small>' + esc(r.time) + (r.duration ? ' · ' + esc(r.duration) : '') + '</small>' +
-      (r.live ? '<em>产物在库</em>' : '') +
+      (r.live ? '<em>产物在库</em>' : r.model?.fixture ? '<em>Demo fixture</em>' : '') +
     '</button>';
   }
 
@@ -1187,7 +1192,11 @@
     const task = TASKS.find(t => t.id === st.task);
     const selected = task ? st.compareRuns.map(id => task.runs.find(r => r.id === id)).filter(Boolean) : [];
     if (selected.length !== 2 || !els.detail) return;
-    const run107 = selected.find(r => r.id === 'run_107'), run108 = selected.find(r => r.id === 'run_108');
+    const run106 = selected.find(r => r.id === 'run_106'), run107 = selected.find(r => r.id === 'run_107'), run108 = selected.find(r => r.id === 'run_108');
+    if (run106 && run107) {
+      renderCorrectnessRecoveryComparison(task, run106, run107);
+      return;
+    }
     if (run107 && run108) {
       renderOptimizationComparison(task, run107, run108);
       return;
@@ -1209,6 +1218,33 @@
         '<div><dt>目标</dt><dd>' + esc(s.target) + '</dd></div>' +
         '<div><dt>Pass</dt><dd>' + esc(s.passes) + '</dd></div><div><dt>Kernel</dt><dd>' + esc(s.kernels) + '</dd></div>' +
       '</dl></article>').join('') + '</div></section>';
+  }
+
+  /* #106 → #107 is a diagnostic story, not a general-purpose diff. Its goal is
+     to make the repair and the evidence for that repair legible before users
+     move on to the separate performance diagnosis in #107. */
+  function renderCorrectnessRecoveryComparison(task, before, after) {
+    const profile = diagnosisViewForRun(before.id);
+    const first = profile?.tensors?.find(t => t.id === profile.firstDivergence?.id) || null;
+    const firstTensor = first ? first.tid : '—';
+    const maxAbs = profile?.result?.maxAbs != null ? String(profile.result.maxAbs) : '—';
+    const row = (label, x, y, beforeTone, afterTone) => '<tr><th>' + esc(label) + '</th><td' + (beforeTone === 'bad' ? ' class="is-bad"' : '') + '>' + esc(x) + '</td><td' + (afterTone === 'ok' ? ' class="is-ok"' : '') + '>' + esc(y) + '</td></tr>';
+    els.detail.innerHTML = '<section class="kf-rd kf-th-comparison kf-th-comparison--correctness">' +
+      '<div class="kf-th-compare-head"><div><span class="kf-eyebrow">CORRECTNESS RECOVERY</span><h2>Run ' + esc(runDisplayId(before)) + ' vs Run ' + esc(runDisplayId(after)) + '</h2><p>' + esc(task.title) + ' · 修复是否消除了数值分歧</p></div><button type="button" class="kf-th-compare-close" data-th-compare-close>返回运行</button></div>' +
+      '<section class="kf-rd-sec"><div class="kf-rd-h">Correctness change<small>失败 Run 与修复后 Run 的关键证据</small></div><table class="kf-th-compare-outcome"><thead><tr><th></th><th>' + esc(runDisplayId(before)) + '</th><th>' + esc(runDisplayId(after)) + '</th></tr></thead><tbody>' +
+        row('Correctness', 'FAIL', 'PASS', 'bad', 'ok') +
+        row('max abs diff', maxAbs, 'within tolerance') +
+        row('First divergence', firstTensor, '—', 'bad') +
+        row('Repeatability', 'unstable', 'stable', null, 'ok') +
+        row('Task #182 → #197', 'missing edge', 'ordered', null, 'ok') +
+      '</tbody></table></section>' +
+      '<section class="kf-th-correctness-story" aria-label="Correctness recovery evidence">' +
+        '<div><span>Change</span><b>添加 Task #182 → #197 ordering dependency</b></div>' +
+        '<div><span>Evidence</span><b>重复运行由 unstable → stable · ' + esc(firstTensor) + ' divergence → none</b></div>' +
+        '<div class="is-ok"><span>Conclusion</span><b>Correctness restored</b></div>' +
+      '</section>' +
+      '<p class="kf-rd-note">#106 的 Correctness 未通过，因此 Performance 为 NOT EVALUATED；#107 已通过 Correctness，才进入后续 Performance diagnosis。</p>' +
+    '</section>';
   }
 
   function renderOptimizationComparison(task, before, after) {
@@ -1654,30 +1690,65 @@
       const where = toTabKey(key);
       return '<button type="button" class="is-' + verdict[1] + '" data-ws-route="' + where + '"><b>' + DOMAIN_LABEL[key] + '</b><em>' + verdict[0] + '</em><small>' + esc(d.summary) + '</small>' + (where === key ? '' : '<i class="kf-rw-route">证据在 ' + DOMAIN_LABEL[where] + '</i>') + '</button>';
     }).join('');
+    const profile = isCorrectnessFailureStory(r) ? diagnosisViewForRun(r.id) : null;
     const findings = getFindings(r).map(f => {
       const severity = f.severity === 'critical' ? 'bad' : f.severity === 'warning' ? 'warn' : 'dim';
+      if (f.domain === 'correctness' && profile?.type === 'numerical') {
+        const first = profile.tensors?.find(t => t.id === profile.firstDivergence?.id);
+        const firstLabel = [profile.firstDivergence?.id, first?.tid].filter(Boolean).join(' / ') || '—';
+        const firstCaption = profile.firstDivergence?.kind === 'pass' ? 'First divergent pass' : 'First divergence';
+        const maxAbs = profile.result?.maxAbs != null ? profile.result.maxAbs : '—';
+        return '<button type="button" class="kf-rw-finding kf-rw-finding--numerical is-' + severity + '" data-ws-finding="' + esc(f.id) + '">' +
+          '<span>' + esc(String(f.severity || 'info').toUpperCase()) + ' · Correctness</span><div><i>NUMERICAL</i><b>Output mismatch</b><small>max abs diff · ' + esc(maxAbs) + ' <mark>' + esc(firstCaption) + ' · ' + esc(firstLabel) + '</mark></small></div><em>Investigate →</em></button>';
+      }
       return '<button type="button" class="kf-rw-finding is-' + severity + '" data-ws-finding="' + esc(f.id) + '">' +
         '<span>' + esc(String(f.severity || 'info').toUpperCase()) + ' · ' + esc(DOMAIN_LABEL[f.domain] || f.domain) + '</span><b>' + esc(f.title) + '</b><small>' + esc(f.location || f.summary) + ' →</small></button>';
     }).join('') || '<p class="kf-rd-note is-dim">无待处理 Finding。</p>';
-    const evidenceKeys = isCompileFailureStory(r)
-      ? ['ir_validation', 'pass_dump', 'source_location', 'golden_compare', 'runtime_timeline', 'dependency_graph', 'pmu']
-      : Object.keys(getEvidenceCoverage(r));
-    const evidence = evidenceKeys.map(key => {
-      const e = getEvidenceCoverage(r)[key], s = EVIDENCE_STATUS[e.status] || EVIDENCE_STATUS.unavailable;
-      return '<div class="is-' + e.status + '"><b>' + esc(e.label || EVIDENCE_LABEL[key]) + '</b><small>' + s[0] + ' ' + s[1] + '</small></div>';
+    const coverage = getEvidenceCoverage(r);
+    const evidenceRows = profile ? correctnessEvidenceRows(profile, coverage) : (isCompileFailureStory(r)
+      ? ['ir_validation', 'pass_dump', 'source_location', 'golden_compare', 'runtime_timeline', 'dependency_graph', 'pmu'].map(key => ({ key, entry: coverage[key] }))
+      : Object.keys(coverage).map(key => ({ key, entry: coverage[key] })));
+    const evidence = evidenceRows.map(({ key, entry: e }) => {
+      const s = EVIDENCE_STATUS[e.status] || EVIDENCE_STATUS.unavailable;
+      return '<div class="is-' + e.status + '"><b>' + esc(e.label || EVIDENCE_LABEL[key]) + '</b><small>' + esc(e.statusText || (s[0] + ' ' + s[1])) + '</small></div>';
     }).join('');
     const raw = (r.inventory || []).map(i => '<code>' + esc(i.where || i.label) + '</code>').join(' · ') || '<code>无挂载产物目录</code>';
     const lineage = m.derivedFrom
       ? '<p class="kf-rd-note">Derived from ' + esc(m.derivedFrom === 'run_105' ? '#105' : m.derivedFrom === 'run_106' ? '#106' : m.derivedFrom === 'run_107' ? '#107' : m.derivedFrom) + ' · ' + esc(m.change || (m.changes || []).join(' · ')) + '</p>' : '';
+    const fixtureNote = m.fixture ? '<p class="kf-rd-note is-dim">Demo fixture · ' + esc(m.fixtureLabel || 'diagnostic case') + '</p>' : '';
     const optimizationActions = isValidatedOptimizationStory(r)
       ? '<div class="kf-oi-actions"><button type="button" data-ws-compare-with="run_107">与 #107 对比</button></div>' : '';
     const baseline = m.baseline && m.baselineMeta
       ? '<p class="kf-rd-note">Trusted Baseline · <code>' + esc(m.baselineMeta.id) + '</code></p>' +
         '<details class="kf-rw-evidence"><summary>Reproducibility metadata</summary><div class="kf-rw-evidence-body"><p class="kf-rd-note">source commit · ' + esc(m.baselineMeta.sourceCommit) + ' · backend · ' + esc(m.baselineMeta.backend) + ' · environment · ' + esc(m.baselineMeta.environmentFingerprint) + ' · input · ' + esc(m.baselineMeta.inputShape) + ' · compiler · ' + esc(m.baselineMeta.compilerVersion) + ' · Run ID · ' + esc(m.baselineMeta.runId) + '</p></div></details>' : '';
     return '<section class="kf-rw-health"><div class="kf-rd-h">Analysis Status<small>Domain verdict 与 supporting evidence</small></div><div>' + states + '</div></section>' +
-      '<section class="kf-rd-sec"><div class="kf-rd-h">Findings<small>用户需要处理的问题</small></div>' + findings + lineage + baseline + optimizationActions + '</section>' +
+      '<section class="kf-rd-sec"><div class="kf-rd-h">Findings<small>用户需要处理的问题</small></div>' + findings + fixtureNote + lineage + baseline + optimizationActions + '</section>' +
       '<details class="kf-rw-evidence"><summary>Evidence Coverage 与产物</summary><div class="kf-rw-evidence-body kf-rw-coverage">' + evidence +
         '<p class="kf-rd-note">Raw artifacts · ' + raw + '</p></div></details>';
+  }
+
+  /* Overview keeps run evidence as its source of truth. The two compiler
+     checks come from the active correctness profile because they are scoped
+     to its Numerical Accuracy diagnosis, rather than being new first-level
+     Run domains. Missing profile data remains explicitly not collected. */
+  function correctnessEvidenceRows(profile, coverage) {
+    const collected = (status, label, statusText) => ({ status: status || 'not_collected', label, statusText });
+    const structural = profile.compiler?.structuralVerification;
+    const numerical = profile.compiler?.numericalValidation;
+    const compilerStatus = item => item?.status === 'pass' ? 'available' : item?.status === 'fail' ? 'partial' : 'not_collected';
+    const passText = numerical?.status === 'fail' && numerical?.firstDivergentPass
+      ? '✕ FIRST DIVERGENCE · ' + numerical.firstDivergentPass
+      : numerical?.passed != null && numerical?.total != null
+        ? numerical.passed + ' / ' + numerical.total + (numerical.status === 'pass' ? ' PASS' : '') : null;
+    return [
+      { key: 'golden_compare', entry: coverage.golden_compare },
+      { key: 'structural_verification', entry: collected(compilerStatus(structural), 'Structural Verification', structural?.status === 'pass' ? '✓ PASS' : null) },
+      { key: 'numerical_validation', entry: collected(compilerStatus(numerical), 'Numerical Validation', passText ? (numerical?.status === 'fail' ? passText : '✓ ' + passText) : null) },
+      { key: 'tensor_dump', entry: Object.assign({}, coverage.tensor_dump, { label: 'Tensor Checkpoints / Intermediate Tensor' }) },
+      { key: 'args_dump', entry: coverage.args_dump },
+      { key: 'dependency_graph', entry: coverage.dependency_graph },
+      { key: 'runtime_timeline', entry: coverage.runtime_timeline }
+    ];
   }
 
   function domainUnavailablePanel(r, key) {
@@ -2190,6 +2261,9 @@
 
   function dgResult() {
     const R = DG.result;
+    const compilerDivergence = DG.compiler?.numericalValidation?.status === 'fail' && DG.compiler?.numericalValidation?.firstDivergentPass != null;
+    const direction = compilerDivergence ? 'Compilation' : 'Runtime';
+    const lens = compilerDivergence ? 'Compiler semantic transformation' : 'Data integrity · execution ordering';
     const cell = (k, v, tone) => '<div class="kf-dg-cell"><span>' + k + '</span><b class="' + (tone || '') + '">' + v + '</b></div>';
     return '<section class="kf-dg-result" aria-label="正确性结果">' +
       '<div class="kf-dg-verdict"><span>正确性</span><b>' + esc((R.verdict || 'unknown').toUpperCase()) + '</b></div>' +
@@ -2197,12 +2271,25 @@
         cell('输出', R.output) +
         cell('最大绝对误差', R.maxAbs, 'is-bad') +
         cell('最大相对误差', R.maxRel) +
-        cell('重复运行', DG.repeatability?.summary || '—', DG.repeatability?.stable ? '' : 'is-warn') +
+        cell(compilerDivergence ? '首个异常 Pass' : '重复运行', compilerDivergence ? DG.compiler.numericalValidation.firstDivergentPass : (DG.repeatability?.summary || '—'), compilerDivergence ? 'is-bad' : (DG.repeatability?.stable ? '' : 'is-warn')) +
       '</div>' +
       '<div class="kf-dg-semantics">' +
-        '<span>调查方向</span><b>Runtime</b>' +
-        '<small>Data integrity · execution ordering</small>' +
+        '<span>调查方向</span><b>' + direction + '</b>' +
+        '<small>' + lens + '</small>' +
       '</div>' +
+    '</section>';
+  }
+
+  function dgHasCompilerDivergence() {
+    const numerical = DG?.compiler?.numericalValidation || {};
+    return numerical.status === 'fail' && numerical.firstDivergentPass != null;
+  }
+
+  function dgCompilerDivergence() {
+    const numerical = DG.compiler.numericalValidation;
+    return '<section class="kf-rd-art" aria-label="首个异常编译 Pass">' +
+      '<b>First divergence</b><code>' + esc(numerical.firstDivergentPass) + '</code>' +
+      '<small>该 Pass 后的 Host IR execution 首次偏离 Golden；后续 Pass 持续 MISMATCH。</small>' +
     '</section>';
   }
 
@@ -2216,14 +2303,28 @@
 
   function dgCause() {
     const C = DG.cause;
+    const numerical = DG.compiler?.numericalValidation || {};
+    const action = numerical.status === 'fail' && numerical.firstDivergentPass != null
+      ? '<div class="kf-oi-actions"><button type="button" data-dg-route="compilation">在 Compilation 查看首个异常 Pass</button></div>'
+      : DG.diagnosis?.category === 'runtime_data_error'
+        ? '<div class="kf-oi-actions"><button type="button" data-dg-route="execution">在 Execution 查看排序证据</button></div>'
+        : '';
     return '<section class="kf-dg-cause" aria-label="可能原因">' +
-      '<div><span>' + esc(C.label) + '</span><b>' + esc(C.text) + '</b></div>' +
+      '<div><span>' + esc(C.label) + '</span><b>' + esc(C.text) + '</b>' + action + '</div>' +
       '<ul>' + C.evidence.map(e => '<li>' + esc(e) + '</li>').join('') + '</ul>' +
     '</section>';
   }
 
   /* 对象详情只保留 hover tooltip，画布右侧不再挂常驻容器 */
   function correctnessDiagnosisPanel() {
+    if (dgHasCompilerDivergence()) {
+      return '<section class="kf-rd-sec kf-dg" aria-label="编译语义正确性诊断">' +
+        dgDiagnosisGates() +
+        dgResult() +
+        dgCompilerDivergence() +
+        dgCause() +
+      '</section>';
+    }
     return '<section class="kf-rd-sec kf-dg" aria-label="正确性诊断">' +
       dgDiagnosisGates() +
       dgResult() +
@@ -2252,9 +2353,57 @@
     dgRender();
   }
 
+  function correctnessExecutionEntry() {
+    const profile = DG || diagnosisViewForRun(st.run);
+    const divergence = profile?.firstDivergence || {};
+    const overlap = profile?.runtime?.timeline?.overlap || null;
+    return {
+      from: 'correctness', runId: st.run,
+      finding: 'Numerical Accuracy · ' + (divergence.id || 'output') + ' 首个分歧',
+      suspectedCause: 'Runtime ordering',
+      focusTask: overlap?.a || divergence.trail?.find(x => x.kind === 'task')?.id || null,
+      timeline: profile?.runtime?.timeline || null
+    };
+  }
+
+  function correctnessCompilationEntry() {
+    const profile = DG || diagnosisViewForRun(st.run);
+    const numerical = profile?.compiler?.numericalValidation || {};
+    return {
+      from: 'correctness', runId: st.run,
+      finding: 'Numerical Accuracy · Output mismatch',
+      intent: 'Investigating compiler semantic divergence',
+      numericalValidation: numerical
+    };
+  }
+
+  function focusCorrectnessExecutionEvidence(entry) {
+    const overlap = entry?.timeline?.overlap;
+    if (!overlap) return;
+    window.PTO_TIMELINE?.focusRange?.({ from: overlap.from, to: overlap.to });
+    window.PTO_TIMELINE?.clearHighlight?.();
+    $('#runTimeline', els.detail)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+
+  function routeCorrectnessEvidence(route) {
+    if (route === 'execution') {
+      const entry = correctnessExecutionEntry();
+      dg.runtime = true; dg.view = 'timeline';
+      if (entry.focusTask) dg.sel = { kind: 'task', id: String(entry.focusTask) };
+      toTab('execution', { executionEntry: entry });
+      requestAnimationFrame(() => focusCorrectnessExecutionEvidence(entry));
+      return;
+    }
+    if (route === 'compilation') {
+      toTab('compilation', { compilationEntry: correctnessCompilationEntry() });
+    }
+  }
+
   function dgWire() {
     if (!els.detail) return;
     els.detail.addEventListener('click', e => {
+      const route = e.target.closest('[data-dg-route]');
+      if (route) { routeCorrectnessEvidence(route.dataset.dgRoute); return; }
       const pick = e.target.closest('[data-dg-select-kind]');
       if (pick) { dgSelect(pick.dataset.dgSelectKind, pick.dataset.dgSelectId); return; }
       const view = e.target.closest('[data-dg-view]');
@@ -2274,7 +2423,13 @@
   }
 
   function correctnessExecutionStoryPanel() {
+    const entry = st.executionEntry;
+    const enteredFromCorrectness = entry?.from === 'correctness';
+    const profileTimeline = enteredFromCorrectness && DG?.timeline ?
+      '<div class="kf-dg-rt-body" data-dg-rtbody="timeline">' + dgRuntimeTimeline() + '</div>' : '';
     return '<section class="kf-rd-sec" aria-label="排序证据">' +
+      (enteredFromCorrectness ? '<section class="kf-cv-context kf-cv-context--execution" aria-label="Correctness investigation context">' +
+        '<span>From Correctness</span><b>' + esc(entry.finding) + ' · Suspected cause · ' + esc(entry.suspectedCause) + '</b></section>' : '') +
       '<div class="kf-rd-h">排序证据<small>Task Graph + Timeline</small></div>' +
       '<div class="kf-oi-links">' +
         objectButton('task', '182', 'Task #182 · 读取方', 'execution') +
@@ -2282,6 +2437,7 @@
         objectButton('task', '197', 'Task #197 · 写入方 / 覆盖', 'execution') +
       '</div>' +
       '<div class="kf-rd-art"><b>缺少预期排序</b><code>Task #182  →  Task #197</code><small>#182 仍在读取 · #197 开始覆盖写入 · 写入方先于读取方完成</small></div>' +
+      profileTimeline +
       '<div class="kf-oi-actions"><button type="button" data-ws-select-kind="dependency" data-ws-select-id="missing_182_197" data-ws-source="execution">查看缺失依赖</button></div>' +
     '</section>';
   }
@@ -2391,6 +2547,8 @@
       els.detail.innerHTML = '<p class="kf-rd-empty">选择一次运行查看结果。</p>';
       return;
     }
+    if (st.executionEntry?.runId && st.executionEntry.runId !== r.id) st.executionEntry = null;
+    if (st.compilationEntry?.runId && st.compilationEntry.runId !== r.id) st.compilationEntry = null;
     const LX = r.live ? liveRun() : null;
     const head = headline(t, r, LX);
 
@@ -2520,16 +2678,22 @@
   /* Both the main column and the right rail live outside the side pane and
      carry the same three affordances, so they share one handler. data-step is
      still left to demo-v2's document-level delegation. */
-  function toTab(key) {
+  function toTab(key, entry) {
     const k = toTabKey(key);
     if (st.tab === k) return;
-    st.compilationEntry = k === 'compilation' && st.tab === 'correctness'
-      ? {
+    const options = entry || {};
+    const currentProfile = st.tab === 'correctness' ? (DG || diagnosisViewForRun(st.run)) : null;
+    const directCompilerEvidence = currentProfile?.compiler?.numericalValidation?.status === 'fail'
+      ? currentProfile.compiler.numericalValidation : null;
+    st.compilationEntry = k === 'compilation'
+      ? (options.compilationEntry || (st.tab === 'correctness' ? {
           from: 'correctness',
           finding: 'Numerical Accuracy · Output mismatch',
-          intent: 'Investigating compiler semantic divergence'
-        }
+          intent: 'Investigating compiler semantic divergence',
+          numericalValidation: directCompilerEvidence
+        } : null))
       : null;
+    st.executionEntry = k === 'execution' ? (options.executionEntry || null) : null;
     st.tab = k;
     renderDetailBody();
     renderInspector();
@@ -2989,6 +3153,38 @@
     createFollowupRun('performance', true);
   }
 
+  function seedCompilerSemanticFixture() {
+    const decode = TASKS.find(t => t.id === 'task_decode');
+    if (!decode || decode.runs.some(r => r.id === 'run_109')) return;
+    decode.runs.unshift({
+      id: 'run_109', displayId: '#109', time: '13:02', target: 'Ascend 910B', duration: '', live: false,
+      model: runModel('completed', {
+        compilation: { verdict: 'pass', summary: '42 Pass · Structural Verification PASS' },
+        correctness: { verdict: 'fail', summary: 'ExpandMixedKernel 首次引入数值语义偏差' },
+        execution: { verdict: 'not_evaluated', summary: '编译语义偏差已在设备执行前定位' },
+        performance: { verdict: 'not_evaluated', summary: 'Correctness 未通过，暂不评价性能' },
+        resources: { verdict: 'unknown', summary: '未采集 runtime resource evidence' }
+      }, {
+        golden_compare: { status: 'available' }, ir_validation: { status: 'available' }, pass_dump: { status: 'available' }, source_location: { status: 'available' },
+        tensor_dump: { status: 'not_collected' }, args_dump: { status: 'not_collected' }, dependency_graph: { status: 'not_collected' }, runtime_timeline: { status: 'not_collected' },
+        pmu: { status: 'not_collected' }, core_trace: { status: 'not_collected' }, scope_stats: { status: 'not_collected' }
+      }, [{
+        id: 'F109', severity: 'critical', domain: 'correctness',
+        title: 'ExpandMixedKernel 引入数值语义偏差',
+        summary: 'Structural Verification 通过，但该 Pass 后的 Host IR execution 首次偏离 PyTorch Golden。',
+        location: 'ExpandMixedKernel · First divergent pass',
+        affectedObjects: [{ kind: 'pass', id: 'ExpandMixedKernel' }],
+        evidence: ['PyTorch Golden valid', 'Tolerance valid', 'Structural Verification: PASS', 'Numerical Validation: FAIL', '后续 Pass: MISMATCH'],
+        action: { label: '定位首个异常 Pass', route: 'correctness' }
+      }], {
+        correctnessStory: true, fixture: true, fixtureLabel: 'compiler semantic error',
+        source: { file: 'decode_layer.py', line: 728 }
+      }),
+      artifacts: [Object.assign({}, ART().compile, { meta: 'ExpandMixedKernel · first numerical divergence', tone: 'bad', primary: true }), Object.assign({}, ART().correct, { meta: 'PyTorch Golden · mismatch after pass', tone: 'bad' })],
+      signals: []
+    });
+  }
+
   /* 打开 Run 视图时默认落在磁盘上那次真实运行，而不是演示脚本刚生成的
      follow-up —— 只有它有 passes_dump / dfx_outputs。判定用 live 标记，
      不写死 run id，换一批数据也不会指错。 */
@@ -3000,6 +3196,7 @@
   function boot() {
     if (!mount()) return;
     seedStoryRuns();
+    seedCompilerSemanticFixture();
     selectDefaultRun();
     wire(); claimPaneHeader(); hideStageHeaderOnDetail(); watchRunInspectorLayout();
     render(); renderDetail();
