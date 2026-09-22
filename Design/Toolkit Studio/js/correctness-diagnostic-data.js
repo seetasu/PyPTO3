@@ -93,8 +93,8 @@
       category: 'runtime_data_error', confidence: 'high', label: '可能原因',
       summary: '运行时排序缺失或有误',
       route: 'runtime',
-      routeLabel: 'Investigate runtime data / execution ordering',
-      rationale: 'Structural Verification 与逐 Pass Numerical Validation 均通过，但 Device Result 不匹配',
+      routeLabel: '定位运行时数据 / 执行排序',
+      rationale: '结构校验与逐 Pass 数值校验均通过，但设备结果不匹配',
       evidence: ['上游 tensor 全部匹配', 'attention_out 是首个分歧点', '3 次重复运行结果不一致', 'Task #182 与 #197 时间线重叠', '两者之间缺少排序依赖边']
     }
   };
@@ -125,9 +125,9 @@
       category: 'compiler_semantic_error', confidence: 'high', label: '诊断结论',
       summary: '编译语义变换引入数值偏差',
       route: 'compilation',
-      routeLabel: 'Investigate compiler semantic transformation',
-      rationale: 'Structural Verification 通过，但 Host IR execution 在 ExpandMixedKernel 后首次偏离 Golden',
-      evidence: ['PyTorch Golden reference 有效', 'Tolerance 有效，且未声明允许差异', 'Structural Verification: PASS', 'ExpandMixedKernel: FIRST DIVERGENCE', '后续 Pass 持续 MISMATCH']
+      routeLabel: '定位编译语义变换',
+      rationale: '结构校验通过，但 Host IR execution 在 ExpandMixedKernel 后首次偏离 Golden',
+      evidence: ['PyTorch Golden reference 有效', 'Tolerance 有效，且未声明允许差异', '结构校验: PASS', 'ExpandMixedKernel: FIRST DIVERGENCE', '后续 Pass 持续 MISMATCH']
     }
   };
 

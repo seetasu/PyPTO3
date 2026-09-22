@@ -320,8 +320,8 @@
   const previewEntry = previewFixture && previewParams.get('from') === 'correctness'
     ? {
         from: 'correctness',
-        finding: 'Numerical Accuracy · Output mismatch',
-        intent: 'Investigating compiler semantic divergence'
+        finding: '数值精度 · 输出不一致',
+        intent: '正在定位编译语义分歧'
       }
     : null;
   const st = {
@@ -384,19 +384,19 @@
     const pass = e === 0;
     const s = findingSets();
     const findingCount = FINDINGS.filter(f => (s[f.id] || []).length).length;
-    const meta = [PASSMETA.length + ' Pass', K.kernels.length + ' Generated Kernels', K.target].filter(Boolean).join(' · ');
+    const meta = [PASSMETA.length + ' Pass', K.kernels.length + ' 个生成 Kernel', K.target].filter(Boolean).join(' · ');
     return '<section class="kc-summary">' +
-      '<div class="kc-summary__outcome"><div class="kc-summary__title"><span>Compilation</span>' +
+      '<div class="kc-summary__outcome"><div class="kc-summary__title"><span>编译</span>' +
         '<b class="' + (pass ? 'is-ok' : 'is-bad') + '"><i>' + (pass ? '✓' : '×') + '</i>' + (pass ? 'PASS' : 'FAIL') + '</b></div>' +
         '<small>' + esc(meta) + '</small>' +
         '<div class="kc-summary__evidence"><b class="' + (pass ? 'is-ok' : 'is-bad') + '">' +
-          (pass ? 'Structural Verification · PASS' : 'Structural Verification · FAIL') + '</b>' +
-          '<span>·</span><span>' + (findingCount ? findingCount + ' 个 findings 需要复核' : '没有需要复核的 findings') + '</span></div></div>' +
+          (pass ? '结构校验 · PASS' : '结构校验 · FAIL') + '</b>' +
+          '<span>·</span><span>' + (findingCount ? findingCount + ' 项发现需要复核' : '没有需要复核的发现') + '</span></div></div>' +
       '<div class="kc-summary__metrics" aria-label="编译摘要指标">' +
         '<span>L0B peak <b class="is-warn">' + esc(String(Math.max.apply(null, K.kernels.map(k => worstMem(k).space === 'Right' ? worstMem(k).p : 0)))) + '%</b></span>' +
-        '<span>Intent changes <b>' + esc(String(s.intent.length)) + '</b></span>' +
-        '<span>Perf hints <b>' + esc(String(s.perf.reduce((n, k) => n + perfHintsOf(k), 0))) + '</b></span>' +
-        '<span>IR changed <b>' + esc(changed + ' / ' + PASSMETA.length) + '</b></span>' +
+        '<span>意图变化 <b>' + esc(String(s.intent.length)) + '</b></span>' +
+        '<span>性能提示 <b>' + esc(String(s.perf.reduce((n, k) => n + perfHintsOf(k), 0))) + '</b></span>' +
+        '<span>IR 变化 <b>' + esc(changed + ' / ' + PASSMETA.length) + '</b></span>' +
       '</div>' +
     '</section>';
   }
@@ -404,13 +404,13 @@
   function contextHTML() {
     const c = compilationEntryContext();
     if (!c || c.from !== 'correctness') return '';
-    return '<section class="kc-context" aria-label="Correctness investigation context">' +
-      '<span>From Correctness</span><b>' + esc(c.finding || 'Numerical Accuracy · Output mismatch') + '</b>' +
-      '<small>' + esc(c.intent || 'Investigating compiler semantic divergence') + '</small></section>';
+    return '<section class="kc-context" aria-label="正确性诊断上下文">' +
+      '<span>来自「正确性」诊断</span><b>' + esc(c.finding || '数值精度 · 输出不一致') + '</b>' +
+      '<small>' + esc(c.intent || '正在定位编译语义分歧') + '</small></section>';
   }
 
   function toleranceText(nv) {
-    if (!nv.tolerance) return 'Tolerance not recorded';
+    if (!nv.tolerance) return '未记录容差';
     return 'rtol ' + fmtNumber(nv.tolerance.rtol) + ' · atol ' + fmtNumber(nv.tolerance.atol);
   }
 
@@ -428,13 +428,13 @@
     const matched = nv.passed != null ? nv.passed : checked.filter(p => p.status === 'match').length;
     const total = nv.total != null ? nv.total : checked.length;
     const first = firstDivergentIndex(nv);
-    let tone = 'idle', status = 'NOT COLLECTED', message = 'No per-pass numerical evidence for this Run.';
+    let tone = 'idle', status = 'NOT COLLECTED', message = '本次 Run 没有逐 Pass 数值证据。';
     if (nv.status === 'pass') {
       tone = 'ok'; status = matched + ' / ' + total + ' PASS';
-      message = 'No semantic divergence introduced by compiler. Continue in Correctness / Execution.';
+      message = '编译器未引入语义分歧，可继续查看「正确性」或「执行」。';
     } else if (nv.status === 'fail') {
       tone = 'bad'; status = 'FIRST DIVERGENCE · ' + (PASSNAMES[first] || nv.firstDivergentPass || '—');
-      message = 'Host execution first diverges from Golden after this pass.';
+      message = 'Host execution 在该 Pass 之后首次偏离 Golden。';
     }
     const rows = nv.status === 'fail' ? numericalWindow(nv).map(p => {
       const isFirst = p.index === first;
@@ -444,12 +444,12 @@
         '<span>' + esc(p.name) + '</span><b>' + esc(label) + '</b><i>›</i></button>';
     }).join('') : '';
     return '<section class="kc-nv is-' + tone + '" aria-labelledby="kcNvTitle">' +
-      '<div class="kc-nv-head"><div><span class="kc-nv-kicker">Compiler semantic</span>' +
-        '<h2 id="kcNvTitle">Numerical Validation</h2></div>' +
+      '<div class="kc-nv-head"><div><span class="kc-nv-kicker">编译语义</span>' +
+        '<h2 id="kcNvTitle">数值校验</h2></div>' +
         '<div class="kc-nv-result"><b>' + esc(status) + '</b><span>' + esc(message) + '</span></div>' +
         '<small>' + esc(toleranceText(nv)) + '</small></div>' +
       (rows ? '<div class="kc-nv-passes" aria-label="Pass numerical validation sequence">' + rows + '</div>' : '') +
-      (nv.status === 'fail' ? '<p class="kc-nv-note">Showing the validation window around the first divergence. Select a pass to inspect it in the existing IR diff.</p>' : '') +
+      (nv.status === 'fail' ? '<p class="kc-nv-note">展示首个分歧附近的校验窗口。选择一个 Pass，可在既有 IR diff 中查看。</p>' : '') +
     '</section>';
   }
 
@@ -481,7 +481,7 @@
       }
       const top = hits.slice().sort((a, b) => worstMem(b).p - worstMem(a).p)[0];
       const runtime = f.route === 'performance' && top ?
-        '<button type="button" class="kc-finding-action" data-kc-runtime="' + esc(top.name) + '" data-kc-finding="' + esc(f.id) + '">在 Runtime 中验证影响 →</button>' : '';
+        '<button type="button" class="kc-finding-action" data-kc-runtime="' + esc(top.name) + '" data-kc-finding="' + esc(f.id) + '">在「执行」中验证影响 →</button>' : '';
       return '<div class="kc-finding is-' + f.tone + (st.findOn === f.id ? ' is-on' : '') + '">' +
         '<button type="button" class="kc-finding-main" data-kc-find="' + f.id + '">' +
         '<span class="kc-fico">' + esc(f.icon) + '</span>' +
@@ -571,17 +571,17 @@
     const block = locateBlock(k.name);
     const source = block ? SRC_FILE + ':' + (block.from + 1) + '–' + (block.to + 1) : SRC_FILE + ' · composed kernel';
     return '<section class="kc-pass-validation' + (first ? ' is-first' : '') + '" aria-label="Pass numerical evidence">' +
-      '<div class="kc-pass-validation__head"><span>Numerical Validation</span>' +
+      '<div class="kc-pass-validation__head"><span>数值校验</span>' +
         (first ? '<b>FIRST DIVERGENCE</b>' : '') + '</div>' +
       '<dl>' +
-        '<div><dt>Previous Pass</dt><dd class="is-ok">' + esc(previous ? label(previous.status) : '—') + '</dd></div>' +
-        '<div><dt>Current Pass</dt><dd class="' + (row.status === 'mismatch' ? 'is-bad' : 'is-ok') + '">' + esc(label(row.status)) + '</dd></div>' +
+        '<div><dt>上一个 Pass</dt><dd class="is-ok">' + esc(previous ? label(previous.status) : '—') + '</dd></div>' +
+        '<div><dt>当前 Pass</dt><dd class="' + (row.status === 'mismatch' ? 'is-bad' : 'is-ok') + '">' + esc(label(row.status)) + '</dd></div>' +
         '<div><dt>max_abs_diff</dt><dd>' + esc(fmtNumber(row.maxAbs)) + '</dd></div>' +
         '<div><dt>max_rel_diff</dt><dd>' + esc(fmtNumber(row.maxRel)) + '</dd></div>' +
-        '<div><dt>mismatch</dt><dd>' + esc(fmtNumber(row.mismatchCount) + ' / ' + fmtNumber(row.comparedCount)) + '</dd></div>' +
-        '<div><dt>Tolerance</dt><dd>' + esc(toleranceText(nv)) + '</dd></div>' +
+        '<div><dt>不一致元素</dt><dd>' + esc(fmtNumber(row.mismatchCount) + ' / ' + fmtNumber(row.comparedCount)) + '</dd></div>' +
+        '<div><dt>容差</dt><dd>' + esc(toleranceText(nv)) + '</dd></div>' +
       '</dl>' +
-      '<p><span>Source mapping</span><code>' + esc(source) + '</code></p>' +
+      '<p><span>源码映射</span><code>' + esc(source) + '</code></p>' +
     '</section>';
   }
 
@@ -613,18 +613,18 @@
     }
 
     const expanded = st.expandedPass === p.i;
-    const state = p.st === 'born' ? 'born' : p.st === 'observed' ? 'validation target' : 'changed';
+    const state = p.st === 'born' ? '诞生' : p.st === 'observed' ? '校验目标' : '有变更';
     return '<article class="kc-transform' + (warn ? ' is-warn' : '') + (firstDivergence ? ' is-first-divergence' : '') + (expanded ? ' is-expanded' : '') + '">' +
       '<button type="button" class="kc-transform-toggle" data-kc-pass="' + p.i + '" aria-expanded="' + expanded + '">' +
         '<span class="kc-transform-dot"></span><span class="kc-transform-copy">' +
-          '<span class="kc-kind">' + (firstDivergence ? 'First divergent pass' : 'Relevant transformation') + '</span><b>' + esc(p.name) + '</b>' +
+          '<span class="kc-kind">' + (firstDivergence ? '首个异常 Pass' : '相关变换') + '</span><b>' + esc(p.name) + '</b>' +
           '<small>' + esc((meta && meta.s ? meta.s + ' ' + stratumName(meta.s) + ' · ' : '') + state +
-            (p.st === 'observed' ? '' : ' · ' + p.n + ' changes') +
+            (p.st === 'observed' ? '' : ' · ' + p.n + ' 处变更') +
             (nvPass ? ' · ' + (nvPass.status === 'match' ? 'MATCH' : nvPass.status === 'mismatch' ? 'MISMATCH' : 'NOT CHECKED') : '')) + '</small>' +
         '</span><span class="kc-transform-chev">' + (expanded ? '−' : '+') + '</span></button>' +
       (expanded ? '<div class="kc-transform-detail">' + numericalPassEvidenceHTML(k, p.i) + '<p class="kc-desc">' +
         esc((meta && meta.desc) || '该 Pass 改变了当前 Kernel 的中间表示。') + '</p><div class="kc-meta">' +
-          (p.st === 'born' ? '<span class="is-ok">在此 Pass 诞生</span>' : p.st === 'observed' ? '<span>Pass change · global IR evidence</span>' : '<span class="is-warn">变更 ' + p.n + ' 处</span>') +
+          (p.st === 'born' ? '<span class="is-ok">在此 Pass 诞生</span>' : p.st === 'observed' ? '<span>Pass 变化 · 全局 IR 证据</span>' : '<span class="is-warn">变更 ' + p.n + ' 处</span>') +
           (meta && meta.gain && meta.gain.length ? '<span>' + esc('收益 ' + meta.gain.join(' · ')) + '</span>' : '') +
         '</div>' + code + '</div>' : '') + '</article>';
   }
@@ -632,7 +632,7 @@
   function transformationsStageHTML(k, keys, kind) {
     const expanded = keys.some(p => st.expandedPass === p.i);
     return '<section class="kc-stage is-transformations' + (expanded ? ' has-expanded' : '') + '">' +
-      '<div class="kc-stage-head"><span class="kc-kind">Transformations</span>' +
+      '<div class="kc-stage-head"><span class="kc-kind">编译变换</span>' +
         '<b>与当前 Kernel 相关的编译变化</b></div>' +
       '<div class="kc-transform-rail">' + keys.map(p => passStageHTML(k, p, kind)).join('') + '</div></section>';
   }
@@ -688,7 +688,7 @@
         ? '<button type="button" data-kc-raw-file="' + esc(file) + '">' + esc(i.label) + '<code>' + esc(i.where || i.meta || '') + '</code></button>'
         : '<span><b>' + esc(i.label) + '</b><code>' + esc(i.where || i.meta || '') + '</code></span>';
     };
-    return '<details class="kc-raw-artifacts"><summary>Artifacts &amp; raw outputs <small>按需查看当前 Run 的编译证据</small></summary>' +
+    return '<details class="kc-raw-artifacts"><summary>产物与原始输出 <small>按需查看当前 Run 的编译证据</small></summary>' +
       '<div>' + inv.map(item).join('') + '</div></details>';
   }
 
@@ -716,19 +716,19 @@
       ' B · 目标 ' + K.perfMinInnermost + ' B' : '';
 
     return '<section class="kc-stage is-kernel">' +
-      '<div class="kc-stage-head"><span class="kc-kind">Generated kernel</span><b>' + esc(k.name) + '</b></div>' +
+      '<div class="kc-stage-head"><span class="kc-kind">生成 Kernel</span><b>' + esc(k.name) + '</b></div>' +
       '<div class="kc-desc">' + esc(kernelSummary(k)) + '</div>' +
       '<dl class="kc-kernel-facts">' +
-        '<div><dt>Type</dt><dd><span class="kc-type-label">' + esc((k.type || '—') + ' Kernel') + '</span></dd></div>' +
+        '<div><dt>类型</dt><dd><span class="kc-type-label">' + esc((k.type || '—') + ' Kernel') + '</span></dd></div>' +
         '<div><dt>Split</dt><dd>' + esc(k.split || '—') + '</dd></div>' +
-        '<div><dt>Memory</dt><dd class="' + (w.p >= 100 ? 'is-warn' : '') + '">' + esc(memories) + '</dd></div>' +
-        '<div><dt>Reuse</dt><dd>' + esc(reuse) + '</dd></div>' +
+        '<div><dt>内存</dt><dd class="' + (w.p >= 100 ? 'is-warn' : '') + '">' + esc(memories) + '</dd></div>' +
+        '<div><dt>复用</dt><dd>' + esc(reuse) + '</dd></div>' +
         '<div><dt>Pipeline</dt><dd class="' + (k.intent && k.intent.demoted ? 'is-warn' : '') + '">' +
           esc(declared(k) + (k.intent && k.intent.demoted ? ' · demoted ×' + k.intent.demoted + ' → sequential' : '')) + '</dd></div>' +
-        '<div><dt>Diagnostics</dt><dd class="' + (c.error ? 'is-bad' : dc ? 'is-warn' : '') + '">' + esc(diagnostics) + '</dd></div>' +
-        (hint ? '<div><dt>Perf hint</dt><dd class="is-warn">' + esc(hint) + '</dd></div>' : '') +
+        '<div><dt>诊断</dt><dd class="' + (c.error ? 'is-bad' : dc ? 'is-warn' : '') + '">' + esc(diagnostics) + '</dd></div>' +
+        (hint ? '<div><dt>性能提示</dt><dd class="is-warn">' + esc(hint) + '</dd></div>' : '') +
       '</dl>' +
-      (artifacts.length ? '<button type="button" class="kc-code-action" data-kc-code="' + esc(k.name) + '">View generated code <span>→</span></button>' : '') +
+      (artifacts.length ? '<button type="button" class="kc-code-action" data-kc-code="' + esc(k.name) + '">查看生成代码 <span>→</span></button>' : '') +
       '</section>';
   }
 
@@ -777,7 +777,7 @@
         '<span class="' + f[1] + '">' + esc(f[0]) + '</span>').join('<i>·</i>') + '</div></div>' +
       '<div class="kc-flow">' +
         '<div class="kc-flow-top"><div class="kc-flow-title">' +
-          '<b>Source → relevant compiler transformations → Generated Kernel</b>' +
+          '<b>Source → 相关编译变换 → 生成的 Kernel</b>' +
           '<small>相关编译变化按解释价值筛选，不表示严格因果溯源。点击 transformation 查看描述、收益与全局 IR diff；左右拖动查看完整链路。</small></div></div>' +
         '<div class="kc-journey-scroll" data-kc-scroll>' +
           '<div class="kc-journey-track" data-kc-track>' +
@@ -796,7 +796,7 @@
       numericalValidationHTML() +
       '<div class="kc-sect"><div><h2>需要关注</h2>' +
         '<p>把底层编译信号转成可定位、可解释、可继续验证的发现</p></div>' +
-        '<span>' + findingCount + ' findings</span></div>' +
+        '<span>' + findingCount + ' 项发现</span></div>' +
       findingsHTML() +
       /* 工作区两个页签：Kernel 列表 + 详情 / 编译 IR 全流程（借用 #kgTrace）。
          页签名已经写明是「Kernel 工作区」，面板头也写着「Kernel 列表」，
@@ -1070,8 +1070,8 @@
       const opts = options || {};
       applyNumericalContext(fixture, opts.fromCorrectness === false ? null : {
         from: 'correctness',
-        finding: opts.finding || 'Numerical Accuracy · Output mismatch',
-        intent: opts.intent || 'Investigating compiler semantic divergence'
+        finding: opts.finding || '数值精度 · 输出不一致',
+        intent: opts.intent || '正在定位编译语义分歧'
       });
       return true;
     },
