@@ -521,6 +521,17 @@
   /* 当前真实 Run 的 Execution 页签。Performance 在此 Run 中是 Execution 的
      一个证据维度，而非独立页签，因此 Compilation 的上下文直接落到这里。 */
   function renderExecutionTab(panel, run) {
+    /* This exact on-disk run has a dedicated L2 scheduling view. Keep it in the
+       task history's Execution tab instead of duplicating the console's data,
+       renderers, and scheduling interaction here. */
+    if (String(run && run.id) === '20260625_184941') {
+      panel.innerHTML = '<section class="kf-tuning-embed" aria-label="L2 调度视图">' +
+        '<header><div><span>Execution · L2 调度</span><small>任务放置、依赖与关键路径</small></div></header>' +
+        '<iframe class="kf-tuning-embed__frame" title="L2 调度视图" loading="eager" ' +
+          'src="../operator-tuning-console/index.html?embed=l2&amp;case=decode_fwd_layers"></iframe>' +
+      '</section>';
+      return;
+    }
     const D = window.PTO_RUN_TRACE, ctx = st.runtimeContext;
     const indices = D && ctx ? runtimeIndices(D, ctx.kernelName) : [];
     const focus = indices.length ? runtimeFocus(D, ctx, indices) : null;

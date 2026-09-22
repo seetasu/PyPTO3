@@ -35,6 +35,29 @@ body.tc-page {
   box-shadow: none;
 }
 
+/* Embedded by Toolkit Studio's matching run detail. The tuning workbench keeps
+ * its selected evidence surface, but yields surrounding app chrome to the host
+ * page so the two IDE frames do not compete for space. */
+body.tc-embed-view .pto-ide-frame__topbar,
+body.tc-embed-view .pto-ide-frame__activity-rail,
+body.tc-embed-view [data-ide-pane="explorer"],
+body.tc-embed-view [data-ide-pane="inspector"],
+body.tc-embed-view [data-ide-pane="bottom-panel"],
+body.tc-embed-view .pto-ide-frame__status-strip { display: none !important; }
+body.tc-embed-view .pto-ide-frame__body,
+body.tc-embed-view .pto-ide-frame__workarea,
+body.tc-embed-view [data-ide-split="tc-vertical"],
+body.tc-embed-view [data-ide-pane="main-row"],
+body.tc-embed-view [data-ide-split="standalone-main"],
+body.tc-embed-view [data-ide-pane="editor-preview"] { min-height: 0; height: 100%; }
+body.tc-embed-view [data-ide-split="tc-vertical"],
+body.tc-embed-view [data-ide-split="standalone-main"] { display: block !important; }
+body.tc-embed-view [data-ide-pane="editor-preview"] { display: flex; flex-direction: column; }
+body.tc-embed-view #levelTabs { padding: 0 var(--space-2); }
+body.tc-embed-view #levelTabs .tab-control-item:not(.is-selected) { display: none; }
+body.tc-embed-view #viewToolbar { flex: 0 0 auto; min-height: 38px; padding: 0 var(--tc-gutter); }
+body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
+
 /* ---------------------------------------------------------- top chrome */
 .tc-case-chip {
   gap: var(--space-2);

@@ -19,11 +19,15 @@
   const RUNS = window.TUNING_RUNS;
   const CASES = window.TUNING_CASES;
   const SW = window.PtoSwimlaneTaskPattern;
+  const requestedEmbedView = new URLSearchParams(window.location.search).get('embed');
+  const EMBED_VIEW = ['l1', 'l2'].includes(requestedEmbedView) ? requestedEmbedView : null;
+  const requestedCase = new URLSearchParams(window.location.search).get('case');
+  const initialCase = CASES.some((c) => c.id === requestedCase) ? requestedCase : CASES[0].id;
 
   /* The active case. Everything derived from it is rebuilt by loadCase(),
    * because the two dumps do not carry the same artifacts: one has host
    * STRACE spans and two ranks, the other has neither. */
-  let D = RUNS[CASES[0].id];
+  let D = RUNS[initialCase];
   let CYC_PER_US = D.case.clockHz ? D.case.clockHz / 1e6 : null;
   let TRACE_MATCH = {};
   let findingById = {};
@@ -3032,9 +3036,10 @@
 
   function boot() {
     if (window.PtoIdeFrame) window.PtoIdeFrame.initAll();
-    loadCase(CASES[0].id);
+    if (EMBED_VIEW) document.body.classList.add('tc-embed-view');
+    loadCase(initialCase);
     S.tile = defaultTile();
-    S.view = 'e2e';
+    S.view = EMBED_VIEW || 'e2e';
     S.focus = null;
     renderCaseMenu();
     renderFingerprint();

@@ -794,6 +794,13 @@
    任务与运行 — they cannot leak into the explorer or runs views. */
 .kf-rt { display: flex; gap: 2px; border-bottom: 1px solid var(--border-subtle); }
 .kf-rtp { display: grid; gap: 14px; }
+.kf-tuning-embed { min-width: 0; overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-1); }
+.kf-tuning-embed > header { display: flex; align-items: center; min-height: 38px; padding: 0 12px; border-bottom: 1px solid var(--border-subtle); background: color-mix(in srgb, var(--surface-2) 74%, var(--surface-1)); }
+.kf-tuning-embed > header > div { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.kf-tuning-embed > header span { color: var(--foreground); font: 600 11px var(--font-mono); }
+.kf-tuning-embed > header small { overflow: hidden; color: var(--foreground-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.kf-tuning-embed__frame { display: block; width: 100%; height: min(980px, 78vh); min-height: 680px; border: 0; background: var(--surface-1); }
+@media (max-width: 760px) { .kf-tuning-embed__frame { height: 760px; min-height: 600px; } }
 /* A borrowed stage arrives with the linear route's chrome attached: a hero
    heading that now just repeats the tab label (plus a "等待运行" chip that is
    demo-v2's wizard state, not this run's), and the prev/next wizard buttons.
