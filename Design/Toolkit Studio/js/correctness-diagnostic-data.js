@@ -99,7 +99,39 @@
     }
   };
 
-  const profiles = Object.freeze({ run_106: runtimeDataError106, default: runtimeDataError106 });
+  /* Keep this profile attached to the existing Compilation fixture instead of
+     copying per-pass values here. The fixture remains the single source for
+     the numerical window, its mismatch metrics, and the existing IR diff. */
+  const compilerSemanticError109 = {
+    id: 'numerical-compiler-semantic-error-109',
+    runId: 'run_109',
+    type: 'numerical',
+    source: 'fixture',
+    fixture: 'compiler_semantic_error',
+    result: { verdict: 'fail', output: 'out', maxAbs: 0.028, maxRel: 0.014 },
+    reference: { source: 'PyTorch Golden', actual: 'Host IR execution · per-pass validation', fixed: true, status: 'valid' },
+    tolerance: { rtol: '5e-2', atol: '5e-2', status: 'valid' },
+    expectedDifference: { status: 'none', reason: '未声明允许的数值偏差' },
+    compiler: {
+      structuralVerification: { status: 'pass' },
+      numericalValidation: window.PTO_COMPILATION?.numericalFixtures?.compiler_semantic_error || {
+        status: 'not_collected', tolerance: null, passes: [], firstDivergentPass: null
+      }
+    },
+    firstDivergence: { kind: 'pass', id: 'ExpandMixedKernel', trail: [] },
+    semanticGraph: { ops: [], edges: [] },
+    tensors: [],
+    diagnosis: {
+      category: 'compiler_semantic_error', confidence: 'high', label: '诊断结论',
+      summary: '编译语义变换引入数值偏差',
+      route: 'compilation',
+      routeLabel: 'Investigate compiler semantic transformation',
+      rationale: 'Structural Verification 通过，但 Host IR execution 在 ExpandMixedKernel 后首次偏离 Golden',
+      evidence: ['PyTorch Golden reference 有效', 'Tolerance 有效，且未声明允许差异', 'Structural Verification: PASS', 'ExpandMixedKernel: FIRST DIVERGENCE', '后续 Pass 持续 MISMATCH']
+    }
+  };
+
+  const profiles = Object.freeze({ run_106: runtimeDataError106, run_109: compilerSemanticError109, default: runtimeDataError106 });
   window.PTO_CORRECTNESS_DIAGNOSTICS = Object.freeze({
     schemaVersion: 1,
     profiles,

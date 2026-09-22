@@ -56,6 +56,10 @@
 .kf-th-compare-outcome th, .kf-th-compare-outcome td { padding: 6px 8px; border-bottom: 1px solid var(--border-subtle); text-align: right; color: var(--foreground-secondary); }
 .kf-th-compare-outcome th:first-child { text-align: left; color: var(--foreground); font-family: var(--font-sans); }
 .kf-th-compare-outcome thead th { color: var(--foreground-muted); font-size: 8px; }
+.kf-th-compare-outcome td.is-bad { color: var(--danger); }.kf-th-compare-outcome td.is-ok { color: var(--success); }
+.kf-th-correctness-story { display: grid; gap: 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); }
+.kf-th-correctness-story > div { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 10px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent); }
+.kf-th-correctness-story > div:last-child { border-bottom: 0; }.kf-th-correctness-story span { color: var(--foreground-muted); font: 700 8px var(--font-mono); letter-spacing: .05em; text-transform: uppercase; }.kf-th-correctness-story b { color: var(--foreground-secondary); font-size: var(--kf-type-2xs); font-weight: 550; }.kf-th-correctness-story .is-ok b { color: var(--success); }
 
 .kf-th-head { padding: 0 2px; }
 .kf-th-head h2 { margin: 3px 0 0; color: var(--foreground); font-size: var(--kf-type-sm); letter-spacing: -.01em; }
@@ -836,6 +840,7 @@
 .kf-rw-finding b { overflow: hidden; color: var(--foreground); font-size: var(--kf-type-2xs); text-overflow: ellipsis; white-space: nowrap; }
 /* the supporting line under a finding is a sentence, not an identifier */
 .kf-rw-finding small { color: var(--foreground-muted); font-family: var(--font-sans); font-size: 11px; white-space: nowrap; }
+.kf-rw-finding--numerical > div { display: grid; min-width: 0; gap: 2px; }.kf-rw-finding--numerical i { color: var(--primary); font: 700 8px var(--font-mono); font-style: normal; letter-spacing: .08em; }.kf-rw-finding--numerical small { display: flex; gap: 7px; overflow: hidden; }.kf-rw-finding--numerical mark { overflow: hidden; padding: 0; color: var(--foreground-muted); background: transparent; text-overflow: ellipsis; white-space: nowrap; }.kf-rw-finding--numerical em { color: var(--primary); font: 600 10px var(--font-sans); font-style: normal; white-space: nowrap; }
 .kf-rw-evidence { border-top: 1px solid var(--border-subtle); color: var(--foreground-secondary); }
 .kf-rw-evidence summary { padding: 9px 0; cursor: pointer; font-size: var(--kf-type-2xs); }
 .kf-rw-evidence-body { display: grid; gap: 0; padding: 0 0 8px; }
