@@ -1779,13 +1779,16 @@
     const profile = isCorrectnessFailureStory(r) ? diagnosisViewForRun(r.id) : null;
     const findings = getFindings(r).map(f => {
       const severity = f.severity === 'critical' ? 'bad' : f.severity === 'warning' ? 'warn' : 'dim';
+      /* Numerical Accuracy 卡的信息层级：Domain 在 span，Finding 是标题，
+         Scenario（数值精度）与 Localization（首个分歧）在 metadata 行 ——
+         一行说「差多少」，一行说「从哪儿开始」，Scenario 不做成第二个 eyebrow。 */
       if (f.domain === 'correctness' && profile?.type === 'numerical') {
         const first = profile.tensors?.find(t => t.id === profile.firstDivergence?.id);
         const firstLabel = [profile.firstDivergence?.id, first?.tid].filter(Boolean).join(' / ') || '—';
         const firstCaption = profile.firstDivergence?.kind === 'pass' ? '首个数值分歧 Pass' : '首个分歧 Tensor';
         const maxAbs = profile.result?.maxAbs != null ? profile.result.maxAbs : '—';
         return '<button type="button" class="kf-rw-finding kf-rw-finding--numerical is-' + severity + '" data-ws-finding="' + esc(f.id) + '">' +
-          '<span>' + esc(String(f.severity || 'info').toUpperCase()) + ' · ' + DOMAIN_LABEL.correctness + '</span><div><i>NUMERICAL</i><b>输出不一致</b><small>最大绝对误差 · ' + esc(maxAbs) + ' <mark>' + esc(firstCaption) + ' · ' + esc(firstLabel) + '</mark></small></div><em>查看诊断 →</em></button>';
+          '<span>' + esc(String(f.severity || 'info').toUpperCase()) + ' · ' + DOMAIN_LABEL.correctness + '</span><div><b>输出不一致</b><small>数值精度 · 最大绝对误差 ' + esc(maxAbs) + ' <mark>' + esc(firstCaption) + ' · ' + esc(firstLabel) + '</mark></small></div><em>查看诊断 →</em></button>';
       }
       return '<button type="button" class="kf-rw-finding is-' + severity + '" data-ws-finding="' + esc(f.id) + '">' +
         '<span>' + esc(String(f.severity || 'info').toUpperCase()) + ' · ' + esc(DOMAIN_LABEL[f.domain] || f.domain) + '</span><b>' + esc(f.title) + '</b><small>' + esc(f.location || f.summary) + ' →</small></button>';
