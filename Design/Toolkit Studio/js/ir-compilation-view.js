@@ -431,7 +431,7 @@
     let tone = 'idle', status = 'NOT COLLECTED', message = 'No per-pass numerical evidence for this Run.';
     if (nv.status === 'pass') {
       tone = 'ok'; status = matched + ' / ' + total + ' PASS';
-      message = 'No semantic divergence introduced by compiler.';
+      message = 'No semantic divergence introduced by compiler. Continue in Correctness / Execution.';
     } else if (nv.status === 'fail') {
       tone = 'bad'; status = 'FIRST DIVERGENCE · ' + (PASSNAMES[first] || nv.firstDivergentPass || '—');
       message = 'Host execution first diverges from Golden after this pass.';
