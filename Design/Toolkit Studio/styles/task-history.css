@@ -874,6 +874,48 @@
 .kf-object-tooltip dt { color: var(--foreground-muted); font: var(--type-micro); }
 .kf-object-tooltip dd { min-width: 0; margin: 0; color: var(--foreground-secondary); font: var(--type-mono); overflow-wrap: anywhere; }
 
+/* ---------- 修复预览（轻量 dialog）----------
+   #106 → 执行 → 查看缺失依赖 的预览层：只展示建议改动，不写真实 patch。
+   应用后走既有的 createFollowupRun('dependency')。按钮复用 .btn / .btn-solid，
+   其余沿用 Surface / Border / Type token。 */
+.kf-rw-fix-modal {
+  position: fixed; z-index: 90; inset: 0;
+  display: grid; place-items: center; padding: var(--space-5);
+  background: rgb(3 6 14 / .72); backdrop-filter: blur(7px);
+}
+.kf-rw-fix-modal[hidden] { display: none; }
+.kf-rw-fix-dialog {
+  width: min(440px, calc(100vw - 32px)); overflow: hidden;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-xl);
+  color: var(--foreground); background: var(--surface-1); box-shadow: var(--shadow-md);
+}
+.kf-rw-fix-dialog > header {
+  min-height: 56px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-4); border-bottom: 1px solid var(--border-subtle); background: var(--surface-2);
+}
+.kf-rw-fix-dialog h2 { margin: 3px 0 0; font: var(--type-title-3); }
+.kf-rw-fix-dialog > header button {
+  width: 26px; height: 26px; border: 0; border-radius: var(--radius-sm);
+  color: var(--foreground-muted); background: transparent; cursor: pointer; font-size: var(--kf-type-lg);
+}
+.kf-rw-fix-dialog > header button:hover { color: var(--foreground); background: var(--surface-3); }
+.kf-rw-fix-body { display: grid; gap: var(--space-4); padding: var(--space-4); }
+.kf-rw-fix-body h3 { margin: 0 0 var(--space-1); color: var(--foreground-muted); font: 700 9px var(--font-sans); letter-spacing: .08em; }
+.kf-rw-fix-body p { margin: 0; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.6; }
+/* 同一区块里的标识符统一成段落字号：只换等宽字族，避免 code 比正文忽大忽小。 */
+.kf-rw-fix-body code { color: var(--foreground); font-family: var(--font-mono); font-size: inherit; font-weight: 500; }
+.kf-rw-fix-body pre {
+  margin: 0; padding: var(--space-3); overflow-x: auto;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  color: var(--foreground-secondary); background: var(--surface-2);
+  font: var(--type-mono); line-height: 1.6;
+}
+.kf-rw-fix-add { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.kf-rw-fix-dialog > .kf-rw-fix-actions {
+  display: flex; justify-content: flex-end; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-subtle); background: var(--surface-2);
+}
+
 /* Correctness runtime task tooltip: identity → timing → data flow → evidence. */
 .kf-object-tooltip .kf-oi--task { gap: 0; }
 .kf-task-tip-head { display: grid; gap: var(--space-1); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); }

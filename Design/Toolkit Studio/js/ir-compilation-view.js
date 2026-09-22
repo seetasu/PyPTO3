@@ -406,6 +406,7 @@
     if (!c || c.from !== 'correctness') return '';
     return '<section class="kc-context" aria-label="正确性诊断上下文">' +
       '<span>来自「正确性」诊断</span><b>' + esc(c.finding || '数值精度 · 输出不一致') + '</b>' +
+      (c.failureMode ? '<span>' + esc(c.failureMode) + '</span>' : '') +
       '<small>' + esc(c.intent || '正在定位编译语义分歧') + '</small></section>';
   }
 
@@ -617,7 +618,7 @@
     return '<article class="kc-transform' + (warn ? ' is-warn' : '') + (firstDivergence ? ' is-first-divergence' : '') + (expanded ? ' is-expanded' : '') + '">' +
       '<button type="button" class="kc-transform-toggle" data-kc-pass="' + p.i + '" aria-expanded="' + expanded + '">' +
         '<span class="kc-transform-dot"></span><span class="kc-transform-copy">' +
-          '<span class="kc-kind">' + (firstDivergence ? '首个异常 Pass' : '相关变换') + '</span><b>' + esc(p.name) + '</b>' +
+          '<span class="kc-kind">' + (firstDivergence ? '首个数值分歧 Pass' : '相关变换') + '</span><b>' + esc(p.name) + '</b>' +
           '<small>' + esc((meta && meta.s ? meta.s + ' ' + stratumName(meta.s) + ' · ' : '') + state +
             (p.st === 'observed' ? '' : ' · ' + p.n + ' 处变更') +
             (nvPass ? ' · ' + (nvPass.status === 'match' ? 'MATCH' : nvPass.status === 'mismatch' ? 'MISMATCH' : 'NOT CHECKED') : '')) + '</small>' +
@@ -1048,6 +1049,7 @@
         host.dataset.kcBound = '1';
       }
       paint();
+      if (runContext().runId === 'run_109' && st.expandedPass != null) focusExpandedPass(true);
       return true;
     },
     /* Execution 页签的「在 Compilation 查看」落到这里 */
