@@ -16,14 +16,30 @@ const path = require('path');
 
 const OUT = path.join(__dirname, 'data.js');
 const DATA = path.resolve(__dirname, '../../Data');
+/* Data/pypto_qwen3_profiles.zip unzipped in place: the archive carries its own
+ * pypto_qwen3_profiles/ root, so accept the tree with or without that nesting. */
+const QWEN3 = [
+  path.join(DATA, 'pypto_qwen3_profiles/pypto_qwen3_profiles'),
+  path.join(DATA, 'pypto_qwen3_profiles'),
+].find((p) => fs.existsSync(path.join(p, 'tp1/swimlane')))
+  || path.join(DATA, 'pypto_qwen3_profiles');
 
 /* Two real dumps, captured by different tools at different times. They do not
  * carry the same artifacts, and the console is expected to say so rather than
  * fake the missing layers:
  *   decode_csa          L3, two ranks, host STRACE spans, PH001 + PH-MR-001,
  *                       no PTOAS / kernel sources
- *   decode_fwd_layers   L2, one device, NO host log (so no e2e layer at all),
- *                       PH001 only, but ships ptoas/ + kernels/ + orchestration/
+ *   decode_fwd_layers   Qwen3 14B, 40-layer fused host, NO host STRACE log.
+ *                       The on-device trace comes from pypto_qwen3_profiles
+ *                       (2026-08-14); that capture ships no passes_dump, so
+ *                       the compiler / ISA layers keep reading the older
+ *                       2026-06-25 build (CASE.compileRoot) and the console
+ *                       labels them as a different build.
+ *
+ * pypto_qwen3_profiles holds four captures. Only tp1/prefill carries task
+ * names (FuncId) AND a complete dependency graph, so it is the only one that
+ * can feed the task-level machinery below; the other three are served at
+ * aggregate fidelity by build-qwen3-profiles.cjs, which reads the same tree.
  */
 const CASES = [
   {
@@ -47,20 +63,32 @@ const CASES = [
   },
   {
     id: 'decode_fwd_layers',
-    label: 'decode_fwd_layers',
-    sub: 'Qwen3 14B · L2 · 1 device',
-    root: path.join(DATA, '_jit_decode_fwd_layers_20260625_184941'),
-    runDir: '_jit_decode_fwd_layers_20260625_184941',
-    capturedAt: '2026-06-25 18:49:41',
+    label: 'qwen3_14b_fwd',
+    sub: 'Qwen3 14B · 40 层整网 · TP1 / TP2 × prefill / decode',
+    root: QWEN3,
+    runDir: 'pypto_qwen3_profiles/tp1 · _jit_prefill_fwd_20260814_093031',
+    capturedAt: '2026-08-14 09:24:36',
     level: 2,
-    model: 'qwen3 / 14b / decode_layer',
-    sourceRoot: '/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/qwen3/14b',
-    binaryContext: null,
+    model: 'qwen3_14b / prefill_fwd（40 层 fused host）',
+    sourceRoot: '/mnt/workspace/inductor/pypto-lib/models/qwen3_14b',
+    binaryContext: 'scratch/tp1_build_output/_jit_prefill_fwd_20260814_093031/cache/binary_context.json',
     /* the Qwen3 tree this was compiled from is not in the repo */
     sourceDir: null,
-    entryModule: null,
+    entryModule: 'prefill_fwd.py',
+    /* No passes_dump / ptoas / kernels in the 2026-08-14 capture: those layers
+     * read the older build, and caseInfo.compileSource says so on screen. */
+    compileRoot: path.join(DATA, '_jit_decode_fwd_layers_20260625_184941'),
+    compileSource: {
+      runDir: '_jit_decode_fwd_layers_20260625_184941',
+      capturedAt: '2026-06-25 18:49:41',
+      model: 'qwen3 / 14b / decode_layer',
+      note: 'passes_dump / ptoas / kernels / perf_hints 来自 2026-06-25 那次构建，'
+        + '与上面的上板数据不是同一次采集，行号与 kernel 名不能直接对到本次 trace 上。',
+    },
+    /* the run's own kernel inventory, rather than the old build's */
+    incoreFrom: 'nameMap',
     ranks: [
-      { key: 'device0', dir: 'dfx_outputs', trace: 'merged_swimlane_20260625_185006.json', host: null },
+      { key: 'tp1:prefill', dir: 'tp1/swimlane/prefill_records', trace: 'merged_swimlane_20260814_092436.json', host: null },
     ],
   },
 ];
@@ -72,6 +100,13 @@ const rd = (p) => fs.readFileSync(at(p), 'utf8');
 const rj = (p) => JSON.parse(rd(p));
 const tryRd = (p) => (p && has(p) ? rd(p) : null);
 const tryRj = (p) => (p && has(p) ? rj(p) : null);
+/* Compile-side artifacts (passes_dump, ptoas, kernels, orchestration,
+ * perf_hints, kernel_config) resolve against compileRoot when the run's own
+ * dump does not carry them. Same accessors, second root. */
+const cat = (p) => path.join(CUR.compileRoot || CUR.root, p);
+const chas = (p) => fs.existsSync(cat(p));
+const crd = (p) => fs.readFileSync(cat(p), 'utf8');
+const ctryRd = (p) => (p && chas(p) ? crd(p) : null);
 const r2 = (n) => Math.round(n * 100) / 100;
 const r3 = (n) => Math.round(n * 1000) / 1000;
 
@@ -85,25 +120,38 @@ const distMeta = tryRj('distributed_meta.json');
 const nameMapFile = fs.readdirSync(at(PRIMARY.dir)).find((f) => /^name_map.*\.json$/.test(f));
 const nameMap = rj(PRIMARY.dir + '/' + nameMapFile);
 const dispatch = tryRj(PRIMARY.dir + '/dispatch_program.json');
-const csr = tryRj(PRIMARY.dir + '/chip_swimlane_records.json');
+/* chip_swimlane_records (L3) and l2_swimlane_records (L2) carry the same core
+ * inventory and clock under different names. Read whichever the dump ships. */
+const csr = tryRj(PRIMARY.dir + '/chip_swimlane_records.json')
+  || (() => {
+    const l2 = tryRj(PRIMARY.dir + '/l2_swimlane_records.json');
+    return l2 ? { metadata: l2.metadata, chip_swimlane_level: l2.l2_swimlane_level } : null;
+  })();
 const binCtx = tryRj(CASE.binaryContext);
 
-/* incore scope names as the compiler outlined them — the kernel inventory */
-const incoreFile = fs.readdirSync(at('passes_dump')).find((f) => /OutlineIncoreScopes/.test(f));
-const incoreNames = incoreFile ? Array.from(new Set(
-  (fs.readFileSync(at('passes_dump/' + incoreFile), 'utf8')
+/* incore scope names as the compiler outlined them — the kernel inventory.
+ * When the compile artifacts belong to a different build than the trace
+ * (CASE.incoreFrom), the run's own name_map is the honest inventory. */
+const incoreFile = chas('passes_dump')
+  ? fs.readdirSync(cat('passes_dump')).find((f) => /OutlineIncoreScopes/.test(f)) : null;
+const incoreFromPasses = incoreFile ? Array.from(new Set(
+  (fs.readFileSync(cat('passes_dump/' + incoreFile), 'utf8')
     .match(/^\s*def ([a-z_0-9]+)\(/gm) || []).map((s) => s.trim().replace(/^def /, '').replace(/\($/, ''))
 )).sort() : [];
+const incoreNames = CASE.incoreFrom === 'nameMap'
+  ? Array.from(new Set(Object.keys(nameMap.callable_id_to_name)
+    .map((k) => nameMap.callable_id_to_name[k]))).sort()
+  : incoreFromPasses;
 
 /* PTOAS / kernel / orchestration sources: present in the L2 dump, absent in L3 */
-const ptoasFiles = has('ptoas') ? fs.readdirSync(at('ptoas')) : [];
+const ptoasFiles = chas('ptoas') ? fs.readdirSync(cat('ptoas')) : [];
 const ptoasUnits = Array.from(new Set(ptoasFiles.map((f) => f.replace(/\.(pto|cpp)$/, ''))))
   .filter((n) => ptoasFiles.indexOf(n + '.pto') >= 0)
   .sort()
   .map((n) => {
-    const pto = rd('ptoas/' + n + '.pto');
+    const pto = crd('ptoas/' + n + '.pto');
     const cppPath = 'ptoas/' + n + '.cpp';
-    const cpp = has(cppPath) ? rd(cppPath) : null;
+    const cpp = chas(cppPath) ? crd(cppPath) : null;
     return {
       name: n,
       ptoLines: pto.split('\n').length,
@@ -112,14 +160,14 @@ const ptoasUnits = Array.from(new Set(ptoasFiles.map((f) => f.replace(/\.(pto|cp
       cppBytes: cpp ? cpp.length : null,
     };
   });
-const kernelDirs = has('kernels') ? fs.readdirSync(at('kernels')) : [];
+const kernelDirs = chas('kernels') ? fs.readdirSync(cat('kernels')) : [];
 const kernelCounts = {};
 kernelDirs.forEach((d) => {
-  const full = at('kernels/' + d);
+  const full = cat('kernels/' + d);
   if (fs.statSync(full).isDirectory()) kernelCounts[d] = fs.readdirSync(full).length;
 });
-const orchFiles = has('orchestration') ? fs.readdirSync(at('orchestration')) : [];
-const kernelConfig = tryRd('kernel_config.py');
+const orchFiles = chas('orchestration') ? fs.readdirSync(cat('orchestration')) : [];
+const kernelConfig = ctryRd('kernel_config.py');
 const runtimeFromConfig = kernelConfig
   ? (kernelConfig.match(/"runtime":\s*"([^"]+)"/) || [])[1] || null : null;
 const aicpuThreads = kernelConfig
@@ -143,7 +191,7 @@ const aicCount = coreTypes ? coreTypes.filter((t) => t === 'aic').length
 const aivCount = coreTypes ? coreTypes.filter((t) => t === 'aiv').length
   : laneNamesFromTrace.filter((n) => n.indexOf('AIV') === 0).length;
 
-const perfHintText = tryRd('report/perf_hints.log') || '';
+const perfHintText = ctryRd('report/perf_hints.log') || '';
 const backend = (perfHintText.match(/for backend (\w+)/) || [])[1]
   || (binCtx && binCtx.platform) || 'a2a3';
 
@@ -180,6 +228,9 @@ const caseInfo = {
   },
   incoreScopes: incoreNames,
   sourceRoot: CASE.sourceRoot,
+  /* When the compiler / ISA layers read a different build than the trace, the
+   * screens have to say so; null means one dump answers every layer. */
+  compileSource: CASE.compileRoot ? CASE.compileSource : null,
   /* No dump carries a kernel -> source map. For decode_csa one is rebuilt
    * from the model source by name_hint (see sourceMap); without the source
    * tree — decode_fwd_layers — there is none. */
@@ -1390,7 +1441,7 @@ const workDeltaPct = launchSkew
   : null;
 
 /* ------------------------------------------------------- compiler hints */
-const hintLines = rd('report/perf_hints.log').split(/\r?\n/).filter((l) => l.trim());
+const hintLines = crd('report/perf_hints.log').split(/\r?\n/).filter((l) => l.trim());
 const hints = hintLines.map((line) => {
   const at = line.match(/ at (\/\S+):(\d+):(\d+)\s*$/);
   const code = (line.match(/\[perf_hint ([A-Z0-9-]+)\]/) || [])[1];
@@ -1494,7 +1545,7 @@ for (const h of phmr) {
 }
 
 /* ---------------------------------------------------------- IR / passes */
-const passDir = at('passes_dump');
+const passDir = cat('passes_dump');
 const passFiles = fs.readdirSync(passDir).filter((f) => f.endsWith('.py')).sort();
 let prevLines = null;
 const passes = passFiles.map((f) => {

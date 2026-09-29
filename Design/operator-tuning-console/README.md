@@ -1,19 +1,29 @@
 # 算子调优控制台 · Tuning Console
 
 把「端到端 → L2 调度 → L1/L0 单核流水 → 编译降级 → ISA / 布局」这套调优闭环，做成一个可操作的产品界面，
-而不是一篇讲解或一个向导。对象是一次**真实上板执行**：
+而不是一篇讲解或一个向导。对象是**真实上板执行**：
 
 ```
-Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/
+Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/   decode_csa
+Data/pypto_qwen3_profiles/                            qwen3_14b_fwd（由 Data/pypto_qwen3_profiles.zip 解压）
+Data/_jit_decode_fwd_layers_20260625_184941/          qwen3_14b_fwd 的编译产物（旧构建，见「编译产物来自另一次构建」）
 ```
 
 打开入口：`Design/operator-tuning-console/index.html`，也在 `launch.html` 的「内存与性能」分类里。
+
+生成器有两支，都只读 dump、不造数：
+
+```bash
+node build-data.cjs            # -> data.js               任务级泳道 / 关键路径 / 编译器 / ISA
+node build-qwen3-profiles.cjs  # -> qwen3-profiles-data.js torch 归因 / PMU / 40 层 / 头开销 / TP 对照
+```
 
 ---
 
 ## 这个 Demo 是什么形态
 
-一个 IDE 形态的工作台，两个真实 case 可切换，工作单元是**瓶颈队列里的一条条目**：
+一个 IDE 形态的工作台，三个真实 case 可切换（`decode_csa` / `qwen3_14b_fwd` / `serving_gbs256`），
+工作单元是**瓶颈队列里的一条条目**：
 
 | 区域 | 内容 |
 |---|---|
@@ -93,9 +103,69 @@ E2E 不是：它的职责就是**比较**。四个区块里三个本来就同时
 
 ## E2E 页：多级多卡运行视图
 
+### 先定界，再下钻
+
+E2E 首屏不再从一组汇总读数开始，而是用一个 **Serving / Host / Device 定界台** 回答“应该先去哪里调”：
+
+页面分成四个工作态：默认的「定界」只保留主判断；「Serving / Host」放 WorkerProcess、lane 与轮次开销；「Device 轨迹」放多卡时间地图、构成带和偏斜散点；「调用数据」才显示原始采样、剖分与对账表。这样表格是下钻材料，而不是首屏内容。
+
+「定界」的主体是一张运行流图：`E2E Request → Serving → Host → Device`。节点展示各层已采集的关键时延，边展示请求数量、队列等待与 bind / H2D 状态；主导路径用高亮线连接。点 Serving / Host / Device 节点即可进入对应工作态。未采集的 `device_wall_us` 仍以虚线节点和“未采集”显示，而不会被其他 run 的设备数值填充。
+
+1. **边界时间带**：把同一 scope 的 `host_wall_us`、`device_wall_us` 放到同一刻度，并把端到端时间单列为参照；端到端时间不能与两者相加。若数据跨 scope，明确写出，避免错误比较。
+2. **WorkerProcess 任务范围图**：每个 Serving worker task 一行；左侧是任务数，横线是 `Min → Max`，圆点是 `Avg`。多个 WorkerProcess 时，Count 或 Max 相比同组中位数偏离 25% 以上，优先判定为 Serving 分配 / 尾部阻塞问题。
+3. **每轮 Host 开销矩阵**：按 invocation 展开 `bind / H2D`、`compile / register`、结果拷回，以“重复 / 仅首轮 / 未发生 / 未知”呈现，不把时序问题堆成文字列表。
+
+定界结论映射到下一步：
+
+| 信号 | 定界 | 下一步 |
+| --- | --- | --- |
+| `host_wall_us` 主导 | Host 搬运、注册或编排 | 常驻 weights / KV cache / workspace，register-once、dispatch-many，然后复测 Host / Device 分离是否符合预期 |
+| 某个 WorkerProcess 的 Count 或 Max 偏离 | Serving 调度或尾部阻塞 | 排查请求分配、队列与对应 worker 的下游依赖 |
+| `device_wall_us` 主导 | Device 执行路径 | 进入 L2，采集 Chip Swimlane 与依赖图 |
+
+`serving-trace-data.js` 汇总了 `serving-strace-swimlane(2).json` 的实测数据：一个完整请求的 E2E、单个 `serving-worker` 的 WorkerProcess task 统计、`scheduler.wait_worker_output` 的 54 次等待统计、16 路 NPU lane 的 55 次 `chip.run`，以及四个有代表性的 bind / prebuilt 轮次。它还带来一个清晰的 Host lane 尾部信号：`device 0` 的平均 `chip.run` 为 302.6 ms，其余 lane 大多约 224–225 ms。
+
+该文件仍**没有**独立 benchmark 的 `device_wall_us`、H2D 和明确的结果拷回事件；页面把这些显示为“未采集”，而不是沿用别的 run 的数值。完整请求 E2E 与每 decode step 的 Host wall 也不属于同一 scope，首屏会显式说明这一点。
+
+接入真实数据时，可在 case JSON 中添加可选的 `e2eTriage`；缺失字段会继续使用上述明确标识的 fallback：
+
+```js
+e2eTriage: {
+  benchmark: {
+    e2e_wall_us: 159091,
+    host_wall_us: 127060,
+    device_wall_us: 4017,
+    source: "independent benchmark"
+  },
+  workers: [
+    { id: "WorkerProcess-01", count: 104, avg_us: 146800, min_us: 138200, max_us: 157600 }
+  ],
+  workerTasks: [
+    { id: "WorkerProcess.prepare_decode", count: 53, avg_us: 90174, min_us: 75236, max_us: 156732 }
+  ],
+  lanes: [
+    { id: "device 0", count: 55, avg_us: 302602, min_us: 65898, max_us: 375424 }
+  ],
+  rounds: [
+    {
+      id: "inv 1",
+      bind_h2d: { state: "repeat", us: 3106, source: "Serving Strace" },
+      compile_register: { state: "once", us: 3, source: "Serving Strace" },
+      result_copy: { state: "repeat", us: 812, source: "Serving Strace" }
+    }
+  ]
+}
+```
+
+`state` 支持 `repeat`、`once`、`none` 与 `unknown`。
+
+### GBS256 Serving benchmark case
+
+左上角 case 菜单额外提供 `serving_gbs256`，数据来自 `dsv4-flash-dspark-a3-dp4tp4ep16-gbs256-in256o64.zip` 中的 `result3.json`。它是一个独立的请求级 case：256 并发请求全部完成，显示请求 / 输出吞吐，以及 TTFT、TPOT、ITL 的 Mean、P50、P99。随包 Chrome/PyTorch trace 已确认含 CPU op、`aten::copy_`、同步与 gloo 通信事件，但没有同 scope 的 Host / Device wall、WorkerProcess 统计或可归因 H2D / D2H，因此该 case **只开放 E2E**，不能下钻到 L2、L1、编译器或 ISA，也不会复用其他 case 的设备数据。
+
 ### 多级多卡运行投影
 
-E2E 现在先以四个总览读数锁定模型、全局尾时延和卡间偏斜，再进入三层可下钻的运行数据：
+完成定界后，E2E 继续提供三层可下钻的多卡运行数据：
 
 1. **执行时间地图**：每一行是一张卡，横轴为该卡的设备 trace；每个 span 是一条真实 task，关键路径以描边高亮。点任一 span 可进入该算子的 L1 视图。
 2. **阶段工作构成带**：每卡一条 100% 堆叠带，宽度表示 trace core-time；用颜色快速对比 Attention、通信、MoE 等阶段的工作构成，点 segment 下钻到该阶段最长 scope。
@@ -292,45 +362,86 @@ scope 行和空转行都会改写时间窗，所以两种下钻都留了回路�
 不用读 72 条泳道就能看出机器什么时候闲着。
 
 **校验**:把 240 个窗口的占用率取均值，必须等于泳道法算出的平均占用 ——
-rank0 `32.22% / 37.50%`，decode_fwd_layers `70.92% / 20.43%`，两边逐位相等。
+rank0 `32.22% / 37.50%`，qwen3_14b_fwd（TP=1 prefill）`73.87% / 7.16%`，两边逐位相等。
 
 ---
 
-## 两个 case
+## 三个 case
 
-顶栏的 case chip 打开切换菜单。两份 dump 不是同一个程序,也不带同样的产物 ——
+顶栏的 case chip 打开切换菜单。几份 dump 不是同一个程序,也不带同样的产物 ——
 菜单里每一行直接标出它能回答哪几层:
 
-| | decode_csa | decode_fwd_layers |
-|---|---|---|
-| 模型 | DeepSeek V4 flash_dspark | Qwen3 14B decode_layer |
-| 层级 | L3,2 rank | L2,1 device |
-| 采集 | 2026-09-03 | 2026-06-25 |
-| span | 4879.82 / 3774.04 us | 993.24 us |
-| 任务 / 块 | 84 / 4038(每 rank) | 426 / 579 |
-| AIC / AIV 占用 | 32.2% / 37.5% | 70.9% / 20.4% |
-| **E2E** | ✅ host STRACE,2 次调用 | ❌ **无 host log** |
-| L2 调度 | ✅ | ✅ |
-| L1 / L0 | ✅ | ✅ |
-| 编译器 | ✅ 52 pass,PH001 + PH-MR-001 | ✅ 42 pass,**仅 PH001** |
-| **ISA / 布局** | ❌ 无 PTOAS 产物 | ✅ **38 个 .pto + .cpp** |
-| 瓶颈条目 | 4 条链 + 4 条体检项 | **1 条链** + 4 条体检项 |
+| | decode_csa | qwen3_14b_fwd | serving_gbs256 |
+|---|---|---|---|
+| 模型 | DeepSeek V4 flash_dspark | Qwen3 14B, 40 层整网 | DeepSeek V4 Flash w8a8 |
+| 层级 | L3,2 rank | L2,TP1 / TP2 × prefill / decode | 请求级 benchmark |
+| 采集 | 2026-09-03 | 2026-08-14 | 2026-09-28 |
+| span | 4879.82 / 3774.04 us | 44.47 ms（TP=1 prefill，另三份见下） | 27.4 s |
+| 任务 / 块 | 84 / 4038(每 rank) | 684 / 15228（TP=1 prefill） | — |
+| AIC / AIV 占用 | 32.2% / 37.5% | 73.9% / 7.2% | — |
+| **E2E** | ✅ host STRACE,2 次调用 | ✅ **torch profiler**（无 host STRACE） | ✅ 请求级 |
+| L2 调度 | ✅ | ✅ 仅 TP=1 prefill 有任务名与依赖 | ❌ |
+| L1 / L0 | ✅ | ✅ + **实测 PMU** | ❌ |
+| 编译器 | ✅ 52 pass,PH001 + PH-MR-001 | ⚠️ 42 pass,**来自另一次构建** | ❌ |
+| **ISA / 布局** | ❌ 无 PTOAS 产物 | ⚠️ 38 个 .pto + .cpp,**同上** | ❌ |
+| 瓶颈条目 | 4 条链 + 4 条体检项 | **1 条链** + 9 条体检项 | — |
 
-两份正好互补,但**不能拼在一起读**:不同模型、不同卡数、不同采集时间。
+**不能拼在一起读**:不同模型、不同卡数、不同采集时间。
+
+### 一个 case 里的四份采集
+
+`qwen3_14b_fwd` 不是一次采集，是**同一张 40 层图的四份**：两个采集脚本 × prefill / decode。
+它们能回答的问题不一样，所以采集是一个**贯穿 E2E / L2 / L1 的选择**，选定之后三层都跟着它走
+（工具条的「采集」下拉、Explorer 的运行树、E2E 页顶部的采集卡片是同一个状态）。
+
+| | TP=1 prefill | TP=1 decode | TP=2 prefill | TP=2 decode |
+|---|---|---|---|---|
+| 数据集校验 | ❌ | ❌ | ✅ | ✅ |
+| span | 44.47 ms | 31.99 ms | 328.18 ms | 330.05 ms |
+| 任务 / 块 | 684 / 15228 | 10607 / 18754 | 643 / 643 | 643 / 643 |
+| 用到的核 | 60 / 60 | 60 / 60 | **6 / 60** | **6 / 60** |
+| 平均忙核（核时/墙钟） | 17.64 | 19.43 | **1.00** | **1.00** |
+| merged swimlane | ✅ | ✅ | ❌ | ❌ |
+| 任务名 | ✅ 采集自带 | ❌ FuncId 全 −1 | ⚠️ 按已校验层布局还原 | ⚠️ 同左 |
+| 依赖图 | ✅ deps.json | ❌ | ❌ | ❌ |
+| 40 层还原 | ✅ 40 × 17 | ✅ 40 × 265 | ✅ 40 × 16 | ✅ 40 × 16 |
+| 头开销 NoC / dcci 分离 | ❌ 记录只剩 62 条 | ✅ 18754 块 | ✅ 643 块 | ✅ 643 块 |
+
+数据集自己的 `.gitignore` 把 `tp1/` 与 `scratch/` 列为历史或临时生成物，README 只对 `tp2/` 给了验收标记。
+界面不抹平这件事：采集卡片、工具条徽标、状态条都写「已校验 / 未校验」，`TP 对照`页的最后一条结论
+直接写「这张表能定方向，不能当作 TP=1 / TP=2 的性能结论」。
 
 ### 缺席是一种状态,不是错误
 
-切到 decode_fwd_layers 时:
+只有 TP=1 prefill 带任务名和依赖图，所以只有它进 `data.js` 的任务级机器。切到另外三份采集时:
 
-- **E2E 页签仍然可点**,显示的是一张缺失清单 —— `host.*.log` 缺失 →
-  `inv=`(迭代次数)、`device_wall`、`bind.prebuilt` 全部不可得,下面跟一块"仍然可测"的设备侧读数
-- **瓶颈链只剩 1 条**:C1 缺 `*_wait` 与 host 钟、C2 全是单块任务(579 块 / 426 任务,没有多波)、
-  C3 的 hand-off 只有 12 us / 0.2%(低于「≥3% makespan 且 ≥10% 核上时间」的门槛)。
-  少的条目直接不生成,不占位、不补零;体检项照常保留 4 条,并在正文里说明它们为什么不是瓶颈
-- **流水深度页签**不画空表,而是列出"PH-MR-001 × 0 / pl.pipeline × 38 / Left-Right 可用字节缺失"三条事实
-- **片上预算试算器**的 depth 判定变成 `无法判定` —— 没有实测 free 字节可以对账
-- **rank 选择器消失**(只有一个执行单元),状态条写 `device0 · 无 host log`
-- **ISA 页签**反过来有真内容:38 个 PTOAS 单元的 `.pto → .cpp` 行数与展开比
+- **L2 的「泳道」页签改名成「核占用」**：没有 merged swimlane 就没有 Worker / Scheduler View，
+  画的是块级占用（一行一个真实物理核），并写明「没有任务名与依赖，所以这里不给关键路径与依赖连线」
+- **L1 的「单核流水」整页让位**：本层要落到一个具体 kernel 上，这几份采集落不到，
+  页面给出原因 + 两个出口（看 PMU 实测 / 切回 TP=1 prefill），不画空表
+- **Inspector 多一段「本次采集」**，写当前这份的 span / 任务 / 核 / 层结构 / 有没有依赖图；
+  不是主采集时再加一张卡，说明下面的 scope 与关键路径来自 TP=1 prefill
+- **底部 Dock** 的标题直接写「tp1:prefill 的调度器（TP=2 · decode 无 merged swimlane…）」，
+  不让另一份采集的调度器数据看起来像当前这份的
+- **E2E 页签有真内容了**：这个 case 仍然没有 host STRACE log，但有同一程序的 torch profiler 采集，
+  见下面「E2E 换了一把尺子」
+
+### 编译产物来自另一次构建
+
+2026-08-14 那次采集**没有 `passes_dump/`**，所以「编译器」与「ISA / 布局」两层读的是
+`_jit_decode_fwd_layers_20260625_184941`（2026-06-25 构建）。这是一个显式选择，不是回退：
+
+- `build-data.cjs` 里新增 `CASE.compileRoot`，编译侧的 `passes_dump` / `ptoas` / `kernels` /
+  `orchestration` / `report/perf_hints.log` / `kernel_config.py` 全部走第二个根目录
+- `case.compileSource` 带上那次构建的目录名、日期和一句话：
+  「行号与 kernel 名不能直接对到本次 trace 上」
+- Explorer 的 `artifacts` 节点下多一行 `↑ 来自 decode_fwd_layers_2026… 2026-06-25`
+- `incoreScopes` 改从本次运行的 `name_map` 读（46 个），不用旧构建的 kernel 清单冒充
+- `binary_context.json` 用的是**新构建**的（`pto-isa 83d01313…`、`tensormap_and_ringbuffer`），
+  因为它描述的是这次跑的二进制
+
+新构建自己的 `report/perf_hints.log`（prefill 316 行 / decode 亦有）被单独收在
+`qwen3.compile.hints` 里，没有混进编译器层的 16 条——那 16 条属于旧构建，混在一起两边都不可信。
 
 生成器里这是一张 `CAN` 表。门槛有两种:一种是**有没有这份证据**,一种是**这个量级够不够格**——
 第二种是这轮补上的,它挡住了「12 us 的 hand-off 被摆在 39% 的发现旁边」这类事:
@@ -349,18 +460,145 @@ const findings = [ CAN.C1 && {...}, CAN.C2 && {...}, ... ].filter(Boolean);
 
 ### 两份 trace 的格式差异
 
-同一个 `merged_swimlane`,两次采集的 swimlane level 不同,generator 里做了归一:
+同一个 `merged_swimlane`,不同采集的 swimlane level 不同,generator 里做了归一:
 
-| | decode_csa | decode_fwd_layers |
+| | decode_csa | qwen3 TP=1 prefill | 旧的 decode_fwd_layers dump |
+|---|---|---|---|
+| setup 时间 | 块事件上的 `local_setup_us` | 同左 | **独立的 `setup` 事件** |
+| `duration-us` | setup + kernel | setup + kernel | **kernel only** |
+| `kernel-duration-us` | 有 | 有 | 无 |
+| ready 计数器 | `shared_ready_queue` | `shared_ready_queue` | 多一组 `local_ready_buf_T{0,1,2}`(已过滤) |
+
+生成器按「有没有独立 `setup` 事件」自动分支（`hasOwnSetupEvents`），两边都归一成
+`{dur = setup + kernel, kdur = kernel, setup}`,所以"一个块的三种口径"在每个 case 下是同一个意思。
+
+---
+
+## E2E 换了一把尺子：torch profiler
+
+`qwen3_14b_fwd` 没有 host STRACE log，所以没有 `chip.run` 的 span 树。它有的是**同一个程序的
+torch profiler 采集**：一次 prefill + 四次 decode，整张 40 层图在设备上是**一次** `aicore_kernel_0`
+调用。这让端到端有了另一种问法——不是「span 树里哪一段长」，而是「这一步里设备在算还是在等」。
+
+四个页签：
+
+| 页签 | 读的文件 | 回答 |
 |---|---|---|
-| setup 时间 | 块事件上的 `local_setup_us` | **独立的 `setup` 事件** |
-| `duration-us` | setup + kernel | **kernel only** |
-| `kernel-duration-us` | 有 | 无 |
-| ready 计数器 | `shared_ready_queue` | 多一组 `local_ready_buf_T{0,1,2}`(已过滤) |
-| 调度相位 | dispatch / complete / release / early_dispatch / resolve / dummy | wire / dispatch / complete / release / resolve |
+| 步时间 | `step_trace_time.csv` | 每步 Stage = Computing + Free + Preparing，外加融合 kernel 的逐次 PMU |
+| 设备算子 | `op_statistic.csv` | 融合 kernel 之外还在设备上跑什么 |
+| 主机 API | `api_statistic.csv` | 哪些 CANN 调用吃掉主机时间；Synchronize 单列，不算主机开销 |
+| TP 对照 | 以上三者 × 两次采集 | TP=1 / TP=2 并排 |
 
-两边都归一成 `{dur = setup + kernel, kdur = kernel, setup}`,所以"一个块的三种口径"
-在两个 case 下是同一个意思。
+TP=1 decode 的读数直接给出定界结论：
+
+```
+Stage 80.82 ms = Computing 32.55 ms + Free 48.28 ms   Free 占比 59.7%
+融合 kernel 占设备时间 93.0%，其外有 1597 次框架算子
+主机 acl 调用合计 77.25 ms（另有 171 ms 是等设备，不计入）
+```
+
+页面给的是「主机受限」这一句，加一句能落地的推论：**在这个比例下，把 kernel 再快一倍也只能省下
+步时间的四成**。TP=2 是反过来的（Free 占比 1.5%），同一个 verdict 组件换一边。
+
+口径上被显式挡住的两件事：
+`simpler_aicpu_exec_*` 是同一个融合 kernel 的 AI_CPU 启动器，与 `aicore_kernel_0` 是同一份工作的
+两条记录，页面把它标成「AI_CPU 启动器」并写明不能与融合行相加；
+`Free` 是设备侧空闲、主机 acl 耗时是主机侧读数，两者不是同一把尺子，只能互相印证方向。
+
+---
+
+## L1 / L0 多了一层实测：PMU
+
+原来这一层的流水判断来自 trace 时长和编译信息，是推的。`kernel_details.csv` 里
+**每一次** `aicore_kernel_0` 调用都带真实计数器，于是有了一页不用推的：
+
+```
+TP=1 prefill   mac 0.240  mte1 0.200  mte2 0.551  scalar 0.203   |  vec 0.017  scalar 0.753
+TP=1 decode    mac 0.055  mte1 0.159  mte2 0.428  scalar 0.083   |  vec 0.004  scalar 0.777
+TP=2 decode    mac 0.008  mte1 0.014  mte2 0.037  scalar 0.661   |  vec 0.001  scalar 0.699
+```
+
+三条都进了瓶颈队列（Q2 / Q3 / Q5），因为它们指向三件不同的事：decode 的 AIC 卡在 **GM→L1 搬运**
+而不是算力；40 个 AIV 核忙在**标量**上（vec 0.004）；TP=2 连 AIC 都是 scalar 0.661、mac 0.008——
+核是忙的，忙在标量而不是计算。
+
+页面上写死的两句口径：**这些占比是各流水线相对 `aicore_time` 的忙占比，互相重叠，加起来可以超过 1**，
+所以只能一行一行读，不能当成时间切分；**`aicore_time` / `aiv_time` 是按核累加的**，会超过单次墙钟，
+它们是占比的分母不是时长。状态条的 `pmu` 从 `off` 变成 `torch 侧 on`，并注明泳道那一轮没有 PMU，
+两者不能比墙钟。
+
+---
+
+## 40 层：把重复摊开
+
+程序是 1 个 embed + 40 个同构 transformer 层 + 一段尾巴。`decode_fwd_layers` 这个名字本来就指这件事，
+但旧 dump 里看不出来。现在四份采集都能把层还原出来，并且**不是靠猜**：
+
+层与层之间，AICPU orchestrator 会提交若干个不落到 AICore 的循环控制任务。于是按提交序排好之后，
+相邻 AICore 任务的 `submit_idx` 会出现一个固定的跳变，**恰好 40 次，且两次之间恒隔 N 个任务**。
+这 40 个跳变就是层边界。四份采集各自解出来：
+
+```
+TP=1 prefill  跳 5，每层 17 个任务，环外 1 前 + 3 后 = 684
+TP=1 decode   跳 4，每层 265 个任务，环外 4 前 + 3 后 = 10607
+TP=2 prefill  跳 3，每层 16 个任务，环外 1 前 + 2 后 = 643
+TP=2 decode   同上
+```
+
+TP=2 的 40 × 16 与采集脚本自己校验过的布局完全一致（`_LAYER_TASK_LAYOUT`，16 步的 AIC / AIV 次序
+逐位相符），所以那两份采集虽然没有任务名，**步名是可以还原的**——页面标注来源是「按采集脚本已校验的
+40×16 层布局还原步名」，不冒充采集自带。
+
+### 层窗口不能用 min(start) 算
+
+第一版用 `max(end) − min(start)` 当层窗口，TP=1 decode 的结果是 869 us 到 19250 us、离散 175%，
+一看就不对。原因是**每层都有少量任务被提前派发**（scheduler 的 `early_dispatch`），最远的提前了 9.8 ms，
+`min(start)` 描述的是这几个掉队的，不是这一层。
+
+改成按起始时间里**前半段最大的那个间隔**切（且要求这个间隔明显大于该层的中位间隔），
+得到「层主体」窗口，同时把提前派发的任务数和提前量单独报出来：
+
+```
+             层窗口中位数   最快 / 最慢      离散    每层提前派发
+TP=1 prefill    1.04 ms    974 us / 1.13 ms  15.3%   0 个
+TP=1 decode    735.6 us    635 / 780 us      19.7%   1–10 个，最远提前 9.8 ms
+TP=2 decode    6.69 ms     6.63 / 7.09 ms     6.8%   2 个
+```
+
+画法照抄数据集自己的 PNG：每行从该层主体起点重新计时，共用同一毫秒刻度，竖线是层窗口中位数；
+色块是该层的每个任务（红 AIC / 蓝 AIV），宽度是实测时长，**不用最小显示宽度夸大短 task**。
+每层 265 个任务的那份太密，行内只画层窗口本身，并在正文里说明为什么。
+
+层内步骤表按「40 层同一步骤」聚合，TP=2 上一眼能看到 `gate/up` 一步就占掉层内核时的 50.6%。
+
+---
+
+## 头开销：NoC 传播 vs dcci + ack
+
+`l2_swimlane_records.json` 的 `aicore_tasks` 第 6 列是 `receive_to_start_cycles`
+（schema 见 `repo/simpler/simpler_setup/tools/swimlane_converter.py`）：AICore 读到新 task_id 之后、
+执行开始之前的那段，也就是**本地 dcci + ack 的代价**。有了它，每块的头开销能拆成两段：
+
+```
+dispatch → receive   AICPU 写下 task_id 到 AICore 读到  — NoC 传播，硬件侧
+receive  → start     dcci + ack                        — 软件侧，可调
+start    → end       内核本身
+end      → finish    完成回报
+```
+
+TP=1 decode 上这笔账很重：
+
+```
+NoC 14.60 us  dcci+ack 3.66 us  内核 29.49 us  回报 6.35 us     18754 块
+NoC 合计相当于内核核时的 49.5%
+```
+
+同一张图在 TP=2 那份采集里被切成 643 个大任务，NoC 只有 0.35 us、占内核核时 0.07%——
+**任务粒度决定了这笔固定开销值不值得管**，这正是页面把两者放在一起的理由。
+
+分母是这次采集里所有块的**内核核时合计**，不是墙钟：一个块的头开销只能和内核时长比。
+TP=1 prefill 的 `l2_swimlane_records` 只留下环形缓冲尾部的 62 条，样本不足，
+页面改用 merged trace 的 Scheduler View 给一个不可再分的 `dispatch → start` 合计，并写明原因。
 
 ---
 
@@ -423,7 +661,7 @@ E2E 视图会把 host 报的 `device_wall.sched` 与设备 trace 的跨度对齐
 四条在时间上互相重叠（C1 的等待窗口盖住了 C2 的一部分间隙，C3 的消费者与 C4 的生产者并行），
 所以**归因不可相加** —— 队列头上就这么写着。
 
-decode_fwd_layers 只生成得出 C4 一条，理由见上面的「两个 case」。
+qwen3_14b_fwd 只生成得出 C4 一条，理由见上面的「三个 case」；它另外带 5 条由 qwen3 层生成的体检项（Q1–Q5）。
 
 ### 每条链的三个量
 
@@ -604,7 +842,7 @@ frontier = Math.max(frontier, b);
 ```
 decode_csa / rank0   4879.82 = 4879.82   ✓
 decode_csa / rank1   3774.04 = 3774.04   ✓
-decode_fwd_layers    993.24  = 993.24    ✓
+qwen3_14b_fwd        44474.42 = 44474.42 ✓
 ```
 
 ### 照搬会错的一处：模型把等待算成了 compute
@@ -642,8 +880,8 @@ rank0 通信受限 / rank1 计算受限。而且 F1 的 36.72% 与归责的 `wai
 ### 容差
 
 参考工具用 2 个时钟 tick。decode_csa 有 `clock_freq_hz = 50 MHz` → **0.04 us**。
-decode_fwd_layers **没记时钟频率**，退回到时间戳精度的 2 个量子（0.02 us），
-界面上标明用的是哪一种，不假装有时钟。
+qwen3_14b_fwd 的 `l2_swimlane_records` 也带 `clock_freq_hz = 50 MHz`（旧的 decode_fwd_layers dump
+没有，那时退回到时间戳精度的 2 个量子 0.02 us）。界面上标明用的是哪一种，不假装有时钟。
 
 ### 还没有的
 
@@ -678,11 +916,14 @@ ExpandMixedKernel (23_after_…)
 
 这个 dump 直接印证：
 
-| | decode_csa | decode_fwd_layers |
+| | decode_csa | qwen3_14b_fwd（TP=1 prefill） |
 |---|---|---|
-| scope（源码 pl.spmd 区域） | 62 | 38 |
-| kernel（`name_map.json` 里的名字） | **64** | **39** |
-| 差额 = 混合 scope 数 | 2（`qk_pv`、`indexer_score_leaf_wave`） | 1（`fa_fused`） |
+| scope（源码 pl.spmd 区域） | 62 | 18 |
+| kernel（`name_map.json` 里的名字） | **64** | **46** |
+| 混合 scope（一个 task 两个 FuncId） | 2（`qk_pv`、`indexer_score_leaf_wave`） | 1（`qk_pv_online_phase`） |
+
+qwen3 那一列的差额不等于混合 scope 数：`name_map` 收的是整张 40 层图的 46 个 callable，
+而这次 prefill 只跑到其中 18 个 scope。差额只有在同一张图被完整执行时才等于混合数。
 
 ### 之前这里是错的
 
@@ -744,9 +985,10 @@ decode_csa          48 个多核 scope / 14 个单核，最宽 72 核
                     qr_hadamard_matmul  24 核 256 块 10.7 波 离散 7.82
                     kv_score_proj       24 核 512 块 21.3 波 离散 2.97
 
-decode_fwd_layers    4 个多核 scope / 34 个单核，最宽 72 核
-                    没有多波、不均或变宽的展开
-                    426 个 task 里 422 个是单核单波
+qwen3_14b_fwd       16 个多核 scope / 2 个单核，最宽 60 核
+（TP=1 prefill）     6 个多波 scope，最多 1.54 波
+                    rmsnorm        8 核   8 块 1.00 波 离散 13.03
+                    post_rmsnorm   8 核   8 块 1.00 波 离散  9.94
 ```
 
 没有值得看的展开时，这一段不拿 `1/1/1` 的行凑数，直接说「本 case 的形状问题在别处」。
@@ -791,13 +1033,13 @@ with pl.spmd(NUM_QK_CORES, name_hint="qk_pv", deps=[qk_plan_tid, cache_ready_dep
 - L1 kernel inspector 多一行 `源码`；多候选或去后缀匹配的，下面补一张卡说明
 - ISA 页签新增 `kernel → 源码` 段，写明**来源不在 dump 内**、依据是什么、
   以及**不能做的事：只给出 scope 写在哪里，不把实测块时长归到某一行**
-- decode_fwd_layers 的 Qwen3 源码树不在仓库里，同一段显示为缺失并说明可重建
+- qwen3_14b_fwd 的 Qwen3 源码树不在仓库里，同一段显示为缺失并说明可重建
 
 ### 泳道图例去掉了
 
 原来按算子着色时画 8 个色块，是 `slice(0, 8)` 的显示上限，不是统计量 ——
-62 个 scope 列 8 个既不完整，在 decode_fwd_layers 上还会重名(426 个任务只有 38 个
-callable，前 8 个任务里 5 个都是 `up_proj`，颜色还完全一样)。
+62 个 scope 列 8 个既不完整，在 qwen3_14b_fwd 上还会重名(684 个任务只有 18 个
+scope，40 层里同名任务反复出现，颜色还完全一样)。
 
 62 路分类本来就没有可读的图例。现在改成一行读数：
 
@@ -806,6 +1048,55 @@ callable，前 8 个任务里 5 个都是 `up_proj`，颜色还完全一样)。
 ```
 
 按引擎着色仍保留 AIC / AIV / MIX 三项 —— 那是真能查的图例。
+
+---
+
+## L2 页的两条联动
+
+### 观测路径 ⇄ chip swimlane
+
+原来只有单向：点泳道里的块 → 上方观测路径条上对应的节点亮起来。反过来点不动 ——
+路径条是一张图片。现在两边都是控件：
+
+- **点路径节点** → 选中该任务、Inspector 切过去、泳道**滚到这个节点真正跑的那条 lane**；
+  如果节点落在当前时间窗之外，先把窗口挪过去再选，不会选中一个看不见的东西
+- **点泳道块** → 路径条上的节点亮起（原有行为）
+- 两个画布都画**同一对虚线**：选中任务的 start / end。这才是联动本身 ——
+  一段时间区间，两个视图。节点在观测路径上时虚线是 warning 色，不在时是灰色
+- 路径条标题右侧实时写出 `已选 第 16/32 节点 · qk_pv`，或者 `已选 xxx · 不在观测路径上`
+
+滚到哪条 lane 不是随便挑的：用的是这个任务**最早开始的那个块**所在的 lane ——
+作为消费者，它才是等过的那一个。
+
+### 依赖连线
+
+`deps.json` 里一直有 pred / succ，但泳道从来没画过。现在画了，工具栏「依赖连线」三档：
+
+| 档位 | 画什么 |
+|---|---|
+| 选中任务 | 选中任务的 pred → 它、它 → succ |
+| 沿观测路径 | 路径上相邻节点之间的 31 条边 |
+| 关 | 不画 |
+
+**不画全图**。126 条边铺在 72 条 lane 上是一团毛线，不是诊断。
+
+连线的两个端点也不是任务的聚合 `[start, end]`，而是具体的块：
+
+- 生产者一侧取**最后结束**的块（那才是 gate 住下游的那个）
+- 消费者一侧取**最早开始**的块（那才是等过的那个）
+
+**消费者的第一个块比生产者的最后一个块先开始时，边画成红色虚线** ——
+这就是 trace 自己标的 `hb_violation`，也正是 C3 那条链在讲的事。
+它本来只活在文字里，现在在画布上能直接看到：选中 `csa_merge_pack_publish`，
+那条指向它的红色虚线就是「消费者在生产者跑完之前就上核了」。
+切到「沿观测路径」，32 个节点的 31 条边里有 **6 条**是这种早发。
+
+画不出来的边分两类报，不合并成一个数：
+
+- `N 条端点在本 trace 里没有块` —— deps.json 提到的任务在这份 trace 里根本没有块
+  （`csa_merge_pack_publish` 的 6 个前驱里有 4 个是这样）。换视图也不会出现
+- `N 条端点被泳道筛选隐藏` —— 块是有的，只是当前「泳道」筛选把那条 lane 滤掉了。
+  这个改筛选就能看到
 
 ---
 
@@ -877,7 +1168,7 @@ F1–F10 里没有人把「间隙」算出来。按「span − 波数 × 块中�
 ## 诚实的空缺
 
 - **dump 内没有 kernel → 源码映射**。decode_csa 的这一条已由模型源码按 name_hint 重建（62/62 覆盖、54 唯一、
-  8 个多候选，见上一节）；decode_fwd_layers 的 Qwen3 源码树不在仓库里，仍然缺。重建出来的是「scope 写在哪里」，
+  8 个多候选，见上一节）；qwen3_14b_fwd 的 Qwen3 源码树不在仓库里，仍然缺。重建出来的是「scope 写在哪里」，
   **不是**「哪一行耗了多少时间」——perf hint 自带的行号与它是两条独立证据，不要互相当作确认。
 - **没有 PTOAS / VPTO 级产物**。ISA 视图只给这份 dump 能支撑的结论（工具链指纹、布局与内存空间分配、L0 tile 清单、
   512B 约束），并列出需要补齐哪些产物（TileLib 模板选择记录、VPTO 指令排布报告、cycle cost model 预测、PMU counter）
@@ -980,7 +1271,10 @@ L2 页曾经把 7 个分区全部展开、配 12 段说明文字，右栏要滚 
 | 证据条「退出」 | 清除瓶颈上下文；切页签不会清除，方便跨层追同一条 |
 | `1`–`5` | 切换五个层级视图 |
 | `/` | 聚焦搜索（kernel / 任务 / 编译提示 / Pass，回车跳第一条） |
-| L2 画布点击 | 选中任务 → Inspector 显示绑定张量、依赖链、关联瓶颈、所在核占用 |
+| L2 泳道点击 | 选中任务 → Inspector 显示绑定张量、依赖链、关联瓶颈、所在核占用；观测路径条上该节点亮起 |
+| L2 观测路径点击 | 选中该节点 → 泳道滚到它真正跑的那条 lane；节点在窗口外时先把窗口挪过去 |
+| L2 两画布的虚线 | 选中任务的 start / end，两个画布画同一对；节点在观测路径上是 warning 色，不在是灰色 |
+| L2 工具栏「依赖连线」 | 选中任务 / 沿观测路径 / 关；红色虚线边 = 消费者比生产者先上核（`hb_violation`） |
 | L2 画布 shift + 拖动 | 水平平移；工具栏 `+` / `−` / `Fit` 缩放，Dock 时间轴跟随同一窗口 |
 | Dock「核占用」 | 72 条泳道的占用、空洞数、最大空洞、首末块 |
 | Terminal「Problems」 | 230 条编译提示当作 IDE 问题列表，点击跳到对应源码点 |

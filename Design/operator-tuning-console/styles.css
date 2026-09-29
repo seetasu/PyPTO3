@@ -450,6 +450,12 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
   font: var(--type-body-sm);
 }
 .tc-readout { color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
+/* live readouts the draw pass fills in; they sit beside a static one, and an
+ * empty one must not leave a gap */
+.tc-readout-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); }
+.tc-readout:empty { display: none; }
+.tc-readout.is-danger { color: var(--danger); }
+.tc-readout.is-muted { color: var(--foreground-muted); }
 
 /* ------------------------------------------------- finding evidence bar
  * Sits at the top of the centre stage while a bottleneck is active and says,
@@ -657,25 +663,85 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
  * The E2E page starts at the distributed run and narrows into model stages
  * and scopes.  It intentionally uses the same dense, inspectable language as
  * the rest of the console instead of turning the view into a dashboard. */
-.tc-e2e-overview {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  margin-inline: var(--tc-bleed);
-  border-block: 1px solid var(--border-subtle);
-}
-.tc-e2e-overview-card {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  min-width: 0;
-  padding: var(--space-2) var(--space-3) var(--space-2) 0;
-}
-.tc-e2e-overview-card + .tc-e2e-overview-card { padding-left: var(--space-3); border-left: 1px solid var(--border-subtle); }
-.tc-e2e-overview-card[data-tone="warn"] > .v { color: var(--warning); }
-.tc-e2e-overview-card > .k { color: var(--foreground-muted); font: var(--type-micro); text-transform: uppercase; letter-spacing: .045em; }
-.tc-e2e-overview-card > .v { overflow: hidden; color: var(--foreground); font: var(--type-label); text-overflow: ellipsis; white-space: nowrap; }
-.tc-e2e-overview-card > .u { overflow: hidden; color: var(--foreground-secondary); font: var(--type-body-sm); text-overflow: ellipsis; white-space: nowrap; }
+/* E2E opens with a boundary decision, rather than a checklist.  The shared
+ * scale makes Host / Device comparable; Serving is a distribution signal and
+ * therefore intentionally occupies a different visual treatment. */
+.tc-e2e-flow { position: relative; height: 276px; margin-inline: var(--tc-bleed); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: radial-gradient(circle at 50% 68%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 38%), var(--surface-1); }
+.tc-e2e-flow > canvas { position: absolute; inset: 0; pointer-events: none; }
+.tc-e2e-flow-node { position: absolute; z-index: 1; display: grid; gap: 3px; width: 158px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface-2) 92%, transparent); color: var(--foreground-secondary); text-align: left; transform: translate(-50%, -50%); box-shadow: 0 8px 20px color-mix(in srgb, var(--background) 36%, transparent); }
+button.tc-e2e-flow-node { cursor: pointer; transition: background 120ms ease, border-color 120ms ease, transform 120ms ease; }
+button.tc-e2e-flow-node:hover, button.tc-e2e-flow-node:focus-visible { border-color: var(--primary); background: var(--state-hover); outline: 0; transform: translate(-50%, -50%) scale(1.03); }
+.tc-e2e-flow-node[data-active="true"] { border-color: color-mix(in srgb, var(--warning) 70%, var(--border-default)); box-shadow: inset 0 2px 0 var(--warning), 0 8px 20px color-mix(in srgb, var(--background) 36%, transparent); }
+.tc-e2e-flow-node[data-node="device"] { border-style: dashed; }
+.tc-e2e-flow-node > .k { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+.tc-e2e-flow-node > .v { color: var(--foreground); font: var(--type-label); font-family: var(--font-mono); white-space: nowrap; }
+.tc-e2e-flow-node > .m { overflow: hidden; color: var(--foreground-secondary); font: var(--type-micro); text-overflow: ellipsis; white-space: nowrap; }
+.tc-e2e-flow-edge { position: absolute; z-index: 2; padding: 3px 6px; border: 1px solid color-mix(in srgb, var(--border-subtle) 74%, transparent); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--surface-1) 88%, transparent); color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); transform: translate(-50%, -50%); white-space: nowrap; }
+.tc-e2e-boundaries { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 148px; gap: 1px; margin-inline: var(--tc-bleed); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; background: var(--border-subtle); }
+.tc-e2e-boundary { display: grid; grid-template-rows: auto auto 5px auto; align-content: start; gap: 5px; min-width: 0; padding: var(--space-3); border: 0; background: var(--surface-1); color: var(--foreground-secondary); text-align: left; cursor: pointer; transition: background 120ms ease, box-shadow 120ms ease; }
+.tc-e2e-boundary:hover, .tc-e2e-boundary:focus-visible { z-index: 1; background: var(--state-hover); outline: 1px solid var(--border-default); }
+.tc-e2e-boundary[data-active="true"] { background: color-mix(in srgb, var(--primary) 8%, var(--surface-1)); box-shadow: inset 0 2px 0 var(--primary); }
+.tc-e2e-boundary .domain { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); letter-spacing: .07em; text-transform: uppercase; }
+.tc-e2e-boundary .wall { overflow: hidden; color: var(--foreground); font: var(--type-heading-sm); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.tc-e2e-boundary .unit { overflow: hidden; color: var(--foreground-secondary); font: var(--type-micro); text-overflow: ellipsis; white-space: nowrap; }
+.tc-e2e-boundary .meter { position: relative; display: block; height: 5px; overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-3); }
+.tc-e2e-boundary .meter::after { position: absolute; inset: 0 auto 0 0; width: var(--tc-meter); border-radius: inherit; background: var(--primary); content: ""; }
+.tc-e2e-boundary[data-domain="device"] .meter::after { background: var(--accent); }
+.tc-e2e-boundary[data-domain="serving"][data-active="true"] { box-shadow: inset 0 2px 0 var(--warning); }
+.tc-e2e-e2e-wall { display: grid; align-content: center; gap: 4px; min-width: 0; padding: var(--space-3); background: var(--surface-2); }
+.tc-e2e-e2e-wall > span, .tc-e2e-e2e-wall > small { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-e2e-wall > strong { color: var(--foreground); font: var(--type-label); font-family: var(--font-mono); }
+.tc-e2e-triage-verdict { display: grid; grid-template-columns: 164px minmax(200px, 1fr) minmax(280px, 1.4fr); gap: var(--space-3); align-items: center; margin: var(--space-2) var(--tc-bleed) 0; padding: var(--space-2) var(--space-3); border-left: 2px solid var(--primary); background: color-mix(in srgb, var(--surface-2) 68%, transparent); }
+.tc-e2e-triage-verdict > strong { color: var(--foreground); font: var(--type-label); }
+.tc-e2e-triage-verdict > span { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.tc-e2e-triage-verdict > small { color: var(--foreground-muted); font: var(--type-body-sm); line-height: 1.4; }
+.tc-e2e-triage-verdict[data-domain="serving"] { border-color: var(--warning); }
+.tc-e2e-triage-verdict[data-domain="device"] { border-color: var(--accent); }
+
+.tc-e2e-workers { display: grid; gap: 1px; margin-inline: var(--tc-bleed); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; background: var(--border-subtle); }
+.tc-e2e-worker { display: grid; grid-template-columns: 156px minmax(180px, 1fr) 210px; gap: var(--space-3); align-items: center; min-width: 0; padding: 10px var(--space-3); background: var(--surface-1); }
+.tc-e2e-worker[data-outlier="true"] { background: color-mix(in srgb, var(--warning) 7%, var(--surface-1)); }
+.tc-e2e-worker .label { display: grid; gap: 2px; min-width: 0; }
+.tc-e2e-worker .label > strong { overflow: hidden; color: var(--foreground); font: var(--type-body-sm); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.tc-e2e-worker .label > small { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-worker .range { position: relative; height: 18px; min-width: 0; background: linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) calc(25% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) 25%, transparent 25%, transparent calc(50% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) calc(50% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) 50%, transparent 50%, transparent calc(75% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) calc(75% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) 75%, transparent 75%); }
+.tc-e2e-worker .range-line { position: absolute; top: 8px; height: 3px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--primary) 65%, var(--foreground)); }
+.tc-e2e-worker .average { position: absolute; top: 3px; width: 12px; height: 12px; border: 2px solid var(--surface-1); border-radius: 50%; background: var(--primary); transform: translateX(-50%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 60%, transparent); }
+.tc-e2e-worker[data-outlier="true"] .range-line, .tc-e2e-worker[data-outlier="true"] .average { background: var(--warning); }
+.tc-e2e-worker .numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); text-align: right; }
+.tc-e2e-worker .numbers > strong { color: var(--foreground); font: inherit; }
+
+.tc-e2e-round-matrix { display: grid; grid-template-columns: 156px repeat(var(--tc-rounds), minmax(110px, 1fr)); gap: 1px; margin-inline: var(--tc-bleed); overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--border-subtle); }
+.tc-e2e-round-matrix > .corner, .tc-e2e-round-matrix > .round, .tc-e2e-round-matrix > .operation { display: flex; align-items: center; min-height: 38px; padding: 8px var(--space-3); background: var(--surface-2); color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-round-matrix > .round { justify-content: center; color: var(--foreground-secondary); }
+.tc-e2e-round-matrix > .operation { color: var(--foreground); font: var(--type-body-sm); font-family: var(--font-sans); }
+.tc-e2e-round-cell { display: grid; justify-items: center; gap: 2px; min-width: 110px; min-height: 48px; padding: 8px; border: 0; background: var(--surface-1); color: var(--foreground-secondary); cursor: help; }
+.tc-e2e-round-cell:hover, .tc-e2e-round-cell:focus-visible { background: var(--state-hover); outline: 1px solid var(--border-default); }
+.tc-e2e-round-cell > strong { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.tc-e2e-round-cell > small { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-round-cell[data-state="repeat"] > strong { color: var(--warning); }
+.tc-e2e-round-cell[data-state="once"] > strong { color: var(--success); }
+.tc-e2e-round-cell[data-state="none"] > strong { color: var(--foreground-muted); }
+
+/* Request-level Serving benchmark: its latencies have different units of
+ * work, so each row owns its own rail instead of pretending TTFT and TPOT
+ * share a meaningful absolute scale. */
+.tc-serving-latency { display: grid; gap: 1px; margin-inline: var(--tc-bleed); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; background: var(--border-subtle); }
+.tc-serving-latency-row { display: grid; grid-template-columns: 116px minmax(190px, 1fr) 286px; gap: var(--space-3); align-items: center; padding: 11px var(--space-3); background: var(--surface-1); }
+.tc-serving-latency-row .label { display: grid; gap: 2px; }
+.tc-serving-latency-row .label > strong { color: var(--foreground); font: var(--type-label); font-family: var(--font-mono); }
+.tc-serving-latency-row .label > small { color: var(--foreground-muted); font: var(--type-micro); }
+.tc-serving-latency-row .range { position: relative; height: 18px; background: linear-gradient(90deg, transparent 0, transparent calc(50% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) calc(50% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) 50%, transparent 50%); }
+.tc-serving-latency-row .line { position: absolute; top: 8px; height: 3px; border-radius: var(--radius-pill); background: var(--accent); }
+.tc-serving-latency-row .mean { position: absolute; top: 3px; width: 12px; height: 12px; border: 2px solid var(--surface-1); border-radius: 50%; background: var(--primary); transform: translateX(-50%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 60%, transparent); }
+.tc-serving-latency-row .values { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); text-align: right; }
+.tc-serving-latency-row .values > strong { color: var(--foreground); font: inherit; }
+.tc-serving-trace-map { display: grid; gap: 1px; margin-inline: var(--tc-bleed); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; background: var(--border-subtle); }
+.tc-serving-trace-row { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-2) var(--space-3); background: var(--surface-1); }
+.tc-serving-trace-row > span { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-serving-trace-row > strong { color: var(--foreground-secondary); font: var(--type-body-sm); font-weight: 500; overflow-wrap: anywhere; }
+.tc-serving-trace-row[data-state="ok"] > span { color: var(--success); }
+.tc-serving-trace-row[data-state="missing"] > span { color: var(--warning); }
 
 .tc-e2e-legend { display: flex; flex-wrap: wrap; gap: 4px var(--space-3); margin: 0 var(--tc-bleed) var(--space-2); }
 .tc-e2e-legend-key { display: inline-flex; align-items: center; gap: 5px; color: var(--foreground-secondary); font: var(--type-micro); }
@@ -721,14 +787,29 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-e2e-scatter-point[data-critical="true"] { z-index: 2; opacity: 1; box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 80%, transparent), 0 0 12px color-mix(in srgb, var(--warning) 50%, transparent); }
 
 @media (max-width: 1240px) {
-  .tc-e2e-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tc-e2e-overview-card:nth-child(3) { padding-left: 0; border-left: 0; border-top: 1px solid var(--border-subtle); }
-  .tc-e2e-overview-card:nth-child(4) { border-top: 1px solid var(--border-subtle); }
+  .tc-e2e-boundaries { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tc-e2e-e2e-wall { grid-column: 1 / -1; grid-template-columns: auto auto 1fr; align-items: baseline; }
+  .tc-e2e-triage-verdict { grid-template-columns: 164px minmax(0, 1fr); }
+  .tc-e2e-triage-verdict > small { grid-column: 2; }
 }
 @media (max-width: 760px) {
-  .tc-e2e-overview { grid-template-columns: minmax(0, 1fr); }
+  .tc-e2e-flow { height: 410px; overflow: auto; }
+  .tc-e2e-flow > canvas, .tc-e2e-flow-edge { display: none; }
+  .tc-e2e-flow-node { left: 50% !important; width: min(240px, calc(100% - 30px)); }
+  .tc-e2e-flow-node[data-node="request"] { top: 14% !important; }
+  .tc-e2e-flow-node[data-node="serving"] { top: 37% !important; }
+  .tc-e2e-flow-node[data-node="host"] { top: 60% !important; }
+  .tc-e2e-flow-node[data-node="device"] { top: 83% !important; }
   .tc-e2e-atlas-row, .tc-e2e-composition-row { grid-template-columns: minmax(0, 1fr); }
   .tc-e2e-atlas-track { min-width: 360px; }
+  .tc-e2e-boundaries { grid-template-columns: minmax(0, 1fr); }
+  .tc-e2e-e2e-wall { grid-column: auto; grid-template-columns: none; }
+  .tc-e2e-triage-verdict, .tc-e2e-worker { grid-template-columns: minmax(0, 1fr); }
+  .tc-e2e-triage-verdict > small { grid-column: auto; }
+  .tc-e2e-worker .numbers { max-width: 260px; }
+  .tc-serving-latency-row { grid-template-columns: minmax(0, 1fr); }
+  .tc-serving-latency-row .values { max-width: 360px; }
+  .tc-serving-trace-row { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* --------------------------------------------------------- canvas host */
@@ -1112,3 +1193,109 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-rung > .rl { color: var(--foreground-muted); }
 .tc-rung[data-role="root"] > .rl { color: var(--success); }
 .tc-rung[data-role="stop"] { border-style: dashed; }
+
+/* =====================================================================
+ * Qwen3 profile layers
+ * Four captures of one 40-layer graph, a torch attribution layer, measured
+ * PMU occupancy, the layer unwrap and the head-overhead split. All of it
+ * reuses the tables and tiles above; only these five shapes are new.
+ * ===================================================================== */
+
+/* a sentence that qualifies the numbers above it — never a disclaimer banner,
+ * so it reads at body size in the muted colour and stays inside the section */
+.tc-fineprint {
+  margin: var(--space-2) 0 0;
+  color: var(--foreground-muted);
+  font: var(--type-body-sm); line-height: 1.5;
+  max-width: 96ch;
+}
+
+.tc-note {
+  display: grid; gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface-2) 68%, transparent);
+}
+.tc-note[data-tone="ok"] { border-color: var(--success); }
+.tc-note[data-tone="warn"] { border-color: var(--warning); }
+.tc-note > strong { color: var(--foreground); font: var(--type-label); }
+.tc-note > span { color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.5; }
+.tc-note > small { color: var(--foreground-muted); font: var(--type-body-sm); line-height: 1.45; }
+
+.tc-verdicts { display: grid; gap: var(--space-2); margin-top: var(--space-2); }
+.tc-verdicts > .tc-verdict {
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--primary);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+.tc-verdicts > .tc-verdict > strong { color: var(--foreground); font: var(--type-label); }
+.tc-verdicts > .tc-verdict > span { color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.5; }
+
+/* the capture chooser: two collectors x two stages, with the dataset's own
+ * validation state on the group rather than on each pill */
+.tc-variant-bar { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.tc-variant-group {
+  display: grid; gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.tc-variant-head { display: flex; align-items: center; gap: var(--space-2); }
+.tc-variant-head > .n { color: var(--foreground); font: var(--type-label); }
+.tc-variant-badge {
+  padding: 1px var(--space-1);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  color: var(--foreground-muted); font-size: 10px; cursor: help;
+}
+.tc-variant-badge[data-state="ok"] { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+.tc-variant-badge[data-state="warn"] { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 45%, transparent); }
+.tc-variant-row { display: flex; gap: var(--space-1); }
+.tc-variant-pill {
+  display: grid; gap: 1px; min-width: 92px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  background: transparent; color: var(--foreground-secondary);
+  text-align: left; cursor: pointer;
+}
+.tc-variant-pill:hover { background: var(--state-hover); color: var(--foreground); }
+.tc-variant-pill.is-selected { background: var(--surface-4); border-color: var(--primary); color: var(--foreground); }
+.tc-variant-pill > .n { font-size: 12px; }
+.tc-variant-pill > .m { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 10px; }
+
+/* per-step Stage = Computing + Free + Preparing, one shared scale */
+.tc-stepbars { display: grid; gap: 3px; margin-top: var(--space-2); }
+.tc-stepbar {
+  display: grid; grid-template-columns: 88px minmax(120px, 1fr) 70px 78px;
+  gap: var(--space-2); align-items: center;
+}
+.tc-stepbar > .label { display: flex; align-items: baseline; gap: var(--space-1); }
+.tc-stepbar > .label > strong { color: var(--foreground); font: var(--type-label); }
+.tc-stepbar > .label > small { color: var(--foreground-muted); font-size: 10px; }
+.tc-stepbar > .track {
+  display: flex; height: 16px;
+  border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--surface-3);
+}
+.tc-stepbar > .track > .seg { height: 100%; }
+.tc-stepbar > .track > .seg[data-kind="computing"] { background: var(--accent); }
+.tc-stepbar > .track > .seg[data-kind="free"] { background: color-mix(in srgb, var(--warning) 72%, transparent); }
+.tc-stepbar > .track > .seg[data-kind="preparing"] { background: var(--foreground-muted); }
+.tc-stepbar > .val { color: var(--foreground); font-family: var(--font-mono); font-size: 11px; text-align: right; }
+.tc-stepbar > .val.muted { color: var(--foreground-muted); }
+.tc-stepbar[data-stage="prefill"] > .label > small { color: var(--accent); }
+
+/* the layer unwrap and the block-level occupancy picture are both canvases
+ * that size themselves to the pane */
+.tc-layerchart, .tc-occchart { margin: var(--space-2) var(--tc-bleed) 0; }
+.tc-layerchart > canvas, .tc-occchart > canvas { display: block; width: 100%; }
+
+@media (max-width: 900px) {
+  .tc-stepbar { grid-template-columns: 74px minmax(0, 1fr) 64px; }
+  .tc-stepbar > .val.muted { display: none; }
+  .tc-variant-bar { flex-direction: column; }
+}
+
+/* the readout was already being tagged is-crit in a few places (path role,
+ * layer-boundary confidence, capture validation) with nothing to show for it */
+.tc-readout.is-crit { color: var(--warning); }

@@ -25,6 +25,16 @@
   const requestedCase = new URLSearchParams(window.location.search).get('case');
   const initialCase = CASES.some((c) => c.id === requestedCase) ? requestedCase : CASES[0].id;
 
+  /* The qwen3 profile layers ship their own queue entries. Merge them before
+   * anything reads a run, so the queue is one list everywhere — including the
+   * case menu's counts, which describe runs that are not loaded yet. */
+  Object.keys(RUNS).forEach((id) => {
+    const run = RUNS[id];
+    if (!run.qwen3 || !run.qwen3.findings || !run.findings) return;
+    run.findings = run.findings.concat(run.qwen3.findings);
+    run.hygieneCount = run.findings.filter((f) => f.kind === 'hygiene').length;
+  });
+
   /* The active case. Everything derived from it is rebuilt by loadCase(),
    * because the two dumps do not carry the same artifacts: one has host
    * STRACE spans and two ranks, the other has neither. */
@@ -34,6 +44,7 @@
   let findingById = {};
   let tasksOf = {};
   const hasE2E = () => !!D.e2e;
+  const isServingBenchmark = () => D.kind === 'serving-benchmark';
   const multiRank = () => D.case.ranks.length > 1;
 
   /* ------------------------------------------------------------- state */
@@ -51,6 +62,7 @@
     scopeReturn: null,      /* window + focus to restore when drilling back up */
     folded: {},             /* inspector sections the reader has collapsed */
     overlay: 'sched',
+    deps: 'sel',            /* 'off' | 'sel' | 'path' -- dependency edges on the swimlane */
     critOnly: false,
     pathOnly: 'off',       /* 'off' | 'obs' | 'cpm' -- which path the filter shows */
     focusEvidence: false,
@@ -65,6 +77,11 @@
     termTab: 'problems',
     ledger: [],
     tile: null,
+    e2ePanel: 'triage',       /* triage | serving | device | samples
+                               * qwen3: step | ops | api | topo */
+    variant: null,            /* qwen3 case: which capture x stage is armed */
+    l2Panel: 'swimlane',      /* swimlane | layers | head */
+    l1Panel: 'pipe',          /* pipe | pmu */
   };
 
   const R = () => D.ranks[S.rank];
@@ -132,6 +149,18 @@
     /* the tab title names the case, so it has to follow the switch */
     document.title = 'Tuning Console · ' + id;
 
+    if (isServingBenchmark()) {
+      TRACE_MATCH = {};
+      findingById = {};
+      tasksOf = {};
+      S.rank = 'request';
+      S.view = 'e2e';
+      S.finding = null;
+      S.focus = null;
+      S.ledger.length = 0;
+      return;
+    }
+
     /* Which invocation does each rank's device trace correspond to?
      * Reconcile the trace span against the host-reported device_wall.sched.
      * Without host spans there is nothing to reconcile against. */
@@ -165,6 +194,13 @@
     S.focus = null;
     S.focusEvidence = false;
     S.scopeReturn = null;
+    /* the qwen3 case opens on its own E2E panel: torch step attribution, not
+     * the serving triage the other case starts from */
+    S.e2ePanel = D.qwen3 ? 'step' : 'triage';
+    S.variant = D.qwen3
+      ? (D.qwen3.variants.find((v) => v.primary) || D.qwen3.variants[0]).id : null;
+    S.l2Panel = 'swimlane';
+    S.l1Panel = 'pipe';
     S.findingLevel = 'all';
     S.laneFilter = 'all';
     S.critOnly = false;
@@ -753,41 +789,315 @@
     return { ranks: ranks, stages: E2E_STAGES.map((s) => stages[s.id]), operators: Object.keys(operators).map((k) => operators[k]), ruleCount: ruleCount };
   }
 
+  /* ===================================================== E2E triage adapter
+   *
+   * `e2e` is a host STRACE / device-span tree, not an independent serving
+   * benchmark.  Keep that distinction visible: a future capture may attach
+   * `e2eTriage`, while this adapter labels every derived or demo-only field
+   * instead of upgrading it to an observed metric.
+   *
+   * Supported optional JSON shape:
+   * e2eTriage: {
+   *   benchmark: { e2e_wall_us, host_wall_us, device_wall_us, source },
+   *   workers: [{ id, count, avg_us, min_us, max_us, source }],
+   *   workerTasks: [{ id, count, avg_us, min_us, max_us, source }],
+   *   lanes: [{ id, count, avg_us, min_us, max_us }],
+   *   rounds: [{ id, bind_h2d: { state, us, source },
+   *              compile_register: { state, us, source },
+   *              result_copy: { state, us, source } }]
+   * }
+   */
+  function triageNumber(obj, camel, snake) {
+    if (!obj) return null;
+    const value = obj[camel] != null ? obj[camel] : obj[snake];
+    return value == null ? null : Number(value);
+  }
+
+  function e2eTriageData() {
+    const supplied = D.e2eTriage || {};
+    const benchmark = supplied.benchmark || {};
+    const rank = D.defaultRank;
+    const invs = Object.keys(D.e2e[rank] || {}).map(Number).sort((a, b) => a - b);
+    const tracedInv = TRACE_MATCH[rank] ? TRACE_MATCH[rank].inv : invs[invs.length - 1];
+    const sampled = D.e2e[rank][tracedInv] || {};
+    const fromSpan = (name) => sampled[name] ? sampled[name].us : null;
+    const e2eWall = triageNumber(benchmark, 'e2eWallUs', 'e2e_wall_us');
+    const hostWall = triageNumber(benchmark, 'hostWallUs', 'host_wall_us');
+    const deviceWall = triageNumber(benchmark, 'deviceWallUs', 'device_wall_us');
+    const hasSuppliedBenchmark = Object.keys(benchmark).length > 0;
+
+    const fallbackBenchmark = {
+      e2eWallUs: fromSpan('chip.run'),
+      hostWallUs: fromSpan('chip.run.runner_run'),
+      deviceWallUs: fromSpan('chip.run.runner_run.device_wall'),
+      source: 'STRACE / device span proxy',
+      measured: false,
+    };
+    const resolvedBenchmark = hasSuppliedBenchmark ? {
+      e2eWallUs: e2eWall != null ? e2eWall : fallbackBenchmark.e2eWallUs,
+      hostWallUs: hostWall != null ? hostWall : fallbackBenchmark.hostWallUs,
+      /* A partial benchmark must not silently inherit device timing from an
+       * unrelated run.  Null is an intentional “not captured” state. */
+      deviceWallUs: deviceWall,
+      source: benchmark.source || '独立 benchmark',
+      scope: benchmark.scope || null,
+      measured: e2eWall != null && hostWall != null && deviceWall != null,
+    } : fallbackBenchmark;
+
+    const defaultWorkers = [
+      { id: 'WorkerProcess-01', count: 104, avgUs: 146800, minUs: 138200, maxUs: 157600, source: 'mock · Strace 未提供 worker 切分' },
+      { id: 'WorkerProcess-02', count: 101, avgUs: 148100, minUs: 140600, maxUs: 159200, source: 'mock · Strace 未提供 worker 切分' },
+      { id: 'WorkerProcess-03', count: 103, avgUs: 147300, minUs: 139800, maxUs: 160100, source: 'mock · Strace 未提供 worker 切分' },
+      { id: 'WorkerProcess-04', count: 102, avgUs: 147900, minUs: 141100, maxUs: 158700, source: 'mock · Strace 未提供 worker 切分' },
+    ];
+    const normalizeWorkers = (items, fallback) => Array.isArray(items) && items.length ? items.map((worker, i) => ({
+      id: worker.id || worker.worker || ('WorkerProcess-' + String(i + 1).padStart(2, '0')),
+      count: Number(worker.count || 0),
+      avgUs: triageNumber(worker, 'avgUs', 'avg_us'),
+      minUs: triageNumber(worker, 'minUs', 'min_us'),
+      maxUs: triageNumber(worker, 'maxUs', 'max_us'),
+      source: worker.source || 'Serving Strace',
+    })) : fallback;
+    const workers = normalizeWorkers(supplied.workers, defaultWorkers);
+    const workerTasks = normalizeWorkers(supplied.workerTasks || supplied.worker_tasks, workers);
+    const lanes = normalizeWorkers(supplied.lanes, []);
+
+    const defaultRounds = invs.slice(0, 3).map((inv, i) => {
+      const spans = D.e2e[rank][inv];
+      const value = (name) => spans[name] ? spans[name].us : null;
+      return {
+        id: 'inv ' + inv,
+        bindH2d: { state: 'repeat', us: value('chip.run.bind'), source: 'bind 实测 · H2D mock' },
+        compileRegister: {
+          state: i === 0 && value('chip.run.bind.prebuilt') > 100 ? 'once' : 'none',
+          us: value('chip.run.bind.prebuilt'), source: 'bind.prebuilt proxy',
+        },
+        resultCopy: { state: 'repeat', us: null, source: 'mock · 结果拷回未采集' },
+      };
+    });
+    const rounds = Array.isArray(supplied.rounds) && supplied.rounds.length ? supplied.rounds.map((round, i) => ({
+      id: round.id || round.inv || ('round ' + (i + 1)),
+      bindH2d: round.bindH2d || round.bind_h2d || {},
+      compileRegister: round.compileRegister || round.compile_register || {},
+      resultCopy: round.resultCopy || round.result_copy || {},
+    })) : defaultRounds;
+    const servingWait = supplied.servingWait || supplied.serving_wait || null;
+    return { benchmark: resolvedBenchmark, workers: workers, workerTasks: workerTasks, lanes: lanes, rounds: rounds, servingWait: servingWait };
+  }
+
+  function triageMedian(values) {
+    const sorted = values.filter((v) => v != null).slice().sort((a, b) => a - b);
+    if (!sorted.length) return 0;
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  }
+
+  function triageWorkerOutlier(workers) {
+    if (!workers || workers.length < 2) return null;
+    const midCount = triageMedian(workers.map((worker) => worker.count));
+    const midMax = triageMedian(workers.map((worker) => worker.maxUs));
+    return workers.find((worker) => worker.count > midCount * 1.25 || worker.count < midCount * 0.75 || worker.maxUs > midMax * 1.25) || null;
+  }
+
+  function triageDecision(triage) {
+    const b = triage.benchmark;
+    const outlier = triageWorkerOutlier(triage.workers);
+    if (outlier) return {
+      domain: 'serving', title: 'Serving 分配待查',
+      detail: outlier.id + ' 的 Count / Max 偏离同组',
+      action: '排查请求分配、队列与该 worker 的下游依赖', outlier: outlier,
+    };
+    if (b.deviceWallUs != null && b.deviceWallUs > b.hostWallUs) return {
+      domain: 'device', title: 'Device 执行主导',
+      detail: 'device_wall_us 占主导',
+      action: '采集 Chip Swimlane 与依赖图',
+    };
+    return {
+      domain: 'host', title: 'Host 编排主导',
+      detail: b.deviceWallUs == null ? 'Host 已采集；device_wall_us 尚未采集' : 'host_wall_us 高于 device_wall_us',
+      action: '常驻 weights / KV cache / workspace，register-once、dispatch-many 后复测',
+    };
+  }
+
+  function renderE2EFlowMap(stage, triage, decision) {
+    const b = triage.benchmark;
+    const servingWait = triage.servingWait && triageNumber(triage.servingWait, 'avgUs', 'avg_us');
+    const sec = el('section');
+    sec.id = 'e2e-triage';
+    sec.appendChild(sectionHead('运行流总览', '从请求到设备：先看数据在哪里停住，再决定下钻方向',
+      el('span', 'tc-readout', b.measured ? b.source + ' · 同一 scope 实测' : b.source + ' · scope 不完整')));
+    const map = el('div', 'tc-e2e-flow');
+    const canvas = el('canvas');
+    map.appendChild(canvas);
+    const nodes = [
+      { id: 'request', x: 8, y: 55, label: 'E2E Request', value: num(b.e2eWallUs / 1000000, 2) + ' s', meta: b.scope ? '完整请求 · 跨 scope' : '端到端墙钟' },
+      { id: 'serving', x: 33, y: 55, label: 'Serving', value: servingWait != null ? num(servingWait / 1000, 1) + ' ms wait' : 'WorkerProcess', meta: triage.workers.length < 2 ? '单 worker · 不可比较' : '请求分配 / 队列', panel: 'serving' },
+      { id: 'host', x: 57, y: 55, label: 'Host', value: b.hostWallUs != null ? num(b.hostWallUs / 1000, 1) + ' ms' : '未采集', meta: 'bind / 注册 / 编排', panel: 'serving', active: decision.domain === 'host' },
+      { id: 'device', x: 82, y: 55, label: 'Device', value: b.deviceWallUs != null ? num(b.deviceWallUs / 1000, 1) + ' ms' : '未采集', meta: b.deviceWallUs == null ? 'device_wall_us 缺失' : '执行路径', panel: 'device', active: decision.domain === 'device' },
+    ];
+    nodes.forEach((item) => {
+      const node = el(item.panel ? 'button' : 'div', 'tc-e2e-flow-node');
+      if (item.panel) node.type = 'button';
+      node.dataset.node = item.id;
+      if (item.active) node.dataset.active = 'true';
+      node.style.left = item.x + '%';
+      node.style.top = item.y + '%';
+      node.appendChild(el('span', 'k', item.label));
+      node.appendChild(el('strong', 'v', item.value));
+      node.appendChild(el('small', 'm', item.meta));
+      if (item.panel) node.addEventListener('click', () => { S.e2ePanel = item.panel; render(); });
+      map.appendChild(node);
+    });
+    [
+      { left: 20, top: 39, text: b.completed ? b.completed + ' requests' : 'request admitted' },
+      { left: 44.5, top: 68, text: servingWait != null ? 'queue wait ' + num(servingWait / 1000, 1) + ' ms' : 'dispatch' },
+      { left: 69.5, top: 39, text: 'bind repeated · H2D unknown' },
+    ].forEach((item) => {
+      const label = el('span', 'tc-e2e-flow-edge');
+      label.style.left = item.left + '%';
+      label.style.top = item.top + '%';
+      label.textContent = item.text;
+      map.appendChild(label);
+    });
+    const draw = () => {
+      const w = map.clientWidth || 760;
+      const h = map.clientHeight || 270;
+      const ctx = fitCanvas(canvas, w, h);
+      const point = (x, y) => [w * x / 100, h * y / 100];
+      const line = (from, to, tone) => {
+        const a = point(from.x + 7, from.y), z = point(to.x - 7, to.y);
+        ctx.save();
+        ctx.strokeStyle = cssVar(tone);
+        ctx.globalAlpha = tone === '--warning' ? 0.9 : 0.5;
+        ctx.lineWidth = tone === '--warning' ? 2 : 1;
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.bezierCurveTo(a[0] + 52, a[1] - 36, z[0] - 52, z[1] + 36, z[0], z[1]);
+        ctx.stroke();
+        const angle = Math.atan2(z[1] - (z[1] + 36), z[0] - (z[0] - 52));
+        ctx.translate(z[0], z[1]); ctx.rotate(angle);
+        ctx.fillStyle = cssVar(tone);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-7, -4); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      };
+      line(nodes[0], nodes[1], '--foreground-secondary');
+      line(nodes[1], nodes[2], decision.domain === 'host' ? '--warning' : '--foreground-secondary');
+      line(nodes[2], nodes[3], b.deviceWallUs == null ? '--foreground-muted' : '--accent');
+      ctx.save();
+      ctx.setLineDash([4, 5]);
+      ctx.strokeStyle = cssVar('--foreground-muted'); ctx.globalAlpha = .38;
+      const a = point(nodes[0].x + 7, nodes[0].y), z = point(nodes[3].x - 7, nodes[3].y);
+      ctx.beginPath(); ctx.moveTo(a[0], a[1] + 54); ctx.bezierCurveTo(w * .35, h * .98, w * .67, h * .98, z[0], z[1] + 54); ctx.stroke();
+      ctx.restore();
+    };
+    requestAnimationFrame(draw);
+    const resize = new ResizeObserver(draw);
+    resize.observe(map);
+    sec.appendChild(map);
+    const verdict = el('div', 'tc-e2e-triage-verdict');
+    verdict.dataset.domain = decision.domain;
+    verdict.appendChild(el('strong', null, decision.title));
+    verdict.appendChild(el('span', null, decision.detail));
+    verdict.appendChild(el('small', null, '下一步：' + decision.action));
+    sec.appendChild(verdict);
+    stage.appendChild(sec);
+  }
+
+  function renderE2ETriage(stage) {
+    const triage = e2eTriageData();
+    renderE2EFlowMap(stage, triage, triageDecision(triage));
+  }
+
+  function renderE2EWorkers(stage, triage, decision) {
+    const sec = el('section');
+    sec.id = 'e2e-workers';
+    sec.appendChild(sectionHead('Serving Strace · WorkerProcess 任务', '横线 = Min → Max，圆点 = Avg，左侧数字 = 任务数',
+      el('span', 'tc-readout', triage.servingWait ? 'wait_worker_output 平均 ' + num(triageNumber(triage.servingWait, 'avgUs', 'avg_us') / 1000, 1) + ' ms · Max ' + num(triageNumber(triage.servingWait, 'maxUs', 'max_us') / 1000, 1) + ' ms' : triage.workerTasks[0].source)));
+    sec.appendChild(renderE2ERangeChart(triage.workerTasks, decision.outlier));
+    stage.appendChild(sec);
+  }
+
+  function renderE2ERangeChart(records, outlier) {
+    const min = Math.min.apply(null, records.map((worker) => worker.minUs || 0));
+    const max = Math.max.apply(null, records.map((worker) => worker.maxUs || 0));
+    const span = Math.max(1, max - min);
+    const chart = el('div', 'tc-e2e-workers');
+    records.forEach((worker) => {
+      const row = el('div', 'tc-e2e-worker');
+      if (outlier === worker) row.dataset.outlier = 'true';
+      const label = el('div', 'label');
+      label.appendChild(el('strong', null, worker.id));
+      label.appendChild(el('small', null, 'Count ' + worker.count));
+      row.appendChild(label);
+      const range = el('div', 'range');
+      const line = el('i', 'range-line');
+      line.style.left = ((worker.minUs - min) / span * 100).toFixed(2) + '%';
+      line.style.width = Math.max(1, (worker.maxUs - worker.minUs) / span * 100).toFixed(2) + '%';
+      const avg = el('i', 'average');
+      avg.style.left = ((worker.avgUs - min) / span * 100).toFixed(2) + '%';
+      range.appendChild(line);
+      range.appendChild(avg);
+      row.appendChild(range);
+      const nums = el('div', 'numbers');
+      nums.appendChild(el('span', null, num(worker.minUs, 0)));
+      nums.appendChild(el('strong', null, num(worker.avgUs, 0)));
+      nums.appendChild(el('span', null, num(worker.maxUs, 0)));
+      row.appendChild(nums);
+      chart.appendChild(row);
+    });
+    return chart;
+  }
+
+  function renderE2ELanes(stage, triage) {
+    if (!triage.lanes.length) return;
+    const outlier = triageWorkerOutlier(triage.lanes);
+    const sec = el('section');
+    sec.id = 'e2e-lanes';
+    sec.appendChild(sectionHead('Host STRACE · 16 路 NPU lane', '每路 55 次 chip.run；横线 = Min → Max，圆点 = Avg。它反映 Host 侧 lane 尾部，不等同多 WorkerProcess 分配。',
+      el('span', 'tc-readout', outlier ? outlier.id + ' 的 Max 偏离同组' : 'lane 间未见明显偏斜')));
+    sec.appendChild(renderE2ERangeChart(triage.lanes, outlier));
+    stage.appendChild(sec);
+  }
+
+  function renderE2ERoundMatrix(stage, triage) {
+    const labels = [
+      { key: 'bindH2d', label: 'bind / H2D' },
+      { key: 'compileRegister', label: 'compile / register' },
+      { key: 'resultCopy', label: '结果拷回' },
+    ];
+    const sec = el('section');
+    sec.id = 'e2e-rounds';
+    sec.appendChild(sectionHead('每轮 Host 开销', '识别重复上传、编译 / 注册与结果拷回；每格显示“是否发生”而不是累计文字',
+      el('span', 'tc-readout', '按 invocation 采样')));
+    const matrix = el('div', 'tc-e2e-round-matrix');
+    matrix.style.setProperty('--tc-rounds', triage.rounds.length);
+    matrix.appendChild(el('span', 'corner', '开销 / 轮次'));
+    triage.rounds.forEach((round) => matrix.appendChild(el('span', 'round', round.id)));
+    labels.forEach((label) => {
+      matrix.appendChild(el('strong', 'operation', label.label));
+      triage.rounds.forEach((round) => {
+        const cell = round[label.key] || {};
+        const state = cell.state || 'unknown';
+        const button = el('button', 'tc-e2e-round-cell');
+        button.type = 'button';
+        button.dataset.state = state;
+        button.title = label.label + ' · ' + (cell.source || '来源未标记') + (cell.us != null ? ' · ' + num(cell.us, 1) + ' us' : '');
+        button.appendChild(el('strong', null, state === 'repeat' ? '重复' : state === 'once' ? '仅首轮' : state === 'none' ? '未发生' : '未知'));
+        const sourceFlag = /mock/i.test(cell.source || '') ? ' · mock' : /proxy/i.test(cell.source || '') ? ' · proxy' : '';
+        button.appendChild(el('small', null, cell.us != null ? num(cell.us, 0) + ' us' + sourceFlag : (cell.source || 'mock')));
+        matrix.appendChild(button);
+      });
+    });
+    sec.appendChild(matrix);
+    stage.appendChild(sec);
+  }
+
   function e2eJump(rank, task) {
     S.rank = rank;
     S.task = task.tag;
     S.focus = 'task';
     S.view = 'l1';
     render();
-  }
-
-  function renderE2ERuntimeOverview(stage, projection) {
-    const rankRows = projection.ranks.map((rank) => {
-      const match = TRACE_MATCH[rank];
-      const spans = D.e2e[rank][match.inv];
-      return { rank: rank, dev: spans['chip.run.runner_run.device_wall'].us, trace: D.ranks[rank].swimlane.spanUs };
-    });
-    const slow = rankRows.slice().sort((a, b) => b.dev - a.dev)[0];
-    const fast = rankRows.slice().sort((a, b) => a.dev - b.dev)[0];
-    const sec = el('section');
-    sec.appendChild(sectionHead('运行总览', '模型 → 阶段 → 算子 → rank / 卡',
-      el('span', 'tc-readout', '时延 / trace：测量 · 阶段：' + (projection.ruleCount ? '规则归类' : 'JSON'))));
-    const grid = el('div', 'tc-e2e-overview');
-    [
-      ['模型', D.case.model, D.case.level ? 'L' + D.case.level + ' · ' + D.case.backend : D.case.backend],
-      ['卡数', String(projection.ranks.length), D.case.device + ' · ' + D.case.numCores + ' cores / card'],
-      ['全局尾时延', num(slow.dev, 1) + ' us', slow.rank + ' · traced inv=' + TRACE_MATCH[slow.rank].inv],
-      ['卡间偏斜', num(slow.dev - fast.dev, 1) + ' us', slow.rank + ' vs ' + fast.rank],
-    ].forEach((item, i) => {
-      const card = el('div', 'tc-e2e-overview-card');
-      if (i === 2) card.dataset.tone = 'warn';
-      card.appendChild(el('span', 'k', item[0]));
-      card.appendChild(el('strong', 'v', item[1]));
-      card.appendChild(el('span', 'u', item[2]));
-      grid.appendChild(card);
-    });
-    sec.appendChild(grid);
-    stage.appendChild(sec);
   }
 
   function e2eStageLegend(projection) {
@@ -939,13 +1249,30 @@
   }
 
   function viewE2E(stage) {
+    /* No host STRACE log in this dump either, but a torch profiler run of the
+     * same program is an end-to-end layer measured a different way. */
+    if (!hasE2E() && QW()) { viewE2EQwen3(stage); return; }
     if (!hasE2E()) { viewE2EAbsent(stage); renderFuncSummary(stage); return; }
 
     const projection = e2eProjection();
-    renderE2ERuntimeOverview(stage, projection);
-    renderE2ETraceAtlas(stage, projection);
-    renderE2EStageComposition(stage, projection);
-    renderE2EOperatorScatter(stage, projection);
+    if (S.e2ePanel === 'triage') {
+      renderE2ETriage(stage);
+      return;
+    }
+    if (S.e2ePanel === 'serving') {
+      const triage = e2eTriageData();
+      const decision = triageDecision(triage);
+      renderE2EWorkers(stage, triage, decision);
+      renderE2ELanes(stage, triage);
+      renderE2ERoundMatrix(stage, triage);
+      return;
+    }
+    if (S.e2ePanel === 'device') {
+      renderE2ETraceAtlas(stage, projection);
+      renderE2EStageComposition(stage, projection);
+      renderE2EOperatorScatter(stage, projection);
+      return;
+    }
 
     /* --- rank x invocation table --- */
     const rows = [];
@@ -1095,6 +1422,791 @@
     stage.appendChild(alt);
   }
 
+  /* ================================================ Qwen3 profile layers
+   * pypto_qwen3_profiles holds four captures of one 40-layer graph. They do
+   * not answer the same questions: only tp1/prefill carries task names and a
+   * dependency graph, so only it feeds the task-level machinery above. The
+   * rest are served here, and every screen states which capture it is reading
+   * and what that capture cannot say.
+   *
+   * The reader picks a capture x stage once; E2E, L2 and L1/L0 all follow it. */
+  const QW = () => D.qwen3 || null;
+  const qwVariant = () => {
+    const q = QW();
+    if (!q) return null;
+    return q.variants.find((v) => v.id === S.variant)
+      || q.variants.find((v) => v.primary) || q.variants[0];
+  };
+  const qwCapture = () => { const v = qwVariant(); return v ? QW().captures[v.capture] : null; };
+  const qwL2 = () => { const v = qwVariant(); return v ? QW().l2[v.id] : null; };
+  const qwLayers = () => { const v = qwVariant(); return v ? QW().layers[v.id] : null; };
+  const qwTorch = () => { const v = qwVariant(); return v ? QW().torch[v.capture] : null; };
+  /* the one variant data.js carries a full rank for */
+  const onPrimaryVariant = () => { const v = qwVariant(); return !!(v && v.primary); };
+
+  const msOrUs = (v) => (v == null ? '—'
+    : Math.abs(v) >= 1000 ? num(v / 1000, 2) + ' ms' : num(v, 1) + ' us');
+
+  /* The capture chooser. Two axes, because that is how the dataset is laid
+   * out: two collectors x two stages. */
+  function qwVariantBar(onPick) {
+    const q = QW();
+    const cur = qwVariant();
+    const wrap = el('div', 'tc-variant-bar');
+    Object.keys(q.captures).forEach((cid) => {
+      const cap = q.captures[cid];
+      const grp = el('div', 'tc-variant-group');
+      const head = el('div', 'tc-variant-head');
+      head.appendChild(el('span', 'n', cap.label));
+      const badge = el('span', 'tc-variant-badge');
+      badge.dataset.state = cap.validated ? 'ok' : 'warn';
+      badge.textContent = cap.validated ? '已校验' : '未校验';
+      badge.title = cap.validateNote;
+      head.appendChild(badge);
+      grp.appendChild(head);
+      const row = el('div', 'tc-variant-row');
+      q.variants.filter((v) => v.capture === cid).forEach((v) => {
+        const b = el('button', 'tc-variant-pill' + (v.id === cur.id ? ' is-selected' : ''));
+        b.type = 'button';
+        b.appendChild(el('span', 'n', v.stage));
+        b.appendChild(el('span', 'm', msOrUs(v.spanUs)));
+        b.title = v.taskCount + ' 任务 · ' + v.blockRows + ' 块 · 用到 '
+          + v.coresUsed + '/' + v.coreTotal + ' 核'
+          + (v.gaps.length ? NL + '缺口：' + v.gaps.join(NL) : '');
+        b.addEventListener('click', () => {
+          if (v.id === S.variant) return;
+          S.variant = v.id;
+          if (onPick) onPick(v);
+          render();
+        });
+        row.appendChild(b);
+      });
+      grp.appendChild(row);
+      wrap.appendChild(grp);
+    });
+    return wrap;
+  }
+
+  /* What this capture cannot answer. A list, not a disclaimer: each line names
+   * the missing artifact and the layer it takes down. */
+  function qwGapNote(host) {
+    const v = qwVariant();
+    if (!v || !v.gaps.length) return;
+    const sec = el('section');
+    sec.appendChild(sectionHead('本采集的缺口', v.label + ' · ' + (v.validated ? '数据集已校验' : '数据集未校验'),
+      el('span', 'tc-readout', v.hasNames ? (v.namesFrom || '有任务名') : '任务无名')));
+    sec.appendChild(table([
+      { label: '缺失', cell: (r) => esc(r) },
+      { label: '状态', cell: () => '<span class="bad">缺失</span>', width: '72px' },
+    ], v.gaps, {}));
+    host.appendChild(sec);
+  }
+
+  function qwCaptureNote(host) {
+    const v = qwVariant();
+    const cap = qwCapture();
+    const sec = el('section');
+    sec.appendChild(sectionHead('采集来源', cap.collector + ' · ' + QW().capturedAt,
+      el('span', 'tc-readout', QW().source)));
+    const note = el('div', 'tc-note');
+    note.dataset.tone = cap.validated ? 'ok' : 'warn';
+    note.appendChild(el('strong', null, cap.label + '：' + (cap.validated ? '数据集认定的交付基线' : '数据集未认定为交付基线')));
+    note.appendChild(el('span', null, cap.validateNote));
+    note.appendChild(el('small', null, QW().dataset.note));
+    sec.appendChild(note);
+    host.appendChild(sec);
+  }
+
+  /* ---------------------------------------------------- E2E: torch profiler
+   * The dump has no host STRACE log, so there is no span tree. What it does
+   * have is a torch profiler run of the same program: per-step Computing /
+   * Free / Preparing, the framework ops around the fused kernel, and the host
+   * ACL bill. That is an end-to-end layer, measured differently. */
+  function qwStepPanel(stage) {
+    const t = qwTorch();
+    const v = qwVariant();
+    const cap = qwCapture();
+    const dm = t.decodeMean;
+
+    const sec = el('section');
+    sec.appendChild(sectionHead('步时间归因', 'torch profiler · device ' + t.deviceId
+      + ' · 1 次 prefill + ' + t.iters.decode + ' 次 decode',
+      el('span', 'tc-readout', 'step_trace_time.csv · Stage = Computing + Free + Preparing')));
+    sec.appendChild(tiles([
+      { k: 'decode step', v: num(dm.stageUs / 1000, 2), u: 'ms · 均值' },
+      { k: 'Computing', v: num(dm.computingUs / 1000, 2), u: 'ms · 设备在算' },
+      { k: 'Free', v: num(dm.freeUs / 1000, 2), u: 'ms · 设备空闲', tone: dm.freeShare > 30 ? 'bad' : null },
+      { k: 'Free 占比', v: pct(dm.freeShare), tone: dm.freeShare > 30 ? 'bad' : 'good' },
+      { k: 'Preparing', v: num(dm.preparingUs, 0), u: 'us' },
+      { k: '主机 ACL 调用', v: num(t.apiHost.workUs / 1000, 1), u: 'ms · 5 步合计' },
+    ]));
+
+    /* one stacked bar per step, on a shared scale */
+    const maxStage = Math.max.apply(null, t.steps.map((s) => s.stageUs));
+    const rows = el('div', 'tc-stepbars');
+    t.steps.forEach((s) => {
+      const row = el('div', 'tc-stepbar');
+      row.dataset.stage = s.stage;
+      const lab = el('div', 'label');
+      lab.appendChild(el('strong', null, 'step ' + s.step));
+      lab.appendChild(el('small', null, s.stage));
+      row.appendChild(lab);
+      const track = el('div', 'track');
+      [['computing', s.computingUs, 'Computing'], ['free', s.freeUs, 'Free'],
+        ['preparing', s.preparingUs, 'Preparing']].forEach((seg) => {
+        if (!seg[1]) return;
+        const part = el('span', 'seg');
+        part.dataset.kind = seg[0];
+        part.style.width = (seg[1] / maxStage * 100).toFixed(3) + '%';
+        part.title = seg[2] + ' ' + num(seg[1] / 1000, 2) + ' ms';
+        track.appendChild(part);
+      });
+      row.appendChild(track);
+      row.appendChild(el('div', 'val', num(s.stageUs / 1000, 2) + ' ms'));
+      row.appendChild(el('div', 'val muted', pct(s.freeShare) + ' free'));
+      rows.appendChild(row);
+    });
+    sec.appendChild(rows);
+
+    const verdict = el('div', 'tc-e2e-triage-verdict');
+    verdict.dataset.domain = dm.freeShare > 30 ? 'host' : 'device';
+    if (dm.freeShare > 30) {
+      verdict.appendChild(el('strong', null, '主机受限：decode 每步 '
+        + num(dm.stageUs / 1000, 1) + ' ms 里设备空闲 ' + num(dm.freeUs / 1000, 1) + ' ms'));
+      verdict.appendChild(el('span', null, '设备只用掉 ' + pct(dm.computeShare)
+        + '，其余是等主机。融合 kernel 之外还有 ' + t.deviceMix.frameworkCalls
+        + ' 次框架算子，主机侧 ACL 调用 ' + num(t.apiHost.workUs / 1000, 1)
+        + ' ms（不含同步等待 ' + num(t.apiHost.waitUs / 1000, 0) + ' ms）。'));
+      verdict.appendChild(el('small', null, '下一步：先看「设备算子」与「主机 API」，'
+        + '把 kernel 内部的优化排到主机开销之后。'));
+    } else {
+      verdict.appendChild(el('strong', null, '设备受限：decode 每步 '
+        + num(dm.stageUs / 1000, 1) + ' ms 里空闲只有 ' + pct(dm.freeShare)));
+      verdict.appendChild(el('span', null, '融合 kernel 占设备时间 '
+        + pct(t.deviceMix.fusedShare) + '，框架算子只有 ' + t.deviceMix.frameworkCalls
+        + ' 次。瓶颈在 kernel 内部，去 L2 / L1 继续。'));
+      verdict.appendChild(el('small', null, '下一步：看 L2 的 40 层视图与 L1 的 PMU 流水占比。'));
+    }
+    sec.appendChild(verdict);
+    stage.appendChild(sec);
+
+    /* every invocation of the fused kernel, with its own PMU */
+    const fsec = el('section');
+    fsec.appendChild(sectionHead('融合 kernel 每次调用', 'aicore_kernel_0 · ' + cap.label
+      + ' · 整张 40 层图一次调用',
+      el('span', 'tc-readout', 'kernel_details.csv · ' + t.kernelRows + ' 行')));
+    fsec.appendChild(table([
+      { label: 'step', key: 'step', num: true },
+      { label: 'stage', cell: (r) => esc(r.stage) },
+      { label: '时长', num: true, cell: (r) => num(r.durUs / 1000, 2) + ' ms' },
+      { label: 'Wait', num: true, cell: (r) => num(r.waitUs, 0) },
+      { label: 'block', cell: (r) => r.blocks + ' + ' + r.mixBlocks + ' mix' },
+      { label: 'AIC mac', num: true, cell: (r) => pmuCell(r.aic.mac) },
+      { label: 'AIC mte2', num: true, cell: (r) => pmuCell(r.aic.mte2) },
+      { label: 'AIC scalar', num: true, cell: (r) => pmuCell(r.aic.scalar) },
+      { label: 'AIV vec', num: true, cell: (r) => pmuCell(r.aiv.vec) },
+      { label: 'AIV scalar', num: true, cell: (r) => pmuCell(r.aiv.scalar) },
+      { label: 'cube 利用率', num: true, cell: (r) => num(r.cubeUtil, 1) },
+    ], t.fused.map((f) => Object.assign({ __selected: f.stage === v.stage }, f)), {}));
+    fsec.appendChild(el('p', 'tc-fineprint',
+      '流水占比是各流水线相对 aicore_time 的忙占比，互相重叠，不能相加成 100%。'
+      + 'PMU 开着采的这一轮不能与 PMU 关闭的基线直接比较。'));
+    stage.appendChild(fsec);
+  }
+  const pmuCell = (v) => (v == null ? '—'
+    : '<span class="' + (v >= 0.6 ? 'warn' : v <= 0.02 ? 'muted' : '') + '">' + num(v, 3) + '</span>');
+
+  function qwOpsPanel(stage) {
+    const t = qwTorch();
+    const sec = el('section');
+    sec.appendChild(sectionHead('设备算子构成', '融合 kernel 之外还在设备上跑的东西',
+      el('span', 'tc-readout', 'op_statistic.csv · 1 prefill + ' + t.iters.decode + ' decode 合计')));
+    sec.appendChild(tiles([
+      { k: '融合 kernel', v: num(t.deviceMix.fusedUs / 1000, 1), u: 'ms' },
+      { k: '框架算子', v: num(t.deviceMix.frameworkUs / 1000, 1), u: 'ms' },
+      { k: '融合占比', v: pct(t.deviceMix.fusedShare), tone: t.deviceMix.fusedShare > 95 ? 'good' : null },
+      { k: '框架算子种类', v: String(t.deviceMix.frameworkOps) },
+      { k: '框架算子调用', v: String(t.deviceMix.frameworkCalls), u: '次',
+        tone: t.deviceMix.frameworkCalls > 500 ? 'bad' : null },
+    ]));
+    const maxUs = Math.max.apply(null, t.ops.map((o) => o.totalUs));
+    sec.appendChild(table([
+      { label: 'OP', cell: (r) => esc(r.type), mono: true },
+      { label: '角色', cell: (r) => ({ fused: '<span class="ok">融合 kernel</span>',
+        launcher: '<span class="muted">AI_CPU 启动器</span>' }[r.role] || '框架') },
+      { label: 'Core', cell: (r) => esc(r.core) },
+      { label: '次数', key: 'count', num: true },
+      { label: '合计', num: true, cell: (r) => num(r.totalUs, 1) },
+      { label: '', cell: (r) => bar(r.totalUs / maxUs, r.role === 'fused' ? 'good' : r.role === 'launcher' ? 'neutral' : 'warn') },
+      { label: '均值', num: true, cell: (r) => num(r.avgUs, 2) },
+      { label: '占比', num: true, cell: (r) => pct(r.ratio) },
+    ], t.ops, { tall: true }));
+    sec.appendChild(el('p', 'tc-fineprint',
+      'simpler_aicpu_exec_* 是同一个融合 kernel 的 AI_CPU 启动器，与 aicore_kernel_0 '
+      + '是同一份工作的两条记录，不能把两行相加。'));
+    stage.appendChild(sec);
+  }
+
+  function qwApiPanel(stage) {
+    const t = qwTorch();
+    const sec = el('section');
+    sec.appendChild(sectionHead('主机 API 账单', '哪几个 CANN 调用吃掉了主机时间',
+      el('span', 'tc-readout', 'api_statistic.csv · Level=acl / node')));
+    sec.appendChild(tiles([
+      { k: '主机调用耗时', v: num(t.apiHost.workUs / 1000, 1), u: 'ms · 不含同步等待' },
+      { k: '同步等待', v: num(t.apiHost.waitUs / 1000, 1), u: 'ms · 等设备' },
+      { k: 'API 条目', v: String(t.apiHost.rows) },
+      { k: 'decode 每步 Free', v: num(t.decodeMean.freeUs / 1000, 1), u: 'ms · 对照' },
+    ]));
+    const maxUs = Math.max.apply(null, t.api.filter((a) => !a.isWait).map((a) => a.totalUs)) || 1;
+    sec.appendChild(table([
+      { label: 'API', cell: (r) => esc(r.name), mono: true },
+      { label: 'Level', cell: (r) => esc(r.level) },
+      { label: '合计', num: true, cell: (r) => num(r.totalUs, 1) },
+      { label: '', cell: (r) => (r.isWait ? el('span', 'tc-readout', '等设备') : bar(r.totalUs / maxUs, 'warn')) },
+      { label: '次数', key: 'count', num: true },
+      { label: '均值', num: true, cell: (r) => num(r.avgUs, 2) },
+      { label: '最大', num: true, cell: (r) => num(r.maxUs, 1) },
+    ], t.api, { tall: true }));
+    sec.appendChild(el('p', 'tc-fineprint',
+      'Synchronize* 是主机在等设备算完，不是主机开销；它被单列出来，不计入「主机调用耗时」。'
+      + '主机调用耗时与 Free 不是同一把尺子：Free 是设备侧空闲，二者只能相互印证方向。'));
+    stage.appendChild(sec);
+  }
+
+  function qwTopoPanel(stage) {
+    const q = QW();
+    const rows = q.topology.rows;
+    const sec = el('section');
+    sec.appendChild(sectionHead('TP=1 ↔ TP=2 对照', '同一个 40 层 Qwen3 14B 图，两种并行拓扑',
+      el('span', 'tc-readout', 'tp2 已校验 / tp1 未校验 · 同机同日，两个采集脚本')));
+    const fmt = (v, unit) => {
+      if (v == null) return '—';
+      if (unit === 'us') return num(v / 1000, 2) + ' ms';
+      if (unit === '%') return pct(v);
+      if (unit === '×' || unit === '核') return num(v, 3);
+      return String(v) + (unit ? ' ' + unit : '');
+    };
+    sec.appendChild(table([
+      { label: '指标', cell: (r) => esc(r.metric) },
+      { label: 'TP=1', num: true, cell: (r) => fmt(r.tp1, r.unit) },
+      { label: 'TP=2', num: true, cell: (r) => fmt(r.tp2, r.unit) },
+      { label: 'TP2 / TP1', num: true, cell: (r) => (r.tp1 && r.tp2 && typeof r.tp1 === 'number'
+        ? (function () {
+          const k = r.tp2 / r.tp1;
+          const cls = k >= 2 || k <= 0.5 ? 'warn' : '';
+          return '<span class="' + cls + '">' + num(k, 2) + 'x</span>';
+        }()) : '—') },
+      { label: '口径', cell: (r) => (r.note ? esc(r.note) : '—') },
+    ], rows, { tall: true }));
+    stage.appendChild(sec);
+
+    const t1 = q.torch.tp1;
+    const t2 = q.torch.tp2;
+    const d1 = q.l2['tp1:decode'];
+    const d2 = q.l2['tp2:decode'];
+    const ly2 = q.layers['tp2:decode'];
+    const worst = ly2 && ly2.steps
+      ? ly2.steps.slice().sort((a, b) => b.sumUs - a.sumUs)[0] : null;
+    const vsec = el('section');
+    vsec.appendChild(sectionHead('这张对照说了什么', '只写两份数据都能支持的部分'));
+    const list = el('div', 'tc-verdicts');
+    [
+      ['两边卡在不同地方',
+        'TP=1 的 decode step 有 ' + pct(t1.decodeMean.freeShare) + ' 是设备空闲，'
+        + '瓶颈在主机；TP=2 只有 ' + pct(t2.decodeMean.freeShare) + '，瓶颈在 kernel 内部。'
+        + '同一个模型，两套拓扑要用两套优先级。'],
+      ['TP=2 基本没并起来',
+        'TP=2 的 decode 平均只有 ' + num(d2.occ.busyCores, 2) + ' 个核在忙（核时 / 墙钟），'
+        + '用到 ' + d2.coresUsed + '/' + d2.coreTotal + ' 个核；TP=1 同期是 '
+        + num(d1.occ.busyCores, 1) + ' 个核、' + d1.coresUsed + '/' + d1.coreTotal + ' 个核。'
+        + '643 个任务几乎一个接一个跑完。'],
+      ['TP=2 的核在做标量',
+        'TP=2 融合 kernel 的 AIC mac 占比只有 '
+        + num(q.topology.rows.find((r) => r.metric === 'AIC mac 占比').tp2, 3)
+        + '，scalar 占比 '
+        + num(q.topology.rows.find((r) => r.metric === 'AIC scalar 占比').tp2, 3)
+        + '；AIV vec 占比 '
+        + num(q.topology.rows.find((r) => r.metric === 'AIV vec 占比').tp2, 3)
+        + '。核是忙的，但忙在标量而不是计算。'],
+      worst ? ['单步就占掉半层',
+        'TP=2 每层 ' + msOrUs(ly2.steady.medianSpanUs) + ' 里，'
+        + worst.name + ' 一步就是 ' + msOrUs(worst.meanUs) + '（' + pct(worst.share) + ' 的层内核时）。']
+        : null,
+      ['不能做的比较',
+        'tp1 被数据集自己的 .gitignore 排除、没有验收标记，两份采集也用了不同脚本。'
+        + '这张表能定方向，不能当作 TP=1 / TP=2 的性能结论。'],
+    ].filter(Boolean).forEach((item) => {
+      const n = el('div', 'tc-verdict');
+      n.appendChild(el('strong', null, item[0]));
+      n.appendChild(el('span', null, item[1]));
+      list.appendChild(n);
+    });
+    vsec.appendChild(list);
+    stage.appendChild(vsec);
+  }
+
+  function viewE2EQwen3(stage) {
+    const sec = el('section');
+    sec.appendChild(sectionHead('采集', '一次选定，E2E / L2 / L1 都跟着走',
+      el('span', 'tc-readout', QW().variants.length + ' 份采集 · 2 拓扑 × 2 阶段')));
+    sec.appendChild(qwVariantBar());
+    stage.appendChild(sec);
+
+    if (S.e2ePanel === 'ops') { qwOpsPanel(stage); return; }
+    if (S.e2ePanel === 'api') { qwApiPanel(stage); return; }
+    if (S.e2ePanel === 'topo') { qwTopoPanel(stage); return; }
+    qwStepPanel(stage);
+    qwCaptureNote(stage);
+  }
+
+  /* ------------------------------------------------------- L2: 40-layer view
+   * The graph is one embed + 40 identical transformer layers + a tail. Every
+   * layer row restarts at its own start, on one shared millisecond scale, so
+   * the question "is this steady state, and which layer is not" is a look
+   * rather than a calculation. */
+  function qwLayerPanel(stage) {
+    const L = qwLayers();
+    const v = qwVariant();
+    if (!L) {
+      const sec = el('section');
+      sec.appendChild(sectionHead('40 层', '本采集无法还原层边界'));
+      sec.appendChild(el('p', 'tc-fineprint', '提交序里没有出现 40 次等间距的循环控制间隔。'));
+      stage.appendChild(sec);
+      return;
+    }
+    const st = L.steady;
+    const sec = el('section');
+    sec.appendChild(sectionHead('40 层一致性', v.label + ' · 每层 ' + L.perLayer + ' 个任务',
+      /* not the dataset's 已校验 / 未校验 — this is about whether the submit
+       * order gave exactly one way to cut the loop */
+      el('span', 'tc-readout' + (L.verified ? '' : ' is-crit'),
+        L.verified ? '层边界唯一' : '层边界有歧义')));
+    sec.appendChild(tiles([
+      { k: '层数', v: String(L.layerCount) },
+      { k: '每层任务', v: String(L.perLayer) },
+      { k: '层窗口中位数', v: msOrUs(st.medianSpanUs) },
+      { k: '最快 / 最慢', v: msOrUs(st.minSpanUs) + ' / ' + msOrUs(st.maxSpanUs) },
+      { k: '离散度', v: pct(st.spreadPct), tone: st.spreadPct > 30 ? 'bad' : st.spreadPct > 12 ? 'warn' : 'good' },
+      { k: '首层偏差', v: pct(st.firstDeltaPct), tone: Math.abs(st.firstDeltaPct) > 20 ? 'warn' : null },
+    ]));
+    const note = el('p', 'tc-fineprint');
+    note.textContent = L.method
+      + ' 层窗口用的是层主体：每层有 ' + (st.earlyLayers ? '1–' + st.earlyTasksMax : '0')
+      + ' 个任务被提前派发（最多提前 '
+      + msOrUs(Math.max.apply(null, L.rows.map((r) => r.earlyLeadUs)))
+      + '），若用 min(start) 计窗口会把这些提前量算进层内。'
+      + (L.layoutChecked === true ? ' 每层 16 步的 AIC / AIV 次序与采集脚本已校验的布局一致。' : '');
+    sec.appendChild(note);
+
+    /* the unwrapped rows */
+    const chart = el('div', 'tc-layerchart');
+    const canvas = el('canvas');
+    chart.appendChild(canvas);
+    const maxBody = Math.max.apply(null, L.rows.map((r) => r.bodyUs));
+    const drawLayers = () => {
+      const w = chart.clientWidth || 720;
+      const rowH = 15;
+      const padL = 46;
+      const padT = 32;
+      const h = padT + L.rows.length * rowH + 10;
+      const ctx = fitCanvas(canvas, w, h);
+      const plotW = w - padL - 12;
+      drawTimeRuler(ctx, padL, plotW, 2, 0, maxBody, { dense: true });
+      const med = L.steady.medianSpanUs;
+      ctx.font = '500 10px ' + cssVar('--font-mono');
+      L.rows.forEach((r, i) => {
+        const y = padT + i * rowH;
+        if (i % 2) {
+          ctx.fillStyle = cssVar('--surface-3');
+          ctx.globalAlpha = 0.55;
+          ctx.fillRect(padL, y, plotW, rowH);
+          ctx.globalAlpha = 1;
+        }
+        ctx.fillStyle = cssVar('--foreground-secondary');
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('L' + String(r.layer).padStart(2, '0'), padL - 6, y + rowH / 2);
+        const sx = (t) => padL + (t / maxBody) * plotW;
+        if (r.blocks) {
+          r.blocks.forEach((b) => {
+            const x = sx(Math.max(0, b[0]));
+            /* leave a hairline between adjacent tasks, otherwise a layer whose
+             * tasks tile the window reads as one solid bar */
+            const bw = Math.max(1, (b[1] / maxBody) * plotW - 0.8);
+            ctx.fillStyle = CMAP.colorForLaneKind(b[2] ? 'aic' : 'aiv');
+            ctx.fillRect(x, y + 2, bw, rowH - 4);
+          });
+        } else {
+          /* too many tasks per layer to draw one by one: the row is the window,
+           * shaded by how much core time it carried */
+          ctx.fillStyle = CMAP.colorForLaneKind('aic');
+          ctx.globalAlpha = 0.75;
+          ctx.fillRect(sx(0), y + 2, Math.max(1, (r.bodyUs / maxBody) * plotW), rowH - 4);
+          ctx.globalAlpha = 1;
+        }
+        /* the median marker, so an outlier row reads as one */
+        ctx.strokeStyle = cssVar('--border-strong');
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(sx(med)) + 0.5, y);
+        ctx.lineTo(Math.round(sx(med)) + 0.5, y + rowH);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      });
+    };
+    stage.appendChild(sec);
+    sec.appendChild(chart);
+    requestAnimationFrame(drawLayers);
+    if (stage.__ro) stage.__ro.disconnect();
+    stage.__ro = new ResizeObserver(drawLayers);
+    stage.__ro.observe(chart);
+    sec.appendChild(el('p', 'tc-fineprint',
+      '每行从该层主体起点重新计时，共用同一刻度；竖线是层窗口中位数。'
+      + (L.rows[0].blocks ? '色块是该层的每个任务，红=AIC / 蓝=AIV，宽度是实测时长。'
+        : '每层 ' + L.perLayer + ' 个任务太密，行内只画层窗口本身。')));
+
+    /* per-step statistics: which step inside a layer is the expensive one */
+    if (L.steps) {
+      const ssec = el('section');
+      ssec.appendChild(sectionHead('层内步骤', '40 层同一步骤的分布',
+        el('span', 'tc-readout', v.hasNames ? (v.namesFrom || '') : '步名不可得')));
+      const maxSum = Math.max.apply(null, L.steps.map((s) => s.sumUs));
+      ssec.appendChild(table([
+        { label: '#', key: 'step', num: true },
+        { label: '步骤', cell: (r) => esc(r.name), mono: true },
+        { label: '引擎', cell: (r) => (r.kind || '').toUpperCase() },
+        { label: '均值', num: true, cell: (r) => num(r.meanUs, 1) },
+        { label: 'min / max', num: true, cell: (r) => num(r.minUs, 1) + ' / ' + num(r.maxUs, 1) },
+        { label: '离散', num: true, cell: (r) => (r.spreadX == null ? '—'
+          : '<span class="' + (r.spreadX > 2 ? 'warn' : '') + '">' + num(r.spreadX, 2) + 'x</span>') },
+        { label: '40 层合计', num: true, cell: (r) => num(r.sumUs, 0) },
+        { label: '', cell: (r) => bar(r.sumUs / maxSum, r.sumUs === maxSum ? 'warn' : 'neutral') },
+        { label: '占层内核时', num: true, cell: (r) => pct(r.share) },
+      ], L.steps, { tall: true }));
+      stage.appendChild(ssec);
+    }
+
+    /* outliers + what sits outside the loop */
+    const osec = el('section');
+    osec.appendChild(sectionHead('离群层与环外任务', '偏离中位数最远的 6 层'));
+    osec.appendChild(table([
+      { label: '层', cell: (r) => 'L' + String(r.layer).padStart(2, '0'), mono: true },
+      { label: '层窗口', num: true, cell: (r) => msOrUs(r.spanUs) },
+      { label: '相对中位数', num: true, cell: (r) => '<span class="'
+        + (Math.abs(r.deltaPct) > 20 ? 'warn' : '') + '">' + num(r.deltaPct, 1) + '%</span>' },
+    ], L.outliers, {}));
+    const out = el('dl', 'tc-kv');
+    [['环外任务', L.headTasks + ' 前 + ' + L.tailTasks + ' 后'],
+      ['环外任务名', L.outsideNames.join('、')],
+    ].forEach((kv) => {
+      out.appendChild(el('dt', null, kv[0]));
+      out.appendChild(el('dd', null, kv[1]));
+    });
+    osec.appendChild(out);
+    stage.appendChild(osec);
+  }
+
+  /* ------------------------------------------------- L2: head overhead split
+   * receive_to_start_cycles in l2_swimlane_records splits the per-task head
+   * overhead into the AICPU -> AICore NoC propagation (hardware-bound) and the
+   * AICore-local dcci + ack pair (software-tunable). Without that column the
+   * two cannot be told apart, and the screen says so. */
+  function qwHeadPanel(stage) {
+    const l2 = qwL2();
+    const v = qwVariant();
+    const h = l2.head;
+    const sec = el('section');
+    sec.appendChild(sectionHead('头开销拆解', v.label + ' · 每个块一次 dispatch → 执行 → finish',
+      el('span', 'tc-readout', h ? h.source : '本采集无记录')));
+    if (!h) { stage.appendChild(sec); return; }
+    const parts = [
+      h.noc ? ['dispatch → receive', 'NoC 传播 · 硬件', h.noc] : null,
+      h.dcci ? ['receive → start', 'dcci + ack · 可调', h.dcci] : null,
+      h.queue ? ['dispatch → start', '头开销合计 · 不可再分', h.queue] : null,
+      h.kernel ? ['start → end', '内核本身', h.kernel] : null,
+      h.tail ? ['end → finish', '完成回报', h.tail] : null,
+    ].filter(Boolean);
+    sec.appendChild(tiles(parts.map((p) => ({
+      k: p[0], v: num(p[2].meanUs, 2), u: 'us · 均值',
+      tone: p[0] === 'start → end' ? null : (p[2].shareOfKernel > 25 ? 'bad' : null),
+    }))));
+    sec.appendChild(table([
+      { label: '区间', cell: (r) => esc(r[0]), mono: true },
+      { label: '含义', cell: (r) => esc(r[1]) },
+      { label: '块数', num: true, cell: (r) => r[2].count },
+      { label: '均值', num: true, cell: (r) => num(r[2].meanUs, 2) },
+      { label: 'p50', num: true, cell: (r) => num(r[2].p50Us, 2) },
+      { label: 'p90', num: true, cell: (r) => num(r[2].p90Us, 2) },
+      { label: 'max', num: true, cell: (r) => num(r[2].maxUs, 1) },
+      { label: '合计', num: true, cell: (r) => num(r[2].sumUs, 0) },
+      { label: '相对内核核时', num: true, cell: (r) => (r[0] === 'start → end' ? '—'
+        : '<span class="' + (r[2].shareOfKernel > 25 ? 'warn' : '') + '">'
+          + pct(r[2].shareOfKernel) + '</span>') },
+    ], parts, {}));
+    sec.appendChild(el('p', 'tc-fineprint',
+      '分母是这次采集里所有块的内核核时合计，不是墙钟：一个块的头开销只能和内核时长比，'
+      + '不能和整段墙钟比。'
+      + (h.hasReceiveColumn
+        ? ' receive_to_start_cycles 存在，所以 NoC 传播与 dcci + ack 能分开。'
+        : ' 本采集没有 receive 时间戳，头开销只能给一个合计值。')
+      + ' 联结到 ' + h.joinable + ' / ' + h.blockRows + ' 块。'));
+    stage.appendChild(sec);
+
+    /* task duration distribution: the head overhead only matters relative to
+     * how small the tasks are */
+    const d = l2.dur;
+    const dsec = el('section');
+    dsec.appendChild(sectionHead('任务时长分布', '头开销值不值得管，取决于任务有多小',
+      el('span', 'tc-readout', l2.taskCount + ' 任务 · p50 ' + num(d.p50Us, 1)
+        + ' us · max ' + msOrUs(d.maxUs))));
+    const maxN = Math.max.apply(null, d.hist.map((b) => b.n));
+    dsec.appendChild(table([
+      { label: '时长', cell: (r) => (r.hi == null ? '≥ ' + r.lo + ' us' : r.lo + '–' + r.hi + ' us'), mono: true },
+      { label: '任务', key: 'n', num: true },
+      { label: '', cell: (r) => bar(r.n / maxN, 'neutral') },
+      { label: '占比', num: true, cell: (r) => pct(r.share) },
+    ], d.hist, {}));
+    stage.appendChild(dsec);
+
+    /* the longest tasks, with their own head overhead */
+    const tsec = el('section');
+    tsec.appendChild(sectionHead('最长的 30 个任务', v.hasNames ? '带步名' : '本采集无任务名，只能给 token / reg id'));
+    tsec.appendChild(table([
+      { label: v.hasNames ? '步骤' : 'token', cell: (r) => esc(r.name || r.tok), mono: true },
+      { label: '层', cell: (r) => (r.layer == null ? '—' : 'L' + String(r.layer).padStart(2, '0')) },
+      { label: '引擎', cell: (r) => (r.kind || '').toUpperCase() },
+      { label: '核 / 块', cell: (r) => r.cores + ' / ' + r.blocks },
+      { label: '起点', num: true, cell: (r) => msOrUs(r.startUs) },
+      { label: '时长', num: true, cell: (r) => msOrUs(r.durUs) },
+      { label: 'NoC', num: true, cell: (r) => (r.nocUs == null ? '—' : num(r.nocUs, 2)) },
+      { label: 'dcci', num: true, cell: (r) => (r.dcciUs == null ? '—' : num(r.dcciUs, 2)) },
+      { label: '完成回报', num: true, cell: (r) => (r.tailUs == null ? '—' : num(r.tailUs, 2)) },
+    ], l2.top, { tall: true }));
+    stage.appendChild(tsec);
+  }
+
+  /* ------------------------------------- L2: occupancy for the thin captures
+   * No merged swimlane means no Worker / Scheduler View, so there is no task
+   * object to hand the swimlane pattern. What the records do give is every
+   * block's core and interval — enough for an occupancy picture, which is
+   * exactly the question these captures can answer. */
+  function qwOccPanel(stage) {
+    const l2 = qwL2();
+    const v = qwVariant();
+    const sec = el('section');
+    sec.appendChild(sectionHead('核占用', v.label + ' · ' + l2.blockRows + ' 块 · 用到 '
+      + l2.coresUsed + '/' + l2.coreTotal + ' 核',
+      el('span', 'tc-readout', '无 merged swimlane，这里是块级占用而不是任务泳道')));
+    sec.appendChild(tiles([
+      { k: 'span', v: msOrUs(l2.spanUs) },
+      { k: '核时', v: msOrUs(l2.busyUs) },
+      { k: '平均忙核', v: num(l2.occ.busyCores, 2), u: '/ ' + l2.coreTotal,
+        tone: l2.occ.busyCores < 2 ? 'bad' : null },
+      { k: 'AIC 占用', v: pct(l2.occ.aicUtil), u: l2.occ.aicCores + ' 核',
+        tone: l2.occ.aicUtil < 20 ? 'bad' : null },
+      { k: 'AIV 占用', v: pct(l2.occ.aivUtil), u: l2.occ.aivCores + ' 核',
+        tone: l2.occ.aivUtil < 20 ? 'bad' : null },
+      { k: '仅用到的核', v: pct(l2.occ.aicUsedUtil) + ' / ' + pct(l2.occ.aivUsedUtil),
+        u: l2.occ.aicUsed + ' AIC / ' + l2.occ.aivUsed + ' AIV' },
+    ]));
+    if (l2.blocks) {
+      const chart = el('div', 'tc-occchart');
+      const canvas = el('canvas');
+      chart.appendChild(canvas);
+      const lanesUsed = l2.lanes.filter((l) => l.n > 0);
+      const laneRow = {};
+      lanesUsed.forEach((l, i) => { laneRow[l.core] = i; });
+      const drawOcc = () => {
+        const w = chart.clientWidth || 720;
+        const rowH = lanesUsed.length > 24 ? 9 : 16;
+        const padL = 54;
+        const padT = 30;
+        const h = padT + lanesUsed.length * rowH + 8;
+        const ctx = fitCanvas(canvas, w, h);
+        const plotW = w - padL - 12;
+        drawTimeRuler(ctx, padL, plotW, 2, 0, l2.spanUs, { dense: true });
+        ctx.font = '500 9px ' + cssVar('--font-mono');
+        lanesUsed.forEach((l, i) => {
+          const y = padT + i * rowH;
+          ctx.fillStyle = cssVar('--surface-2');
+          ctx.globalAlpha = 0.45;
+          ctx.fillRect(padL, y, plotW, rowH - 1);
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = cssVar('--foreground-muted');
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(l.kind.toUpperCase() + '_' + l.core, padL - 5, y + rowH / 2);
+        });
+        l2.blocks.rows.forEach((b) => {
+          const i = laneRow[b[0]];
+          if (i == null) return;
+          const y = padT + i * rowH;
+          const x = padL + (b[1] / l2.spanUs) * plotW;
+          const bw = Math.max(0.6, (b[2] / l2.spanUs) * plotW);
+          ctx.fillStyle = CMAP.colorForLaneKind(l2.lanes[b[0]].kind);
+          ctx.fillRect(x, y + 1, bw, rowH - 3);
+        });
+      };
+      sec.appendChild(chart);
+      requestAnimationFrame(drawOcc);
+      if (stage.__ro) stage.__ro.disconnect();
+      stage.__ro = new ResizeObserver(drawOcc);
+      stage.__ro.observe(chart);
+      sec.appendChild(el('p', 'tc-fineprint',
+        '一行一个真实物理核，只画有任务落上去的核；红=AIC / 蓝=AIV。'
+        + '没有任务名与依赖，所以这里不给关键路径与依赖连线。'));
+    }
+    stage.appendChild(sec);
+
+    /* lane table + the AICPU side */
+    const lsec = el('section');
+    lsec.appendChild(sectionHead('核清单', '按核时排序'));
+    const used = l2.lanes.filter((l) => l.n > 0).slice().sort((a, b) => b.busyUs - a.busyUs);
+    const maxBusy = used.length ? used[0].busyUs : 1;
+    lsec.appendChild(table([
+      { label: '核', cell: (r) => r.kind.toUpperCase() + '_' + r.core, mono: true },
+      { label: '块', key: 'n', num: true },
+      { label: '核时', num: true, cell: (r) => num(r.busyUs, 1) },
+      { label: '', cell: (r) => bar(r.busyUs / maxBusy, 'neutral') },
+      { label: '占用', num: true, cell: (r) => pct(r.util) },
+    ], used, { tall: true }));
+    stage.appendChild(lsec);
+
+    const asec = el('section');
+    asec.appendChild(sectionHead('AICPU 侧', l2.sched.lanes + ' 个调度器 lane · '
+      + l2.orch.submits + ' 次提交',
+      el('span', 'tc-readout', l2.sched.source)));
+    asec.appendChild(tiles([
+      { k: '调度器忙时', v: msOrUs(l2.sched.busyUs), u: l2.sched.lanes + ' lane 合计' },
+      { k: '相对墙钟', v: pct(l2.sched.util), u: '可 > 100%（多 lane）' },
+      { k: '提交次数', v: String(l2.orch.submits) },
+      { k: '单次提交', v: num(l2.orch.meanUs, 2), u: 'us · 均值',
+        tone: l2.orch.meanUs > 20 ? 'bad' : null },
+      { k: '提交占墙钟', v: pct(l2.orch.util) },
+    ]));
+    const maxPh = Math.max.apply(null, l2.sched.phases.map((p) => p.busyUs)) || 1;
+    asec.appendChild(table([
+      { label: '阶段', cell: (r) => esc(r.kind), mono: true },
+      { label: '次数', key: 'count', num: true },
+      { label: '忙时', num: true, cell: (r) => num(r.busyUs, 1) },
+      { label: '', cell: (r) => bar(r.busyUs / maxPh, 'neutral') },
+      { label: '占调度器', num: true, cell: (r) => pct(r.share) },
+    ], l2.sched.phases, {}));
+    stage.appendChild(asec);
+  }
+
+  /* --------------------------------------------------------- L1: measured PMU
+   * The trace can only say how long a block ran. kernel_details.csv says what
+   * the pipes were doing while it ran — for the fused kernel, which is the
+   * whole 40-layer graph. That is the one place in this case where a pipe
+   * claim is measured rather than derived. */
+  function qwPmuPanel(stage) {
+    const t = qwTorch();
+    const v = qwVariant();
+    const cap = qwCapture();
+    const mine = t.fused.filter((f) => f.stage === v.stage);
+    const rows = mine.length ? mine : t.fused;
+    const avg = (get) => (rows.length ? sum2(rows.map(get)) / rows.length : null);
+    const sec = el('section');
+    sec.appendChild(sectionHead('PMU 实测流水占比', 'aicore_kernel_0 · ' + cap.label
+      + ' · ' + v.stage + ' ' + rows.length + ' 次调用',
+      el('span', 'tc-readout', 'kernel_details.csv · PMU 开启')));
+    const pipes = [
+      ['AIC', 'mac', avg((f) => f.aic.mac), 'Cube 矩阵乘'],
+      ['AIC', 'mte1', avg((f) => f.aic.mte1), 'L1 → L0 搬运'],
+      ['AIC', 'mte2', avg((f) => f.aic.mte2), 'GM → L1 搬运'],
+      ['AIC', 'fixpipe', avg((f) => f.aic.fixpipe), '定点后处理'],
+      ['AIC', 'scalar', avg((f) => f.aic.scalar), '标量 / 控制'],
+      ['AIV', 'vec', avg((f) => f.aiv.vec), '向量计算'],
+      ['AIV', 'mte2', avg((f) => f.aiv.mte2), 'GM → UB 搬运'],
+      ['AIV', 'mte3', avg((f) => f.aiv.mte3), 'UB → GM 搬运'],
+      ['AIV', 'scalar', avg((f) => f.aiv.scalar), '标量 / 控制'],
+    ];
+    const top = pipes.slice().sort((a, b) => (b[2] || 0) - (a[2] || 0))[0];
+    sec.appendChild(tiles([
+      { k: '单次时长', v: msOrUs(avg((f) => f.durUs)) },
+      { k: '最忙流水', v: top[0] + ' ' + top[1], u: num(top[2], 3) + ' 占比', tone: 'warn' },
+      { k: 'AIC mac', v: num(avg((f) => f.aic.mac), 3),
+        tone: avg((f) => f.aic.mac) < 0.1 ? 'bad' : null },
+      { k: 'AIV vec', v: num(avg((f) => f.aiv.vec), 3),
+        tone: avg((f) => f.aiv.vec) < 0.05 ? 'bad' : null },
+      { k: 'cube 利用率', v: num(avg((f) => f.cubeUtil), 1) },
+      { k: 'icache miss', v: num(avg((f) => f.aic.icacheMiss), 3) + ' / '
+        + num(avg((f) => f.aiv.icacheMiss), 3), u: 'AIC / AIV' },
+    ]));
+    const maxPipe = Math.max.apply(null, pipes.map((p) => p[2] || 0)) || 1;
+    sec.appendChild(table([
+      { label: '引擎', cell: (r) => r[0] },
+      { label: '流水线', cell: (r) => esc(r[1]), mono: true },
+      { label: '做什么', cell: (r) => esc(r[3]) },
+      { label: '占比', num: true, cell: (r) => pmuCell(r[2]) },
+      { label: '', cell: (r) => bar((r[2] || 0) / maxPipe, r[2] === top[2] ? 'warn' : 'neutral') },
+    ], pipes, {}));
+    sec.appendChild(el('p', 'tc-fineprint',
+      '每个占比是该流水线相对 aicore_time / aiv_time 的忙占比。它们会重叠，'
+      + '加起来可以超过 1，所以这张表只能一行一行读，不能当成时间切分。'
+      + 'PMU 开着采的这一轮不能与 PMU 关闭的基线比较墙钟。'));
+    stage.appendChild(sec);
+
+    const rsec = el('section');
+    rsec.appendChild(sectionHead('逐次调用', '整图一次调用 = 一行', el('span', 'tc-readout',
+      '1 次 prefill + ' + t.iters.decode + ' 次 decode')));
+    rsec.appendChild(table([
+      { label: 'step', key: 'step', num: true },
+      { label: 'stage', cell: (r) => esc(r.stage) },
+      { label: '时长', num: true, cell: (r) => msOrUs(r.durUs) },
+      { label: 'aicore_time', num: true, cell: (r) => num(r.aicTimeUs, 0) },
+      { label: 'aiv_time', num: true, cell: (r) => num(r.aivTimeUs, 0) },
+      { label: 'mac', num: true, cell: (r) => pmuCell(r.aic.mac) },
+      { label: 'mte1', num: true, cell: (r) => pmuCell(r.aic.mte1) },
+      { label: 'mte2', num: true, cell: (r) => pmuCell(r.aic.mte2) },
+      { label: 'AIC scalar', num: true, cell: (r) => pmuCell(r.aic.scalar) },
+      { label: 'vec', num: true, cell: (r) => pmuCell(r.aiv.vec) },
+      { label: 'AIV scalar', num: true, cell: (r) => pmuCell(r.aiv.scalar) },
+      { label: 'cube', num: true, cell: (r) => num(r.cubeUtil, 1) },
+    ], t.fused.map((f) => Object.assign({ __selected: f.stage === v.stage }, f)), {}));
+    rsec.appendChild(el('p', 'tc-fineprint',
+      'aicore_time / aiv_time 是按核累加的，会超过单次墙钟时长；它们是占比的分母，不是时长。'));
+    stage.appendChild(rsec);
+
+    const verdict = el('div', 'tc-verdicts');
+    const macAvg = avg((f) => f.aic.mac);
+    const mte2Avg = avg((f) => f.aic.mte2);
+    const vecAvg = avg((f) => f.aiv.vec);
+    const scAvg = avg((f) => f.aiv.scalar);
+    const items = [];
+    if (mte2Avg > macAvg * 2) {
+      items.push(['AIC 受搬运限制，不受算力限制',
+        'mte2（GM → L1）占比 ' + num(mte2Avg, 3) + '，mac 只有 ' + num(macAvg, 3)
+        + '。Cube 大部分时间在等权重进来，提高 tile 的末维与流水深度比动算法更直接。']);
+    }
+    if (scAvg > 0.5 && vecAvg < 0.05) {
+      items.push(['AIV 在做标量，不在做向量',
+        'AIV scalar 占比 ' + num(scAvg, 3) + '，vec 只有 ' + num(vecAvg, 3)
+        + '。' + l2Cores() + ' 个 AIV 核是忙的，但忙在控制流与地址计算上。']);
+    }
+    if (avg((f) => f.aic.scalar) > 0.5) {
+      items.push(['AIC 也在标量上',
+        'AIC scalar 占比 ' + num(avg((f) => f.aic.scalar), 3)
+        + '，而 mac 只有 ' + num(macAvg, 3) + '。这一版更像在等同步而不是在算。']);
+    }
+    if (items.length) {
+      const vs = el('section');
+      vs.appendChild(sectionHead('这组计数器说了什么', '只写计数器直接支持的部分'));
+      items.forEach((item) => {
+        const n = el('div', 'tc-verdict');
+        n.appendChild(el('strong', null, item[0]));
+        n.appendChild(el('span', null, item[1]));
+        verdict.appendChild(n);
+      });
+      vs.appendChild(verdict);
+      stage.appendChild(vs);
+    }
+  }
+  const sum2 = (a) => a.reduce((x, y) => x + (y || 0), 0);
+  const l2Cores = () => { const l = qwL2(); return l ? l.occ.aivCores : 40; };
+
   /* ========================================================= L2 view */
   function laneRows() {
     const all = R().swimlane.lanes;
@@ -1104,6 +2216,14 @@
   }
 
   function viewL2(stage) {
+    if (QW()) {
+      if (S.l2Panel === 'layers') { qwLayerPanel(stage); return; }
+      if (S.l2Panel === 'head') { qwHeadPanel(stage); return; }
+      /* The task-level swimlane belongs to the one capture that has task names
+       * and a dependency graph. The others get the occupancy picture their
+       * records can actually support. */
+      if (!onPrimaryVariant()) { qwOccPanel(stage); qwGapNote(stage); return; }
+    }
     const rank = R();
     const crit = rank.critical;
     const critSet = {};
@@ -1117,6 +2237,29 @@
     const hasSubjects = Object.keys(subj).length > 0;
     const dim = S.focusEvidence && (hasSubjects || Object.keys(subjLane).length > 0);
 
+    /* ---- where each task's blocks actually sit -----------------------
+     * Built once per view: the ribbon needs it to jump into the swimlane,
+     * and the dependency edges need it to anchor on a real block rather
+     * than on the task's aggregate [start, end]. A task spread over 72
+     * cores has 72 candidate anchors; only two of them mean anything:
+     *   - as a producer, the block that finishes LAST (that is what gates)
+     *   - as a consumer, the block that starts FIRST (that is what waited)
+     * Anchoring anywhere else would draw an edge that tells no truth about
+     * the hand-off it is supposed to depict.                            */
+    const lanesByTask = {};
+    rank.swimlane.blocks.forEach((blocks, li) => {
+      const name = rank.swimlane.laneNames[li];
+      blocks.forEach((b) => {
+        const tg = rank.tasks[b[2]].tag;
+        (lanesByTask[tg] || (lanesByTask[tg] = []))
+          .push({ li: li, name: name, start: b[0], end: b[0] + b[1] });
+      });
+    });
+    const gateOut = (tag) => (lanesByTask[tag] || [])
+      .reduce((a, b) => (a && a.end >= b.end ? a : b), null);
+    const gateIn = (tag) => (lanesByTask[tag] || [])
+      .reduce((a, b) => (a && a.start <= b.start ? a : b), null);
+
     /* --- path ribbon -------------------------------------------------
      * Drawn on the real time axis, so it shows the path that actually
      * tiles that axis: the observed blame walk. The dependency floor does
@@ -1126,10 +2269,18 @@
     const cp = rank.cpath;
     const cpmOnPath = cp.segments.filter((sg) => sg.onCpm).length;
     const ribSec = el('section');
+    /* live readouts, filled by the draw pass: keeping them in the section head
+     * rather than painting them on the canvas avoids fighting the time ruler
+     * for the same pixels, and they stay selectable text */
+    const pathReadout = el('span', 'tc-readout');
+    const ribRight = el('span', 'tc-readout-group');
+    ribRight.appendChild(el('span', 'tc-readout', '其中 ' + cpmOnPath + ' 个也在依赖关键路径上（共 '
+      + crit.tags.length + ' 个 · ' + us(crit.chainSpan) + '）'));
+    ribRight.appendChild(pathReadout);
     ribSec.appendChild(sectionHead('观测路径 · ' + cp.segments.length + ' 节点',
-      '计算 ' + us(cp.computeTotal) + ' + stall ' + us(cp.stallTotal) + ' = ' + us(cp.makespan),
-      el('span', 'tc-readout', '其中 ' + cpmOnPath + ' 个也在依赖关键路径上（共 '
-        + crit.tags.length + ' 个 · ' + us(crit.chainSpan) + '）')));
+      '计算 ' + us(cp.computeTotal) + ' + stall ' + us(cp.stallTotal) + ' = ' + us(cp.makespan)
+        + ' · 点节点跳到泳道',
+      ribRight));
     const ribHost = el('div', 'tc-canvas-strip');
     const ribCanvas = el('canvas');
     ribHost.appendChild(ribCanvas);
@@ -1175,6 +2326,8 @@
         legend.appendChild(s);
       });
     }
+    const depsReadout = el('span', 'tc-readout');
+    legend.appendChild(depsReadout);
     laneSec.appendChild(sectionHead('Chip swimlane · ' + rank.swimlane.lanes.length + ' core lane',
       laneRows().length + ' 泳道 · ' + rank.swimlane.blocks.reduce((a, b) => a + b.length, 0) + ' 块', legend));
     const laneHost = el('div', 'tc-canvas-host');
@@ -1276,6 +2429,94 @@
         }
         cursor = t.end;
       });
+
+      /* the shared time cursor: the same two dashed rules are drawn on the
+       * swimlane below, so a selection made in either canvas is visible in
+       * the other one without the reader hunting for a highlighted bar */
+      drawSelGuide(ctx, sx, plotX, plotW, 22, h - 4);
+
+      /* say in words what the two dashed rules mean, so the link between the
+       * two canvases does not rely on the reader spotting a highlight */
+      const selTask = tasksOf[S.rank][S.task];
+      if (!selTask) { pathReadout.textContent = ''; return; }
+      const at = cp.segments.findIndex((sg) => sg.tag === selTask.tag);
+      pathReadout.textContent = at >= 0
+        ? '已选 第 ' + (at + 1) + '/' + cp.segments.length + ' 节点 · ' + selTask.callable
+        : '已选 ' + selTask.callable + ' · 不在观测路径上';
+      pathReadout.classList.toggle('is-muted', at < 0);
+    }
+
+    /* ---- ribbon -> swimlane ------------------------------------------
+     * The ribbon was read-only: the reader could get from a lane block to
+     * the path (click a block, the path bar lights up) but not back. Now a
+     * path node is a control -- it selects the task, scrolls the swimlane to
+     * the lane that block actually ran on, and frames it if it is off-window.
+     */
+    const ribHit = (event) => {
+      const rect = ribCanvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const plotX = LBL, plotW = Math.max(40, (ribHost.clientWidth || 800) - LBL - 10);
+      if (x < plotX || x > plotX + plotW) return null;
+      const t = S.t0 + ((x - plotX) / plotW) * (S.t1 - S.t0);
+      const tol = ((S.t1 - S.t0) / plotW) * 2;
+      for (let i = 0; i < cp.segments.length; i++) {
+        const task = tasksOf[S.rank][cp.segments[i].tag];
+        if (!task) continue;
+        if (t >= task.start - tol && t <= task.end + tol) {
+          return { task: task, node: cp.segments[i], idx: i };
+        }
+      }
+      return null;
+    };
+    attachTooltip(ribHost, ribCanvas, (event) => {
+      const hit = ribHit(event);
+      if (!hit) return null;
+      return barTask(hit.task, null,
+        '观测路径 ' + (hit.idx + 1) + '/' + cp.segments.length
+          + (hit.node.onCpm ? ' · 也在依赖关键路径上' : ''));
+    });
+    ribCanvas.style.cursor = 'pointer';
+    ribCanvas.addEventListener('click', (event) => {
+      const hit = ribHit(event);
+      if (!hit) return;
+      S.task = hit.task.tag;
+      S.focus = 'task';
+      /* scroll the swimlane to the block this node actually ran on */
+      const anchor = gateIn(hit.task.tag);
+      if (anchor) S.scrollToLane = anchor.name;
+      /* if the node sits outside the current window, bring it in rather than
+       * selecting something the reader cannot see */
+      if (hit.task.end < S.t0 || hit.task.start > S.t1) {
+        const pad = Math.max(40, hit.task.span * 0.35);
+        setWindow(hit.task.start - pad, hit.task.end + pad);
+        renderToolbar();
+        renderDock();
+      }
+      renderInspector();
+      drawLanes();
+      drawRibbon();
+    });
+
+    /* Two dashed rules at the selected task's start and end, drawn on both
+     * canvases. This is the whole linkage: one time interval, two views. */
+    function drawSelGuide(ctx, sx, plotX, plotW, yTop, yBot) {
+      const t = tasksOf[S.rank][S.task];
+      if (!t) return;
+      const onPath = cp.segments.some((sg) => sg.tag === t.tag);
+      ctx.save();
+      ctx.strokeStyle = cssVar(onPath ? '--warning' : '--foreground-muted');
+      ctx.globalAlpha = onPath ? 0.85 : 0.5;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      [t.start, t.end].forEach((v) => {
+        const x = sx(v);
+        if (x < plotX || x > plotX + plotW) return;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x) + 0.5, yTop);
+        ctx.lineTo(Math.round(x) + 0.5, yBot);
+        ctx.stroke();
+      });
+      ctx.restore();
     }
 
     /* Worker rows are deliberately roomier than the compact scheduler overlay:
@@ -1479,6 +2720,92 @@
         }
       });
 
+      /* ---- dependency edges -------------------------------------------
+       * deps.json carries pred / succ per task, but until now the swimlane
+       * never showed them: the reader could see two bars and had no way to
+       * know which one fed the other. Edges are drawn for the SELECTED task
+       * only (or along the path), never for all 126 of them -- a full graph
+       * over 72 lanes is a hairball, not a diagnosis.
+       *
+       * The edge that matters is producer-last-block -> consumer-first-block.
+       * When the consumer's first block starts BEFORE the producer's last
+       * block ends, the edge is drawn in danger + dashed: that is the same
+       * early dispatch the trace flags as hb_violation, and it is exactly
+       * what C3 is about. It should be visible here, not only in prose. */
+      if (S.deps !== 'off') {
+        const rowOf = {};
+        laneLayout.forEach((r) => { rowOf[r.name] = r; });
+        const edges = [];
+        if (S.deps === 'path') {
+          for (let i = 0; i + 1 < cp.segments.length; i++) {
+            edges.push({ from: cp.segments[i].tag, to: cp.segments[i + 1].tag, kind: 'path' });
+          }
+        } else {
+          const sel = tasksOf[S.rank][S.task];
+          if (sel) {
+            (sel.pred || []).forEach((p) => edges.push({ from: p, to: sel.tag, kind: 'in' }));
+            (sel.succ || []).forEach((q) => edges.push({ from: sel.tag, to: q, kind: 'out' }));
+          }
+        }
+        /* two different reasons an edge cannot be drawn, and they must not be
+         * reported as one number: `untraced` means deps.json names a task this
+         * trace has no blocks for at all (4 of csa_merge_pack_publish's 6
+         * predecessors are like this), `filtered` means the block exists but
+         * its lane is hidden by the current 泳道 filter. Only the second one
+         * goes away by changing the view. */
+        let drawn = 0, untraced = 0, filtered = 0, bad = 0;
+        ctx.save();
+        ctx.lineWidth = 1.25;
+        edges.forEach((e) => {
+          const a = gateOut(e.from), b = gateIn(e.to);
+          if (!a || !b) { untraced += 1; return; }
+          const ra = rowOf[a.name], rb = rowOf[b.name];
+          if (!ra || !rb) { filtered += 1; return; }
+          const x1 = sx(a.end), x2 = sx(b.start);
+          if (Math.max(x1, x2) < plotX || Math.min(x1, x2) > plotX + plotW) return;
+          const cx1 = clamp(x1, plotX, plotX + plotW);
+          const cx2 = clamp(x2, plotX, plotX + plotW);
+          const y1 = ra.y + ROW_H / 2, y2 = rb.y + ROW_H / 2;
+          const violation = b.start < a.end - 0.01;
+          if (violation) bad += 1;
+          ctx.strokeStyle = cssVar(violation ? '--danger'
+            : e.kind === 'out' ? '--primary' : e.kind === 'path' ? '--warning' : '--accent');
+          ctx.globalAlpha = violation ? 0.9 : 0.6;
+          ctx.setLineDash(violation ? [4, 3] : []);
+          /* a horizontal-tangent cubic keeps the curve out of the rows it
+           * crosses instead of cutting diagonally through every bar */
+          const bow = Math.max(14, Math.min(60, Math.abs(cx2 - cx1) * 0.4));
+          ctx.beginPath();
+          ctx.moveTo(cx1, y1);
+          ctx.bezierCurveTo(cx1 + bow, y1, cx2 - bow, y2, cx2, y2);
+          ctx.stroke();
+          /* arrowhead on the consumer side */
+          const dir = cx2 >= cx1 ? 1 : -1;
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(cx2, y2);
+          ctx.lineTo(cx2 - dir * 5, y2 - 3);
+          ctx.lineTo(cx2 - dir * 5, y2 + 3);
+          ctx.closePath();
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          drawn += 1;
+        });
+        ctx.restore();
+        const bits = [(S.deps === 'path' ? '路径依赖 ' : '依赖连线 ') + drawn + ' 条'];
+        if (bad) bits.push(bad + ' 条早发（消费者先上核）');
+        if (untraced) bits.push(untraced + ' 条端点在本 trace 里没有块');
+        if (filtered) bits.push(filtered + ' 条端点被泳道筛选隐藏');
+        depsReadout.textContent = edges.length ? bits.join(' · ') : '';
+        depsReadout.classList.toggle('is-danger', !!bad);
+      } else {
+        depsReadout.textContent = '';
+        depsReadout.classList.remove('is-danger');
+      }
+
+      drawSelGuide(ctx, sx, plotX, plotW, 26, h - 4);
+
       /* numbered markers matching the evidence chips, drawn last so nothing covers them */
       const seen = {};
       markers.forEach((m) => {
@@ -1636,6 +2963,29 @@
   }
 
   function viewL1(stage) {
+    if (QW()) {
+      if (S.l1Panel === 'pmu') { qwPmuPanel(stage); return; }
+      /* the per-kernel pipeline model is built on tp1/prefill's tasks; on any
+       * other capture there is no task to point it at */
+      if (!onPrimaryVariant()) {
+        const sec = el('section');
+        sec.appendChild(sectionHead('单核流水', qwVariant().label + ' 没有可用的任务对象',
+          el('span', 'tc-readout', '任务无名 / 无依赖')));
+        sec.appendChild(el('p', 'tc-fineprint',
+          '本层要落到一个具体 kernel 上：需要任务名、块级起止和该 kernel 的编译信息。'
+          + '这份采集只有 (core, token, reg_id, 起止, receive_to_start)，落不到 kernel。'));
+        const jump = el('div', 'tc-actions');
+        jump.appendChild(btn('看 PMU 实测', { on: () => { S.l1Panel = 'pmu'; render(); } }));
+        jump.appendChild(btn('切到 TP=1 · prefill', {
+          variant: 'ghost',
+          on: () => { S.variant = 'tp1:prefill'; render(); },
+        }));
+        sec.appendChild(jump);
+        stage.appendChild(sec);
+        qwGapNote(stage);
+        return;
+      }
+    }
     const rank = R();
     const t = curTask();
     const role = pathRole(rank, t.tag);
@@ -1970,7 +3320,30 @@
   }
 
   /* ==================================================== compiler view */
+  /* When passes_dump / ptoas / perf_hints come from a different build than the
+   * trace, the two layers that read them have to open with that fact — an
+   * Explorer breadcrumb is not enough to stop someone matching a line number
+   * against this run's tasks. */
+  function compileSourceNote(stage) {
+    const cs = D.case.compileSource;
+    if (!cs) return;
+    const sec = el('section');
+    sec.appendChild(sectionHead('本层读的是另一次构建', cs.runDir + ' · ' + cs.capturedAt,
+      el('span', 'tc-readout is-crit', '与上板数据不同源')));
+    const note = el('div', 'tc-note');
+    note.dataset.tone = 'warn';
+    note.appendChild(el('strong', null, '上板数据 ' + D.case.capturedAt.slice(0, 10)
+      + ' · 编译产物 ' + cs.capturedAt.slice(0, 10)));
+    note.appendChild(el('span', null, cs.note));
+    note.appendChild(el('small', null, '那次构建的程序是 ' + cs.model
+      + '；本次上板跑的是 ' + D.case.model + '。'
+      + '2026-08-14 的采集没有 passes_dump，所以 Pass 轨迹与 IR 对照只能读旧构建。'));
+    sec.appendChild(note);
+    stage.appendChild(sec);
+  }
+
   function viewCompiler(stage) {
+    compileSourceNote(stage);
     if (S.compilerTab === 'passes') {
       const detailByPass = {};
       (D.passEvidence || []).forEach((d) => { detailByPass[d.idx] = d; });
@@ -2260,6 +3633,7 @@
 
   /* ========================================================= ISA view */
   function viewISA(stage) {
+    compileSourceNote(stage);
     const layoutPass = D.passes.find((p) => p.name === 'ResolveBackendOpLayouts');
     const spacePass = D.passes.find((p) => p.name === 'InferTileMemorySpace');
     const cacheLine = (D.hints.find((h) => h.cacheLineB) || {}).cacheLineB || 512;
@@ -2444,6 +3818,10 @@
   function defaultFocus() {
     if (S.view === 'e2e' || S.view === 'isa') return 'run';
     if (S.view === 'compiler') return S.compilerTab === 'passes' ? 'pass' : (S.hintSite ? 'hint' : 'run');
+    /* scope and task panels are built from the one capture that has task
+     * objects; with another capture armed they would describe a different run
+     * than the stage does */
+    if (QW() && !onPrimaryVariant()) return 'run';
     if (S.view === 'l2') return 'scope';
     return 'task';
   }
@@ -3015,6 +4393,31 @@
     ]));
     host.appendChild(s1);
 
+    /* With four captures of the same graph, the inspector has to describe the
+     * one that is armed — otherwise it silently reports tp1/prefill's numbers
+     * next to another capture's stage. */
+    if (QW()) {
+      const v = qwVariant();
+      const ql = qwL2();
+      const ly = qwLayers();
+      const sv = inspectorSection('本次采集', v.label + (v.validated ? ' · 已校验' : ' · 未校验'));
+      sv.appendChild(kv([
+        ['span', msOrUs(ql.spanUs)],
+        ['任务 / 块', ql.taskCount + ' / ' + ql.blockRows + (v.hasNames ? '' : ' · 无任务名')],
+        ['核', ql.coresUsed + ' / ' + ql.coreTotal + ' 用到'],
+        ['平均忙核', num(ql.occ.busyCores, 2)],
+        ['AIC / AIV 占用', pct(ql.occ.aicUtil) + ' / ' + pct(ql.occ.aivUtil)],
+        ['层结构', ly ? ly.layerCount + ' 层 × ' + ly.perLayer + ' 任务' : '未还原'],
+        ['依赖图', v.hasDeps ? '有' : '无'],
+      ]));
+      if (!v.primary) {
+        sv.appendChild(el('div', 'inspector-soft-card is-warning',
+          '本页下方的 scope / 关键路径 / 单核流水来自 tp1:prefill——'
+          + '只有那一份采集带任务名和依赖图。' + v.label + ' 能回答的是占用、分层与头开销。'));
+      }
+      host.appendChild(sv);
+    }
+
     if (!multiRank() || !hasE2E()) { renderRunInspectorSingle(host); return; }
     const RK = D.case.ranks;
     const s2 = inspectorSection('两卡对比', 'inv=' + TRACE_MATCH[RK[0]].inv + ' / ' + TRACE_MATCH[RK[1]].inv);
@@ -3513,8 +4916,12 @@
     const staleTip = document.querySelector('[data-tc-tip="readyq"]');
     if (staleTip) staleTip.remove();
     const rank = R();
-    $('[data-bind="dockMeta"]').textContent = S.rank + ' · 与上方时间轴同窗口 '
-      + num(S.t0, 0) + '–' + num(S.t1, 0) + ' us';
+    /* The dock is built from the one capture that has a merged swimlane. With
+     * another capture armed it would otherwise look like that capture's data,
+     * so it names its source instead. */
+    $('[data-bind="dockMeta"]').textContent = (QW() && !onPrimaryVariant())
+      ? 'tp1:prefill 的调度器（' + qwVariant().label + ' 无 merged swimlane，见「核占用」页）'
+      : S.rank + ' · 与上方时间轴同窗口 ' + num(S.t0, 0) + '–' + num(S.t1, 0) + ' us';
     const modeHost = $('#dockMode');
     modeHost.textContent = '';
     modeHost.appendChild(group('segmented-control segmented-control-muted', [
@@ -3866,7 +5273,8 @@
   function renderTabs() {
     const host = $('#levelTabs');
     host.textContent = '';
-    LEVELS.forEach((l) => {
+    const levels = isServingBenchmark() ? LEVELS.filter((l) => l.id === 'e2e') : LEVELS;
+    levels.forEach((l) => {
       const b = el('button', 'tab-control-item' + (l.id === S.view ? ' is-selected' : ''), l.label);
       b.type = 'button';
       b.title = l.hint;
@@ -3887,6 +5295,34 @@
         { id: 'granularity', label: '搬运粒度' },
       ], S.compilerTab, (v) => { S.compilerTab = v; render(); }));
     }
+    if (S.view === 'e2e' && !isServingBenchmark() && QW()) {
+      host.appendChild(group('segmented-control segmented-control-muted', [
+        { id: 'step', label: '步时间', hint: 'torch step_trace_time：Computing / Free / Preparing' },
+        { id: 'ops', label: '设备算子', hint: '融合 kernel 之外还在设备上跑什么' },
+        { id: 'api', label: '主机 API', hint: '哪些 CANN 调用吃掉主机时间' },
+        { id: 'topo', label: 'TP 对照', hint: 'TP=1 / TP=2 并排' },
+      ], S.e2ePanel, (v) => { S.e2ePanel = v; render(); }));
+    } else if (S.view === 'e2e' && !isServingBenchmark()) {
+      host.appendChild(group('segmented-control segmented-control-muted', [
+        { id: 'triage', label: '定界' },
+        { id: 'serving', label: 'Serving / Host' },
+        { id: 'device', label: 'Device 轨迹' },
+        { id: 'samples', label: '调用数据' },
+      ], S.e2ePanel, (v) => { S.e2ePanel = v; render(); }));
+    }
+    if (S.view === 'l2' && QW()) {
+      host.appendChild(group('segmented-control segmented-control-muted', [
+        { id: 'swimlane', label: onPrimaryVariant() ? '泳道' : '核占用' },
+        { id: 'layers', label: '40 层' },
+        { id: 'head', label: '头开销' },
+      ], S.l2Panel, (v) => { S.l2Panel = v; render(); }));
+    }
+    if (S.view === 'l1' && QW()) {
+      host.appendChild(group('segmented-control segmented-control-muted', [
+        { id: 'pipe', label: '单核流水' },
+        { id: 'pmu', label: 'PMU 实测' },
+      ], S.l1Panel, (v) => { S.l1Panel = v; render(); }));
+    }
 
     const right = el('div', 'tc-toolbar-right');
 
@@ -3894,7 +5330,9 @@
       right.appendChild(el('span', 'tc-readout', D.passes.length + ' Pass dump · ' + D.hints.length + ' perf hint'));
     }
 
-    if (S.view === 'l2') {
+    /* the swimlane's own controls only mean something on the task-level
+     * swimlane; the aggregate panels have nothing to filter or zoom */
+    if (S.view === 'l2' && (!QW() || (onPrimaryVariant() && S.l2Panel === 'swimlane'))) {
       right.appendChild(field('泳道', select([
         { id: 'all', label: '全部 ' + R().swimlane.lanes.length },
         { id: 'aic', label: 'AIC ' + D.case.aicCount },
@@ -3919,6 +5357,11 @@
         { id: 'ready', label: 'Ready queue' },
         { id: 'none', label: '无' },
       ], S.overlay, (v) => { S.overlay = v; render(); })));
+      right.appendChild(field('依赖连线', select([
+        { id: 'sel', label: '选中任务' },
+        { id: 'path', label: '沿观测路径' },
+        { id: 'off', label: '关' },
+      ], S.deps, (v) => { S.deps = v; redrawStage(); renderToolbar(); })));
       right.appendChild(field('只看', select([
         { id: 'off', label: '全部任务' },
         { id: 'obs', label: '观测路径' },
@@ -3932,11 +5375,23 @@
       right.appendChild(el('span', 'tc-readout', num(S.t0, 0) + '–' + num(S.t1, 0) + ' us · shift+拖动平移'));
     }
 
-    if (S.view === 'l1') {
+    if (S.view === 'l1' && (!QW() || (onPrimaryVariant() && S.l1Panel === 'pipe'))) {
       const ordered = R().tasks.slice().sort((a, b) => b.span - a.span);
       right.appendChild(field('kernel', select(ordered.map((t) => ({
         id: t.tag, label: t.callable + ' · ' + t.tag + '（' + num(t.span, 0) + ' us）',
       })), S.task, (v) => { S.task = v; S.focus = 'task'; render(); })));
+    }
+
+    /* the capture chooser follows the reader across E2E / L2 / L1 */
+    if (QW() && (S.view === 'e2e' || S.view === 'l2' || S.view === 'l1')) {
+      const cur = qwVariant();
+      right.appendChild(field('采集', select(QW().variants.map((v) => ({
+        id: v.id, label: v.label + '（' + msOrUs(v.spanUs) + (v.validated ? ' ✓' : '') + '）',
+      })), cur.id, (v) => { S.variant = v; render(); })));
+      const badge = el('span', 'tc-readout' + (qwCapture().validated ? '' : ' is-crit'));
+      badge.textContent = qwCapture().validated ? '数据集已校验' : '数据集未校验';
+      badge.title = qwCapture().validateNote;
+      right.appendChild(badge);
     }
 
     if ((S.view === 'l2' || S.view === 'l1') && multiRank()) {
@@ -3969,29 +5424,67 @@
       return b;
     };
     row(0, D.case.program, D.case.backend);
-    Object.keys(D.ranks).forEach((rank) => {
-      const m = TRACE_MATCH[rank];
-      row(1, rank + ' / ' + D.case.device, us(D.ranks[rank].swimlane.spanUs, 0), {
-        selected: rank === S.rank,
-        on: () => {
-          S.rank = rank;
-          S.t0 = 0; S.t1 = R().swimlane.spanUs;
-          if (!tasksOf[S.rank][S.task]) S.task = R().tasks[0].tag;
-          render();
-        },
-      });
-      if (D.e2e && D.e2e[rank]) {
-        Object.keys(D.e2e[rank]).forEach((inv) => {
-          row(2, 'inv=' + inv + (m && m.inv === +inv ? ' · traced' : ''),
-            us(D.e2e[rank][inv]['chip.run.runner_run.device_wall'].us, 0), {
-              on: () => { S.rank = rank; S.view = 'e2e'; render(); },
-            });
+    if (QW()) {
+      /* four captures of one graph, grouped the way the dataset is: two
+       * collectors, two stages. The armed one drives E2E / L2 / L1. */
+      const q = QW();
+      Object.keys(q.captures).forEach((cid) => {
+        const cap = q.captures[cid];
+        row(1, cap.label + ' / ' + cap.collector.replace(/^collect_|\.py$/g, ''),
+          cap.validated ? '已校验' : '未校验');
+        q.variants.filter((v) => v.capture === cid).forEach((v) => {
+          row(2, v.stage + (v.primary ? ' · 任务级' : ' · 聚合'), msOrUs(v.spanUs), {
+            selected: v.id === S.variant,
+            on: () => { S.variant = v.id; render(); },
+          });
         });
-      } else {
-        row(2, 'host.*.log', '缺失');
-      }
-    });
+      });
+      row(2, 'host.*.log', '缺失');
+    } else {
+      Object.keys(D.ranks).forEach((rank) => {
+        const m = TRACE_MATCH[rank];
+        row(1, rank + ' / ' + D.case.device, us(D.ranks[rank].swimlane.spanUs, 0), {
+          selected: rank === S.rank,
+          on: () => {
+            S.rank = rank;
+            S.t0 = 0; S.t1 = R().swimlane.spanUs;
+            if (!tasksOf[S.rank][S.task]) S.task = R().tasks[0].tag;
+            render();
+          },
+        });
+        if (D.e2e && D.e2e[rank]) {
+          Object.keys(D.e2e[rank]).forEach((inv) => {
+            row(2, 'inv=' + inv + (m && m.inv === +inv ? ' · traced' : ''),
+              us(D.e2e[rank][inv]['chip.run.runner_run.device_wall'].us, 0), {
+                on: () => { S.rank = rank; S.view = 'e2e'; render(); },
+              });
+          });
+        } else {
+          row(2, 'host.*.log', '缺失');
+        }
+      });
+    }
+    if (QW()) {
+      const t = QW().torch[qwVariant().capture];
+      row(0, 'torch profiler', 'device ' + t.deviceId);
+      row(1, 'step_trace_time.csv', t.steps.length + ' step', {
+        on: () => { S.view = 'e2e'; S.e2ePanel = 'step'; render(); },
+      });
+      row(1, 'kernel_details.csv', t.kernelRows + ' 行', {
+        on: () => { S.view = 'l1'; S.l1Panel = 'pmu'; render(); },
+      });
+      row(1, 'op_statistic.csv', t.ops.length + ' OP', {
+        on: () => { S.view = 'e2e'; S.e2ePanel = 'ops'; render(); },
+      });
+      row(1, 'api_statistic.csv', t.apiHost.rows + ' API', {
+        on: () => { S.view = 'e2e'; S.e2ePanel = 'api'; render(); },
+      });
+    }
     row(0, 'artifacts', D.passes.length + ' passes');
+    if (D.case.compileSource) {
+      row(1, '↑ 来自 ' + D.case.compileSource.runDir.replace(/^_jit_/, '').slice(0, 22),
+        D.case.compileSource.capturedAt.slice(0, 10));
+    }
     row(1, 'report/perf_hints.log', D.hints.length, {
       on: () => { S.view = 'compiler'; S.compilerTab = 'depth'; render(); },
     });
@@ -4099,6 +5592,14 @@
     S.view = s.view || S.view;
     if (s.tab) S.compilerTab = s.tab;
     if (s.overlay) S.overlay = s.overlay;
+    /* a qwen3 entry belongs to one capture and one panel; arming the entry has
+     * to arm both, or the screen shows a different run than the claim */
+    if (s.variant && QW() && QW().variants.some((v) => v.id === s.variant)) S.variant = s.variant;
+    if (s.panel) {
+      if (s.view === 'e2e') S.e2ePanel = s.panel;
+      else if (s.view === 'l2') S.l2Panel = s.panel;
+      else if (s.view === 'l1') S.l1Panel = s.panel;
+    }
     if (s.tasks && s.tasks.length && tasksOf[S.rank][s.tasks[0]]) S.task = s.tasks[0];
     if (s.sites && s.sites.length) S.hintSite = s.sites[0];
     if (s.lanes && s.lanes.length) S.laneFilter = s.lanes[0].indexOf('AIC') === 0 ? 'aic' : 'aiv';
@@ -4117,7 +5618,20 @@
     host.textContent = '';
     const rank = R();
     const open = openExperiment();
-    const items = [
+    const qv = QW() ? qwVariant() : null;
+    const ql = qv ? qwL2() : null;
+    /* On the qwen3 case the status strip has to describe the armed capture,
+     * not the single rank data.js happens to carry. */
+    const items = qv ? [
+      ['case', D.case.program],
+      ['采集', qv.label + (qv.validated ? ' ✓' : ' · 未校验')],
+      ['span', msOrUs(ql.spanUs)],
+      ['tasks', String(ql.taskCount) + (qv.hasNames ? '' : ' · 无名')],
+      ['层', (qwLayers() ? '40 × ' + qwLayers().perLayer : '—')],
+      ['AIC / AIV', pct(ql.occ.aicUtil, 0) + ' / ' + pct(ql.occ.aivUtil, 0)],
+      ['忙核', num(ql.occ.busyCores, 1) + ' / ' + ql.coreTotal],
+      ['hints', String(D.hints.length)],
+    ] : [
       ['case', D.case.program],
       ['rank', S.rank + (TRACE_MATCH[S.rank] ? ' inv=' + TRACE_MATCH[S.rank].inv : ' · 无 host log')],
       ['span', us(rank.swimlane.spanUs, 1)],
@@ -4135,7 +5649,10 @@
     });
     const pmu = el('span', 'tc-status-item');
     pmu.appendChild(el('span', 'k', 'pmu'));
-    const pv = el('span', 'v warn', 'off');
+    /* the torch profiler run has PMU on; the swimlane capture does not */
+    const pmuOn = !!qv;
+    const pv = el('span', 'v ' + (pmuOn ? 'ok' : 'warn'), pmuOn ? 'torch 侧 on' : 'off');
+    if (pmuOn) pv.title = 'kernel_details.csv 带 PMU 计数器；泳道那一轮没有 PMU，两者不能比墙钟';
     pmu.appendChild(pv);
     host.appendChild(pmu);
     const exp = el('span', 'tc-status-item');
@@ -4157,6 +5674,19 @@
     head.appendChild(close);
     host.appendChild(head);
     const body = el('div', 'panel-shell-body');
+    if (isServingBenchmark()) {
+      const b = D.benchmark;
+      const dl = el('dl', 'tc-fp-grid');
+      const add = (k, v) => { dl.appendChild(el('dt', null, k)); dl.appendChild(el('dd', null, v)); };
+      add('model', D.case.model);
+      add('topology', 'DP4 / TP4 / EP16 · concurrency ' + b.concurrency);
+      add('shape', '256 input / 64 output tokens · ' + b.requests + ' requests');
+      add('benchmark', 'result3.json · ' + num(b.durationS, 2) + ' s');
+      add('trace', D.benchmark.trace.raw + ' · request-level only');
+      body.appendChild(dl);
+      host.appendChild(body);
+      return;
+    }
     const dl = el('dl', 'tc-fp-grid');
     const add = (k, v) => { dl.appendChild(el('dt', null, k)); dl.appendChild(el('dd', null, v)); };
     add('program', D.case.program);
@@ -4272,11 +5802,170 @@
     if (stage.__redraw) stage.__redraw();
   }
 
+  /* A request benchmark is a legitimate E2E case, even when no device-side
+   * artifacts were captured with it.  Keep it in the same case switcher but
+   * give it a purpose-built, E2E-only surface rather than borrowing another
+   * run's rank, trace, or compiler evidence. */
+  function viewServingBenchmark(stage) {
+    const b = D.benchmark;
+    const sec = el('section');
+    sec.appendChild(sectionHead('Serving 压测 · 请求级结果', 'GBS256 · input 256 / output 64 · DP4 / TP4 / EP16',
+      el('span', 'tc-readout', b.completed + ' / ' + b.requests + ' completed · ' + b.failed + ' failed')));
+    sec.appendChild(tiles([
+      { k: '请求吞吐', v: num(b.requestThroughput, 2), u: 'req/s' },
+      { k: '输出吞吐', v: num(b.outputThroughput, 1), u: 'token/s' },
+      { k: '并发', v: b.concurrency, u: 'requests' },
+      { k: '压测窗口', v: num(b.durationS, 2), u: 's' },
+    ]));
+    stage.appendChild(sec);
+
+    const latency = el('section');
+    latency.appendChild(sectionHead('请求时延分布', '圆点 = Mean · 短线 = P50 → P99；每一行使用自己的刻度，避免 TTFT 掩盖 token 时延'));
+    const chart = el('div', 'tc-serving-latency');
+    b.latency.forEach((metric) => {
+      const max = Math.max(metric.mean, metric.median, metric.p99, 1);
+      const row = el('div', 'tc-serving-latency-row');
+      const label = el('div', 'label');
+      label.appendChild(el('strong', null, metric.label));
+      label.appendChild(el('small', null, metric.hint));
+      row.appendChild(label);
+      const range = el('div', 'range');
+      const line = el('i', 'line');
+      line.style.left = (metric.median / max * 100).toFixed(2) + '%';
+      line.style.width = Math.max(1, (metric.p99 - metric.median) / max * 100).toFixed(2) + '%';
+      const mean = el('i', 'mean');
+      mean.style.left = (metric.mean / max * 100).toFixed(2) + '%';
+      range.appendChild(line);
+      range.appendChild(mean);
+      row.appendChild(range);
+      const values = el('div', 'values');
+      values.appendChild(el('span', null, 'P50 ' + num(metric.median, 1)));
+      values.appendChild(el('strong', null, 'Mean ' + num(metric.mean, 1)));
+      values.appendChild(el('span', null, 'P99 ' + num(metric.p99, 1) + ' ms'));
+      row.appendChild(values);
+      chart.appendChild(row);
+    });
+    latency.appendChild(chart);
+    stage.appendChild(latency);
+
+    const trace = el('section');
+    trace.appendChild(sectionHead('随附 Chrome trace 的可用范围', '原始 trace 未打包进 demo；以下是已确认的事件类别与缺失维度'));
+    const grid = el('div', 'tc-serving-trace-map');
+    [
+      ['可用', 'PyTorch CPU op · aten::copy_ · Event::synchronize · gloo:all_reduce'],
+      ['不可直接回答', b.trace.missing.join(' · ')],
+      ['原始产物', b.trace.raw + ' · ' + (b.trace.bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB'],
+    ].forEach((item) => {
+      const row = el('div', 'tc-serving-trace-row');
+      row.dataset.state = item[0] === '可用' ? 'ok' : item[0] === '不可直接回答' ? 'missing' : 'source';
+      row.appendChild(el('span', null, item[0]));
+      row.appendChild(el('strong', null, item[1]));
+      grid.appendChild(row);
+    });
+    trace.appendChild(grid);
+    stage.appendChild(trace);
+  }
+
+  function renderServingBenchmarkExplorer() {
+    const b = D.benchmark;
+    const tree = $('#runTree');
+    tree.textContent = '';
+    [['GBS256 压测', 'DP4 / TP4 / EP16'], ['请求', b.completed + ' / ' + b.requests + ' completed'], ['输入 / 输出', b.inputTokens + ' / ' + b.outputTokens + ' tokens'], ['原始 trace', (b.trace.bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB']].forEach((item, i) => {
+      const row = el('div', 'tc-tree-row');
+      row.dataset.depth = i ? '1' : '0';
+      row.appendChild(el('span', 'n', item[0]));
+      row.appendChild(el('span', 'm', item[1]));
+      tree.appendChild(row);
+    });
+    $('[data-bind="explorerMeta"]').textContent = 'benchmark';
+    $('[data-bind="findingCount"]').textContent = '采集范围';
+    $('#findingFilter').textContent = '';
+    const list = $('#findingList');
+    list.textContent = '';
+    list.appendChild(el('div', 'inspector-soft-card is-warning', '仅请求级 benchmark 可用；没有同 scope 的 Host / Device wall 拆分，设备侧下钻保持不可用。'));
+  }
+
+  function renderServingBenchmarkInspector() {
+    const b = D.benchmark;
+    $('[data-bind="inspectorTitle"]').textContent = 'Benchmark';
+    $('[data-bind="inspectorMeta"]').textContent = 'request-level';
+    const host = $('#inspector');
+    host.textContent = '';
+    const summary = inspectorSection('负载指纹', '真实压测');
+    summary.appendChild(kv([
+      ['模型', D.case.model],
+      ['并发', b.concurrency + ' requests'],
+      ['输入 / 输出', '256 / 64 tokens per request'],
+      ['完成率', b.completed + ' / ' + b.requests],
+      ['Trace', b.trace.raw],
+    ]));
+    host.appendChild(summary);
+    const caveat = inspectorSection('不能推断', b.trace.missing.length + ' 项');
+    b.trace.missing.forEach((item) => caveat.appendChild(el('div', 'inspector-soft-card is-warning', item)));
+    host.appendChild(caveat);
+  }
+
+  function renderServingBenchmarkDock() {
+    const b = D.benchmark;
+    $('[data-bind="dockMeta"]').textContent = 'request-level benchmark';
+    $('#dockMode').textContent = '';
+    const body = $('#dockBody');
+    body.textContent = '';
+    body.appendChild(tiles([
+      { k: 'TTFT P99', v: num(b.latency[0].p99, 1), u: 'ms', tone: 'warn' },
+      { k: 'TPOT P99', v: num(b.latency[1].p99, 1), u: 'ms' },
+      { k: 'ITL P99', v: num(b.latency[2].p99, 1), u: 'ms', tone: 'warn' },
+      { k: '总 token 吞吐', v: num(b.totalTokenThroughput, 1), u: 'token/s' },
+    ]));
+  }
+
+  function renderServingBenchmarkTerminal() {
+    const tabs = $('#terminalTabs');
+    tabs.textContent = '';
+    tabs.appendChild(el('span', 'pto-ide-frame__terminal-tab is-selected', 'Benchmark output'));
+    const body = $('#terminalBody');
+    body.textContent = '';
+    const b = D.benchmark;
+    body.appendChild(el('pre', 'tc-term-static', [
+      'result3.json · ' + b.completed + '/' + b.requests + ' requests complete',
+      'request throughput  ' + num(b.requestThroughput, 3) + ' req/s',
+      'output throughput   ' + num(b.outputThroughput, 3) + ' token/s',
+      'TTFT mean / p99     ' + num(b.latency[0].mean, 2) + ' / ' + num(b.latency[0].p99, 2) + ' ms',
+      'TPOT mean / p99     ' + num(b.latency[1].mean, 2) + ' / ' + num(b.latency[1].p99, 2) + ' ms',
+      'ITL  mean / p99     ' + num(b.latency[2].mean, 2) + ' / ' + num(b.latency[2].p99, 2) + ' ms',
+    ].join('\n')));
+  }
+
+  function renderServingBenchmarkStatus() {
+    const host = $('#statusStrip');
+    host.textContent = '';
+    [['case', 'GBS256'], ['并发', String(D.benchmark.concurrency)], ['吞吐', num(D.benchmark.outputThroughput, 1) + ' token/s'], ['TTFT P99', num(D.benchmark.latency[0].p99, 1) + ' ms'], ['Device', '未采集']].forEach((item) => {
+      const status = el('span', 'tc-status-item');
+      status.appendChild(el('span', 'k', item[0]));
+      status.appendChild(el('span', 'v', item[1]));
+      host.appendChild(status);
+    });
+  }
+
   function render() {
     const stage = $('#stage');
     if (stage.__ro) { stage.__ro.disconnect(); stage.__ro = null; }
     stage.__redraw = null;
     stage.textContent = '';
+
+    if (isServingBenchmark()) {
+      S.view = 'e2e';
+      renderTabs();
+      renderToolbar();
+      renderServingBenchmarkExplorer();
+      viewServingBenchmark(stage);
+      renderServingBenchmarkInspector();
+      renderServingBenchmarkDock();
+      renderServingBenchmarkTerminal();
+      renderServingBenchmarkStatus();
+      $('[data-bind="caseChip"]').textContent = D.case.program + ' · request-level';
+      return;
+    }
 
     renderTabs();
     renderToolbar();
@@ -4293,7 +5982,8 @@
     renderDock();
     renderTerminal();
     renderStatus();
-    $('[data-bind="caseChip"]').textContent = D.case.program + ' · ' + S.rank;
+    $('[data-bind="caseChip"]').textContent = D.case.program + ' · '
+      + (QW() ? qwVariant().id : S.rank);
   }
 
   /* ------------------------------------------------------------- boot */
@@ -4302,8 +5992,9 @@
   function switchCase(id) {
     if (id === D.case.id) { toggleCaseMenu(false); return; }
     loadCase(id);
-    S.tile = defaultTile();
+    S.tile = isServingBenchmark() ? null : defaultTile();
     toggleCaseMenu(false);
+    renderCaseMenu();
     renderFingerprint();
     render();
   }
@@ -4330,20 +6021,24 @@
       b.appendChild(hd);
       /* say up front which layers this dump can answer */
       const layers = el('div', 'ly');
-      [
-        ['E2E', !!run.e2e],
-        ['L2', true],
-        ['L1/L0', true],
-        ['编译器', run.passes.length > 0],
-        ['ISA', run.case.artifacts.ptoas > 0],
-      ].forEach((pair) => {
+      const layerList = run.kind === 'serving-benchmark' ? [
+        ['E2E', true], ['L2', false], ['L1/L0', false], ['编译器', false], ['ISA', false],
+      ] : [
+        ['E2E', !!run.e2e], ['L2', true], ['L1/L0', true],
+        ['编译器', run.passes.length > 0], ['ISA', run.case.artifacts.ptoas > 0],
+      ];
+      layerList.forEach((pair) => {
         layers.appendChild(el('span', pair[1] ? 'on' : 'off', pair[0]));
       });
       b.appendChild(layers);
-      b.appendChild(el('div', 'mt', run.ranks[run.defaultRank].tasks.length + ' 任务 · '
-        + (run.chainCount != null ? run.chainCount + ' 条瓶颈链 · ' + run.hygieneCount + ' 条体检项'
-          : run.findings.length + ' 条瓶颈')
-        + ' · ' + run.hints.length + ' 条提示'));
+      const meta = run.kind === 'serving-benchmark'
+        ? run.benchmark.completed + '/' + run.benchmark.requests + ' 请求 · '
+          + num(run.benchmark.outputThroughput, 1) + ' token/s · TTFT P99 ' + num(run.benchmark.latency[0].p99, 0) + ' ms'
+        : run.ranks[run.defaultRank].tasks.length + ' 任务 · '
+          + (run.chainCount != null ? run.chainCount + ' 条瓶颈链 · ' + run.hygieneCount + ' 条体检项'
+            : run.findings.length + ' 条瓶颈')
+          + ' · ' + run.hints.length + ' 条提示';
+      b.appendChild(el('div', 'mt', meta));
       b.addEventListener('click', () => switchCase(c.id));
       menu.appendChild(b);
     });
@@ -4357,8 +6052,8 @@
     if (window.PtoIdeFrame) window.PtoIdeFrame.initAll();
     if (EMBED_VIEW) document.body.classList.add('tc-embed-view');
     loadCase(initialCase);
-    S.tile = defaultTile();
-    S.view = EMBED_VIEW || 'e2e';
+    S.tile = isServingBenchmark() ? null : defaultTile();
+    S.view = isServingBenchmark() ? 'e2e' : (EMBED_VIEW || 'e2e');
     S.focus = null;
     renderCaseMenu();
     renderFingerprint();

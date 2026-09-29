@@ -651,9 +651,9 @@
         category: "内存与性能",
         status: "4 个版本",
         version: "V1 · V2 · V3 · V4",
-        description: "围绕同一份 DeepSeek V4 decode_csa 真实上板执行，探索从完整调优闭环到一屏式 AICore 执行矩阵的不同信息密度。V4 是极简 L2 版本：把 Scheduler 与 ready queue 直接并入核心泳道的同一时间轴。选择版本进入对应 Demo。",
+        description: "围绕真实上板执行，探索从完整调优闭环到一屏式 AICore 执行矩阵的不同信息密度。V1 收了三个 case：DeepSeek V4 decode_csa、Qwen3 14B 40 层整网（TP1 / TP2 × prefill / decode，含 torch 主机归因、实测 PMU、层一致性与头开销拆解）、以及 GBS256 serving 压测。V4 是极简 L2 版本：把 Scheduler 与 ready queue 直接并入核心泳道的同一时间轴。选择版本进入对应 Demo。",
         preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["L2 Scheduling", "Ready Queue", "Core Swimlane", "Minimal"],
+        tags: ["L2 Scheduling", "Ready Queue", "Core Swimlane", "PMU", "40-Layer"],
         variants: [
           { label: "V1", href: "Design/operator-tuning-console/index.html" },
           { label: "V2", href: "Design/operator-tuning-console-v2/index.html" },
@@ -671,6 +671,17 @@
         href: "Design/tuning-story-demo/index.html",
         preview: "Design/assets/launch-previews/tuning-console.svg",
         tags: ["9 Scenes", "Playback", "Pain & Opportunity", "Evidence Provenance"]
+      },
+      {
+        title: "长 Decode 因果诊断",
+        subtitle: "Long Decode Causal Workbench · Issue #951",
+        category: "开发工具",
+        status: "新增",
+        version: "01 / Causal Map",
+        description: "以 pypto-lib #951 的长 decode 尾部质量劣化为线索，把症状、两条根因假设、层级 profile 路由、重复运行矩阵与可控实验计划汇聚在同一份调查画布中。",
+        href: "Design/long-decode-causal-workbench/index.html",
+        preview: "Design/assets/launch-previews/long-decode-causal-workbench.png",
+        tags: ["Issue #951", "Causal Map", "RoPE", "Deterministic Reduction", "Experiment Plan"]
       },
       {
         title: "调试与调优工作台",
@@ -804,6 +815,17 @@
         href: "Design/runtime-trace-swimlane/index.html",
         preview: "Design/assets/launch-previews/inference-observability.png",
         tags: ["Chrome Trace", "Swimlane", "Runtime", "PyPTO"]
+      },
+      {
+        title: "单 Rank 推理观测台",
+        subtitle: "Single Rank Inference Observatory",
+        category: "推理",
+        status: "新增",
+        version: "01 / Rank Scope",
+        description: "从一次慢 Decode 告警进入，联动查看单 Rank 的请求 cohort、关键路径、通信等待与可验证假设；明确区分本 Rank 证据与整网归因。",
+        href: "Design/single-rank-inference-observatory/index.html",
+        preview: "Design/assets/launch-previews/inference-observability.png",
+        tags: ["Single Rank", "Trace", "Cohort", "Evidence"]
       },
       {
         title: "Decode Layer 计算图",

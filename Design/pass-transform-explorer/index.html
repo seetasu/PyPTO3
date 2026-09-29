@@ -36,14 +36,29 @@
   <!-- ── Pass timeline ─────────────────────────────────────────────── -->
   <aside class="ptx-rail" id="rail">
     <div class="ptx-rail__head">
-      <div class="ptx-rail__title">Pass 流水线</div>
-      <div id="railSummary" class="ptx-rail__summary"></div>
-      <label class="ptx-checkline">
-        <input type="checkbox" id="onlyChanged"> 只看改动了 IR 的 Pass
-      </label>
-      <input type="search" id="passFilter" class="ptx-input" placeholder="过滤 Pass 名称…">
+      <div class="ptx-seg ptx-seg--mode" id="railMode">
+        <button data-mode="pass" class="is-active">按 Pass</button>
+        <button data-mode="callable">按 Callable</button>
+      </div>
+      <div id="railHeadPass">
+        <div class="ptx-rail__title">Pass 流水线</div>
+        <div id="railSummary" class="ptx-rail__summary"></div>
+        <label class="ptx-checkline">
+          <input type="checkbox" id="onlyChanged"> 只看改动了 IR 的 Pass
+        </label>
+        <input type="search" id="passFilter" class="ptx-input" placeholder="过滤 Pass 名称…">
+      </div>
+      <div id="railHeadCallable" hidden>
+        <div class="ptx-rail__title">Callable 清单</div>
+        <div id="callableSummary" class="ptx-rail__summary"></div>
+        <label class="ptx-checkline">
+          <input type="checkbox" id="onlyKernels"> 只看设备核函数（AIC / AIV）
+        </label>
+        <input type="search" id="callableFilter" class="ptx-input" placeholder="过滤 Callable 名称…">
+      </div>
     </div>
     <nav class="ptx-rail__list" id="passList" aria-label="Pass 时间线"></nav>
+    <nav class="ptx-rail__list" id="callableList" aria-label="Callable 清单" hidden></nav>
   </aside>
 
   <!-- ── Main ──────────────────────────────────────────────────────── -->
