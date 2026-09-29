@@ -120,6 +120,7 @@
     jumpLine: null,
     filter: '',
     docOpen: true,
+    lensAuto: true,
     callable: null,
     cFilter: '',
     onlyKernels: false,
@@ -347,6 +348,17 @@
     }
 
     var fns = p.changedFunctions;
+    // In callable mode the chips are the family, not every function this Pass
+    // happened to touch — otherwise one callable's story is buried in sixty.
+    if (state.mode === 'callable') {
+      var cc = currentCallable();
+      if (cc) {
+        var fam = Object.create(null);
+        cc.members.forEach(function (m) { fam[m] = 1; });
+        var sub = fns.filter(function (f) { return fam[f.name]; });
+        if (sub.length) fns = sub;
+      }
+    }
     if (!state.fn || !fns.some(function (f) { return f.name === state.fn; })) state.fn = fns[0].name;
 
     $('diffFnChips').innerHTML = fns.map(function (f) {
@@ -492,6 +504,9 @@
   // ══════════════════════════════════════════════════════════════════════
 
   var LENSES = [
+    { id: 'pass', label: 'Pass 专属', scope: 'fn', hint: '为这一类 Pass 画的专属图：它到底对这个 callable 做了什么。' },
+    { id: 'opshift', label: '算子迁移', scope: 'fn', hint: '这一步退掉了哪些算子、换上了哪些。下降类 Pass 的真正动作在这里。' },
+    { id: 'spacetime', label: '缓冲生命期', scope: 'fn', hint: '每个缓冲的存活区间。复用把多条短命缓冲并成少数长命缓冲。' },
     { id: 'call', label: '调用 / 作用域', scope: 'program', hint: '函数与调用关系。内联、外提、核拆分在这里最直观。' },
     { id: 'control', label: '控制流', scope: 'fn', hint: '循环 / 分支 / 作用域的嵌套骨架。展开、流水线下降在这里最直观。' },
     { id: 'dataflow', label: '数据流', scope: 'fn', hint: 'SSA def-use 图。算子替换、类型与内存空间变化在这里最直观。' },
@@ -499,14 +514,43 @@
     { id: 'memory', label: '内存布局', scope: 'fn', hint: '缓冲区大小、空间归属与地址。复用与分配在这里最直观。' },
   ];
 
+  /**
+   * Which view explains this Pass best for a single callable. The index's own
+   * `lens` is program-wide advice; in callable mode `call` says nothing about
+   * one function, and memory passes are better told as lifetimes than as a
+   * buffer table, so both are redirected.
+   */
+  function suggestedLens(p) {
+    if (state.mode !== 'callable') return p.lens;
+    if (PASS_VIEWS[p.name]) return 'pass';
+    if (p.phase === 'memory') return 'spacetime';
+    // `call` says nothing about one function; `dataflow` draws a 180-node SSA
+    // graph where the answer is simply "these operators became those".
+    if (p.lens === 'call' || p.lens === 'dataflow') return 'opshift';
+    return p.lens;
+  }
+
   function renderGraph() {
     var p = pass();
-    if (!state.lens) state.lens = p.lens;
+    if (!state.lens) state.lens = suggestedLens(p);
 
-    $('lensPicker').innerHTML = LENSES.map(function (l) {
+    // Callable mode hides the program-scoped lens: it draws the whole call
+    // graph, which is byte-identical no matter which callable is selected.
+    var pv = state.mode === 'callable' ? PASS_VIEWS[p.name] : null;
+    var avail = (state.mode === 'callable'
+      ? LENSES.filter(function (l) { return l.scope !== 'program'; })
+      : LENSES
+    ).filter(function (l) { return l.id !== 'pass' || pv; })
+      .map(function (l) {
+        return l.id === 'pass' ? { id: l.id, label: pv.label, scope: l.scope, hint: l.hint } : l;
+      });
+    var suggest = suggestedLens(p);
+    if (!avail.some(function (l) { return l.id === state.lens; })) state.lens = suggest;
+
+    $('lensPicker').innerHTML = avail.map(function (l) {
       return '<button data-lens="' + l.id + '" class="' + (l.id === state.lens ? 'is-active' : '')
-        + (l.id === p.lens ? ' is-suggested' : '') + '" title="' + esc(l.hint) + '">' + l.label
-        + (l.id === p.lens ? '<i>推荐</i>' : '') + '</button>';
+        + (l.id === suggest ? ' is-suggested' : '') + '" title="' + esc(l.hint) + '">' + l.label
+        + (l.id === suggest ? '<i>推荐</i>' : '') + '</button>';
     }).join('');
 
     $('graphBody').innerHTML = '<p class="ptx-loading">正在解析前后快照…</p>';
@@ -549,6 +593,17 @@
     var cand = after.functions.map(function (f) {
       return { name: f.name, weight: lensWeight(f, state.lens), status: changed[f.name] || 'same' };
     });
+    // Callable mode stays inside the family, including when the auto-pick below
+    // looks for a function with something to show under the current lens.
+    if (state.mode === 'callable') {
+      var famC = currentCallable();
+      if (famC) {
+        var famSet = Object.create(null);
+        famC.members.forEach(function (m) { famSet[m] = 1; });
+        var famCand = cand.filter(function (x) { return famSet[x.name]; });
+        if (famCand.length) cand = famCand;
+      }
+    }
     var best = cand.slice().sort(function (a, b) {
       var ca = a.status !== 'same' ? 1 : 0;
       var cb = b.status !== 'same' ? 1 : 0;
@@ -574,6 +629,26 @@
     var fb = after.byName.get(state.fn);
     var fa = before ? before.byName.get(state.fn) : null;
 
+    // A recommended lens can land on nothing — memory lenses before InitMemRef,
+    // the task DAG in a compute kernel. When the lens was picked for the reader
+    // rather than by them, fall back to op migration, which always has either a
+    // migration to show or a definite "nothing moved" to state.
+    if (state.lensAuto && !lensHasContent(state.lens, fa, fb)) {
+      state.lens = 'opshift';
+      lens = LENSES.find(function (l) { return l.id === state.lens; });
+      $('lensPicker').querySelectorAll('button').forEach(function (b) {
+        b.classList.toggle('is-active', b.dataset.lens === state.lens);
+      });
+    }
+
+    if (state.lens === 'pass') {
+      var pview = PASS_VIEWS[p.name];
+      if (pview && pview.draw === 'outline') { drawOutline(before, after, state.fn, p.name); return; }
+      if (pview && pview.draw === 'lowering') { drawLowering(fa, fb, p.name); return; }
+    }
+
+    if (state.lens === 'opshift') { drawOpShift(fa, fb, lens.hint); return; }
+    if (state.lens === 'spacetime') { drawSpacetime(fa, fb, lens.hint); return; }
     if (state.lens === 'memory') { drawMemory(fa, fb, lens.hint); return; }
 
     var build = state.lens === 'control' ? LIB.controlTree
@@ -759,14 +834,30 @@
   }
 
   /** How much a function has to show under a given lens. */
+  /** Would this lens draw anything for this function, before or after? */
+  function lensHasContent(lens, fa, fb) {
+    function any(pick) {
+      return (fa && pick(fa)) || (fb && pick(fb));
+    }
+    if (lens === 'spacetime') return !!any(function (f) { return f.buffers.length; });
+    if (lens === 'memory') return !!any(function (f) { return f.allocs.length + f.buffers.length; });
+    if (lens === 'task') return !!any(function (f) { return f.tasks.length; });
+    if (lens === 'control') return !!any(function (f) { return f.loops.length; });
+    return true;
+  }
+
   function lensWeight(f, lens) {
     if (lens === 'task') return f.tasks.length;
-    if (lens === 'memory') return f.allocs.length + f.buffers.length;
+    if (lens === 'memory' || lens === 'spacetime') return f.allocs.length + f.buffers.length;
     if (lens === 'control') return f.loops.length;
+    if (lens === 'opshift') return Object.keys(f.opHist).length;
     return f.stmtCount;
   }
   function lensUnit(lens) {
-    return { task: ' 任务', memory: ' 缓冲', control: ' 循环' }[lens] || ' 语句';
+    return {
+      task: ' 任务', memory: ' 缓冲', spacetime: ' 缓冲',
+      control: ' 循环', opshift: ' 种算子',
+    }[lens] || ' 语句';
   }
 
   function nodeSubtitle(n, kind) {
@@ -838,6 +929,515 @@
   }
 
   // ── memory lens ───────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════
+  // Pass-specific views
+  //
+  // A generic lens can only say "the IR changed". What a reader wants is
+  // what THIS KIND of Pass does: outlining lifts a region into a function
+  // and has to decide what crosses the boundary; lowering makes the data
+  // movement that tensor semantics kept implicit into explicit load/store.
+  // Those are different pictures, so each Pass kind draws its own.
+  // ══════════════════════════════════════════════════════════════════════
+
+  var MOVE_OPS = ["load", "store", "gather_row", "scatter_row", "copy", "assemble",
+    "write", "read", "create", "create_l1", "full", "slice", "extract", "move"];
+  var VIEW_OPS = ["transpose_view", "reshape", "view", "partition_view", "broadcast_view"];
+
+  function opCategory(op) {
+    var t = opTail(op) || String(op).replace(/^pl\./, "");
+    if (t === "get_block_idx" || t === "get_block_num") return "meta";
+    if (VIEW_OPS.indexOf(t) >= 0) return "view";
+    if (MOVE_OPS.indexOf(t) >= 0) return "move";
+    return "compute";
+  }
+
+  var CAT_LABEL = { move: "搬运", compute: "计算", view: "视图", meta: "" };
+
+  /** Ordered op list from a function body — opHist only carries counts. */
+  function opSequence(f) {
+    var out = [];
+    (f && f.src ? f.src : []).forEach(function (line) {
+      var m = line.match(/pl\.(?:tensor|tile)\.[a-z_0-9]+\(/g);
+      if (!m) return;
+      m.forEach(function (x) { out.push(x.slice(0, -1)); });
+    });
+    return out;
+  }
+
+  /** Collapse the op stream into runs of one category — the pipeline stages. */
+  function segments(ops) {
+    var segs = [];
+    ops.forEach(function (op) {
+      var cat = opCategory(op);
+      if (cat === "meta") return;
+      var last = segs[segs.length - 1];
+      if (last && last.cat === cat) { last.ops.push(op); return; }
+      segs.push({ cat: cat, ops: [op] });
+    });
+    return segs.map(function (sg) {
+      var counts = {};
+      sg.ops.forEach(function (o) { var t = opTail(o) || o; counts[t] = (counts[t] || 0) + 1; });
+      var top = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
+      sg.label = top[0] + (counts[top[0]] > 1 ? " ×" + counts[top[0]] : "");
+      sg.extra = top.length - 1;
+      sg.n = sg.ops.length;
+      sg.kinds = top;
+      return sg;
+    });
+  }
+
+  // ── outline: a region becomes a function ──────────────────────────────
+
+  /** Names returned by the trailing return statement of a function body. */
+  function returnNames(f) {
+    var src = (f && f.src) || [];
+    for (var i = src.length - 1; i >= 0; i--) {
+      var m = src[i].match(/^\s*return\s+(.+?)\s*$/);
+      if (m) return m[1].split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+    }
+    return [];
+  }
+
+  function shortName(n) {
+    return String(n).replace(/_inline\d+/, "").replace(/__(ssa|rv|phi|iter)_v\d+$/, "");
+  }
+
+  function drawOutline(before, after, fnName, passName) {
+    var f = after.byName.get(fnName);
+    if (!f) {
+      $("graphBody").innerHTML = "<p class=\"ptx-empty\">本 Pass 之后没有这个函数。</p>";
+      return;
+    }
+    var params = f.params || [];
+    var rets = returnNames(f);
+    var pnames = {};
+    params.forEach(function (p) { pnames[p.name] = 1; });
+    var carried = rets.filter(function (r) { return pnames[r]; });
+
+    var hosts = after.functions.filter(function (x) {
+      return (x.calls || []).some(function (c) { return c.callee === fnName; });
+    });
+    var host = hosts[0];
+    var callLine = host && (host.calls.find(function (c) { return c.callee === fnName; }) || {}).line;
+    var existedBefore = !!(before && before.byName.get(fnName));
+
+    var W = 640, H = 300;
+    var svg = "<svg class=\"ptx-passview\" viewBox=\"0 0 " + W + " " + H + "\" role=\"img\" "
+      + "aria-label=\"" + esc(fnName) + " 被外提为独立函数\">"
+      + "<defs><marker id=\"pvArrow\" viewBox=\"0 0 10 10\" refX=\"8\" refY=\"5\" markerWidth=\"6\" "
+      + "markerHeight=\"6\" orient=\"auto-start-reverse\"><path d=\"M2 1L8 5L2 9\" fill=\"none\" "
+      + "stroke=\"context-stroke\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></marker></defs>";
+
+    // before
+    svg += "<text class=\"pv-h\" x=\"12\" y=\"16\">之前 · 宿主函数体内的一段区域</text>";
+    svg += "<rect class=\"pv-host\" x=\"12\" y=\"24\" width=\"" + (W - 24) + "\" height=\"78\" rx=\"6\"/>";
+    svg += "<text class=\"pv-t\" x=\"24\" y=\"43\">" + esc(host ? shortName(host.name) : "宿主函数") + "</text>";
+    svg += "<rect class=\"pv-region\" x=\"26\" y=\"52\" width=\"" + (W - 52) + "\" height=\"40\" rx=\"5\"/>";
+    svg += "<text class=\"pv-t\" x=\"38\" y=\"70\">" + esc(passName.indexOf("Incore") >= 0 ? "InCore 计算区域" : "作用域区域")
+      + "</text>";
+    svg += "<text class=\"pv-s\" x=\"38\" y=\"85\">" + f.stmtCount + " 条语句 · "
+      + (f.loops || []).length + " 个循环</text>";
+
+    svg += "<path d=\"M" + (W / 2) + " 104 V126\" fill=\"none\" stroke=\"var(--foreground-muted)\" "
+      + "stroke-width=\"1\" marker-end=\"url(#pvArrow)\"/>";
+    svg += "<rect class=\"pv-op\" x=\"" + (W / 2 - 84) + "\" y=\"128\" width=\"168\" height=\"22\" rx=\"4\"/>";
+    svg += "<text class=\"pv-t pv-mid\" x=\"" + (W / 2) + "\" y=\"143\" text-anchor=\"middle\">"
+      + esc(passName) + "</text>";
+
+    // after
+    svg += "<text class=\"pv-h\" x=\"12\" y=\"172\">之后 · 独立函数 + 宿主处一次调用</text>";
+    svg += "<rect class=\"pv-host\" x=\"12\" y=\"180\" width=\"250\" height=\"56\" rx=\"6\"/>";
+    svg += "<text class=\"pv-t\" x=\"24\" y=\"199\">" + esc(host ? shortName(host.name) : "宿主") + "</text>";
+    svg += "<text class=\"pv-s\" x=\"24\" y=\"215\">" + esc(shortName(fnName)) + "(" + params.length
+      + " 个实参)" + (callLine ? " · 第 " + callLine + " 行" : "") + "</text>";
+    svg += "<path d=\"M266 208 H292\" fill=\"none\" stroke=\"var(--foreground-muted)\" stroke-width=\"1\" "
+      + "marker-end=\"url(#pvArrow)\"/>";
+    svg += "<rect class=\"pv-fn\" x=\"298\" y=\"176\" width=\"" + (W - 310) + "\" height=\"64\" rx=\"6\"/>";
+    svg += "<text class=\"pv-t\" x=\"310\" y=\"196\">def " + esc(shortName(fnName)) + "(…)</text>";
+    svg += "<text class=\"pv-s\" x=\"310\" y=\"212\">" + params.length + " 个参数 → " + rets.length
+      + " 个返回值</text>";
+    svg += "<text class=\"pv-s\" x=\"310\" y=\"228\">" + esc(f.kind || "") + " · " + f.srcLineCount + " 行</text>";
+
+    // boundary detail
+    var y = 256;
+    svg += "<rect class=\"pv-note\" x=\"12\" y=\"" + y + "\" width=\"" + (W - 24) + "\" height=\"34\" rx=\"5\"/>";
+    svg += "<text class=\"pv-s\" x=\"24\" y=\"" + (y + 21) + "\">"
+      + (carried.length
+        ? esc(carried.length + " 个值既是参数又是返回值：" + carried.map(shortName).join("、")
+            + " —— 跨循环携带的累加状态")
+        : "参数即 scope 内引用的外部变量；返回值即 scope 外仍要使用的结果")
+      + "</text>";
+
+    svg += "</svg>";
+
+    var head = "<div class=\"ptx-graphsummary\">把一段核内区域抬成独立函数，编译器必须定下边界："
+      + "什么传进去、什么传出来。<span class=\"ptx-graphstats\">"
+      + params.length + " 参数 · " + rets.length + " 返回"
+      + (carried.length ? " · <b>" + carried.length + "</b> 个循环携带" : "")
+      + "</span></div>";
+
+    var tbl = "";
+    if (params.length) {
+      tbl = "<table class=\"ptx-table ptx-table--fns\"><thead><tr><th>跨边界的值</th><th>类型</th>"
+        + "<th>方向</th></tr></thead><tbody>";
+      params.slice(0, 40).forEach(function (p) {
+        var isCarried = rets.indexOf(p.name) >= 0;
+        tbl += "<tr><td><code>" + esc(shortName(p.name)) + "</code></td>"
+          + "<td><span class=\"ptx-muted\">" + esc(p.ctor + (p.shape ? "[" + p.shape.join("×") + "]" : "")
+          + (p.dtype ? " " + p.dtype : "")) + "</span></td>"
+          + "<td>" + (isCarried
+            ? "<span class=\"ptx-status ptx-status--changed\">进 + 出</span>"
+            : "<span class=\"ptx-status ptx-status--same\">只进</span>") + "</td></tr>";
+      });
+      tbl += "</tbody></table>";
+    }
+
+    $("graphBody").innerHTML = head + "<div class=\"ptx-passview__wrap\">" + svg + "</div>"
+      + (existedBefore ? "" : "") + tbl;
+  }
+
+  // ── lowering: implicit movement becomes explicit ──────────────────────
+
+  /** `pl.tensor.exp` and `pl.tile.exp` share the key `exp`, so the diff can
+   *  align them as one operator that changed domain rather than as an
+   *  unrelated delete plus insert. */
+  function normOp(op) { return opTail(op) || String(op).replace(/^pl\./, ""); }
+
+  /**
+   * Sequence alignment of the two operator streams. Lowering is not a set
+   * difference — it is the same computation re-expressed, with movement that
+   * tensor semantics implied now spelled out. Aligning the streams shows both
+   * at once: which operators merely changed domain, and where new load/store
+   * had to be inserted between them.
+   */
+  function drawLowering(fa, fb, passName) {
+    var opsA = opSequence(fa);
+    var opsB = opSequence(fb);
+    if (!opsA.length && !opsB.length) {
+      $("graphBody").innerHTML = "<p class=\"ptx-empty\">这一步没有可比对的算子序列。</p>";
+      return;
+    }
+    var rows = LIB.diffLines(opsA.map(normOp), opsB.map(normOp));
+
+    var W = 640, TOP = 26, BAR = 22, GAP = 14;
+    var H = TOP + BAR + GAP + BAR + 18;
+    var colW = W / Math.max(1, rows.length);
+
+    var moved = 0, born = 0, gone = 0;
+    rows.forEach(function (r) {
+      if (r.tag === "+") born++;
+      else if (r.tag === "-") gone++;
+      else if (opDomain(opsA[r.a]) !== opDomain(opsB[r.b])) moved++;
+    });
+
+    // Clusters of consecutive inserts / deletes, so the picture has anchors.
+    var clusters = [];
+    var cur = null;
+    rows.forEach(function (r, i) {
+      if (r.tag === "=") { cur = null; return; }
+      var op = r.tag === "+" ? opsB[r.b] : opsA[r.a];
+      var key = r.tag + normOp(op);
+      if (cur && cur.key === key && i === cur.end + 1) { cur.n++; cur.end = i; return; }
+      cur = { key: key, tag: r.tag, op: normOp(op), n: 1, start: i, end: i };
+      clusters.push(cur);
+    });
+    var topClusters = clusters.slice().sort(function (a, b) { return b.n - a.n; }).slice(0, 5);
+
+    var svg = "<svg class=\"ptx-passview ptx-align\" viewBox=\"0 0 " + W + " " + H + "\" role=\"img\" "
+      + "aria-label=\"tensor 域与 tile 域的算子序列比对\">";
+
+    topClusters.forEach(function (c) {
+      var cx = (c.start + (c.end - c.start) / 2 + 0.5) * colW;
+      var label = (c.tag === "+" ? "+" : "−") + c.op + (c.n > 1 ? " ×" + c.n : "");
+      var wd = label.length * 6.2 + 8;
+      var lx = Math.max(0, Math.min(W - wd, cx - wd / 2));
+      svg += "<rect class=\"pv-cl " + (c.tag === "+" ? "is-born" : "is-gone") + "\" x=\"" + lx
+        + "\" y=\"2\" width=\"" + wd + "\" height=\"16\" rx=\"3\"/>"
+        + "<text class=\"pv-s pv-cltext\" x=\"" + (lx + 4) + "\" y=\"14\">" + esc(label) + "</text>"
+        + "<line class=\"pv-clline\" x1=\"" + cx + "\" y1=\"18\" x2=\"" + cx + "\" y2=\"" + TOP + "\"/>";
+    });
+
+    rows.forEach(function (r, i) {
+      var x = i * colW;
+      var wd = Math.max(1.5, colW - 0.6);
+      var same = r.tag === "=";
+      var dom = same && opDomain(opsA[r.a]) !== opDomain(opsB[r.b]);
+
+      if (same || r.tag === "-") {
+        var oa = opsA[r.a];
+        svg += "<g class=\"pv-cell\"><title>" + esc(oa) + "</title>"
+          + "<rect class=\"pv-op-cell " + (r.tag === "-" ? "is-gone" : dom ? "is-moved" : "is-keep")
+          + " cat-" + opCategory(oa) + "\" x=\"" + x + "\" y=\"" + TOP + "\" width=\"" + wd
+          + "\" height=\"" + BAR + "\" rx=\"1.5\"/></g>";
+      }
+      if (same || r.tag === "+") {
+        var ob = opsB[r.b];
+        svg += "<g class=\"pv-cell\"><title>" + esc(ob) + "</title>"
+          + "<rect class=\"pv-op-cell " + (r.tag === "+" ? "is-born" : dom ? "is-moved" : "is-keep")
+          + " cat-" + opCategory(ob) + "\" x=\"" + x + "\" y=\"" + (TOP + BAR + GAP) + "\" width=\"" + wd
+          + "\" height=\"" + BAR + "\" rx=\"1.5\"/></g>";
+      }
+      if (same && dom) {
+        svg += "<line class=\"pv-link\" x1=\"" + (x + wd / 2) + "\" y1=\"" + (TOP + BAR)
+          + "\" x2=\"" + (x + wd / 2) + "\" y2=\"" + (TOP + BAR + GAP) + "\"/>";
+      }
+    });
+
+    svg += "<text class=\"pv-s\" x=\"0\" y=\"" + (TOP - 4) + "\">tensor 域 · " + opsA.length + " 个算子</text>";
+    svg += "<text class=\"pv-s\" x=\"0\" y=\"" + (H - 4) + "\">tile 域 · " + opsB.length + " 个算子</text>";
+    svg += "</svg>";
+
+    var head = "<div class=\"ptx-graphsummary\">同一段计算换一种语义表达。上下对齐的是同一个算子，"
+      + "只是换了域；断口处是被新插入的显式搬运。<span class=\"ptx-graphstats\">"
+      + "<b>" + moved + "</b> 个换域 · <b class=\"ptx-add\">+" + born + "</b> 新增 · "
+      + "<b class=\"ptx-del\">−" + gone + "</b> 退场</span></div>";
+
+    var legend = "<div class=\"ptx-lifeline__legend\">"
+      + "<span class=\"ptx-dot pv-d-moved\"></span>换域（tensor→tile）"
+      + "<span class=\"ptx-dot pv-d-born\"></span>新增"
+      + "<span class=\"ptx-dot pv-d-gone\"></span>退场"
+      + "<span class=\"ptx-dot pv-d-keep\"></span>原样保留"
+      + "<span class=\"ptx-lifeline__legendsep\"></span><span>深浅 = 搬运 / 计算 / 视图</span></div>";
+
+    var hb = (fa && fa.opHist) || {};
+    var ha = (fb && fb.opHist) || {};
+    // "New" means the operator did not exist under either domain before — a
+    // keyed-by-domain test would call `tile.gather_row` new when only
+    // `tensor.gather_row` existed, which is a domain change, not new movement.
+    var beforeNorm = {};
+    Object.keys(hb).forEach(function (k) {
+      beforeNorm[normOp(k)] = (beforeNorm[normOp(k)] || 0) + hb[k];
+    });
+    var newMove = [];
+    Object.keys(ha).forEach(function (k) {
+      var c = opCategory(k);
+      if (c !== "move" && c !== "view") return;
+      if (!beforeNorm[normOp(k)]) newMove.push({ op: normOp(k), n: ha[k] });
+    });
+    newMove.sort(function (a, b) { return b.n - a.n; });
+
+    var note = newMove.length
+      ? "<p class=\"ptx-life__note\">tensor 域把数据搬运藏在语义里，tile 域必须写明——"
+        + "新出现的显式搬运："
+        + newMove.slice(0, 6).map(function (m) {
+            return "<code>" + esc(m.op) + "</code>×" + m.n;
+          }).join("、") + "</p>"
+      : "";
+
+    $("graphBody").innerHTML = head + "<div class=\"ptx-passview__wrap\">" + svg + legend
+      + "</div>" + note;
+  }
+  var PASS_VIEWS = {
+    OutlineIncoreScopes: { label: "外提", draw: "outline" },
+    OutlineHierarchyScopes: { label: "外提", draw: "outline" },
+    OutlineClusterScopes: { label: "外提", draw: "outline" },
+    OutlineGraphScopes: { label: "外提", draw: "outline" },
+    ConvertTensorToTileOps: { label: "语义下降", draw: "lowering" },
+  };
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Change views
+  //
+  // The five structural lenses answer "what does this IR look like". Two of
+  // them answer it program-wide, which in callable mode means every callable
+  // renders the identical picture. These two are differential and function-
+  // scoped instead: they show what THIS Pass did to THIS callable.
+  // ══════════════════════════════════════════════════════════════════════
+
+  /** `pl.tensor.gather_row` -> `gather_row`; the part that survives lowering. */
+  function opTail(op) {
+    var m = /^pl\.(?:tensor|tile)\.(.+)$/.exec(op);
+    return m ? m[1] : null;
+  }
+  function opDomain(op) {
+    if (/^pl\.tensor\./.test(op)) return "tensor";
+    if (/^pl\.tile\./.test(op)) return "tile";
+    return "other";
+  }
+
+  /**
+   * Op migration. A lowering pass does not "add 6 lines" — it retires
+   * `pl.tensor.exp` and lights up `pl.tile.exp`. Pairing the two by their
+   * shared tail turns a histogram delta into the actual sentence: this
+   * operator moved from the tensor domain to the tile domain.
+   */
+  function drawOpShift(fa, fb, hint) {
+    var hb = (fa && fa.opHist) || {};
+    var ha = (fb && fb.opHist) || {};
+    var names = {};
+    Object.keys(hb).forEach(function (k) { names[k] = 1; });
+    Object.keys(ha).forEach(function (k) { names[k] = 1; });
+
+    var moved = [];
+    Object.keys(names).forEach(function (op) {
+      var d = (ha[op] || 0) - (hb[op] || 0);
+      if (d) moved.push({ op: op, before: hb[op] || 0, after: ha[op] || 0, d: d });
+    });
+
+    if (!moved.length) {
+      $("graphBody").innerHTML = "<div class=\"ptx-graphsummary\">" + esc(hint) + "</div>"
+        + "<p class=\"ptx-empty\">算子构成没有变化。这一步改写的是语句内部（地址、名字、顺序），"
+        + "右边的 Diff 是唯一的事实来源。</p>";
+      return;
+    }
+
+    var gone = moved.filter(function (m) { return m.d < 0; }).sort(function (x, y) { return x.d - y.d; });
+    var born = moved.filter(function (m) { return m.d > 0; }).sort(function (x, y) { return y.d - x.d; });
+
+    var used = {};
+    var pairs = [];
+    gone.forEach(function (g) {
+      var tail = opTail(g.op);
+      if (!tail) return;
+      var hit = born.find(function (b) {
+        return !used[b.op] && opTail(b.op) === tail && opDomain(b.op) !== opDomain(g.op);
+      });
+      if (hit) { used[hit.op] = 1; used[g.op] = 1; pairs.push({ from: g, to: hit }); }
+    });
+
+    var restGone = gone.filter(function (g) { return !used[g.op]; });
+    var restBorn = born.filter(function (b) { return !used[b.op]; });
+
+    var domains = {};
+    pairs.forEach(function (p) { domains[opDomain(p.from.op) + "→" + opDomain(p.to.op)] = 1; });
+    var domainLine = Object.keys(domains).map(function (k) {
+      return k.replace("tensor", "Tensor 域").replace("tile", "Tile 域");
+    }).join("、");
+
+    var html = "<div class=\"ptx-graphsummary\">" + esc(hint)
+      + "<span class=\"ptx-graphstats\">"
+      + (pairs.length ? "<b>" + pairs.length + "</b> 个算子迁移" : "")
+      + (restBorn.length ? (pairs.length ? " · " : "") + "<b class=\"ptx-add\">+" + restBorn.length + "</b> 种新算子" : "")
+      + (restGone.length ? " · <b class=\"ptx-del\">−" + restGone.length + "</b> 种退场" : "")
+      + "</span></div>";
+
+    html += "<div class=\"ptx-shift\">";
+
+    if (pairs.length) {
+      html += "<div class=\"ptx-shift__head\">算子迁移"
+        + (domainLine ? "<small>" + esc(domainLine) + "</small>" : "") + "</div>";
+      pairs.forEach(function (p) {
+        html += "<div class=\"ptx-shift__row\">"
+          + "<span class=\"ptx-shift__from\"><code>" + esc(p.from.op) + "</code><b>" + p.from.before + "</b></span>"
+          + "<span class=\"ptx-shift__arrow\" aria-hidden=\"true\">⟶</span>"
+          + "<span class=\"ptx-shift__to\"><code>" + esc(p.to.op) + "</code><b>" + p.to.after + "</b></span>"
+          + "</div>";
+      });
+    }
+
+    if (restBorn.length || restGone.length) {
+      html += "<div class=\"ptx-shift__head\">未配对</div><div class=\"ptx-shift__cols\">";
+      html += "<div class=\"ptx-shift__col\"><h5 class=\"ptx-add\">新增 / 变多</h5>";
+      html += restBorn.length ? restBorn.map(function (b) {
+        return "<div class=\"ptx-shift__item\"><code>" + esc(b.op) + "</code>"
+          + "<span>" + b.before + " → <b>" + b.after + "</b></span></div>";
+      }).join("") : "<p class=\"ptx-empty\">—</p>";
+      html += "</div><div class=\"ptx-shift__col\"><h5 class=\"ptx-del\">移除 / 变少</h5>";
+      html += restGone.length ? restGone.map(function (g) {
+        return "<div class=\"ptx-shift__item\"><code>" + esc(g.op) + "</code>"
+          + "<span>" + g.before + " → <b>" + g.after + "</b></span></div>";
+      }).join("") : "<p class=\"ptx-empty\">—</p>";
+      html += "</div></div>";
+    }
+
+    $("graphBody").innerHTML = html + "</div>";
+  }
+
+  /**
+   * Buffer lifetimes. Reuse is not "fewer buffers" — it is one buffer kept
+   * alive across a longer span to serve several uses. Drawing each buffer as a
+   * bar over statement index makes that literal: many short bars collapse into
+   * a few long ones, and the reused bars are the ones that got longer.
+   */
+  function drawSpacetime(fa, fb, hint) {
+    function lanes(f) {
+      if (!f || !f.buffers) return [];
+      return f.buffers
+        .filter(function (b) { return typeof b.first === "number" && typeof b.last === "number"; })
+        .map(function (b) {
+          return {
+            name: b.name, space: b.space || "unspecified", size: b.size || 0,
+            first: b.first, last: b.last, uses: b.uses || 0,
+          };
+        })
+        .sort(function (x, y) { return x.first - y.first || y.size - x.size; });
+    }
+
+    var A = lanes(fa);
+    var B = lanes(fb);
+    if (!A.length && !B.length) {
+      $("graphBody").innerHTML = "<div class=\"ptx-graphsummary\">" + esc(hint) + "</div>"
+        + "<p class=\"ptx-empty\">该函数在此阶段还没有缓冲区生命周期信息。"
+        + "缓冲要到 <code>InitMemRef</code> 之后才存在。</p>";
+      return;
+    }
+
+    var maxStmt = 1;
+    [].concat(A, B).forEach(function (l) { maxStmt = Math.max(maxStmt, l.last); });
+
+    var byName = {};
+    A.forEach(function (l) { byName[l.name] = { before: l }; });
+    B.forEach(function (l) { (byName[l.name] = byName[l.name] || {}).after = l; });
+
+    function panel(list, label, other) {
+      var W = 560, rowH = 13, top = 16;
+      var H = top + Math.max(1, list.length) * rowH + 8;
+      var total = list.reduce(function (s, x) { return s + x.size; }, 0);
+      var out = "<div class=\"ptx-life__panel\"><h5>" + esc(label)
+        + "<span>" + list.length + " 个缓冲 · " + bytes(total) + "</span></h5>"
+        + "<svg class=\"ptx-life\" viewBox=\"0 0 " + W + " " + H + "\" role=\"img\" "
+        + "aria-label=\"" + esc(label) + "缓冲区生命周期\">";
+
+      [0, 0.5, 1].forEach(function (f) {
+        var x = 60 + (W - 76) * f;
+        out += "<line class=\"ptx-life__grid\" x1=\"" + x + "\" y1=\"" + top + "\" x2=\"" + x + "\" y2=\"" + (H - 8) + "\"/>"
+          + "<text class=\"ptx-life__tick\" x=\"" + x + "\" y=\"" + (top - 5) + "\" text-anchor=\"middle\">"
+          + Math.round(maxStmt * f) + "</text>";
+      });
+
+      list.forEach(function (l, i) {
+        var y = top + i * rowH;
+        var x0 = 60 + (W - 76) * (l.first / maxStmt);
+        var x1 = 60 + (W - 76) * (l.last / maxStmt);
+        var w = Math.max(2, x1 - x0);
+        var twin = byName[l.name] && byName[l.name][other];
+        var grew = twin && (l.last - l.first) > (twin.last - twin.first);
+        var cls = "ptx-life__bar" + (!twin ? " is-solo" : grew ? " is-grew" : "");
+        out += "<g class=\"ptx-life__row\">"
+          + "<title>" + esc(l.name + " · " + l.space + " · " + bytes(l.size)
+            + " · 语句 " + l.first + "–" + l.last + " · " + l.uses + " 次使用") + "</title>"
+          + "<text class=\"ptx-life__name\" x=\"56\" y=\"" + (y + 9) + "\" text-anchor=\"end\">"
+          + esc(l.name.replace(/^mem_/, "")) + "</text>"
+          + "<rect class=\"" + cls + "\" x=\"" + x0 + "\" y=\"" + (y + 2) + "\" width=\"" + w
+          + "\" height=\"8\" rx=\"2\"/>"
+          + "</g>";
+      });
+
+      return out + "</svg></div>";
+    }
+
+    var tb = A.reduce(function (s, x) { return s + x.size; }, 0);
+    var ta = B.reduce(function (s, x) { return s + x.size; }, 0);
+    var reused = B.filter(function (l) {
+      var t = byName[l.name] && byName[l.name].before;
+      return t && (l.last - l.first) > (t.last - t.first);
+    });
+
+    var head = "<div class=\"ptx-graphsummary\">" + esc(hint)
+      + "<span class=\"ptx-graphstats\">" + A.length + " → <b>" + B.length + "</b> 个缓冲 · "
+      + bytes(tb) + " → <b>" + bytes(ta) + "</b>"
+      + (ta !== tb ? " <b class=\"" + (ta < tb ? "ptx-add" : "ptx-del") + "\">"
+        + (ta < tb ? "−" : "+") + bytes(Math.abs(ta - tb)) + "</b>" : "")
+      + "</span></div>";
+
+    var note = reused.length
+      ? "<p class=\"ptx-life__note\"><b>" + reused.length + "</b> 个缓冲的存活区间被拉长"
+        + "——它们现在跨越更多语句，替原来多个短命缓冲干活。横轴是语句序号。</p>"
+      : "<p class=\"ptx-life__note\">横轴是语句序号，每条是一个缓冲的存活区间。</p>";
+
+    $("graphBody").innerHTML = head + note
+      + "<div class=\"ptx-life__wrap\">" + panel(A, "之前", "after") + panel(B, "之后", "before") + "</div>";
+  }
   function drawMemory(fa, fb, hint) {
     var before = fa ? LIB.memoryView(fa) : [];
     var after = fb ? LIB.memoryView(fb) : [];
@@ -1028,16 +1628,25 @@
       var timeline = r.passes.map(function (p) {
         var parts = members.map(function (m) {
           var rec = rows[m] && rows[m][p.idx];
-          return rec ? { name: m, lines: rec.lines, stmts: rec.stmts, kind: rec.kind } : null;
+          return rec ? {
+            name: m, lines: rec.lines, stmts: rec.stmts, kind: rec.kind,
+            loops: rec.loops || 0, allocs: rec.allocs || 0, tasks: rec.tasks || 0,
+          } : null;
         }).filter(Boolean);
         var touched = members.filter(function (m) { return marks[m] && marks[m][p.idx]; });
+        function sum(k) { return parts.reduce(function (a, b) { return a + b[k]; }, 0); }
         return {
           idx: p.idx,
           name: p.name,
           phase: p.phase,
+          lens: p.lens,
           parts: parts,
-          total: parts.reduce(function (a, b) { return a + b.lines; }, 0),
-          stmts: parts.reduce(function (a, b) { return a + b.stmts; }, 0),
+          total: sum('lines'),
+          stmts: sum('stmts'),
+          loops: sum('loops'),
+          allocs: sum('allocs'),
+          tasks: sum('tasks'),
+          kinds: parts.map(function (x) { return x.kind; }).sort().join('+'),
           marks: touched.map(function (m) { return marks[m][p.idx]; }),
         };
       });
@@ -1124,137 +1733,134 @@
     if (active) active.scrollIntoView({ block: 'nearest' });
   }
 
-  // ── lifeline chart ────────────────────────────────────────────────────
+  // ── journey: what each Pass actually did to this callable ─────────────
+  //
+  // Line count is volume, not meaning. The structural counters the index
+  // already carries per function — tile allocations, loops, tasks — say what a
+  // Pass *did*: AutoTileMatmulL0 adds loops because it blocks the matmul,
+  // MemoryReuse drops allocations because it shares buffers. Statements are
+  // kept, but demoted: they track size, which is the least informative signal.
 
   var MEMBER_TONE = { AIC: 'aic', AIV: 'aiv', Group: 'group', InCore: 'incore' };
 
   function memberTone(part, rootName) {
     if (part.name !== rootName) return part.name.slice(-4) === '_aic' ? 'aic' : 'aiv';
-    return MEMBER_TONE[part.kind] || 'incore';
+    // Anything that is not a device-side compute region (Orchestration, Graph,
+    // Spmd, the Group shell) reads as scaffolding, not as the kernel itself.
+    return MEMBER_TONE[part.kind] || 'group';
   }
 
-  /**
-   * One bar per Pass, stacked by family member. Discrete bars rather than a
-   * smooth area: each Pass is a distinct state of the IR, and the gaps make
-   * "this callable does not exist yet" readable instead of a line at zero.
-   */
-  function lifelineSvg(c) {
-    var W = 960, H = 208, PAD_L = 46, PAD_R = 14, TOP = 18, BASE = 168;
-    var n = c.timeline.length;
-    var step = (W - PAD_L - PAD_R) / n;
-    var bw = Math.max(4, step * 0.74);
-    var max = 1;
-    c.timeline.forEach(function (t) { max = Math.max(max, t.total); });
-    var scale = (BASE - TOP) / max;
+  var DIM = [
+    { key: 'allocs', label: 'tile 分配', rank: 3 },
+    { key: 'loops', label: '循环', rank: 2 },
+    { key: 'tasks', label: '任务', rank: 2 },
+    { key: 'stmts', label: '语句', rank: 1 },
+  ];
 
-    var s = '<svg class="ptx-lifeline" viewBox="0 0 ' + W + ' ' + H + '" role="img" '
-      + 'aria-label="' + esc(c.name) + ' 逐 Pass 的函数体规模">';
-
-    // y grid
-    [0, 0.5, 1].forEach(function (f) {
-      var v = Math.round(max * f);
-      var y = BASE - v * scale;
-      s += '<line class="ptx-lifeline__grid" x1="' + PAD_L + '" y1="' + y + '" x2="' + (W - PAD_R) + '" y2="' + y + '"/>'
-        + '<text class="ptx-lifeline__tick" x="' + (PAD_L - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + v + '</text>';
+  function deltasOf(prev, t) {
+    return DIM.map(function (d) {
+      var v = t[d.key] - (prev ? prev[d.key] : 0);
+      return v ? { key: d.key, label: d.label, v: v, rank: d.rank } : null;
+    }).filter(Boolean).sort(function (a, b) {
+      return b.rank - a.rank || Math.abs(b.v) - Math.abs(a.v);
     });
+  }
 
-    c.timeline.forEach(function (t, i) {
-      var x = PAD_L + i * step + (step - bw) / 2;
-      var g = '<g class="ptx-lifeline__col" data-pass="' + t.idx + '">'
-        + '<title>' + esc('Pass ' + String(t.idx).padStart(2, '0') + ' · ' + t.name + '\n'
-          + (t.parts.length
-            ? t.parts.map(function (p) { return p.name + ' ' + p.kind + ' · ' + p.lines + ' 行'; }).join('\n')
-            : '尚未存在')) + '</title>';
-
-      if (!t.parts.length) {
-        g += '<rect class="ptx-lifeline__void" x="' + x + '" y="' + (BASE - 3) + '" width="' + bw + '" height="3"/>';
-      } else {
-        var y = BASE;
-        t.parts.forEach(function (p) {
-          var h = Math.max(1, p.lines * scale);
-          y -= h;
-          g += '<rect class="ptx-lifeline__seg is-' + memberTone(p, c.name) + '" x="' + x + '" y="' + y
-            + '" width="' + bw + '" height="' + h + '"/>';
+  /** Only the Passes that actually touched this callable, in pipeline order. */
+  function journeySteps(c) {
+    var steps = [];
+    var prev = null;
+    c.timeline.forEach(function (t) {
+      if (t.marks.length && (t.parts.length || prev)) {
+        steps.push({
+          t: t,
+          deltas: deltasOf(prev, t),
+          kindChange: prev && prev.kinds && prev.kinds !== t.kinds
+            ? { from: prev.kinds, to: t.kinds } : null,
         });
       }
-      if (t.marks.length) {
-        g += '<circle class="ptx-lifeline__mark" cx="' + (x + bw / 2) + '" cy="' + (TOP - 8) + '" r="2.5"/>';
-      }
-      g += '<rect class="ptx-lifeline__hit" x="' + (PAD_L + i * step) + '" y="' + TOP + '" width="' + step
-        + '" height="' + (BASE - TOP + 14) + '"/>';
-      g += '</g>';
-      s += g;
+      if (t.parts.length) prev = t;
     });
-
-    s += '<line class="ptx-lifeline__axis" x1="' + PAD_L + '" y1="' + BASE + '" x2="' + (W - PAD_R) + '" y2="' + BASE + '"/>';
-
-    var marksAt = [];
-    if (c.birth) marksAt.push([c.birth.idx, '诞生']);
-    if (c.split) marksAt.push([c.split.passIdx, '拆核']);
-    if (c.peak) marksAt.push([c.peak.idx, '峰值']);
-    if (c.shrink) marksAt.push([c.shrink.t.idx, '收缩']);
-    var seen = Object.create(null);
-    marksAt.forEach(function (m) {
-      if (seen[m[0]]) return;
-      seen[m[0]] = 1;
-      var i = c.timeline.findIndex(function (t) { return t.idx === m[0]; });
-      if (i < 0) return;
-      var cx = PAD_L + i * step + step / 2;
-      s += '<text class="ptx-lifeline__evt" x="' + cx + '" y="' + (BASE + 15) + '" text-anchor="middle">'
-        + String(m[0]).padStart(2, '0') + '</text>'
-        + '<text class="ptx-lifeline__evtlabel" x="' + cx + '" y="' + (BASE + 27) + '" text-anchor="middle">'
-        + esc(m[1]) + '</text>';
-    });
-
-    s += '</svg>';
-    return s;
+    return steps;
   }
 
-  // ── main view ─────────────────────────────────────────────────────────
+  function signed(v) { return (v > 0 ? '+' : '') + v; }
 
-  function callableEvents(c) {
-    var out = [];
-    if (c.birth) {
-      out.push({
-        idx: c.birth.idx, tone: 'add', label: '诞生',
-        title: c.birth.name,
-        note: '被外提为独立函数 · ' + c.birth.total + ' 行',
-        fn: c.name,
+  function journeyBar(c, steps) {
+    if (!steps.length) return '<p class="ptx-empty">没有任何 Pass 改动过这个 callable。</p>';
+
+    var html = '<div class="ptx-journey" id="journeyBar">';
+    var lastPhase = null;
+
+    steps.forEach(function (s) {
+      if (s.t.phase !== lastPhase) {
+        var ph = phase(s.t.phase);
+        html += '<div class="ptx-journey__phase" title="' + esc(ph.hint) + '">'
+          + '<span>' + esc(ph.label) + '</span></div>';
+        lastPhase = s.t.phase;
+      }
+
+      var primary = s.deltas[0];
+      // Once a structural counter explains the Pass, the statement count adds
+      // nothing — it is the volume signal, not the optimisation.
+      var rest = s.deltas.slice(1, 3).filter(function (d) {
+        return !(d.key === 'stmts' && primary && primary.key !== 'stmts');
       });
-    }
-    if (c.split) {
-      var shell = c.timeline.find(function (t) { return t.idx === c.split.passIdx; });
-      var shellLines = shell ? (shell.parts.find(function (p) { return p.name === c.name; }) || {}).lines : null;
-      out.push({
-        idx: c.split.passIdx, tone: 'chg', label: '拆核',
-        title: c.split.passName,
-        note: '母体降为 Group 壳' + (shellLines ? '（' + shellLines + ' 行）' : '')
-          + '，生出 ' + c.split.kids.join(' + '),
-        fn: c.split.kids[0],
+      var churn = s.t.marks.reduce(function (a, m) {
+        return a + (m.add || 0) + (m.del || 0)
+          + (m.status === 'added' ? (m.linesAfter || 0) : 0)
+          + (m.status === 'removed' ? (m.linesBefore || 0) : 0);
+      }, 0);
+
+      html += '<button class="ptx-step' + (s.t.idx === state.passIdx ? ' is-active' : '')
+        + '" data-step="' + s.t.idx + '" title="' + esc(s.t.name) + '">'
+        + '<span class="ptx-step__idx">' + String(s.t.idx).padStart(2, '0') + '</span>'
+        + '<span class="ptx-step__name">' + esc(s.t.name) + '</span>';
+
+      if (s.kindChange) {
+        html += '<span class="ptx-step__kind">' + esc(s.kindChange.from)
+          + ' → ' + esc(s.kindChange.to) + '</span>';
+      }
+
+      html += '<span class="ptx-step__badges">';
+      if (primary) {
+        html += '<b class="' + (primary.v > 0 ? 'is-up' : 'is-down') + '">'
+          + esc(primary.label) + ' ' + signed(primary.v) + '</b>';
+      }
+      rest.forEach(function (d) {
+        html += '<i>' + esc(d.label) + ' ' + signed(d.v) + '</i>';
       });
-    }
-    if (c.grow) {
-      out.push({
-        idx: c.grow.t.idx, tone: 'add', label: '最大膨胀',
-        title: c.grow.t.name,
-        note: '+' + c.grow.delta + ' 行 → ' + c.grow.t.total + ' 行',
-        fn: (c.grow.t.marks[0] || {}).name || c.name,
-      });
-    }
-    if (c.shrink) {
-      out.push({
-        idx: c.shrink.t.idx, tone: 'remove', label: '最大收缩',
-        title: c.shrink.t.name,
-        note: c.shrink.delta + ' 行 → ' + c.shrink.t.total + ' 行',
-        fn: (c.shrink.t.marks[0] || {}).name || c.name,
-      });
-    }
-    var seen = Object.create(null);
-    return out.filter(function (e) {
-      if (seen[e.idx + ':' + e.label]) return false;
-      seen[e.idx + ':' + e.label] = 1;
-      return true;
-    }).sort(function (a, b) { return a.idx - b.idx; });
+      // No counter moved, but the Pass still rewrote lines in place (filling
+      // addresses, renaming, reordering). Say how much and let the panes below
+      // show what.
+      if (!primary && !s.kindChange) {
+        html += '<i>就地改写' + (churn ? ' ' + fmt(churn) + ' 行' : '') + '</i>';
+      }
+      html += '</span></button>';
+    });
+
+    return html + '</div>';
+  }
+
+  /** Start / peak / end of the structural counters — the optimisation outcome. */
+  function journeySummary(c, steps) {
+    if (!c.birth) return '';
+    var alive = c.timeline.filter(function (t) { return t.parts.length; });
+    var last = alive[alive.length - 1];
+    var cells = DIM.slice().sort(function (a, b) { return b.rank - a.rank; }).map(function (d) {
+      var start = c.birth[d.key];
+      var end = last[d.key];
+      var peak = alive.reduce(function (m, t) { return Math.max(m, t[d.key]); }, 0);
+      if (!peak) return '';
+      var saved = peak - end;
+      return '<div class="ptx-outcome">'
+        + '<span class="ptx-outcome__label">' + esc(d.label) + '</span>'
+        + '<span class="ptx-outcome__value">' + start + ' → <b>' + end + '</b></span>'
+        + (saved > 0 ? '<span class="ptx-outcome__note">峰值 ' + peak
+            + '，最终省下 ' + saved + '</span>' : '<span class="ptx-outcome__note">峰值即终值</span>')
+        + '</div>';
+    }).join('');
+    return cells ? '<div class="ptx-outcomes">' + cells + '</div>' : '';
   }
 
   function renderCallableView() {
@@ -1263,76 +1869,64 @@
       $('viewCallable').innerHTML = '<p class="ptx-empty">这份 run 没有可追踪的 callable。</p>';
       return;
     }
+    state.callable = c.name;  // resolve the fallback so the URL names it too
+
+    var steps = journeySteps(c);
+    // Keep the selected Pass on one that actually touched this callable.
+    if (!steps.some(function (s) { return s.t.idx === state.passIdx; })) {
+      state.passIdx = steps.length ? steps[0].t.idx : state.passIdx;
+    }
 
     $('cKind').textContent = c.split ? 'AIC + AIV' : (c.kinds[0] || '—');
     $('cName').textContent = c.name;
     $('cDelta').innerHTML = c.birth
-      ? '<b class="ptx-add">' + c.birth.total + '</b> → <b>' + c.finalLines + '</b> 行'
+      ? '<span class="ptx-muted">' + steps.length + ' 个 Pass 改动过它</span>'
       : '<span class="ptx-muted">未出现</span>';
     $('cHeadline').textContent = c.birth
-      ? 'Pass ' + String(c.birth.idx).padStart(2, '0') + ' 诞生，穿过 '
-        + (c.timeline.length - 1 - c.birth.idx) + ' 个后续 Pass，其中 ' + c.touchCount + ' 个真正改动了它。'
+      ? (c.birth.idx === 0
+          ? '在前端 IR 中已存在'
+          : 'Pass ' + String(c.birth.idx).padStart(2, '0') + ' 被外提')
+        + '，穿过 ' + (c.timeline.length - 1 - c.birth.idx) + ' 个后续 Pass。选一步看它做了什么。'
       : '这个 callable 在本次编译中没有留下函数体。';
     $('cSource').textContent = c.members.length > 1 ? c.members.join(' · ') : '';
 
-    var evts = callableEvents(c);
-    var html = '';
+    $('viewCallable').innerHTML = journeySummary(c, steps) + journeyBar(c, steps);
 
-    html += '<section class="ptx-card ptx-card--flush">'
-      + '<h3>规模演进</h3>'
-      + '<p class="ptx-card__headline">每根柱子是一个 Pass 之后的函数体行数；分段是家族成员。点柱子跳到该 Pass 的 Diff。</p>'
-      + lifelineSvg(c)
-      + '<div class="ptx-lifeline__legend">'
-      + (c.split
-        ? '<span class="ptx-dot ptx-dot--group"></span>Group 壳'
-          + '<span class="ptx-dot ptx-dot--aic"></span>AIC'
-          + '<span class="ptx-dot ptx-dot--aiv"></span>AIV'
-        : '<span class="ptx-dot ptx-dot--incore"></span>' + esc(c.kinds[0] || 'InCore'))
-      + '<span class="ptx-lifeline__legendsep"></span>'
-      + '<span class="ptx-dot ptx-dot--mark"></span>该 Pass 改动了它'
-      + '</div>'
-      + '</section>';
-
-    if (evts.length) {
-      html += '<section class="ptx-card"><h3>关键事件</h3><div class="ptx-events">';
-      evts.forEach(function (e) {
-        html += '<button class="ptx-event is-' + (TONE_CLASS[e.tone] || '').replace('is-', '') + '"'
-          + ' data-jump="' + e.idx + '" data-jumpfn="' + esc(e.fn) + '">'
-          + '<span class="ptx-event__idx">' + String(e.idx).padStart(2, '0') + '</span>'
-          + '<span class="ptx-event__label">' + esc(e.label) + '</span>'
-          + '<span class="ptx-event__title">' + esc(e.title) + '</span>'
-          + '<span class="ptx-event__note">' + esc(e.note) + '</span>'
-          + '</button>';
-      });
-      html += '</div></section>';
-    }
-
-    var touched = c.timeline.filter(function (t) { return t.marks.length; });
-    html += '<section class="ptx-card"><h3>逐 Pass 改动</h3>'
-      + '<p class="ptx-card__headline">' + touched.length + ' 个 Pass 改动了 '
-      + esc(c.name) + (c.members.length > 1 ? ' 家族' : '') + '</p>'
-      + '<table class="ptx-table ptx-table--fns"><thead><tr>'
-      + '<th>Pass</th><th>成员</th><th>状态</th><th>行数</th><th></th>'
-      + '</tr></thead><tbody>';
-    touched.forEach(function (t) {
-      t.marks.forEach(function (m) {
-        var delta = (m.linesAfter || 0) - (m.linesBefore || 0);
-        html += '<tr>'
-          + '<td><span class="ptx-num">' + String(t.idx).padStart(2, '0') + '</span> ' + esc(t.name) + '</td>'
-          + '<td><code>' + esc(m.name) + '</code></td>'
-          + '<td><span class="ptx-status ptx-status--' + m.status + '">'
-          + (m.status === 'added' ? '新增' : m.status === 'removed' ? '移除' : '改写') + '</span></td>'
-          + '<td>' + (m.linesBefore || 0) + ' → ' + (m.linesAfter || 0)
-          + (delta ? ' <b class="' + (delta > 0 ? 'ptx-add' : 'ptx-del') + '">'
-            + (delta > 0 ? '+' : '') + delta + '</b>' : '') + '</td>'
-          + '<td><button class="ptx-linkbtn" data-jump="' + t.idx + '" data-jumpfn="' + esc(m.name) + '">看 Diff</button></td>'
-          + '</tr>';
-      });
-    });
-    html += '</tbody></table></section>';
-
-    $('viewCallable').innerHTML = html;
+    var active = $('viewCallable').querySelector('.ptx-step.is-active');
+    if (active) active.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
+
+  /**
+   * When a Pass touches several members of a family, focusing the one that
+   * moved most is what the reader came for — the Group shell usually changes
+   * by a line or two and would otherwise win just by sorting first.
+   */
+  function dominantMark(t, fallback) {
+    if (!t || !t.marks.length) return fallback;
+    var best = t.marks[0];
+    var bestD = -1;
+    t.marks.forEach(function (m) {
+      var d = Math.abs((m.linesAfter || 0) - (m.linesBefore || 0));
+      if (d > bestD) { bestD = d; best = m; }
+    });
+    return best.name;
+  }
+
+  /** Pick the family member this Pass moved most, so the panes open on it. */
+  function focusMemberFor(c, idx) {
+    var t = c.timeline.find(function (x) { return x.idx === idx; });
+    return dominantMark(t, c.name);
+  }
+
+  function selectStep(idx) {
+    var c = currentCallable();
+    state.passIdx = idx;
+    state.fn = focusMemberFor(c, idx);
+    var p = run().passes[idx];
+    if (p) { state.lens = suggestedLens(p); state.lensAuto = true; }
+    render();
+  }
+
 
   function jumpToPassDiff(idx, fn) {
     state.mode = 'pass';
@@ -1377,16 +1971,24 @@
     $('callableHead').hidden = !byCallable;
     $('viewCallable').hidden = !byCallable;
 
+    document.querySelector('.ptx-main').classList.toggle('is-callable', byCallable);
+
     if (byCallable) {
-      ['overview', 'diff', 'graph'].forEach(function (t) {
-        $('view' + t[0].toUpperCase() + t.slice(1)).hidden = true;
-      });
+      // Three regions: the journey on top, "what this Pass did" (structure
+      // graph) bottom-left, "what changed" (diff) bottom-right. Both panes are
+      // the existing views, re-laid-out by CSS rather than reimplemented.
+      $('viewOverview').hidden = true;
+      $('viewGraph').hidden = false;
+      $('viewDiff').hidden = false;
+      document.body.classList.add('ptx--nodoc');
       renderCallableRail();
       renderCallableView();
-      renderDoc();
+      renderGraph();
+      renderDiff();
       writeHash();
       return;
     }
+    document.body.classList.toggle('ptx--nodoc', !state.docOpen);
 
     renderRail();
     renderHeader();
@@ -1410,7 +2012,7 @@
 
   function writeHash() {
     var h = state.mode === 'callable'
-      ? '#' + state.runId + '/c/' + encodeURIComponent(state.callable || '')
+      ? '#' + state.runId + '/c/' + encodeURIComponent(state.callable || '') + '/' + state.passIdx
       : '#' + state.runId + '/' + state.passIdx + '/' + state.tab
         + (state.fn ? '/' + encodeURIComponent(state.fn) : '');
     if (location.hash !== h) history.replaceState(null, '', h);
@@ -1423,6 +2025,8 @@
     if (parts[1] === 'c') {
       state.mode = 'callable';
       if (parts[2]) state.callable = decodeURIComponent(parts[2]);
+      var pi = Number(parts[3]);
+      if (!Number.isNaN(pi) && parts[3] !== '') state.passIdx = pi;
       return;
     }
     var idx = Number(parts[1]);
@@ -1438,7 +2042,7 @@
 
     readHash();
     $('runSelect').value = state.runId;
-    state.lens = state.lens || pass().lens;
+    state.lens = state.lens || suggestedLens(pass());
     updateRunMeta();
 
     $('runSelect').addEventListener('change', function (e) {
@@ -1475,16 +2079,8 @@
     });
 
     $('viewCallable').addEventListener('click', function (e) {
-      var col = e.target.closest('.ptx-lifeline__col');
-      if (col) {
-        var c = currentCallable();
-        var t = c && c.timeline.find(function (x) { return x.idx === Number(col.dataset.pass); });
-        var fn = t && t.marks.length ? t.marks[0].name : (c ? c.name : null);
-        jumpToPassDiff(Number(col.dataset.pass), fn);
-        return;
-      }
-      var j = e.target.closest('[data-jump]');
-      if (j) jumpToPassDiff(Number(j.dataset.jump), j.dataset.jumpfn);
+      var s = e.target.closest('.ptx-step');
+      if (s) selectStep(Number(s.dataset.step));
     });
 
     $('onlyChanged').addEventListener('change', function (e) {
@@ -1531,6 +2127,7 @@
       var b = e.target.closest('button');
       if (!b) return;
       state.lens = b.dataset.lens;
+      state.lensAuto = false;
       renderGraph();
       writeHash();
     });
@@ -1545,6 +2142,7 @@
     $('nextPass').addEventListener('click', function () { selectPass(state.passIdx + 1); });
 
     $('docToggle').addEventListener('click', function () {
+      if (state.mode === 'callable') { toast('Pass 说明只在「按 Pass」视图下可用。'); return; }
       state.docOpen = !state.docOpen;
       document.body.classList.toggle('ptx--nodoc', !state.docOpen);
       renderDoc();

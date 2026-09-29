@@ -35,6 +35,14 @@ body.tc-page {
   box-shadow: none;
 }
 
+/* The former bottom dock has been removed. The three-column workbench now
+ * owns the full workarea height above the status strip. */
+.tc-frame .pto-ide-frame__workarea > [data-ide-pane="main-row"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.tc-frame [data-ide-split="standalone-main"] { height: 100%; }
+
 /* Embedded by Toolkit Studio's matching run detail. The tuning workbench keeps
  * its selected evidence surface, but yields surrounding app chrome to the host
  * page so the two IDE frames do not compete for space. */

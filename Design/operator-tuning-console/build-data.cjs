@@ -1898,11 +1898,16 @@ const CAN = {
    * hand-off on a 993 us run is noise, and promoting it to a chain would put
    * a rounding error next to a 39% finding. */
   C3: !!(stallHost && stallGap >= SPAN * 0.03 && stallHost.setupShare >= 0.1),
-  C4: !!longBlock,
+  /* In decode_csa, a long single-wave task without pipe/PMU evidence is a
+   * useful observation, but not an actionable bottleneck. Keep it out of
+   * that case's queue until a later capture can attribute its block time. */
+  C4: !!longBlock && CASE.id !== 'decode_csa',
   H1: tileSiteList.length > 0,
   H2: !!worstImb,
-  H3: rqStat.window > 0,
-  H4: !!frontend,
+  /* In decode_csa these are diagnostic readings, not losses with a makespan
+   * attribution. Do not surface them as queue items for that workflow. */
+  H3: rqStat.window > 0 && CASE.id !== 'decode_csa',
+  H4: !!frontend && CASE.id !== 'decode_csa',
 };
 
 /* Hygiene items point at chains by id. Which chains exist depends on what
@@ -1918,7 +1923,11 @@ const step = (level, role, headline, detail, evidence, subjects) => ({
 
 const findings = [
   CAN.C1 && {
-    id: 'C1', kind: 'chain', level: 'l2', severity: 'high', axis: 'comm',
+    id: 'C1', kind: 'chain', level: 'e2e', severity: 'high', axis: 'comm',
+    /* The wait is visible in L2, but the causal evidence and the intervention
+     * both belong to cross-rank Host / Device triage. Do not count C1 as an
+     * L2 queue item. */
+    queueLevels: ['e2e'],
     title: '集合点等待 ' + launchSkew.measuredSum + ' us，根因在 rank 启动错峰',
     metric: '错峰 ' + launchSkew.runnerUs + ' us · Σ(*_wait) ' + waitSpan + ' us',
     cost: {
@@ -1969,7 +1978,7 @@ const findings = [
     ],
     terminus: { level: 'l1', reason: '单块单核，核上无可调对象；链止于 L2 / E2E' },
     evidence: [],
-    focus: { view: 'l2', task: waitTasks[0].tag, critOnly: true },
+    focus: { view: 'e2e', ranks: RANK_KEYS.slice(0, 2) },
     lever: '对齐两卡的下发时刻（同步 launch、收紧 host 侧提交路径），而不是去调通信算子或本卡 kernel。',
     guardrail: '上界只说明「等待能被错峰解释」，不证明错峰是唯一成因；时钟对齐是从同一主机的 mono ts 推的，'
       + 'dump 里没有显式跨 rank 同步记录；本次仅 2 次调用，偏移量本身没有分布。',

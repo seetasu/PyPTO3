@@ -85,6 +85,12 @@
   };
 
   const R = () => D.ranks[S.rank];
+  function selectAnalysisRank(rank, view) {
+    S.rank = rank;
+    S.t0 = 0; S.t1 = R().swimlane.spanUs;
+    if (!tasksOf[S.rank][S.task]) S.task = R().tasks[0].tag;
+    if (view) S.view = view;
+  }
   const $ = (sel) => document.querySelector(sel);
   const el = (tag, cls, text) => {
     const n = document.createElement(tag);
@@ -1141,7 +1147,7 @@
       label.appendChild(el('strong', null, rank));
       label.appendChild(el('span', null, 'wall ' + num(deviceWall, 0) + ' · trace ' + num(rankData.swimlane.spanUs, 0)));
       label.appendChild(el('small', null, pct(rankData.occupancy.aicUtil, 0) + ' AIC · ' + pct(rankData.occupancy.aivUtil, 0) + ' AIV'));
-      label.addEventListener('click', () => { S.rank = rank; S.focus = null; render(); });
+      label.addEventListener('click', () => { selectAnalysisRank(rank, 'l2'); S.focus = null; render(); });
       row.appendChild(label);
       const track = el('div', 'tc-e2e-atlas-track');
       track.style.height = Math.max(64, laneCount * 16 + 12) + 'px';
@@ -1255,6 +1261,7 @@
     if (!hasE2E()) { viewE2EAbsent(stage); renderFuncSummary(stage); return; }
 
     const projection = e2eProjection();
+    if (multiRank()) renderE2ECrossRankScheduler(stage);
     if (S.e2ePanel === 'triage') {
       renderE2ETriage(stage);
       return;
@@ -1310,7 +1317,7 @@
       { label: 'host runner_run', num: true, cell: (r) => num(r.host, 1) },
       { label: 'trace', cell: (r) => (r.traced ? '<span class="ok">已采</span>' : '—') },
     ], rows.map((r) => Object.assign(r, { __selected: r.rank === S.rank && r.traced })), {
-      onPick: (r) => { S.rank = r.rank; S.focus = null; render(); },
+      onPick: (r) => { selectAnalysisRank(r.rank, 'l2'); S.focus = null; render(); },
     }));
     stage.appendChild(secTab);
 
@@ -1380,7 +1387,7 @@
       { label: '依赖关键路径', cell: (r) => r.crit + ' 节点', num: true },
       { label: 'AIC 占用', num: true, cell: (r) => pct(r.aic) },
       { label: 'AIV 占用', num: true, cell: (r) => pct(r.aiv) },
-    ], recRows, { onPick: (r) => { S.rank = r.rank; render(); } }));
+    ], recRows, { onPick: (r) => { selectAnalysisRank(r.rank, 'l2'); render(); } }));
     stage.appendChild(recSec);
     renderFuncSummary(stage);
   }
@@ -2490,7 +2497,6 @@
         const pad = Math.max(40, hit.task.span * 0.35);
         setWindow(hit.task.start - pad, hit.task.end + pad);
         renderToolbar();
-        renderDock();
       }
       renderInspector();
       drawLanes();
@@ -4049,7 +4055,7 @@
           }
           const pad = Math.max(30, r.us * 0.2);
           setWindow(r.t0 - pad, r.t1 + pad);
-          redrawStage(); renderToolbar(); renderDock(); renderInspector();
+          redrawStage(); renderToolbar(); renderInspector();
         });
         ir.appendChild(b);
       });
@@ -4908,13 +4914,71 @@
     return s;
   }
 
-  /* ======================================================= bottom dock */
+  /* ========================================= E2E cross-rank scheduler */
+  function renderE2ECrossRankScheduler(stage) {
+    const ranks = D.case.ranks.filter((rank) => D.ranks[rank] && TRACE_MATCH[rank]);
+    const skew = D.launchSkew;
+    const base = ranks[0];
+    const sec = el('section');
+    sec.appendChild(sectionHead('跨 rank 调度与 ready queue',
+      'E2E 对照 · 点行进入该 rank 的 L2 工作台'));
+
+    const waitSum = skew ? skew.measuredSum : 0;
+    sec.appendChild(tiles([
+      { k: 'rank 启动偏移', v: skew ? num(skew.runnerUs, 1) : '—', u: 'us', tone: skew ? 'warn' : null },
+      { k: '集合点等待', v: skew ? num(waitSum, 1) : '—', u: 'us', tone: skew ? 'warn' : null },
+      { k: '等待 / 偏移', v: skew && skew.runnerUs ? num(waitSum / skew.runnerUs, 2) : '—', u: '×' },
+      { k: '调度线程', v: ranks.map((rank) => D.ranks[rank].scheduler.lanes.length).join(' / '), u: ranks.join(' / ') },
+    ]));
+
+    const rows = ranks.map((rank) => {
+      const data = D.ranks[rank];
+      const isBase = rank === base;
+      return {
+        rank: rank,
+        launch: isBase ? '基线' : (skew ? '+' + num(skew.runnerUs, 1) + ' us' : '—'),
+        trace: num(data.swimlane.spanUs, 1),
+        sched: pct(data.scheduler.perLaneUtil, 1),
+        ready: 'avg ' + num(data.readyStat.avg.AIC, 3) + ' / peak ' + data.readyStat.peak.AIC,
+        readyShare: pct(data.readyStat.busyShare.AIC, 1),
+        aic: pct(data.occupancy.aicUtil, 1),
+        __selected: rank === S.rank,
+      };
+    });
+    sec.appendChild(table([
+      { label: 'rank', key: 'rank', mono: true },
+      { label: 'runner_run 启动', key: 'launch', num: true },
+      { label: 'trace span', num: true, cell: (row) => row.trace + ' us' },
+      { label: '调度线程占用', key: 'sched', num: true },
+      { label: 'AIC ready', key: 'ready', num: true },
+      { label: 'ready>0', key: 'readyShare', num: true },
+      { label: 'AIC 占用', key: 'aic', num: true },
+    ], rows, {
+      onPick: (row) => { selectAnalysisRank(row.rank, 'l2'); S.focus = null; render(); },
+    }));
+
+    const note = el('div', 'inspector-soft-card' + (skew ? ' is-warning' : ''));
+    note.textContent = skew
+      ? 'C1 在此闭合：L2 的 ready / 调度读数用于排除片内调度饱和；根因仍由两卡 Host runner_run 启动偏移确认。'
+      : '本 run 缺少可对齐的跨 rank Host 时间戳；只能比较两卡的设备侧调度读数。';
+    sec.appendChild(note);
+    stage.appendChild(sec);
+  }
+
   function renderDock() {
     const body = $('#dockBody');
     body.textContent = '';
+    if (body.__ro) { body.__ro.disconnect(); body.__ro = null; }
     /* the ready-queue tooltip lives outside #dockBody, so clear it by hand */
     const staleTip = document.querySelector('[data-tc-tip="readyq"]');
     if (staleTip) staleTip.remove();
+    if (S.view === 'e2e' && multiRank() && hasE2E()) {
+      renderE2ECrossRankDock(body);
+      return;
+    }
+    const title = $('#dockTitle');
+    if (title) title.textContent = 'Scheduler & ready queue';
+    $('#dockMode').hidden = false;
     const rank = R();
     /* The dock is built from the one capture that has a merged swimlane. With
      * another capture armed it would otherwise look like that capture's data,
@@ -5368,9 +5432,9 @@
         { id: 'cpm', label: '依赖关键路径' },
       ], S.pathOnly, (v) => { S.pathOnly = v; S.critOnly = v !== 'off'; render(); })));
       const zoomGroup = el('div', 'toolbar-control');
-      zoomGroup.appendChild(btn('−', { variant: 'ghost', size: 'icon', title: '缩小', on: () => { zoom(2); redrawStage(); renderToolbar(); renderDock(); } }));
-      zoomGroup.appendChild(btn('Fit', { variant: 'ghost', size: 'sm', on: () => { S.t0 = 0; S.t1 = R().swimlane.spanUs; redrawStage(); renderToolbar(); renderDock(); } }));
-      zoomGroup.appendChild(btn('+', { variant: 'ghost', size: 'icon', title: '放大', on: () => { zoom(0.5); redrawStage(); renderToolbar(); renderDock(); } }));
+      zoomGroup.appendChild(btn('−', { variant: 'ghost', size: 'icon', title: '缩小', on: () => { zoom(2); redrawStage(); renderToolbar(); } }));
+      zoomGroup.appendChild(btn('Fit', { variant: 'ghost', size: 'sm', on: () => { S.t0 = 0; S.t1 = R().swimlane.spanUs; redrawStage(); renderToolbar(); } }));
+      zoomGroup.appendChild(btn('+', { variant: 'ghost', size: 'icon', title: '放大', on: () => { zoom(0.5); redrawStage(); renderToolbar(); } }));
       right.appendChild(zoomGroup);
       right.appendChild(el('span', 'tc-readout', num(S.t0, 0) + '–' + num(S.t1, 0) + ' us · shift+拖动平移'));
     }
@@ -5394,14 +5458,18 @@
       right.appendChild(badge);
     }
 
-    if ((S.view === 'l2' || S.view === 'l1') && multiRank()) {
-      right.appendChild(field('rank', select(Object.keys(D.ranks).map((r) => ({ id: r, label: r })), S.rank,
+    /* E2E is always a cross-rank comparison. Every deeper lens carries one
+     * selected analysis rank; compiler / ISA keep that context even though
+     * their dumped artifacts are shared rather than rank-specific. */
+    if (S.view !== 'e2e' && multiRank()) {
+      right.appendChild(field('分析 rank', select(Object.keys(D.ranks).map((r) => ({ id: r, label: r })), S.rank,
         (v) => {
-          S.rank = v;
-          S.t0 = 0; S.t1 = R().swimlane.spanUs;
-          if (!tasksOf[S.rank][S.task]) S.task = R().tasks[0].tag;
+          selectAnalysisRank(v);
           render();
         })));
+      if (S.view === 'compiler' || S.view === 'isa') {
+        right.appendChild(el('span', 'tc-readout', '编译 / ISA 产物为 rank 共享'));
+      }
     }
 
     host.appendChild(right);
@@ -5500,11 +5568,13 @@
     /* findings queue */
     const filterHost = $('#findingFilter');
     filterHost.textContent = '';
-    /* a chain spans several layers, so it counts under every layer it visits;
-     * filtering by "编译器" must not hide the chain that landed there */
+    /* Most chains remain reachable from every layer they traverse. A chain
+     * may override that with queueLevels when its causal home is elsewhere:
+     * C1, for example, is seen in L2 but belongs to E2E triage. */
     const counts = { all: D.findings.length };
     D.findings.forEach((f) => {
-      (f.levels || [f.level]).forEach((lv) => { counts[lv] = (counts[lv] || 0) + 1; });
+      (f.queueLevels || f.levels || [f.level])
+        .forEach((lv) => { counts[lv] = (counts[lv] || 0) + 1; });
     });
     [{ id: 'all', label: '全部' }].concat(LEVELS.filter((l) => counts[l.id]).map((l) => ({ id: l.id, label: l.label })))
       .forEach((o) => {
@@ -5517,7 +5587,7 @@
     const list = $('#findingList');
     list.textContent = '';
     const shown = D.findings.filter((f) => S.findingLevel === 'all'
-      || (f.levels || [f.level]).indexOf(S.findingLevel) >= 0);
+      || (f.queueLevels || f.levels || [f.level]).indexOf(S.findingLevel) >= 0);
     const logged = {};
     S.ledger.forEach((r) => { if (r.findingId) logged[r.findingId] = 1; });
 
@@ -5630,6 +5700,13 @@
       ['层', (qwLayers() ? '40 × ' + qwLayers().perLayer : '—')],
       ['AIC / AIV', pct(ql.occ.aicUtil, 0) + ' / ' + pct(ql.occ.aivUtil, 0)],
       ['忙核', num(ql.occ.busyCores, 1) + ' / ' + ql.coreTotal],
+      ['hints', String(D.hints.length)],
+    ] : (S.view === 'e2e' && multiRank()) ? [
+      ['case', D.case.program],
+      ['ranks', D.case.ranks.join(' ↔ ')],
+      ['启动偏移', D.launchSkew ? us(D.launchSkew.runnerUs, 1) : '无同钟证据'],
+      ['集合点等待', D.launchSkew ? us(D.launchSkew.measuredSum, 1) : '—'],
+      ['调用', D.case.ranks.map((r) => 'inv=' + TRACE_MATCH[r].inv).join(' / ')],
       ['hints', String(D.hints.length)],
     ] : [
       ['case', D.case.program],
@@ -5960,8 +6037,6 @@
       renderServingBenchmarkExplorer();
       viewServingBenchmark(stage);
       renderServingBenchmarkInspector();
-      renderServingBenchmarkDock();
-      renderServingBenchmarkTerminal();
       renderServingBenchmarkStatus();
       $('[data-bind="caseChip"]').textContent = D.case.program + ' · request-level';
       return;
@@ -5979,8 +6054,6 @@
     else viewISA(stage);
 
     renderInspector();
-    renderDock();
-    renderTerminal();
     renderStatus();
     $('[data-bind="caseChip"]').textContent = D.case.program + ' · '
       + (QW() ? qwVariant().id : S.rank);
@@ -6070,10 +6143,6 @@
       const btnEl = document.querySelector('[data-ide-toggle="inspector"]');
       if (btnEl && btnEl.getAttribute('aria-expanded') === 'false') btnEl.click();
       $('#inspector').scrollTop = $('#inspector').scrollHeight;
-    });
-    document.querySelector('[data-act="open-terminal"]').addEventListener('click', () => {
-      const btnEl = document.querySelector('[data-ide-toggle="terminal"]');
-      if (btnEl && btnEl.getAttribute('aria-expanded') === 'false') btnEl.click();
     });
 
     const input = $('#searchInput');
