@@ -110,6 +110,7 @@
   // ── state ─────────────────────────────────────────────────────────────
   var state = {
     runId: INDEX.runs[0].id,
+    mode: 'pass',          // 'pass' = per-Pass timeline, 'callable' = per-callable lineage
     passIdx: 1,
     tab: 'overview',
     fn: null,
@@ -119,6 +120,9 @@
     jumpLine: null,
     filter: '',
     docOpen: true,
+    callable: null,
+    cFilter: '',
+    onlyKernels: false,
   };
 
   function run() { return INDEX.runs.find(function (r) { return r.id === state.runId; }); }
@@ -961,10 +965,429 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════
+  // Callable lineage
+  //
+  // The index is built per Pass; this transposes it per callable so a single
+  // computation can be followed down the whole pipeline. Everything here is a
+  // regrouping of `pass.functions` / `pass.changedFunctions` — no new facts.
+  // ══════════════════════════════════════════════════════════════════════
+
+  var CALLABLES = Object.create(null);
+
+  /**
+   * ExpandMixedKernel turns a mixed InCore function into an AIC kernel, an AIV
+   * kernel and a Group shell that coordinates them. Detecting that precisely
+   * (kind flips to Group in the same Pass that adds `<name>_aic` / `_aiv`)
+   * matters: plain name-prefix matching would also swallow `foo` / `foo_0`,
+   * which are distinct callables the compiler merely disambiguated.
+   */
+  function detectSplits(r) {
+    var splits = Object.create(null);
+    var childOf = Object.create(null);
+    r.passes.forEach(function (p) {
+      var added = Object.create(null);
+      var toGroup = [];
+      (p.changedFunctions || []).forEach(function (cf) {
+        if (cf.status === 'added') added[cf.name] = cf;
+        if (cf.status === 'changed' && cf.kind === 'Group' && cf.kindBefore && cf.kindBefore !== 'Group') {
+          toGroup.push(cf.name);
+        }
+      });
+      toGroup.forEach(function (root) {
+        var kids = ['_aic', '_aiv'].map(function (s) { return root + s; })
+          .filter(function (n) { return added[n]; });
+        if (!kids.length) return;
+        splits[root] = { passIdx: p.idx, passName: p.name, kids: kids };
+        kids.forEach(function (k) { childOf[k] = root; });
+      });
+    });
+    return { splits: splits, childOf: childOf };
+  }
+
+  function buildCallables(r) {
+    var lineage = detectSplits(r);
+    var rows = Object.create(null);   // name -> {passIdx -> fn record}
+    var marks = Object.create(null);  // name -> {passIdx -> changedFunction}
+    var order = [];
+
+    r.passes.forEach(function (p) {
+      (p.functions || []).forEach(function (f) {
+        if (!rows[f.name]) { rows[f.name] = Object.create(null); order.push(f.name); }
+        rows[f.name][p.idx] = f;
+      });
+      (p.changedFunctions || []).forEach(function (cf) {
+        if (!marks[cf.name]) marks[cf.name] = Object.create(null);
+        marks[cf.name][p.idx] = cf;
+      });
+    });
+
+    var list = order.filter(function (n) { return !lineage.childOf[n]; }).map(function (name) {
+      var kids = (lineage.splits[name] || {}).kids || [];
+      var members = [name].concat(kids);
+
+      var timeline = r.passes.map(function (p) {
+        var parts = members.map(function (m) {
+          var rec = rows[m] && rows[m][p.idx];
+          return rec ? { name: m, lines: rec.lines, stmts: rec.stmts, kind: rec.kind } : null;
+        }).filter(Boolean);
+        var touched = members.filter(function (m) { return marks[m] && marks[m][p.idx]; });
+        return {
+          idx: p.idx,
+          name: p.name,
+          phase: p.phase,
+          parts: parts,
+          total: parts.reduce(function (a, b) { return a + b.lines; }, 0),
+          stmts: parts.reduce(function (a, b) { return a + b.stmts; }, 0),
+          marks: touched.map(function (m) { return marks[m][p.idx]; }),
+        };
+      });
+
+      var alive = timeline.filter(function (t) { return t.parts.length; });
+      var birth = alive.length ? alive[0] : null;
+      var last = alive.length ? alive[alive.length - 1] : null;
+      var peak = null;
+      var grow = null;
+      var shrink = null;
+      timeline.forEach(function (t, i) {
+        if (!t.parts.length) return;
+        if (!peak || t.total > peak.total) peak = t;
+        var prev = i > 0 ? timeline[i - 1] : null;
+        if (!prev || !prev.parts.length) return;
+        var d = t.total - prev.total;
+        if (d > 0 && (!grow || d > grow.delta)) grow = { t: t, delta: d };
+        if (d < 0 && (!shrink || d < shrink.delta)) shrink = { t: t, delta: d };
+      });
+
+      var finalKinds = last ? last.parts.map(function (p) { return p.kind; }) : [];
+      return {
+        name: name,
+        members: members,
+        split: lineage.splits[name] || null,
+        timeline: timeline,
+        birth: birth,
+        last: last,
+        peak: peak,
+        grow: grow,
+        shrink: shrink,
+        finalLines: last ? last.total : 0,
+        kinds: finalKinds,
+        isKernel: finalKinds.some(function (k) { return k === 'AIC' || k === 'AIV'; }),
+        touchCount: timeline.filter(function (t) { return t.marks.length; }).length,
+      };
+    });
+
+    list.sort(function (a, b) { return b.finalLines - a.finalLines || a.name.localeCompare(b.name); });
+    return list;
+  }
+
+  function callables() {
+    if (!CALLABLES[state.runId]) CALLABLES[state.runId] = buildCallables(run());
+    return CALLABLES[state.runId];
+  }
+
+  function currentCallable() {
+    var all = callables();
+    return all.find(function (c) { return c.name === state.callable; }) || all[0] || null;
+  }
+
+  // ── rail ──────────────────────────────────────────────────────────────
+
+  function renderCallableRail() {
+    var all = callables();
+    var kernels = all.filter(function (c) { return c.isKernel; }).length;
+    $('callableSummary').innerHTML = '<strong>' + all.length + '</strong> 个 callable'
+      + '<span class="ptx-rail__sub">' + kernels + ' 个最终落到 AIC / AIV 核上</span>';
+
+    var filter = state.cFilter.toLowerCase();
+    var cur = currentCallable();
+    var html = '';
+    var shown = 0;
+
+    all.forEach(function (c) {
+      if (state.onlyKernels && !c.isKernel) return;
+      if (filter && c.name.toLowerCase().indexOf(filter) < 0) return;
+      shown++;
+      var kindLabel = c.split ? 'AIC+AIV' : (c.kinds[0] || '—');
+      html += '<button class="ptx-pass ptx-callable' + (cur && c.name === cur.name ? ' is-active' : '')
+        + '" data-callable="' + esc(c.name) + '">'
+        + '<span class="ptx-pass__idx">' + (c.birth ? String(c.birth.idx).padStart(2, '0') : '--') + '</span>'
+        + '<span class="ptx-pass__body">'
+        + '<span class="ptx-pass__name">' + esc(c.name) + '</span>'
+        + '<span class="ptx-callable__meta">' + esc(kindLabel) + ' · ' + c.touchCount + ' 次改动</span>'
+        + '</span>'
+        + '<span class="ptx-pass__churn">' + fmt(c.finalLines) + '</span>'
+        + '</button>';
+    });
+
+    $('callableList').innerHTML = shown ? html : '<p class="ptx-empty">没有匹配的 callable。</p>';
+    var active = $('callableList').querySelector('.is-active');
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }
+
+  // ── lifeline chart ────────────────────────────────────────────────────
+
+  var MEMBER_TONE = { AIC: 'aic', AIV: 'aiv', Group: 'group', InCore: 'incore' };
+
+  function memberTone(part, rootName) {
+    if (part.name !== rootName) return part.name.slice(-4) === '_aic' ? 'aic' : 'aiv';
+    return MEMBER_TONE[part.kind] || 'incore';
+  }
+
+  /**
+   * One bar per Pass, stacked by family member. Discrete bars rather than a
+   * smooth area: each Pass is a distinct state of the IR, and the gaps make
+   * "this callable does not exist yet" readable instead of a line at zero.
+   */
+  function lifelineSvg(c) {
+    var W = 960, H = 208, PAD_L = 46, PAD_R = 14, TOP = 18, BASE = 168;
+    var n = c.timeline.length;
+    var step = (W - PAD_L - PAD_R) / n;
+    var bw = Math.max(4, step * 0.74);
+    var max = 1;
+    c.timeline.forEach(function (t) { max = Math.max(max, t.total); });
+    var scale = (BASE - TOP) / max;
+
+    var s = '<svg class="ptx-lifeline" viewBox="0 0 ' + W + ' ' + H + '" role="img" '
+      + 'aria-label="' + esc(c.name) + ' 逐 Pass 的函数体规模">';
+
+    // y grid
+    [0, 0.5, 1].forEach(function (f) {
+      var v = Math.round(max * f);
+      var y = BASE - v * scale;
+      s += '<line class="ptx-lifeline__grid" x1="' + PAD_L + '" y1="' + y + '" x2="' + (W - PAD_R) + '" y2="' + y + '"/>'
+        + '<text class="ptx-lifeline__tick" x="' + (PAD_L - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + v + '</text>';
+    });
+
+    c.timeline.forEach(function (t, i) {
+      var x = PAD_L + i * step + (step - bw) / 2;
+      var g = '<g class="ptx-lifeline__col" data-pass="' + t.idx + '">'
+        + '<title>' + esc('Pass ' + String(t.idx).padStart(2, '0') + ' · ' + t.name + '\n'
+          + (t.parts.length
+            ? t.parts.map(function (p) { return p.name + ' ' + p.kind + ' · ' + p.lines + ' 行'; }).join('\n')
+            : '尚未存在')) + '</title>';
+
+      if (!t.parts.length) {
+        g += '<rect class="ptx-lifeline__void" x="' + x + '" y="' + (BASE - 3) + '" width="' + bw + '" height="3"/>';
+      } else {
+        var y = BASE;
+        t.parts.forEach(function (p) {
+          var h = Math.max(1, p.lines * scale);
+          y -= h;
+          g += '<rect class="ptx-lifeline__seg is-' + memberTone(p, c.name) + '" x="' + x + '" y="' + y
+            + '" width="' + bw + '" height="' + h + '"/>';
+        });
+      }
+      if (t.marks.length) {
+        g += '<circle class="ptx-lifeline__mark" cx="' + (x + bw / 2) + '" cy="' + (TOP - 8) + '" r="2.5"/>';
+      }
+      g += '<rect class="ptx-lifeline__hit" x="' + (PAD_L + i * step) + '" y="' + TOP + '" width="' + step
+        + '" height="' + (BASE - TOP + 14) + '"/>';
+      g += '</g>';
+      s += g;
+    });
+
+    s += '<line class="ptx-lifeline__axis" x1="' + PAD_L + '" y1="' + BASE + '" x2="' + (W - PAD_R) + '" y2="' + BASE + '"/>';
+
+    var marksAt = [];
+    if (c.birth) marksAt.push([c.birth.idx, '诞生']);
+    if (c.split) marksAt.push([c.split.passIdx, '拆核']);
+    if (c.peak) marksAt.push([c.peak.idx, '峰值']);
+    if (c.shrink) marksAt.push([c.shrink.t.idx, '收缩']);
+    var seen = Object.create(null);
+    marksAt.forEach(function (m) {
+      if (seen[m[0]]) return;
+      seen[m[0]] = 1;
+      var i = c.timeline.findIndex(function (t) { return t.idx === m[0]; });
+      if (i < 0) return;
+      var cx = PAD_L + i * step + step / 2;
+      s += '<text class="ptx-lifeline__evt" x="' + cx + '" y="' + (BASE + 15) + '" text-anchor="middle">'
+        + String(m[0]).padStart(2, '0') + '</text>'
+        + '<text class="ptx-lifeline__evtlabel" x="' + cx + '" y="' + (BASE + 27) + '" text-anchor="middle">'
+        + esc(m[1]) + '</text>';
+    });
+
+    s += '</svg>';
+    return s;
+  }
+
+  // ── main view ─────────────────────────────────────────────────────────
+
+  function callableEvents(c) {
+    var out = [];
+    if (c.birth) {
+      out.push({
+        idx: c.birth.idx, tone: 'add', label: '诞生',
+        title: c.birth.name,
+        note: '被外提为独立函数 · ' + c.birth.total + ' 行',
+        fn: c.name,
+      });
+    }
+    if (c.split) {
+      var shell = c.timeline.find(function (t) { return t.idx === c.split.passIdx; });
+      var shellLines = shell ? (shell.parts.find(function (p) { return p.name === c.name; }) || {}).lines : null;
+      out.push({
+        idx: c.split.passIdx, tone: 'chg', label: '拆核',
+        title: c.split.passName,
+        note: '母体降为 Group 壳' + (shellLines ? '（' + shellLines + ' 行）' : '')
+          + '，生出 ' + c.split.kids.join(' + '),
+        fn: c.split.kids[0],
+      });
+    }
+    if (c.grow) {
+      out.push({
+        idx: c.grow.t.idx, tone: 'add', label: '最大膨胀',
+        title: c.grow.t.name,
+        note: '+' + c.grow.delta + ' 行 → ' + c.grow.t.total + ' 行',
+        fn: (c.grow.t.marks[0] || {}).name || c.name,
+      });
+    }
+    if (c.shrink) {
+      out.push({
+        idx: c.shrink.t.idx, tone: 'remove', label: '最大收缩',
+        title: c.shrink.t.name,
+        note: c.shrink.delta + ' 行 → ' + c.shrink.t.total + ' 行',
+        fn: (c.shrink.t.marks[0] || {}).name || c.name,
+      });
+    }
+    var seen = Object.create(null);
+    return out.filter(function (e) {
+      if (seen[e.idx + ':' + e.label]) return false;
+      seen[e.idx + ':' + e.label] = 1;
+      return true;
+    }).sort(function (a, b) { return a.idx - b.idx; });
+  }
+
+  function renderCallableView() {
+    var c = currentCallable();
+    if (!c) {
+      $('viewCallable').innerHTML = '<p class="ptx-empty">这份 run 没有可追踪的 callable。</p>';
+      return;
+    }
+
+    $('cKind').textContent = c.split ? 'AIC + AIV' : (c.kinds[0] || '—');
+    $('cName').textContent = c.name;
+    $('cDelta').innerHTML = c.birth
+      ? '<b class="ptx-add">' + c.birth.total + '</b> → <b>' + c.finalLines + '</b> 行'
+      : '<span class="ptx-muted">未出现</span>';
+    $('cHeadline').textContent = c.birth
+      ? 'Pass ' + String(c.birth.idx).padStart(2, '0') + ' 诞生，穿过 '
+        + (c.timeline.length - 1 - c.birth.idx) + ' 个后续 Pass，其中 ' + c.touchCount + ' 个真正改动了它。'
+      : '这个 callable 在本次编译中没有留下函数体。';
+    $('cSource').textContent = c.members.length > 1 ? c.members.join(' · ') : '';
+
+    var evts = callableEvents(c);
+    var html = '';
+
+    html += '<section class="ptx-card ptx-card--flush">'
+      + '<h3>规模演进</h3>'
+      + '<p class="ptx-card__headline">每根柱子是一个 Pass 之后的函数体行数；分段是家族成员。点柱子跳到该 Pass 的 Diff。</p>'
+      + lifelineSvg(c)
+      + '<div class="ptx-lifeline__legend">'
+      + (c.split
+        ? '<span class="ptx-dot ptx-dot--group"></span>Group 壳'
+          + '<span class="ptx-dot ptx-dot--aic"></span>AIC'
+          + '<span class="ptx-dot ptx-dot--aiv"></span>AIV'
+        : '<span class="ptx-dot ptx-dot--incore"></span>' + esc(c.kinds[0] || 'InCore'))
+      + '<span class="ptx-lifeline__legendsep"></span>'
+      + '<span class="ptx-dot ptx-dot--mark"></span>该 Pass 改动了它'
+      + '</div>'
+      + '</section>';
+
+    if (evts.length) {
+      html += '<section class="ptx-card"><h3>关键事件</h3><div class="ptx-events">';
+      evts.forEach(function (e) {
+        html += '<button class="ptx-event is-' + (TONE_CLASS[e.tone] || '').replace('is-', '') + '"'
+          + ' data-jump="' + e.idx + '" data-jumpfn="' + esc(e.fn) + '">'
+          + '<span class="ptx-event__idx">' + String(e.idx).padStart(2, '0') + '</span>'
+          + '<span class="ptx-event__label">' + esc(e.label) + '</span>'
+          + '<span class="ptx-event__title">' + esc(e.title) + '</span>'
+          + '<span class="ptx-event__note">' + esc(e.note) + '</span>'
+          + '</button>';
+      });
+      html += '</div></section>';
+    }
+
+    var touched = c.timeline.filter(function (t) { return t.marks.length; });
+    html += '<section class="ptx-card"><h3>逐 Pass 改动</h3>'
+      + '<p class="ptx-card__headline">' + touched.length + ' 个 Pass 改动了 '
+      + esc(c.name) + (c.members.length > 1 ? ' 家族' : '') + '</p>'
+      + '<table class="ptx-table ptx-table--fns"><thead><tr>'
+      + '<th>Pass</th><th>成员</th><th>状态</th><th>行数</th><th></th>'
+      + '</tr></thead><tbody>';
+    touched.forEach(function (t) {
+      t.marks.forEach(function (m) {
+        var delta = (m.linesAfter || 0) - (m.linesBefore || 0);
+        html += '<tr>'
+          + '<td><span class="ptx-num">' + String(t.idx).padStart(2, '0') + '</span> ' + esc(t.name) + '</td>'
+          + '<td><code>' + esc(m.name) + '</code></td>'
+          + '<td><span class="ptx-status ptx-status--' + m.status + '">'
+          + (m.status === 'added' ? '新增' : m.status === 'removed' ? '移除' : '改写') + '</span></td>'
+          + '<td>' + (m.linesBefore || 0) + ' → ' + (m.linesAfter || 0)
+          + (delta ? ' <b class="' + (delta > 0 ? 'ptx-add' : 'ptx-del') + '">'
+            + (delta > 0 ? '+' : '') + delta + '</b>' : '') + '</td>'
+          + '<td><button class="ptx-linkbtn" data-jump="' + t.idx + '" data-jumpfn="' + esc(m.name) + '">看 Diff</button></td>'
+          + '</tr>';
+      });
+    });
+    html += '</tbody></table></section>';
+
+    $('viewCallable').innerHTML = html;
+  }
+
+  function jumpToPassDiff(idx, fn) {
+    state.mode = 'pass';
+    state.passIdx = idx;
+    state.tab = 'diff';
+    state.fn = fn || null;
+    state.lens = run().passes[idx] ? run().passes[idx].lens : state.lens;
+    render();
+  }
+
+  function selectCallable(name) {
+    if (name === state.callable) return;
+    state.callable = name;
+    render();
+  }
+
+  function setMode(mode) {
+    if (mode === state.mode) return;
+    state.mode = mode;
+    if (mode === 'callable' && !state.callable) {
+      var all = callables();
+      if (all.length) state.callable = all[0].name;
+    }
+    render();
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
   // Wiring
   // ══════════════════════════════════════════════════════════════════════
 
   function render() {
+    var byCallable = state.mode === 'callable';
+
+    document.querySelectorAll('#railMode button').forEach(function (b) {
+      b.classList.toggle('is-active', b.dataset.mode === state.mode);
+    });
+    $('railHeadPass').hidden = byCallable;
+    $('railHeadCallable').hidden = !byCallable;
+    $('passList').hidden = byCallable;
+    $('callableList').hidden = !byCallable;
+    $('passHead').hidden = byCallable;
+    $('callableHead').hidden = !byCallable;
+    $('viewCallable').hidden = !byCallable;
+
+    if (byCallable) {
+      ['overview', 'diff', 'graph'].forEach(function (t) {
+        $('view' + t[0].toUpperCase() + t.slice(1)).hidden = true;
+      });
+      renderCallableRail();
+      renderCallableView();
+      renderDoc();
+      writeHash();
+      return;
+    }
+
     renderRail();
     renderHeader();
     if (state.tab === 'overview') renderOverview();
@@ -985,8 +1408,10 @@
   }
 
   function writeHash() {
-    var h = '#' + state.runId + '/' + state.passIdx + '/' + state.tab
-      + (state.fn ? '/' + encodeURIComponent(state.fn) : '');
+    var h = state.mode === 'callable'
+      ? '#' + state.runId + '/c/' + encodeURIComponent(state.callable || '')
+      : '#' + state.runId + '/' + state.passIdx + '/' + state.tab
+        + (state.fn ? '/' + encodeURIComponent(state.fn) : '');
     if (location.hash !== h) history.replaceState(null, '', h);
   }
 
@@ -994,6 +1419,11 @@
     var parts = location.hash.replace(/^#/, '').split('/');
     if (!parts[0]) return;
     if (INDEX.runs.some(function (r) { return r.id === parts[0]; })) state.runId = parts[0];
+    if (parts[1] === 'c') {
+      state.mode = 'callable';
+      if (parts[2]) state.callable = decodeURIComponent(parts[2]);
+      return;
+    }
     var idx = Number(parts[1]);
     if (!Number.isNaN(idx)) state.passIdx = idx;
     if (['overview', 'diff', 'graph'].indexOf(parts[2]) >= 0) state.tab = parts[2];

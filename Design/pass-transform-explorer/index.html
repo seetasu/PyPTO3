@@ -63,7 +63,7 @@
 
   <!-- ── Main ──────────────────────────────────────────────────────── -->
   <main class="ptx-main">
-    <header class="ptx-passhead">
+    <header class="ptx-passhead" id="passHead">
       <div class="ptx-passhead__top">
         <span class="ptx-phase" id="passPhase"></span>
         <h1 class="ptx-passhead__name" id="passName">—</h1>
@@ -78,6 +78,19 @@
         <button class="ptx-tab" data-tab="graph" role="tab">结构图</button>
       </div>
     </header>
+
+    <header class="ptx-passhead" id="callableHead" hidden>
+      <div class="ptx-passhead__top">
+        <span class="ptx-phase" id="cKind"></span>
+        <h1 class="ptx-passhead__name" id="cName">—</h1>
+        <span class="ptx-delta" id="cDelta"></span>
+        <span class="ptx-flex"></span>
+        <span class="ptx-meta" id="cSource"></span>
+      </div>
+      <p class="ptx-passhead__headline" id="cHeadline"></p>
+    </header>
+
+    <section class="ptx-view" id="viewCallable" hidden></section>
 
     <section class="ptx-view" id="viewOverview" hidden></section>
 
