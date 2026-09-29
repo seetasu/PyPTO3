@@ -1398,6 +1398,7 @@
   }
 
   function selectPass(idx) {
+    if (state.mode === 'callable') return;
     var r = run();
     idx = Math.max(0, Math.min(r.passes.length - 1, idx));
     if (idx === state.passIdx) return;
@@ -1444,6 +1445,7 @@
       state.runId = e.target.value;
       state.passIdx = Math.min(state.passIdx, run().passes.length - 1);
       state.fn = null;
+      state.callable = null;
       updateRunMeta();
       render();
     });
@@ -1451,6 +1453,38 @@
     $('passList').addEventListener('click', function (e) {
       var b = e.target.closest('.ptx-pass');
       if (b) selectPass(Number(b.dataset.idx));
+    });
+
+    $('railMode').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (b) setMode(b.dataset.mode);
+    });
+
+    $('callableList').addEventListener('click', function (e) {
+      var b = e.target.closest('.ptx-callable');
+      if (b) selectCallable(b.dataset.callable);
+    });
+
+    $('onlyKernels').addEventListener('change', function (e) {
+      state.onlyKernels = e.target.checked;
+      renderCallableRail();
+    });
+    $('callableFilter').addEventListener('input', function (e) {
+      state.cFilter = e.target.value.trim();
+      renderCallableRail();
+    });
+
+    $('viewCallable').addEventListener('click', function (e) {
+      var col = e.target.closest('.ptx-lifeline__col');
+      if (col) {
+        var c = currentCallable();
+        var t = c && c.timeline.find(function (x) { return x.idx === Number(col.dataset.pass); });
+        var fn = t && t.marks.length ? t.marks[0].name : (c ? c.name : null);
+        jumpToPassDiff(Number(col.dataset.pass), fn);
+        return;
+      }
+      var j = e.target.closest('[data-jump]');
+      if (j) jumpToPassDiff(Number(j.dataset.jump), j.dataset.jumpfn);
     });
 
     $('onlyChanged').addEventListener('change', function (e) {
@@ -1523,6 +1557,8 @@
 
     document.addEventListener('keydown', function (e) {
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+      if (e.key === 'c' || e.key === 'C') { setMode(state.mode === 'callable' ? 'pass' : 'callable'); return; }
+      if (state.mode === 'callable') return;
       if (e.key === 'ArrowLeft') { selectPass(state.passIdx - 1); e.preventDefault(); }
       if (e.key === 'ArrowRight') { selectPass(state.passIdx + 1); e.preventDefault(); }
       if (e.key === '1') { state.tab = 'overview'; render(); }
