@@ -913,6 +913,14 @@
         description: "直接解析 passes_dump 的 52 / 42 份 IR 快照：Pass 时间线按改动量排序，代码 Diff 精确到 token，五种结构图（调用、控制流、数据流、任务 DAG、内存）做前后对照，并用实测增量说明每个 Pass 究竟做了什么优化。",
         href: "Design/pass-transform-explorer/index.html",
         preview: "Design/assets/launch-previews/pass-atlas.png",
+        // The main entry loads ~50 MB of IR snapshots on demand, so it wants a
+        // static server. The single-file build embeds all of them and opens
+        // straight from disk; both are produced by the demo's own build scripts
+        // and neither is tracked, so the page explains that if they are absent.
+        variants: [
+          { label: "按需加载版（需静态服务器）", href: "Design/pass-transform-explorer/index.html" },
+          { label: "单文件版（可直接打开）", href: "Design/pass-transform-explorer/demo.html" },
+        ],
         tags: ["Pass Diff", "IR Graph", "MemoryReuse", "Task DAG", "passes_dump"]
       },
       {

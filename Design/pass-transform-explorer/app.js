@@ -12,6 +12,11 @@
   var LIB = window.PTXLib;
   var INDEX = window.PTX_INDEX;
 
+  // Either can be absent - both are build output that the repo does not track.
+  // The inline check in index.html explains it on screen; bail quietly here so
+  // a stack trace does not land on top of that explanation.
+  if (!LIB || !INDEX) return;
+
   // ── snapshot loading ──────────────────────────────────────────────────
   var SRC = Object.create(null);
   var WAITING = Object.create(null);

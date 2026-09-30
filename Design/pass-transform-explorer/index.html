@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css?v=2">
-<link rel="stylesheet" href="styles.css?v=munsibrf">
+<link rel="stylesheet" href="styles.css?v=munu2zow">
 </head>
 <body class="pto-ide-frame ptx" data-host="standalone">
 
@@ -139,8 +139,66 @@
 
 <div class="ptx-toast" id="toast" hidden></div>
 
-<script src="lib/bundle.js?v=munsibrf"></script>
-<script src="data/index.js?v=munsibrf"></script>
-<script src="app.js?v=munsibrf"></script>
+<script src="lib/bundle.js?v=munu2zow"></script>
+<script src="data/index.js?v=munu2zow"></script>
+<script src="app.js?v=munu2zow"></script>
+<script id="ptxBootCheck">
+(function () {
+  // index.html needs lib/bundle.js and data/index.js, which build.mjs writes
+  // and .gitignore excludes. Without them the shell paints and then does
+  // nothing at all, with the only clue in the console.
+  //
+  // Judged by behaviour rather than by a variable read at parse time: the
+  // single-file build carries this same markup but inflates its assets
+  // asynchronously, so an instant check there blanked a page that was about to
+  // work. Wait for load, leave a grace period, and speak up only if the rail
+  // never filled in.
+  function missingParts() {
+    if (window.PTXLib && window.PTX_INDEX) return null;
+    var rail = document.getElementById('passList');
+    if (rail && rail.children.length) return null;
+    var missing = [];
+    if (!window.PTXLib) missing.push('lib/bundle.js');
+    if (!window.PTX_INDEX) missing.push('data/index.js');
+    return missing.length ? missing : null;
+  }
+
+  function report() {
+    var missing = missingParts();
+    if (!missing) return;
+    var fromDisk = location.protocol === 'file:';
+    var html = ''
+      + '<div class="ptx-boot__card">'
+      + '<h1>数据没有加载</h1>'
+      + '<p>这个页面需要 <code>' + missing.join('</code> 和 <code>') + '</code>，但浏览器没有拿到。'
+      + (missing.length > 1 ? '它们' : '它') + '由 <code>build.mjs</code> 生成，仓库里不跟踪，'
+      + '所以新克隆或换一个工作区之后要先构建一次。</p>'
+      + '<h2>先构建</h2>'
+      + '<pre>cd Design/pass-transform-explorer\nnode build.mjs</pre>';
+    if (fromDisk) {
+      html += '<h2>再选一种打开方式</h2>'
+        + '<p>你现在是用 <code>file://</code> 直接打开的。这个版本按需加载几十份 IR 快照，'
+        + '浏览器对本地文件的限制可能让部分请求取不到，建议二选一：</p>'
+        + '<pre>npx http-server . -p 4178 -c-1</pre>'
+        + '<p>然后访问 <code>http://localhost:4178/Design/pass-transform-explorer/index.html</code>；'
+        + '或者构建单文件版，双击即可打开、不需要服务器：</p>'
+        + '<pre>node build-demo.mjs</pre>'
+        + '<p>生成的 <code>demo.html</code> 把全部快照内嵌在一个文件里。</p>';
+    } else {
+      html += '<h2>再刷新本页</h2><p>构建完成后直接刷新即可。</p>';
+    }
+    html += '</div>';
+    var box = document.createElement('div');
+    box.className = 'ptx-boot';
+    box.innerHTML = html;
+    document.body.innerHTML = '';
+    document.body.appendChild(box);
+  }
+
+  function arm() { setTimeout(report, 2500); }
+  if (document.readyState === 'complete') arm();
+  else window.addEventListener('load', arm);
+})();
+</script>
 </body>
 </html>

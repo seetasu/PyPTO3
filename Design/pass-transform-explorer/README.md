@@ -448,6 +448,26 @@ node Design/pass-transform-explorer/build.mjs
 然后用任意静态服务器打开 `Design/pass-transform-explorer/index.html`，或从 `launch.html` 进入。
 （页面通过 `<script>` 标签按需加载快照，`file://` 下通常也能直接打开，但静态服务器更可靠。）
 
+#### 打不开数据时
+
+`index.html` 依赖两个**不进仓库**的构建产物：`lib/bundle.js` 和 `data/index.js`。
+新克隆、换工作区、或者忘了 `node build.mjs`，页面会把整套外壳画出来然后一动不动 ——
+真正的错误只在 console 里。
+
+现在缺文件时页面会直接说是哪一个、该跑什么命令；如果是 `file://` 打开的，还会给出
+静态服务器和单文件版两条路。
+
+判断用的是**行为**而不是变量：单文件版 `demo.html` 复用同一段 HTML，但它的资源是
+gzip 内嵌、异步解压的，按变量在解析时判断会把一个正要正常启动的页面清空 ——
+第一版就是这么把 `demo.html` 弄白的。改成等 `load` 再留一段宽限期，只有轨道始终没
+填上才报错。
+
+`launch.html` 的这张卡片现在给两个入口：
+
+- **按需加载版**（`index.html`）：需要静态服务器，启动快，快照按需取。
+- **单文件版**（`demo.html`）：`node build-demo.mjs` 生成，6 MB 全内嵌，双击就能开。
+
+
 ```bash
 npx http-server . -p 4178 -c-1
 ```
