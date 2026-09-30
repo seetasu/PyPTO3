@@ -1890,14 +1890,37 @@ const imbFloor = worstImb ? r2(wavesOf(worstImb) * worstImb.durMed) : null;
 const imbGap = worstImb ? r2(worstImb.span - wavesOf(worstImb) * worstImb.durMed) : null;
 const imbMultiWave = !!(worstImb && wavesOf(worstImb) >= 2);
 
+/* ------------------------------------------------ critical-path contention
+ * The aggregate multi-wave floor is useful for capacity planning, but it is
+ * not enough to call an individual task a bottleneck.  In this capture the
+ * actionable L2 evidence is stricter: a zero-slack task shares its exact core
+ * pool with work that still has slack.  Keep these two observed conflicts
+ * separate from compiler hints; neither one is evidence for MemoryReuse. */
+const byTag = (tag) => tasks.find((t) => t.tag === tag) || null;
+const aicCritical = CASE.id === 'decode_csa'
+  ? { focus: byTag('r2t28'), rivals: [byTag('r2t23'), byTag('r3t11')].filter(Boolean),
+    lanes: ['AIC_0', 'AIC_18'], windows: [{ t0: 1431.28, t1: 1823.72 }] }
+  : null;
+const aivCritical = CASE.id === 'decode_csa'
+  ? { focus: byTag('r3t16'), rivals: [byTag('r2t24'), byTag('r2t26'), byTag('r2t25')].filter(Boolean),
+    lanes: ['AIV_26', 'AIV_40', 'AIV_52'],
+    windows: [{ t0: 2340.2, t1: 2379.54 }, { t0: 2418.56, t1: 2465.86 }] }
+  : null;
+const hasAicContention = !!(aicCritical && aicCritical.focus && aicCritical.focus.onCrit
+  && aicCritical.focus.slack === 0 && aicCritical.rivals.length === 2);
+const hasAivContention = !!(aivCritical && aivCritical.focus && aivCritical.focus.onCrit
+  && aivCritical.focus.slack === 0 && aivCritical.rivals.length === 3);
+
 const CAN = {
   C1: !!(launchSkew && waitTasks.length && launchSkew.checks && launchSkew.checks.length >= 2),
-  C2: waveRows.length >= 2 && waveGapSum > 0,
+  C2: CASE.id === 'decode_csa' ? hasAicContention : waveRows.length >= 2 && waveGapSum > 0,
   /* C3 needs the stall to be material, not merely present: at least 3% of
    * makespan AND at least a tenth of the block's own core time. A 12 us
    * hand-off on a 993 us run is noise, and promoting it to a chain would put
    * a rounding error next to a 39% finding. */
-  C3: !!(stallHost && stallGap >= SPAN * 0.03 && stallHost.setupShare >= 0.1),
+  C3: CASE.id === 'decode_csa'
+    ? hasAivContention
+    : !!(stallHost && stallGap >= SPAN * 0.03 && stallHost.setupShare >= 0.1),
   /* In decode_csa, a long single-wave task without pipe/PMU evidence is a
    * useful observation, but not an actionable bottleneck. Keep it out of
    * that case's queue until a later capture can attribute its block time. */
@@ -1912,7 +1935,8 @@ const CAN = {
 
 /* Hygiene items point at chains by id. Which chains exist depends on what
  * the dump carries, so those ids are derived, never spelled into the prose. */
-const depthChainIds = ['C2', 'C3'].filter((k) => CAN[k]);
+const hasGranularityC2 = CASE.id !== 'decode_csa' && CAN.C2;
+const depthChainIds = ['C2', 'C3'].filter((k) => CASE.id !== 'decode_csa' && CAN[k]);
 const starveChainIds = ['C1', 'C2'].filter((k) => CAN[k]);
 
 /* one shared vocabulary for a chain step, so every chain reads the same way */
@@ -1984,7 +2008,53 @@ const findings = [
       + 'dump 里没有显式跨 rank 同步记录；本次仅 2 次调用，偏移量本身没有分布。',
     verify: '固定 case 重跑 ≥10 次，每次记录两卡 runner_run 的 ts 差与 *_wait 合计；偏移收窄，等待应同比收窄。',
   },
-  CAN.C2 && {
+  CASE.id === 'decode_csa' && CAN.C2 && {
+    id: 'C2', kind: 'chain', level: 'l2', severity: 'high', axis: 'sched',
+    title: '关键链 ' + aicCritical.focus.callable + ' 被非关键任务分走 AIC',
+    metric: aicCritical.focus.callable + ' · ' + aicCritical.focus.blockCount + ' 块 / '
+      + aicCritical.focus.coreCount + ' AIC · span ' + aicCritical.focus.span + ' us · slack 0',
+    cost: {
+      us: aicCritical.focus.span, share: r2((aicCritical.focus.span / SPAN) * 100),
+      basis: '关键路径任务 span，不把全部时长误报为可回收收益',
+    },
+    claim: aicCritical.focus.callable + ' 在依赖关键路径上且 slack=0，'
+      + '却与 ' + aicCritical.rivals.map((t) => t.callable + '（slack ' + t.slack + ' us）').join('、')
+      + ' 共享同一组 24 个 AIC。AIC_0 / AIC_18 上可见后两者落在前者的 block 间隙里；'
+      + '这证明关键任务没有获得让核优先级，但不能把 ' + aicCritical.focus.span + ' us 全算成可回收收益。',
+    chain: [
+      step('l2', 'observe',
+        '零 slack 的 256 块任务与有余量工作共用 24 个 AIC',
+        aicCritical.focus.callable + ' 从 ' + aicCritical.focus.start + ' 到 ' + aicCritical.focus.end
+          + ' us；' + aicCritical.rivals.map((t) => t.callable + ' slack ' + t.slack + ' us').join('，')
+          + '。在 AIC_0 与 AIC_18，' + aicCritical.rivals.map((t) => t.callable).join(' / ')
+          + ' 的 block 穿插在 ' + aicCritical.focus.callable + ' 的执行窗口。',
+        [
+          { artifact: '依赖关键路径', locator: aicCritical.focus.callable,
+            value: 'slack 0 · ' + aicCritical.focus.blockCount + ' 块 / ' + aicCritical.focus.coreCount + ' AIC · span ' + aicCritical.focus.span + ' us' },
+          { artifact: 'merged_swimlane worker lanes', locator: aicCritical.lanes.join(' / '),
+            value: aicCritical.rivals.map((t) => t.callable + ' slack ' + t.slack + ' us').join(' · ') },
+        ],
+        { view: 'l2', tasks: [aicCritical.focus].concat(aicCritical.rivals).map((t) => t.tag), lanes: aicCritical.lanes }),
+      step('l2', 'stop',
+        '根因止于 L2 调度优先级，不下钻 Pass',
+        '本 trace 能证明“谁占了同一组核、谁有 slack、谁在关键链上”，但没有 scheduler 优先级或候选队列字段。'
+          + '因此不能把竞争归到 MemoryReuse、tile 或某个 Pass。',
+        [], null),
+    ],
+    terminus: { level: 'l2', reason: '缺 scheduler 优先级 / 候选队列字段；已足够形成可证伪的让核实验' },
+    evidence: [],
+    focus: { view: 'l2', task: aicCritical.focus.tag },
+    contention: { focus: aicCritical.focus.tag, rivals: aicCritical.rivals.map((t) => t.tag),
+      lanes: aicCritical.lanes, windows: aicCritical.windows, engine: 'AIC' },
+    lever: '只在 ' + aicCritical.focus.start + '–' + aicCritical.focus.end
+      + ' us 的就绪窗口提高 ' + aicCritical.focus.callable + ' 的关键链优先级；先让 ' + aicCritical.rivals.map((t) => t.callable).join(' / ')
+      + ' 给出核心，不改 kernel 或 tile。',
+    guardrail: '不能无限期饿死非关键任务：' + aicCritical.rivals.map((t) => t.callable + ' 只有 ' + t.slack + ' us slack').join('，')
+      + '。实验必须检查它们是否被推过各自的 latest-start。',
+    verify: '重测 ' + aicCritical.focus.callable + ' span、关键路径 makespan，以及 '
+      + aicCritical.rivals.map((t) => t.callable + ' slack').join(' / ') + '；只有 makespan 缩短且 rival 仍未越过 slack 才算生效。',
+  },
+  CASE.id !== 'decode_csa' && CAN.C2 && {
     id: 'C2', kind: 'chain', level: 'l2', severity: 'high', axis: 'granularity',
     title: '多波小块任务有 ' + waveGapSum + ' us 是块间间隙，不是核上工作',
     metric: waveRows.length + ' 个任务 / ' + waveBlocks + ' 块 · 间隙 ' + waveGapSum + ' us',
@@ -2098,7 +2168,50 @@ const findings = [
     verify: '重编译后核对该源码点的 PH-MR-001 是否消失、块数是否下降，再重测这批任务的 span 与间隙；'
       + '间隙下降而 span 不降，说明瓶颈已经换了位置。',
   },
-  CAN.C3 && {
+  CASE.id === 'decode_csa' && CAN.C3 && {
+    id: 'C3', kind: 'chain', level: 'l2', severity: 'high', axis: 'sched',
+    title: '关键链 indexer_topk_query_merge 被非关键任务分走 AIV',
+    metric: aivCritical.focus.tag + ' · ' + aivCritical.focus.blockCount + ' 块 / '
+      + aivCritical.focus.coreCount + ' AIV · span ' + aivCritical.focus.span + ' us · slack 0',
+    cost: {
+      us: aivCritical.focus.span, share: r2((aivCritical.focus.span / SPAN) * 100),
+      basis: '关键路径任务 span，不把全部时长误报为可回收收益',
+    },
+    claim: aivCritical.focus.tag + '（' + aivCritical.focus.callable + '）在关键路径且 slack=0。'
+      + 'AIV_26 / AIV_40 / AIV_52 上，它的 block 在 2403–2489 us 左右出现 70–87 us 空档，'
+      + '同时 ' + aivCritical.rivals.map((t) => t.tag + '（slack ' + t.slack + ' us）').join('、')
+      + ' 正在运行。这个尾波是可见的 AIV 让核失败，不是 kernel 本身算得慢。',
+    chain: [
+      step('l2', 'observe',
+        '零 slack 的 AIV 任务在最后一波前让出核心',
+        aivCritical.focus.tag + ' 的 256 块摊在 ' + aivCritical.focus.coreCount + ' 个 AIV，'
+          + 'block 中位 ' + aivCritical.focus.durMed + ' us；但 AIV_26 / AIV_40 / AIV_52 在 2403–2489 us'
+          + ' 仍穿插执行 ' + aivCritical.rivals.map((t) => t.tag).join(' / ') + '。',
+        [
+          { artifact: '依赖关键路径', locator: aivCritical.focus.tag,
+            value: 'slack 0 · ' + aivCritical.focus.blockCount + ' 块 / ' + aivCritical.focus.coreCount + ' AIV · span ' + aivCritical.focus.span + ' us' },
+          { artifact: 'merged_swimlane worker lanes', locator: aivCritical.lanes.join(' / '),
+            value: aivCritical.rivals.map((t) => t.tag + ' slack ' + t.slack + ' us').join(' · ') },
+        ],
+        { view: 'l2', tasks: [aivCritical.focus].concat(aivCritical.rivals).map((t) => t.tag), lanes: aivCritical.lanes }),
+      step('l2', 'stop',
+        '根因止于 L2 调度优先级，不下钻 Pass',
+        '这里没有 producer 未完成或 MemoryReuse 回退的直接证据；可证实的是一个有 slack 的 AIV 任务在关键任务最后一波前获得了核心。',
+        [], null),
+    ],
+    terminus: { level: 'l2', reason: '缺 scheduler 优先级 / 候选队列字段；先用局部优先级实验验证' },
+    evidence: [],
+    focus: { view: 'l2', task: aivCritical.focus.tag },
+    contention: { focus: aivCritical.focus.tag, rivals: aivCritical.rivals.map((t) => t.tag),
+      lanes: aivCritical.lanes, windows: aivCritical.windows, engine: 'AIV' },
+    lever: '在 ' + aivCritical.focus.start + '–' + aivCritical.focus.end
+      + ' us 暂时保留 AIV 给关键链，延后 ' + aivCritical.rivals.map((t) => t.tag).join(' / ') + ' 的 dispatch。',
+    guardrail: aivCritical.rivals.map((t) => t.tag + ' 的 slack 为 ' + t.slack + ' us').join('，')
+      + '；必须限制延后量，避免把尾延迟转移到它们的后继。',
+    verify: '重测 ' + aivCritical.focus.tag + ' 的末波开始时间、span 与关键路径 makespan，'
+      + '同时确认 ' + aivCritical.rivals.map((t) => t.tag + ' slack').join(' / ') + ' 未变负。',
+  },
+  CASE.id !== 'decode_csa' && CAN.C3 && {
     id: 'C3', kind: 'chain', level: 'l2', severity: 'high', axis: 'launch',
     title: stallHost.callable + ' 每块 ' + r2(stallHost.setupMean) + ' us 在核上空等生产者',
     metric: stallGap + ' us 墙钟 · setup 占核上 ' + r2(stallHost.setupShare * 100) + '%',
@@ -2333,7 +2446,7 @@ const hygiene = [
     unattributed: imbMultiWave
       ? '离散度只解释 ' + r2(worstImb.durMax - worstImb.durMed) + ' us；该任务 span '
         + worstImb.span + ' us 里的大头是 ' + imbGap + ' us 的块间间隙'
-        + (CAN.C2 ? '，已归入 C2' : '') + '。'
+        + (hasGranularityC2 ? '，已归入 C2' : '') + '。'
       : '整个任务只占 makespan ' + r2((worstImb.span / SPAN) * 100) + '%，'
         + '离散度最多值 ' + r2(worstImb.durMax - worstImb.durMed) + ' us；这个量级折不出墙钟收益。',
     claim: worstImb.blockCount + ' 块摊到 ' + worstImb.coreCount + ' 核（约 ' + imbWaves
@@ -2346,7 +2459,7 @@ const hygiene = [
         : '这是一波跑完的任务，尾块确实决定 span —— 但 span 一共才 ' + worstImb.span
           + ' us，把最慢块压到中位也只省 ' + r2(worstImb.durMax - worstImb.durMed) + ' us。')
       + (critTags.indexOf(worstImb.tag) >= 0 ? '' : '它也不在依赖关键路径上（slack ' + worstImb.slack + ' us）。')
-      + (CAN.C2 ? '先看 C2，再谈切分。' : '这条读数本身也没有 makespan 归因。'),
+      + (hasGranularityC2 ? '先看 C2，再谈切分。' : '这条读数本身也没有 makespan 归因。'),
     evidence: [
       { artifact: 'merged_swimlane blocks', locator: worstImb.tag + ' (' + worstImb.callable + ')',
         value: 'min ' + worstImb.durMin + ' / med ' + worstImb.durMed + ' / p90 ' + worstImb.durP90
@@ -2361,7 +2474,7 @@ const hygiene = [
     focus: { view: 'l1', task: worstImb.tag },
     subjectsHint: { view: 'l1', tasks: [worstImb.tag] },
     lever: '独立循环用 pl.parallel 而非 pl.range；'
-      + (CAN.C2 ? '但排在 C2 之后做，否则改了切分也看不出 span 变化。' : '先确认它对 span 有影响再动。'),
+      + (hasGranularityC2 ? '但排在 C2 之后做，否则改了切分也看不出 span 变化。' : '先确认它对 span 有影响再动。'),
     guardrail: '先确认慢块是工作量差异还是 MTE / UB 争用；PMU 打开会改变调度，不能与 PMU-off 基线直接比较。',
     verify: '重测该任务 durMax/durMed、间隙与 span 三项；只有 span 缩短才算生效。',
   },
@@ -2571,7 +2684,26 @@ if (investigationIds.has('C1')) {
       guardrail: '结果校验、吞吐、host bind 时间' }]);
 }
 
-if (investigationIds.has('C2')) {
+if (CASE.id === 'decode_csa' && investigationIds.has('C2')) {
+  const f = byId.C2;
+  const c2FocusName = byTag(f.contention.focus).callable;
+  const c2RivalNames = f.contention.rivals.map((tag) => byTag(tag).callable);
+  addInvestigation('INV-025', '验证 AIC 关键链让核是否缩短 ' + c2FocusName, statusOf(f),
+    '只改变 ' + c2FocusName + ' 就绪窗口内的 AIC 调度优先级，验证零 slack 任务是否不再被有 slack 的工作穿插。',
+    [includeFinding('C2')],
+    [
+      { id: 'H-01', title: c2FocusName + ' 与有 slack 的 AIC 工作竞争', level: '强支持',
+        claim: f.claim, evidence: ['C2'],
+        need: '提升 ' + c2FocusName + ' 优先级后，它的 block 间隙与 span 是否下降。' },
+      { id: 'H-02', title: '收益没有被转移到竞争任务的后继', level: '待验证',
+        claim: f.guardrail, evidence: ['C2'],
+        need: c2RivalNames.join(' / ') + ' 的 slack 仍非负，且关键路径 makespan 缩短。' },
+    ],
+    [{ id: 'EXP-025-01', status: '待执行', name: '只提高 ' + c2FocusName + ' 的 AIC 优先级',
+      change: '不改 kernel、tile、依赖；仅限制其就绪窗口内的同池抢占',
+      measures: c2FocusName + ' span · block 间隙 · 关键路径 makespan · ' + c2RivalNames.join('/') + ' slack',
+      guardrail: '竞争任务不得越过 latest-start；span 降而 makespan 不降不算收益' }]);
+} else if (investigationIds.has('C2')) {
   const f = byId.C2;
   const rooted = f.terminus.level === 'compiler';
   addInvestigation('INV-025', '把块间间隙归因到调度粒度与流水深度', statusOf(f),
@@ -2602,7 +2734,24 @@ if (investigationIds.has('C2')) {
       guardrail: '不接受「间隙下降但 span 不动」；不通过调大 stage 换取局部收益' }]);
 }
 
-if (investigationIds.has('C3')) {
+if (CASE.id === 'decode_csa' && investigationIds.has('C3')) {
+  const f = byId.C3;
+  addInvestigation('INV-026', '验证 AIV 关键链让核是否缩短 r3t16', statusOf(f),
+    '只延后有 slack 的 AIV 任务，验证 r3t16 的最后一波是否提前完成。',
+    [includeFinding('C3')],
+    [
+      { id: 'H-01', title: 'r3t16 的末波被有 slack 的 AIV 任务推迟', level: '强支持',
+        claim: f.claim, evidence: ['C3'],
+        need: '延后 r2t24/r2t26/r2t25 后，末波开始时间与任务 span 是否同向下降。' },
+      { id: 'H-02', title: '让核没有把关键路径压力搬到 r2t53', level: '待验证',
+        claim: f.guardrail, evidence: ['C3'],
+        need: '复测 r2t26 的 slack 及 r2t53 的开始时间。' },
+    ],
+    [{ id: 'EXP-026-01', status: '待执行', name: '只为 r3t16 保留 AIV',
+      change: '不改融合、依赖或 tile；在 r3t16 就绪窗口延后有 slack 的 AIV dispatch',
+      measures: 'r3t16 末波开始 · span · 关键路径 makespan · r2t24/r2t26/r2t25 slack',
+      guardrail: '任何 rival 越过 latest-start，或 makespan 不降，实验均不成立' }]);
+} else if (investigationIds.has('C3')) {
   const f = byId.C3;
   addInvestigation('INV-026', '区分早发空等与真正的 hand-off 开销', statusOf(f),
     '先证明 duration − kernel_duration 是等数据而不是准备工作，再决定合核还是改依赖。',

@@ -207,13 +207,15 @@ function analyzeFunction(fn, sourceLines) {
       allocs.push({ ptr: s.targets[0], space, size: literal(s.expr.args[1]), line: s.line });
     }
 
-    // Calls to sibling functions, however they are spelled.
-    if (s.expr) {
-      walkExpr(s.expr, (e) => {
+    // Calls to sibling functions, however they are spelled - including a tail
+    // call in a `return`, which carries a real edge as much as an assignment.
+    const called = s.expr ? [s.expr] : s.exprs ? s.exprs.filter(Boolean) : [];
+    for (const root of called) {
+      walkExpr(root, (e) => {
         if (e.k !== 'call') return;
         const name = dotted(e.fn);
         if (name.startsWith('self.')) {
-          calls.push({ callee: name.slice(5), via: 'direct', line: s.line });
+          calls.push({ callee: name.slice(5), via: s.kind === 'return' ? 'tail' : 'direct', line: s.line });
         } else if (name === 'pl.submit' || name === 'pl.spmd_submit') {
           const target = dotted(e.args[0]).replace(/^self\./, '');
           if (target) calls.push({ callee: target, via: name.slice(3), line: s.line });

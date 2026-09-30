@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css?v=2">
-<link rel="stylesheet" href="styles.css?v=mu9nzvv9">
+<link rel="stylesheet" href="styles.css?v=munsibrf">
 </head>
 <body class="pto-ide-frame ptx" data-host="standalone">
 
@@ -43,6 +43,7 @@
       <div id="railHeadPass">
         <div class="ptx-rail__title">Pass 流水线</div>
         <div id="railSummary" class="ptx-rail__summary"></div>
+        <div class="ptx-perfkey" id="perfKey" aria-label="按性能影响分档筛选"></div>
         <label class="ptx-checkline">
           <input type="checkbox" id="onlyChanged"> 只看改动了 IR 的 Pass
         </label>
@@ -66,6 +67,7 @@
     <header class="ptx-passhead" id="passHead">
       <div class="ptx-passhead__top">
         <span class="ptx-phase" id="passPhase"></span>
+        <span class="ptx-perftier" id="passPerfTier" hidden></span>
         <h1 class="ptx-passhead__name" id="passName">—</h1>
         <span class="ptx-delta" id="passDelta"></span>
         <span class="ptx-flex"></span>
@@ -102,8 +104,10 @@
           <button data-mode="split" class="is-active">并排</button>
           <button data-mode="unified">统一</button>
         </div>
+        <button id="diffExpand" class="btn btn-ghost btn-sm" title="全屏查看代码 Diff (F，Esc 退出)">全屏</button>
       </div>
       <div class="ptx-diff" id="diffBody"></div>
+      <div class="ptx-hscroll" id="diffHScroll" hidden aria-label="并排 Diff 的水平滚动"><div></div></div>
     </section>
 
     <section class="ptx-view ptx-view--flush" id="viewGraph" hidden>
@@ -135,8 +139,8 @@
 
 <div class="ptx-toast" id="toast" hidden></div>
 
-<script src="lib/bundle.js?v=mu9nzvv9"></script>
-<script src="data/index.js?v=mu9nzvv9"></script>
-<script src="app.js?v=mu9nzvv9"></script>
+<script src="lib/bundle.js?v=munsibrf"></script>
+<script src="data/index.js?v=munsibrf"></script>
+<script src="app.js?v=munsibrf"></script>
 </body>
 </html>

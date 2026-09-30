@@ -56,15 +56,18 @@
     chainStep: null,          /* 'C2:1' -- which ladder rung the reader is on */
     findingLevel: 'all',
     focus: null,               /* 'finding' | 'task' | 'hint' | 'pass' */
-    laneFilter: 'all',
+    /* L2 opens on an annotated per-core trace: the full execution remains
+     * visible, but only the strongest performance signals are saturated. */
+    laneFilter: 'summary',
     colorMode: 'semantic',
     colorOn: true,          /* off => every bar goes neutral grey */
     scopeReturn: null,      /* window + focus to restore when drilling back up */
     folded: {},             /* inspector sections the reader has collapsed */
-    overlay: 'sched',
-    deps: 'sel',            /* 'off' | 'sel' | 'path' -- dependency edges on the swimlane */
+    overlay: 'none',
+    deps: 'off',            /* 'off' | 'sel' | 'path' -- dependency edges on the swimlane */
     critOnly: false,
     pathOnly: 'off',       /* 'off' | 'obs' | 'cpm' -- which path the filter shows */
+    pathFocus: false,      /* click an execution-main-path task => mute unrelated work */
     focusEvidence: false,
     scrollToLane: null,
     t0: 0, t1: 0,
@@ -208,9 +211,12 @@
     S.l2Panel = 'swimlane';
     S.l1Panel = 'pipe';
     S.findingLevel = 'all';
-    S.laneFilter = 'all';
+    S.laneFilter = 'summary';
+    S.overlay = 'none';
+    S.deps = 'off';
     S.critOnly = false;
     S.pathOnly = 'off';
+    S.pathFocus = false;
     S.task = tasksOf[S.rank][D.derived.worstHandoff]
       ? D.derived.worstHandoff : R().tasks[0].tag;
     S.hintSite = D.tileSites.length ? D.tileSites[0].key : null;
@@ -727,7 +733,7 @@
   function pathCell(sc, obs, rank) {
     const onObs = sc.tags.some((t) => obs[t]);
     if (sc.onCrit) return '<span class="bad">依赖关键路径</span>';
-    if (onObs) return '<span class="warn">观测路径</span>';
+    if (onObs) return '<span class="warn">执行主路径（归因）</span>';
     return '<span class="muted">都不在 · slack ' + num(sc.minSlack, 0) + '</span>';
   }
 
@@ -928,84 +934,94 @@
   function renderE2EFlowMap(stage, triage, decision) {
     const b = triage.benchmark;
     const servingWait = triage.servingWait && triageNumber(triage.servingWait, 'avgUs', 'avg_us');
-    const sec = el('section');
+    const sec = el('section', 'tc-e2e-command-overview');
     sec.id = 'e2e-triage';
-    sec.appendChild(sectionHead('运行流总览', '从请求到设备：先看数据在哪里停住，再决定下钻方向',
+    sec.appendChild(sectionHead('端到端运行总览', '把一次真实请求的 Serving、Host 与 Device 信号放到同一张首屏，先定界再下钻',
       el('span', 'tc-readout', b.measured ? b.source + ' · 同一 scope 实测' : b.source + ' · scope 不完整')));
-    const map = el('div', 'tc-e2e-flow');
-    const canvas = el('canvas');
-    map.appendChild(canvas);
-    const nodes = [
-      { id: 'request', x: 8, y: 55, label: 'E2E Request', value: num(b.e2eWallUs / 1000000, 2) + ' s', meta: b.scope ? '完整请求 · 跨 scope' : '端到端墙钟' },
-      { id: 'serving', x: 33, y: 55, label: 'Serving', value: servingWait != null ? num(servingWait / 1000, 1) + ' ms wait' : 'WorkerProcess', meta: triage.workers.length < 2 ? '单 worker · 不可比较' : '请求分配 / 队列', panel: 'serving' },
-      { id: 'host', x: 57, y: 55, label: 'Host', value: b.hostWallUs != null ? num(b.hostWallUs / 1000, 1) + ' ms' : '未采集', meta: 'bind / 注册 / 编排', panel: 'serving', active: decision.domain === 'host' },
-      { id: 'device', x: 82, y: 55, label: 'Device', value: b.deviceWallUs != null ? num(b.deviceWallUs / 1000, 1) + ' ms' : '未采集', meta: b.deviceWallUs == null ? 'device_wall_us 缺失' : '执行路径', panel: 'device', active: decision.domain === 'device' },
-    ];
-    nodes.forEach((item) => {
-      const node = el(item.panel ? 'button' : 'div', 'tc-e2e-flow-node');
-      if (item.panel) node.type = 'button';
-      node.dataset.node = item.id;
-      if (item.active) node.dataset.active = 'true';
-      node.style.left = item.x + '%';
-      node.style.top = item.y + '%';
-      node.appendChild(el('span', 'k', item.label));
-      node.appendChild(el('strong', 'v', item.value));
-      node.appendChild(el('small', 'm', item.meta));
-      if (item.panel) node.addEventListener('click', () => { S.e2ePanel = item.panel; render(); });
-      map.appendChild(node);
-    });
-    [
-      { left: 20, top: 39, text: b.completed ? b.completed + ' requests' : 'request admitted' },
-      { left: 44.5, top: 68, text: servingWait != null ? 'queue wait ' + num(servingWait / 1000, 1) + ' ms' : 'dispatch' },
-      { left: 69.5, top: 39, text: 'bind repeated · H2D unknown' },
-    ].forEach((item) => {
-      const label = el('span', 'tc-e2e-flow-edge');
-      label.style.left = item.left + '%';
-      label.style.top = item.top + '%';
-      label.textContent = item.text;
-      map.appendChild(label);
-    });
-    const draw = () => {
-      const w = map.clientWidth || 760;
-      const h = map.clientHeight || 270;
-      const ctx = fitCanvas(canvas, w, h);
-      const point = (x, y) => [w * x / 100, h * y / 100];
-      const line = (from, to, tone) => {
-        const a = point(from.x + 7, from.y), z = point(to.x - 7, to.y);
-        ctx.save();
-        ctx.strokeStyle = cssVar(tone);
-        ctx.globalAlpha = tone === '--warning' ? 0.9 : 0.5;
-        ctx.lineWidth = tone === '--warning' ? 2 : 1;
-        ctx.beginPath();
-        ctx.moveTo(a[0], a[1]);
-        ctx.bezierCurveTo(a[0] + 52, a[1] - 36, z[0] - 52, z[1] + 36, z[0], z[1]);
-        ctx.stroke();
-        const angle = Math.atan2(z[1] - (z[1] + 36), z[0] - (z[0] - 52));
-        ctx.translate(z[0], z[1]); ctx.rotate(angle);
-        ctx.fillStyle = cssVar(tone);
-        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-7, -4); ctx.lineTo(-7, 4); ctx.closePath(); ctx.fill();
-        ctx.restore();
-      };
-      line(nodes[0], nodes[1], '--foreground-secondary');
-      line(nodes[1], nodes[2], decision.domain === 'host' ? '--warning' : '--foreground-secondary');
-      line(nodes[2], nodes[3], b.deviceWallUs == null ? '--foreground-muted' : '--accent');
-      ctx.save();
-      ctx.setLineDash([4, 5]);
-      ctx.strokeStyle = cssVar('--foreground-muted'); ctx.globalAlpha = .38;
-      const a = point(nodes[0].x + 7, nodes[0].y), z = point(nodes[3].x - 7, nodes[3].y);
-      ctx.beginPath(); ctx.moveTo(a[0], a[1] + 54); ctx.bezierCurveTo(w * .35, h * .98, w * .67, h * .98, z[0], z[1] + 54); ctx.stroke();
-      ctx.restore();
+    const grid = el('div', 'tc-e2e-command-grid');
+    const percentOfE2E = (value) => b.e2eWallUs && value != null
+      ? Math.max(4, Math.min(100, value / b.e2eWallUs * 100)) : 12;
+    const domainCard = (item) => {
+      const card = el(item.panel ? 'button' : 'div', 'tc-e2e-command-card');
+      if (item.panel) card.type = 'button';
+      card.dataset.domain = item.id;
+      if (item.active) card.dataset.active = 'true';
+      card.appendChild(el('span', 'eyebrow', item.label));
+      card.appendChild(el('strong', 'value', item.value));
+      card.appendChild(el('span', 'caption', item.caption));
+      const meter = el('span', 'meter');
+      meter.style.setProperty('--tc-meter', item.share + '%');
+      card.appendChild(meter);
+      card.appendChild(el('small', 'detail', item.detail));
+      if (item.panel) card.addEventListener('click', () => { S.e2ePanel = item.panel; render(); });
+      return card;
     };
-    requestAnimationFrame(draw);
-    const resize = new ResizeObserver(draw);
-    resize.observe(map);
+    grid.appendChild(domainCard({
+      id: 'serving', label: 'Serving', value: servingWait != null ? msOrUs(servingWait) : 'WorkerProcess',
+      caption: servingWait != null ? 'wait_worker_output 平均等待' : '请求分配 / 队列',
+      detail: triage.workers.length + ' 个 WorkerProcess · ' + (triage.workers.length < 2 ? '不可比较' : '可查看分布'),
+      share: percentOfE2E(servingWait), panel: 'serving', active: decision.domain === 'serving',
+    }));
+    grid.appendChild(domainCard({
+      id: 'host', label: 'Host', value: msOrUs(b.hostWallUs), caption: 'bind / 注册 / 编排',
+      detail: b.hostWallUs != null ? '占端到端 ' + num(percentOfE2E(b.hostWallUs), 1) + '%' : 'Host wall 未采集',
+      share: percentOfE2E(b.hostWallUs), panel: 'serving', active: decision.domain === 'host',
+    }));
+    grid.appendChild(domainCard({
+      id: 'device', label: 'Device', value: msOrUs(b.deviceWallUs),
+      caption: b.deviceWallUs == null ? 'device_wall_us 未采集' : '执行路径',
+      detail: b.deviceWallUs == null ? '进入 Device 轨迹前需补采' : '占端到端 ' + num(percentOfE2E(b.deviceWallUs), 1) + '%',
+      share: percentOfE2E(b.deviceWallUs), panel: 'device', active: decision.domain === 'device',
+    }));
+    const action = el('section', 'tc-e2e-action-card');
+    action.dataset.domain = decision.domain;
+    action.appendChild(el('span', 'eyebrow', '本轮建议'));
+    action.appendChild(el('strong', null, decision.title));
+    action.appendChild(el('p', null, decision.detail));
+    action.appendChild(el('small', null, decision.action));
+    const actionButton = btn(decision.domain === 'device' ? '进入 Device 轨迹' : '查看 Serving / Host', {
+      size: 'sm', on: () => { S.e2ePanel = decision.domain === 'device' ? 'device' : 'serving'; render(); },
+    });
+    actionButton.classList.add('tc-e2e-action-button');
+    action.appendChild(actionButton);
+    grid.appendChild(action);
+    sec.appendChild(grid);
+    stage.appendChild(sec);
+  }
+
+  function renderE2ECriticalPaths(stage) {
+    const ranks = D.case.ranks.filter((rank) => D.ranks[rank] && D.ranks[rank].cpath);
+    if (!ranks.length) return;
+    const sec = el('section', 'tc-e2e-critical-paths');
+    sec.appendChild(sectionHead('跨 Rank 关键链路', '横向位置与宽度来自各卡实测 trace；点击关键路径任务进入 L1'));
+    const map = el('div', 'tc-e2e-critical-map');
+    ranks.forEach((rank) => {
+      const data = D.ranks[rank];
+      const row = el('div', 'tc-e2e-critical-row' + (rank === S.rank ? ' is-armed' : ''));
+      const label = el('button', 'rank');
+      label.type = 'button';
+      label.appendChild(el('strong', null, rank));
+      label.appendChild(el('small', null, msOrUs(data.swimlane.spanUs) + ' trace'));
+      label.addEventListener('click', () => { selectAnalysisRank(rank, 'l2'); S.focus = null; render(); });
+      row.appendChild(label);
+      const track = el('div', 'track');
+      data.cpath.segments.forEach((segment) => {
+        const task = data.tasks[segment.tag];
+        if (!task) return;
+        const mark = el('button', 'mark');
+        mark.type = 'button';
+        mark.dataset.stage = e2eStageOf(task).id;
+        mark.style.left = (task.start / data.swimlane.spanUs * 100).toFixed(3) + '%';
+        mark.style.width = Math.max(.7, task.span / data.swimlane.spanUs * 100).toFixed(3) + '%';
+        mark.title = task.callable + ' · ' + msOrUs(task.span);
+        mark.setAttribute('aria-label', mark.title);
+        mark.addEventListener('click', () => e2eJump(rank, task));
+        track.appendChild(mark);
+      });
+      row.appendChild(track);
+      map.appendChild(row);
+    });
     sec.appendChild(map);
-    const verdict = el('div', 'tc-e2e-triage-verdict');
-    verdict.dataset.domain = decision.domain;
-    verdict.appendChild(el('strong', null, decision.title));
-    verdict.appendChild(el('span', null, decision.detail));
-    verdict.appendChild(el('small', null, '下一步：' + decision.action));
-    sec.appendChild(verdict);
     stage.appendChild(sec);
   }
 
@@ -1261,9 +1277,10 @@
     if (!hasE2E()) { viewE2EAbsent(stage); renderFuncSummary(stage); return; }
 
     const projection = e2eProjection();
-    if (multiRank()) renderE2ECrossRankScheduler(stage);
     if (S.e2ePanel === 'triage') {
       renderE2ETriage(stage);
+      renderE2ECriticalPaths(stage);
+      if (multiRank()) renderE2ECrossRankScheduler(stage);
       return;
     }
     if (S.e2ePanel === 'serving') {
@@ -2243,6 +2260,44 @@
     const subjLane = subjectLaneSet();
     const hasSubjects = Object.keys(subj).length > 0;
     const dim = S.focusEvidence && (hasSubjects || Object.keys(subjLane).length > 0);
+    const cp = rank.cpath;
+    /* The annotated view is a visual projection of the L2 queue.  C2/C3 are
+     * not generic gap scores: each names a zero-slack task and the runnable
+     * work that shares its core pool. */
+    const c2 = findingById.C2;
+    const c3 = findingById.C3;
+    const c2Color = CMAP.colorForTask({ colorKey: 'finding-C2', label: 'C2' }, 'semantic');
+    const c3Color = CMAP.colorForTask({ colorKey: 'finding-C3', label: 'C3' }, 'semantic');
+    const c2TaskSet = {};
+    const c3TaskSet = {};
+    if (c2 && c2.subjects) (c2.subjects.tasks || []).forEach((tag) => { c2TaskSet[tag] = 1; });
+    if (c3 && c3.subjects) (c3.subjects.tasks || []).forEach((tag) => { c3TaskSet[tag] = 1; });
+    const c2Contention = (c2 && c2.contention) || null;
+    const c3Contention = (c3 && c3.contention) || null;
+    const c2FocusTask = c2Contention && tasksOf[S.rank][c2Contention.focus];
+    const c2RivalTasks = c2Contention
+      ? c2Contention.rivals.map((tag) => tasksOf[S.rank][tag]).filter(Boolean) : [];
+    const c2RivalSet = {};
+    c2RivalTasks.forEach((task) => { c2RivalSet[task.tag] = 1; });
+    const c2FocusTag = c2Contention && c2Contention.focus;
+    const c3FocusTag = c3Contention && c3Contention.focus;
+    const c3FocusTask = c3FocusTag && tasksOf[S.rank][c3FocusTag];
+    const contentionLaneSet = {};
+    const c2LaneSet = {};
+    (c2Contention && c2Contention.lanes || []).forEach((name) => { c2LaneSet[name] = 1; });
+    (c2Contention && c2Contention.lanes || []).concat(c3Contention && c3Contention.lanes || [])
+      .forEach((name) => { contentionLaneSet[name] = 1; });
+    const signalTaskSet = { [S.task]: 1 };
+    Object.keys(c2TaskSet).forEach((tag) => { signalTaskSet[tag] = 1; });
+    Object.keys(c3TaskSet).forEach((tag) => { signalTaskSet[tag] = 1; });
+    Object.keys(subj).forEach((tag) => { signalTaskSet[tag] = 1; });
+    /* Path focus gives the selected path node a clear first visual tier. The
+     * rest of the execution main path keeps its task colour at reduced opacity; all
+     * non-path work stays as a faint scheduling context. */
+    const pathFocusSet = {};
+    if (S.pathFocus) {
+      cp.segments.forEach((seg) => { pathFocusSet[seg.tag] = 1; });
+    }
 
     /* ---- where each task's blocks actually sit -----------------------
      * Built once per view: the ribbon needs it to jump into the swimlane,
@@ -2267,26 +2322,30 @@
     const gateIn = (tag) => (lanesByTask[tag] || [])
       .reduce((a, b) => (a && a.start <= b.start ? a : b), null);
 
-    /* --- path ribbon -------------------------------------------------
-     * Drawn on the real time axis, so it shows the path that actually
-     * tiles that axis: the observed blame walk. The dependency floor does
-     * NOT tile it (14 nodes, 3066.8 + 185.8 gap against a 4879.8 makespan),
-     * so putting it here used to make the header claim "走完 4879.8 us"
-     * about a chain that covers two thirds of it. CPM nodes are ticked. */
-    const cp = rank.cpath;
-    const cpmOnPath = cp.segments.filter((sg) => sg.onCpm).length;
+    const contentionWindows = [];
+    [[c2Contention, 'C2', c2Color], [c3Contention, 'C3', c3Color]].forEach(([item, id, color]) => {
+      if (!item) return;
+      (item.windows || []).forEach((window) => contentionWindows.push({
+        id: id, color: color, engine: item.engine, lanes: item.lanes || [], t0: window.t0, t1: window.t1,
+      }));
+    });
+
+    /* --- execution attribution path ----------------------------------
+     * One primary path is shown here: the backward attribution chain that
+     * tiles this rank's observed span using dependency predecessors and
+     * same-core execution order. It is a runtime explanation candidate, not
+     * a proof of ready-queue causality; task-level dispatch evidence is absent. */
     const ribSec = el('section');
     /* live readouts, filled by the draw pass: keeping them in the section head
      * rather than painting them on the canvas avoids fighting the time ruler
      * for the same pixels, and they stay selectable text */
     const pathReadout = el('span', 'tc-readout');
     const ribRight = el('span', 'tc-readout-group');
-    ribRight.appendChild(el('span', 'tc-readout', '其中 ' + cpmOnPath + ' 个也在依赖关键路径上（共 '
-      + crit.tags.length + ' 个 · ' + us(crit.chainSpan) + '）'));
+    ribRight.appendChild(el('span', 'tc-readout', 'rank span ' + us(cp.makespan)
+      + ' · Task 覆盖 ' + us(cp.computeTotal) + ' · 路径间隙 ' + us(cp.stallTotal)));
     ribRight.appendChild(pathReadout);
-    ribSec.appendChild(sectionHead('观测路径 · ' + cp.segments.length + ' 节点',
-      '计算 ' + us(cp.computeTotal) + ' + stall ' + us(cp.stallTotal) + ' = ' + us(cp.makespan)
-        + ' · 点节点跳到泳道',
+    ribSec.appendChild(sectionHead('执行主路径 · ' + S.rank + ' · ' + cp.segments.length + ' 个 Task',
+      '从最晚结束 Task 反向沿依赖 / 同核前序归因 · 点击节点定位泳道 · 同核等待缺 ready / dispatch 证据，因果待证',
       ribRight));
     const ribHost = el('div', 'tc-canvas-strip');
     const ribCanvas = el('canvas');
@@ -2296,51 +2355,57 @@
 
     /* --- worker swimlane --- */
     const laneSec = el('section', 'tc-stage-fill');
-    /* A 62-way categorical scale has no readable legend. With per-operator
-     * colouring the hue is an identity key for telling neighbouring blocks
-     * apart, not something to look up — the name comes from hover or the
-     * scope ranking. So: state the scale, don't enumerate it. */
     const legend = el('div', 'tc-legend');
-    if (S.colorOn && S.colorMode !== 'engine') {
-      legend.appendChild(el('span', 'tc-readout',
-        rank.scopes.length + ' scope 各一色 · 颜色只用于区分相邻块，名字看悬停或右侧排行'));
-    } else if (!S.colorOn) {
-      const s0 = el('span');
-      const i0 = el('i');
-      i0.style.background = cssVar('--surface-4');
-      s0.appendChild(i0);
-      s0.appendChild(el('span', null, '任务（配色已关）'));
-      legend.appendChild(s0);
-      const s1 = el('span');
-      const i1 = el('i');
-      i1.style.background = cssVar('--warning');
-      s1.appendChild(i1);
-      s1.appendChild(el('span', null, '空转窗口 ' + (rank.idleRuns || []).length + ' 段'));
-      legend.appendChild(s1);
-      const s2 = el('span');
-      const i2 = el('i');
-      i2.style.background = cssVar('--danger');
-      s2.appendChild(i2);
-      s2.appendChild(el('span', null, '依赖关键路径 ' + crit.tags.length + ' 节点'));
-      legend.appendChild(s2);
-    } else if (S.colorMode === 'engine') {
-      [['aic', 'AIC'], ['aiv', 'AIV'], ['mix', 'MIX']].forEach((p) => {
-        const s = el('span');
-        const i = el('i');
-        i.style.background = CMAP.colorForTask({ laneKind: p[0] }, 'engine');
-        s.appendChild(i);
-        s.appendChild(el('span', null, p[1]));
-        legend.appendChild(s);
+    const annotated = S.laneFilter === 'summary';
+    const c2TraceFocus = D.case.id === 'decode_csa' && c2FocusTask
+      && (S.finding === 'C2' || S.task === c2FocusTask.tag);
+    legend.appendChild(el('span', 'tc-readout', annotated
+      ? '任务颜色表示 kernel 身份；C2 / C3 的线框与符号表示调度角色'
+      : '每行一核 · 保留完整逐核标签 · 悬停查看详情'));
+    if (annotated && c2TraceFocus) {
+      const addC2Legend = (mark, label, style, title) => {
+        const item = el('span', 'tc-readout');
+        const glyph = el('i');
+        Object.keys(style).forEach((key) => { glyph.style[key] = style[key]; });
+        item.title = title || (mark === '?'
+          ? '缺 task 级 ready / enqueue / dispatch 与优先级记录；全局 ready queue 不能证明关键任务当时已具备派发条件。'
+          : mark === '→'
+            ? '只提高 ' + c2FocusTask.callable + ' 的调度优先级后重跑；比较 rank device span 与 '
+              + c2RivalTasks.map((task) => task.callable).join(' / ')
+              + ' slack，必须 span 下降且两项 slack 均不小于 0。'
+            : '');
+        item.appendChild(glyph);
+        item.appendChild(document.createTextNode(mark + ' ' + label));
+        legend.appendChild(item);
+      };
+      addC2Legend('◆', c2FocusTask.callable + ' · slack 0', { background: c2Color, outline: '1px solid #fff' }, '关键链任务：零 slack；泳道块使用双层描边和左侧角色色条。');
+      c2RivalTasks.forEach((task, i) => {
+        const hatch = i === 0
+          ? 'repeating-linear-gradient(135deg, transparent 0 2px, ' + c2Color + ' 2px 3px)'
+          : 'repeating-linear-gradient(45deg, transparent 0 2px, ' + c2Color + ' 2px 3px), repeating-linear-gradient(135deg, transparent 0 4px, ' + c2Color + ' 4px 5px)';
+        addC2Legend(i === 0 ? '╱' : '╳', task.callable + ' · slack ' + num(task.slack, 0),
+          { background: hatch, outline: '1px solid ' + cssVar('--border-default') },
+          '同池竞争任务。保留 kernel 身份色，以不同斜纹标出其执行块；slack ' + num(task.slack, 2) + ' us。');
       });
+      addC2Legend('?', 'ready 未证实', { border: '1px solid ' + cssVar('--warning'), background: 'transparent' });
+      addC2Legend('→', '只调 ' + c2FocusTask.callable + ' 优先级', { border: '1px dashed ' + cssVar('--foreground-secondary'), background: 'transparent' });
     }
+    if (S.pathFocus) legend.appendChild(el('span', 'tc-readout', '主路径聚焦中 · 当前任务高亮 · 路径其余任务半透明'));
     const depsReadout = el('span', 'tc-readout');
     legend.appendChild(depsReadout);
-    laneSec.appendChild(sectionHead('Chip swimlane · ' + rank.swimlane.lanes.length + ' core lane',
-      laneRows().length + ' 泳道 · ' + rank.swimlane.blocks.reduce((a, b) => a + b.length, 0) + ' 块', legend));
     const laneHost = el('div', 'tc-canvas-host');
     const laneCanvas = el('canvas', 'tc-lanes');
     laneCanvas.tabIndex = 0;
     laneHost.appendChild(laneCanvas);
+    laneSec.appendChild(sectionHead(annotated ? '72 核泳道 · 关键表现' : '原始逐核泳道',
+      annotated
+        ? 'C2：' + (c2FocusTask ? c2FocusTask.callable : '关键链 AIC')
+          + (c2TraceFocus && c2RivalTasks.length
+            ? ' 的同池竞争块：' + c2RivalTasks.map((task, i) => task.callable + '（' + (i === 0 ? '╱' : '╳') + '）').join('、')
+              + ' · 斜纹对应 AIC_0 / AIC_18 上的实际 Task 块'
+            : ' 与有 slack 工作竞争')
+          + ' · C3：' + (c3FocusTask ? c3FocusTask.callable : '关键链 AIV') + ' 与有 slack 工作竞争；点选 C2 查看同一时间轴上的证据与验证条件'
+        : '每行一核 · ' + rank.swimlane.blocks.reduce((a, b) => a + b.length, 0) + ' 块', legend));
     laneSec.appendChild(laneHost);
     stage.appendChild(laneSec);
 
@@ -2372,7 +2437,7 @@
           SW.drawTaskBar(ctx, {
             task: barTask(t, null, 'evidence'),
             x: x, y: 32, width: Math.max(3, x2 - x), height: 16,
-            baseColor: CMAP.colorForTask({ colorKey: t.callable, label: t.callable }, 'semantic'),
+            baseColor: taskColor(t),
             isSelected: true,
             isEmphasized: t.tag === S.task,
             fontFamily: cssVar('--font-sans'),
@@ -2396,8 +2461,8 @@
       }
 
       ctx.fillStyle = cssVar('--foreground-muted');
-      ctx.fillText('OBS PATH', 4, 40 + evRow);
-      ctx.fillText('STALL', 4, 62 + evRow);
+      ctx.fillText('主路径', 4, 40 + evRow);
+      ctx.fillText('间隙', 4, 62 + evRow);
       let cursor = null;
       cp.segments.forEach((node) => {
         const t = tasksOf[S.rank][node.tag];
@@ -2414,12 +2479,6 @@
           fontFamily: cssVar('--font-sans'),
         });
         ctx.globalAlpha = 1;
-        /* a tick above the bar marks a node that is ALSO on the dependency
-         * floor -- touching one of those lowers the floor, not just the stall */
-        if (node.onCpm) {
-          ctx.fillStyle = cssVar('--foreground');
-          ctx.fillRect(Math.max(plotX, x), 27 + evRow, Math.max(2, Math.min(plotX + plotW, x2) - Math.max(plotX, x)), 2);
-        }
         /* gap markers are not task bars: page-local data-viz marks */
         if (cursor !== null && t.start > cursor) {
           const gx = sx(cursor), gx2 = sx(t.start);
@@ -2448,8 +2507,8 @@
       if (!selTask) { pathReadout.textContent = ''; return; }
       const at = cp.segments.findIndex((sg) => sg.tag === selTask.tag);
       pathReadout.textContent = at >= 0
-        ? '已选 第 ' + (at + 1) + '/' + cp.segments.length + ' 节点 · ' + selTask.callable
-        : '已选 ' + selTask.callable + ' · 不在观测路径上';
+        ? '已选 ' + (at + 1) + '/' + cp.segments.length + ' · ' + selTask.callable
+        : '已选 ' + selTask.callable + ' · 不在当前主路径';
       pathReadout.classList.toggle('is-muted', at < 0);
     }
 
@@ -2479,8 +2538,8 @@
       const hit = ribHit(event);
       if (!hit) return null;
       return barTask(hit.task, null,
-        '观测路径 ' + (hit.idx + 1) + '/' + cp.segments.length
-          + (hit.node.onCpm ? ' · 也在依赖关键路径上' : ''));
+        '执行主路径 ' + (hit.idx + 1) + '/' + cp.segments.length
+          + (hit.node.onCpm ? ' · 同时在依赖关键路径上' : ''));
     });
     ribCanvas.style.cursor = 'pointer';
     ribCanvas.addEventListener('click', (event) => {
@@ -2488,6 +2547,7 @@
       if (!hit) return;
       S.task = hit.task.tag;
       S.focus = 'task';
+      S.pathFocus = true;
       /* scroll the swimlane to the block this node actually ran on */
       const anchor = gateIn(hit.task.tag);
       if (anchor) S.scrollToLane = anchor.name;
@@ -2525,13 +2585,12 @@
       ctx.restore();
     }
 
-    /* Worker rows are deliberately roomier than the compact scheduler overlay:
-     * the worker view is where readers compare adjacent cores. The extra gap
-     * makes individual bars and lane labels scannable without turning the
-     * trace into a solid colour field. */
+    /* The raw per-core view deliberately keeps its original row rhythm: this
+     * is the evidence view where adjacent cores need to remain scannable. */
     const ROW_H = 11, ROW_GAP = 3, ENGINE_GAP = 7;
     const SCHED_ROW_H = 9, SCHED_ROW_GAP = 2;
     let laneLayout = [];
+
     function drawLanes() {
       const lanes = laneRows();
       const w = laneHost.clientWidth || 800;
@@ -2539,8 +2598,11 @@
       const overlayRows = S.overlay === 'sched' ? rank.scheduler.lanes.length : 0;
       const readyH = S.overlay === 'ready' ? 46 : 0;
       const OCC_H = 26;
+      const c2Diagnostic = D.case.id === 'decode_csa' && annotated && c2FocusTask
+        && (S.finding === 'C2' || S.task === c2FocusTask.tag);
       const schedH = overlayRows ? overlayRows * (SCHED_ROW_H + SCHED_ROW_GAP) + 8 : 0;
-      const top = 30 + OCC_H + schedH + readyH;
+      const bandTop = 30;
+      const top = bandTop + OCC_H + schedH + readyH;
       const workerRows = [];
       let workerBottom = top;
       lanes.forEach((lane, i) => {
@@ -2566,7 +2628,7 @@
         const wins = rank.occWindows;
         if (!wins || !wins.length) return;
         const ww = rank.occWindowUs;
-        const bandY = 30;
+        const bandY = bandTop;
         const strip = (OCC_H - 4) / 2;
         ctx.fillStyle = cssVar('--foreground-muted');
         ctx.font = '500 10px ' + cssVar('--font-sans');
@@ -2584,8 +2646,10 @@
             ctx.globalAlpha = 1;
           });
         });
-        /* highlight the stretches where both engines were under the threshold */
-        (rank.idleRuns || []).forEach((r) => {
+        /* Raw mode retains the low-occupancy wash. In annotated mode, the
+         * queue's C2 / C3 overlays below take precedence over generic signals. */
+        const idleHighlights = annotated ? [] : (rank.idleRuns || []);
+        idleHighlights.forEach((r) => {
           const x = sx(r.t0), x2 = sx(r.t1);
           if (x2 < plotX || x > plotX + plotW) return;
           const xa = Math.max(plotX, x);
@@ -2620,7 +2684,7 @@
       /* AICPU scheduler lanes */
       if (overlayRows) {
         rank.scheduler.lanes.forEach((name, i) => {
-          const y = 30 + OCC_H + i * (SCHED_ROW_H + SCHED_ROW_GAP);
+          const y = bandTop + OCC_H + i * (SCHED_ROW_H + SCHED_ROW_GAP);
           ctx.fillStyle = cssVar('--foreground-muted');
           ctx.fillText(name, 4, y + SCHED_ROW_H / 2);
           rank.scheduler.blocks[i].forEach((b) => {
@@ -2636,7 +2700,7 @@
 
       /* ready-but-undispatched strip */
       if (readyH) {
-        const y0 = 32 + OCC_H, hh = readyH - 8;
+        const y0 = 32 + bandTop - 30 + OCC_H, hh = readyH - 8;
         const peak = Math.max(rank.readyStat.peak.AIC, rank.readyStat.peak.AIV, 1);
         ctx.fillStyle = cssVar('--foreground-muted');
         ctx.fillText('READY', 4, y0 + hh / 2);
@@ -2668,6 +2732,8 @@
         const li = rank.swimlane.laneNames.indexOf(lane.name);
         laneLayout.push({ y: y, laneIdx: li, name: lane.name });
         const laneIsSubject = !!subjLane[lane.name];
+        const laneIsContention = annotated && !!contentionLaneSet[lane.name];
+        const laneIsC2 = c2Diagnostic && !!c2LaneSet[lane.name];
         /* A barely-there band restores the row rhythm in a dense trace while
          * leaving task colour and idle washes as the primary signals. */
         ctx.fillStyle = cssVar('--surface-2');
@@ -2680,10 +2746,43 @@
           ctx.fillRect(plotX, y - 2, plotW, ROW_H + 4);
           ctx.globalAlpha = 1;
         }
-        ctx.fillStyle = laneIsSubject ? cssVar('--warning')
+        const rowWindows = annotated
+          ? contentionWindows.filter((window) => window.lanes.indexOf(lane.name) >= 0) : [];
+        rowWindows.forEach((window) => {
+          const x0 = sx(window.t0), x1 = sx(window.t1);
+          if (x1 < plotX || x0 > plotX + plotW) return;
+          const left = Math.max(plotX, x0);
+          const width = Math.max(1, Math.min(plotX + plotW, x1) - left);
+          ctx.fillStyle = window.color;
+          ctx.globalAlpha = window.id === 'C2' && c2Diagnostic ? 0.20 : 0.10;
+          ctx.fillRect(left, y - 2, width, ROW_H + 4);
+          ctx.globalAlpha = window.id === 'C2' && c2Diagnostic ? 0.9 : 0.62;
+          ctx.strokeStyle = window.color;
+          ctx.lineWidth = window.id === 'C2' && c2Diagnostic ? 1.2 : 0.8;
+          ctx.setLineDash(window.id === 'C2' && c2Diagnostic ? [3, 2] : [2, 3]);
+          ctx.strokeRect(left + 0.5, y - 1.5, Math.max(0, width - 1), ROW_H + 2);
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+        });
+        ctx.fillStyle = laneIsSubject ? cssVar('--warning') : laneIsC2 ? c2Color : laneIsContention ? cssVar('--accent')
           : lane.util > 60 ? cssVar('--foreground-secondary') : cssVar('--foreground-muted');
-        ctx.font = (laneIsSubject ? '600' : '500') + ' 10px ' + cssVar('--font-sans');
+        ctx.font = (laneIsSubject || laneIsContention ? '600' : '500') + ' 10px ' + cssVar('--font-sans');
         ctx.fillText(lane.name, 4, y + ROW_H / 2);
+        if (laneIsC2) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(57, y + ROW_H / 2, 4.2, 0, Math.PI * 2);
+          ctx.strokeStyle = cssVar('--warning');
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.fillStyle = cssVar('--warning');
+          ctx.font = '700 7px ' + cssVar('--font-mono');
+          ctx.textAlign = 'center';
+          ctx.fillText('?', 57, y + ROW_H / 2 + 2.5);
+          ctx.restore();
+          ctx.font = '500 10px ' + cssVar('--font-sans');
+          ctx.textAlign = 'left';
+        }
         rank.swimlane.blocks[li].forEach((b) => {
           const t = rank.tasks[b[2]];
           if (S.critOnly && !pathSet[t.tag]) return;
@@ -2692,11 +2791,24 @@
           const xa = Math.max(plotX, x);
           const wBar = Math.max(0.8, Math.min(plotX + plotW, x2) - xa);
           const isSubj = !!subj[t.tag];
+          const isCurrentPathTask = S.pathFocus && t.tag === S.task;
+          const isOtherPathTask = S.pathFocus && !isCurrentPathTask && !!pathFocusSet[t.tag];
+          const bEnd = b[0] + b[1];
+          const inC2Window = laneIsC2 && (c2Contention.windows || []).some((win) => b[0] < win.t1 && bEnd > win.t0);
+          const isC2Rival = c2Diagnostic && inC2Window && !!c2RivalSet[t.tag];
+          const isC2FocusBlock = c2Diagnostic && inC2Window && t.tag === c2FocusTag;
+          const fadedByPath = S.pathFocus && !isCurrentPathTask && !isOtherPathTask
+            && !isC2Rival && !isSubj;
+          const fadedBySignal = annotated && !S.pathFocus && !signalTaskSet[t.tag] && !isSubj;
+          const faded = fadedByPath || fadedBySignal;
+          const isContentionFocus = t.tag === c2FocusTag || t.tag === c3FocusTag;
           if (isSubj) markers.push({ x: xa, y: y, n: subj[t.tag] });
-          ctx.globalAlpha = dim && !isSubj && !laneIsSubject ? 0.16 : 1;
+          ctx.globalAlpha = faded ? (fadedByPath ? 0.14 : 0.2)
+            : isOtherPathTask ? 0.44 : isC2Rival && S.pathFocus ? 0.62
+              : (dim && !isSubj && !laneIsSubject ? 0.16 : 1);
           if (wBar < 2.2) {
             /* below task-bar legibility: draw a density tick, not a fake bar */
-            ctx.fillStyle = taskColor(t);
+            ctx.fillStyle = faded ? cssVar('--surface-4') : taskColor(t);
             ctx.fillRect(xa, y, wBar, ROW_H);
             ctx.globalAlpha = 1;
             return;
@@ -2704,13 +2816,46 @@
           SW.drawTaskBar(ctx, {
             task: barTask(t, b, lane.name),
             x: xa, y: y, width: wBar, height: ROW_H, radius: 1,
-            baseColor: taskColor(t),
-            isSelected: isSubj || t.tag === S.task,
-            isRelated: !isSubj && t.tag !== S.task && !!pathSet[t.tag] && !S.critOnly,
-            isEmphasized: isSubj,
+            baseColor: faded ? cssVar('--surface-4') : taskColor(t),
+            isSelected: t.tag === S.task || (isSubj && !S.pathFocus),
+            isRelated: isC2Rival || (!S.pathFocus && !isSubj && t.tag !== S.task
+              && !!pathSet[t.tag] && !S.critOnly),
+            isEmphasized: (isSubj && !S.pathFocus) || isContentionFocus || isCurrentPathTask,
             fontFamily: cssVar('--font-sans'),
           });
           ctx.globalAlpha = 1;
+          if (isC2FocusBlock) {
+            /* Focus gets a high-contrast double frame; the kernel identity fill
+             * remains untouched so role emphasis cannot be mistaken for color. */
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(xa + 1, y + 1, Math.max(0, wBar - 2), ROW_H - 2);
+            ctx.fillStyle = c2Color;
+            ctx.fillRect(xa, y - 1, Math.min(3, wBar), ROW_H + 2);
+          }
+          if (isC2Rival) {
+            /* Rival tasks retain their kernel identity colors. Opposite hatch
+             * directions separate the two competitors even when labels clip. */
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(xa, y, wBar, ROW_H);
+            ctx.clip();
+            ctx.strokeStyle = c2Color;
+            ctx.globalAlpha = 0.9;
+            ctx.lineWidth = 1;
+            const rivalIndex = c2RivalTasks.findIndex((task) => task.tag === t.tag);
+            const drawHatch = (reverse, step) => {
+              for (let hx = xa - ROW_H; hx < xa + wBar; hx += step) {
+                ctx.beginPath();
+                ctx.moveTo(hx, reverse ? y : y + ROW_H);
+                ctx.lineTo(hx + ROW_H, reverse ? y + ROW_H : y);
+                ctx.stroke();
+              }
+            };
+            drawHatch(rivalIndex > 0, 5);
+            if (rivalIndex > 0) drawHatch(false, 7);
+            ctx.restore();
+          }
         });
         /* A wider separator at each engine boundary makes the two core pools
          * legible even when the chart is scrolled. */
@@ -2735,9 +2880,9 @@
        *
        * The edge that matters is producer-last-block -> consumer-first-block.
        * When the consumer's first block starts BEFORE the producer's last
-       * block ends, the edge is drawn in danger + dashed: that is the same
-       * early dispatch the trace flags as hb_violation, and it is exactly
-       * what C3 is about. It should be visible here, not only in prose. */
+       * block ends, it is drawn in danger + dashed as a trace-order anomaly.
+       * This is supporting context only; C2/C3 are the separately annotated
+       * per-lane contention marks in the worker rows. */
       if (S.deps !== 'off') {
         const rowOf = {};
         laneLayout.forEach((r) => { rowOf[r.name] = r; });
@@ -2872,6 +3017,7 @@
       if (!hit) return;
       S.task = hit.task.tag;
       S.focus = 'task';
+      S.pathFocus = cp.segments.some((seg) => seg.tag === hit.task.tag);
       renderInspector();
       drawLanes();
       drawRibbon();
@@ -3851,16 +3997,16 @@
     };
   }
   function pathLabel(r) {
-    if (!r.onCpm && !r.onObs) return '两条路径都不在';
+    if (!r.onCpm && !r.onObs) return '不在执行主路径或依赖关键路径';
     const bits = [];
     if (r.onCpm) bits.push('依赖关键路径 ' + r.cpmIdx + '/' + r.cpmN);
-    if (r.onObs) bits.push('观测路径 ' + r.obsIdx + '/' + r.obsN);
+    if (r.onObs) bits.push('执行主路径 ' + r.obsIdx + '/' + r.obsN);
     return '在 ' + bits.join(' · ');
   }
   function pathTitle(r) {
-    return '依赖关键路径 = 静态 CPM，依赖决定的延迟下界；动它降下界。' + NL
-      + '观测路径 = 从最后完成的任务反向归责走出的链，计算 + stall 精确铺满 makespan；动它去掉 stall。' + NL
-      + '两条不是同一个集合，所以「在不在关键路径上」必须说清是哪一条。'
+    return '执行主路径 = 从当前 rank 最晚完成的任务反向沿依赖与同核前序归因，用于解释实测设备跨度。' + NL
+      + '它不是依赖图的静态下界；同核前序说明执行顺序，不足以证明任务 ready 后被调度器延迟。' + NL
+      + '依赖关键路径 = 过滤后的依赖图 CPM，只说明依赖约束下界；两条路径可能不同。'
       + (r.seg ? NL + '本节点前的 stall ' + num(r.seg.stall, 2) + ' us（' + r.seg.kind + '）' : '');
   }
   /* scopes are source-level pl.spmd regions; kernels are what launched */
@@ -4105,7 +4251,7 @@
 
     if (!c.acyclic) {
       sec.appendChild(el('div', 'inspector-soft-card is-warning',
-        'happens-before 图有环，静态 CPM 无法计算 —— 下面只有观测路径。'));
+        'happens-before 图有环，依赖关键路径无法计算；下面仍显示执行归因主链，但不要将其视为依赖下界。'));
     }
 
     sec.appendChild(kv([
@@ -4175,7 +4321,7 @@
         + 'stall ' + num(sg.stall, 2) + ' us · 本节点 span ' + num(sg.dur, 2)
         + ' us · 非重叠计入 ' + num(sg.compute, 2) + ' us' + NL
         + (sg.onCpm ? '也在静态 CPM 路径上 —— 动它能降依赖下界'
-                    : '只在观测路径上 —— 动它去掉的是 stall，不是依赖下界')
+                    : '只在执行归因主链上 —— 优化可能减少当前排程的间隙，但不能据此断言会降低依赖下界')
         + (sg.isWait ? NL + '这是 *_wait，它的 span 是等待不是计算' : '');
       const nm = el('span', 'l');
       nm.appendChild(el('i', 'bar'));
@@ -4204,13 +4350,13 @@
       (slow.length ? '🐌 stall > 1 us（' + c.slowNodes + ' 个）' : '无 stall > 1 us')
       + ' · 红边框 = 也在静态 CPM 上'));
     if (c.cpm.onlyOnCpm && c.cpm.onlyOnCpm.length) {
-      const more = el('span', 'q', '两条路怎么选 ?');
+      const more = el('span', 'q', '路径校验 ?');
       more.title = '静态 CPM 的 ' + c.cpm.nodes + ' 个节点里 ' + c.cpm.shared
-        + ' 个也在观测路径上，另外 ' + c.cpm.onlyOnCpm.length + ' 个观测路径从不经过（'
+        + ' 个也在执行归因主链上，另外 ' + c.cpm.onlyOnCpm.length + ' 个只在依赖关键路径上（'
         + c.cpm.onlyOnCpm.join('、') + '）。' + NL
         + '动只在 CPM 上的节点 → 降依赖下界。' + NL
-        + '动只在观测路径上的节点 → 去掉 stall。' + NL
-        + '两者不能互换，提建议时要说清在动哪一条。';
+        + '动只在执行归因主链上的节点 → 可能减少当前排程的 stall。' + NL
+        + '两类证据用途不同；执行归因主链中的同核等待仍缺 task 级 ready / dispatch 记录。';
       note.appendChild(more);
     }
     const how = el('span', 'q', '怎么算的 ?');
@@ -5397,8 +5543,9 @@
     /* the swimlane's own controls only mean something on the task-level
      * swimlane; the aggregate panels have nothing to filter or zoom */
     if (S.view === 'l2' && (!QW() || (onPrimaryVariant() && S.l2Panel === 'swimlane'))) {
-      right.appendChild(field('泳道', select([
-        { id: 'all', label: '全部 ' + R().swimlane.lanes.length },
+      right.appendChild(field('视图', select([
+        { id: 'summary', label: '关键表现' },
+        { id: 'all', label: '原始逐核 ' + R().swimlane.lanes.length + ' 核' },
         { id: 'aic', label: 'AIC ' + D.case.aicCount },
         { id: 'aiv', label: 'AIV ' + D.case.aivCount },
       ], S.laneFilter, (v) => { S.laneFilter = v; render(); })));
@@ -5417,23 +5564,18 @@
       }
       right.appendChild(colorField);
       right.appendChild(field('叠加', select([
+        { id: 'none', label: '无' },
         { id: 'sched', label: 'AICPU 调度' },
         { id: 'ready', label: 'Ready queue' },
-        { id: 'none', label: '无' },
       ], S.overlay, (v) => { S.overlay = v; render(); })));
-      right.appendChild(field('依赖连线', select([
-        { id: 'sel', label: '选中任务' },
-        { id: 'path', label: '沿观测路径' },
+      right.appendChild(field('连线', select([
         { id: 'off', label: '关' },
+        { id: 'sel', label: '选中任务' },
+        { id: 'path', label: '沿执行主路径' },
       ], S.deps, (v) => { S.deps = v; redrawStage(); renderToolbar(); })));
-      right.appendChild(field('只看', select([
-        { id: 'off', label: '全部任务' },
-        { id: 'obs', label: '观测路径' },
-        { id: 'cpm', label: '依赖关键路径' },
-      ], S.pathOnly, (v) => { S.pathOnly = v; S.critOnly = v !== 'off'; render(); })));
       const zoomGroup = el('div', 'toolbar-control');
       zoomGroup.appendChild(btn('−', { variant: 'ghost', size: 'icon', title: '缩小', on: () => { zoom(2); redrawStage(); renderToolbar(); } }));
-      zoomGroup.appendChild(btn('Fit', { variant: 'ghost', size: 'sm', on: () => { S.t0 = 0; S.t1 = R().swimlane.spanUs; redrawStage(); renderToolbar(); } }));
+      zoomGroup.appendChild(btn('全程', { variant: 'ghost', size: 'sm', title: '恢复完整时间范围', on: () => { S.t0 = 0; S.t1 = R().swimlane.spanUs; redrawStage(); renderToolbar(); } }));
       zoomGroup.appendChild(btn('+', { variant: 'ghost', size: 'icon', title: '放大', on: () => { zoom(0.5); redrawStage(); renderToolbar(); } }));
       right.appendChild(zoomGroup);
       right.appendChild(el('span', 'tc-readout', num(S.t0, 0) + '–' + num(S.t1, 0) + ' us · shift+拖动平移'));
@@ -5598,6 +5740,11 @@
         + (logged[f.id] ? ' is-logged' : ''));
       b.type = 'button';
       b.dataset.sev = f.severity;
+      /* The left-rail impact trace is driven by the same measured makespan
+       * share shown in the row, rather than a decorative, invented score. */
+      b.dataset.hasCost = f.cost ? 'true' : 'false';
+      b.style.setProperty('--finding-impact', (f.cost
+        ? Math.max(7, Math.min(36, (Number(f.cost.share) || 0) * 0.36)) : 10) + 'px');
       const hd = el('div', 'hd');
       hd.appendChild(el('span', 'id', f.id));
       /* a chain advertises the layers it crosses; that path IS its identity */
@@ -5615,6 +5762,19 @@
         S.chainStep = null;
         S.focus = 'finding';
         applyFocus(f);
+        if (f.id === 'C2' && f.contention && f.contention.windows && f.contention.windows.length) {
+          const focusTask = tasksOf[S.rank][f.contention.focus];
+          const lo = Math.min(focusTask ? focusTask.start : Infinity,
+            ...f.contention.windows.map((win) => win.t0));
+          const hi = Math.max(focusTask ? focusTask.end : -Infinity,
+            ...f.contention.windows.map((win) => win.t1));
+          if (Number.isFinite(lo) && Number.isFinite(hi) && hi > lo) {
+            const pad = Math.max(35, (hi - lo) * 0.12);
+            setWindow(lo - pad, hi + pad);
+          }
+          S.laneFilter = 'summary';
+          if (focusTask) { S.task = focusTask.tag; S.pathFocus = true; }
+        }
         render();
       });
       return b;
@@ -5679,6 +5839,7 @@
     }
     S.critOnly = false;
     S.pathOnly = 'off';
+    S.pathFocus = false;
     S.focusEvidence = true;
     if (S.view === 'l2') { S.t0 = 0; S.t1 = R().swimlane.spanUs; }
   }
@@ -6029,6 +6190,7 @@
     if (stage.__ro) { stage.__ro.disconnect(); stage.__ro = null; }
     stage.__redraw = null;
     stage.textContent = '';
+    stage.classList.toggle('tc-stage--e2e', S.view === 'e2e');
 
     if (isServingBenchmark()) {
       S.view = 'e2e';

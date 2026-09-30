@@ -541,12 +541,19 @@ function parseStmt(lines, i, fileLabel) {
 
   if (t === 'return' || t.startsWith('return ')) {
     const src = t.slice(6).trim();
+    const values = src ? splitTop(src, ',').map((s) => s.trim()).filter(Boolean) : [];
     return {
       stmt: {
         ...base,
         kind: 'return',
         valueSrc: src,
-        values: src ? splitTop(src, ',').map((s) => s.trim()).filter(Boolean) : [],
+        values,
+        // A returned value is an expression like any other. Without this, any
+        // call spelled as a tail call (`return self.decode_csa(...)`) is
+        // invisible to every consumer that walks `stmt.expr` - which is how the
+        // call graph lost the edge carrying most of what InlineFunctions moves.
+        // `values` stays raw so existing readers are unaffected.
+        exprs: values.map((v) => safeExpr(v, at)),
       },
       next: i + 1,
     };
