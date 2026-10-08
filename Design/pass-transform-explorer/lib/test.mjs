@@ -9,6 +9,7 @@ import { diffLines, toHunks, countChanges, wordDiff, tokenEdits } from './diff.m
 import { rewritePatterns } from './evidence.mjs';
 import { md, mdInline, escapeHtml } from './markdown.mjs';
 import { extractDoc, normalizeName } from './passinfo.mjs';
+import { moveGraph } from './movegraph.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../../..');
@@ -203,7 +204,7 @@ function eq(name, got, want) {
     vm.runInContext(fs.readFileSync(bundlePath, 'utf8'), sandbox);
     const lib = sandbox.window.PTXLib;
     const needed = ['parseDump', 'analyzeProgram', 'diffLines', 'toHunks', 'countChanges', 'wordDiff',
-      'callGraph', 'controlTree', 'dataflowGraph', 'taskGraph', 'memoryView', 'fmtBytes',
+      'callGraph', 'controlTree', 'dataflowGraph', 'taskGraph', 'memoryView', 'fmtBytes', 'moveGraph',
       'md', 'mdInline', 'escapeHtml'];
     for (const n of needed) ok(`bundle exports ${n}`, typeof lib[n] === 'function');
     ok('bundle has no NUL bytes', !fs.readFileSync(bundlePath, 'utf8').includes('\0'));
@@ -212,5 +213,121 @@ function eq(name, got, want) {
   }
 }
 
+
+// ── a tail call is a call ────────────────────────────────────
+//
+// `return self.foo(...)` used to parse into raw strings with no `expr`, so the
+// call graph silently dropped the edge. In the real dump that was one edge out
+// of hundreds - and it carried 1,599 of the 1,647 statements InlineFunctions
+// moves, so the migration figure attributed nothing to its biggest host.
+{
+  const src = [
+    'class M:',
+    '    @pl.function(level=pl.Level.HOST)',
+    '    def outer(self, x: pl.Tensor[[4], pl.FP32]):',
+    '        return self.inner(x)',
+    '    @pl.function(type=pl.FunctionType.Inline)',
+    '    def inner(self, x: pl.Tensor[[4], pl.FP32]):',
+    '        y: pl.Tensor[[4], pl.FP32] = pl.tensor.cast(x, pl.FP32)',
+    '        pl.tensor.write(x, y)',
+  ].join('\n');
+  const an = analyzeProgram(parseDump(src, 't'), src.split('\n'));
+  const outer = an.byName.get('outer');
+  ok('tail call is recorded', outer && outer.calls.length === 1,
+    JSON.stringify(outer && outer.calls));
+  // Read through a placeholder rather than indexing blind: when this check
+  // fails it must report a FAIL, not throw and skip every test after it.
+  const tc = (outer && outer.calls[0]) || {};
+  eq('tail call names its callee', tc.callee, 'inner');
+  eq('tail call is marked as one', tc.via, 'tail');
+}
+
+// ── where a function body went ───────────────────────────────
+{
+  const dumps = path.join(REPO, 'Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump');
+  if (!fs.existsSync(dumps)) {
+    ok('move-graph fixtures present', true, 'skipped - dumps not checked out');
+  } else {
+    const load = (f) => {
+      const t = fs.readFileSync(path.join(dumps, f), 'utf8');
+      return analyzeProgram(parseDump(t, f), t.split(/\r?\n/));
+    };
+
+    // dissolve: every removed body must find a surviving host, and the
+    // attribution must land near the measured growth rather than anywhere.
+    const inl = moveGraph(load('00_frontend.py'), load('01_after_InlineFunctions.py'));
+    ok('InlineFunctions reads as a dissolve', inl && inl.direction === 'dissolve');
+    ok('no body is left unattributed', inl.moves.every((m) => m.host),
+      inl.moves.filter((m) => !m.host).map((m) => m.body).join(','));
+    const big = inl.hosts.find((h) => h.name === 'decode_csa_test');
+    ok('the biggest host is credited', big && big.claimed > 1000, JSON.stringify(big && big.claimed));
+    ok('attribution tracks the measured growth',
+      inl.hosts.every((h) => h.measured > 0 && h.claimed / h.measured > 0.8 && h.claimed / h.measured < 1.3),
+      inl.hosts.map((h) => h.name + ' ' + (h.claimed / h.measured).toFixed(2)).join(', '));
+    ok('a duplicated body reports its copies',
+      inl.moves.some((m) => m.copies > 1));
+
+    // The figure's headline count must agree with the function census shown
+    // beside it. `moves` has one row per (body, host) pair, so counting rows
+    // there reported 21 bodies where the census says 20 removed.
+    const beforeAn = load('00_frontend.py');
+    const afterAn = load('01_after_InlineFunctions.py');
+    const removedCount = beforeAn.functions.length - afterAn.functions.length;
+    eq('body count matches the function census', inl.counts.bodies, removedCount);
+    ok('pair rows really do exceed body count here', inl.moves.length > inl.counts.bodies,
+      inl.moves.length + ' rows vs ' + inl.counts.bodies + ' bodies');
+    eq('one row per body in the drawing list', inl.bodies.length, inl.counts.bodies);
+    ok('statements are reported both ways',
+      inl.counts.stmts > 0 && inl.counts.stmtsWithCopies >= inl.counts.stmts,
+      inl.counts.stmts + ' / ' + inl.counts.stmtsWithCopies);
+    eq('host count matches the reconciled hosts', inl.counts.hosts, inl.hosts.length);
+    ok('every destination a body names has a host box',
+      inl.bodies.every((b) => b.to.every((t) => inl.hosts.some((h) => h.name === t.host))));
+
+    // extract: the same shape with the arrows reversed.
+    const out = moveGraph(load('08_after_OutlineHierarchyScopes.py'), load('09_after_OutlineIncoreScopes.py'));
+    ok('OutlineIncoreScopes reads as an extract', out && out.direction === 'extract');
+    ok('extracted bodies are attributed', out.moves.every((m) => m.host));
+    ok('the parent shrank', out.hosts.every((h) => h.after < h.before),
+      out.hosts.map((h) => h.name + ' ' + h.before + '->' + h.after).join(', '));
+
+    // wrap: nothing moved. Reporting this as an extract would claim 109
+    // statements left a function that actually grew by 3.
+    const wrap = moveGraph(load('09_after_OutlineIncoreScopes.py'), load('10_after_OutlineClusterScopes.py'));
+    ok('OutlineClusterScopes reads as shells, not a move', wrap && wrap.direction === 'wrap',
+      wrap && wrap.direction);
+    ok('shells claim no moved statements', wrap.moves.length === 0 && wrap.hosts.length === 0);
+    ok('every shell names what it wraps', wrap.wraps.length > 0 && wrap.wraps.every((w) => w.wrapped));
+
+    // Every clickable target must say WHICH dump file its line number is in.
+    // The two files number the same function very differently, and the diff
+    // renders both gutters per row, so a bare number can match the wrong one.
+    const sides = ['before', 'after'];
+    ok('every body target declares a side',
+      inl.bodies.every((b) => sides.includes(b.side)),
+      JSON.stringify(inl.bodies.map((b) => b.side).filter((x) => !sides.includes(x))));
+    ok('every host target declares a side', inl.hosts.every((h) => sides.includes(h.side)));
+    ok('a dissolved body is numbered in the before file',
+      inl.bodies.every((b) => b.side === 'before'));
+    ok('a surviving host is numbered in the after file',
+      inl.hosts.every((h) => h.side === 'after'));
+    ok('an extracted body is numbered in the after file',
+      out.bodies.every((b) => b.side === 'after'));
+
+    // The collision this guards against is real in the shipped data: at step 09
+    // the host's after-file line also exists in the before gutter, and only the
+    // before one is rendered.
+    const ext = moveGraph(load('08_after_OutlineHierarchyScopes.py'), load('09_after_OutlineIncoreScopes.py'));
+    const host09 = ext.hosts[0];
+    const fa09 = load('08_after_OutlineHierarchyScopes.py').byName.get(host09.name);
+    ok('the wrong-gutter collision really is reachable here',
+      host09.line >= fa09.decoLine && host09.line <= fa09.decoLine + fa09.src.length - 1,
+      host09.name + ' after-line ' + host09.line + ' vs before range ' + fa09.decoLine + '..' + (fa09.decoLine + fa09.src.length - 1));
+
+    // a Pass that touches no function boundary must produce no figure at all.
+    const none = moveGraph(load('03_after_CtrlFlowTransform.py'), load('04_after_ConvertToSSA.py'));
+    ok('no figure when no boundary moved', none === null);
+  }
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -16,14 +16,30 @@ const path = require('path');
 
 const OUT = path.join(__dirname, 'data.js');
 const DATA = path.resolve(__dirname, '../../Data');
+/* Data/pypto_qwen3_profiles.zip unzipped in place: the archive carries its own
+ * pypto_qwen3_profiles/ root, so accept the tree with or without that nesting. */
+const QWEN3 = [
+  path.join(DATA, 'pypto_qwen3_profiles/pypto_qwen3_profiles'),
+  path.join(DATA, 'pypto_qwen3_profiles'),
+].find((p) => fs.existsSync(path.join(p, 'tp1/swimlane')))
+  || path.join(DATA, 'pypto_qwen3_profiles');
 
 /* Two real dumps, captured by different tools at different times. They do not
  * carry the same artifacts, and the console is expected to say so rather than
  * fake the missing layers:
  *   decode_csa          L3, two ranks, host STRACE spans, PH001 + PH-MR-001,
  *                       no PTOAS / kernel sources
- *   decode_fwd_layers   L2, one device, NO host log (so no e2e layer at all),
- *                       PH001 only, but ships ptoas/ + kernels/ + orchestration/
+ *   decode_fwd_layers   Qwen3 14B, 40-layer fused host, NO host STRACE log.
+ *                       The on-device trace comes from pypto_qwen3_profiles
+ *                       (2026-08-14); that capture ships no passes_dump, so
+ *                       the compiler / ISA layers keep reading the older
+ *                       2026-06-25 build (CASE.compileRoot) and the console
+ *                       labels them as a different build.
+ *
+ * pypto_qwen3_profiles holds four captures. Only tp1/prefill carries task
+ * names (FuncId) AND a complete dependency graph, so it is the only one that
+ * can feed the task-level machinery below; the other three are served at
+ * aggregate fidelity by build-qwen3-profiles.cjs, which reads the same tree.
  */
 const CASES = [
   {
@@ -47,20 +63,32 @@ const CASES = [
   },
   {
     id: 'decode_fwd_layers',
-    label: 'decode_fwd_layers',
-    sub: 'Qwen3 14B · L2 · 1 device',
-    root: path.join(DATA, '_jit_decode_fwd_layers_20260625_184941'),
-    runDir: '_jit_decode_fwd_layers_20260625_184941',
-    capturedAt: '2026-06-25 18:49:41',
+    label: 'qwen3_14b_fwd',
+    sub: 'Qwen3 14B · 40 层整网 · TP1 / TP2 × prefill / decode',
+    root: QWEN3,
+    runDir: 'pypto_qwen3_profiles/tp1 · _jit_prefill_fwd_20260814_093031',
+    capturedAt: '2026-08-14 09:24:36',
     level: 2,
-    model: 'qwen3 / 14b / decode_layer',
-    sourceRoot: '/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/qwen3/14b',
-    binaryContext: null,
+    model: 'qwen3_14b / prefill_fwd（40 层 fused host）',
+    sourceRoot: '/mnt/workspace/inductor/pypto-lib/models/qwen3_14b',
+    binaryContext: 'scratch/tp1_build_output/_jit_prefill_fwd_20260814_093031/cache/binary_context.json',
     /* the Qwen3 tree this was compiled from is not in the repo */
     sourceDir: null,
-    entryModule: null,
+    entryModule: 'prefill_fwd.py',
+    /* No passes_dump / ptoas / kernels in the 2026-08-14 capture: those layers
+     * read the older build, and caseInfo.compileSource says so on screen. */
+    compileRoot: path.join(DATA, '_jit_decode_fwd_layers_20260625_184941'),
+    compileSource: {
+      runDir: '_jit_decode_fwd_layers_20260625_184941',
+      capturedAt: '2026-06-25 18:49:41',
+      model: 'qwen3 / 14b / decode_layer',
+      note: 'passes_dump / ptoas / kernels / perf_hints 来自 2026-06-25 那次构建，'
+        + '与上面的上板数据不是同一次采集，行号与 kernel 名不能直接对到本次 trace 上。',
+    },
+    /* the run's own kernel inventory, rather than the old build's */
+    incoreFrom: 'nameMap',
     ranks: [
-      { key: 'device0', dir: 'dfx_outputs', trace: 'merged_swimlane_20260625_185006.json', host: null },
+      { key: 'tp1:prefill', dir: 'tp1/swimlane/prefill_records', trace: 'merged_swimlane_20260814_092436.json', host: null },
     ],
   },
 ];
@@ -72,6 +100,13 @@ const rd = (p) => fs.readFileSync(at(p), 'utf8');
 const rj = (p) => JSON.parse(rd(p));
 const tryRd = (p) => (p && has(p) ? rd(p) : null);
 const tryRj = (p) => (p && has(p) ? rj(p) : null);
+/* Compile-side artifacts (passes_dump, ptoas, kernels, orchestration,
+ * perf_hints, kernel_config) resolve against compileRoot when the run's own
+ * dump does not carry them. Same accessors, second root. */
+const cat = (p) => path.join(CUR.compileRoot || CUR.root, p);
+const chas = (p) => fs.existsSync(cat(p));
+const crd = (p) => fs.readFileSync(cat(p), 'utf8');
+const ctryRd = (p) => (p && chas(p) ? crd(p) : null);
 const r2 = (n) => Math.round(n * 100) / 100;
 const r3 = (n) => Math.round(n * 1000) / 1000;
 
@@ -85,25 +120,38 @@ const distMeta = tryRj('distributed_meta.json');
 const nameMapFile = fs.readdirSync(at(PRIMARY.dir)).find((f) => /^name_map.*\.json$/.test(f));
 const nameMap = rj(PRIMARY.dir + '/' + nameMapFile);
 const dispatch = tryRj(PRIMARY.dir + '/dispatch_program.json');
-const csr = tryRj(PRIMARY.dir + '/chip_swimlane_records.json');
+/* chip_swimlane_records (L3) and l2_swimlane_records (L2) carry the same core
+ * inventory and clock under different names. Read whichever the dump ships. */
+const csr = tryRj(PRIMARY.dir + '/chip_swimlane_records.json')
+  || (() => {
+    const l2 = tryRj(PRIMARY.dir + '/l2_swimlane_records.json');
+    return l2 ? { metadata: l2.metadata, chip_swimlane_level: l2.l2_swimlane_level } : null;
+  })();
 const binCtx = tryRj(CASE.binaryContext);
 
-/* incore scope names as the compiler outlined them — the kernel inventory */
-const incoreFile = fs.readdirSync(at('passes_dump')).find((f) => /OutlineIncoreScopes/.test(f));
-const incoreNames = incoreFile ? Array.from(new Set(
-  (fs.readFileSync(at('passes_dump/' + incoreFile), 'utf8')
+/* incore scope names as the compiler outlined them — the kernel inventory.
+ * When the compile artifacts belong to a different build than the trace
+ * (CASE.incoreFrom), the run's own name_map is the honest inventory. */
+const incoreFile = chas('passes_dump')
+  ? fs.readdirSync(cat('passes_dump')).find((f) => /OutlineIncoreScopes/.test(f)) : null;
+const incoreFromPasses = incoreFile ? Array.from(new Set(
+  (fs.readFileSync(cat('passes_dump/' + incoreFile), 'utf8')
     .match(/^\s*def ([a-z_0-9]+)\(/gm) || []).map((s) => s.trim().replace(/^def /, '').replace(/\($/, ''))
 )).sort() : [];
+const incoreNames = CASE.incoreFrom === 'nameMap'
+  ? Array.from(new Set(Object.keys(nameMap.callable_id_to_name)
+    .map((k) => nameMap.callable_id_to_name[k]))).sort()
+  : incoreFromPasses;
 
 /* PTOAS / kernel / orchestration sources: present in the L2 dump, absent in L3 */
-const ptoasFiles = has('ptoas') ? fs.readdirSync(at('ptoas')) : [];
+const ptoasFiles = chas('ptoas') ? fs.readdirSync(cat('ptoas')) : [];
 const ptoasUnits = Array.from(new Set(ptoasFiles.map((f) => f.replace(/\.(pto|cpp)$/, ''))))
   .filter((n) => ptoasFiles.indexOf(n + '.pto') >= 0)
   .sort()
   .map((n) => {
-    const pto = rd('ptoas/' + n + '.pto');
+    const pto = crd('ptoas/' + n + '.pto');
     const cppPath = 'ptoas/' + n + '.cpp';
-    const cpp = has(cppPath) ? rd(cppPath) : null;
+    const cpp = chas(cppPath) ? crd(cppPath) : null;
     return {
       name: n,
       ptoLines: pto.split('\n').length,
@@ -112,14 +160,14 @@ const ptoasUnits = Array.from(new Set(ptoasFiles.map((f) => f.replace(/\.(pto|cp
       cppBytes: cpp ? cpp.length : null,
     };
   });
-const kernelDirs = has('kernels') ? fs.readdirSync(at('kernels')) : [];
+const kernelDirs = chas('kernels') ? fs.readdirSync(cat('kernels')) : [];
 const kernelCounts = {};
 kernelDirs.forEach((d) => {
-  const full = at('kernels/' + d);
+  const full = cat('kernels/' + d);
   if (fs.statSync(full).isDirectory()) kernelCounts[d] = fs.readdirSync(full).length;
 });
-const orchFiles = has('orchestration') ? fs.readdirSync(at('orchestration')) : [];
-const kernelConfig = tryRd('kernel_config.py');
+const orchFiles = chas('orchestration') ? fs.readdirSync(cat('orchestration')) : [];
+const kernelConfig = ctryRd('kernel_config.py');
 const runtimeFromConfig = kernelConfig
   ? (kernelConfig.match(/"runtime":\s*"([^"]+)"/) || [])[1] || null : null;
 const aicpuThreads = kernelConfig
@@ -143,7 +191,7 @@ const aicCount = coreTypes ? coreTypes.filter((t) => t === 'aic').length
 const aivCount = coreTypes ? coreTypes.filter((t) => t === 'aiv').length
   : laneNamesFromTrace.filter((n) => n.indexOf('AIV') === 0).length;
 
-const perfHintText = tryRd('report/perf_hints.log') || '';
+const perfHintText = ctryRd('report/perf_hints.log') || '';
 const backend = (perfHintText.match(/for backend (\w+)/) || [])[1]
   || (binCtx && binCtx.platform) || 'a2a3';
 
@@ -180,6 +228,9 @@ const caseInfo = {
   },
   incoreScopes: incoreNames,
   sourceRoot: CASE.sourceRoot,
+  /* When the compiler / ISA layers read a different build than the trace, the
+   * screens have to say so; null means one dump answers every layer. */
+  compileSource: CASE.compileRoot ? CASE.compileSource : null,
   /* No dump carries a kernel -> source map. For decode_csa one is rebuilt
    * from the model source by name_hint (see sourceMap); without the source
    * tree — decode_fwd_layers — there is none. */
@@ -297,6 +348,9 @@ for (const e of blockEvents) {
   t.blocks.push({
     lane: laneIdx[threadName['4:' + e.tid]],
     core: core,
+    /* NOT redundant with the task's funcId: a mixed scope's two halves share
+     * one taskId but carry different FuncIds on their blocks. */
+    fid: +(hint.match(/FuncId:(-?\d+)/) || [0, -1])[1],
     ts: hasOwnSetupEvents ? e.ts - setup : e.ts,
     dur: hasOwnSetupEvents ? e.dur + setup : e.dur,
     kdur: kdur,
@@ -329,9 +383,76 @@ taskMap.forEach((t) => {
   const sv = schedViewByTask[t.id] || [];
   const svAicpu = sv.map((x) => x.aicpu).sort((a, c) => a - c);
   const workerMean = sum(b.map((x) => x.dur)) / b.length;
+
+  /* ------------------------------------------------ scope -> kernel(s)
+   * ExpandMixedKernel splits a mixed InCore function into an AIC and an AIV
+   * kernel wrapped in a Group. The scheduler launches the Group, so both
+   * halves share ONE taskId -- but their blocks carry different FuncIds.
+   * Keying only on taskId therefore files the Vec half's core-time under the
+   * Cube half's name. Regroup by FuncId so the pair is visible. */
+  const kAcc = {};
+  b.forEach((x) => {
+    const k = (kAcc[x.fid] = kAcc[x.fid] || {
+      funcId: x.fid, name: nameMap.callable_id_to_name[String(x.fid)] || t.rawName,
+      engine: null, blocks: 0, cores: new Set(),
+      coreTime: 0, kernelTime: 0, setupTime: 0, durs: [],
+    });
+    const en = laneNames[x.lane].indexOf('AIC') === 0 ? 'aic' : 'aiv';
+    k.engine = k.engine === null || k.engine === en ? en : 'mix';
+    k.blocks += 1; k.cores.add(x.core);
+    k.coreTime += x.dur; k.kernelTime += x.kdur; k.setupTime += x.setup;
+    k.durs.push(x.dur);
+  });
+  const kernels = Object.keys(kAcc).map((f) => {
+    const k = kAcc[f];
+    const d = k.durs.slice().sort((a, c) => a - c);
+    return {
+      funcId: k.funcId, name: k.name, engine: k.engine,
+      blocks: k.blocks, cores: k.cores.size,
+      coreTime: r2(k.coreTime), kernelTime: r2(k.kernelTime), setupTime: r2(k.setupTime),
+      durMed: r2(d[Math.floor(d.length / 2)]), durMax: r2(d[d.length - 1]),
+      durMean: r2(k.coreTime / k.blocks),
+    };
+  }).sort((a, c) => c.coreTime - a.coreTime);
+
+  /* The scope is the source-level pl.spmd region; the kernels are what the
+   * device actually launched. They are 1:1 except for mixed scopes, where the
+   * two halves share the name_hint the scope was written with. */
+  const scopeName = (function () {
+    const ns = kernels.map((k) => k.name);
+    if (ns.length === 1) return ns[0];
+    const bases = Array.from(new Set(ns.map((n) => n.replace(/_(aic|aiv)$/, ''))));
+    return bases.length === 1 ? bases[0] : ns.slice().sort().join('+');
+  })();
+
+  const engineOf = (en) => {
+    const ks = kernels.filter((k) => k.engine === en);
+    if (!ks.length) return null;
+    return {
+      blocks: sum(ks.map((k) => k.blocks)),
+      cores: sum(ks.map((k) => k.cores)),
+      coreTime: r2(sum(ks.map((k) => k.coreTime))),
+      setupTime: r2(sum(ks.map((k) => k.setupTime))),
+      durMax: Math.max.apply(null, ks.map((k) => k.durMax)),
+      durMean: r2(sum(ks.map((k) => k.coreTime)) / sum(ks.map((k) => k.blocks))),
+      kernels: ks.map((k) => k.name),
+    };
+  };
+  const engines = { aic: engineOf('aic'), aiv: engineOf('aiv') };
+
   tasks.push({
     id: t.id, tag: t.tag, funcId: t.funcId,
-    callable: nameMap.callable_id_to_name[String(t.funcId)] || t.rawName,
+    callable: scopeName,
+    kernels: kernels,
+    kernelCount: kernels.length,
+    engines: engines,
+    /* Cube and Vec halves of one mixed kernel run concurrently on paired
+     * cores. If the two longest blocks are ~equal the halves are serialised
+     * inside the block; a large gap means one side waits on the other. */
+    pairRatio: (engines.aic && engines.aiv)
+      ? r3(Math.max(engines.aic.durMax, engines.aiv.durMax)
+           / Math.max(Math.min(engines.aic.durMax, engines.aiv.durMax), 1e-9))
+      : null,
     rawName: t.rawName,
     ring: +(t.tag.match(/r(\d+)/) || [0, 0])[1],
     kind: kind,
@@ -467,27 +588,257 @@ const hbPairs = trace.filter((e) => e.cat === 'flow' && e.name === 'hb_violation
   };
 });
 
-/* ------------------------------------------------------- critical path */
+/* ----------------------------------------------------------- by tag */
 const byTag = {};
 tasks.forEach((t) => { byTag[t.tag] = t; });
-const best = {};
-for (const t of tasks) {
-  let bp = null, bl = 0;
-  for (const p of t.pred) {
-    const P = byTag[p];
-    if (!P) continue;
-    const c = (best[p] ? best[p].len : 0) + P.span;
-    if (c > bl) { bl = c; bp = p; }
+/* ------------------------------------------ critical path, attributed
+ * Ports simpler_setup.tools.critical_path (repo/simpler). The structural
+ * slack below says how much the DEPENDENCY GRAPH would tolerate; it cannot
+ * say whether a task waited on a producer or on a busy core. This does.
+ *
+ *   static CPM   longest duration-weighted path in the happens-before DAG
+ *                = the dependency-limited floor with unlimited cores
+ *   observed     backward blame walk from the last-finishing task through
+ *                whichever predecessor -- data dependency or same-core
+ *                resource -- most tightly gated each task's start
+ *
+ * The observed walk's compute + stall must tile the makespan EXACTLY. That
+ * check is the only thing making the per-task attribution sound, so it is
+ * computed and shipped rather than asserted in prose. */
+
+/* The reference tool's tolerance is 2 clock ticks. Without a recorded clock
+ * there is nothing to convert, so fall back to two quanta of the timestamp
+ * resolution (r2 -> 0.01 us) and record which one was used. */
+const TOL = caseInfo.clockHz ? r3(2 / (caseInfo.clockHz / 1e6)) : 0.02;
+const TOL_SOURCE = caseInfo.clockHz ? 'clock' : 'quantum';
+
+const cpath = (function () {
+  const T0 = 0;
+  const st = {}, en = {}, dr = {};
+  tasks.forEach((t) => { st[t.tag] = t.start; en[t.tag] = t.end; dr[t.tag] = t.span; });
+
+  /* --- happens-before edges: a dependency edge is kept only when the
+   * producer actually finished before the consumer started, AND started
+   * strictly earlier. The strict-start test makes retention antisymmetric,
+   * so the kept graph is acyclic even under tick-level ties. */
+  const hbPred = {};
+  let kept = 0, dropped = 0;
+  tasks.forEach((t) => {
+    const keep = [];
+    t.pred.forEach((ptag) => {
+      if (ptag === t.tag || st[ptag] === undefined) return;
+      if (en[ptag] <= st[t.tag] + TOL && st[ptag] < st[t.tag]) { keep.push(ptag); kept++; }
+      else dropped++;
+    });
+    hbPred[t.tag] = keep;
+  });
+
+  /* --- same-core resource predecessor: when was the core this task first
+   * lands on freed? Running max over earlier slices on that lane, so a
+   * pipelined / overlapping slice is handled, not just the previous one. */
+  const corePrev = {};
+  laneBlocks.forEach((slices) => {
+    let bestEnd = -Infinity, bestTag = null;
+    slices.forEach((b) => {
+      const t = tasks[b[2]];
+      if (!t) return;
+      const bs = b[0], be = b[0] + b[1];
+      if (bestTag !== null && bestTag !== t.tag && bestEnd <= bs + TOL && bs === st[t.tag]) {
+        const cur = corePrev[t.tag];
+        if (!cur || bestEnd > cur[1]) corePrev[t.tag] = [bestTag, bestEnd];
+      }
+      if (be > bestEnd) { bestEnd = be; bestTag = t.tag; }
+    });
+  });
+
+  /* --- topological order over the kept graph */
+  const indeg = {}, succ = {};
+  tasks.forEach((t) => { indeg[t.tag] = 0; succ[t.tag] = []; });
+  tasks.forEach((t) => {
+    hbPred[t.tag].forEach((ptag) => { succ[ptag].push(t.tag); indeg[t.tag]++; });
+  });
+  const q = tasks.filter((t) => indeg[t.tag] === 0).map((t) => t.tag);
+  const order = [];
+  while (q.length) {
+    const u = q.shift();
+    order.push(u);
+    succ[u].forEach((v) => { if (--indeg[v] === 0) q.push(v); });
   }
-  best[t.tag] = { len: bl, prev: bp };
-}
-let endTag = null, mx = -1;
-for (const t of tasks) {
-  const v = best[t.tag].len + t.span;
-  if (v > mx) { mx = v; endTag = t.tag; }
-}
-const critTags = [];
-for (let c = endTag; c; c = best[c].prev) critTags.unshift(c);
+  const acyclic = order.length === tasks.length;
+
+  /* --- static CPM: longest duration-weighted path */
+  let cpmPath = [], cpmLen = 0;
+  if (acyclic) {
+    const finish = {}, choice = {};
+    order.forEach((v) => {
+      let bp = null, bf = 0;
+      hbPred[v].forEach((ptag) => { if (finish[ptag] > bf) { bf = finish[ptag]; bp = ptag; } });
+      finish[v] = bf + dr[v];
+      choice[v] = bp;
+    });
+    let sink = null;
+    Object.keys(finish).forEach((k) => { if (sink === null || finish[k] > finish[sink]) sink = k; });
+    for (let v = sink; v; v = choice[v]) cpmPath.push(v);
+    cpmPath.reverse();
+    cpmLen = r2(finish[sink]);
+  }
+
+  /* --- observed: backward blame walk from the last-finishing task */
+  let sink = null;
+  tasks.forEach((t) => { if (sink === null || en[t.tag] > en[sink]) sink = t.tag; });
+  const walk = [];
+  const seen = {};
+  let v = sink;
+  while (v && !seen[v]) {
+    seen[v] = 1;
+    const cand = [];
+    hbPred[v].forEach((ptag) => {
+      if (en[ptag] <= st[v] + TOL && st[ptag] < st[v]) cand.push([en[ptag], ptag, 'data-wait']);
+    });
+    const cp = corePrev[v];
+    if (cp && cp[1] <= st[v] + TOL && st[cp[0]] < st[v]) cand.push([cp[1], cp[0], 'core-wait']);
+    if (!cand.length) { walk.push([v, 'front-gap']); break; }
+    cand.sort((a, b) => a[0] - b[0]);
+    const pickd = cand[cand.length - 1];
+    walk.push([v, pickd[2]]);
+    v = pickd[1];
+  }
+  walk.reverse();
+
+  /* --- frontier sweep: tile [t0, end(sink)] into compute + stall */
+  const segments = [];
+  const byKind = { 'data-wait': 0, 'core-wait': 0, 'front-gap': 0 };
+  let computeTotal = 0, stallTotal = 0, frontier = T0;
+  walk.forEach((w) => {
+    const tag = w[0], kind = w[1];
+    const a = st[tag], b = en[tag];
+    const gap = Math.max(0, a - frontier);
+    const eff = Math.max(0, b - Math.max(a, frontier));
+    const t = byTag[tag];
+    segments.push({
+      tag: tag, callable: t.callable, kind: kind,
+      start: r2(a), end: r2(b), dur: r2(dr[tag]),
+      compute: r2(eff), stall: r2(gap),
+      blocks: t.blockCount, cores: t.coreCount,
+      onCpm: cpmPath.indexOf(tag) >= 0,
+      /* A *_wait task's span occupies the path but is not work. The model
+       * calls every path span "compute"; keeping them apart is the
+       * difference between "compute-bound" and "waiting on a peer". */
+      isWait: /_wait$/.test(t.callable || ''),
+    });
+    byKind[kind] += gap;
+    computeTotal += eff;
+    stallTotal += gap;
+    frontier = Math.max(frontier, b);
+  });
+
+  const makespan = r2(Math.max.apply(null, tasks.map((t) => t.end)) - T0);
+  const tiled = r2(computeTotal + stallTotal);
+  /* the invariant: the walk must account for every microsecond. r2 rounding
+   * of the inputs is the only slack allowed, so compare at that resolution. */
+  const tilingDelta = r2(tiled - makespan);
+  const tilingExact = Math.abs(tilingDelta) <= 0.01;
+
+  /* kernel families on the observed path, ranked by compute contributed */
+  const fam = {};
+  segments.forEach((sg) => {
+    const f = (fam[sg.callable] = fam[sg.callable] || { callable: sg.callable, compute: 0, stall: 0, n: 0 });
+    f.compute += sg.compute; f.stall += sg.stall; f.n++;
+  });
+  const families = Object.keys(fam).map((k) => ({
+    callable: k, compute: r2(fam[k].compute), stall: r2(fam[k].stall), nodes: fam[k].n,
+    share: r2((fam[k].compute / Math.max(makespan, 1e-9)) * 100),
+  })).sort((a, b) => b.compute - a.compute);
+
+  /* The reference model counts every path span as "compute". On a run whose
+   * path is dominated by collective waits that reads as compute-bound, which
+   * is the opposite of the truth -- so split it before classifying. */
+  const waitSpan = r2(sum(segments.filter((sg) => sg.isWait).map((sg) => sg.compute)));
+  const workSpan = r2(computeTotal - waitSpan);
+  const waitShare = r2((waitSpan / Math.max(makespan, 1e-9)) * 100);
+  const workShare = r2((workSpan / Math.max(makespan, 1e-9)) * 100);
+
+  const cpmShare = r2((cpmLen / Math.max(makespan, 1e-9)) * 100);
+  const stallShare = r2((stallTotal / Math.max(makespan, 1e-9)) * 100);
+  const worstKind = Object.keys(byKind).sort((a, b) => byKind[b] - byKind[a])[0];
+  let bound, boundWhy;
+  if (cpmShare >= 85) {
+    bound = 'dependency';
+    boundWhy = '静态 CPM 占 makespan ' + cpmShare + '%，图本身就是地板，加核改善不了。';
+  } else if (waitShare >= 25) {
+    bound = 'comm';
+    boundWhy = '路径上 ' + segments.filter((sg) => sg.isWait).length + ' 个 *_wait 任务占 '
+      + waitShare + '%，真正算的只有 ' + workShare + '%。'
+      + '模型把路径任务的 span 一律记作 compute，这里必须拆开看。';
+  } else if (stallShare >= 40) {
+    bound = worstKind === 'core-wait' ? 'resource' : 'stall';
+    boundWhy = 'stall 占 ' + stallShare + '%，其中 ' + worstKind + ' 最大（'
+      + r2((byKind[worstKind] / Math.max(stallTotal, 1e-9)) * 100) + '% 的 stall）。';
+  } else {
+    bound = 'compute';
+    boundWhy = '真正计算占 ' + workShare + '%，等待 ' + waitShare + '%，stall ' + stallShare + '%。';
+  }
+
+  return {
+    /* the filtered graph itself: slack has to run on the same edges the
+     * critical path does, or the two disagree about who is critical */
+    hbPred: hbPred,
+    hbSucc: (function () {
+      const out = {};
+      tasks.forEach((t) => { out[t.tag] = []; });
+      tasks.forEach((t) => { hbPred[t.tag].forEach((ptag) => { out[ptag].push(t.tag); }); });
+      return out;
+    })(),
+    tol: TOL, tolSource: TOL_SOURCE,
+    makespan: makespan,
+    edgesKept: kept, edgesDropped: dropped,
+    acyclic: acyclic,
+    cpm: {
+      tags: cpmPath, len: cpmLen, nodes: cpmPath.length, share: cpmShare,
+      /* nodes on the dependency floor that the observed path never visits:
+       * touching one lowers the floor, touching an observed-only node only
+       * removes stall. The two are not interchangeable. */
+      onlyOnCpm: cpmPath.filter(function (tg) { return !segments.some(function (sg) { return sg.tag === tg; }); }),
+      shared: cpmPath.filter(function (tg) { return segments.some(function (sg) { return sg.tag === tg; }); }).length,
+    },
+    segments: segments,
+    computeTotal: r2(computeTotal),
+    waitSpan: waitSpan,
+    workSpan: workSpan,
+    waitShare: waitShare,
+    workShare: workShare,
+    waitNodes: segments.filter((sg) => sg.isWait).length,
+    stallTotal: r2(stallTotal),
+    computeShare: r2((computeTotal / Math.max(makespan, 1e-9)) * 100),
+    stallShare: stallShare,
+    stallByKind: {
+      'data-wait': r2(byKind['data-wait']),
+      'core-wait': r2(byKind['core-wait']),
+      'front-gap': r2(byKind['front-gap']),
+    },
+    families: families.slice(0, 10),
+    tiling: { sum: tiled, makespan: makespan, delta: tilingDelta, exact: tilingExact },
+    bound: bound, boundWhy: boundWhy,
+    /* rows the reference skill would flag; 1 us is its threshold */
+    slowNodes: segments.filter((sg) => sg.stall > 1).length,
+  };
+})();
+
+/* ------------------------------------------------------- critical path
+ * ONE definition, derived from the happens-before graph cpath already
+ * filtered by observed timestamps.
+ *
+ * This used to be an independent longest-path walk over the RAW deps graph.
+ * That treated every dependency edge as a happens-before edge, so when a
+ * consumer actually started before its producer finished -- early dispatch,
+ * or a lifetime edge that encodes ownership rather than ordering -- it added
+ * both spans instead of one. On decode_csa/rank0 it reported a 33-node chain
+ * of 4985.02 us against a 4879.82 us makespan: 102.2%, which a dependency
+ * floor cannot be. Five edges on that chain overlapped, 539.74 us of them.
+ *
+ * The filtered CPM's 14 nodes are a strict subset of that 33, so the old
+ * walk was not mis-ordered, it was over-including. */
+const critTags = cpath.cpm.tags;
 let cursor = null, posGap = 0, overlap = 0;
 const critNodes = critTags.map((tag) => {
   const t = byTag[tag];
@@ -496,35 +847,56 @@ const critNodes = critTags.map((tag) => {
   cursor = t.end;
   return { tag: tag, gap: gap };
 });
+/* A dependency-limited floor cannot exceed the wall time it is a floor for.
+ * Nothing checked this before, which is why the old walk shipped wrong. */
+const floorValid = cpath.cpm.len <= SPAN + 0.01;
 const critical = {
   tags: critTags,
-  chainSpan: r2(mx),
+  chainSpan: cpath.cpm.len,
   walltime: SPAN,
   nodes: critNodes,
   gapOnPath: r2(posGap),
   overlapOnPath: r2(overlap),
   spanSum: r2(sum(critTags.map((tg) => byTag[tg].span))),
+  share: cpath.cpm.share,
+  floorValid: floorValid,
+  /* residual overlap must stay inside the edge-retention tolerance */
+  overlapWithinTol: overlap <= TOL * critTags.length + 0.01,
 };
+if (!floorValid) {
+  console.error('  !! ' + rank + ' critical path ' + cpath.cpm.len
+    + ' us exceeds makespan ' + SPAN + ' us');
+}
+
 
 /* -------------------------------------------------------------- slack
- * Standard forward/backward pass over the fanin/fanout DAG using the
- * MEASURED span of each task. ES/EF from predecessors, LF/LS from
- * successors, slack = LS - ES. This is structural slack: it says how much
- * the dependency graph would tolerate, and deliberately ignores resource
- * contention — two zero-slack tasks may still be fighting for the same core.
- * Tasks on the measured critical path have slack 0 by construction. */
+ * Standard forward/backward pass using the MEASURED span of each task.
+ * ES/EF from predecessors, LF/LS from successors, slack = LS - ES.
+ *
+ * It runs on the SAME timestamp-filtered graph as the critical path. Using
+ * the raw fanin/fanout edges instead over-constrains the pass: an edge whose
+ * producer did not actually gate the consumer still pushes ES forward, so
+ * slack comes out too small and far too many tasks read as zero-slack. On
+ * decode_csa/rank0 that was 33 zero-slack tasks against a 14-node critical
+ * path -- the scope ranking's red "on the critical path" border was on 19
+ * scopes that were not.
+ *
+ * This is still STRUCTURAL slack: it says how much the graph would tolerate
+ * and deliberately ignores resource contention. Two zero-slack tasks may
+ * still be fighting for the same core -- that part is core-wait in cpath. */
 const topo = tasks.slice().sort((a, b) => a.start - b.start);
+const hbP = cpath.hbPred, hbS = cpath.hbSucc;
 const ES = {}, EF = {}, LS = {}, LF = {};
 topo.forEach((t) => {
   let es = 0;
-  t.pred.forEach((ptag) => { if (EF[ptag] != null && EF[ptag] > es) es = EF[ptag]; });
+  hbP[t.tag].forEach((ptag) => { if (EF[ptag] != null && EF[ptag] > es) es = EF[ptag]; });
   ES[t.tag] = es;
   EF[t.tag] = es + t.span;
 });
 const makespan = Math.max.apply(null, topo.map((t) => EF[t.tag]));
 topo.slice().reverse().forEach((t) => {
   let lf = null;
-  t.succ.forEach((stag) => { if (LS[stag] != null && (lf === null || LS[stag] < lf)) lf = LS[stag]; });
+  hbS[t.tag].forEach((stag) => { if (LS[stag] != null && (lf === null || LS[stag] < lf)) lf = LS[stag]; });
   LF[t.tag] = lf === null ? makespan : lf;
   LS[t.tag] = LF[t.tag] - t.span;
 });
@@ -549,6 +921,12 @@ tasks.forEach((t) => {
     coreTime: 0, kernelTime: 0, setupTime: 0, aicpuTime: 0,
     blocks: 0, cores: new Set(), critNodes: 0,
     first: Infinity, last: -Infinity,
+    /* which device kernels this source scope compiled into */
+    kernelAcc: {},
+    /* core-time on each engine, so a mixed scope does not read as one number */
+    eng: {},
+    /* spmd fan-out: how wide the launch was and how evenly it filled */
+    fanCores: 0, fanBlocks: 0, waves: 0, imbalance: 0, coreSet: {},
   });
   sc.tasks.push(t.tag);
   sc.tags.push(t.tag);
@@ -559,10 +937,46 @@ tasks.forEach((t) => {
   if (t.svAicpuMean != null) sc.aicpuTime += t.svAicpuMean * t.svBlocks;
   sc.blocks += t.blockCount;
   sc.cores.add(t.coreCount);
+  (t.kernels || []).forEach((kn) => {
+    const a = (sc.kernelAcc[kn.name] = sc.kernelAcc[kn.name]
+      || { name: kn.name, engine: kn.engine, funcId: kn.funcId,
+           blocks: 0, cores: 0, coreTime: 0, setupTime: 0, durMax: 0 });
+    a.blocks += kn.blocks;
+    a.cores = Math.max(a.cores, kn.cores);
+    a.coreTime += kn.coreTime;
+    a.setupTime += kn.setupTime;
+    a.durMax = Math.max(a.durMax, kn.durMax);
+  });
+  ['aic', 'aiv'].forEach((en) => {
+    const e = t.engines && t.engines[en];
+    if (!e) return;
+    const a = (sc.eng[en] = sc.eng[en] || { blocks: 0, coreTime: 0, durMax: 0, cores: 0 });
+    a.blocks += e.blocks; a.coreTime += e.coreTime;
+    a.durMax = Math.max(a.durMax, e.durMax);
+    a.cores = Math.max(a.cores, e.cores);
+  });
+  sc.fanCores = Math.max(sc.fanCores, t.coreCount);
+  sc.fanBlocks = Math.max(sc.fanBlocks, t.blockCount);
+  sc.waves = Math.max(sc.waves, t.blockCount / Math.max(t.coreCount, 1));
+  sc.imbalance = Math.max(sc.imbalance, t.imbalance || 0);
+  sc.coreSet[t.coreCount] = (sc.coreSet[t.coreCount] || 0) + 1;
   if (t.onCrit) sc.critNodes++;
   sc.first = Math.min(sc.first, t.start);
   sc.last = Math.max(sc.last, t.end);
 });
+/* every block duration, grouped by the scope it belongs to */
+const scopeBlockDur = {};
+laneBlocks.forEach((slices) => {
+  slices.forEach((b) => {
+    const t = tasks[b[2]];
+    if (!t) return;
+    (scopeBlockDur[t.callable] = scopeBlockDur[t.callable] || []).push(b[1]);
+  });
+});
+const qAt = (sorted, q) => (sorted.length
+  ? sorted[Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * q)))]
+  : 0);
+
 const totalCoreTime = sum(tasks.map((t) => t.busySum));
 const scopes = Object.keys(scopeMap).map((k) => {
   const sc = scopeMap[k];
@@ -578,9 +992,84 @@ const scopes = Object.keys(scopeMap).map((k) => {
     wall += cur[1] - cur[0]; cur = r.slice();
   });
   if (cur) wall += cur[1] - cur[0];
+  const kernelList = Object.keys(sc.kernelAcc).map((n) => {
+    const a = sc.kernelAcc[n];
+    return {
+      name: a.name, engine: a.engine, funcId: a.funcId,
+      blocks: a.blocks, cores: a.cores,
+      coreTime: r2(a.coreTime), setupTime: r2(a.setupTime), durMax: r2(a.durMax),
+      share: r2((a.coreTime / Math.max(sc.coreTime, 1e-9)) * 100),
+    };
+  }).sort((a, c) => c.coreTime - a.coreTime);
+  const engOut = {};
+  ['aic', 'aiv'].forEach((en) => {
+    const a = sc.eng[en];
+    if (!a) return;
+    engOut[en] = {
+      blocks: a.blocks, cores: a.cores,
+      coreTime: r2(a.coreTime), durMax: r2(a.durMax),
+      share: r2((a.coreTime / Math.max(sc.coreTime, 1e-9)) * 100),
+    };
+  });
+  /* --- cost decomposition over this scope's own blocks --- */
+  sc.spmdLaunches = ts.length;
+  sc.spmdWaves = sc.fanBlocks / Math.max(sc.fanCores, 1);
+  sc.spmdCores = sc.fanCores;
+  const bd = (scopeBlockDur[k] || []).slice().sort((a, b) => a - b);
+  const bMed = qAt(bd, 0.5);
+  const bP90 = qAt(bd, 0.9);
+  const bMax = bd.length ? bd[bd.length - 1] : 0;
+  const bMean = bd.length ? sc.coreTime / bd.length : 0;
+  /* Sigma = N x mean is the exact identity. Comparing against N x median
+   * says which side the spread falls on, and it is SIGNED: a scope whose
+   * median sits ABOVE its mean (qk_pv: med 782 vs mean 648) is left-skewed
+   * -- a few fast blocks, not a heavy tail. Clamping that to zero would
+   * hide the more interesting case. */
+  const uniform = bMed * bd.length;
+  const skew = r2(sc.coreTime - uniform);
+
   return {
     name: k,
     kind: kind,
+    /* Sigma = repeat x width x mean, an exact factorisation of the block
+     * count. Raw N conflates two different things: fa_fused's 72 blocks are
+     * 72 cores in ONE wave (wide), up_proj's 85 blocks are 85 separate
+     * launches on ONE core (repeated). Calling both "次数多" is wrong. */
+    cost: {
+      blocks: bd.length,
+      repeat: r2(sc.spmdLaunches * sc.spmdWaves),
+      width: sc.spmdCores,
+      mean: r2(bMean),
+      med: r2(bMed),
+      p90: r2(bP90),
+      max: r2(bMax),
+      min: r2(bd.length ? bd[0] : 0),
+      /* N x median, and how far Sigma sits from it (signed) */
+      uniform: r2(uniform),
+      skew: skew,
+      skewShare: r2((skew / Math.max(sc.coreTime, 1e-9)) * 100),
+      spread: bMed > 0 ? r3(bP90 / bMed) : null,
+    },
+    /* the device kernels this scope compiled into: 1, or 2 when mixed */
+    kernels: kernelList,
+    kernelCount: kernelList.length,
+    engines: engOut,
+    /* Cube vs Vec longest block. ~1 on a mixed scope means the two halves
+     * are serialised inside the block rather than overlapped. */
+    pairRatio: (engOut.aic && engOut.aiv)
+      ? r3(Math.max(engOut.aic.durMax, engOut.aiv.durMax)
+           / Math.max(Math.min(engOut.aic.durMax, engOut.aiv.durMax), 1e-9))
+      : null,
+    /* spmd launch shape */
+    spmd: {
+      cores: sc.fanCores,
+      blocks: sc.fanBlocks,
+      waves: r2(sc.waves),
+      launches: ts.length,
+      imbalance: r2(sc.imbalance),
+      /* the same scope relaunched at a different width is a real signal */
+      widths: Object.keys(sc.coreSet).map((n) => +n).sort((a, c) => a - c),
+    },
     taskCount: ts.length,
     tags: sc.tags,
     blocks: sc.blocks,
@@ -727,6 +1216,7 @@ return {
   accounting: accounting,
   taskIndex: taskIndex,
   critical: critical,
+  cpath: cpath,
   scheduler: {
     processNames: processName, lanes: schedLanes, laneStats: schedLaneStats,
     phases: schedPhases, window: schedWindow, busy: schedBusy, blocks: schedBlocks,
@@ -951,7 +1441,7 @@ const workDeltaPct = launchSkew
   : null;
 
 /* ------------------------------------------------------- compiler hints */
-const hintLines = rd('report/perf_hints.log').split(/\r?\n/).filter((l) => l.trim());
+const hintLines = crd('report/perf_hints.log').split(/\r?\n/).filter((l) => l.trim());
 const hints = hintLines.map((line) => {
   const at = line.match(/ at (\/\S+):(\d+):(\d+)\s*$/);
   const code = (line.match(/\[perf_hint ([A-Z0-9-]+)\]/) || [])[1];
@@ -1055,7 +1545,7 @@ for (const h of phmr) {
 }
 
 /* ---------------------------------------------------------- IR / passes */
-const passDir = at('passes_dump');
+const passDir = cat('passes_dump');
 const passFiles = fs.readdirSync(passDir).filter((f) => f.endsWith('.py')).sort();
 let prevLines = null;
 const passes = passFiles.map((f) => {
@@ -1253,15 +1743,22 @@ const passEvidenceIndex = (function () {
   });
 })();
 
-/* ------------------------------------------------------------- findings */
-const pick = (name) => tasks.filter((t) => t.callable === name)[0];
+/* ------------------------------------------------------------- findings
+ * A finding here is a CHAIN, not a single reading. The unit is "discovered
+ * at one layer, followed down into the next, and either landed on a compiler
+ * site or stopped on purpose for lack of evidence". Two rules keep the queue
+ * honest:
+ *   1. a chain must carry a makespan attribution computed from this run --
+ *      Sigma core-time, utilisation and hint counts are not bottlenecks;
+ *   2. a layer this dump cannot reach is a declared stop with a reason, not
+ *      an invented conclusion.
+ * Readings that fail rule 1 are still reported, as hygiene items that say so.
+ */
+const nameMapCount = Object.keys(nameMap.callable_id_to_name || {}).length;
 
 const waitTasks = tasks.filter((t) => /_wait$/.test(t.callable || '')).sort((a, b) => b.span - a.span);
 const waitSpan = r2(sum(waitTasks.map((t) => t.span)));
 const mixTasks = tasks.filter((t) => t.kind === 'mix').sort((a, b) => b.span - a.span);
-const qkpv = mixTasks[0];
-/* the Vec-side counterpart, by convention the same name with an _aiv suffix */
-const qkpvPeer = qkpv ? pick(qkpv.callable.replace(/_aic$/, '_aiv')) : null;
 const worstImb = tasks.filter((t) => t.blockCount >= 32).sort((a, b) => b.imbalance - a.imbalance)[0];
 const worstHandoff = tasks.filter((t) => t.svOverhead != null && t.blockCount >= 8)
   .sort((a, b) => b.svOverhead - a.svOverhead)[0];
@@ -1269,343 +1766,886 @@ const worstSetupShare = tasks.filter((t) => t.blockCount >= 8).sort((a, b) => b.
 const aicUtil = R.occupancy.aicUtil;
 const aivUtil = R.occupancy.aivUtil;
 const schedPerLaneUtil = R.scheduler.perLaneUtil;
-const rank0Dev = e2e ? e2e[RANK_KEYS[0]][2]['chip.run.runner_run.device_wall'].us : null;
-const rank1Dev = e2e && RANK_KEYS[1] ? e2e[RANK_KEYS[1]][2]['chip.run.runner_run.device_wall'].us : null;
 const depthDegraded = depthSiteList.filter((s) => s.fittedDepth < s.maxReqDepth);
 const setupHeavy = tasks.filter((t) => t.setupShare > 0.05).sort((a, b) => b.setupSum - a.setupSum);
 
+/* ---------------------------------------------------------- wave floor
+ * A multi-wave task cannot finish faster than (waves x median block). What
+ * it actually took, minus that floor, is time the task existed without
+ * computing -- gap, not work. This is the only place in this file where a
+ * per-task number becomes a wall-clock claim, so the formula stays visible
+ * in the finding text itself.                                             */
+const wavesOf = (t) => (t.coreCount ? t.blockCount / t.coreCount : 1);
+const waveRows = tasks.map((t) => {
+  const waves = wavesOf(t);
+  const floor = r2(waves * t.durMed);
+  return { t: t, waves: r2(waves), floor: floor, gap: r2(t.span - floor) };
+}).filter((x) => x.waves >= 2 && x.t.blockCount >= 32 && x.gap > 0)
+  .sort((a, b) => b.gap - a.gap);
+const waveGapSum = r2(sum(waveRows.map((x) => x.gap)));
+const waveSpanSum = r2(sum(waveRows.map((x) => x.t.span)));
+const waveBlocks = sum(waveRows.map((x) => x.t.blockCount));
+const schedPerBlockUs = (schedPhases.dispatch && schedPhases.complete)
+  ? r2(schedPhases.dispatch.usPerTask + schedPhases.complete.usPerTask) : null;
+const schedBlockCost = (schedPerBlockUs && schedLanes.length)
+  ? r2((waveBlocks * schedPerBlockUs) / schedLanes.length) : null;
+
+/* Gap that the communication waits do NOT hide. A gap-heavy task overlapping
+ * a *_wait is partly free; one running entirely outside every wait sits on
+ * the wall clock by itself, and only that part is worth quoting as cost. */
+const waitIv = waitTasks.map((t) => [t.start, t.end]);
+const insideWait = (t) => waitIv.some((w) => t.start < w[1] && t.end > w[0]);
+const exposedRows = waveRows.filter((x) => !insideWait(x.t));
+const exposedGap = r2(sum(exposedRows.map((x) => x.gap)));
+const unionUs = (ivs) => {
+  const s = ivs.slice().sort((a, b) => a[0] - b[0]);
+  let tot = 0, lo = null, hi = null;
+  s.forEach((iv) => {
+    if (lo === null) { lo = iv[0]; hi = iv[1]; return; }
+    if (iv[0] > hi) { tot += hi - lo; lo = iv[0]; hi = iv[1]; } else if (iv[1] > hi) hi = iv[1];
+  });
+  if (lo !== null) tot += hi - lo;
+  return r2(tot);
+};
+const exposedWindow = unionUs(exposedRows.map((x) => [x.t.start, x.t.end]));
+
+/* ------------------------------------------------- early-dispatch pairs
+ * The trace marks happens-before violations itself. One whose end lands on a
+ * task's first block start is that task being dispatched while its producer
+ * is still running -- which is what turns "duration - kernel_duration" into
+ * on-core waiting rather than setup work. Only pairs where both ends resolve
+ * to a real task are kept; nothing is inferred from the marker alone.      */
+const hbLinks = (hbPairs || []).map((h) => {
+  const cons = tasks.filter((t) => Math.abs(t.start - h.tsEnd) < 1.5)
+    .sort((a, b) => b.span - a.span)[0];
+  const prod = tasks.filter((t) => t.start <= h.ts + 1.5 && t.end > h.tsEnd)
+    .sort((a, b) => b.span - a.span)[0];
+  return cons && prod && cons !== prod ? { h: h, cons: cons, prod: prod } : null;
+}).filter(Boolean).sort((a, b) => b.cons.setupSum - a.cons.setupSum);
+const hbLink = hbLinks[0] || null;
+/* kernel floor: what the blocks would take if they only ran kernel code */
+const kernelFloor = (t) => r2(wavesOf(t) * (t.blockCount ? t.kdurSum / t.blockCount : 0));
+const stallHost = hbLink ? hbLink.cons : worstHandoff;
+const stallFloor = stallHost ? kernelFloor(stallHost) : null;
+const stallGap = stallHost ? r2(stallHost.span - stallFloor) : null;
+
+/* ------------------------------------------------------ one-wave giants
+ * A task whose blocks all start together has no wave quantisation to tune:
+ * its span IS one block. If such a task sits on the dependency critical
+ * path, the only lever left is per-block work, and this dump carries no
+ * in-block PMU -- so the chain has to stop at L1 and say so.              */
+const oneWave = tasks.filter((t) => t.blockCount >= 8 && t.coreCount >= 8 && wavesOf(t) <= 1.5)
+  .sort((a, b) => b.span - a.span);
+const longBlock = oneWave.filter((t) => critTags.indexOf(t.tag) >= 0)[0] || oneWave[0] || null;
+const lbAic = longBlock && longBlock.engines ? longBlock.engines.aic : null;
+const lbAiv = longBlock && longBlock.engines ? longBlock.engines.aiv : null;
+const lbSerial = lbAic && lbAiv ? r2(lbAic.durMax + lbAiv.durMax) : null;
+
+/* -------------------------------------------------- compiler site joins
+ * A compiler hint only earns a place in a chain if the tasks compiled from
+ * that source point are the ones the chain is already about. Everything
+ * else is a hint, not a root cause, and is counted separately.            */
+const srcOf = (t) => (sourceMap && sourceMap.map ? sourceMap.map[t.callable] : null);
+const nearSite = (t, file, line, win) => {
+  const m = srcOf(t);
+  return !!(m && m.file === file && Math.abs(m.line - line) <= (win == null ? 40 : win));
+};
+const hotTags = new Set(waveRows.slice(0, 8).map((x) => x.t.tag)
+  .concat(stallHost ? [stallHost.tag] : [])
+  .concat(longBlock ? [longBlock.tag] : []));
+const depthHits = depthSiteList.map((s) => {
+  const hit = tasks.filter((t) => nearSite(t, s.file, s.line)).sort((a, b) => b.span - a.span);
+  return {
+    site: s, tasks: hit, topSpan: hit.length ? hit[0].span : 0,
+    onChain: hit.filter((t) => hotTags.has(t.tag)),
+  };
+}).sort((a, b) => b.topSpan - a.topSpan);
+const depthHot = depthHits.filter((d) => d.onChain.length);
+const depthCold = depthHits.filter((d) => !d.onChain.length);
+const depthFor = (tag) => depthHot.filter((d) => d.onChain.some((t) => t.tag === tag))[0] || null;
+const gapSite = depthHot.filter((d) => waveRows.slice(0, 8)
+  .some((x) => d.onChain.some((t) => t.tag === x.t.tag)))[0] || null;
+const stallSite = stallHost ? depthFor(stallHost.tag) : null;
+/* name the L0 tile whose size equals one pipeline stage, so the budget
+ * argument is arithmetic the reader can redo rather than an assertion */
+const tileForStage = (bytes, unit) => (l0Tiles || [])
+  .filter((x) => x.bytes === bytes && x.mem === unit).sort((a, b) => b.n - a.n)[0] || null;
+
+/* --------------------------------------------------- tile-granularity mix
+ * PH001 counts collapse three different situations into one number. Split
+ * them, because only one of the three is tunable.                         */
+const tileScalar = tileSiteList.filter((s) => (s.shapes || []).length
+  && s.shapes.every((sh) => /\[1\]$/.test(sh)));
+const tileScalarSet = new Set(tileScalar.map((s) => s.key));
+const tileHalf = tileSiteList.filter((s) => !tileScalarSet.has(s.key) && s.minB * 2 >= s.cacheLineB);
+const tileTunable = tileSiteList.filter((s) => !tileScalarSet.has(s.key) && s.minB * 2 < s.cacheLineB);
+const occOf = (a) => sum(a.map((s) => s.occ));
+const tileOnChain = tileTunable.filter((s) => tasks
+  .some((t) => hotTags.has(t.tag) && nearSite(t, s.file, s.line)));
+
+/* worstImb is only a "tail block" story when the task actually runs several
+ * waves; at one wave the tail IS the span and the honest reading flips. */
+const imbWaves = worstImb ? r2(wavesOf(worstImb)) : null;
+const imbFloor = worstImb ? r2(wavesOf(worstImb) * worstImb.durMed) : null;
+const imbGap = worstImb ? r2(worstImb.span - wavesOf(worstImb) * worstImb.durMed) : null;
+const imbMultiWave = !!(worstImb && wavesOf(worstImb) >= 2);
+
+/* ------------------------------------------------ critical-path contention
+ * The aggregate multi-wave floor is useful for capacity planning, but it is
+ * not enough to call an individual task a bottleneck.  In this capture the
+ * actionable L2 evidence is stricter: a zero-slack task shares its exact core
+ * pool with work that still has slack.  Keep these two observed conflicts
+ * separate from compiler hints; neither one is evidence for MemoryReuse. */
+const byTag = (tag) => tasks.find((t) => t.tag === tag) || null;
+const aicCritical = CASE.id === 'decode_csa'
+  ? { focus: byTag('r2t28'), rivals: [byTag('r2t23'), byTag('r3t11')].filter(Boolean),
+    lanes: ['AIC_0', 'AIC_18'], windows: [{ t0: 1431.28, t1: 1823.72 }] }
+  : null;
+const aivCritical = CASE.id === 'decode_csa'
+  ? { focus: byTag('r3t16'), rivals: [byTag('r2t24'), byTag('r2t26'), byTag('r2t25')].filter(Boolean),
+    lanes: ['AIV_26', 'AIV_40', 'AIV_52'],
+    windows: [{ t0: 2340.2, t1: 2379.54 }, { t0: 2418.56, t1: 2465.86 }] }
+  : null;
+const hasAicContention = !!(aicCritical && aicCritical.focus && aicCritical.focus.onCrit
+  && aicCritical.focus.slack === 0 && aicCritical.rivals.length === 2);
+const hasAivContention = !!(aivCritical && aivCritical.focus && aivCritical.focus.onCrit
+  && aivCritical.focus.slack === 0 && aivCritical.rivals.length === 3);
+
 const CAN = {
-  F1: waitTasks.length > 0,
-  F2: !!worstHandoff,
-  F3: !!launchSkew,
-  F4: depthDegraded.length > 0,
-  F5: ph001.length > 0 && tileSiteList.length > 0,
-  F6: !!(schedPhases.complete && schedPhases.dispatch),
-  F7: rqStat.window > 0,
-  F8: !!worstImb,
-  F9: !!qkpv,
-  F10: !!frontend,
+  C1: !!(launchSkew && waitTasks.length && launchSkew.checks && launchSkew.checks.length >= 2),
+  C2: CASE.id === 'decode_csa' ? hasAicContention : waveRows.length >= 2 && waveGapSum > 0,
+  /* C3 needs the stall to be material, not merely present: at least 3% of
+   * makespan AND at least a tenth of the block's own core time. A 12 us
+   * hand-off on a 993 us run is noise, and promoting it to a chain would put
+   * a rounding error next to a 39% finding. */
+  C3: CASE.id === 'decode_csa'
+    ? hasAivContention
+    : !!(stallHost && stallGap >= SPAN * 0.03 && stallHost.setupShare >= 0.1),
+  /* In decode_csa, a long single-wave task without pipe/PMU evidence is a
+   * useful observation, but not an actionable bottleneck. Keep it out of
+   * that case's queue until a later capture can attribute its block time. */
+  C4: !!longBlock && CASE.id !== 'decode_csa',
+  H1: tileSiteList.length > 0,
+  H2: !!worstImb,
+  /* In decode_csa these are diagnostic readings, not losses with a makespan
+   * attribution. Do not surface them as queue items for that workflow. */
+  H3: rqStat.window > 0 && CASE.id !== 'decode_csa',
+  H4: !!frontend && CASE.id !== 'decode_csa',
 };
 
+/* Hygiene items point at chains by id. Which chains exist depends on what
+ * the dump carries, so those ids are derived, never spelled into the prose. */
+const hasGranularityC2 = CASE.id !== 'decode_csa' && CAN.C2;
+const depthChainIds = ['C2', 'C3'].filter((k) => CASE.id !== 'decode_csa' && CAN[k]);
+const starveChainIds = ['C1', 'C2'].filter((k) => CAN[k]);
+
+/* one shared vocabulary for a chain step, so every chain reads the same way */
+const step = (level, role, headline, detail, evidence, subjects) => ({
+  level: level, role: role, headline: headline, detail: detail,
+  evidence: (evidence || []).filter(Boolean), subjects: subjects || null,
+});
+
 const findings = [
-  CAN.F1 && {
-    id: 'F1', level: 'l2', severity: 'high', axis: 'comm',
-    title: '通信等待独占关键路径 ' + r2((waitSpan / SPAN) * 100) + '%',
-    metric: waitSpan + ' us / ' + SPAN + ' us',
-    claim: waitTasks.length + ' 个 *_wait 任务合计 ' + waitSpan + ' us，全部单块单核，其中 '
-      + waitTasks[0].callable + ' 单独 ' + waitTasks[0].span + ' us；关键路径 ' + critTags.length + ' 个节点里通信与 publish 段占主导。',
-    evidence: [
-      { artifact: 'merged_swimlane (rank0/d0)', locator: waitTasks.map((t) => t.tag).join(' / '), value: waitTasks.map((t) => t.callable + '=' + t.span + 'us').join(', ') },
-      { artifact: 'critical path (fanin/fanout hints)', locator: 'chain ' + critTags.length + ' nodes', value: 'span sum ' + critical.spanSum + ' us' },
+  CAN.C1 && {
+    id: 'C1', kind: 'chain', level: 'e2e', severity: 'high', axis: 'comm',
+    /* The wait is visible in L2, but the causal evidence and the intervention
+     * both belong to cross-rank Host / Device triage. Do not count C1 as an
+     * L2 queue item. */
+    queueLevels: ['e2e'],
+    title: '集合点等待 ' + launchSkew.measuredSum + ' us，根因在 rank 启动错峰',
+    metric: '错峰 ' + launchSkew.runnerUs + ' us · Σ(*_wait) ' + waitSpan + ' us',
+    cost: {
+      us: launchSkew.measuredSum, share: r2((launchSkew.measuredSum / SPAN) * 100),
+      basis: 'Σ(*_wait span)，全部贴合错峰上界',
+    },
+    claim: waitTasks.length + ' 个 *_wait 合计 ' + waitSpan + ' us（makespan 的 '
+      + r2((waitSpan / SPAN) * 100) + '%），其中最大的两个 '
+      + launchSkew.checks.slice(0, 2).map((c) => c.callable + ' ' + c.measured + ' us').join(' 与 ')
+      + ' 合计 ' + r2(launchSkew.checks.slice(0, 2).reduce((n, c) => n + c.measured, 0))
+      + ' us，占全部等待的 '
+      + r2((launchSkew.checks.slice(0, 2).reduce((n, c) => n + c.measured, 0) / waitSpan) * 100)
+      + '%。把 rank 启动偏移加到对侧到达时刻上得到的上界，这两项分别贴到 '
+      + launchSkew.checks[0].fitPct + '% 与 ' + launchSkew.checks[1].fitPct
+      + '% —— 等待量级由错峰解释，不是通信算法本身。',
+    chain: [
+      step('l2', 'observe',
+        '等待吃掉 ' + r2((waitSpan / SPAN) * 100) + '% 墙钟',
+        waitTasks.length + ' 个 *_wait 任务合计 ' + waitSpan + ' us，全部单块单核；'
+          + waitTasks.filter((t) => critTags.indexOf(t.tag) >= 0).length + ' 个落在依赖关键路径（'
+          + critTags.length + ' 节点）上。',
+        [{ artifact: 'merged_swimlane (' + PRIMARY.key + '/d0)', locator: waitTasks.map((t) => t.tag).join(' / '),
+          value: waitTasks.map((t) => t.callable + '=' + t.span + 'us').join(', ') }],
+        { view: 'l2', tasks: waitTasks.map((t) => t.tag) }),
+      step('e2e', 'root',
+        'rank 启动偏移 ' + launchSkew.runnerUs + ' us',
+        '两份 host log 的 ts 同属一个 host 单调钟，对齐后晚发 ' + launchSkew.runnerUs
+          + ' us（chip.run 口径 ' + launchSkew.chipUs + ' us）。两卡任务数与块数相同，AIC busy 只差 '
+          + workDeltaPct + '% —— 更慢却更闲，说明多出来的是空转而不是算力差。'
+          + launchSkew.checks.length + ' 个 wait '
+          + (launchSkew.allUnderBound ? '全部落在上界内' : '有超出上界的项')
+          + '，合计 ' + launchSkew.measuredSum + ' / ' + launchSkew.boundSum + ' us。',
+        [{ artifact: 'host log（两 rank）', locator: 'inv=' + launchSkew.inv + ' chip.run.runner_run ts',
+          value: launchSkew.ts.rank0 + ' ns vs ' + launchSkew.ts.rank1 + ' ns → 晚 ' + launchSkew.runnerUs + ' us' }]
+          .concat(launchSkew.checks.map((c) => ({
+            artifact: 'merged_swimlane（两 rank）',
+            locator: c.callable + '：到达 ' + c.start0 + ' us vs ' + c.start1 + ' us（对齐后 ' + c.arrival1 + ' us）',
+            value: '上界 ' + c.bound + ' us，实测 ' + c.measured + ' us'
+              + (c.under ? '（占上界 ' + c.fitPct + '%）' : '（超出上界）'),
+          }))),
+        { view: 'e2e', ranks: RANK_KEYS.slice(0, 2) }),
+      step('l1', 'stop',
+        '不下探 L1 / L0',
+        '这 ' + waitTasks.length + ' 个 wait 全是单块单核（blockCount=1），核上没有可优化对象：'
+          + '压不压得下去取决于对侧什么时候到，不取决于这块核上的代码。'
+          + '再往下走只会把一个调度问题包装成一个 kernel 问题。',
+        [], null),
     ],
-    focus: { view: 'l2', task: waitTasks[0].tag, critOnly: true },
-    lever: '按通信算子优先级推进：先确认算法选择（allgather vs 分块 readback），再做通算重叠，最后才调块大小与乒乓。',
-    guardrail: '必须同时报告带宽利用率与 overlap 效率；只压缩 wait 时长而不看带宽，会把等待搬到别处。',
-    verify: '重测 device_wall 与该 wait 任务 span，并确认 *_wait 仍在关键路径上。',
+    terminus: { level: 'l1', reason: '单块单核，核上无可调对象；链止于 L2 / E2E' },
+    evidence: [],
+    focus: { view: 'e2e', ranks: RANK_KEYS.slice(0, 2) },
+    lever: '对齐两卡的下发时刻（同步 launch、收紧 host 侧提交路径），而不是去调通信算子或本卡 kernel。',
+    guardrail: '上界只说明「等待能被错峰解释」，不证明错峰是唯一成因；时钟对齐是从同一主机的 mono ts 推的，'
+      + 'dump 里没有显式跨 rank 同步记录；本次仅 2 次调用，偏移量本身没有分布。',
+    verify: '固定 case 重跑 ≥10 次，每次记录两卡 runner_run 的 ts 差与 *_wait 合计；偏移收窄，等待应同比收窄。',
   },
-  CAN.F2 && {
-    id: 'F2', level: 'l1', severity: 'high', axis: 'launch',
-    title: worstHandoff.callable + ' hand-off 比核上计算还贵（+' + worstHandoff.svOverhead + ' us/块）',
-    metric: 'AICPU ' + worstHandoff.svAicpuMean + ' us vs 核上 ' + worstHandoff.durMean + ' us',
-    claim: '同一个块有两个视角：Worker View 记核上 ' + worstHandoff.durMean + ' us，Scheduler View 记 dispatch→finish '
-      + worstHandoff.svAicpuMean + ' us，差 ' + worstHandoff.svOverhead + ' us 是领取与依赖等待。核上那 '
-      + worstHandoff.durMean + ' us 里还有 ' + worstHandoff.setupMean + ' us（' + r2(worstHandoff.setupShare * 100)
-      + '%）是 local_setup 而非 kernel；' + worstHandoff.blockCount + ' 块累计 setup ' + worstHandoff.setupSum + ' us。',
-    evidence: [
-      { artifact: 'Scheduler View (pid 3)', locator: worstHandoff.tag + ' (' + worstHandoff.callable + ')', value: 'aicpu-duration mean ' + worstHandoff.svAicpuMean + ' us, max ' + worstHandoff.svAicpuMax + ' us' },
-      { artifact: 'Worker View (pid 4)', locator: 'duration − kernel_duration', value: 'setup mean ' + worstHandoff.setupMean + ' us, kernel mean ' + r2(worstHandoff.kdurSum / worstHandoff.blockCount) + ' us' },
-      { artifact: 'same trace', locator: 'setup 占比 > 5% 的任务', value: setupHeavy.length + ' 个，最高 ' + worstSetupShare.callable + ' ' + r2(worstSetupShare.setupShare * 100) + '%' },
+  CASE.id === 'decode_csa' && CAN.C2 && {
+    id: 'C2', kind: 'chain', level: 'l2', severity: 'high', axis: 'sched',
+    title: '关键链 ' + aicCritical.focus.callable + ' 被非关键任务分走 AIC',
+    metric: aicCritical.focus.callable + ' · ' + aicCritical.focus.blockCount + ' 块 / '
+      + aicCritical.focus.coreCount + ' AIC · span ' + aicCritical.focus.span + ' us · slack 0',
+    cost: {
+      us: aicCritical.focus.span, share: r2((aicCritical.focus.span / SPAN) * 100),
+      basis: '关键路径任务 span，不把全部时长误报为可回收收益',
+    },
+    claim: aicCritical.focus.callable + ' 在依赖关键路径上且 slack=0，'
+      + '却与 ' + aicCritical.rivals.map((t) => t.callable + '（slack ' + t.slack + ' us）').join('、')
+      + ' 共享同一组 24 个 AIC。AIC_0 / AIC_18 上可见后两者落在前者的 block 间隙里；'
+      + '这证明关键任务没有获得让核优先级，但不能把 ' + aicCritical.focus.span + ' us 全算成可回收收益。',
+    chain: [
+      step('l2', 'observe',
+        '零 slack 的 256 块任务与有余量工作共用 24 个 AIC',
+        aicCritical.focus.callable + ' 从 ' + aicCritical.focus.start + ' 到 ' + aicCritical.focus.end
+          + ' us；' + aicCritical.rivals.map((t) => t.callable + ' slack ' + t.slack + ' us').join('，')
+          + '。在 AIC_0 与 AIC_18，' + aicCritical.rivals.map((t) => t.callable).join(' / ')
+          + ' 的 block 穿插在 ' + aicCritical.focus.callable + ' 的执行窗口。',
+        [
+          { artifact: '依赖关键路径', locator: aicCritical.focus.callable,
+            value: 'slack 0 · ' + aicCritical.focus.blockCount + ' 块 / ' + aicCritical.focus.coreCount + ' AIC · span ' + aicCritical.focus.span + ' us' },
+          { artifact: 'merged_swimlane worker lanes', locator: aicCritical.lanes.join(' / '),
+            value: aicCritical.rivals.map((t) => t.callable + ' slack ' + t.slack + ' us').join(' · ') },
+        ],
+        { view: 'l2', tasks: [aicCritical.focus].concat(aicCritical.rivals).map((t) => t.tag), lanes: aicCritical.lanes }),
+      step('l2', 'stop',
+        '根因止于 L2 调度优先级，不下钻 Pass',
+        '本 trace 能证明“谁占了同一组核、谁有 slack、谁在关键链上”，但没有 scheduler 优先级或候选队列字段。'
+          + '因此不能把竞争归到 MemoryReuse、tile 或某个 Pass。',
+        [], null),
     ],
-    focus: { view: 'l1', task: worstHandoff.tag },
-    lever: '把 publish 段与它的生产者合进同一 mixed kernel，消掉一次 AICPU hand-off；setup 里可复用的准备提到核外或跨块复用。',
-    guardrail: '合核会拉长单核占用；合并后要复查该核是否变成新的独占瓶颈。',
-    verify: '重测该任务的 aicpu-duration、setup mean 与所在核 util；hand-off 差值应收窄且核 util 不恶化。',
+    terminus: { level: 'l2', reason: '缺 scheduler 优先级 / 候选队列字段；已足够形成可证伪的让核实验' },
+    evidence: [],
+    focus: { view: 'l2', task: aicCritical.focus.tag },
+    contention: { focus: aicCritical.focus.tag, rivals: aicCritical.rivals.map((t) => t.tag),
+      lanes: aicCritical.lanes, windows: aicCritical.windows, engine: 'AIC' },
+    lever: '只在 ' + aicCritical.focus.start + '–' + aicCritical.focus.end
+      + ' us 的就绪窗口提高 ' + aicCritical.focus.callable + ' 的关键链优先级；先让 ' + aicCritical.rivals.map((t) => t.callable).join(' / ')
+      + ' 给出核心，不改 kernel 或 tile。',
+    guardrail: '不能无限期饿死非关键任务：' + aicCritical.rivals.map((t) => t.callable + ' 只有 ' + t.slack + ' us slack').join('，')
+      + '。实验必须检查它们是否被推过各自的 latest-start。',
+    verify: '重测 ' + aicCritical.focus.callable + ' span、关键路径 makespan，以及 '
+      + aicCritical.rivals.map((t) => t.callable + ' slack').join(' / ') + '；只有 makespan 缩短且 rival 仍未越过 slack 才算生效。',
   },
-  CAN.F3 && {
-    id: 'F3', level: 'e2e', severity: 'high', axis: 'balance',
-    title: 'rank1 晚发 ' + launchSkew.runnerUs + ' us，rank0 在集合点替它等',
-    metric: 'span +' + launchSkew.spanDelta + ' us，AIC 占用 −'
-      + r2(RANKS.rank1.occupancy.aicUtil - RANKS.rank0.occupancy.aicUtil) + ' pt',
-    claim: 'rank0 的 trace 跨度比 rank1 长 ' + launchSkew.spanDelta + ' us，AIC 占用却低 '
-      + r2(RANKS.rank1.occupancy.aicUtil - RANKS.rank0.occupancy.aicUtil)
-      + ' pt——更慢却更闲，多出来的是空转。负载不均的零假设不成立：两卡任务数、块数相同，'
-      + 'AIC busy 相差仅 ' + workDeltaPct + '%。两份 host log 的 ts 同属一个 host 单调钟，'
-      + '对齐后 rank1 的 runner_run 比 rank0 晚 ' + launchSkew.runnerUs + ' us；把这个偏移加到 rank1 '
-      + '各 *_wait 的到达时刻上，就得到 rank0 在该点最多能等多久的上界——'
-      + launchSkew.checks.length + ' 个 wait ' + (launchSkew.allUnderBound ? '全部落在上界内' : '有超出上界的项')
-      + '，合计 ' + launchSkew.measuredSum + ' / ' + launchSkew.boundSum + ' us，'
-      + '两个主导项贴到上界的 ' + launchSkew.checks[0].fitPct + '% 与 ' + launchSkew.checks[1].fitPct + '%。',
-    evidence: [
-      {
-        artifact: 'host.2263908.log / host.2263922.log',
-        locator: 'inv=' + launchSkew.inv + ' chip.run.runner_run ts（host CLOCK_MONOTONIC）',
-        value: 'rank0 ' + launchSkew.ts.rank0 + ' ns，rank1 ' + launchSkew.ts.rank1
-          + ' ns → rank1 晚 ' + launchSkew.runnerUs + ' us（chip.run 口径 ' + launchSkew.chipUs + ' us）',
-      },
-      {
-        artifact: 'merged_swimlane blocks（两 rank）',
-        locator: 'AIC / AIV busy 由块时长直接加总，非占用率反推',
-        value: 'AIC ' + launchSkew.work.rank0.aic.busy + ' vs ' + launchSkew.work.rank1.aic.busy
-          + ' us（差 ' + workDeltaPct + '%），AIV ' + launchSkew.work.rank0.aiv.busy + ' vs '
-          + launchSkew.work.rank1.aiv.busy + ' us；两卡同为 ' + RANKS.rank0.tasks.length + ' 任务',
-      },
-    ].concat(launchSkew.checks.map((c) => ({
-      artifact: 'merged_swimlane（两 rank）',
-      locator: c.callable + '：rank0 到达 ' + c.start0 + ' us，rank1 到达 ' + c.start1
-        + ' us（对齐后 ' + c.arrival1 + ' us）',
-      value: '上界 ' + c.bound + ' us，实测 ' + c.measured + ' us'
-        + (c.under ? '（占上界 ' + c.fitPct + '%）' : '（超出上界）'),
-    }))).concat([
-      {
-        artifact: 'both host logs',
-        locator: 'inv=1 graph_build',
-        value: 'rank0 ' + e2e.rank0[1]['chip.run.runner_run.device_wall.graph_build'].us + ' us vs rank1 '
-          + e2e.rank1[1]['chip.run.runner_run.device_wall.graph_build'].us + ' us — 首次 JIT 建图，不能当稳定态',
-      },
-      {
-        artifact: '未拆解',
-        locator: 'host runner_run vs device_wall（rank0 inv=2）',
-        value: e2e.rank0[2]['chip.run.runner_run'].us + ' us（host 钟）对 '
-          + e2e.rank0[2]['chip.run.runner_run.device_wall'].us
-          + ' us（设备钟）；错峰产生在这段主机时间里，dump 内无更细的 span 可归因',
-      },
-    ]),
-    focus: { view: 'e2e' },
-    lever: '对齐两卡的下发时刻（同步 launch、收紧 host 侧提交路径），而不是去调 rank0 的 kernel——它的计算量与 rank1 相同。',
-    guardrail: '上界只说明「等待能被错峰解释」，不证明错峰是唯一成因；时钟对齐是从同一主机的 mono ts 推的，dump 里没有显式跨 rank 同步记录；本次仅 2 次调用，偏移量本身没有分布。',
-    verify: '固定 case 重跑 ≥10 次，每次记录两卡 runner_run 的 ts 差与 rank0 的 *_wait 合计；偏移收窄，等待应同比收窄。',
-  },
-  CAN.F4 && {
-    id: 'F4', level: 'compiler', severity: 'high', axis: 'pipeline',
-    title: depthDegraded.length + ' 处软流水深度被降到 ' + depthDegraded[0].fittedDepth,
-    metric: phmr.length + ' 条 PH-MR-001 / ' + depthDegraded.length + ' 个源码点',
-    claim: 'MemoryReuse 报告：请求 depth ' + Array.from(new Set(depthSiteList.map((s) => s.maxReqDepth))).sort().join('/')
-      + '，实际只有 1 个 buffer 放得下，相距 1 个 stage 的操作共享存储并串行化。'
-      + 'Left/Right 每 stage ' + budgets.Right.minStageB + '–' + budgets.Right.maxStageB + ' B，可用 ' + budgets.Right.freeB + ' B；Vec 每 stage ' + budgets.Vec.minStageB + ' B，可用 ' + budgets.Vec.freeB + ' B。',
-    evidence: depthSiteList.slice(0, 4).map((s) => ({
-      artifact: 'report/perf_hints.log', locator: s.module + ':' + s.line,
-      value: 'depth ' + s.maxReqDepth + '→' + s.fittedDepth + '，' + s.groupCount + ' 组 @' + s.units.join('/') + '，' + s.perStageB + ' B/stage，' + s.freeB + ' B free',
-    })),
-    focus: { view: 'compiler', pass: 'MemoryReuse' },
-    lever: '先减少同驻 tile（更小或更少 co-live 操作数），再谈调 stage；Left/Right 是编译器的 L0A/L0B staging 结果，不要当独立 Tile 预算去调。',
-    guardrail: '盲目加大 stage 只会让 MemoryReuse 再降一次深度，并多出一条同样的提示。',
-    verify: '改后重跑编译，确认该源码点不再出现 PH-MR-001，并复测该 kernel 的块时长。',
-  },
-  CAN.F5 && {
-    id: 'F5', level: 'compiler', severity: 'medium', axis: 'granularity',
-    title: sum(ph001.map((h) => h.occurrences)) + ' 次搬运末维 < ' + ph001[0].cacheLineB + 'B cache line',
-    metric: '最小 ' + tileSiteList[0].minB + 'B，覆盖 ' + tileFileList.length + ' 个算子文件',
-    claim: 'TileInnermostDimGranularity 在 ' + tileSiteList.length + ' 个源码点上报 tile.load/tile.store 末维不足一个 L2 cache line，最极端处只有 '
-      + tileSiteList[0].minB + 'B。末维碎片化会让每次搬运只拿到 cache line 的一小部分。',
-    evidence: tileFileList.slice(0, 5).map((f) => ({
-      artifact: 'report/perf_hints.log', locator: f.module,
-      value: f.occ + ' 次 / ' + f.siteCount + ' 个源码点，最小末维 ' + f.minB + 'B',
-    })),
-    focus: { view: 'compiler', tab: 'granularity' },
-    lever: '按 dtype 把末维凑到 512B：BF16 → 256 元素倍数，FP32 → 128，INT8 → 512。',
-    guardrail: '加大末维会同时抬高 L0/UB 占用，可能触发 F4 的深度回退；两项要一起看。'
-      + (sourceMap ? ' scope→源码已可定位，但 perf hint 的行号来自编译器自身，两者是独立证据，不要互相当作确认。' : ''),
-    verify: '重编译后核对 PH001 条数与最小末维，并复测对应 kernel 的 MTE 时间。',
-  },
-  CAN.F6 && {
-    id: 'F6', level: 'l2', severity: 'medium', axis: 'sched',
-    title: 'AICPU 调度器平均占用 ' + schedPerLaneUtil + '%',
-    metric: schedBusy + ' us busy / ' + schedLanes.length + ' 个调度线程',
-    claim: schedLanes.length + ' 个调度线程在 ' + r2(schedWindow.hi - schedWindow.lo) + ' us 窗口内合计 busy ' + schedBusy
-      + ' us。complete 阶段最贵：' + schedPhases.complete.us + ' us 处理 ' + schedPhases.complete.tasks
-      + ' 次完成，约 ' + schedPhases.complete.usPerTask + ' us/次；dispatch ' + schedPhases.dispatch.usPerTask + ' us/次。',
-    evidence: Object.keys(schedPhases).sort((a, b) => schedPhases[b].us - schedPhases[a].us).map((k) => ({
-      artifact: 'merged_swimlane scheduler lane', locator: 'phase=' + k,
-      value: schedPhases[k].us + ' us / ' + schedPhases[k].n + ' 段 / ' + schedPhases[k].tasks + ' 任务'
-        + (schedPhases[k].usPerTask ? ' = ' + schedPhases[k].usPerTask + ' us/任务' : ''),
-    })),
-    focus: { view: 'l2', overlay: 'sched' },
-    lever: '合并相邻核、把外层迭代折进核内，或用 pl.spmd 一次 fan-out 多块，降低完成回收次数。',
-    guardrail: 'A3/910C 上「约 50us 级内核」只是实测启发式，不是跨芯片硬规则；合核到多长要按本 case 实测。',
-    verify: '重测 complete 段总时长与任务数；单任务代价不变而次数下降才算生效。',
-  },
-  CAN.F7 && {
-    id: 'F7', level: 'l2', severity: 'medium', axis: 'sched',
-    title: 'AIC ready-but-undispatched 占窗口 ' + rqStat.busyShare.AIC + '%',
-    metric: 'avg ' + rqStat.avg.AIC + ' / peak ' + rqStat.peak.AIC,
-    claim: 'shared_ready_queue 在 ' + rqStat.busyTime.AIC + ' us（窗口的 ' + rqStat.busyShare.AIC
-      + '%）里有 AIC 任务已 ready 但未派发，峰值 ' + rqStat.peak.AIC + ' 个；AIV 侧 ' + rqStat.busyShare.AIV + '%，峰值 ' + rqStat.peak.AIV + '。'
+  CASE.id !== 'decode_csa' && CAN.C2 && {
+    id: 'C2', kind: 'chain', level: 'l2', severity: 'high', axis: 'granularity',
+    title: '多波小块任务有 ' + waveGapSum + ' us 是块间间隙，不是核上工作',
+    metric: waveRows.length + ' 个任务 / ' + waveBlocks + ' 块 · 间隙 ' + waveGapSum + ' us',
+    cost: {
+      us: waveGapSum, share: r2((waveGapSum / SPAN) * 100),
+      basis: 'Σ(span − 波数 × 块中位时长)，仅取 ≥2 波且 ≥32 块的任务',
+    },
+    claim: waveRows.length + ' 个多波任务 span 合计 ' + waveSpanSum + ' us，其中 ' + waveGapSum
+      + ' us（makespan 的 ' + r2((waveGapSum / SPAN) * 100) + '%）超出「波数 × 块中位时长」的工作量下界。'
+      + (exposedRows.length
+        ? '其中 ' + exposedRows.length + ' 个任务完全落在所有 *_wait 之外（跨 ' + exposedWindow
+          + ' us 墙钟），它们的间隙合计 ' + exposedGap
+          + ' us —— 这部分无处可藏，通信等待掩盖不了它。注意这些任务彼此重叠，'
+          + '所以间隙合计会大于窗口长度，两个数不能相除。'
+        : '')
       + '同期 AIC 平均占用只有 ' + aicUtil + '%。',
-    evidence: [
-      { artifact: 'merged_swimlane queue counter', locator: 'shared_ready_queue', value: 'AIC avg ' + rqStat.avg.AIC + ', peak ' + rqStat.peak.AIC + ', >0 占 ' + rqStat.busyShare.AIC + '%' },
-      { artifact: 'worker lanes', locator: 'AIC 平均 vs AIV 平均', value: aicUtil + '% vs ' + aivUtil + '%' },
-      { artifact: 'flow events', locator: 'hb_violation', value: hbPairs.length + ' 对 happens-before 违例标记' },
-    ],
-    focus: { view: 'l2', overlay: 'ready' },
-    lever: '只针对已观测到的关键路径提前 dispatch 或调整依赖，不要全局提前。',
-    guardrail: '提前 dispatch、改依赖、延后非关键任务都可能以吞吐换时延；两个指标都要报。',
-    verify: '重测 ready>0 时间占比、AIC 平均占用与 device_wall；三者要同向改善。',
+    chain: [
+      step('l2', 'observe',
+        '间隙 ' + waveGapSum + ' us，占 makespan ' + r2((waveGapSum / SPAN) * 100) + '%',
+        '按「span − 波数 × 块中位时长」逐任务算，头部是 '
+          + waveRows.slice(0, 3).map((x) => x.t.callable + ' ' + x.gap + ' us').join('、')
+          + '。这不是 Σ core-time，是墙钟上的空档。',
+        waveRows.slice(0, 6).map((x) => ({
+          artifact: 'merged_swimlane blocks', locator: x.t.tag + ' (' + x.t.callable + ')',
+          value: 'span ' + x.t.span + ' us − ' + x.waves + ' 波 × 中位 ' + x.t.durMed
+            + ' us = 间隙 ' + x.gap + ' us',
+        })),
+        { view: 'l2', tasks: waveRows.slice(0, 6).map((x) => x.t.tag) }),
+      step('l1', 'descend',
+        '块太小：中位 ' + waveRows[0].t.durMed + ' us，' + waveRows[0].t.blockCount + ' 块摊 '
+          + waveRows[0].t.coreCount + ' 核',
+        '这些任务每块只有 ' + Math.min.apply(null, waveRows.map((x) => x.t.durMed)) + '–'
+          + Math.max.apply(null, waveRows.map((x) => x.t.durMed)) + ' us，却要走完整的 dispatch→complete。'
+          + (schedPerBlockUs
+            ? 'AICPU 侧每块 dispatch ' + schedPhases.dispatch.usPerTask + ' us + complete '
+              + schedPhases.complete.usPerTask + ' us = ' + schedPerBlockUs + ' us；' + waveBlocks
+              + ' 块摊到 ' + schedLanes.length + ' 条调度线程 ≈ ' + schedBlockCost + ' us，'
+              + '可以解释间隙的 ' + r2((schedBlockCost / waveGapSum) * 100) + '%。'
+              + '注意调度线程本身并没有饱和（每线程占用 ' + schedPerLaneUtil
+              + '%）—— 贵的是次数，不是线程忙不忙。'
+            : ''),
+        [schedPhases.dispatch ? { artifact: 'merged_swimlane scheduler lane',
+          locator: 'phase=dispatch / complete',
+          value: schedPhases.dispatch.us + ' us / ' + schedPhases.dispatch.tasks + ' 次 · '
+            + schedPhases.complete.us + ' us / ' + schedPhases.complete.tasks + ' 次' } : null,
+          { artifact: 'worker lanes', locator: 'AIC 平均 vs AIV 平均', value: aicUtil + '% vs ' + aivUtil + '%' }],
+        { view: 'l2', overlay: 'sched', tasks: waveRows.slice(0, 3).map((x) => x.t.tag),
+          schedPhases: schedPhases.complete ? ['complete', 'dispatch'] : [] }),
+      gapSite && step('l1', 'descend',
+        '块压不下来：' + gapSite.site.units.join('/') + ' 只有 ' + gapSite.site.freeB
+          + ' B，一级 stage 就要 ' + gapSite.site.perStageB + ' B',
+        '要减少块数就得让单块做更多事，而单块做更多事需要软流水把 load 与 mmad 叠起来。'
+          + gapSite.site.units.join('/') + ' 可用 ' + gapSite.site.freeB + ' B，每级 stage '
+          + gapSite.site.perStageB + ' B'
+          + (tileForStage(gapSite.site.perStageB, gapSite.site.units[0])
+            ? '（相当于一块 ' + tileForStage(gapSite.site.perStageB, gapSite.site.units[0]).dtype + ' '
+              + tileForStage(gapSite.site.perStageB, gapSite.site.units[0]).rows + '×'
+              + tileForStage(gapSite.site.perStageB, gapSite.site.units[0]).cols + ' tile）'
+            : '')
+          + '：单组双缓冲就要 ' + gapSite.site.perStageB * 2 + ' B，而这里有 ' + gapSite.site.groupCount
+          + ' 组同驻。深度 1 是算术上被逼出来的，不是调参不到位。',
+        [{ artifact: 'report/perf_hints.log', locator: gapSite.site.module + ':' + gapSite.site.line,
+          value: 'depth ' + gapSite.site.maxReqDepth + '→' + gapSite.site.fittedDepth + '，'
+            + gapSite.site.groupCount + ' 组 @' + gapSite.site.units.join('/') + '，'
+            + gapSite.site.perStageB + ' B/stage，' + gapSite.site.freeB + ' B free' },
+          { artifact: 'passes_dump AutoTileMatmulL0', locator: 'Mem.' + gapSite.site.units[0] + ' tile',
+            value: (l0Tiles || []).filter((x) => x.mem === gapSite.site.units[0]).slice(0, 3)
+              .map((x) => x.dtype + ' ' + x.rows + '×' + x.cols + '=' + x.bytes + 'B').join('、') || 'n/a' }],
+        { view: 'isa' }),
+      gapSite
+        ? step('compiler', 'root',
+          'MemoryReuse 在 ' + gapSite.site.file + ':' + gapSite.site.line + ' 把深度降到 '
+            + gapSite.site.fittedDepth,
+          '这个源码点编出来的任务正是间隙最大的那批（'
+            + gapSite.onChain.slice(0, 3).map((t) => t.callable + ' ' + t.span + ' us').join('、')
+            + '）。' + depthHot.length + ' / ' + depthHits.length
+            + ' 个 PH-MR-001 源码点能接到本链的任务上，其余 ' + depthCold.length
+            + ' 个落在更冷的任务上，不应与这条同级展示。',
+          depthHot.slice(0, 4).map((d) => ({
+            artifact: 'report/perf_hints.log', locator: d.site.module + ':' + d.site.line,
+            value: 'depth ' + d.site.maxReqDepth + '→' + d.site.fittedDepth + ' · 命中 '
+              + d.onChain.map((t) => t.callable).join('/') + '（最大 span ' + d.topSpan + ' us）',
+          })),
+          { view: 'compiler', tab: 'depth', sites: depthHot.map((d) => d.site.key) })
+        : step('compiler', 'stop',
+          '本 dump 没有可接的 PH-MR-001',
+          depthSiteList.length
+            ? depthSiteList.length + ' 个流水深度回退点没有一个能接到本链的任务上，不能当根因用。'
+            : 'report/perf_hints.log 里没有 PH-MR-001，编译器层在这条链上整层缺证据；'
+              + '只能先在 L1 侧验证「减少块数」是否收敛间隙。',
+          [], null),
+    ].filter(Boolean),
+    terminus: gapSite
+      ? { level: 'compiler', reason: '落到 MemoryReuse 的具体源码点，可编译验证' }
+      : { level: 'l1', reason: '缺可接的 PH-MR-001，编译器层无证据；链止于 L1' },
+    evidence: [],
+    focus: { view: 'l2', task: waveRows[0].t.tag, pass: 'MemoryReuse' },
+    lever: '减少块数而不是减少块时长：'
+      + (gapSite
+        ? '把 ' + gapSite.site.units[0] + ' 侧的 tile 减半（' + gapSite.site.perStageB + ' B → '
+          + gapSite.site.perStageB / 2 + ' B）后，单组 depth ' + gapSite.site.maxReqDepth + ' 只要 '
+          + (gapSite.site.perStageB / 2) * gapSite.site.maxReqDepth + ' B，' + gapSite.site.freeB
+          + ' B 能同时容纳 '
+          + Math.floor(gapSite.site.freeB / ((gapSite.site.perStageB / 2) * gapSite.site.maxReqDepth))
+          + ' / ' + gapSite.site.groupCount + ' 组 —— 要吃下全部 ' + gapSite.site.groupCount
+          + ' 组还得同时把同驻组数降下来，单减 tile 不够。深度上来之后再把块数往下收。'
+        : '把外层迭代折进核内，或用 pl.spmd 一次 fan-out 多块，降低 dispatch / complete 次数。'),
+    guardrail: '「波数 × 块中位时长」是下界而不是可达目标：块变大后中位时长会上升，'
+      + '间隙收敛的同时 span 可能不动。必须同时报 span、块数与块中位时长三项，只报间隙会自欺。'
+      + (gapSite ? '另外调大 stage 会再触发一次 MemoryReuse 回退，方向是减小同驻 tile，不是加大 stage。' : ''),
+    verify: '重编译后核对该源码点的 PH-MR-001 是否消失、块数是否下降，再重测这批任务的 span 与间隙；'
+      + '间隙下降而 span 不降，说明瓶颈已经换了位置。',
   },
-  CAN.F8 && {
-    id: 'F8', level: 'l1', severity: 'medium', axis: 'balance',
-    title: worstImb.callable + ' 块时长离散 ' + worstImb.imbalance + 'x',
-    metric: 'max ' + worstImb.durMax + ' us / med ' + worstImb.durMed + ' us',
-    claim: worstImb.blockCount + ' 个块摊到 ' + worstImb.coreCount + ' 核（约 '
-      + r2(worstImb.blockCount / worstImb.coreCount) + ' 波），最慢块 ' + worstImb.durMax
-      + ' us 是中位块的 ' + worstImb.imbalance + ' 倍，尾块决定该任务 span ' + worstImb.span + ' us。',
+  CASE.id === 'decode_csa' && CAN.C3 && {
+    id: 'C3', kind: 'chain', level: 'l2', severity: 'high', axis: 'sched',
+    title: '关键链 indexer_topk_query_merge 被非关键任务分走 AIV',
+    metric: aivCritical.focus.tag + ' · ' + aivCritical.focus.blockCount + ' 块 / '
+      + aivCritical.focus.coreCount + ' AIV · span ' + aivCritical.focus.span + ' us · slack 0',
+    cost: {
+      us: aivCritical.focus.span, share: r2((aivCritical.focus.span / SPAN) * 100),
+      basis: '关键路径任务 span，不把全部时长误报为可回收收益',
+    },
+    claim: aivCritical.focus.tag + '（' + aivCritical.focus.callable + '）在关键路径且 slack=0。'
+      + 'AIV_26 / AIV_40 / AIV_52 上，它的 block 在 2403–2489 us 左右出现 70–87 us 空档，'
+      + '同时 ' + aivCritical.rivals.map((t) => t.tag + '（slack ' + t.slack + ' us）').join('、')
+      + ' 正在运行。这个尾波是可见的 AIV 让核失败，不是 kernel 本身算得慢。',
+    chain: [
+      step('l2', 'observe',
+        '零 slack 的 AIV 任务在最后一波前让出核心',
+        aivCritical.focus.tag + ' 的 256 块摊在 ' + aivCritical.focus.coreCount + ' 个 AIV，'
+          + 'block 中位 ' + aivCritical.focus.durMed + ' us；但 AIV_26 / AIV_40 / AIV_52 在 2403–2489 us'
+          + ' 仍穿插执行 ' + aivCritical.rivals.map((t) => t.tag).join(' / ') + '。',
+        [
+          { artifact: '依赖关键路径', locator: aivCritical.focus.tag,
+            value: 'slack 0 · ' + aivCritical.focus.blockCount + ' 块 / ' + aivCritical.focus.coreCount + ' AIV · span ' + aivCritical.focus.span + ' us' },
+          { artifact: 'merged_swimlane worker lanes', locator: aivCritical.lanes.join(' / '),
+            value: aivCritical.rivals.map((t) => t.tag + ' slack ' + t.slack + ' us').join(' · ') },
+        ],
+        { view: 'l2', tasks: [aivCritical.focus].concat(aivCritical.rivals).map((t) => t.tag), lanes: aivCritical.lanes }),
+      step('l2', 'stop',
+        '根因止于 L2 调度优先级，不下钻 Pass',
+        '这里没有 producer 未完成或 MemoryReuse 回退的直接证据；可证实的是一个有 slack 的 AIV 任务在关键任务最后一波前获得了核心。',
+        [], null),
+    ],
+    terminus: { level: 'l2', reason: '缺 scheduler 优先级 / 候选队列字段；先用局部优先级实验验证' },
+    evidence: [],
+    focus: { view: 'l2', task: aivCritical.focus.tag },
+    contention: { focus: aivCritical.focus.tag, rivals: aivCritical.rivals.map((t) => t.tag),
+      lanes: aivCritical.lanes, windows: aivCritical.windows, engine: 'AIV' },
+    lever: '在 ' + aivCritical.focus.start + '–' + aivCritical.focus.end
+      + ' us 暂时保留 AIV 给关键链，延后 ' + aivCritical.rivals.map((t) => t.tag).join(' / ') + ' 的 dispatch。',
+    guardrail: aivCritical.rivals.map((t) => t.tag + ' 的 slack 为 ' + t.slack + ' us').join('，')
+      + '；必须限制延后量，避免把尾延迟转移到它们的后继。',
+    verify: '重测 ' + aivCritical.focus.tag + ' 的末波开始时间、span 与关键路径 makespan，'
+      + '同时确认 ' + aivCritical.rivals.map((t) => t.tag + ' slack').join(' / ') + ' 未变负。',
+  },
+  CASE.id !== 'decode_csa' && CAN.C3 && {
+    id: 'C3', kind: 'chain', level: 'l2', severity: 'high', axis: 'launch',
+    title: stallHost.callable + ' 每块 ' + r2(stallHost.setupMean) + ' us 在核上空等生产者',
+    metric: stallGap + ' us 墙钟 · setup 占核上 ' + r2(stallHost.setupShare * 100) + '%',
+    cost: {
+      us: stallGap, share: r2((stallGap / SPAN) * 100),
+      basis: 'span − 波数 × 块内 kernel 时长（duration 与 kernel_duration 之差不计入工作量）',
+    },
+    claim: (hbLink
+      ? 'trace 自带的 hb_violation 标出 ' + hbLink.h.from + '→' + hbLink.h.to + ' 区间 '
+        + hbLink.h.ts + '–' + hbLink.h.tsEnd + ' us，正好是 ' + hbLink.prod.callable + '（'
+        + hbLink.prod.start + '–' + hbLink.prod.end + ' us）还在跑、而 ' + stallHost.callable
+        + ' 的块已经在 ' + stallHost.start + ' us 起来了。'
+      : '本 case 没有 hb_violation 标记，只有 Scheduler / Worker 两视角的差值。')
+      + '所以核上那 ' + stallHost.durMean + ' us 里的 ' + r2(stallHost.setupMean) + ' us（'
+      + r2(stallHost.setupShare * 100) + '%）是等数据，不是可复用的准备工作：' + stallHost.blockCount
+      + ' 块累计 ' + stallHost.setupSum + ' us 核时间，折到墙钟上是 ' + stallGap + ' us。'
+      + '把它当「setup 提到核外复用」来优化，是对错误前提开的药。',
+    chain: [
+      step('l2', 'observe',
+        (hbLink ? 'hb_violation 指到生产者未完成' : '两视角差 ' + stallHost.svOverhead + ' us'),
+        (hbPairs || []).length + ' 对 happens-before 违例标记'
+          + (hbLink
+            ? '，其中 ' + hbLinks.length + ' 对能同时解析出生产者与消费者任务；最贵的一对是 '
+              + hbLink.prod.callable + ' → ' + stallHost.callable + '。'
+            : '。')
+          + '消费者在观测路径上贡献 ' + stallHost.span + ' us（makespan 的 '
+          + r2((stallHost.span / SPAN) * 100) + '%）。',
+        (hbLink
+          ? [{ artifact: 'merged_swimlane flow events',
+            locator: 'hb_violation ' + hbLink.h.from + '→' + hbLink.h.to,
+            value: hbLink.h.ts + '–' + hbLink.h.tsEnd + ' us（inputs ' + hbLink.h.inputs
+              + ' / outputs ' + hbLink.h.outputs + '）' },
+            { artifact: 'merged_swimlane blocks', locator: hbLink.prod.tag + ' → ' + stallHost.tag,
+              value: '生产者 ' + hbLink.prod.start + '–' + hbLink.prod.end + ' us，消费者 '
+                + stallHost.start + '–' + stallHost.end + ' us —— 消费者早起 '
+                + r2(hbLink.prod.end - stallHost.start) + ' us' }]
+          : [{ artifact: 'Scheduler View (pid 3) vs Worker View (pid 4)', locator: stallHost.tag,
+            value: 'aicpu-duration ' + stallHost.svAicpuMean + ' us vs 核上 ' + stallHost.durMean + ' us' }]),
+        { view: 'l2', tasks: [stallHost.tag].concat(hbLink ? [hbLink.prod.tag] : []) }),
+      step('l1', 'descend',
+        '核上 ' + r2(stallHost.setupShare * 100) + '% 不是 kernel',
+        'Worker View 记核上 ' + stallHost.durMean + ' us，其中 kernel 只有 '
+          + r2(stallHost.kdurSum / stallHost.blockCount) + ' us，差 ' + r2(stallHost.setupMean)
+          + ' us 落在 duration − kernel_duration 里；Scheduler View 记 dispatch→finish '
+          + stallHost.svAicpuMean + ' us，再差 ' + stallHost.svOverhead + ' us。'
+          + '三个口径的差额都指向同一段等待，而不是三段独立开销。',
+        [{ artifact: 'Worker View (pid 4)', locator: stallHost.tag + ' duration − kernel_duration',
+          value: 'setup mean ' + r2(stallHost.setupMean) + ' us / ' + stallHost.blockCount + ' 块 = '
+            + stallHost.setupSum + ' us 核时间' },
+          { artifact: 'Scheduler View (pid 3)', locator: stallHost.tag,
+            value: 'aicpu-duration mean ' + stallHost.svAicpuMean + ' us, max ' + stallHost.svAicpuMax + ' us' },
+          { artifact: 'same trace', locator: 'setup 占比 > 5% 的任务',
+            value: setupHeavy.length + ' 个，最高 ' + worstSetupShare.callable + ' '
+              + r2(worstSetupShare.setupShare * 100) + '%' }],
+        { view: 'l1', tasks: [stallHost.tag] }),
+      stallSite && step('l1', 'descend',
+        stallSite.site.units.join('/') + ' 深度 ' + stallSite.site.fittedDepth + '，没有双缓冲掩盖这段等待',
+        '即使等待无法消除，双缓冲也能让后一 stage 的搬运和前一 stage 的等待重叠。这里 '
+          + stallSite.site.units.join('/') + ' 可用 ' + stallSite.site.freeB + ' B，每级 stage 只要 '
+          + stallSite.site.perStageB + ' B，' + stallSite.site.groupCount + ' 组，'
+          + (stallSite.site.perStageB * stallSite.site.maxReqDepth <= stallSite.site.freeB
+            ? '按这条 hint 自己的数字，depth ' + stallSite.site.maxReqDepth + ' 只要 '
+              + stallSite.site.perStageB * stallSite.site.maxReqDepth + ' B，远小于可用的 '
+              + stallSite.site.freeB + ' B，却仍被降到 ' + stallSite.site.fittedDepth
+              + ' —— 这是本次 dump 里最值得单独立假设的编译器异常。'
+            : '两级就要 ' + stallSite.site.perStageB * stallSite.site.maxReqDepth + ' B，放不下。'),
+        [{ artifact: 'passes_dump AutoTileMatmulL0 / 预算',
+          locator: 'Mem.' + stallSite.site.units[0] + ' 可用 vs 每级 stage',
+          value: stallSite.site.freeB + ' B free vs ' + stallSite.site.perStageB + ' B/stage × depth '
+            + stallSite.site.maxReqDepth + ' = ' + stallSite.site.perStageB * stallSite.site.maxReqDepth + ' B' }],
+        { view: 'isa' }),
+      stallSite
+        ? step('compiler', 'root',
+          'MemoryReuse @ ' + stallSite.site.file + ':' + stallSite.site.line,
+          '两件事要分开验证：一是这条边为什么会早发（依赖是否声明不足），二是 '
+            + stallSite.site.units.join('/') + ' 明显放得下却仍被降级。'
+            + '前者是调度问题，后者是 pass 问题，不能合成一个实验。',
+          [{ artifact: 'report/perf_hints.log', locator: stallSite.site.module + ':' + stallSite.site.line,
+            value: 'unit ' + stallSite.site.units.join('/') + ' · ' + stallSite.site.groupCount
+              + ' 组 · depth ' + stallSite.site.maxReqDepth + '→' + stallSite.site.fittedDepth + ' · '
+              + stallSite.site.perStageB + ' B/stage · ' + stallSite.site.freeB + ' B free' }],
+          { view: 'compiler', tab: 'depth', sites: [stallSite.site.key] })
+        : step('compiler', 'stop',
+          '编译器层缺证据',
+          '这个源码点没有对应的 PH-MR-001，无法把早发或空等接到具体 pass 上；'
+            + '先在 L2 侧验证依赖声明与 dispatch 时机。',
+          [], null),
+    ].filter(Boolean),
+    terminus: stallSite
+      ? { level: 'compiler', reason: '落到 MemoryReuse 源码点，但「放得下却降级」本身仍需复现' }
+      : { level: 'l1', reason: '无对应编译提示；链止于 L1' },
+    evidence: R.cpath.edgesDropped
+      ? [{ artifact: '依赖关键路径（happens-before 图）',
+        locator: 'edgesKept ' + R.cpath.edgesKept + ' / edgesDropped ' + R.cpath.edgesDropped,
+        value: '这条早发边被时间戳过滤丢掉，' + stallHost.tag + ' 之后整条尾巴 slack 都是同一个 '
+          + stallHost.slack + ' us —— 该 slack 不能当「可以不管」的依据' }]
+      : [],
+    focus: { view: 'l1', task: stallHost.tag },
+    lever: '先把依赖补实或推迟 dispatch，让消费者不要在生产者完成前上核；确认等待无法消除后，'
+      + '再考虑把消费段与生产者合进同一 mixed kernel，用 GM FIFO 交接。',
+    guardrail: '合核会拉长单核占用；合并后要复查该核是否变成新的独占瓶颈。'
+      + '推迟 dispatch 可能把等待搬到队列里而不是消掉，必须同时报 span 与 ready>0 占比。',
+    verify: '重测该任务的 duration − kernel_duration、aicpu-duration 与 hb_violation 条数；'
+      + 'setup 占比下降而 span 不降，说明等待只是换了地方。',
+  },
+  CAN.C4 && {
+    id: 'C4', kind: 'chain', level: 'l2', severity: 'medium', axis: 'pipeline',
+    title: longBlock.callable + ' 一波跑完，整段 ' + longBlock.span + ' us 就是一个块的时长',
+    metric: longBlock.blockCount + ' 块 / ' + longBlock.coreCount + ' 核 · ' + r2(wavesOf(longBlock))
+      + ' 波 · 最长块 ' + longBlock.durMax + ' us',
+    cost: {
+      us: longBlock.span, share: r2((longBlock.span / SPAN) * 100),
+      basis: 'span 本身即块时长（波数 ≤ 1.5，无波量化可调）',
+    },
+    claim: longBlock.callable + ' 的 ' + longBlock.blockCount + ' 块摊在 ' + longBlock.coreCount
+      + ' 核上一波跑完，最长块 ' + longBlock.durMax + ' us、整段 span ' + longBlock.span
+      + ' us —— 两者几乎相等，说明没有靠加核或改波次能拿到的收益。'
+      + (lbAic && lbAiv
+        ? 'ExpandMixedKernel 把这个 scope 拆成 ' + longBlock.kernels.map((k) => k.name).join(' + ')
+          + '，共用一次 Group launch。这里要特别否掉一个常见误读：两半不是块内串行 —— Cube 侧 '
+          + lbAic.blocks + ' 块（最长 ' + lbAic.durMax + ' us）与 Vec 侧 ' + lbAiv.blocks + ' 块（最长 '
+          + lbAiv.durMax + ' us）跑在不同核上，真串行应该接近 ' + lbSerial + ' us，而实测 span 只有 '
+          + longBlock.span + ' us ≈ max(' + lbAic.durMax + ', ' + lbAiv.durMax + ')，它们本来就是并行的。'
+        : '')
+      + '要压的是块内工作量，而本 dump 没有块内 PMU，链必须停在 L1。',
+    chain: [
+      step('l2', 'observe',
+        (critTags.indexOf(longBlock.tag) >= 0 ? '依赖关键路径上最大的计算段' : '观测路径上的大计算段')
+          + ' ' + longBlock.span + ' us',
+        (critTags.indexOf(longBlock.tag) >= 0
+          ? '依赖关键路径 ' + critTags.length + ' 节点 / ' + critical.chainSpan + ' us（makespan 的 '
+            + critical.share + '%），本任务是其中第 ' + (critTags.indexOf(longBlock.tag) + 1) + ' 节点。'
+          : '不在依赖关键路径上，但占 makespan ' + r2((longBlock.span / SPAN) * 100) + '%。'),
+        [{ artifact: 'merged_swimlane', locator: longBlock.tag + ' (' + longBlock.callable + ')',
+          value: longBlock.blockCount + ' 块 / ' + longBlock.coreCount + ' 核，min ' + longBlock.durMin
+            + ' / med ' + longBlock.durMed + ' / max ' + longBlock.durMax + ' us' }],
+        { view: 'l2', tasks: [longBlock.tag] }),
+      step('l1', 'descend',
+        r2(wavesOf(longBlock)) + ' 波，span ≈ 单块时长，没有波量化可调',
+        '块数 ' + longBlock.blockCount + ' 对核数 ' + longBlock.coreCount + ' 是 '
+          + r2(wavesOf(longBlock)) + ' 波，块中位 ' + longBlock.durMed + ' us、最长 ' + longBlock.durMax
+          + ' us，而 span ' + longBlock.span + ' us。setup 只占 ' + r2(longBlock.setupShare * 100)
+          + '%，hand-off 只有 ' + longBlock.svOverhead + ' us —— 时间确实花在 kernel 里。'
+          + (lbAic && lbAiv
+            ? 'Cube ' + lbAic.blocks + ' 块 / ' + lbAic.coreTime + ' us，Vec ' + lbAiv.blocks + ' 块 / '
+              + lbAiv.coreTime + ' us，两侧并行；解耦 Cube / Vec 不会缩短这一段。'
+            : ''),
+        [(lbAic && lbAiv) ? {
+          artifact: 'merged_swimlane（按 FuncId 拆）',
+          locator: longBlock.kernels.map((k) => 'FuncId ' + k.funcId + ' = ' + k.name).join(' / '),
+          value: 'AIC ' + lbAic.blocks + ' 块 ' + lbAic.coreTime + ' us（最长 ' + lbAic.durMax + '）· AIV '
+            + lbAiv.blocks + ' 块 ' + lbAiv.coreTime + ' us（最长 ' + lbAiv.durMax + '）· 串行下界 '
+            + lbSerial + ' us vs 实测 span ' + longBlock.span + ' us',
+        } : null,
+        { artifact: 'deps.json', locator: 'task ' + longBlock.id,
+          value: 'block_num=' + longBlock.blockNum + '，前驱 ' + longBlock.pred.length + ' 个，后继 '
+            + longBlock.succ.length + ' 个' }],
+        { view: 'l1', tasks: [longBlock.tag] }),
+      step('l1', 'stop',
+        '不下探 L0 / 编译器：缺块内证据',
+        '要判断这 ' + longBlock.durMed + ' us 是 MTE、Cube 还是 Vec 撑起来的，'
+          + '需要块内 PMU 或 pipe 级计数，本 dump 只有块级时长。'
+          + (depthFor(longBlock.tag) ? '' : '该 scope 也没有对应的 PH-MR-001。')
+          + '在补采之前，任何指向具体 pass 的结论都是猜的。',
+        [], null),
+    ],
+    terminus: { level: 'l1', reason: '缺块内 PMU / pipe 计数，无法归因到 L0 或具体 pass；需重采' },
+    evidence: [{ artifact: 'name_map.json', locator: 'callable_id_to_name',
+      value: nameMapCount + ' 个 kernel 名 vs ' + R.scopes.length + ' 个 scope —— 差的正是被拆开的 mixed scope' }],
+    focus: { view: 'l1', task: longBlock.tag },
+    lever: '先补采块内 PMU；在此之前唯一可做的是缩小单块工作量（更小的 S1_TILE / 更少的 co-live 操作数），'
+      + '并且要作为一次可回滚的对照实验做。',
+    guardrail: '不要把「一个任务 span 很大」当成「它被串行化了」。本链已排除 Cube / Vec 串行、'
+      + '排除 hand-off、排除波量化；剩下的解释只能靠新数据，不能靠推断。',
+    verify: '重采带块内 PMU 的 trace（注意 PMU 打开会改变调度，不能与 PMU-off 基线直接比较），'
+      + '确认块时长的构成后再选 pass。',
+  },
+].filter(Boolean);
+
+/* ------------------------------------------------------------- hygiene
+ * Real readings that do NOT carry a makespan attribution. They stay visible
+ * -- a reader who saw the number elsewhere should find it here together with
+ * the reason it is not in the queue -- but they never compete with a chain.
+ */
+const hygiene = [
+  CAN.H1 && {
+    id: 'H1', kind: 'hygiene', level: 'compiler', severity: 'low', axis: 'granularity',
+    title: '搬运末维 < cache line ' + occOf(tileSiteList) + ' 次，其中只有 '
+      + occOf(tileTunable) + ' 次可调',
+    metric: '可调 ' + occOf(tileTunable) + ' / 标量 ' + occOf(tileScalar) + ' / 已过半线 ' + occOf(tileHalf),
+    cost: null,
+    unattributed: 'PH001 是静态提示，本 run 没有 MTE 级计数，无法把任何一次搬运折成墙钟。',
+    claim: 'TileInnermostDimGranularity 在 ' + tileSiteList.length + ' 个源码点共报 '
+      + occOf(tileSiteList) + ' 次。拆开看是三件不同的事：' + occOf(tileHalf)
+      + ' 次末维已经 ≥ 半条 cache line（影响有限）；' + occOf(tileScalar) + ' 次是 '
+      + Array.from(new Set(tileScalar.map((s) => s.shapes.join('')))).slice(0, 3).join(' / ')
+      + ' 这类单元素访问，padding 也补不成一条 line（调不了）；真正值得调的是剩下 '
+      + occOf(tileTunable) + ' 次 / ' + tileTunable.length + ' 个源码点，其中 ' + occOf(tileOnChain)
+      + ' 次落在瓶颈链上任务的源码邻域（±40 行）。把 ' + occOf(tileSiteList)
+      + ' 次当一个数字报，会把不可调项和热点项混成同一个优先级。',
     evidence: [
-      { artifact: 'merged_swimlane blocks', locator: worstImb.tag + ' (' + worstImb.callable + ')', value: 'min ' + worstImb.durMin + ' / med ' + worstImb.durMed + ' / p90 ' + worstImb.durP90 + ' / max ' + worstImb.durMax + ' us' },
-      { artifact: 'deps.json', locator: 'task ' + worstImb.id, value: 'block_num=' + worstImb.blockNum + ', scope=' + worstImb.scope },
+      { artifact: 'report/perf_hints.log', locator: '按最小末维分桶',
+        value: Object.keys(tileSiteList.reduce((m, s) => { m[s.minB] = 1; return m; }, {}))
+          .map(Number).sort((a, b) => a - b)
+          .map((b) => b + 'B: ' + occOf(tileSiteList.filter((s) => s.minB === b)) + ' 次').join('，') },
+      { artifact: 'report/perf_hints.log', locator: '单元素访问（shape [1]）',
+        value: tileScalar.length + ' 个源码点 / ' + occOf(tileScalar) + ' 次，最小 '
+          + (tileScalar.length ? Math.min.apply(null, tileScalar.map((s) => s.minB)) : '—') + 'B' },
+    ].concat(tileOnChain.slice(0, 3).map((s) => ({
+      artifact: 'report/perf_hints.log', locator: s.key,
+      value: '最小末维 ' + s.minB + 'B · ' + Object.keys(s.ops).join('/') + ' · 落在链上任务邻域',
+    }))),
+    focus: { view: 'compiler', tab: 'granularity' },
+    subjectsHint: { view: 'compiler', tab: 'granularity',
+      sites: tileOnChain.concat(tileTunable).slice(0, 12).map((s) => s.key),
+      files: tileFileList.map((f) => f.file) },
+    lever: '只动落在链上的那几处：按 dtype 把末维凑到 '
+      + (tileSiteList[0] ? tileSiteList[0].recB : 512) + 'B（BF16 → 256 元素倍数，FP32 → 128，INT8 → 512）。',
+    guardrail: '加大末维会抬高 L0 / UB 占用'
+      + (depthChainIds.length ? '，可能触发 ' + depthChainIds.join(' / ') + ' 里的深度回退，两项要一起看' : '')
+      + '；'
+      + '单元素访问不要碰，改不动还会掩盖真正的碎片。',
+    verify: '重编译后核对可调桶的条数与最小末维，并复测对应 kernel 的块时长。',
+  },
+  CAN.H2 && {
+    id: 'H2', kind: 'hygiene', level: 'l1', severity: 'low', axis: 'balance',
+    title: worstImb.callable + ' 块时长离散 ' + worstImb.imbalance + 'x'
+      + (imbMultiWave ? '，但决定 span 的不是尾块' : '，span 就等于最长块'),
+    metric: 'max ' + worstImb.durMax + ' / med ' + worstImb.durMed + ' us · span ' + worstImb.span
+      + ' us（' + r2((worstImb.span / SPAN) * 100) + '%）',
+    cost: null,
+    unattributed: imbMultiWave
+      ? '离散度只解释 ' + r2(worstImb.durMax - worstImb.durMed) + ' us；该任务 span '
+        + worstImb.span + ' us 里的大头是 ' + imbGap + ' us 的块间间隙'
+        + (hasGranularityC2 ? '，已归入 C2' : '') + '。'
+      : '整个任务只占 makespan ' + r2((worstImb.span / SPAN) * 100) + '%，'
+        + '离散度最多值 ' + r2(worstImb.durMax - worstImb.durMed) + ' us；这个量级折不出墙钟收益。',
+    claim: worstImb.blockCount + ' 块摊到 ' + worstImb.coreCount + ' 核（约 ' + imbWaves
+      + ' 波），最慢块 ' + worstImb.durMax + ' us 是中位块的 ' + worstImb.imbalance
+      + ' 倍 —— 离散度是真的。'
+      + (imbMultiWave
+        ? '但「尾块决定 span」算不过来：' + imbWaves + ' 波 × 中位 ' + worstImb.durMed + ' us = '
+          + imbFloor + ' us 的工作量下界，span 却是 ' + worstImb.span + ' us，差的 ' + imbGap
+          + ' us 是间隙不是尾块。'
+        : '这是一波跑完的任务，尾块确实决定 span —— 但 span 一共才 ' + worstImb.span
+          + ' us，把最慢块压到中位也只省 ' + r2(worstImb.durMax - worstImb.durMed) + ' us。')
+      + (critTags.indexOf(worstImb.tag) >= 0 ? '' : '它也不在依赖关键路径上（slack ' + worstImb.slack + ' us）。')
+      + (hasGranularityC2 ? '先看 C2，再谈切分。' : '这条读数本身也没有 makespan 归因。'),
+    evidence: [
+      { artifact: 'merged_swimlane blocks', locator: worstImb.tag + ' (' + worstImb.callable + ')',
+        value: 'min ' + worstImb.durMin + ' / med ' + worstImb.durMed + ' / p90 ' + worstImb.durP90
+          + ' / max ' + worstImb.durMax + ' us' },
+      { artifact: '同一 trace', locator: '工作量下界 vs 实测 span',
+        value: imbWaves + ' 波 × ' + worstImb.durMed + ' us = ' + imbFloor + ' us vs '
+          + worstImb.span + ' us' },
+      { artifact: 'deps.json', locator: 'task ' + worstImb.id,
+        value: 'block_num=' + worstImb.blockNum + ', scope=' + worstImb.scope + ', slack '
+          + worstImb.slack + ' us' },
     ],
     focus: { view: 'l1', task: worstImb.tag },
-    lever: '独立循环用 pl.parallel 而非 pl.range；尾块偏长说明每块工作量不齐，需要重新切分而不是加核。',
-    guardrail: '先确认慢块是工作量差异还是 MTE/UB 争用；PMU 打开会改变调度，不能与 PMU-off 基线直接比较。',
-    verify: '重测该任务 durMax/durMed 与 span；离散度下降且 span 缩短才算生效。',
+    subjectsHint: { view: 'l1', tasks: [worstImb.tag] },
+    lever: '独立循环用 pl.parallel 而非 pl.range；'
+      + (hasGranularityC2 ? '但排在 C2 之后做，否则改了切分也看不出 span 变化。' : '先确认它对 span 有影响再动。'),
+    guardrail: '先确认慢块是工作量差异还是 MTE / UB 争用；PMU 打开会改变调度，不能与 PMU-off 基线直接比较。',
+    verify: '重测该任务 durMax/durMed、间隙与 span 三项；只有 span 缩短才算生效。',
   },
-  CAN.F9 && {
-    id: 'F9', level: 'l1', severity: 'medium', axis: 'fusion',
-    title: qkpv.callable + ' 混合核跨 ' + qkpv.coreCount + ' 核，单块 ' + qkpv.durMean + ' us',
-    metric: 'span ' + qkpv.span + ' us，核上 ' + qkpv.durMean + ' us/块',
-    claim: '本 case 只有 ' + tasks.filter((t) => t.kind === 'mix').length + ' 个 mixed kernel 横跨全部 '
-      + qkpv.coreCount + ' 个核（AIC+AIV 同核），这是其中最贵的一个：span '
-      + qkpv.span + ' us 而单块 ' + qkpv.durMean + ' us，说明 span 几乎等于单块时长，Cube 与 Vec 段是串在块内的。'
-      + (qkpvPeer ? '同段还有 ' + qkpvPeer.tag + '（' + qkpvPeer.callable + '）作为 Vec 侧对应体。' : ''),
+  CAN.H3 && {
+    id: 'H3', kind: 'hygiene', level: 'l2', severity: 'low', axis: 'sched',
+    title: 'ready-but-undispatched 占窗口 ' + rqStat.busyShare.AIC + '%，但队列深度只有 ' + rqStat.avg.AIC,
+    metric: 'avg ' + rqStat.avg.AIC + ' / peak ' + rqStat.peak.AIC + ' · AIC 占用 ' + aicUtil + '%',
+    cost: null,
+    unattributed: rqStat.avg.AIC < 1.5
+      ? '平均队列深度 ' + rqStat.avg.AIC + ' 意味着那 ' + rqStat.busyShare.AIC
+        + '% 的时间里基本只排着一个任务；这解释不了 AIC 占用只有 ' + aicUtil + '%。'
+      : '队列平均 ' + rqStat.avg.AIC + '、峰值 ' + rqStat.peak.AIC
+        + ' 确实不浅，但本 run 没有 dispatch 延迟计数，排队时长无法折成墙钟。',
+    claim: 'shared_ready_queue 在 ' + rqStat.busyTime.AIC + ' us（窗口的 ' + rqStat.busyShare.AIC
+      + '%）里有 AIC 任务已 ready 未派发，峰值 ' + rqStat.peak.AIC + ' 个，'
+      + (rqStat.avg.AIC < 1.5 ? '但平均只有 ' : '平均 ') + rqStat.avg.AIC + ' 个。'
+      + (rqStat.avg.AIC < 1.5
+        ? '占用率低的主因是依赖饥饿'
+          + (starveChainIds.length ? '（见 ' + starveChainIds.join(' / ') + '）' : '')
+          + '，不是队列积压。作为独立瓶颈立不住，留在这里是为了让「我见过这个数」有个落点。'
+        : '队列确实是深的，但本 run 没有 dispatch 延迟的直接计数，无法把排队时长折成墙钟；'
+          + '要立成一条链得先补采。'),
     evidence: [
-      { artifact: 'merged_swimlane', locator: qkpv.tag + ' (' + qkpv.callable + ')', value: qkpv.blockCount + ' 块 / ' + qkpv.coreCount + ' 核，min ' + qkpv.durMin + ' / med ' + qkpv.durMed + ' / max ' + qkpv.durMax + ' us' },
-      { artifact: 'deps.json', locator: 'task ' + qkpv.id, value: 'block_num=' + qkpv.blockNum + '，前驱 ' + qkpv.pred.length + ' 个，后继 ' + qkpv.succ.length + ' 个' },
-      { artifact: 'critical path', locator: '是否在关键路径上', value: critTags.indexOf(qkpv.tag) >= 0 ? '在，第 ' + (critTags.indexOf(qkpv.tag) + 1) + ' 个节点' : '不在' },
+      { artifact: 'merged_swimlane queue counter', locator: 'shared_ready_queue',
+        value: 'AIC avg ' + rqStat.avg.AIC + ', peak ' + rqStat.peak.AIC + ', >0 占 '
+          + rqStat.busyShare.AIC + '%；AIV avg ' + rqStat.avg.AIV + ', peak ' + rqStat.peak.AIV },
+      { artifact: 'worker lanes', locator: 'AIC 平均 vs AIV 平均', value: aicUtil + '% vs ' + aivUtil + '%' },
+      { artifact: 'scheduler lanes', locator: '每线程占用',
+        value: schedLanes.length + ' 条线程 · ' + schedPerLaneUtil + '% —— 都没饱和' },
     ],
-    focus: { view: 'l1', task: qkpv.tag },
-    lever: '按 Flash Attention 的 Cube→Vec→Cube→Vec 解耦思路，用 GM FIFO 让两侧真正并行，而不是块内串行。',
-    guardrail: 'S1_TILE、预加载深度、FIFO 槽数与 UB 预算必须一起推导；只单独扫 Tile 会在 F4 的深度回退上撞墙。',
-    verify: '重测该任务 span 与单块时长的比值；解耦生效后 span 应显著小于 块数 × 单块时长 / 核数。',
+    focus: { view: 'l2', overlay: 'ready' },
+    subjectsHint: { view: 'l2', overlay: 'ready',
+      lanes: lanes.filter((l) => l.kind === 'aic').sort((a, b) => a.util - b.util).slice(0, 6).map((l) => l.name) },
+    lever: '不单独动它。'
+      + (starveChainIds.length
+        ? '如果 ' + starveChainIds.join(' / ') + ' 收敛后队列仍然 >0，再针对关键路径提前 dispatch。'
+        : '先补采 dispatch 延迟计数，再决定是否针对关键路径提前 dispatch。'),
+    guardrail: '提前 dispatch、改依赖、延后非关键任务都可能以吞吐换时延；两个指标都要报。',
+    verify: (starveChainIds.length ? '在 ' + starveChainIds.join(' / ') + ' 的实验里' : '在下一轮实验里')
+      + '顺带记录 ready>0 占比与平均深度，看它是否随之下降。',
   },
-  CAN.F10 && {
-    id: 'F10', level: 'l2', severity: 'low', axis: 'reuse',
-    title: '本程序 0 处 pl.prefetch，L2 复用杠杆未启用',
-    metric: 'prefetch ' + dsl.prefetch + ' / pipeline ' + dsl.pipeline + ' / spmd ' + dsl.spmd + ' / parallel ' + dsl.parallel,
+  CAN.H4 && {
+    id: 'H4', kind: 'hygiene', level: 'l2', severity: 'low', axis: 'reuse',
+    title: '本程序 0 处 pl.prefetch，属于未启用而非已损失',
+    metric: 'prefetch ' + dsl.prefetch + ' / pipeline ' + dsl.pipeline + ' / spmd ' + dsl.spmd
+      + ' / parallel ' + dsl.parallel,
+    cost: null,
+    unattributed: '这是一个缺失项。dump 里没有 L2 命中率或 SDMA 计数，无法说明它现在的损失是多少。',
     claim: '前端 IR 里 pl.prefetch 出现 ' + dsl.prefetch + ' 次。权重类输入确实存在（'
-      + caseInfo.params.filter((p) => /^w/.test(p.name)).length + ' 个 w* 参数），但没有任何静态预取，也没有 N-group swizzle 证据。',
+      + caseInfo.params.filter((p) => /^w/.test(p.name)).length
+      + ' 个 w* 参数），但没有静态预取，也没有 N-group swizzle 证据。'
+      + '把「没用某个能力」写成瓶颈会污染优先级 —— 它要先成为一个假设，再成为一条发现。',
     evidence: [
       { artifact: 'passes_dump/00_frontend.py', locator: 'pl.prefetch', value: dsl.prefetch + ' 处' },
-      { artifact: 'distributed_meta.json', locator: 'w* 参数', value: caseInfo.params.filter((p) => /^w/.test(p.name)).map((p) => p.name.replace(/__ssa_v0$/, '') + ' ' + p.dtype + JSON.stringify(p.shape)).slice(0, 4).join(', ') },
+      { artifact: 'distributed_meta.json', locator: 'w* 参数',
+        value: caseInfo.params.filter((p) => /^w/.test(p.name))
+          .map((p) => p.name.replace(/__ssa_v0$/, '') + ' ' + p.dtype + JSON.stringify(p.shape))
+          .slice(0, 4).join(', ') },
     ],
     focus: { view: 'l2', overlay: 'none' },
+    subjectsHint: { view: 'l2', absent: true },
     lever: '只对静态、确定会冷、且所有在途 warm 数据能放进 L2 的权重用 pl.prefetch。',
-    guardrail: 'prefetch 占 SDMA；错误预取会拖慢通信或挤掉真正需要的数据。本 case 通信已是瓶颈（F1），风险更高。',
+    guardrail: 'prefetch 占 SDMA；错误预取会拖慢通信或挤掉真正需要的数据。'
+      + (CAN.C1 ? '本 case 通信已是瓶颈（C1），风险更高。' : ''),
     verify: '加预取后同时看 device_wall、通信段 span 与 SDMA 占用，三者不能互相恶化。',
   },
 ].filter(Boolean);
+
+/* Chains and hygiene share one list so every existing lens (search, task
+ * inspector, ledger) keeps working; `kind` is what tells them apart. */
+const allFindings = findings.concat(hygiene);
 
 /* --------------------------------------------------- finding -> subjects
  * A finding is only useful if the reader can see it on the stage. Each one
  * names the concrete objects the centre view should mark (tasks, source
  * sites, scheduler phases), so the stage can number them instead of leaving
- * the reader to guess which parts the inspector is talking about.          */
+ * the reader to guess which parts the inspector is talking about. For a
+ * chain, the top-level subjects are its observe step's -- that is where the
+ * reader lands -- and every step also carries its own set for the ladder. */
 const taskByTag = {};
 tasks.forEach((t) => { taskByTag[t.tag] = t; });
 
-const SUBJECTS = {
-  F1: {
-    view: 'l2',
-    tasks: waitTasks.map((t) => t.tag),
-  },
-  F2: {
-    view: 'l1',
-    tasks: worstHandoff ? [worstHandoff.tag] : [],
-  },
-  F3: {
-    view: 'e2e',
-    ranks: RANK_KEYS.length > 1 ? RANK_KEYS.slice(0, 2) : [],
-  },
-  F4: {
-    view: 'compiler', tab: 'depth',
-    sites: depthSiteList.map((s) => s.key),
-  },
-  F5: {
-    view: 'compiler', tab: 'granularity',
-    sites: tileSiteList.slice(0, 12).map((s) => s.key),
-    files: tileFileList.map((f) => f.file),
-  },
-  F6: {
-    view: 'l2', overlay: 'sched',
-    schedPhases: ['complete', 'dispatch'],
-  },
-  F7: {
-    view: 'l2', overlay: 'ready',
-    lanes: lanes.filter((l) => l.kind === 'aic').sort((a, b) => a.util - b.util).slice(0, 6).map((l) => l.name),
-  },
-  F8: {
-    view: 'l1',
-    tasks: worstImb ? [worstImb.tag] : [],
-  },
-  F9: {
-    view: 'l1',
-    tasks: qkpv ? [qkpv.tag] : [],
-  },
-  F10: {
-    view: 'l2',
-    absent: true,
-  },
-};
-findings.forEach((f) => {
-  const s = SUBJECTS[f.id] || {};
-  f.subjects = {
-    view: s.view || (f.focus && f.focus.view) || 'l2',
-    tab: s.tab || null,
-    overlay: s.overlay || null,
-    tasks: s.tasks || [],
-    lanes: s.lanes || [],
-    sites: s.sites || [],
-    files: s.files || [],
-    ranks: s.ranks || [],
-    schedPhases: s.schedPhases || [],
-    absent: !!s.absent,
-  };
+const mkSubjects = (s, fallbackView) => ({
+  view: (s && s.view) || fallbackView || 'l2',
+  tab: (s && s.tab) || null,
+  overlay: (s && s.overlay) || null,
+  tasks: (s && s.tasks) || [],
+  lanes: (s && s.lanes) || [],
+  sites: (s && s.sites) || [],
+  files: (s && s.files) || [],
+  ranks: (s && s.ranks) || [],
+  schedPhases: (s && s.schedPhases) || [],
+  absent: !!(s && s.absent),
+});
+const mkChips = (sub) => []
+  .concat(sub.tasks.map((tag) => {
+    const t = taskByTag[tag];
+    return { kind: 'task', id: tag, label: t ? t.callable : tag, value: t ? t.span + ' us' : '' };
+  }))
+  .concat(sub.sites.map((key) => {
+    const d = depthSiteList.find((x) => x.key === key);
+    const g = tileSiteList.find((x) => x.key === key);
+    return {
+      kind: 'site', id: key, label: key,
+      value: d ? 'depth ' + d.maxReqDepth + '→' + d.fittedDepth : (g ? g.minB + 'B' : ''),
+    };
+  }))
+  .concat(sub.lanes.map((name) => {
+    const l = lanes.find((x) => x.name === name);
+    return { kind: 'lane', id: name, label: name, value: l ? r2(l.util) + '%' : '' };
+  }))
+  .concat(sub.ranks.map((k) => ({
+    kind: 'rank', id: k, label: k,
+    value: e2e && e2e[k] ? e2e[k][2]['chip.run.runner_run.device_wall'].us + ' us' : '',
+  })))
+  .concat(sub.schedPhases.map((p) => ({
+    kind: 'phase', id: p, label: 'phase ' + p,
+    value: schedPhases[p] ? schedPhases[p].us + ' us' : '',
+  })));
+
+allFindings.forEach((f) => {
+  (f.chain || []).forEach((st) => {
+    st.subjects = mkSubjects(st.subjects, st.level === 'l0' ? 'isa' : st.level);
+    st.chips = mkChips(st.subjects);
+  });
+  const observe = (f.chain || []).filter((st) => st.role === 'observe')[0] || (f.chain || [])[0];
+  f.subjects = mkSubjects(f.subjectsHint || (observe && observe.subjects) || null,
+    (f.focus && f.focus.view) || f.level);
+  delete f.subjectsHint;
   /* chips shown in the centre evidence bar, each one jumpable */
-  f.chips = []
-    .concat(f.subjects.tasks.map((tag) => {
-      const t = taskByTag[tag];
-      return { kind: 'task', id: tag, label: t ? t.callable : tag, value: t ? t.span + ' us' : '' };
-    }))
-    .concat(f.subjects.sites.map((key) => {
-      const d = depthSiteList.find((x) => x.key === key);
-      const g = tileSiteList.find((x) => x.key === key);
-      return {
-        kind: 'site', id: key, label: key,
-        value: d ? 'depth ' + d.maxReqDepth + '→' + d.fittedDepth : (g ? g.minB + 'B' : ''),
-      };
-    }))
-    .concat(f.subjects.lanes.map((name) => {
-      const l = lanes.find((x) => x.name === name);
-      return { kind: 'lane', id: name, label: name, value: l ? r2(l.util) + '%' : '' };
-    }))
-    .concat(f.subjects.ranks.map((r) => ({
-      kind: 'rank', id: r, label: r,
-      value: e2e[r][2]['chip.run.runner_run.device_wall'].us + ' us',
-    })))
-    .concat(f.subjects.schedPhases.map((p) => ({
-      kind: 'phase', id: p, label: 'phase ' + p,
-      value: schedPhases[p] ? schedPhases[p].us + ' us' : '',
-    })));
+  f.chips = mkChips(f.subjects);
+  /* every level the chain actually visits, for the level filter */
+  f.levels = Array.from(new Set([f.level].concat((f.chain || []).map((st) => st.level))));
+  /* the pass a chain landed on, if any -- read off the root step's own tab so
+   * the Pass view can link back without a second hand-written table */
+  const root = (f.chain || []).filter((st) => st.role === 'root' && st.level === 'compiler')[0];
+  f.rootPass = root && root.subjects.tab === 'depth' ? 'MemoryReuse' : null;
+  /* flattened evidence keeps the existing evidence list working: the chain's
+   * own rows first, then every step's, in ladder order */
+  f.evidence = (f.evidence || []).concat(
+    (f.chain || []).reduce((a, st) => a.concat(st.evidence || []), []));
 });
 
 /* Cross-layer links are emitted only where this run has direct evidence.
  * They keep Pass inspection inside the tuning loop, not beside it. */
-const findingIds = new Set(findings.map((f) => f.id));
+const findingIds = new Set(allFindings.map((f) => f.id));
+/* a pass links back to the chains that actually landed on it, so the reader
+ * arrives at MemoryReuse already knowing which chain sent them */
+const chainsRooted = (passName) => allFindings.filter((f) => f.rootPass === passName);
 passEvidenceIndex.forEach((detail) => {
   const pass = passes.find((p) => p.idx === detail.idx);
   detail.links = [];
   if (!pass) return;
-  if (pass.name === 'MemoryReuse' && findingIds.has('F4')) {
-    detail.links.push({ findingId: 'F4', label: '关联 F4 · 软流水深度回退' });
-  }
+  chainsRooted(pass.name).forEach((f) => {
+    detail.links.push({ findingId: f.id, label: '关联 ' + f.id + ' · ' + f.title });
+  });
   if (pass.name === 'AutoTileMatmulL0' && l0Tiles.length) {
     detail.links.push({ view: 'isa', label: '查看 ISA / 布局中的 L0 tile' });
   }
 });
-
-/* Investigations are the product-level objects built from this run's raw
- * findings. Views remain evidence lenses; the task, its hypothesis and its
- * experiment are what a developer actually carries through a tuning loop. */
-const investigationIds = new Set(findings.map((f) => f.id));
-const includeFinding = (id) => investigationIds.has(id) ? id : null;
+/* Investigations are the product-level objects built from this run's chains.
+ * Views remain evidence lenses; the task, its hypothesis and its experiment
+ * are what a developer actually carries through a tuning loop. One chain is
+ * already "discovered -> followed down -> landed or stopped", so an
+ * investigation is built per chain rather than by pairing loose readings, and
+ * the hygiene items only ever appear as competing explanations to rule out. */
+const investigationIds = new Set(allFindings.map((f) => f.id));
+const includeFinding = (id) => (investigationIds.has(id) ? id : null);
 const compactIds = (ids) => ids.filter(Boolean);
+const byId = {};
+allFindings.forEach((f) => { byId[f.id] = f; });
 const investigations = [];
 const addInvestigation = (id, title, status, target, findingRefs, hypotheses, experiments) => {
   investigations.push({
@@ -1616,70 +2656,155 @@ const addInvestigation = (id, title, status, target, findingRefs, hypotheses, ex
   });
 };
 
-if (investigationIds.has('F3') && investigationIds.has('F1')) {
-  addInvestigation('INV-024', '解释 rank 间尾部延迟', '需要实验',
-    '缩短关键路径上的通信等待，并验证是否改善端到端尾部。',
-    [includeFinding('F3'), includeFinding('F1'), includeFinding('F7'), includeFinding('F6')],
+/* A chain whose terminus is the compiler can be falsified by a recompile; one
+ * that stopped earlier can only be falsified by new data. That difference is
+ * the investigation's status, not a note in its body. */
+const statusOf = (f) => (f.terminus.level === 'compiler' ? '需要实验' : '需要补证');
+
+if (investigationIds.has('C1')) {
+  const f = byId.C1;
+  addInvestigation('INV-024', '把集合点等待归因到 rank 启动错峰', statusOf(f),
+    '在不改通信算法的前提下对齐两卡下发时刻，验证等待是否同比收窄。',
+    [includeFinding('C1'), includeFinding('H3')],
     [
-      { id: 'H-01', title: 'rank 启动错位放大集合通信等待', level: '强支持',
-        claim: 'F3 的 launch skew 与 F1 的关键路径 wait 有同一条跨层时序锚点；它解释等待来源，但不排除其他成因。',
-        evidence: ['F3', 'F1'], need: '在不改通信算法的前提下，缩小启动错位后 wait span 是否同步下降。' },
-      { id: 'H-02', title: '调度队列可能是额外贡献因素', level: '待区分',
-        claim: 'F7/F6 同时出现，只能作为竞争解释，不能升级为 H-01 的因果前提。',
-        evidence: compactIds([includeFinding('F7'), includeFinding('F6')]),
-        need: '比较局部 dispatch 调整前后 ready>0 占比、complete 次数与 device wall。' },
+      { id: 'H-01', title: 'rank 启动错峰解释了等待的量级', level: '强支持',
+        claim: f.chain.filter((s) => s.role === 'root')[0].detail,
+        evidence: ['C1'],
+        need: '缩小启动偏移后，' + waitTasks.length + ' 个 *_wait 的合计是否同比下降。' },
+      { id: 'H-02', title: '调度队列是竞争解释，不是前提', level: '待区分',
+        claim: investigationIds.has('H3')
+          ? byId.H3.unattributed
+          : '本 case 没有 ready queue 计数，无法作为竞争解释评估。',
+        evidence: compactIds([includeFinding('H3')]),
+        need: '同一实验里记录 ready>0 占比与平均深度，看它是否随等待一起变化。' },
     ],
-    [{ id: 'EXP-024-01', status: '待执行', name: '只调整关键 rank 的启动 / dispatch 时序',
-      change: '不改通信算法、Tile、融合边界', measures: 'rank start skew · wait span · device wall',
+    [{ id: 'EXP-024-01', status: '待执行', name: '只对齐两卡的启动 / 下发时刻',
+      change: '不改通信算法、Tile、融合边界',
+      measures: 'runner_run ts 差 · Σ(*_wait) · device_wall',
       guardrail: '结果校验、吞吐、host bind 时间' }]);
-} else if (investigationIds.has('F7') && investigationIds.has('F6')) {
-  addInvestigation('INV-031', '解释 AIC 任务已就绪但未派发', '需要实验',
-    '确认 ready queue 堵塞是否对 device wall 有可观测贡献。',
-    [includeFinding('F7'), includeFinding('F6'), includeFinding('F9')],
+}
+
+if (CASE.id === 'decode_csa' && investigationIds.has('C2')) {
+  const f = byId.C2;
+  const c2FocusName = byTag(f.contention.focus).callable;
+  const c2RivalNames = f.contention.rivals.map((tag) => byTag(tag).callable);
+  addInvestigation('INV-025', '验证 AIC 关键链让核是否缩短 ' + c2FocusName, statusOf(f),
+    '只改变 ' + c2FocusName + ' 就绪窗口内的 AIC 调度优先级，验证零 slack 任务是否不再被有 slack 的工作穿插。',
+    [includeFinding('C2')],
     [
-      { id: 'H-01', title: '关键路径上的依赖 / dispatch 时机造成队列积压', level: '待验证',
-        claim: 'ready queue 指标说明 AIC 任务可运行但未派发；不能单独证明调度器是根因。', evidence: ['F7'],
-        need: '仅改变关键路径任务的 dispatch 时机，重测 queue 与 device wall。' },
-      { id: 'H-02', title: 'AICPU complete 开销是竞争解释', level: '待区分',
-        claim: 'complete 阶段的工作量可能延后派发，需要独立测量而不是与 queue 告警合并。', evidence: ['F6'],
-        need: '记录 complete 次数和单位任务开销是否与等待窗口同向变化。' },
+      { id: 'H-01', title: c2FocusName + ' 与有 slack 的 AIC 工作竞争', level: '强支持',
+        claim: f.claim, evidence: ['C2'],
+        need: '提升 ' + c2FocusName + ' 优先级后，它的 block 间隙与 span 是否下降。' },
+      { id: 'H-02', title: '收益没有被转移到竞争任务的后继', level: '待验证',
+        claim: f.guardrail, evidence: ['C2'],
+        need: c2RivalNames.join(' / ') + ' 的 slack 仍非负，且关键路径 makespan 缩短。' },
     ],
-    [{ id: 'EXP-031-01', status: '待执行', name: '关键路径局部提前 dispatch',
-      change: '不改变任务数量与 fusion 边界', measures: 'ready>0 · AIC util · device wall',
-      guardrail: '吞吐与正确性同基线回归' }]);
-} else {
-  const firstFinding = findings[0];
+    [{ id: 'EXP-025-01', status: '待执行', name: '只提高 ' + c2FocusName + ' 的 AIC 优先级',
+      change: '不改 kernel、tile、依赖；仅限制其就绪窗口内的同池抢占',
+      measures: c2FocusName + ' span · block 间隙 · 关键路径 makespan · ' + c2RivalNames.join('/') + ' slack',
+      guardrail: '竞争任务不得越过 latest-start；span 降而 makespan 不降不算收益' }]);
+} else if (investigationIds.has('C2')) {
+  const f = byId.C2;
+  const rooted = f.terminus.level === 'compiler';
+  addInvestigation('INV-025', '把块间间隙归因到调度粒度与流水深度', statusOf(f),
+    '让单块做更多事、块数下降，验证 ' + f.cost.us + ' us 的间隙是否随之收敛。',
+    [includeFinding('C2'), includeFinding('H2'), includeFinding('H1')],
+    [
+      { id: 'H-01', title: '间隙来自每块的 dispatch / complete 次数，而不是核上算得慢', level: '强支持',
+        claim: f.chain.filter((s) => s.role === 'descend')[0].detail,
+        evidence: ['C2'],
+        need: '块数下降后，间隙与 span 是否同向下降（只有间隙降说明瓶颈换位）。' },
+      rooted
+        ? { id: 'H-02', title: '块压不下来是因为 L0 预算把流水深度逼到 1', level: '可编译验证',
+          claim: f.chain.filter((s) => s.role === 'root')[0].detail,
+          evidence: ['C2'],
+          need: '减小同驻 tile 后该源码点的 PH-MR-001 是否消失、块数是否下降。' }
+        : { id: 'H-02', title: '编译器层在本 dump 中无证据', level: '缺证据',
+          claim: f.terminus.reason, evidence: ['C2'],
+          need: '先在 L1 侧验证「减少块数」是否收敛间隙，再决定是否需要编译侧证据。' },
+      { id: 'H-03', title: '块时长离散是竞争解释', level: '待区分',
+        claim: investigationIds.has('H2') ? byId.H2.unattributed : '本 case 无显著离散任务。',
+        evidence: compactIds([includeFinding('H2')]),
+        need: '同一实验里同时记录 durMax/durMed 与间隙，区分尾块与空档。' },
+    ],
+    [{ id: 'EXP-025-01', status: rooted ? '待执行' : '待规划',
+      name: rooted ? '减小同驻 tile，恢复流水深度' : '把外层迭代折进核内，减少块数',
+      change: '只动一个源码点的 tile 或迭代结构',
+      measures: 'PH-MR-001 条数 · 块数 · 块中位时长 · 任务 span · 间隙',
+      guardrail: '不接受「间隙下降但 span 不动」；不通过调大 stage 换取局部收益' }]);
+}
+
+if (CASE.id === 'decode_csa' && investigationIds.has('C3')) {
+  const f = byId.C3;
+  addInvestigation('INV-026', '验证 AIV 关键链让核是否缩短 r3t16', statusOf(f),
+    '只延后有 slack 的 AIV 任务，验证 r3t16 的最后一波是否提前完成。',
+    [includeFinding('C3')],
+    [
+      { id: 'H-01', title: 'r3t16 的末波被有 slack 的 AIV 任务推迟', level: '强支持',
+        claim: f.claim, evidence: ['C3'],
+        need: '延后 r2t24/r2t26/r2t25 后，末波开始时间与任务 span 是否同向下降。' },
+      { id: 'H-02', title: '让核没有把关键路径压力搬到 r2t53', level: '待验证',
+        claim: f.guardrail, evidence: ['C3'],
+        need: '复测 r2t26 的 slack 及 r2t53 的开始时间。' },
+    ],
+    [{ id: 'EXP-026-01', status: '待执行', name: '只为 r3t16 保留 AIV',
+      change: '不改融合、依赖或 tile；在 r3t16 就绪窗口延后有 slack 的 AIV dispatch',
+      measures: 'r3t16 末波开始 · span · 关键路径 makespan · r2t24/r2t26/r2t25 slack',
+      guardrail: '任何 rival 越过 latest-start，或 makespan 不降，实验均不成立' }]);
+} else if (investigationIds.has('C3')) {
+  const f = byId.C3;
+  addInvestigation('INV-026', '区分早发空等与真正的 hand-off 开销', statusOf(f),
+    '先证明 duration − kernel_duration 是等数据而不是准备工作，再决定合核还是改依赖。',
+    [includeFinding('C3'), includeFinding('C4')],
+    [
+      { id: 'H-01', title: '消费者在生产者完成前上核，核上时间花在等数据', level: hbLink ? '强支持' : '待验证',
+        claim: f.chain.filter((s) => s.role === 'observe')[0].detail,
+        evidence: ['C3'],
+        need: '推迟该任务的 dispatch 或补实依赖后，setup 占比是否下降、span 是否不变或下降。' },
+      { id: 'H-02', title: 'Vec / L0 侧缺双缓冲，等待无法被搬运掩盖', level: stallSite ? '可编译验证' : '缺证据',
+        claim: stallSite
+          ? f.chain.filter((s) => s.role === 'root')[0].detail
+          : f.terminus.reason,
+        evidence: ['C3'],
+        need: stallSite
+          ? '复现「预算明显放得下却仍降级」，这是独立于调度的 pass 问题。'
+          : '先在 L2 侧验证依赖声明与 dispatch 时机。' },
+    ],
+    [{ id: 'EXP-026-01', status: '待执行', name: '只推迟该消费者的 dispatch',
+      change: '不改融合边界、不改 Tile',
+      measures: 'duration − kernel_duration · aicpu-duration · hb_violation 条数 · span',
+      guardrail: 'setup 占比下降但 span 不降，说明等待只是换了地方' }]);
+}
+
+if (investigationIds.has('C4')) {
+  const f = byId.C4;
+  addInvestigation('INV-027', '补采块内证据后再决定 ' + byId.C4.chain[0].subjects.tasks[0] + ' 的方向', '需要补证',
+    '这一段占 makespan ' + f.cost.share + '%，但本 dump 无法把它归因到 L0 或具体 pass。',
+    [includeFinding('C4')],
+    [
+      { id: 'H-01', title: '已排除的解释', level: '已排除',
+        claim: f.guardrail, evidence: ['C4'],
+        need: '不需要再验证：波量化、hand-off、Cube / Vec 串行都已用本 run 的数据排除。' },
+      { id: 'H-02', title: '块时长由 MTE / Cube / Vec 中的哪一段撑起来', level: '缺证据',
+        claim: f.chain.filter((s) => s.role === 'stop')[0].detail, evidence: ['C4'],
+        need: '带块内 PMU 重采一次；PMU 会改变调度，需要 PMU-on 的自有基线。' },
+    ],
+    [{ id: 'EXP-027-01', status: '待规划', name: '带块内 PMU 重采同一 case',
+      change: '不改代码，只改采集',
+      measures: 'pipe 级计数 · 块时长构成 · PMU-on 基线 span',
+      guardrail: '不与 PMU-off 基线直接比较' }]);
+}
+
+if (!investigations.length) {
+  const first = allFindings[0];
   addInvestigation('INV-001', '建立首个可证伪的性能假设', '待分诊',
-    '用一个可回滚改动验证最高影响发现是否能改善端到端结果。', [firstFinding && firstFinding.id],
+    '用一个可回滚改动验证最高影响发现是否能改善端到端结果。', [first && first.id],
     [{ id: 'H-01', title: '最高优先级发现值得进一步验证', level: '待建模',
-      claim: '当前只有同层观测，尚未形成跨层解释。', evidence: [firstFinding && firstFinding.id].filter(Boolean),
+      claim: '当前只有同层观测，尚未形成跨层解释。',
+      evidence: [first && first.id].filter(Boolean),
       need: '先绑定端到端指标和最小改动，再开始实验。' }],
     [{ id: 'EXP-001-01', status: '待规划', name: '定义最小单变量实验', change: '待选择',
       measures: '局部指标 · device wall · 正确性', guardrail: '保持同一基线与采样条件' }]);
-}
-
-if (investigationIds.has('F2') || investigationIds.has('F9')) {
-  addInvestigation('INV-025', '评估混合核的任务边界', '待分诊',
-    '判断 hand-off 或块内串行是否值得以融合 / 解耦方式处理。',
-    [includeFinding('F2'), includeFinding('F9'), includeFinding('F8')],
-    [{ id: 'H-01', title: '任务边界引入可避免的 hand-off 或串行段', level: '待建模',
-      claim: '先区分任务领取、依赖等待和核内串行，再选择 fusion 或 FIFO 方案。',
-      evidence: compactIds([includeFinding('F2'), includeFinding('F9')]),
-      need: '定位最小 scope 并做一个只改变边界的对照实验。' }],
-    [{ id: 'EXP-025-01', status: '待规划', name: '选择一个 kernel scope 建立对照', change: '待确认',
-      measures: '任务 span · hand-off · util', guardrail: '避免形成新的独占核' }]);
-}
-
-if (investigationIds.has('F4') || investigationIds.has('F5')) {
-  addInvestigation('INV-026', '处理 Tile 与流水资源约束', '需要补证',
-    '确认搬运粒度改动是否会触发流水深度回退。', [includeFinding('F4'), includeFinding('F5')],
-    [{ id: 'H-01', title: '粒度与流水深度受同一 L0 / UB 预算约束', level: '约束耦合',
-      claim: 'F5 的修改可能触发 F4；它是 guardrail 关系，尚不是性能因果结论。',
-      evidence: compactIds([includeFinding('F4'), includeFinding('F5')]),
-      need: '在同一个 source scope 对比 Tile 预算、PH-MR-001 和 MTE 时间。' }],
-    [{ id: 'EXP-026-01', status: '待规划', name: '同 scope 的 Tile 预算对照',
-      change: '只调整末维或 pipeline depth 之一', measures: 'PH 提示 · MTE · L0/UB 预算',
-      guardrail: '不接受深度回退换来的局部收益' }]);
 }
 
 /* ---------------------------------------------------------------- write */
@@ -1701,10 +2826,54 @@ const payload = {
   l0Tiles: l0Tiles,
   dsl: dsl,
   irPairs: irPairs,
-  findings: findings,
+  /* one list, two kinds: `chain` rows carry a makespan attribution and a
+   * layer ladder, `hygiene` rows carry the reason they do not */
+  findings: allFindings,
+  chainCount: findings.length,
+  hygieneCount: hygiene.length,
   investigations: investigations,
   launchSkew: launchSkew,
   sourceMap: sourceMap,
+  /* ------------------------------------------------ evidence ladder
+   * Each layer names its input, the one question it answers, and -- the
+   * part that matters -- what it CANNOT settle on its own, with a pointer
+   * to the layer that can. A layer whose artifact this dump does not carry
+   * is a first-class state, not a blank row. */
+  evidence: [
+    {
+      id: 'serving', name: '服务层',
+      input: 'serving-strace-swimlane.json、端到端 benchmark',
+      answers: '哪个 WorkerProcess 负载或尾耗时异常',
+      cannot: 'AICore 内某个 kernel 为什么慢',
+      cannotGoto: 'l1',
+      state: 'absent',
+      note: '本 dump 是单进程 JIT run，没有 serving 侧采集；多 WorkerProcess 的负载与尾耗时无从谈起。',
+    },
+    {
+      id: 'hostdev', name: 'Host / Device',
+      input: 'BenchmarkStats、独立 benchmark',
+      answers: '延迟是 Host、Device，还是两者共同贡献',
+      cannot: 'Device 内的依赖与 pipe 根因',
+      cannotGoto: 'l2',
+      state: e2e ? 'partial' : 'absent',
+      have: e2e ? 'STRACE host span：bind / runner_run / device_wall / sched，两种时钟已对齐' : null,
+      note: e2e
+        ? 'BenchmarkStats 缺席：没有 rounds / warmup 统计量，本 case 只有 '
+          + Object.keys(e2e[RANK_KEYS[0]]).length + ' 次调用，给不出 mean / median。'
+        : '本 dump 没有 host STRACE log，Host 与 Device 的拆分整层缺席。',
+    },
+    {
+      id: 'funcs', name: '函数汇总',
+      input: 'name_map*.json + Swimlane',
+      answers: '慢来自单次慢、次数多，还是波动',
+      cannot: '是否影响 wall-clock',
+      cannotGoto: 'l2',
+      state: 'ok',
+      have: R.scopes.length + ' 个 scope / ' + nameMapCount + ' 个 kernel 名，每块时长齐全',
+      note: 'Σ core-time 大不等于拖慢墙钟 —— 一个 scope 可能摊在很多核上并行跑完。'
+        + '要不要动它，看它在不在路径上，那是下一层的事。',
+    },
+  ],
   derived: {
     waitTasks: waitTasks.map((t) => t.tag), waitSpan: waitSpan,
     setupHeavy: setupHeavy.map((t) => t.tag),
@@ -1719,7 +2888,9 @@ RANK_KEYS.forEach((k) => {
     '| blocks', sum(x.swimlane.blocks.map((a) => a.length)),
     '| crit', x.critical.tags.length, '| AIC', x.occupancy.aicUtil + '%', 'AIV', x.occupancy.aivUtil + '%');
 });
-console.log('    hints', hints.length, '| passes', passes.length, '| findings', findings.length,
+console.log('    hints', hints.length, '| passes', passes.length,
+  '| chains', findings.map((f) => f.id + '→' + f.terminus.level).join(' '),
+  '| hygiene', hygiene.length,
   '| e2e', e2e ? Object.keys(e2e[RANK_KEYS[0]] || {}).length + ' inv' : 'absent');
 return payload;
 }

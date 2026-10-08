@@ -3,7 +3,8 @@
 //   node build.mjs [--runs a,b] [--no-src]
 //
 // Produces:
-//   data/index.js       run + pass timeline, measured deltas, evidence cards
+//   data/index.js       run + pass timeline, measured deltas, evidence cards,
+//                       per-Pass performance tier and that run's real perf hints
 //   data/docs.js        pass prose pulled from repo/pto/docs/zh-cn/dev/passes
 //   data/<run>/NN.js    one IR snapshot's raw text, loaded on demand
 //   lib/bundle.js       the parser/analyzer as a classic script for the viewer
@@ -20,6 +21,7 @@ import { analyzeProgram } from './lib/analyze.mjs';
 import { buildEvidence, compareFunctions, metricSnapshot, rewritePatterns } from './lib/evidence.mjs';
 import { diffLines, countChanges } from './lib/diff.mjs';
 import { extractDoc, normalizeName, phaseOf, lensOf, PHASES } from './lib/passinfo.mjs';
+import { PERF_TIERS, perfOf, parsePerfHints, groupPerfHints } from './lib/perfinfo.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
@@ -74,6 +76,70 @@ function loadSources() {
     srcs.set(normalizeName(stem), 'repo/pto/src/ir/transforms/' + file);
   }
   return srcs;
+}
+
+/**
+ * The real performance hints the compiler emitted for this run.
+ *
+ * This is measured output, not a model of the pipeline: a Pass that shows hints
+ * here degraded something on THIS operator. A Pass with a high tier and no
+ * hints made its decisions without complaint, which is a different statement
+ * and the UI keeps them apart.
+ */
+function loadPerfHints(runDir) {
+  const log = path.join(runDir, '../report/perf_hints.log');
+  if (!fs.existsSync(log)) return null;
+  const parsed = parsePerfHints(fs.readFileSync(log, 'utf8'));
+  if (parsed.unparsed.length) {
+    console.warn(`! ${path.relative(REPO, log)}: ${parsed.unparsed.length} unparsed hint lines`);
+  }
+  return { ...parsed, log: path.relative(REPO, log).split(path.sep).join('/') };
+}
+
+/**
+ * A Pass's performance profile plus whatever it actually reported on this run.
+ *
+ * `tier` is a standing claim about the Pass; `hints` is measured output from
+ * one compilation. Keeping both on the same object lets the UI show the gap —
+ * a `decide` Pass with no hints made its calls without complaint, which is very
+ * different from a `decide` Pass that shed 33 buffers.
+ */
+function passPerf(name, group) {
+  const prof = perfOf(name);
+  const out = { tier: prof.tier };
+  if (prof.why) out.why = prof.why;
+  if (prof.lever) out.lever = prof.lever;
+  if (prof.doc) out.doc = prof.doc;
+  if (group) {
+    out.hints = {
+      lines: group.lines,
+      occurrences: group.occurrences,
+      codes: group.codes,
+      // One entry per distinct source site, busiest first. The compiler already
+      // folded repeats at a site, so `occurrences` is its count, not ours.
+      sites: group.sites
+        .slice()
+        .sort((a, b) => b.occurrences - a.occurrences)
+        .map((s) => ({ code: s.code, at: s.at, occurrences: s.occurrences, message: s.message })),
+    };
+  }
+  return out;
+}
+
+// A non-Pass emitter can fire at hundreds of sites (197 for the innermost-dim
+// check). The full list would dominate index.js without telling the reader
+// anything the first few rows don't, so it is capped and the remainder counted.
+const OTHER_SITE_CAP = 24;
+
+/** Merge sites that carry the identical message, heaviest first. */
+function rollupSites(sites) {
+  const by = new Map();
+  for (const s of sites) {
+    const key = s.code + '\u0000' + s.at + '\u0000' + s.message;
+    if (!by.has(key)) by.set(key, { code: s.code, at: s.at, message: s.message, occurrences: 0 });
+    by.get(key).occurrences += s.occurrences;
+  }
+  return [...by.values()].sort((a, b) => b.occurrences - a.occurrences || a.at.localeCompare(b.at));
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +222,16 @@ for (const run of RUNS) {
   const outDir = path.join(HERE, 'data', run.id);
   fs.mkdirSync(outDir, { recursive: true });
 
+  // Pass names come from the snapshot filenames, so the emitter split below is
+  // decided by this run rather than by a hardcoded list of verifier names.
+  const passNames = new Set(files.map((f) => {
+    const n = f.match(/^\d+_(.*)\.py$/)[1];
+    return n === 'frontend' ? 'frontend' : n.replace(/^after_/, '');
+  }));
+  const perf = loadPerfHints(dir);
+  const hintGroups = perf ? groupPerfHints(perf.records, passNames) : [];
+  const hintsByPass = new Map(hintGroups.filter((g) => g.isPass).map((g) => [g.emitter, g]));
+
   const passes = [];
   let prev = null;
   let prevName = null;
@@ -185,6 +261,7 @@ for (const run of RUNS) {
       bytes: Buffer.byteLength(text),
       doc: docs.has(normalizeName(name)) ? normalizeName(name) : null,
       source: cppSources.get(normalizeName(name)) || null,
+      perf: passPerf(name, hintsByPass.get(name)),
       functions: an.functions.map((f) => ({
         name: f.name,
         kind: f.kind,
@@ -238,6 +315,14 @@ for (const run of RUNS) {
   process.stdout.write('\r' + ' '.repeat(70) + '\r');
   console.log(`  ${run.id}: ${passes.length} snapshots, program=${passes[0] ? passes[0].functions.length : 0} fn -> ${passes[passes.length - 1].functions.length} fn`);
 
+  if (perf) {
+    const owned = hintGroups.filter((g) => g.isPass).reduce((n, g) => n + g.lines, 0);
+    console.log(`  ${run.id}: ${perf.records.length} perf hints — ${owned} from Passes, `
+      + `${perf.records.length - owned} from elsewhere (${hintGroups.map((g) => g.emitter).join(', ')})`);
+  } else {
+    console.log(`  ${run.id}: no perf_hints.log alongside the dump`);
+  }
+
   runsOut.push({
     id: run.id,
     title: run.title,
@@ -245,6 +330,32 @@ for (const run of RUNS) {
     dir: run.dir,
     program: passes[0] ? (passes[0].programName || null) : null,
     passes,
+    // Run-level view of the same log: the totals, and the emitters that are not
+    // Passes at all. Without this the 197 `PH001`s would look like nobody's
+    // problem just because no Pass owns them.
+    perf: perf ? {
+      log: perf.log,
+      total: perf.records.length,
+      emitters: hintGroups.map((g) => ({
+        emitter: g.emitter,
+        isPass: g.isPass,
+        lines: g.lines,
+        occurrences: g.occurrences,
+        codes: g.codes,
+      })),
+      // Non-Pass emitters keep their sites here, since no Pass page will show them.
+      other: hintGroups.filter((g) => !g.isPass).map((g) => {
+        const rows = rollupSites(g.sites);
+        return {
+          emitter: g.emitter,
+          lines: g.lines,
+          occurrences: g.occurrences,
+          codes: g.codes,
+          sites: rows.slice(0, OTHER_SITE_CAP),
+          moreSites: Math.max(0, rows.length - OTHER_SITE_CAP),
+        };
+      }),
+    } : null,
   });
 }
 
@@ -257,6 +368,7 @@ fs.mkdirSync(path.join(HERE, 'data'), { recursive: true });
 const index = {
   generated: new Date().toISOString(),
   phases: PHASES,
+  perfTiers: PERF_TIERS,
   runs: runsOut,
 };
 fs.writeFileSync(
@@ -273,7 +385,7 @@ fs.writeFileSync(
 
 // Bundle the ES modules as one classic script so the viewer also works from
 // file:// (where `<script type="module" src=...>` is blocked by CORS).
-const BUNDLE_ORDER = ['pyir.mjs', 'diff.mjs', 'analyze.mjs', 'evidence.mjs', 'passinfo.mjs', 'markdown.mjs'];
+const BUNDLE_ORDER = ['pyir.mjs', 'diff.mjs', 'analyze.mjs', 'evidence.mjs', 'movegraph.mjs', 'passinfo.mjs', 'markdown.mjs'];
 const bundled = BUNDLE_ORDER.map((f) => {
   const src = fs.readFileSync(path.join(HERE, 'lib', f), 'utf8');
   return src

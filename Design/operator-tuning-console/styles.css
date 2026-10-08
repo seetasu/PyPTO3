@@ -35,6 +35,14 @@ body.tc-page {
   box-shadow: none;
 }
 
+/* The former bottom dock has been removed. The three-column workbench now
+ * owns the full workarea height above the status strip. */
+.tc-frame .pto-ide-frame__workarea > [data-ide-pane="main-row"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.tc-frame [data-ide-split="standalone-main"] { height: 100%; }
+
 /* Embedded by Toolkit Studio's matching run detail. The tuning workbench keeps
  * its selected evidence surface, but yields surrounding app chrome to the host
  * page so the two IDE frames do not compete for space. */
@@ -202,10 +210,23 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 }
 .inspector-section {
   display: grid;
+  /* Without an explicit column an auto-sized grid track grows to max-content,
+   * and one white-space:nowrap child (a bottleneck-queue button carrying a
+   * long title) pushed the track to 434px inside a 393px rail. Pin the track
+   * to the container and let the long child clip instead. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   align-content: start;
   padding: var(--inspector-section-padding-y) 0;
   border-top: 1px solid var(--inspector-section-divider);
+}
+/* the queue buttons are nowrap by design; truncate rather than overhang */
+.inspector-section > .btn {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  text-align: left;
 }
 .inspector-section:first-child { border-top: 0; }
 .inspector-section-head {
@@ -231,6 +252,61 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 }
 /* a head with no title keeps its kicker on the left */
 .inspector-section-head > .inspector-section-kicker:first-child { margin-left: 0; }
+
+/* a folded section keeps only its head; the body stays in the DOM so
+ * nothing has to be rebuilt on expand */
+.inspector-section.is-folded > *:not(.inspector-section-head) { display: none; }
+.inspector-section.is-folded { padding-bottom: 0; }
+.inspector-section-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 2px var(--space-1);
+  margin-inline: calc(var(--space-1) * -1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.inspector-section-toggle:hover { background: var(--state-hover); }
+.inspector-section-toggle > .chev {
+  flex: none;
+  width: 9px;
+  color: var(--foreground-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+}
+.inspector-section-toggle:hover > .chev { color: var(--foreground); }
+
+/* A one-line footnote under a table. Replaces the explanatory cards that
+ * used to follow every table -- the detail moved into title= on the column
+ * headers, and '?' spans mark where more is available on hover. */
+.tc-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+}
+.tc-foot > .q {
+  color: var(--foreground-secondary);
+  border-bottom: 1px dotted var(--border);
+  cursor: help;
+}
+.tc-foot > .q:hover { color: var(--foreground); }
+/* a kv row that carries its explanation on hover */
+.tc-kv > dt.has-q { border-bottom: 1px dotted var(--border); cursor: help; }
+/* the validity gate line inside the verdict card */
+.inspector-soft-card > .bd.gate {
+  margin-top: 2px;
+  color: var(--foreground-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: help;
+}
 
 .inspector-soft-card {
   display: grid;
@@ -297,8 +373,376 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-finding .id { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 11px; }
 .tc-finding .lv { margin-left: auto; color: var(--foreground-muted); font: var(--type-micro); text-transform: uppercase; letter-spacing: 0.05em; }
 .tc-finding .ti { font: var(--type-body-sm); line-height: 1.4; }
-.tc-finding .mt { color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 11px; }
+.tc-finding .mt {
+  display: flex; align-items: baseline; gap: var(--space-2);
+  color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 11px;
+}
+.tc-finding .mt .m { flex: 1 1 auto; min-width: 0; }
+.tc-finding .mt .cost { flex: 0 0 auto; color: var(--foreground); font-weight: 600; }
+.tc-finding .mt .cost.is-none { color: var(--foreground-muted); font-weight: 400; }
 .tc-finding.is-logged .id::after { content: " ●"; color: var(--success); }
+/* a hygiene row must never read as urgent as a chain: no severity accent */
+.tc-finding.is-hygiene { background: transparent; border-left-color: var(--border-subtle, var(--border-default)); }
+.tc-finding.is-hygiene[data-sev] { border-left-color: var(--border-subtle, var(--border-default)); }
+.tc-finding.is-hygiene .ti { color: var(--foreground-secondary); }
+.tc-finding.is-hygiene:hover { background: var(--surface-2); }
+.tc-finding.is-hygiene.is-selected { background: var(--surface-3); border-left-color: var(--primary); }
+
+/* ---------------------------------------------------- explorer refinement
+ * The left rail is where a tuning session starts.  Treat its two collections
+ * as an instrument panel: the run tree establishes capture provenance, then
+ * the queue turns measured impact into a fast visual scan.  All colours stay
+ * on the PTO semantic palette so their meaning matches the rest of the frame.
+ */
+[data-ide-pane="explorer"] {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(118% 54% at 0% 0%, color-mix(in srgb, var(--primary) 12%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 72%, transparent), var(--surface-1) 32%);
+}
+[data-ide-pane="explorer"] > .pto-ide-frame__pane-header {
+  position: relative;
+  z-index: 1;
+  min-height: 42px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 76%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+}
+[data-ide-pane="explorer"] > .pto-ide-frame__pane-header::before {
+  width: 7px;
+  height: 7px;
+  margin-right: var(--space-2);
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 13%, transparent), 0 0 12px color-mix(in srgb, var(--success) 58%, transparent);
+  content: "";
+}
+[data-ide-pane="explorer"] > .pto-ide-frame__pane-header::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--accent) 62%, transparent), transparent 72%);
+  content: "";
+}
+.tc-explorer {
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--border-default) 17%, transparent) 1px, transparent 1px);
+  background-size: 40px 100%;
+  background-position: 8px 0;
+}
+.tc-explorer .inspector-section {
+  position: relative;
+  padding-top: var(--space-3);
+  border-top-color: color-mix(in srgb, var(--border-default) 72%, transparent);
+}
+.tc-explorer .inspector-section:first-child {
+  padding-top: var(--space-1);
+}
+.tc-explorer .inspector-section-head {
+  min-height: 18px;
+}
+.tc-explorer .inspector-section-kicker {
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--border-default) 78%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-3) 52%, transparent);
+  letter-spacing: 0.025em;
+}
+.tc-tree {
+  gap: 3px;
+  padding: 2px 0;
+}
+.tc-tree-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, .64fr);
+  position: relative;
+  min-height: 29px;
+  overflow: hidden;
+  padding-left: 18px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+.tc-tree-row::before {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--space-2) + 1px);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--foreground-muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--foreground-muted) 9%, transparent);
+  content: "";
+  transform: translateY(-50%);
+}
+.tc-tree-row::after {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  width: 30px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 64%, transparent), transparent);
+  content: "";
+  opacity: 0;
+  transform: translateY(-50%) scaleX(.55);
+  transform-origin: right;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.tc-tree-row:hover {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border-default));
+  background: color-mix(in srgb, var(--primary) 9%, var(--surface-2));
+  transform: translateX(2px);
+}
+.tc-tree-row:hover::after, .tc-tree-row.is-selected::after { opacity: 1; transform: translateY(-50%) scaleX(1); }
+.tc-tree-row.is-selected {
+  border-color: color-mix(in srgb, var(--primary) 48%, var(--border-default));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 17%, var(--surface-3)), color-mix(in srgb, var(--surface-3) 74%, transparent));
+  box-shadow: inset 2px 0 0 var(--primary), 0 5px 13px color-mix(in srgb, var(--background) 18%, transparent);
+}
+.tc-tree-row[data-depth="0"] {
+  min-height: 34px;
+  margin-top: 2px;
+  border-color: color-mix(in srgb, var(--border-default) 88%, transparent);
+  background: color-mix(in srgb, var(--surface-3) 62%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 5%, transparent);
+}
+.tc-tree-row[data-depth="0"]::before {
+  width: 7px;
+  height: 7px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 13%, transparent), 0 0 11px color-mix(in srgb, var(--primary) 52%, transparent);
+}
+.tc-tree-row[data-depth="1"]::before { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent); }
+.tc-tree-row[data-depth="2"]::before { width: 4px; height: 4px; background: var(--success); box-shadow: 0 0 0 2px color-mix(in srgb, var(--success) 11%, transparent); }
+.tc-tree-row > .n {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tc-tree-row > .m {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  padding-right: 32px;
+  overflow-wrap: anywhere;
+  text-align: right;
+  white-space: normal;
+}
+
+.tc-chipbar {
+  gap: 5px;
+  padding: 2px 0 5px;
+}
+.tc-chipbar .btn {
+  min-height: 24px;
+  border: 1px solid color-mix(in srgb, var(--border-default) 84%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  color: var(--foreground-secondary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 4%, transparent);
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+.tc-chipbar .btn:hover { border-color: color-mix(in srgb, var(--primary) 48%, var(--border-default)); color: var(--foreground); transform: translateY(-1px); }
+.tc-chipbar .btn.is-selected, .tc-chipbar .btn[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--primary) 58%, var(--border-default));
+  background: color-mix(in srgb, var(--primary) 18%, var(--surface-3));
+  color: var(--foreground);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--primary) 12%, transparent), inset 0 1px 0 color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+.tc-findings { gap: 6px; padding: 2px 2px 12px; scrollbar-color: color-mix(in srgb, var(--primary) 38%, var(--border-default)) transparent; }
+.tc-finding-group {
+  gap: 3px;
+  margin-top: var(--space-1);
+  padding: var(--space-3) var(--space-2) 3px;
+  border-top-color: color-mix(in srgb, var(--border-default) 72%, transparent);
+}
+.tc-finding-group > .gl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tc-finding-group > .gl::before {
+  width: 15px;
+  height: 2px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 18%, transparent));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 42%, transparent);
+  content: "";
+}
+.tc-finding-group > .gk { max-width: 34ch; line-height: 1.45; }
+.tc-finding {
+  --finding-tone: var(--primary);
+  --finding-impact: 10px;
+  position: relative;
+  gap: 5px;
+  min-height: 86px;
+  min-width: 0;
+  padding: 10px 10px 9px 12px;
+  margin-inline: 0;
+  width: auto;
+  border: 1px solid color-mix(in srgb, var(--border-default) 82%, transparent);
+  border-left: 3px solid var(--finding-tone);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background:
+    linear-gradient(100deg, color-mix(in srgb, var(--finding-tone) 9%, var(--surface-2)), color-mix(in srgb, var(--surface-2) 70%, transparent) 64%),
+    color-mix(in srgb, var(--surface-1) 70%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 4%, transparent), 0 5px 14px color-mix(in srgb, var(--background) 13%, transparent);
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+.tc-finding[data-sev="high"] { --finding-tone: var(--danger); border-left-color: var(--danger); }
+.tc-finding[data-sev="medium"] { --finding-tone: var(--warning); border-left-color: var(--warning); }
+.tc-finding[data-sev="low"] { --finding-tone: var(--accent); border-left-color: var(--accent); }
+.tc-finding::after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 62px;
+  height: 44px;
+  background: radial-gradient(ellipse at top right, color-mix(in srgb, var(--finding-tone) 18%, transparent), transparent 70%);
+  pointer-events: none;
+  content: "";
+}
+.tc-finding:hover {
+  border-color: color-mix(in srgb, var(--finding-tone) 48%, var(--border-default));
+  border-left-color: var(--finding-tone);
+  background: linear-gradient(104deg, color-mix(in srgb, var(--finding-tone) 15%, var(--surface-2)), var(--surface-2) 78%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 6%, transparent), 0 8px 18px color-mix(in srgb, var(--background) 23%, transparent);
+  transform: translateX(2px);
+}
+.tc-finding.is-selected {
+  border-color: color-mix(in srgb, var(--primary) 64%, var(--border-default));
+  border-left-color: var(--primary);
+  background: linear-gradient(102deg, color-mix(in srgb, var(--primary) 23%, var(--surface-3)), color-mix(in srgb, var(--surface-2) 90%, transparent));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 9%, transparent), 0 8px 22px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.tc-finding .hd { position: relative; z-index: 1; min-width: 0; align-items: flex-start; }
+.tc-finding .id {
+  display: inline-flex;
+  min-width: 26px;
+  min-height: 19px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--finding-tone) 38%, var(--border-default));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--finding-tone) 12%, transparent);
+  color: color-mix(in srgb, var(--finding-tone) 78%, var(--foreground));
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+.tc-finding .lv { position: relative; z-index: 1; min-width: 0; padding: 2px 5px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--surface-4) 50%, transparent); overflow-wrap: anywhere; text-align: right; white-space: normal; }
+.tc-finding .ti { position: relative; z-index: 1; min-width: 0; padding-right: 4px; font-weight: 560; letter-spacing: -.005em; overflow-wrap: anywhere; }
+.tc-finding .mt {
+  position: relative;
+  z-index: 1;
+  min-height: 20px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 70%, transparent);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.tc-finding .mt::before {
+  width: var(--finding-impact);
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--finding-tone), color-mix(in srgb, var(--finding-tone) 35%, transparent));
+  box-shadow: 0 0 7px color-mix(in srgb, var(--finding-tone) 46%, transparent);
+  content: "";
+}
+.tc-finding .mt .cost {
+  min-width: 37px;
+  padding: 2px 5px;
+  border: 1px solid color-mix(in srgb, var(--finding-tone) 34%, var(--border-default));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--finding-tone) 11%, transparent);
+  color: color-mix(in srgb, var(--finding-tone) 78%, var(--foreground));
+  font-size: 10px;
+  text-align: center;
+}
+.tc-finding .mt .m { flex: 1 1 112px; overflow-wrap: anywhere; }
+.tc-finding .mt .cost.is-none { border-color: color-mix(in srgb, var(--border-default) 80%, transparent); background: transparent; color: var(--foreground-muted); }
+.tc-finding.is-logged .id::after { color: var(--success); text-shadow: 0 0 7px color-mix(in srgb, var(--success) 66%, transparent); }
+/* Hygiene rows remain visibly subordinate even after the card treatment. */
+.tc-finding.is-hygiene { --finding-tone: var(--foreground-muted); min-height: 74px; border-left-color: color-mix(in srgb, var(--foreground-muted) 55%, transparent); background: color-mix(in srgb, var(--surface-1) 55%, transparent); box-shadow: none; }
+.tc-finding.is-hygiene:hover { border-color: color-mix(in srgb, var(--foreground-muted) 52%, var(--border-default)); border-left-color: var(--foreground-muted); background: color-mix(in srgb, var(--surface-2) 75%, transparent); box-shadow: none; }
+.tc-finding.is-hygiene.is-selected { --finding-tone: var(--primary); border-color: color-mix(in srgb, var(--primary) 58%, var(--border-default)); border-left-color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, var(--surface-3)); }
+
+@media (max-width: 900px) {
+  .tc-tree-row::after, .tc-finding::after { display: none; }
+  .tc-finding { min-height: 0; }
+  .tc-explorer { background-image: none; }
+}
+
+/* A splitter can make the Explorer narrower than the viewport.  Do not let
+ * the intentional 8px visual bleed turn into clipped diagnostic content. */
+[data-ide-pane="explorer"] { container-type: inline-size; }
+@container (max-width: 250px) {
+  .tc-explorer { --tc-gutter: 8px; }
+  .tc-tree-row { grid-template-columns: minmax(0, 1fr); margin-inline: 0; }
+  .tc-finding-group { margin-inline: 0; }
+  .tc-tree-row > .m { padding-right: 0; text-align: left; }
+  .tc-tree-row::after { display: none; }
+  .tc-finding { padding: 9px 8px 8px 10px; }
+  .tc-finding .lv { margin-left: 0; text-align: left; }
+  .tc-finding .mt::before { width: 7px; }
+}
+
+.tc-finding-group {
+  /* label above kicker: the kicker is a full sentence and the rail is narrow,
+   * so a flex row squeezes the label down to nothing */
+  display: grid; gap: 1px;
+  margin-inline: var(--tc-bleed);
+  /* same left inset as .tc-finding, which also bleeds into the gutter */
+  padding: var(--space-3) var(--space-2) 2px;
+  border-top: 1px solid var(--border-default);
+}
+.tc-finding-group:first-child { padding-top: 2px; border-top: 0; }
+.tc-finding-group > .gl { color: var(--foreground); font: var(--type-label); }
+.tc-finding-group > .gk { color: var(--foreground-muted); font: var(--type-micro); line-height: 1.4; }
+
+/* Keep the scan-oriented group rhythm after the original narrow-rail rules. */
+.tc-findings .tc-finding-group {
+  gap: 3px;
+  margin-top: var(--space-1);
+  padding: var(--space-3) var(--space-2) 3px;
+  border-top-color: color-mix(in srgb, var(--border-default) 72%, transparent);
+}
+.tc-findings .tc-finding-group:first-child { padding-top: 2px; }
+
+/* ------------------------------------------------------- chain ladder
+ * One rung per layer the chain visited. The left rail carries the role, so
+ * "止步" reads as a deliberate end rather than a missing row. */
+.tc-ladder { display: grid; gap: var(--space-1); }
+.tc-ladder-step {
+  display: grid; gap: 2px;
+  padding: var(--space-2);
+  padding-left: calc(var(--space-3) - 1px);
+  border-left: 2px solid var(--border-default);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+  text-align: left;
+}
+.tc-ladder-step[data-role="observe"] { border-left-color: var(--primary); }
+.tc-ladder-step[data-role="descend"] { border-left-color: var(--accent); }
+.tc-ladder-step[data-role="root"] { border-left-color: var(--success); }
+.tc-ladder-step[data-role="stop"] {
+  border-left-style: dashed;
+  border-left-color: var(--foreground-muted);
+  background: transparent;
+}
+.tc-ladder-step.is-linked { cursor: pointer; }
+.tc-ladder-step.is-linked:hover { background: var(--surface-2); }
+.tc-ladder-step.is-selected { background: var(--surface-3); }
+.tc-ladder-step > .hd { display: flex; align-items: baseline; gap: var(--space-2); }
+.tc-ladder-step > .hd > .lv {
+  color: var(--foreground-muted); font: var(--type-micro);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.tc-ladder-step > .hd > .role { margin-left: auto; color: var(--foreground-secondary); font: var(--type-micro); }
+.tc-ladder-step > .ti { color: var(--foreground); font: var(--type-body-sm); line-height: 1.4; }
+.tc-ladder-step > .dt { color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.5; }
 
 /* ---------------------------------------------------------- view stage */
 .tc-stage { display: flex; flex-direction: column; gap: var(--space-4); overflow: auto;
@@ -324,6 +768,12 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
   font: var(--type-body-sm);
 }
 .tc-readout { color: var(--foreground-secondary); font-family: var(--font-mono); font-size: 11px; white-space: nowrap; }
+/* live readouts the draw pass fills in; they sit beside a static one, and an
+ * empty one must not leave a gap */
+.tc-readout-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); }
+.tc-readout:empty { display: none; }
+.tc-readout.is-danger { color: var(--danger); }
+.tc-readout.is-muted { color: var(--foreground-muted); }
 
 /* ------------------------------------------------- finding evidence bar
  * Sits at the top of the centre stage while a bottleneck is active and says,
@@ -392,23 +842,6 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-evidence-row.is-linked { cursor: pointer; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .tc-evidence-row.is-linked:hover { background: var(--state-hover); border-left-color: var(--foreground-secondary); }
 .tc-evidence-row .a .jump { color: var(--primary); text-transform: none; letter-spacing: 0; }
-
-/* ---------------------------------------------------------- gate strip */
-.tc-gates { display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: var(--space-2);
-  margin-inline: var(--tc-bleed); }
-.tc-gate {
-  display: grid; gap: 2px;
-  padding: var(--space-2);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
-}
-.tc-gate .k { color: var(--foreground-muted); font: var(--type-micro); text-transform: uppercase; letter-spacing: 0.06em; }
-.tc-gate .v { font: var(--type-title-3); font-family: var(--font-mono); }
-.tc-gate .d { color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.4; }
-.tc-gate[data-state="pass"] .v { color: var(--success); }
-.tc-gate[data-state="warn"] .v { color: var(--warning); }
-.tc-gate[data-state="fail"] .v { color: var(--danger); }
-.tc-gate[data-state="info"] .v { color: var(--foreground); }
 
 /* ------------------------------------------------------- metric tiles */
 .tc-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: var(--space-2);
@@ -544,6 +977,319 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-spanrow[data-depth="2"] .lbl { padding-left: 28px; }
 .tc-spanrow[data-depth="3"] .lbl { padding-left: 42px; color: var(--foreground-muted); }
 
+/* ----------------------------------------- E2E model / operator projection
+ * The E2E page starts at the distributed run and narrows into model stages
+ * and scopes.  It intentionally uses the same dense, inspectable language as
+ * the rest of the console instead of turning the view into a dashboard. */
+/* E2E opens with a boundary decision, rather than a checklist.  The shared
+ * scale makes Host / Device comparable; Serving is a distribution signal and
+ * therefore intentionally occupies a different visual treatment. */
+.tc-e2e-flow { position: relative; height: 276px; margin-inline: var(--tc-bleed); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: radial-gradient(circle at 50% 68%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 38%), var(--surface-1); }
+.tc-e2e-flow > canvas { position: absolute; inset: 0; pointer-events: none; }
+.tc-e2e-flow-node { position: absolute; z-index: 1; display: grid; gap: 3px; width: 158px; padding: 10px 12px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface-2) 92%, transparent); color: var(--foreground-secondary); text-align: left; transform: translate(-50%, -50%); box-shadow: 0 8px 20px color-mix(in srgb, var(--background) 36%, transparent); }
+button.tc-e2e-flow-node { cursor: pointer; transition: background 120ms ease, border-color 120ms ease, transform 120ms ease; }
+button.tc-e2e-flow-node:hover, button.tc-e2e-flow-node:focus-visible { border-color: var(--primary); background: var(--state-hover); outline: 0; transform: translate(-50%, -50%) scale(1.03); }
+.tc-e2e-flow-node[data-active="true"] { border-color: color-mix(in srgb, var(--warning) 70%, var(--border-default)); box-shadow: inset 0 2px 0 var(--warning), 0 8px 20px color-mix(in srgb, var(--background) 36%, transparent); }
+.tc-e2e-flow-node[data-node="device"] { border-style: dashed; }
+.tc-e2e-flow-node > .k { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+.tc-e2e-flow-node > .v { color: var(--foreground); font: var(--type-label); font-family: var(--font-mono); white-space: nowrap; }
+.tc-e2e-flow-node > .m { overflow: hidden; color: var(--foreground-secondary); font: var(--type-micro); text-overflow: ellipsis; white-space: nowrap; }
+.tc-e2e-flow-edge { position: absolute; z-index: 2; padding: 3px 6px; border: 1px solid color-mix(in srgb, var(--border-subtle) 74%, transparent); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--surface-1) 88%, transparent); color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); transform: translate(-50%, -50%); white-space: nowrap; }
+.tc-e2e-boundaries { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 148px; gap: 1px; margin-inline: var(--tc-bleed); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; background: var(--border-subtle); }
+.tc-e2e-boundary { display: grid; grid-template-rows: auto auto 5px auto; align-content: start; gap: 5px; min-width: 0; padding: var(--space-3); border: 0; background: var(--surface-1); color: var(--foreground-secondary); text-align: left; cursor: pointer; transition: background 120ms ease, box-shadow 120ms ease; }
+.tc-e2e-boundary:hover, .tc-e2e-boundary:focus-visible { z-index: 1; background: var(--state-hover); outline: 1px solid var(--border-default); }
+.tc-e2e-boundary[data-active="true"] { background: color-mix(in srgb, var(--primary) 8%, var(--surface-1)); box-shadow: inset 0 2px 0 var(--primary); }
+.tc-e2e-boundary .domain { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); letter-spacing: .07em; text-transform: uppercase; }
+.tc-e2e-boundary .wall { overflow: hidden; color: var(--foreground); font: var(--type-heading-sm); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.tc-e2e-boundary .unit { overflow: hidden; color: var(--foreground-secondary); font: var(--type-micro); text-overflow: ellipsis; white-space: nowrap; }
+.tc-e2e-boundary .meter { position: relative; display: block; height: 5px; overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-3); }
+.tc-e2e-boundary .meter::after { position: absolute; inset: 0 auto 0 0; width: var(--tc-meter); border-radius: inherit; background: var(--primary); content: ""; }
+.tc-e2e-boundary[data-domain="device"] .meter::after { background: var(--accent); }
+.tc-e2e-boundary[data-domain="serving"][data-active="true"] { box-shadow: inset 0 2px 0 var(--warning); }
+.tc-e2e-e2e-wall { display: grid; align-content: center; gap: 4px; min-width: 0; padding: var(--space-3); background: var(--surface-2); }
+.tc-e2e-e2e-wall > span, .tc-e2e-e2e-wall > small { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-e2e-wall > strong { color: var(--foreground); font: var(--type-label); font-family: var(--font-mono); }
+.tc-e2e-triage-verdict { display: grid; grid-template-columns: 164px minmax(200px, 1fr) minmax(280px, 1.4fr); gap: var(--space-3); align-items: center; margin: var(--space-2) var(--tc-bleed) 0; padding: var(--space-2) var(--space-3); border-left: 2px solid var(--primary); background: color-mix(in srgb, var(--surface-2) 68%, transparent); }
+.tc-e2e-triage-verdict > strong { color: var(--foreground); font: var(--type-label); }
+.tc-e2e-triage-verdict > span { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.tc-e2e-triage-verdict > small { color: var(--foreground-muted); font: var(--type-body-sm); line-height: 1.4; }
+.tc-e2e-triage-verdict[data-domain="serving"] { border-color: var(--warning); }
+.tc-e2e-triage-verdict[data-domain="device"] { border-color: var(--accent); }
+
+/* E2E command center: selected visual direction uses a quieter navy canvas,
+ * measured metric cards and one explicit descent action.  Every readout still
+ * comes from the trace/benchmark objects above; this is a new composition,
+ * not a synthetic dashboard dataset. */
+.tc-stage--e2e {
+  background:
+    radial-gradient(72% 45% at 72% 0%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 68%),
+    radial-gradient(52% 36% at 2% 38%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 74%);
+}
+.tc-e2e-command-overview { gap: var(--space-3) !important; }
+.tc-e2e-command-overview > .tc-section-head {
+  padding: 2px 0;
+}
+.tc-e2e-command-overview > .tc-section-head h2 {
+  font-size: clamp(21px, 2.2vw, 29px);
+  letter-spacing: -.035em;
+}
+.tc-e2e-command-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(230px, .9fr);
+  gap: var(--space-3);
+  margin-inline: var(--tc-bleed);
+}
+.tc-e2e-command-card, .tc-e2e-action-card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 202px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-default) 82%, transparent);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--surface-2) 92%, transparent), color-mix(in srgb, var(--surface-1) 86%, transparent)),
+    var(--surface-1);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 6%, transparent), 0 16px 28px color-mix(in srgb, var(--background) 16%, transparent);
+}
+button.tc-e2e-command-card {
+  padding: var(--space-3);
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+button.tc-e2e-command-card:hover, button.tc-e2e-command-card:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 58%, var(--border-default));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 12%, var(--surface-2)), var(--surface-1));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 8%, transparent), 0 18px 30px color-mix(in srgb, var(--primary) 12%, transparent);
+  outline: 0;
+  transform: translateY(-2px);
+}
+.tc-e2e-command-card[data-active="true"] {
+  border-color: color-mix(in srgb, var(--warning) 70%, var(--border-default));
+  box-shadow: inset 0 2px 0 var(--warning), 0 15px 26px color-mix(in srgb, var(--warning) 10%, transparent);
+}
+.tc-e2e-command-card .eyebrow, .tc-e2e-action-card .eyebrow {
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+  font-family: var(--font-mono);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.tc-e2e-command-card .value {
+  align-self: end;
+  overflow-wrap: anywhere;
+  color: var(--foreground);
+  font: 600 clamp(25px, 2.45vw, 37px) / 1 var(--font-mono);
+  letter-spacing: -.065em;
+}
+.tc-e2e-command-card .caption { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.tc-e2e-command-card .meter {
+  position: relative;
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-4) 86%, transparent);
+}
+.tc-e2e-command-card .meter::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--tc-meter);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--accent) 86%, var(--primary)));
+  box-shadow: 0 0 9px color-mix(in srgb, var(--primary) 55%, transparent);
+  content: "";
+}
+.tc-e2e-command-card[data-domain="device"] .meter::after { background: var(--accent); box-shadow: 0 0 9px color-mix(in srgb, var(--accent) 52%, transparent); }
+.tc-e2e-command-card[data-domain="serving"] .meter::after { background: var(--warning); box-shadow: 0 0 9px color-mix(in srgb, var(--warning) 48%, transparent); }
+.tc-e2e-command-card .detail { color: var(--foreground-muted); font: var(--type-micro); line-height: 1.45; }
+.tc-e2e-action-card {
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-color: color-mix(in srgb, var(--primary) 58%, var(--border-default));
+  background:
+    radial-gradient(105% 84% at 104% 110%, color-mix(in srgb, var(--primary) 60%, transparent), transparent 56%),
+    radial-gradient(70% 65% at 100% 0%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 68%),
+    linear-gradient(150deg, color-mix(in srgb, var(--surface-2) 92%, transparent), color-mix(in srgb, var(--primary) 11%, var(--surface-1)));
+}
+.tc-e2e-action-card > strong { color: var(--foreground); font: var(--type-title-3); letter-spacing: -.02em; }
+.tc-e2e-action-card > p { margin: 0; color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.5; }
+.tc-e2e-action-card > small { color: var(--foreground-muted); font: var(--type-micro); line-height: 1.45; }
+.tc-e2e-action-button { align-self: end; width: 100%; margin-top: auto; border-color: color-mix(in srgb, var(--foreground) 24%, transparent) !important; background: color-mix(in srgb, var(--foreground) 92%, var(--primary)) !important; color: var(--background) !important; box-shadow: 0 8px 20px color-mix(in srgb, var(--primary) 38%, transparent); }
+.tc-e2e-critical-paths { gap: var(--space-2) !important; }
+.tc-e2e-critical-map {
+  display: grid;
+  gap: 8px;
+  margin-inline: var(--tc-bleed);
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 84%, transparent);
+  border-radius: calc(var(--radius-lg) + 2px);
+  background:
+    radial-gradient(75% 100% at 55% 100%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 68%),
+    var(--surface-1);
+}
+.tc-e2e-critical-row { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: var(--space-3); align-items: stretch; min-width: 0; }
+.tc-e2e-critical-row .rank {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  color: var(--foreground-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+.tc-e2e-critical-row .rank:hover, .tc-e2e-critical-row .rank:focus-visible { border-color: color-mix(in srgb, var(--primary) 60%, var(--border-subtle)); outline: 0; }
+.tc-e2e-critical-row .rank > strong { color: var(--foreground); font: var(--type-label); font-family: var(--font-mono); }
+.tc-e2e-critical-row .rank > small { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-critical-row .track {
+  position: relative;
+  min-height: 54px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 76%, transparent);
+  border-radius: var(--radius-md);
+  background: repeating-linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), color-mix(in srgb, var(--border-subtle) 58%, transparent) calc(25% - 1px), color-mix(in srgb, var(--border-subtle) 58%, transparent) 25%);
+}
+.tc-e2e-critical-row .mark { position: absolute; top: 18px; min-width: 3px; height: 17px; padding: 0; border: 1px solid color-mix(in srgb, var(--surface-1) 76%, transparent); border-radius: 4px; background: var(--primary); cursor: pointer; opacity: .86; transition: filter 120ms ease, transform 120ms ease; }
+.tc-e2e-critical-row .mark:hover, .tc-e2e-critical-row .mark:focus-visible { z-index: 1; filter: brightness(1.3); outline: 1px solid var(--foreground); transform: scaleY(1.25); }
+.tc-e2e-critical-row .mark[data-stage="attention"] { background: var(--accent); }
+.tc-e2e-critical-row .mark[data-stage="communication"] { background: var(--warning); }
+.tc-e2e-critical-row .mark[data-stage="moe"] { background: var(--success); }
+.tc-e2e-critical-row .mark[data-stage="runtime"] { background: var(--foreground-muted); }
+.tc-stage--e2e .tc-tiles { padding: 2px; border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface-1) 82%, transparent); }
+.tc-stage--e2e .tc-tile { border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-2) 68%, transparent); }
+
+@media (max-width: 1240px) {
+  .tc-e2e-command-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tc-e2e-action-card { min-height: 180px; }
+}
+@media (max-width: 760px) {
+  .tc-e2e-command-grid { grid-template-columns: minmax(0, 1fr); }
+  .tc-e2e-command-card { min-height: 166px; }
+  .tc-e2e-critical-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+  .tc-e2e-critical-row .track { min-height: 48px; }
+}
+
+.tc-e2e-workers { display: grid; gap: 1px; margin-inline: var(--tc-bleed); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; background: var(--border-subtle); }
+.tc-e2e-worker { display: grid; grid-template-columns: 156px minmax(180px, 1fr) 210px; gap: var(--space-3); align-items: center; min-width: 0; padding: 10px var(--space-3); background: var(--surface-1); }
+.tc-e2e-worker[data-outlier="true"] { background: color-mix(in srgb, var(--warning) 7%, var(--surface-1)); }
+.tc-e2e-worker .label { display: grid; gap: 2px; min-width: 0; }
+.tc-e2e-worker .label > strong { overflow: hidden; color: var(--foreground); font: var(--type-body-sm); font-family: var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.tc-e2e-worker .label > small { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-worker .range { position: relative; height: 18px; min-width: 0; background: linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) calc(25% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) 25%, transparent 25%, transparent calc(50% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) calc(50% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) 50%, transparent 50%, transparent calc(75% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) calc(75% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) 75%, transparent 75%); }
+.tc-e2e-worker .range-line { position: absolute; top: 8px; height: 3px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--primary) 65%, var(--foreground)); }
+.tc-e2e-worker .average { position: absolute; top: 3px; width: 12px; height: 12px; border: 2px solid var(--surface-1); border-radius: 50%; background: var(--primary); transform: translateX(-50%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 60%, transparent); }
+.tc-e2e-worker[data-outlier="true"] .range-line, .tc-e2e-worker[data-outlier="true"] .average { background: var(--warning); }
+.tc-e2e-worker .numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); text-align: right; }
+.tc-e2e-worker .numbers > strong { color: var(--foreground); font: inherit; }
+
+.tc-e2e-round-matrix { display: grid; grid-template-columns: 156px repeat(var(--tc-rounds), minmax(110px, 1fr)); gap: 1px; margin-inline: var(--tc-bleed); overflow: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--border-subtle); }
+.tc-e2e-round-matrix > .corner, .tc-e2e-round-matrix > .round, .tc-e2e-round-matrix > .operation { display: flex; align-items: center; min-height: 38px; padding: 8px var(--space-3); background: var(--surface-2); color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-round-matrix > .round { justify-content: center; color: var(--foreground-secondary); }
+.tc-e2e-round-matrix > .operation { color: var(--foreground); font: var(--type-body-sm); font-family: var(--font-sans); }
+.tc-e2e-round-cell { display: grid; justify-items: center; gap: 2px; min-width: 110px; min-height: 48px; padding: 8px; border: 0; background: var(--surface-1); color: var(--foreground-secondary); cursor: help; }
+.tc-e2e-round-cell:hover, .tc-e2e-round-cell:focus-visible { background: var(--state-hover); outline: 1px solid var(--border-default); }
+.tc-e2e-round-cell > strong { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.tc-e2e-round-cell > small { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-round-cell[data-state="repeat"] > strong { color: var(--warning); }
+.tc-e2e-round-cell[data-state="once"] > strong { color: var(--success); }
+.tc-e2e-round-cell[data-state="none"] > strong { color: var(--foreground-muted); }
+
+/* Request-level Serving benchmark: its latencies have different units of
+ * work, so each row owns its own rail instead of pretending TTFT and TPOT
+ * share a meaningful absolute scale. */
+.tc-serving-latency { display: grid; gap: 1px; margin-inline: var(--tc-bleed); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; background: var(--border-subtle); }
+.tc-serving-latency-row { display: grid; grid-template-columns: 116px minmax(190px, 1fr) 286px; gap: var(--space-3); align-items: center; padding: 11px var(--space-3); background: var(--surface-1); }
+.tc-serving-latency-row .label { display: grid; gap: 2px; }
+.tc-serving-latency-row .label > strong { color: var(--foreground); font: var(--type-label); font-family: var(--font-mono); }
+.tc-serving-latency-row .label > small { color: var(--foreground-muted); font: var(--type-micro); }
+.tc-serving-latency-row .range { position: relative; height: 18px; background: linear-gradient(90deg, transparent 0, transparent calc(50% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) calc(50% - 1px), color-mix(in srgb, var(--border-subtle) 70%, transparent) 50%, transparent 50%); }
+.tc-serving-latency-row .line { position: absolute; top: 8px; height: 3px; border-radius: var(--radius-pill); background: var(--accent); }
+.tc-serving-latency-row .mean { position: absolute; top: 3px; width: 12px; height: 12px; border: 2px solid var(--surface-1); border-radius: 50%; background: var(--primary); transform: translateX(-50%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 60%, transparent); }
+.tc-serving-latency-row .values { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); text-align: right; }
+.tc-serving-latency-row .values > strong { color: var(--foreground); font: inherit; }
+.tc-serving-trace-map { display: grid; gap: 1px; margin-inline: var(--tc-bleed); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; background: var(--border-subtle); }
+.tc-serving-trace-row { display: grid; grid-template-columns: 116px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-2) var(--space-3); background: var(--surface-1); }
+.tc-serving-trace-row > span { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-serving-trace-row > strong { color: var(--foreground-secondary); font: var(--type-body-sm); font-weight: 500; overflow-wrap: anywhere; }
+.tc-serving-trace-row[data-state="ok"] > span { color: var(--success); }
+.tc-serving-trace-row[data-state="missing"] > span { color: var(--warning); }
+
+.tc-e2e-legend { display: flex; flex-wrap: wrap; gap: 4px var(--space-3); margin: 0 var(--tc-bleed) var(--space-2); }
+.tc-e2e-legend-key { display: inline-flex; align-items: center; gap: 5px; color: var(--foreground-secondary); font: var(--type-micro); }
+.tc-e2e-legend-key > i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.tc-e2e-legend-key[data-stage="input"] > i, .tc-e2e-trace-mark[data-stage="input"], .tc-e2e-composition-segment[data-stage="input"], .tc-e2e-scatter-point[data-stage="input"] { background: var(--primary); }
+.tc-e2e-legend-key[data-stage="attention"] > i, .tc-e2e-trace-mark[data-stage="attention"], .tc-e2e-composition-segment[data-stage="attention"], .tc-e2e-scatter-point[data-stage="attention"] { background: var(--accent); }
+.tc-e2e-legend-key[data-stage="communication"] > i, .tc-e2e-trace-mark[data-stage="communication"], .tc-e2e-composition-segment[data-stage="communication"], .tc-e2e-scatter-point[data-stage="communication"] { background: var(--warning); }
+.tc-e2e-legend-key[data-stage="moe"] > i, .tc-e2e-trace-mark[data-stage="moe"], .tc-e2e-composition-segment[data-stage="moe"], .tc-e2e-scatter-point[data-stage="moe"] { background: var(--success); }
+.tc-e2e-legend-key[data-stage="ffn"] > i, .tc-e2e-trace-mark[data-stage="ffn"], .tc-e2e-composition-segment[data-stage="ffn"], .tc-e2e-scatter-point[data-stage="ffn"] { background: var(--primary-hover); }
+.tc-e2e-legend-key[data-stage="runtime"] > i, .tc-e2e-trace-mark[data-stage="runtime"], .tc-e2e-composition-segment[data-stage="runtime"], .tc-e2e-scatter-point[data-stage="runtime"] { background: var(--foreground-muted); }
+
+.tc-e2e-atlas { display: grid; gap: var(--space-3); margin-inline: var(--tc-bleed); }
+.tc-e2e-atlas-row { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: var(--space-3); align-items: stretch; min-width: 0; }
+.tc-e2e-atlas-label { display: grid; align-content: center; gap: 2px; min-width: 0; padding: var(--space-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-2) 60%, transparent); color: var(--foreground-secondary); text-align: left; cursor: pointer; }
+.tc-e2e-atlas-label:hover { background: var(--state-hover); border-color: var(--border-default); }
+.tc-e2e-atlas-label.is-armed { border-color: color-mix(in srgb, var(--primary) 72%, var(--border-subtle)); box-shadow: inset 2px 0 0 var(--primary); }
+.tc-e2e-atlas-label strong { color: var(--foreground); font: var(--type-label); font-family: var(--font-mono); }
+.tc-e2e-atlas-label span { color: var(--foreground-secondary); font: var(--type-body-sm); font-family: var(--font-mono); }
+.tc-e2e-atlas-label small { color: var(--foreground-muted); font: var(--type-micro); }
+.tc-e2e-atlas-track { position: relative; min-width: 420px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent); border-radius: var(--radius-md); background: repeating-linear-gradient(90deg, transparent 0, transparent calc(25% - 1px), color-mix(in srgb, var(--border-subtle) 58%, transparent) calc(25% - 1px), color-mix(in srgb, var(--border-subtle) 58%, transparent) 25%); }
+.tc-e2e-atlas-track .tick { position: absolute; inset: 0 auto 0 0; width: 1px; background: color-mix(in srgb, var(--border-subtle) 72%, transparent); pointer-events: none; }
+.tc-e2e-atlas-track .tick > span { position: absolute; top: -1px; left: 3px; color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-trace-mark { position: absolute; min-width: 3px; padding: 0; border: 0; border-radius: 2px; opacity: .78; cursor: pointer; transition: filter 100ms ease, opacity 100ms ease, transform 100ms ease; }
+.tc-e2e-trace-mark:hover, .tc-e2e-trace-mark:focus-visible { z-index: 3; opacity: 1; filter: brightness(1.25); outline: 1px solid var(--foreground); transform: scaleY(1.35); }
+.tc-e2e-trace-mark[data-critical="true"] { z-index: 2; box-shadow: 0 0 0 1px var(--foreground), 0 0 8px color-mix(in srgb, var(--warning) 72%, transparent); opacity: 1; }
+
+.tc-e2e-composition { display: grid; gap: var(--space-2); margin-inline: var(--tc-bleed); }
+.tc-e2e-composition-row { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: var(--space-3); align-items: center; }
+.tc-e2e-composition-row .rank { display: grid; gap: 1px; min-width: 0; }
+.tc-e2e-composition-row .rank strong { color: var(--foreground); font: var(--type-body-sm); font-family: var(--font-mono); }
+.tc-e2e-composition-row .rank small { color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); }
+.tc-e2e-composition-bar { display: flex; gap: 2px; min-width: 0; height: 34px; padding: 2px; border-radius: var(--radius-md); background: var(--surface-3); }
+.tc-e2e-composition-segment { min-width: 5px; padding: 0; border: 0; border-radius: 3px; opacity: .82; cursor: pointer; transition: opacity 100ms ease, transform 100ms ease; }
+.tc-e2e-composition-segment:hover, .tc-e2e-composition-segment:focus-visible { z-index: 1; opacity: 1; outline: 1px solid var(--foreground); transform: scaleY(1.16); }
+.tc-e2e-composition-segment[data-critical="true"] { box-shadow: inset 0 0 0 1px var(--foreground); }
+
+.tc-e2e-scatter { position: relative; height: 240px; margin-inline: var(--tc-bleed); overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background-image: linear-gradient(to right, color-mix(in srgb, var(--border-subtle) 60%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--border-subtle) 60%, transparent) 1px, transparent 1px); background-size: 25% 25%; background-position: 5% 7%; }
+.tc-e2e-scatter .axis { position: absolute; color: var(--foreground-muted); font: var(--type-micro); font-family: var(--font-mono); pointer-events: none; }
+.tc-e2e-scatter .axis-x { right: var(--space-2); bottom: var(--space-1); }
+.tc-e2e-scatter .axis-y { top: 50%; left: 3px; writing-mode: vertical-rl; transform: translateY(-50%) rotate(180deg); }
+.tc-e2e-scatter-point { position: absolute; z-index: 1; padding: 0; border: 1px solid color-mix(in srgb, var(--surface-1) 90%, transparent); border-radius: 50%; opacity: .8; cursor: pointer; transform: translate(-50%, 50%); transition: opacity 100ms ease, box-shadow 100ms ease, transform 100ms ease; }
+.tc-e2e-scatter-point:hover, .tc-e2e-scatter-point:focus-visible { z-index: 3; opacity: 1; outline: 1px solid var(--foreground); transform: translate(-50%, 50%) scale(1.25); }
+.tc-e2e-scatter-point[data-critical="true"] { z-index: 2; opacity: 1; box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 80%, transparent), 0 0 12px color-mix(in srgb, var(--warning) 50%, transparent); }
+
+@media (max-width: 1240px) {
+  .tc-e2e-boundaries { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tc-e2e-e2e-wall { grid-column: 1 / -1; grid-template-columns: auto auto 1fr; align-items: baseline; }
+  .tc-e2e-triage-verdict { grid-template-columns: 164px minmax(0, 1fr); }
+  .tc-e2e-triage-verdict > small { grid-column: 2; }
+}
+@media (max-width: 760px) {
+  .tc-e2e-flow { height: 410px; overflow: auto; }
+  .tc-e2e-flow > canvas, .tc-e2e-flow-edge { display: none; }
+  .tc-e2e-flow-node { left: 50% !important; width: min(240px, calc(100% - 30px)); }
+  .tc-e2e-flow-node[data-node="request"] { top: 14% !important; }
+  .tc-e2e-flow-node[data-node="serving"] { top: 37% !important; }
+  .tc-e2e-flow-node[data-node="host"] { top: 60% !important; }
+  .tc-e2e-flow-node[data-node="device"] { top: 83% !important; }
+  .tc-e2e-atlas-row, .tc-e2e-composition-row { grid-template-columns: minmax(0, 1fr); }
+  .tc-e2e-atlas-track { min-width: 360px; }
+  .tc-e2e-boundaries { grid-template-columns: minmax(0, 1fr); }
+  .tc-e2e-e2e-wall { grid-column: auto; grid-template-columns: none; }
+  .tc-e2e-triage-verdict, .tc-e2e-worker { grid-template-columns: minmax(0, 1fr); }
+  .tc-e2e-triage-verdict > small { grid-column: auto; }
+  .tc-e2e-worker .numbers { max-width: 260px; }
+  .tc-serving-latency-row { grid-template-columns: minmax(0, 1fr); }
+  .tc-serving-latency-row .values { max-width: 360px; }
+  .tc-serving-trace-row { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* --------------------------------------------------------- canvas host */
 .tc-canvas-host {
   position: relative;
@@ -551,12 +1297,19 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
   flex: 1 1 auto;
   min-height: 220px;
   overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 78%, transparent);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  background: color-mix(in srgb, var(--surface-1) 68%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 4%, transparent);
 }
 .tc-canvas-host canvas { display: block; }
+.tc-canvas-host canvas.tc-lanes { image-rendering: auto; }
 .tc-canvas-host.is-grabbing canvas { cursor: grabbing; }
 .tc-canvas-host canvas.tc-lanes { cursor: crosshair; }
+.tc-canvas-host:has(canvas.tc-lanes) { scrollbar-gutter: stable; }
+.tc-canvas-host:has(canvas.tc-lanes):focus-within {
+  border-color: color-mix(in srgb, var(--primary) 58%, var(--border-subtle));
+}
 .tc-canvas-strip {
   position: relative;
   margin-inline: var(--tc-bleed);
@@ -661,7 +1414,7 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-scoperows { display: grid; gap: 1px; }
 .tc-scoperow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 52px 44px 44px;
+  grid-template-columns: minmax(0, 1fr) 30px 52px 40px 40px;
   gap: var(--space-2);
   align-items: baseline;
   width: 100%;
@@ -717,6 +1470,61 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-scoperow > .n.muted { color: var(--foreground-muted); }
 /* zero slack on a fat scope: the combination worth acting on */
 .tc-scoperow > .n.hot { color: var(--warning); }
+
+/* ------------------------------------------------------- engine column
+ * C / V / C+V. Cube and Vec are the two core types a scope can compile to;
+ * a mixed scope reads C+V and expands into two kernels below. */
+.tc-scoperow > .e {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+  letter-spacing: -0.02em;
+  color: var(--foreground-muted);
+}
+.tc-scoperow > .e.is-aic { color: var(--primary); }
+.tc-scoperow > .e.is-aiv { color: var(--accent); }
+.tc-scoperow > .e.is-mix { color: var(--warning); }
+.tc-scoperow.is-head > .e { color: var(--foreground-muted); }
+
+/* --------------------------------------------- engine-pairing sub-rows
+ * One source scope, then its kernels indented under it. The header row is
+ * shared with the ranking so the columns line up. */
+.tc-scoperow.is-pair { grid-template-columns: minmax(0, 1fr) 24px 52px 44px 44px; }
+.tc-scoperow.is-pair.is-sub > .l { padding-left: 12px; }
+.tc-pairhead {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: var(--space-2);
+  padding: 0 var(--space-1);
+  color: var(--foreground);
+  font: var(--type-label);
+}
+.tc-pairhead > .nm {
+  font-family: var(--font-mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tc-pairhead > .ct { flex: none; color: var(--foreground-muted); font-family: var(--font-mono); }
+
+/* ---------------------------------------------- critical-path rows
+ * name / cause / stall / span. The cause chip is the whole point of the
+ * table, so it gets its own column rather than living in the title. */
+.tc-scoperow.is-cpath { grid-template-columns: minmax(0, 1fr) 30px 42px 42px; }
+.tc-scoperow.is-cpath > .l > .bar { background: color-mix(in srgb, var(--warning) 20%, transparent); }
+.tc-scoperow.is-cpath.is-crit > .l > .bar { background: color-mix(in srgb, var(--danger) 22%, transparent); }
+.tc-scoperow > .e.is-data { color: var(--primary); }
+.tc-scoperow > .e.is-core { color: var(--warning); }
+.tc-scoperow > .e.is-front { color: var(--foreground-muted); }
+/* a *_wait span is occupancy, not work -- do not let it read as compute */
+.tc-scoperow > .n.is-wait { color: var(--warning); }
+
+/* idle-window rows keep the original four columns */
+.tc-scoperow.is-idle { grid-template-columns: minmax(0, 1fr) 52px 44px 44px; }
+
+/* ------------------------------------------------------ spmd shape rows */
+.tc-scoperow.is-spmd { grid-template-columns: minmax(0, 1fr) 30px 36px 40px 44px; }
 
 /* ----------------------------------------------- launch-skew breakdown
  * Lives in the E2E inspector: the measured wait against the upper bound the
@@ -840,3 +1648,132 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
   .tc-pass-river-head { align-items: flex-start; flex-direction: column; }
   .tc-pass-diff-side + .tc-pass-diff-side { border-top: 1px solid var(--border-subtle); border-left: 0; }
 }
+
+/* the same ladder, condensed onto the stage bar so the reader can walk
+ * layers without going back to the inspector */
+.tc-rungs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.tc-rungs > .lead {
+  color: var(--foreground-muted); font: var(--type-micro);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.tc-rungs > .arrow { color: var(--foreground-muted); font-size: 11px; }
+.tc-rung {
+  display: inline-flex; align-items: baseline; gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: transparent; color: var(--foreground-secondary);
+  font-size: 11px; cursor: pointer;
+}
+.tc-rung:hover { background: var(--state-hover); color: var(--foreground); }
+.tc-rung.is-current { background: var(--surface-3); border-color: var(--primary); color: var(--foreground); }
+.tc-rung > .lv { font-family: var(--font-mono); }
+.tc-rung > .rl { color: var(--foreground-muted); }
+.tc-rung[data-role="root"] > .rl { color: var(--success); }
+.tc-rung[data-role="stop"] { border-style: dashed; }
+
+/* =====================================================================
+ * Qwen3 profile layers
+ * Four captures of one 40-layer graph, a torch attribution layer, measured
+ * PMU occupancy, the layer unwrap and the head-overhead split. All of it
+ * reuses the tables and tiles above; only these five shapes are new.
+ * ===================================================================== */
+
+/* a sentence that qualifies the numbers above it — never a disclaimer banner,
+ * so it reads at body size in the muted colour and stays inside the section */
+.tc-fineprint {
+  margin: var(--space-2) 0 0;
+  color: var(--foreground-muted);
+  font: var(--type-body-sm); line-height: 1.5;
+  max-width: 96ch;
+}
+
+.tc-note {
+  display: grid; gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface-2) 68%, transparent);
+}
+.tc-note[data-tone="ok"] { border-color: var(--success); }
+.tc-note[data-tone="warn"] { border-color: var(--warning); }
+.tc-note > strong { color: var(--foreground); font: var(--type-label); }
+.tc-note > span { color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.5; }
+.tc-note > small { color: var(--foreground-muted); font: var(--type-body-sm); line-height: 1.45; }
+
+.tc-verdicts { display: grid; gap: var(--space-2); margin-top: var(--space-2); }
+.tc-verdicts > .tc-verdict {
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--primary);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+.tc-verdicts > .tc-verdict > strong { color: var(--foreground); font: var(--type-label); }
+.tc-verdicts > .tc-verdict > span { color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.5; }
+
+/* the capture chooser: two collectors x two stages, with the dataset's own
+ * validation state on the group rather than on each pill */
+.tc-variant-bar { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.tc-variant-group {
+  display: grid; gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.tc-variant-head { display: flex; align-items: center; gap: var(--space-2); }
+.tc-variant-head > .n { color: var(--foreground); font: var(--type-label); }
+.tc-variant-badge {
+  padding: 1px var(--space-1);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  color: var(--foreground-muted); font-size: 10px; cursor: help;
+}
+.tc-variant-badge[data-state="ok"] { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); }
+.tc-variant-badge[data-state="warn"] { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 45%, transparent); }
+.tc-variant-row { display: flex; gap: var(--space-1); }
+.tc-variant-pill {
+  display: grid; gap: 1px; min-width: 92px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  background: transparent; color: var(--foreground-secondary);
+  text-align: left; cursor: pointer;
+}
+.tc-variant-pill:hover { background: var(--state-hover); color: var(--foreground); }
+.tc-variant-pill.is-selected { background: var(--surface-4); border-color: var(--primary); color: var(--foreground); }
+.tc-variant-pill > .n { font-size: 12px; }
+.tc-variant-pill > .m { color: var(--foreground-muted); font-family: var(--font-mono); font-size: 10px; }
+
+/* per-step Stage = Computing + Free + Preparing, one shared scale */
+.tc-stepbars { display: grid; gap: 3px; margin-top: var(--space-2); }
+.tc-stepbar {
+  display: grid; grid-template-columns: 88px minmax(120px, 1fr) 70px 78px;
+  gap: var(--space-2); align-items: center;
+}
+.tc-stepbar > .label { display: flex; align-items: baseline; gap: var(--space-1); }
+.tc-stepbar > .label > strong { color: var(--foreground); font: var(--type-label); }
+.tc-stepbar > .label > small { color: var(--foreground-muted); font-size: 10px; }
+.tc-stepbar > .track {
+  display: flex; height: 16px;
+  border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--surface-3);
+}
+.tc-stepbar > .track > .seg { height: 100%; }
+.tc-stepbar > .track > .seg[data-kind="computing"] { background: var(--accent); }
+.tc-stepbar > .track > .seg[data-kind="free"] { background: color-mix(in srgb, var(--warning) 72%, transparent); }
+.tc-stepbar > .track > .seg[data-kind="preparing"] { background: var(--foreground-muted); }
+.tc-stepbar > .val { color: var(--foreground); font-family: var(--font-mono); font-size: 11px; text-align: right; }
+.tc-stepbar > .val.muted { color: var(--foreground-muted); }
+.tc-stepbar[data-stage="prefill"] > .label > small { color: var(--accent); }
+
+/* the layer unwrap and the block-level occupancy picture are both canvases
+ * that size themselves to the pane */
+.tc-layerchart, .tc-occchart { margin: var(--space-2) var(--tc-bleed) 0; }
+.tc-layerchart > canvas, .tc-occchart > canvas { display: block; width: 100%; }
+
+@media (max-width: 900px) {
+  .tc-stepbar { grid-template-columns: 74px minmax(0, 1fr) 64px; }
+  .tc-stepbar > .val.muted { display: none; }
+  .tc-variant-bar { flex-direction: column; }
+}
+
+/* the readout was already being tagged is-crit in a few places (path role,
+ * layer-boundary confidence, capture validation) with nothing to show for it */
+.tc-readout.is-crit { color: var(--warning); }

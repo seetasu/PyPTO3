@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a1018" />
+  <title>Qwen3 × LingQu · 性能观测</title>
+  <script type="module" crossorigin src="/assets/index-B_V1Aqt6.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DQnfLvCG.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar"><a class="brand" href="../../launch.html"><span class="brand-mark">P</span><span>PyPTO <i>OBSERVABILITY</i></span></a><span class="crumb">/ Qwen3-14B / TP2 Run</span><span class="top-spacer"></span><span class="capture"><i></i>真实采集 · 2026-08-14</span></header>
+    <main>
+      <section class="hero"><div><div class="eyebrow">MODEL → OPERATOR → DEVICE → LINGQU</div><h1>从模型执行下钻到硬件现场</h1><p>基于 Qwen3-14B TP2 Ascend profile。数据未包含平台资产映射，因此 LingQu 层级用于标出观测接入点，不代表本次运行已确认发生在 LingQu 超节点。</p></div><div class="stage-tabs" role="tablist"><button class="active" data-stage="prefill">Prefill</button><button data-stage="decode">Decode</button></div></section>
+      <section class="metrics" id="metrics"></section>
+      <section class="grid">
+        <article class="panel hierarchy-panel"><div class="panel-heading"><div><small>HARDWARE HIERARCHY</small><h2>运行位置与覆盖状态</h2></div><span class="tag">点选层级查看证据</span></div><div id="hierarchy" class="hierarchy"></div><div class="evidence-box" id="evidence"></div></article>
+        <article class="panel topology-panel"><div class="panel-heading"><div><small>LINGQU FABRIC</small><h2>平面、链路与交换层</h2></div><span class="muted">遥测关联</span></div><div class="fabric-visual" id="fabric"></div><div class="coverage-note"><b>本次数据边界</b><span>torch profiler 与 L2 task swimlane 在独立进程采集；只能作为同一 workload 的性能证据，不能按时间戳逐事件配对。没有链路/交换遥测，不能判定网络异常。</span></div></article>
+      </section>
+      <section class="panel timeline-panel"><div class="panel-heading"><div><small>DEVICE EXECUTION · RANK 0 / DEVICE 0</small><h2 id="timeline-title">40 层执行泳道</h2></div><div class="legend"><span><i class="aic"></i>AIC</span><span><i class="aiv"></i>AIV</span><span class="muted">任务时长来自设备 trace</span></div></div><div id="timeline" class="timeline"></div><div class="timeline-foot"><span>每行按 transformer layer 分组 · 共 16 个 task</span><span id="timeline-total"></span></div></section>
+      <section class="grid lower-grid">
+        <article class="panel operators-panel"><div class="panel-heading"><div><small>TORCH PROFILER · OPERATOR VIEW</small><h2>Operator 设备耗时</h2></div><span class="tag">Device Total Duration</span></div><div id="operators" class="kernel-list"></div><div class="small-note">operator_details.csv；设备耗时为 profiler operator 视图。当前采集只有 Device 0。</div></article>
+        <article class="panel kernels-panel"><div class="panel-heading"><div><small>TORCH PROFILER · DEVICE 0</small><h2>Kernel 耗时 Top</h2></div><span id="kernel-count" class="tag"></span></div><div id="kernels" class="kernel-list"></div><div class="small-note">kernel_details.csv；汇总覆盖 1 次 prefill + 4 次 decode。与 L2 swimlane 为不同采集进程。</div></article>
+        <article class="panel steps-panel"><div class="panel-heading"><div><small>STEP TRACE</small><h2>运行阶段与空闲时间</h2></div><span class="tag">rank0 / Device 0</span></div><div id="steps" class="step-list"></div><div class="small-note">step_trace_time.csv；当前通信分类为 0，不代表已采集 LingQu 链路时延。</div></article>
+      </section>
+      <footer><span>数据源：<code>Data/pypto_qwen3_profiles/pypto_qwen3_profiles/tp2</code></span><span>缺失字段显示为“未采集”，不会补造指标</span></footer>
+    </main>
+  </div>
+</body>
+</html>

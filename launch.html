@@ -658,7 +658,7 @@
     const demos = [
       {
         title: "算子调优控制台",
-        subtitle: "Tuning Console · 五层闭环",
+        subtitle: "Tuning Console · 多版本探索",
         category: "内存与性能",
         status: "新增",
         version: "01 / Console",
@@ -678,7 +678,13 @@
         description: "保留原始五层证据、Pass 轨迹和实验台账，并将入口重构为真实开发任务流：以 Investigation 管理基线、假设、证据和单变量实验；层级视图只在需要查证时打开。",
         href: "Design/operator-tuning-console-v2/index.html",
         preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["Investigations", "Hypotheses", "Evidence Links", "Single-variable Experiment"]
+        tags: ["L2 Scheduling", "Ready Queue", "Core Swimlane", "PMU", "40-Layer"],
+        variants: [
+          { label: "V1", href: "Design/operator-tuning-console/index.html" },
+          { label: "V2", href: "Design/operator-tuning-console-v2/index.html" },
+          { label: "V3", href: "Design/operator-tuning-console-v3/index.html" },
+          { label: "V4 · 极简 L2", href: "Design/operator-tuning-console-v4/index.html" }
+        ]
       },
       {
         title: "调优故事九幕",
@@ -691,6 +697,28 @@
         href: "Design/tuning-story-demo/index.html",
         preview: "Design/assets/launch-previews/tuning-console.svg",
         tags: ["9 Scenes", "Playback", "Pain & Opportunity", "Evidence Provenance"]
+      },
+      {
+        title: "Qwen3 × LingQu 性能观测",
+        subtitle: "Model-to-Fabric Observability · TP2",
+        category: "内存与性能",
+        status: "真实 profile",
+        version: "Rank 0 · Device 0",
+        description: "基于 Qwen3-14B TP2 真机采集，查看 prefill/decode、40 层 AICore task、Torch operator/kernel 与 step 指标，并呈现 LingQu 节点、平面、链路及 L1/L2 观测覆盖缺口。",
+        href: "Design/qwen3-lingqu-observability/index.html",
+        preview: "Design/assets/launch-previews/tuning-console.svg",
+        tags: ["Qwen3-14B", "TP2", "40 Layers", "LingQu", "Profile Evidence"]
+      },
+      {
+        title: "长 Decode 因果诊断",
+        subtitle: "Long Decode Causal Workbench · Issue #951",
+        category: "开发工具",
+        status: "新增",
+        version: "01 / Causal Map",
+        description: "以 pypto-lib #951 的长 decode 尾部质量劣化为线索，把症状、两条根因假设、层级 profile 路由、重复运行矩阵与可控实验计划汇聚在同一份调查画布中。",
+        href: "Design/long-decode-causal-workbench/index.html",
+        preview: "Design/assets/launch-previews/long-decode-causal-workbench.png",
+        tags: ["Issue #951", "Causal Map", "RoPE", "Deterministic Reduction", "Experiment Plan"]
       },
       {
         title: "调试与调优工作台",
@@ -837,6 +865,17 @@
         tags: ["Chrome Trace", "Swimlane", "Runtime", "PyPTO"]
       },
       {
+        title: "单 Rank 推理观测台",
+        subtitle: "Single Rank Inference Observatory",
+        category: "推理",
+        status: "新增",
+        version: "01 / Rank Scope",
+        description: "从一次慢 Decode 告警进入，联动查看单 Rank 的请求 cohort、关键路径、通信等待与可验证假设；明确区分本 Rank 证据与整网归因。",
+        href: "Design/single-rank-inference-observatory/index.html",
+        preview: "Design/assets/launch-previews/inference-observability.png",
+        tags: ["Single Rank", "Trace", "Cohort", "Evidence"]
+      },
+      {
         title: "Decode Layer 计算图",
         subtitle: "Interactive Task Graph Explorer",
         category: "开发工具",
@@ -916,8 +955,11 @@
         version: "01 / Explorer",
         updatedAt: "2026-09-20",
         description: "直接解析 passes_dump 的 52 / 42 份 IR 快照：Pass 时间线按改动量排序，代码 Diff 精确到 token，五种结构图（调用、控制流、数据流、任务 DAG、内存）做前后对照，并用实测增量说明每个 Pass 究竟做了什么优化。",
-        href: "Design/pass-transform-explorer/index.html",
+        href: "Design/pass-transform-explorer/demo.html",
         preview: "Design/assets/launch-previews/pass-atlas.png",
+        variants: [
+          { label: "在线 Demo（单文件）", href: "Design/pass-transform-explorer/demo.html" },
+        ],
         tags: ["Pass Diff", "IR Graph", "MemoryReuse", "Task DAG", "passes_dump"]
       },
       {
