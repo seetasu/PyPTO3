@@ -1809,7 +1809,7 @@ button.operator-tree-toggle:hover {
     .so-dse-change-state { min-height: 16px; margin-bottom: 7px; color: var(--foreground-muted); font-size: 10px; }
     .so-dse-change-state.is-dirty { color: var(--warning); }
     .so-dse-update .so-button { width: 100%; }
-    .so-dse-exploration { display: grid; gap: 14px; min-width: 0; container-type: inline-size; }
+    .so-dse-exploration { display: grid; gap: 14px; min-width: 0; }
     .so-dse-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
     .so-dse-lineage { min-height: 330px; overflow: hidden; background: var(--surface-2); --trace-chart-height: 330px; }
     .so-dse-sweep-analysis[hidden] { display: none; }
@@ -1819,8 +1819,7 @@ button.operator-tree-toggle:hover {
     .so-dse-stage-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
     .so-dse-stage-detail-head h3 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
     .so-dse-stage-detail-head p { max-width: 860px; margin: var(--space-2) 0 0; color: var(--foreground-secondary); font: var(--type-body); }
-    .so-dse-intent-grid { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 16px; margin-top: var(--space-4); }
-    @container (max-width: 1100px) { .so-dse-intent-grid { grid-template-columns: 1fr; } }
+    .so-dse-intent-grid { display: grid; grid-template-columns: minmax(min(320px, 100%), 0.95fr) minmax(0, 1.05fr); gap: 16px; margin-top: var(--space-4); }
     .so-dse-candidates { display: grid; align-content: start; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-2); }
     .so-dse-candidate-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: var(--space-2); }
     .so-dse-candidate-tab { display: grid; gap: 3px; min-width: 0; padding: 9px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-3); color: var(--foreground); cursor: pointer; text-align: left; }
