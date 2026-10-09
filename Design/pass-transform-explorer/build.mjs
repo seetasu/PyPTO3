@@ -385,7 +385,7 @@ fs.writeFileSync(
 
 // Bundle the ES modules as one classic script so the viewer also works from
 // file:// (where `<script type="module" src=...>` is blocked by CORS).
-const BUNDLE_ORDER = ['pyir.mjs', 'diff.mjs', 'analyze.mjs', 'evidence.mjs', 'movegraph.mjs', 'passinfo.mjs', 'markdown.mjs'];
+const BUNDLE_ORDER = ['pyir.mjs', 'diff.mjs', 'analyze.mjs', 'evidence.mjs', 'movegraph.mjs', 'memmap.mjs', 'passinfo.mjs', 'markdown.mjs'];
 const bundled = BUNDLE_ORDER.map((f) => {
   const src = fs.readFileSync(path.join(HERE, 'lib', f), 'utf8');
   return src

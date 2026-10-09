@@ -30,6 +30,7 @@
   run.case.program = 'MOCK · PH-MR-001 反向案例';
   run.case.sub = '真实 L2 / PH hint + 模拟 L1 因果桥接';
   run.case.model = '混合教学案例（实测证据与模拟桥接分开标注）';
+  run.case.guidedJourney = true;
   run.case.compileSource = null;
   run.defaultRank = 'rank0';
 
@@ -79,6 +80,7 @@
     terminus: { level: 'compiler', reason: '已定位到 MemoryReuse 的 PH-MR-001；因果仍待单变量实验验证' },
     evidence,
     focus: { view: 'l2', task: taskId },
+    taskRoles: { primary: [taskId], secondary: ['r2t23', 'r3t11'] },
     lever: '先对该源码点做一个实验：只降低 Right tile 的每级占用或减少同驻 group，观察 MemoryReuse 是否恢复 depth 2；不同时改 AIC 优先级和调度策略。',
     guardrail: '缩小 tile 会增加循环 / 搬运次数，减少 group 可能降低并行度；需要正确性校验，并确认竞争任务 slack 与 makespan 没有恶化。',
     verify: '重编译检查 PH-MR-001 是否从 2→1 恢复到 2；再重测对应任务的 block 中位时长、span、间隙和 makespan。hint 消失但 L2 不变，说明这条提示不是主因。',

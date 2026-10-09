@@ -146,7 +146,7 @@
     jumpLine: null,
     jumpSide: 'after',   // which dump file jumpLine numbers - the gutters differ
     filter: '',
-    docOpen: true,
+    docOpen: false,      // the Pass doc is a drawer the reader opens, never a fixed column
     lensAuto: true,
     lensWanted: null,
     perfFilter: null,    // a tier id isolates that tier in the rail
@@ -329,10 +329,14 @@
       link.hidden = true;
     }
 
+    // The memory map only has something to say where addresses get placed.
+    $('memmapTab').hidden = !hasMemmap(p);
+    if (state.tab === 'memmap' && !hasMemmap(p)) state.tab = 'overview';
+
     document.querySelectorAll('.ptx-tab').forEach(function (b) {
       b.classList.toggle('is-active', b.dataset.tab === state.tab);
     });
-    ['overview', 'diff', 'graph'].forEach(function (t) {
+    ['overview', 'diff', 'graph', 'memmap'].forEach(function (t) {
       $('view' + t[0].toUpperCase() + t.slice(1)).hidden = state.tab !== t;
     });
   }
@@ -776,6 +780,7 @@
     }).join('') + '</div>';
 
     html += perfCard(p);
+    if (hasMemmap(p)) html += memmapCardSlot();
 
     // Deriving where each body went needs both snapshots parsed, which is
     // async, so the slot is reserved now and filled when the parse lands.
@@ -865,9 +870,10 @@
     }
 
     $('viewOverview').innerHTML = html;
+    var token = ++renderOverview._token;
+    if ($('mmCard')) fillMemmapCard();
 
     if ($('migCard')) {
-      var token = ++renderOverview._token;
       Promise.all([analyze(state.runId, p.idx - 1), analyze(state.runId, p.idx)])
         .then(function (pair) {
           if (token !== renderOverview._token || !$('migCard')) return;
@@ -2963,14 +2969,661 @@
   }
 
   // ══════════════════════════════════════════════════════════════════════
+  // Memory map: address × lifetime
+  //
+  // Folded in from Design/memory-inspector/Memory_V2.html. Every on-chip Tile
+  // is a box: x is its byte range inside a memory space, y is its static
+  // lifetime in dump source lines. LIB.programMemoryMap is a port of that
+  // tool's memory_map.py and reproduces its output box for box.
+  //
+  // What this explorer adds is the before/after: ahead of AllocateMemoryAddr
+  // every base still sits at offset 0, so the same map drawn on the previous
+  // snapshot is a pile of placeholder overlaps. Toggling the two IS the Pass.
+  // ══════════════════════════════════════════════════════════════════════
+
+  var MEMMAP_PASSES = { AllocateMemoryAddr: true };
+  function hasMemmap(p) { return !!(p && MEMMAP_PASSES[p.name]); }
+
+  var MM_LINE = 17;     // px per source line, shared by the source pane and the map
+  var MM_GUTTER = 44;
+  var MM_TAIL = 240;    // scroll room under the last line, identical on both panes
+  var MM_SPACES = { Vec: 1, Mat: 1, Left: 1, Right: 1, Acc: 1, Bias: 1 };
+  function mmColor(space) { return 'var(--mm-' + (MM_SPACES[space] ? space : 'other') + ')'; }
+  function mmFnColor(i) { return 'hsl(' + ((i * 47 + 205) % 360) + ' 62% 52%)'; }
+
+  var MEMMAPS = new Map();
+  function memmapOf(runId, idx) {
+    var key = runId + ':' + idx;
+    if (MEMMAPS.has(key)) return Promise.resolve(MEMMAPS.get(key));
+    return analyze(runId, idx).then(function (an) {
+      var m = LIB.programMemoryMap(an);
+      m.lines = an.lines;
+      m.file = (run().passes.find(function (x) { return x.idx === idx; }) || {}).file || '';
+      m.functions.forEach(function (fn, i) {
+        fn.color = mmFnColor(i);
+        fn.boxes.forEach(function (b) { b.fn = fn.name; });
+      });
+      m.all = mmAggregate(m.functions);
+      MEMMAPS.set(key, m);
+      while (MEMMAPS.size > 4) MEMMAPS.delete(MEMMAPS.keys().next().value);
+      return m;
+    });
+  }
+
+  function mmAggregate(fns) {
+    var spaces = {};
+    fns.forEach(function (fn) {
+      fn.spaces.forEach(function (s) {
+        var c = spaces[s.space];
+        if (!c) { spaces[s.space] = { space: s.space, hwm: s.hwm, limit: s.limit, tiles: s.tiles, bases: s.bases }; return; }
+        c.hwm = Math.max(c.hwm, s.hwm);
+        c.limit = Math.max(c.limit, s.limit);
+        c.tiles += s.tiles;
+        c.bases += s.bases;
+      });
+    });
+    var order = ['Vec', 'Mat', 'Left', 'Right', 'Acc', 'Bias'];
+    return {
+      name: null,
+      ftype: fns.length + ' 个计算函数',
+      src_start: fns.length ? Math.min.apply(null, fns.map(function (f) { return f.src_start; })) : 1,
+      src_end: fns.length ? Math.max.apply(null, fns.map(function (f) { return f.src_end; })) : 1,
+      spaces: Object.keys(spaces).map(function (k) { return spaces[k]; }).sort(function (a, b) {
+        var ia = order.indexOf(a.space), ib = order.indexOf(b.space);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      }),
+      boxes: [].concat.apply([], fns.map(function (f) { return f.boxes; })),
+      unplaced: [].concat.apply([], fns.map(function (f) { return f.unplaced; })),
+      isAll: true,
+    };
+  }
+
+  function mmPair() {
+    var p = pass();
+    return Promise.all([memmapOf(state.runId, p.idx - 1), memmapOf(state.runId, p.idx)]);
+  }
+
+  function mmUsage(s) { return s.limit ? s.hwm / s.limit : 0; }
+  function mmRisk(r) { return r >= 0.95 ? 'is-danger' : r >= 0.8 ? 'is-warn' : ''; }
+  function pct(r) { return (r * 100).toFixed(r >= 0.995 || r < 0.1 ? 1 : 0) + '%'; }
+
+  // ── overview card ─────────────────────────────────────────────────────
+
+  function memmapCardSlot() {
+    return '<section class="ptx-card mm-card" id="mmCard"><h3>地址 × 生命周期内存地图</h3>'
+      + '<p class="ptx-loading">正在解析前后快照…</p></section>';
+  }
+
+  function fillMemmapCard() {
+    var token = renderOverview._token;
+    mmPair().then(function (pair) {
+      if (token !== renderOverview._token || !$('mmCard')) return;
+      $('mmCard').innerHTML = memmapCard(pair[0], pair[1]);
+    }).catch(function (err) {
+      if (token !== renderOverview._token || !$('mmCard')) return;
+      $('mmCard').innerHTML = '<h3>地址 × 生命周期内存地图</h3><p class="ptx-empty">' + esc(err.message) + '</p>';
+    });
+  }
+
+  function memmapCard(before, after) {
+    var sb = LIB.memoryMapStats(before.functions);
+    var sa = LIB.memoryMapStats(after.functions);
+    var spaces = after.all.spaces.map(function (s) { return s.space; });
+    var cells = [];
+    after.functions.forEach(function (fn) {
+      fn.spaces.forEach(function (s) { cells.push(mmUsage(s)); });
+    });
+    var peak = cells.length ? Math.max.apply(null, cells) : 0;
+    var warn = cells.filter(function (r) { return r >= 0.8 && r < 0.95; }).length;
+    var danger = cells.filter(function (r) { return r >= 0.95; }).length;
+
+    var head = '<h3>地址 × 生命周期内存地图'
+      + '<span class="mm-card__from">判定规则同 Memory Inspector V2</span>'
+      + '<button class="ptx-linkbtn mm-card__open" data-mmopen="">打开内存地图 →</button></h3>';
+
+    var lead = '<p class="ptx-card__headline">'
+      + (sb.unplaced
+        ? 'Pass 前，<b>' + sb.unplaced + '</b> / ' + sb.functions + ' 个计算函数里有多个 base 都停在 offset 0——'
+          + '地址还没定，图上 <b>' + fmt(sb.pending) + '</b> 处重叠只是占位。'
+        : 'Pass 前的地址已经各不相同。')
+      + 'Pass 后 <b>' + fmt(sa.boxes) + '</b> 个 Tile 全部落到物理地址：跨 base 冲突 <b class="'
+      + (sa.conflicts ? 'ptx-del' : 'ptx-add') + '">' + sa.conflicts + '</b>，容量越界 <b class="'
+      + (sa.overflow ? 'ptx-del' : 'ptx-add') + '">' + sa.overflow + '</b>，同 base 的合法 View '
+      + fmt(sa.views) + ' 个。</p>';
+
+    var kpi = function (label, a, b, cls) {
+      return '<div class="mm-kpi ' + (cls || '') + '"><span>' + label + '</span><b>'
+        + (a === null ? '' : '<i>' + a + '</i> → ') + b + '</b></div>';
+    };
+    var kpis = '<div class="mm-kpis">'
+      + kpi('停在 offset 0 的函数', sb.unplaced, sa.unplaced, sa.unplaced ? 'is-danger' : 'is-good')
+      + kpi('占位重叠 → 跨 base 冲突', fmt(sb.pending + sb.conflicts), sa.conflicts, sa.conflicts ? 'is-danger' : 'is-good')
+      + kpi('容量越界', null, sa.overflow, sa.overflow ? 'is-danger' : 'is-good')
+      + kpi('合法 View', null, fmt(sa.views))
+      + kpi('最高使用率', null, pct(peak), mmRisk(peak))
+      + '</div>';
+
+    var rows = after.functions.map(function (fn) {
+      var by = {};
+      fn.spaces.forEach(function (s) { by[s.space] = s; });
+      var max = Math.max.apply(null, fn.spaces.map(mmUsage));
+      return { fn: fn, by: by, max: max };
+    }).sort(function (a, b) { return b.max - a.max || a.fn.src_start - b.fn.src_start; });
+
+    var table = '<div class="mm-usage"><table class="ptx-table mm-usage__table"><thead><tr><th>计算函数</th>'
+      + spaces.map(function (s) {
+        return '<th><i class="mm-swatch" style="--sp:' + mmColor(s) + '"></i>' + esc(s) + '</th>';
+      }).join('') + '</tr></thead><tbody>'
+      + rows.map(function (r) {
+        var bad = r.fn.boxes.some(function (b) { return b.conflict || b.overflow; });
+        return '<tr data-mmfn="' + esc(r.fn.name) + '" tabindex="0" title="打开 ' + esc(r.fn.name) + ' 的内存地图">'
+          + '<td><span class="mm-usage__fn" style="--fn:' + r.fn.color + '"><code>' + esc(r.fn.name) + '</code>'
+          + '<em>' + esc(r.fn.ftype) + ' · ' + r.fn.boxes.length + ' tiles</em>'
+          + (bad ? '<b class="ptx-del">异常</b>' : '') + '</span></td>'
+          + spaces.map(function (sp) {
+            var s = r.by[sp];
+            if (!s) return '<td class="mm-usage__none">—</td>';
+            var u = mmUsage(s);
+            return '<td class="mm-usage__cell ' + mmRisk(u) + '" title="' + esc(sp) + ' 高水位 ' + bytes(s.hwm)
+              + ' / 容量 ' + bytes(s.limit) + '"><span><small>' + bytes(s.hwm) + '</small><b>' + pct(u) + '</b></span>'
+              + '<i class="mm-usage__bar" style="--sp:' + mmColor(sp) + '"><i style="width:'
+              + Math.min(100, u * 100).toFixed(1) + '%"></i></i></td>';
+          }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+
+    var foot = '<p class="ptx-more">按最高使用率排序，点击任一行进入该函数的内存地图。使用率 ≥ 80% 为警告、≥ 95% 为高风险'
+      + (warn || danger ? '（本次 ' + warn + ' 处警告、' + danger + ' 处高风险）' : '')
+      + '。容量取自 <code>repo/pto/src/backend/common/soc.cpp</code> 的 Ascend910B 安全上限：'
+      + 'Vec 184 KiB（物理 192 KiB，顶部被 PTO-ISA 保留）、Mat 512 KiB、Left / Right 64 KiB、Acc 128 KiB。'
+      + '纵轴是源码行号，不是硬件 cycle。</p>';
+
+    return head + lead + kpis + table + foot;
+  }
+
+  // ── the map view ──────────────────────────────────────────────────────
+
+  var mm = {
+    side: 'after', fitUsed: false, zoom: 1, hidden: {},
+    selected: null, selectedBoxes: [], selectedLine: null,
+    pair: null, key: null, token: 0,
+  };
+
+  function mmData() { return mm.pair ? mm.pair[mm.side] : null; }
+  function mmCurrent() {
+    var d = mmData();
+    if (!d) return null;
+    return d.functions.find(function (f) { return f.name === state.fn; }) || d.all;
+  }
+
+  function renderMemmap() {
+    var token = ++mm.token;
+    if (!mm.pair || mm.pairKey !== state.runId + ':' + state.passIdx) {
+      $('mmMap').innerHTML = '<p class="ptx-loading">正在解析前后快照…</p>';
+      $('mmSrc').innerHTML = '';
+    }
+    mmPair().then(function (pair) {
+      if (token !== mm.token) return;
+      mm.pair = { before: pair[0], after: pair[1] };
+      mm.pairKey = state.runId + ':' + state.passIdx;
+      paintMemmap();
+    }).catch(function (err) {
+      if (token !== mm.token) return;
+      $('mmMap').innerHTML = '<p class="ptx-empty">' + esc(err.message) + '</p>';
+      toast(err.message);
+    });
+  }
+
+  function paintMemmap() {
+    var d = mmData();
+    var fn = mmCurrent();
+    if (!fn.isAll && state.fn !== fn.name) state.fn = fn.name;
+    if (fn.isAll) state.fn = null;
+
+    // A new function or Pass starts clean; flipping before/after keeps the
+    // reader's place, including the selected tile when it exists on both sides.
+    var key = state.runId + ':' + state.passIdx + ':' + (fn.name || '*');
+    if (mm.key !== key) {
+      mm.key = key;
+      mm.hidden = {};
+      mm.zoom = 1;
+      mm.selected = null;
+      mm.selectedBoxes = [];
+      mm.selectedLine = null;
+    } else if (mm.selected && fn.boxes.indexOf(mm.selected) < 0) {
+      var was = mm.selected;
+      mm.selected = fn.boxes.find(function (b) { return b.fn === was.fn && b.name === was.name; }) || null;
+      mm.selectedBoxes = mm.selected ? [mm.selected] : [];
+    }
+
+    $('mmFn').innerHTML = '<option value="">全部函数 · ' + d.functions.length + ' 个计算函数 · '
+      + d.all.boxes.length + ' tiles</option>'
+      + d.functions.map(function (f) {
+        var bad = f.boxes.some(function (b) { return b.conflict || b.overflow; });
+        return '<option value="' + esc(f.name) + '"' + (f.name === fn.name ? ' selected' : '') + '>'
+          + esc(f.name) + ' · ' + esc(f.ftype) + ' · ' + f.boxes.length + ' tiles'
+          + (bad ? ' · 异常' : f.unplaced.length ? ' · 未分配' : '') + '</option>';
+      }).join('');
+    $('mmFn').value = fn.name || '';
+    $('mmSide').querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('is-active', b.dataset.side === mm.side);
+    });
+    $('mmAxis').querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('is-active', (b.dataset.axis === 'used') === mm.fitUsed);
+    });
+    $('mmZoomLabel').textContent = mm.zoom.toFixed(mm.zoom < 10 ? 1 : 0) + '×';
+
+    mmSource(d, fn);
+    mmMap();
+    mmInspector();
+  }
+
+  function mmShown(fn) {
+    var shown = fn.spaces.filter(function (s) { return !mm.hidden[s.space]; });
+    return shown.length ? shown : fn.spaces;
+  }
+
+  function mmSpaces(fn) {
+    $('mmSpaces').innerHTML = fn.spaces.map(function (s) {
+      var u = mmUsage(s);
+      return '<button class="mm-space ' + mmRisk(u) + '" data-space="' + esc(s.space) + '" aria-pressed="'
+        + (!mm.hidden[s.space]) + '" style="--sp:' + mmColor(s.space) + '" title="高水位 ' + bytes(s.hwm)
+        + ' / 容量 ' + bytes(s.limit) + ' · ' + s.tiles + ' tiles · ' + s.bases + ' bases">'
+        + '<i></i>' + esc(s.space) + ' <span>' + bytes(s.hwm) + ' / ' + bytes(s.limit) + '</span></button>';
+    }).join('');
+  }
+
+  function mmStrip(fn) {
+    var shown = {};
+    mmShown(fn).forEach(function (s) { shown[s.space] = 1; });
+    var boxes = fn.boxes.filter(function (b) { return shown[b.space]; });
+    var conflicts = boxes.filter(function (b) { return b.conflict; });
+    var overflow = boxes.filter(function (b) { return b.overflow; });
+    var abnormal = boxes.filter(function (b) { return b.conflict || b.overflow; });
+    var pending = boxes.filter(function (b) { return b.pending; });
+    var views = boxes.filter(function (b) { return b.view && !b.conflict && !b.overflow; });
+    mm.lists = { abnormal: abnormal, conflict: conflicts, overflow: overflow, pending: pending };
+
+    var all = LIB.memoryMapStats(mmData().functions);
+    var chip = function (kind, label, list, tone) {
+      return '<button class="mm-stat ' + tone + '" data-locate="' + kind + '" title="定位第一个"'
+        + (list.length ? '' : ' disabled') + '>' + label + ' <b>' + list.length + '</b></button>';
+    };
+    var html = '<span class="mm-strip__title">' + (mm.side === 'before' ? 'Pass 前' : 'Pass 后') + '</span>'
+      + chip('abnormal', '异常', abnormal, abnormal.length ? 'is-danger' : 'is-good')
+      + chip('conflict', '冲突', conflicts, conflicts.length ? 'is-danger' : '')
+      + chip('overflow', '越界', overflow, overflow.length ? 'is-danger' : '');
+    if (pending.length) html += chip('pending', '占位重叠', pending, 'is-pending');
+    html += '<span class="mm-stat is-view">合法 View <b>' + views.length + '</b></span>';
+    var scopeText = fn.unplaced.length
+      ? uniq(fn.unplaced).join(' / ') + ' 的多个 base 都停在 offset 0：地址尚未分配，重叠是占位，不是冲突' : '';
+    html += '<span class="mm-strip__scope"' + (scopeText ? ' title="' + esc(scopeText) + '"' : '') + '>'
+      + (fn.unplaced.length
+        ? '<b class="mm-strip__warn">' + esc(uniq(fn.unplaced).join(' / ')) + ' 的多个 base 都停在 offset 0：地址尚未分配，重叠是占位，不是冲突</b>'
+        : '当前 ' + mmShown(fn).map(function (s) { return s.space; }).join(' + ') + ' · 全文件异常 '
+          + all.abnormal + ' / ' + all.boxes)
+      + '</span>';
+    $('mmStrip').innerHTML = html;
+  }
+
+  function uniq(a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); }
+
+  var MM_TOKEN = /(#.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|\b(def|for|in|if|else|elif|return|with|as|and|or|not|True|False|None|class|import|from)\b|(pl\.(?:Tile|Tensor|Scalar|Ptr|MemRef|Out|InOut|Tuple|Mem\.\w+|FunctionType\.\w+|Level\.\w+|Role\.\w+|[A-Z][A-Z0-9_]+)\b)|(pl\.(?:tile|tensor|system|range|pipeline|parallel|yield_|const|function|program)(?:\.\w+)?)/g;
+  var MM_TOKCLS = [null, 'mm-t-com', 'mm-t-str', 'mm-t-kw', 'mm-t-ty', 'mm-t-fn'];
+
+  function mmHighlight(raw) {
+    var out = '';
+    var last = 0;
+    MM_TOKEN.lastIndex = 0;
+    var m;
+    while ((m = MM_TOKEN.exec(raw))) {
+      if (!m[0]) { MM_TOKEN.lastIndex++; continue; }
+      out += esc(raw.slice(last, m.index));
+      var g = 1;
+      while (g < MM_TOKCLS.length && m[g] === undefined) g++;
+      out += '<span class="' + MM_TOKCLS[g] + '">' + esc(m[0]) + '</span>';
+      last = m.index + m[0].length;
+    }
+    return out + esc(raw.slice(last));
+  }
+
+  function mmSource(d, fn) {
+    var owner = {};
+    d.functions.forEach(function (f) {
+      for (var n = f.src_start; n <= f.src_end; n++) owner[n] = f;
+    });
+    var html = '<div class="mm-src__head"><code>' + esc(d.file) + '</code>'
+      + '<span>L' + fn.src_start + '–L' + fn.src_end + '</span></div>';
+    for (var n = fn.src_start; n <= fn.src_end; n++) {
+      var f = owner[n];
+      var text = d.lines[n - 1] || '';
+      var badge = f && n === f.src_start && fn.isAll
+        ? '<span class="mm-fnbadge" style="--fn:' + f.color + '">' + esc(f.name) + ' <i>' + esc(f.ftype) + '</i></span>' : '';
+      html += '<div class="mm-line' + (f ? '' : ' is-outside') + '" data-line="' + n + '"'
+        + (f && fn.isAll ? ' style="--fn:' + f.color + '"' : '') + '>'
+        + '<span class="mm-line__no">' + n + '</span><span class="mm-line__code">' + mmHighlight(text) + badge + '</span></div>';
+    }
+    $('mmSrc').innerHTML = html + '<div style="height:' + MM_TAIL + 'px"></div>';
+    $('mmSrc').classList.toggle('is-all', !!fn.isAll);
+    mmSourceMarks();
+  }
+
+  function mmSourceMarks() {
+    var fn = mmCurrent();
+    var sel = mm.selected;
+    var live = {};
+    fn.boxes.forEach(function (b) { for (var n = b.start; n <= b.end; n++) live[n] = 1; });
+    $('mmSrc').querySelectorAll('.mm-line').forEach(function (el) {
+      var n = Number(el.dataset.line);
+      el.classList.toggle('is-mapped', !!live[n]);
+      el.classList.toggle('is-range', !!sel && n >= sel.start && n <= sel.end);
+      el.classList.toggle('is-hot', !!sel && n === sel.start);
+      el.classList.toggle('is-cursor', mm.selectedLine === n);
+    });
+  }
+
+  function mmMap() {
+    var fn = mmCurrent();
+    // The boxes are about to be replaced, so the one under the cursor never
+    // fires mouseout; a tip left up would describe the old side's address.
+    $('mmTip').hidden = true;
+    mmSpaces(fn);
+    mmStrip(fn);
+    var shown = mmShown(fn);
+    var host = $('mmMap');
+    var keepLeft = host.scrollLeft, keepTop = host.scrollTop;
+    var lineCount = fn.src_end - fn.src_start + 1;
+    var height = lineCount * MM_LINE;
+    var spanOf = function (s) { return (mm.fitUsed ? s.hwm : s.limit || s.hwm) || 1; };
+    var total = shown.reduce(function (a, s) { return a + spanOf(s); }, 0) || 1;
+    var avail = Math.max(host.clientWidth - MM_GUTTER - 2, 360);
+    // Lane width follows capacity, with a floor: Mat is 8× Left, and a purely
+    // proportional split hides every small space off-screen in a narrow pane.
+    // Each lane carries its own 0…limit axis, so the floor bends no geometry.
+    var cols = [MM_GUTTER + 'px'].concat(shown.map(function (s) {
+      return (Math.max(120, spanOf(s) / total * avail) * mm.zoom).toFixed(2) + 'px';
+    }));
+
+    var heads = '<div class="mm-head mm-head--gutter">line</div>' + shown.map(function (s) {
+      return '<div class="mm-head" style="--sp:' + mmColor(s.space) + '"><div class="mm-head__name"><i></i>'
+        + esc(s.space) + '<small>' + pct(mmUsage(s)) + '</small></div><div class="mm-head__range"><span>0</span><span>'
+        + bytes(spanOf(s)) + '</span></div></div>';
+    }).join('');
+
+    var ticks = '';
+    for (var n = fn.src_start; n <= fn.src_end; n++) {
+      if ((n - fn.src_start) % 5) continue;
+      ticks += '<span class="mm-gutter__no" style="top:' + ((n - fn.src_start) * MM_LINE + MM_LINE / 2) + 'px">' + n + '</span>';
+    }
+    var gutter = '<div class="mm-gutter" style="height:' + height + 'px">' + ticks + '</div>';
+
+    var rules = '';
+    for (var r = fn.src_start; r <= fn.src_end; r += 5) rules += '<i class="mm-rule" style="top:' + ((r - fn.src_start) * MM_LINE) + 'px"></i>';
+    var cursor = mm.selectedLine !== null && mm.selectedLine >= fn.src_start && mm.selectedLine <= fn.src_end
+      ? '<i class="mm-cursor" data-line="L' + mm.selectedLine + '" style="top:' + ((mm.selectedLine - fn.src_start) * MM_LINE + MM_LINE / 2) + 'px"></i>' : '';
+
+    var lanes = shown.map(function (s) {
+      var span = spanOf(s);
+      var boxes = '';
+      fn.boxes.forEach(function (b, i) {
+        if (b.space !== s.space) return;
+        var top = (b.start - fn.src_start) * MM_LINE;
+        var h = Math.max(MM_LINE - 1, (b.end - b.start + 1) * MM_LINE - 1);
+        var cls = 'mm-box' + (b.view ? ' is-view' : '') + (b.conflict ? ' is-conflict' : '')
+          + (b.pending ? ' is-pending' : '') + (b.overflow ? ' is-overflow' : '')
+          + (mm.selected === b ? ' is-selected' : mm.selectedBoxes.indexOf(b) >= 0 ? ' is-related' : '');
+        boxes += '<button class="' + cls + '" data-i="' + i + '" style="left:' + (b.offset / span * 100).toFixed(4)
+          + '%;width:' + (b.size / span * 100).toFixed(4) + '%;top:' + top + 'px;height:' + h + 'px">'
+          + '<span class="mm-box__name">' + esc(b.name) + (b.aliases.length ? ' +' + b.aliases.length : '') + '</span>'
+          + (h >= 30 ? '<span class="mm-box__meta">' + bytes(b.size) + ' · L' + b.start + '–' + b.end + '</span>' : '')
+          + '</button>';
+      });
+      var hwm = s.hwm / span * 100;
+      return '<div class="mm-lane" style="--sp:' + mmColor(s.space) + ';height:' + height + 'px">' + rules
+        + (hwm <= 100 ? '<i class="mm-hwm" style="left:' + hwm.toFixed(3) + '%" title="高水位 ' + bytes(s.hwm) + '"></i>' : '')
+        + cursor + boxes + '</div>';
+    }).join('');
+
+    host.innerHTML = '<div class="mm-canvas" style="grid-template-columns:' + cols.join(' ')
+      + ';grid-template-rows:var(--mm-head-h) ' + height + 'px">' + heads + gutter + lanes + '</div>'
+      + '<div style="height:' + MM_TAIL + 'px"></div>';
+    host.scrollLeft = keepLeft;
+    host.scrollTop = $('mmSrc').scrollTop || keepTop;
+  }
+
+  function mmInspector() {
+    var fn = mmCurrent();
+    var d = mmData();
+    var bases = uniq(fn.boxes.map(function (b) { return b.space + ':' + b.base; })).length;
+    var sum = '<section><h5>函数概况</h5><dl class="mm-dl">'
+      + '<dt>计算函数</dt><dd class="is-accent">' + esc(fn.name || '全部函数') + '</dd>'
+      + '<dt>类型</dt><dd>' + esc(fn.ftype) + '</dd>'
+      + '<dt>源码范围</dt><dd>L' + fn.src_start + '–L' + fn.src_end + '</dd>'
+      + '<dt>Tiles / Bases</dt><dd>' + fn.boxes.length + ' / ' + bases + '</dd>'
+      + '<dt>快照</dt><dd>' + esc(d.file) + '</dd></dl></section>';
+
+    var b = mm.selected;
+    var det;
+    if (!b) {
+      det = '<section><h5>选中 Tile</h5><p class="mm-empty">点击任一 Tile，左侧源码会定位并高亮它的完整生命周期；'
+        + '点击源码行，可以看到这一行上同时存活的全部 Tile。</p></section>';
+    } else {
+      var other = mm.pair[mm.side === 'after' ? 'before' : 'after'];
+      var ofn = other.functions.find(function (f) { return f.name === b.fn; });
+      var twin = ofn && ofn.boxes.find(function (x) { return x.name === b.name || x.aliases.indexOf(b.name) >= 0; });
+      var pre = mm.side === 'after' ? twin : b;
+      var post = mm.side === 'after' ? b : twin;
+      var moved = pre && post
+        ? (pre.offset === post.offset
+          ? '<dd>offset ' + fmt(post.offset) + '（Pass 前后不变）</dd>'
+          : '<dd>offset <s>' + fmt(pre.offset) + '</s> → <b>' + fmt(post.offset) + '</b></dd>')
+        : '<dd class="ptx-muted">另一侧没有同名 Tile</dd>';
+      det = '<section><h5>选中 Tile</h5><dl class="mm-dl">'
+        + '<dt>名称</dt><dd class="is-accent" title="' + esc([b.name].concat(b.aliases).join('\n')) + '">' + esc(b.name)
+        + (b.aliases.length ? ' <i>+' + b.aliases.length + ' alias</i>' : '') + '</dd>'
+        + (fn.isAll ? '<dt>所属函数</dt><dd>' + esc(b.fn) + '</dd>' : '')
+        + '<dt>Space / Base</dt><dd>' + esc(b.space) + ' / ' + esc(b.base) + '</dd>'
+        + '<dt>地址区间</dt><dd>[' + fmt(b.offset) + ', ' + fmt(b.offset + b.size) + ') · ' + bytes(b.size) + '</dd>'
+        + '<dt>分配前后</dt>' + moved
+        + '<dt>生命周期</dt><dd>L' + b.start + '–L' + b.end + '</dd>'
+        + (mm.selectedLine !== null ? '<dt>同一行存活</dt><dd>' + mm.selectedBoxes.length + ' 个 Tile · L' + mm.selectedLine + '</dd>' : '')
+        + '</dl></section>';
+    }
+
+    var verdict = !b ? '选中一个 Tile 查看它的判定结果。'
+      : b.conflict ? '<b class="ptx-del">冲突</b>：与另一个 base 的 Tile 在地址和生命周期上同时重叠。'
+      : b.overflow ? '<b class="ptx-del">越界</b>：结束地址超过 ' + esc(b.space) + ' 的硬件容量。'
+      : b.pending ? '<b class="mm-pending-text">占位重叠</b>：该空间的 base 还没分配地址，都停在 offset 0。AllocateMemoryAddr 之后再判断。'
+      : b.view ? '<b>合法 View</b>：与同一 base 上更宽的 Tile 重叠，是它的局部视图。'
+      : '<b class="ptx-add">通过</b>：地址与生命周期检查均无问题。';
+    var diag = '<section><h5>判定</h5><ul class="mm-legend">'
+      + '<li><i class="mm-key"></i>实线：独立 Tile 的存活区间；同地址、上下错开 = 正常复用</li>'
+      + '<li><i class="mm-key is-view"></i>虚线：同一 base 上的合法 View</li>'
+      + '<li><i class="mm-key is-conflict"></i>红框：不同 base 在地址与生命周期上同时重叠</li>'
+      + '<li><i class="mm-key is-pending"></i>斜纹：地址尚未分配时的占位重叠</li>'
+      + '</ul><p class="mm-verdict">' + verdict + '</p></section>';
+
+    $('mmInspector').innerHTML = sum + det + diag;
+  }
+
+  function mmSelect(box, line) {
+    var fn = mmCurrent();
+    if (line != null) {
+      var live = fn.boxes.filter(function (b) { return line >= b.start && line <= b.end && !mm.hidden[b.space]; })
+        .sort(function (a, b) { return (a.end - a.start) - (b.end - b.start) || a.offset - b.offset; });
+      mm.selectedLine = line;
+      mm.selectedBoxes = live;
+      mm.selected = live[0] || null;
+    } else {
+      mm.selectedLine = null;
+      mm.selected = box;
+      mm.selectedBoxes = box ? [box] : [];
+    }
+    mmSourceMarks();
+    mmMap();
+    mmInspector();
+    var target = line != null ? line : box ? box.start : null;
+    if (target != null && line == null) {
+      var src = $('mmSrc');
+      var y = (target - fn.src_start) * MM_LINE;
+      if (y < src.scrollTop || y > src.scrollTop + src.clientHeight - 80) {
+        src.scrollTop = Math.max(0, y - src.clientHeight / 3);
+      }
+    }
+    var el = $('mmMap').querySelector('.mm-box.is-selected');
+    if (el) revealIn($('mmMap'), el, true);
+  }
+
+  function mmShowTip(b, e) {
+    var tip = $('mmTip');
+    tip.innerHTML = '<b>' + esc(b.name) + '</b>' + (b.aliases.length ? ' <span>+' + b.aliases.length + ' alias</span>' : '')
+      + [['function', b.fn], ['space / base', b.space + ' / ' + b.base],
+        ['shape / dtype', '[' + b.shape.join(', ') + '] ' + b.dtype], ['producer', b.op || '—'],
+        ['address', '[' + fmt(b.offset) + ', ' + fmt(b.offset + b.size) + ') · ' + bytes(b.size)],
+        ['live lines', 'L' + b.start + '–L' + b.end]].map(function (r) {
+        return '<div class="mm-tip__row"><span>' + r[0] + '</span><span>' + esc(r[1]) + '</span></div>';
+      }).join('');
+    tip.hidden = false;
+    mmMoveTip(e);
+  }
+  function mmMoveTip(e) {
+    var tip = $('mmTip');
+    if (tip.hidden) return;
+    var pad = 14;
+    var r = tip.getBoundingClientRect();
+    tip.style.left = Math.max(4, e.clientX + r.width + pad > innerWidth ? e.clientX - r.width - pad : e.clientX + pad) + 'px';
+    tip.style.top = Math.max(4, e.clientY + r.height + pad > innerHeight ? e.clientY - r.height - pad : e.clientY + pad) + 'px';
+  }
+
+  function mmSetZoom(z) {
+    mm.zoom = Math.max(0.25, Math.min(32, z));
+    $('mmZoomLabel').textContent = mm.zoom.toFixed(mm.zoom < 10 ? 1 : 0) + '×';
+    mmMap();
+  }
+
+  function wireMemmap() {
+    $('mmFn').addEventListener('change', function (e) {
+      state.fn = e.target.value || null;
+      paintMemmap();
+      $('mmSrc').scrollTop = 0;
+      writeHash();
+    });
+    $('mmSide').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b || b.dataset.side === mm.side) return;
+      mm.side = b.dataset.side;
+      paintMemmap();
+    });
+    $('mmAxis').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      mm.fitUsed = b.dataset.axis === 'used';
+      paintMemmap();
+    });
+    $('mmZoom').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      mmSetZoom(b.dataset.zoom === 'in' ? mm.zoom * 1.6 : b.dataset.zoom === 'out' ? mm.zoom / 1.6 : 1);
+    });
+    $('mmSpaces').addEventListener('click', function (e) {
+      var b = e.target.closest('.mm-space');
+      if (!b) return;
+      var fn = mmCurrent();
+      var sp = b.dataset.space;
+      var visible = fn.spaces.filter(function (s) { return !mm.hidden[s.space]; }).length;
+      if (mm.hidden[sp]) delete mm.hidden[sp];
+      else if (visible > 1) mm.hidden[sp] = true;
+      mmMap();
+    });
+    $('mmStrip').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-locate]');
+      if (!b || !mm.lists) return;
+      var list = mm.lists[b.dataset.locate] || [];
+      if (list.length) mmSelect(list[0]);
+    });
+    $('mmSrc').addEventListener('click', function (e) {
+      var l = e.target.closest('.mm-line');
+      if (l) mmSelect(null, Number(l.dataset.line));
+    });
+    var map = $('mmMap');
+    map.addEventListener('click', function (e) {
+      var b = e.target.closest('.mm-box');
+      if (b) mmSelect(mmCurrent().boxes[Number(b.dataset.i)]);
+    });
+    map.addEventListener('mouseover', function (e) {
+      var b = e.target.closest('.mm-box');
+      if (b) mmShowTip(mmCurrent().boxes[Number(b.dataset.i)], e);
+    });
+    map.addEventListener('mouseout', function (e) {
+      if (e.target.closest('.mm-box') && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.mm-box'))) {
+        $('mmTip').hidden = true;
+      }
+    });
+    map.addEventListener('mousemove', mmMoveTip);
+    map.addEventListener('wheel', function (e) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      mmSetZoom(e.deltaY < 0 ? mm.zoom * 1.6 : mm.zoom / 1.6);
+    }, { passive: false });
+
+    // One line is one row on both panes, so their vertical scroll is shared.
+    // The echo from the follower lands with no difference and stops there.
+    function sync(from, to) {
+      return function () {
+        if (Math.abs(to.scrollTop - from.scrollTop) >= 1) to.scrollTop = from.scrollTop;
+      };
+    }
+    $('mmSrc').addEventListener('scroll', sync($('mmSrc'), map));
+    map.addEventListener('scroll', sync(map, $('mmSrc')));
+
+    // Lane widths are fitted to the pane, which changes with the window and
+    // also when the docs pane opens or closes - so watch the pane itself.
+    var resizeT, lastW = 0;
+    var relayout = function () {
+      clearTimeout(resizeT);
+      resizeT = setTimeout(function () {
+        var w = map.clientWidth;
+        if (!w || w === lastW || $('viewMemmap').hidden || !mm.pair) return;
+        lastW = w;
+        mmMap();
+      }, 80);
+    };
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(relayout).observe(map);
+    else window.addEventListener('resize', relayout);
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || $('viewMemmap').hidden) return;
+      if (!mm.selected && mm.selectedLine === null) return;
+      mmSelect(null);
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
   // Pass documentation
   // ══════════════════════════════════════════════════════════════════════
 
   var docsLoading = false;
 
-  function renderDoc() {
+  /**
+   * The doc is reference material, read now and then, so it no longer holds a
+   * permanent column next to the evidence. It slides over the right edge when
+   * asked for and leaves the layout alone, so opening it never reflows a diff
+   * or a memory map underneath.
+   */
+  function setDocOpen(open) {
+    if (open && state.mode === 'callable') { toast('Pass 说明只在「按 Pass」视图下可用。'); return; }
+    state.docOpen = !!open;
     var pane = $('docPane');
-    pane.hidden = !state.docOpen;
+    pane.classList.toggle('is-open', state.docOpen);
+    pane.setAttribute('aria-hidden', state.docOpen ? 'false' : 'true');
+    if (state.docOpen) pane.removeAttribute('inert'); else pane.setAttribute('inert', '');
+    $('docToggle').setAttribute('aria-pressed', state.docOpen ? 'true' : 'false');
+    $('docToggle').classList.toggle('is-on', state.docOpen);
+    $('docOpen').setAttribute('aria-expanded', state.docOpen ? 'true' : 'false');
+    $('docOpen').classList.toggle('is-on', state.docOpen);
+    renderDoc();
+    if (state.docOpen) $('docClose').focus({ preventScroll: true });
+  }
+
+  function renderDoc() {
     if (!state.docOpen) return;
 
     var p = pass();
@@ -3529,9 +4182,10 @@
       // graph) bottom-left, "what changed" (diff) bottom-right. Both panes are
       // the existing views, re-laid-out by CSS rather than reimplemented.
       $('viewOverview').hidden = true;
+      $('viewMemmap').hidden = true;
       $('viewGraph').hidden = false;
       $('viewDiff').hidden = false;
-      document.body.classList.add('ptx--nodoc');
+      if (state.docOpen) setDocOpen(false);
       renderCallableRail();
       renderCallableView();
       renderGraph();
@@ -3539,13 +4193,13 @@
       writeHash();
       return;
     }
-    document.body.classList.toggle('ptx--nodoc', !state.docOpen);
 
     renderRail();
     renderHeader();
     if (state.tab === 'overview') renderOverview();
     if (state.tab === 'diff') renderDiff();
     if (state.tab === 'graph') renderGraph();
+    if (state.tab === 'memmap') renderMemmap();
     renderDoc();
     writeHash();
   }
@@ -3582,7 +4236,7 @@
     }
     var idx = Number(parts[1]);
     if (!Number.isNaN(idx)) state.passIdx = idx;
-    if (['overview', 'diff', 'graph'].indexOf(parts[2]) >= 0) state.tab = parts[2];
+    if (['overview', 'diff', 'graph', 'memmap'].indexOf(parts[2]) >= 0) state.tab = parts[2];
     if (parts[3]) state.fn = decodeURIComponent(parts[3]);
   }
 
@@ -3664,7 +4318,16 @@
       render();
     });
 
+    wireMemmap();
+
     $('viewOverview').addEventListener('click', function (e) {
+      var mmRow = e.target.closest('[data-mmfn], [data-mmopen]');
+      if (mmRow) {
+        state.fn = mmRow.dataset.mmfn || null;
+        state.tab = 'memmap';
+        render();
+        return;
+      }
       var b = e.target.closest('[data-openfn]');
       if (b) {
         state.fn = b.dataset.openfn;
@@ -3758,12 +4421,19 @@
     $('prevPass').addEventListener('click', function () { selectPass(state.passIdx - 1); });
     $('nextPass').addEventListener('click', function () { selectPass(state.passIdx + 1); });
 
-    $('docToggle').addEventListener('click', function () {
-      if (state.mode === 'callable') { toast('Pass 说明只在「按 Pass」视图下可用。'); return; }
-      state.docOpen = !state.docOpen;
-      document.body.classList.toggle('ptx--nodoc', !state.docOpen);
-      renderDoc();
+    $('docToggle').addEventListener('click', function () { setDocOpen(!state.docOpen); });
+    $('docOpen').addEventListener('click', function () { setDocOpen(!state.docOpen); });
+    $('docClose').addEventListener('click', function () {
+      setDocOpen(false);
+      $('docOpen').focus({ preventScroll: true });
     });
+    // Esc closes the drawer before anything else claims it (diff fullscreen,
+    // memory-map selection): the drawer is the topmost layer on screen.
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || !state.docOpen) return;
+      e.stopPropagation();
+      setDocOpen(false);
+    }, true);
 
     $('themeToggle').addEventListener('click', function () {
       var root = document.documentElement;
@@ -3779,6 +4449,8 @@
       if (e.key === '1') { state.tab = 'overview'; render(); }
       if (e.key === '2') { state.tab = 'diff'; render(); }
       if (e.key === '3') { state.tab = 'graph'; render(); }
+      if (e.key === '4' && hasMemmap(pass())) { state.tab = 'memmap'; render(); }
+      if ((e.key === 'd' || e.key === 'D') && !e.ctrlKey && !e.metaKey && !e.altKey) setDocOpen(!state.docOpen);
     });
 
     render();

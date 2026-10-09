@@ -13,6 +13,10 @@
 | 变化发生在哪个 Pass？ | **Pass 时间线**：按实际改动行数排序，空操作 Pass 直接置灰 |
 | 具体改了哪几行？ | **代码 Diff**：按函数拆分，token 级高亮，并排 / 统一双模式 |
 | 这个 Pass 到底优化了什么？ | **变化概览**：从 AST 实测出的结构增量 + **结构图**：五种视角的前后对照 |
+| 这个 Pass 本来是干什么的？ | **Pass 说明**：默认收起，点 Pass 名右侧的「Pass 说明」、顶栏「说明」或按 `D` 从右侧滑出；`Esc` / × 关闭 |
+
+Pass 说明是偶尔查阅的参考资料，不再常驻占一整列：它以抽屉形式**盖在**内容右侧，打开和关闭都不会让
+Diff、结构图或内存地图重新排版；打开期间沿时间线切换 Pass，内容会跟着切换。
 
 ### 按 Callable（纵向）——「这个算子经历了什么」
 
@@ -437,6 +441,40 @@ kv_proj_matmul 23 → 13 个缓冲   440 KiB → 232 KiB
 文本 IR Diff 是事实来源，Graph 负责快速理解结构，两者同步；并且**不存在一种计算图能解释所有 Pass**，
 所以每个 Pass 自带「推荐视角」。
 
+### AllocateMemoryAddr：地址 × 生命周期内存地图
+
+`AllocateMemoryAddr` 的 IR 体积一行不变，改的只是 MemRef 里的 offset——Diff 能看到 735 行被就地改写
+（`decode_fwd_layers`，最高频的是 `0 → 1024`），却看不出这些地址摆得好不好。这一步因此多出一个 **「内存地图」** 页签（快捷键 `4`），
+并在「变化概览」里多一张同名卡片。两者融合自 [`Design/memory-inspector/Memory_V2.html`](../memory-inspector/Memory_V2.html)：
+
+- 每个片上 Tile 是一个方块：横轴是它在所属内存空间里的字节区间，纵轴是它在 dump 里的**静态生命周期**（源码行）。
+- 判定规则与 [`memory-map-abnormality-guide.md`](../memory-inspector/memory-map-abnormality-guide.md) 完全一致：
+  同 slot 且生命周期相接的 SSA 合并为 alias；地址与生命周期同时重叠时，同 base 是合法 View（虚线），
+  不同 base 是冲突（红框）；`offset + size` 超过容量是越界。
+- 算法在 `lib/memmap.mjs`，是 `memory_map.py` 的 JS 移植，在浏览器里对快照现算。
+  `lib/test.mjs` 拿 Memory_V2 自带的 Python 结果逐 Box 对拍：38 个函数、697 个 Box、108 个 View、0 冲突，**0 处不一致**。
+
+这里比 Memory_V2 多的是**前后对照**。Pass 前，同一空间里的多个 base 全都停在 offset 0，
+同一张图画出来是一摞重叠——它们不是冲突，只是地址还没分配，图上用斜纹标成「占位重叠」，从不计入冲突：
+
+```text
+decode_fwd_layers  Pass 前  35 / 38 个函数停在 offset 0 · 占位重叠 595  →  Pass 后  冲突 0 · 越界 0 · View 108
+l3_decode_csa      Pass 前  49 / 57 个函数停在 offset 0 · 占位重叠 1,147 →  Pass 后  冲突 0 · 越界 0 · View 121
+```
+
+切换「Pass 前 / Pass 后」时选中的 Tile 保持不变，检查面板直接写出它的地址变化（如 `offset 0 → 135,168`）。
+源码和地图一行一格、共用一条纵向滚动，点方块定位源码生命周期，点源码行列出这一行上同时存活的全部 Tile。
+
+两处有意的取舍：
+
+- **配色跟随本工具**（Mat 蓝 / Vec 琥珀 / Acc 紫），而不是 Memory_V2 的配色，让同一块内存在语义下降图、数据流图和这里读起来一样。
+- **泳道宽度按容量成比例但有下限。** Mat 是 Left 的 8 倍，纯比例在窄面板里会把小空间全挤出屏幕；
+  每条泳道自带 `0…容量` 的刻度，下限不扭曲任何方块的位置。
+
+容量取自 `repo/pto/src/backend/common/soc.cpp` 的 Ascend910B（两份 run 都是 `a2a3`）：Vec 184 KiB 安全上限
+（物理 192 KiB，顶部被 PTO-ISA 保留）、Mat 512 KiB、Left / Right 64 KiB、Acc 128 KiB。
+纵轴是源码行号，不是硬件 cycle；异步流水导致的真实并存需要结合运行时 trace 判断。
+
 ## 运行
 
 数据是生成的（约 50 MB，已 gitignore），第一次使用需要先构建：
@@ -548,7 +586,7 @@ MemoryReuse          tile.alloc 668 → 211，合计 11.0 MiB → 4.59 MiB
 ## 自检
 
 ```bash
-node lib/test.mjs      # 220 项单元检查：解析、类型、diff、改写配对、markdown、bundle 导出
+node lib/test.mjs      # 330 项单元检查：解析、类型、diff、改写配对、markdown、bundle 导出、内存地图对拍
 node lib/validate.mjs  # 94 份快照全量解析，要求 0 行未覆盖、0 处表达式失败
 node lib/smoke.mjs     # 6321 个函数 × 5 种视角，检查 id 唯一性、悬空边、内存一致性
 ```

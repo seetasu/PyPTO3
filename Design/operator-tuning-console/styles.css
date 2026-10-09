@@ -1667,6 +1667,77 @@ button.tc-e2e-command-card:hover, button.tc-e2e-command-card:focus-visible {
 }
 .tc-rung:hover { background: var(--state-hover); color: var(--foreground); }
 .tc-rung.is-current { background: var(--surface-3); border-color: var(--primary); color: var(--foreground); }
+.tc-rung.is-complete { border-color: color-mix(in srgb, var(--success) 48%, var(--border-default)); }
+.tc-rung:not(button) { cursor: default; }
+.tc-rung:not(button):hover { background: transparent; color: var(--foreground-secondary); }
+.tc-journey-done { align-self: center; color: var(--success); font: var(--type-body-sm); }
+.tc-evchip:not(button) { cursor: default; }
+
+.tc-guided-nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.tc-guided-budget-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.tc-journey-budget-field { display: grid; gap: 3px; min-width: 0; color: var(--foreground-secondary); font: var(--type-micro); }
+.tc-journey-budget-field input,
+.tc-journey-budget-field select {
+  width: 100%; min-width: 0; padding: 4px 6px;
+  border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--foreground); font: var(--type-body-sm);
+}
+.tc-guided-pass-process { padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-1); }
+.tc-guided-pass-flow { display: flex; align-items: stretch; gap: var(--space-1); overflow-x: auto; padding: var(--space-2) 0; }
+.tc-guided-pass-arrow { align-self: center; flex: 0 0 auto; color: var(--foreground-muted); }
+.tc-guided-pass-node {
+  display: grid !important; justify-items: start; align-content: center; gap: 3px;
+  flex: 1 0 150px; min-width: 0; padding: var(--space-2) !important;
+  border: 1px solid var(--border-default) !important; border-radius: var(--radius-sm) !important;
+  text-align: left !important; white-space: normal !important;
+}
+.tc-guided-pass-node .idx { color: var(--foreground-muted); font: var(--type-micro); }
+.tc-guided-pass-node strong { color: var(--foreground); font: var(--type-label); overflow-wrap: anywhere; }
+.tc-guided-pass-node .lbl { color: var(--foreground-secondary); font: var(--type-micro); }
+.tc-guided-pass-node.is-affected { border-color: var(--warning) !important; }
+.tc-guided-pass-node.is-selected { background: color-mix(in srgb, var(--warning) 12%, var(--surface-2)) !important; }
+.tc-guided-pass-detail { display: grid; gap: 3px; padding: var(--space-2); border-left: 2px solid var(--border-strong); background: var(--surface-2); }
+.tc-guided-pass-detail.is-root { border-left-color: var(--warning); }
+.tc-guided-pass-detail strong { color: var(--foreground); font: var(--type-label); }
+.tc-guided-pass-detail span,
+.tc-guided-pass-detail small { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.tc-guided-pass-operation {
+  display: grid; gap: var(--space-2); margin-top: var(--space-2); padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--warning); background: color-mix(in srgb, var(--surface-1) 78%, transparent);
+}
+.tc-guided-pass-operation > strong { color: var(--warning); font: var(--type-label); }
+.tc-pass-budget-map { display: grid; gap: 4px; }
+.tc-pass-budget-head, .tc-pass-budget-row {
+  display: grid; grid-template-columns: 52px minmax(0, 1fr) 92px; gap: var(--space-2); align-items: center;
+}
+.tc-pass-budget-head { color: var(--foreground-muted); font: var(--type-micro); }
+.tc-pass-budget-row > .group { color: var(--foreground-secondary); font: var(--type-mono-sm); }
+.tc-pass-budget-track {
+  position: relative; display: flex; height: 34px; gap: 2px; padding: 2px 3px 2px 2px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-3);
+}
+.tc-pass-budget-track > .tile {
+  display: flex; flex: 1 1 0; align-items: center; justify-content: center; gap: var(--space-2);
+  min-width: 0; border-radius: 2px; background: color-mix(in srgb, var(--accent) 40%, var(--surface-2));
+  color: var(--foreground); font: var(--type-micro);
+}
+.tc-pass-budget-track > .tile.is-dropped {
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--danger) 32%, var(--surface-2)) 0 5px,
+    color-mix(in srgb, var(--danger) 12%, var(--surface-2)) 5px 10px);
+  color: var(--foreground-secondary);
+}
+.tc-pass-budget-track > .tile i { font-style: normal; font-weight: 650; }
+.tc-pass-budget-track > .tile b { font-weight: 500; }
+.tc-pass-budget-track > .budget-marker {
+  position: absolute; top: -17px; right: 0; color: var(--warning); font: var(--type-micro);
+}
+.tc-pass-budget-row > .fit { display: grid; gap: 1px; text-align: right; }
+.tc-pass-budget-row > .fit strong { color: var(--warning); font: var(--type-label); }
+.tc-pass-budget-row > .fit small { color: var(--foreground-muted); font: var(--type-micro); }
+.tc-pass-budget-caption { display: flex; align-items: center; gap: var(--space-2); color: var(--foreground-muted); font: var(--type-micro); }
+.tc-pass-budget-caption > i { color: var(--foreground-secondary); font-style: normal; }
+.tc-pass-budget-caption > strong { color: var(--warning); font-weight: 600; }
+.tc-guided-pass-operation > small { color: var(--foreground-muted); font: var(--type-micro); }
 .tc-rung > .lv { font-family: var(--font-mono); }
 .tc-rung > .rl { color: var(--foreground-muted); }
 .tc-rung[data-role="root"] > .rl { color: var(--success); }

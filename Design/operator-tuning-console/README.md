@@ -11,7 +11,7 @@ Data/_jit_decode_fwd_layers_20260625_184941/          qwen3_14b_fwd 的编译产
 
 打开入口：`Design/operator-tuning-console/index.html`，也在 `launch.html` 的「内存与性能」分类里。
 
-Case 菜单另有一个 **「模拟 PH-MR-001 · MemoryReuse」** 教学案例。它复用 `decode_csa` 的真实 L2 轨迹与 `decode_compressor_ratio4.py:110` 的真实 PH-MR-001（Right、depth 2→1、5 组、32 KB/stage、64 KB free），把它们关联到 `MemoryReuse`。L1 PMU 桥接是构造数据；提示与 L2 的因果关系仍是待验证假设，不代表已确认的编译器缺陷。案例集中在 `mock-pass-case.js`，真实数据生成器不会读取或覆盖它。
+Case 菜单另有一个 **「模拟 PH-MR-001 · MemoryReuse」** 教学案例。它复用 `decode_csa` 的真实 L2 轨迹与 `decode_compressor_ratio4.py:110` 的真实 PH-MR-001（Right、depth 2→1、5 组、32 KB/stage、64 KB free），把它们关联到 `MemoryReuse`。L1 PMU 桥接是构造数据；提示与 L2 的因果关系仍是待验证假设，不代表已确认的编译器缺陷。选中瓶颈后，主区保留 L2 泳道并展示相关 Pass 作业路径；右侧面板按分析进度呈现证据、片上预算试算和 PH-MR-001 根因线索。页签和可跳层阶梯在旅程中收起。案例集中在 `mock-pass-case.js`，真实数据生成器不会读取或覆盖它。
 
 生成器有两支，都只读 dump、不造数：
 

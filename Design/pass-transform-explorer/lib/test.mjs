@@ -10,6 +10,7 @@ import { rewritePatterns } from './evidence.mjs';
 import { md, mdInline, escapeHtml } from './markdown.mjs';
 import { extractDoc, normalizeName } from './passinfo.mjs';
 import { moveGraph } from './movegraph.mjs';
+import { programMemoryMap, memoryMapStats } from './memmap.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../../..');
@@ -329,5 +330,45 @@ function eq(name, got, want) {
     ok('no figure when no boundary moved', none === null);
   }
 }
+// ── address × lifetime memory map ─────────────────────────────────────
+// Design/memory-inspector/Memory_V2.html ships the Python reference output for
+// one AllocateMemoryAddr dump. The browser-side port must reproduce it box for
+// box, or the two tools would disagree about the same snapshot.
+{
+  const dump = path.join(REPO, 'Design/assets/32_after_AllocateMemoryAddr.py');
+  const ref = path.join(REPO, 'Design/assets/32_after_AllocateMemoryAddr.memory_map.json');
+  if (fs.existsSync(dump) && fs.existsSync(ref)) {
+    const src = fs.readFileSync(dump, 'utf8');
+    const want = JSON.parse(fs.readFileSync(ref, 'utf8'));
+    const got = programMemoryMap(analyzeProgram(parseDump(src, '32'), src.split(/\r?\n/)));
+    const key = (b) => [b.name, b.space, b.base, b.offset, b.size, b.start, b.end, b.aliases.length,
+      b.view, b.conflict, b.op, b.dtype, b.shape.join('x')].join('|');
+    eq('memmap function set', got.functions.map((f) => f.name), want.functions.map((f) => f.name));
+    let mismatch = 0;
+    for (const wf of want.functions) {
+      const gf = got.functions.find((f) => f.name === wf.name);
+      if (!gf) continue;
+      const G = new Set(gf.boxes.map(key));
+      mismatch += wf.boxes.filter((b) => !G.has(key(b))).length + Math.abs(gf.boxes.length - wf.boxes.length);
+      ok('memmap spaces ' + wf.name, JSON.stringify(gf.spaces) === JSON.stringify(wf.spaces));
+      ok('memmap range ' + wf.name, gf.src_start === wf.src_start && gf.src_end === wf.src_end);
+    }
+    eq('memmap boxes match the Python reference', mismatch, 0);
+    const st = memoryMapStats(got.functions);
+    eq('memmap headline counts', [st.boxes, st.views, st.conflicts, st.overflow], [697, 108, 0, 0]);
+  }
+
+  // Before AllocateMemoryAddr every base sits at offset 0: the overlaps are
+  // placeholders, and must not be reported as conflicts.
+  const pre = 'Data/_jit_decode_fwd_layers_20260625_184941/passes_dump/31_after_MemoryReuse.py';
+  if (fs.existsSync(path.join(REPO, pre))) {
+    const src = fs.readFileSync(path.join(REPO, pre), 'utf8');
+    const st = memoryMapStats(programMemoryMap(analyzeProgram(parseDump(src, '31'), src.split(/\r?\n/))).functions);
+    ok('unplaced bases are detected', st.unplaced > 0, JSON.stringify(st));
+    eq('unplaced overlaps are pending, not conflicts', st.conflicts, 0);
+    ok('pending overlaps are counted', st.pending > 0);
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

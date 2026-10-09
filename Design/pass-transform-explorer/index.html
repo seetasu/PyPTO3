@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css?v=2">
-<link rel="stylesheet" href="styles.css?v=munu2zow">
+<link rel="stylesheet" href="styles.css?v=mv0m54b8">
 </head>
 <body class="pto-ide-frame ptx" data-host="standalone">
 
@@ -26,7 +26,7 @@
   <div class="pto-ide-frame__topbar-right">
     <button id="prevPass" class="btn btn-ghost btn-sm" title="上一个 Pass (←)">←</button>
     <button id="nextPass" class="btn btn-ghost btn-sm" title="下一个 Pass (→)">→</button>
-    <button id="docToggle" class="btn btn-ghost btn-sm" title="切换 Pass 说明面板">说明</button>
+    <button id="docToggle" class="btn btn-ghost btn-sm" title="打开 / 关闭 Pass 说明 (D)" aria-controls="docPane" aria-pressed="false">说明</button>
     <button id="themeToggle" class="btn btn-ghost btn-sm btn-icon" title="切换主题" aria-label="切换主题">◐</button>
   </div>
 </header>
@@ -72,12 +72,14 @@
         <span class="ptx-delta" id="passDelta"></span>
         <span class="ptx-flex"></span>
         <a class="ptx-srclink" id="passSource" target="_blank" rel="noreferrer" hidden>Pass 源码</a>
+        <button class="ptx-docbtn" id="docOpen" title="查看这个 Pass 的说明文档 (D)" aria-controls="docPane" aria-expanded="false">Pass 说明</button>
       </div>
       <p class="ptx-passhead__headline" id="passHeadline"></p>
       <div class="ptx-tabs" role="tablist">
         <button class="ptx-tab" data-tab="overview" role="tab">变化概览</button>
         <button class="ptx-tab" data-tab="diff" role="tab">代码 Diff</button>
         <button class="ptx-tab" data-tab="graph" role="tab">结构图</button>
+        <button class="ptx-tab" data-tab="memmap" role="tab" id="memmapTab" hidden>内存地图</button>
       </div>
     </header>
 
@@ -124,13 +126,42 @@
       </div>
       <div class="ptx-graph" id="graphBody"></div>
     </section>
+
+    <section class="ptx-view ptx-view--flush" id="viewMemmap" hidden>
+      <div class="ptx-subbar">
+        <select id="mmFn" class="ptx-select ptx-select--sm" aria-label="选择计算函数"></select>
+        <div class="ptx-seg" id="mmSide" aria-label="切换 Pass 前后">
+          <button data-side="before">Pass 前</button>
+          <button data-side="after" class="is-active">Pass 后</button>
+        </div>
+        <div class="ptx-seg" id="mmAxis" aria-label="横轴范围">
+          <button data-axis="limit" class="is-active" title="每条泳道按硬件容量画满">硬件上限</button>
+          <button data-axis="used" title="每条泳道只画到高水位">已使用</button>
+        </div>
+        <div class="ptx-seg" id="mmZoom" aria-label="缩放">
+          <button data-zoom="out" title="缩小 (Ctrl+滚轮)">−</button>
+          <button data-zoom="reset" id="mmZoomLabel" title="还原">1.0×</button>
+          <button data-zoom="in" title="放大 (Ctrl+滚轮)">+</button>
+        </div>
+        <span class="ptx-flex"></span>
+        <div class="mm-spaces" id="mmSpaces" aria-label="内存空间筛选"></div>
+      </div>
+      <div class="mm-strip" id="mmStrip" aria-label="异常统计"></div>
+      <div class="mm-body" id="mmBody">
+        <div class="mm-src" id="mmSrc" aria-label="快照源码"></div>
+        <div class="mm-map" id="mmMap" aria-label="地址 × 生命周期内存地图"></div>
+      </div>
+      <div class="mm-inspector" id="mmInspector"></div>
+      <div class="mm-tip" id="mmTip" hidden></div>
+    </section>
   </main>
 
-  <!-- ── Pass documentation ────────────────────────────────────────── -->
-  <aside class="ptx-doc" id="docPane">
+  <!-- ── Pass documentation: a drawer the reader opens on demand ────── -->
+  <aside class="ptx-doc" id="docPane" aria-label="Pass 说明" aria-hidden="true" inert>
     <div class="ptx-doc__head">
       <span>Pass 说明</span>
       <small id="docOrigin"></small>
+      <button class="ptx-doc__close" id="docClose" title="关闭 (Esc)" aria-label="关闭 Pass 说明">×</button>
     </div>
     <div class="ptx-doc__body" id="docBody"></div>
   </aside>
@@ -139,9 +170,9 @@
 
 <div class="ptx-toast" id="toast" hidden></div>
 
-<script src="lib/bundle.js?v=munu2zow"></script>
-<script src="data/index.js?v=munu2zow"></script>
-<script src="app.js?v=munu2zow"></script>
+<script src="lib/bundle.js?v=mv0m54b8"></script>
+<script src="data/index.js?v=mv0m54b8"></script>
+<script src="app.js?v=mv0m54b8"></script>
 <script id="ptxBootCheck">
 (function () {
   // index.html needs lib/bundle.js and data/index.js, which build.mjs writes

@@ -85,6 +85,8 @@
     variant: null,            /* qwen3 case: which capture x stage is armed */
     l2Panel: 'swimlane',      /* swimlane | layers | head */
     l1Panel: 'pipe',          /* pipe | pmu */
+    guidedPass: 'MemoryReuse',
+    guidedDepth: 2,
   };
 
   const R = () => D.ranks[S.rank];
@@ -210,6 +212,8 @@
       ? (D.qwen3.variants.find((v) => v.primary) || D.qwen3.variants[0]).id : null;
     S.l2Panel = 'swimlane';
     S.l1Panel = 'pipe';
+    S.guidedPass = 'MemoryReuse';
+    S.guidedDepth = 2;
     S.findingLevel = 'all';
     S.laneFilter = 'summary';
     S.overlay = 'none';
@@ -326,6 +330,7 @@
     if (!f || !S.chainStep || S.chainStep.indexOf(f.id + ':') !== 0) return null;
     return (f.chain || [])[Number(S.chainStep.split(':')[1])] || null;
   }
+  const guidedJourneyActive = () => !!(D.case.guidedJourney && activeFinding());
   function activeSubjects() {
     const st = activeStep();
     if (st) return st.subjects;
@@ -418,7 +423,11 @@
     const acts = el('div', 'acts');
     const onHomeView = f.subjects.view === S.view
       && (!f.subjects.tab || f.subjects.tab === S.compilerTab);
-    if (!onHomeView) {
+    if (guidedJourneyActive()) {
+      acts.appendChild(el('span', 'tc-journey-done', stepIdx === chain.length - 1
+        ? '根因已定位 · ' + (f.rootPass || 'Pass')
+        : (LEVEL_LABEL[(rung || chain[0]).level] || (rung || chain[0]).level) + ' 证据'));
+    } else if (!onHomeView) {
       acts.appendChild(btn('去证据所在页 · ' + LEVEL_LABEL[f.subjects.view], {
         size: 'sm', variant: 'solid',
         on: () => { applyFocus(f); S.view = f.subjects.view; render(); },
@@ -441,16 +450,22 @@
     /* the ladder, walkable from the stage itself */
     if (chain.length) {
       const rungs = el('div', 'tc-rungs');
-      rungs.appendChild(el('span', 'lead', '链'));
+      rungs.appendChild(el('span', 'lead', guidedJourneyActive()
+        ? '分析进度 ' + (stepIdx + 1) + ' / ' + chain.length : '链'));
       chain.forEach((st, i) => {
         if (i) rungs.appendChild(el('span', 'arrow', '→'));
-        const b = el('button', 'tc-rung' + (i === stepIdx ? ' is-current' : ''));
-        b.type = 'button';
+        const b = el(guidedJourneyActive() ? 'span' : 'button', 'tc-rung'
+          + (i === stepIdx ? ' is-current' : '')
+          + (guidedJourneyActive() && i < stepIdx ? ' is-complete' : ''));
+        if (!guidedJourneyActive()) {
+          b.type = 'button';
+          b.addEventListener('click', () => { applyStep(f, st); render(); });
+        }
         b.dataset.role = st.role;
         b.title = st.headline;
+        if (guidedJourneyActive() && i === stepIdx) b.setAttribute('aria-current', 'step');
         b.appendChild(el('span', 'lv', LEVEL_LABEL[st.level] || st.level));
         b.appendChild(el('span', 'rl', (ROLE[st.role] || { label: st.role }).label));
-        b.addEventListener('click', () => { applyStep(f, st); render(); });
         rungs.appendChild(b);
       });
       bar.appendChild(rungs);
@@ -460,8 +475,8 @@
       const row = el('div', 'tc-evchips');
       row.appendChild(el('span', 'lead', '证据 ' + chips.length));
       chips.forEach((chip, i) => {
-        const b = el('button', 'tc-evchip');
-        b.type = 'button';
+        const b = el(guidedJourneyActive() ? 'span' : 'button', 'tc-evchip');
+        if (!guidedJourneyActive()) b.type = 'button';
         const isCurrent = (chip.kind === 'task' && chip.id === S.task)
           || (chip.kind === 'site' && chip.id === S.hintSite)
           || (chip.kind === 'rank' && chip.id === S.rank);
@@ -469,7 +484,7 @@
         b.appendChild(el('span', 'mk', String(i + 1)));
         b.appendChild(el('span', 'nm', chip.label));
         if (chip.value) b.appendChild(el('span', 'vl', chip.value));
-        b.addEventListener('click', () => gotoChip(chip));
+        if (!guidedJourneyActive()) b.addEventListener('click', () => gotoChip(chip));
         row.appendChild(b);
       });
       bar.appendChild(row);
@@ -2290,6 +2305,21 @@
     const signalTaskSet = { [S.task]: 1 };
     Object.keys(c2TaskSet).forEach((tag) => { signalTaskSet[tag] = 1; });
     Object.keys(c3TaskSet).forEach((tag) => { signalTaskSet[tag] = 1; });
+    const focusedFinding = activeFinding();
+    const focusTaskRoles = focusedFinding && focusedFinding.taskRoles || {};
+    const primaryTaskSet = {};
+    const secondaryTaskSet = {};
+    (focusTaskRoles.primary || []).forEach((tag) => { primaryTaskSet[tag] = 1; });
+    (focusTaskRoles.secondary || []).forEach((tag) => { secondaryTaskSet[tag] = 1; });
+    if (!Object.keys(primaryTaskSet).length && focusedFinding) {
+      const primary = focusedFinding.focus && focusedFinding.focus.task
+        || (focusedFinding.contention && focusedFinding.contention.focus);
+      if (primary) primaryTaskSet[primary] = 1;
+      (focusedFinding.subjects && focusedFinding.subjects.tasks || []).forEach((tag) => {
+        if (tag !== primary) secondaryTaskSet[tag] = 1;
+      });
+    }
+    const hasFindingTaskFocus = Object.keys(primaryTaskSet).length > 0;
     Object.keys(subj).forEach((tag) => { signalTaskSet[tag] = 1; });
     /* Path focus gives the selected path node a clear first visual tier. The
      * rest of the execution main path keeps its task colour at reduced opacity; all
@@ -2408,6 +2438,10 @@
         : '每行一核 · ' + rank.swimlane.blocks.reduce((a, b) => a + b.length, 0) + ' 块', legend));
     laneSec.appendChild(laneHost);
     stage.appendChild(laneSec);
+    if (guidedJourneyActive() && S.focus === 'task'
+      && activeFinding().focus && S.task === activeFinding().focus.task) {
+      renderGuidedPassProcess(stage);
+    }
 
     /* ---------- rendering ---------- */
     const LBL = 66;
@@ -2791,6 +2825,8 @@
           const xa = Math.max(plotX, x);
           const wBar = Math.max(0.8, Math.min(plotX + plotW, x2) - xa);
           const isSubj = !!subj[t.tag];
+          const isFindingPrimary = !!primaryTaskSet[t.tag];
+          const isFindingSecondary = !!secondaryTaskSet[t.tag];
           const isCurrentPathTask = S.pathFocus && t.tag === S.task;
           const isOtherPathTask = S.pathFocus && !isCurrentPathTask && !!pathFocusSet[t.tag];
           const bEnd = b[0] + b[1];
@@ -2798,17 +2834,20 @@
           const isC2Rival = c2Diagnostic && inC2Window && !!c2RivalSet[t.tag];
           const isC2FocusBlock = c2Diagnostic && inC2Window && t.tag === c2FocusTag;
           const fadedByPath = S.pathFocus && !isCurrentPathTask && !isOtherPathTask
-            && !isC2Rival && !isSubj;
-          const fadedBySignal = annotated && !S.pathFocus && !signalTaskSet[t.tag] && !isSubj;
+            && !isC2Rival && !isSubj && !isFindingPrimary && !isFindingSecondary;
+          const fadedBySignal = annotated && !S.pathFocus && !signalTaskSet[t.tag] && !isSubj
+            && !isFindingPrimary && !isFindingSecondary;
           const faded = fadedByPath || fadedBySignal;
           const isContentionFocus = t.tag === c2FocusTag || t.tag === c3FocusTag;
           if (isSubj) markers.push({ x: xa, y: y, n: subj[t.tag] });
-          ctx.globalAlpha = faded ? (fadedByPath ? 0.14 : 0.2)
+          ctx.globalAlpha = hasFindingTaskFocus
+            ? (isFindingPrimary ? 1 : isFindingSecondary ? 0.48 : 0.16)
+            : faded ? (fadedByPath ? 0.14 : 0.2)
             : isOtherPathTask ? 0.44 : isC2Rival && S.pathFocus ? 0.62
               : (dim && !isSubj && !laneIsSubject ? 0.16 : 1);
           if (wBar < 2.2) {
             /* below task-bar legibility: draw a density tick, not a fake bar */
-            ctx.fillStyle = faded ? cssVar('--surface-4') : taskColor(t);
+            ctx.fillStyle = faded && !hasFindingTaskFocus ? cssVar('--surface-4') : taskColor(t);
             ctx.fillRect(xa, y, wBar, ROW_H);
             ctx.globalAlpha = 1;
             return;
@@ -2816,14 +2855,30 @@
           SW.drawTaskBar(ctx, {
             task: barTask(t, b, lane.name),
             x: xa, y: y, width: wBar, height: ROW_H, radius: 1,
-            baseColor: faded ? cssVar('--surface-4') : taskColor(t),
-            isSelected: t.tag === S.task || (isSubj && !S.pathFocus),
-            isRelated: isC2Rival || (!S.pathFocus && !isSubj && t.tag !== S.task
+            baseColor: faded && !hasFindingTaskFocus ? cssVar('--surface-4') : taskColor(t),
+            isSelected: t.tag === S.task || (!hasFindingTaskFocus && isSubj && !S.pathFocus),
+            isRelated: (!hasFindingTaskFocus && isFindingSecondary) || isC2Rival || (!S.pathFocus && !isSubj && t.tag !== S.task
               && !!pathSet[t.tag] && !S.critOnly),
-            isEmphasized: (isSubj && !S.pathFocus) || isContentionFocus || isCurrentPathTask,
+            isEmphasized: (!hasFindingTaskFocus && isFindingPrimary)
+              || (isSubj && !S.pathFocus) || isContentionFocus || isCurrentPathTask,
             fontFamily: cssVar('--font-sans'),
           });
           ctx.globalAlpha = 1;
+          if (isFindingPrimary && !hasFindingTaskFocus && !isC2FocusBlock) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(xa + 0.75, y + 0.75, Math.max(0, wBar - 1.5), ROW_H - 1.5);
+            ctx.fillStyle = cssVar('--warning');
+            ctx.fillRect(xa, y - 1, Math.min(3, wBar), ROW_H + 2);
+          } else if (isFindingSecondary && !hasFindingTaskFocus && !isC2Rival) {
+            ctx.strokeStyle = cssVar('--foreground-secondary');
+            ctx.globalAlpha = 0.8;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]);
+            ctx.strokeRect(xa + 0.5, y + 0.5, Math.max(0, wBar - 1), ROW_H - 1);
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+          }
           if (isC2FocusBlock) {
             /* Focus gets a high-contrast double frame; the kernel identity fill
              * remains untouched so role emphasis cannot be mistaken for color. */
@@ -3018,6 +3073,12 @@
       S.task = hit.task.tag;
       S.focus = 'task';
       S.pathFocus = cp.segments.some((seg) => seg.tag === hit.task.tag);
+      if (guidedJourneyActive() && activeFinding().focus
+        && activeFinding().focus.task === hit.task.tag) {
+        S.scrollToLane = hit.lane;
+        render();
+        return;
+      }
       renderInspector();
       drawLanes();
       drawRibbon();
@@ -4637,6 +4698,25 @@
     title.textContent = t.callable;
     meta.textContent = t.tag + ' · ' + S.rank;
 
+    const guidedFinding = guidedJourneyActive() ? activeFinding() : null;
+    if (guidedFinding && guidedFinding.focus && guidedFinding.focus.task === t.tag) {
+      const path = pathRole(rank, t.tag);
+      const summary = inspectorSection('任务摘要', pathLabel(path) + ' · ' + t.kind.toUpperCase());
+      summary.appendChild(kv([
+        ['执行区间', num(t.start, 1) + ' → ' + num(t.end, 1) + ' us · span ' + num(t.span, 2) + ' us'],
+        ['块 / 核', t.blockCount + ' / ' + t.coreCount],
+        ['块时长 min / med / p90 / max', num(t.durMin, 2) + ' / ' + num(t.durMed, 2) + ' / '
+          + num(t.durP90, 2) + ' / ' + num(t.durMax, 2) + ' us'],
+        ['依赖', t.pred.length + ' 前驱 · ' + t.succ.length + ' 后继'],
+        ['源码', t.src ? srcLabel(t.src) : (D.sourceMap ? '未匹配' : '源码树不在仓库内')],
+      ]));
+      host.appendChild(summary);
+      renderGuidedBudget(host, guidedFinding);
+      host.appendChild(el('p', 'tc-fineprint',
+        'L1 PMU 与片上预算提示用于提出验证方向；Pass 深度回退是否造成这段 L2 span 增长，仍需单变量重编译与复测确认。'));
+      return;
+    }
+
     const s1 = inspectorSection('对象', t.kind.toUpperCase());
     s1.appendChild(kv([
       ['task id', t.id],
@@ -4735,11 +4815,186 @@
     host.appendChild(s5);
   }
 
+  function guidedDepthSite(f) {
+    const root = (f.chain || []).find((st) => st.level === 'compiler');
+    const key = root && root.subjects && root.subjects.sites && root.subjects.sites[0];
+    return D.depthSites.find((site) => site.key === key) || null;
+  }
+
+  function renderGuidedBudget(host, f) {
+    const site = guidedDepthSite(f);
+    if (!site) return;
+    const section = inspectorSection('L1/L0 · 片上预算试算',
+      site.units.join('/') + ' · ' + site.file + ':' + site.line);
+    const controls = el('div', 'tc-journey-budget-controls');
+    const numberField = (label, key, min, max, step) => {
+      const wrap = el('label', 'tc-journey-budget-field');
+      wrap.appendChild(el('span', null, label));
+      const input = el('input');
+      input.type = 'number'; input.min = min; input.max = max; input.step = step || 1;
+      input.value = S.tile[key];
+      input.addEventListener('change', () => {
+        S.tile[key] = clamp(parseInt(input.value, 10) || min, min, max);
+        render();
+      });
+      wrap.appendChild(input);
+      return wrap;
+    };
+    controls.appendChild(numberField('K', 'k', 16, 1024, 16));
+    controls.appendChild(numberField('N', 'n', 16, 1024, 16));
+    const depthWrap = el('label', 'tc-journey-budget-field');
+    depthWrap.appendChild(el('span', null, 'stage'));
+    depthWrap.appendChild(select([1, 2, 3, 4].map((depth) => ({ id: String(depth), label: String(depth) })),
+      String(S.guidedDepth), (value) => { S.guidedDepth = +value; render(); }));
+    controls.appendChild(depthWrap);
+    section.appendChild(controls);
+
+    const rightBytes = S.tile.k * S.tile.n * dt(S.tile.ab).bytes;
+    const stageBytes = rightBytes * S.guidedDepth;
+    const ratio = stageBytes / site.freeB;
+    const status = ratio >= 1 ? 'warn' : 'good';
+    const budget = el('div', 'tc-budget');
+    const row = el('div', 'tc-budget-row');
+    row.appendChild(el('span', 'nm', 'Right × stage'));
+    row.appendChild(bar(ratio, status === 'good' ? 'good' : 'warn'));
+    row.appendChild(el('span', 'fx', kb(stageBytes) + ' / ' + kb(site.freeB)));
+    budget.appendChild(row);
+    section.appendChild(budget);
+
+    const fitted = el('div', 'tc-verdict-row');
+    fitted.dataset.state = status;
+    fitted.appendChild(el('span', 'tag', 'PH-MR-001'));
+    fitted.appendChild(el('p', null, '本次实测：' + site.groupCount + ' 组请求 depth '
+      + site.maxReqDepth + '，MemoryReuse 拟合为 ' + site.fittedDepth
+      + '。当前试算 ' + kb(stageBytes) + ' / ' + kb(site.freeB)
+      + (ratio >= 1 ? '，已到预算边界；不能据此假定可容纳同驻 tile。' : '，预算内，但仍需重编译确认深度。')));
+    section.appendChild(fitted);
+    section.appendChild(el('small', 'tc-fineprint',
+      '试算只估单组 Right tile × stage；同驻组共享空间与 Pass 拟合结果以 PH-MR-001 为准。'));
+    host.appendChild(section);
+  }
+
+  function renderGuidedRootEvidence(host, f) {
+    const site = guidedDepthSite(f);
+    if (!site) return;
+    const root = inspectorSection('根因线索 · MemoryReuse', 'PH-MR-001 · 实测编译提示');
+    root.appendChild(kv([
+      ['源码点', site.file + ':' + site.line],
+      ['片上空间', site.units.join('/')],
+      ['请求 / 拟合', 'depth ' + site.maxReqDepth + ' → ' + site.fittedDepth],
+      ['单级占用', kb(site.perStageB)],
+      ['可用预算', kb(site.freeB)],
+      ['同驻组', String(site.groupCount)],
+    ]));
+    root.appendChild(el('p', 'tc-note',
+      '该提示与 L2 选中的 kernel 源码范围相邻，说明 MemoryReuse 确实回退了流水深度。它提供了可验证的编译器线索；是否解释了关键任务 span，仍要通过单变量重编译和复测确认。'));
+    host.appendChild(root);
+  }
+
+  function renderGuidedPassProcess(stage) {
+    const f = activeFinding();
+    if (!f || !f.rootPass) return;
+    const chain = [
+      { name: 'AutoTileMatmulL0', label: 'Tile / stage 请求', note: '产生 L0 tile 与流水深度请求。' },
+      { name: 'InferTileMemorySpace', label: '片上空间推导', note: '推导 Left / Right / Acc 的目标空间。' },
+      { name: 'MemoryReuse', label: '预算拟合', note: '根据同驻 tile 占用拟合可用流水深度。' },
+      { name: 'AllocateMemoryAddr', label: '物理地址分配', note: '为存活的片上 buffer 分配地址。' },
+    ].map((entry) => Object.assign({}, entry, { pass: D.passes.find((p) => p.name === entry.name) }))
+      .filter((entry) => entry.pass);
+    const section = el('section', 'tc-guided-pass-process');
+    section.appendChild(sectionHead('相关 Pass 作业过程',
+      f.focus.task + ' · 展示相关节点，省略无关 Pass · 高亮节点对应右侧 PH-MR-001'));
+    const flow = el('div', 'tc-guided-pass-flow');
+    chain.forEach((entry, i) => {
+      if (i) flow.appendChild(el('span', 'tc-guided-pass-arrow', '→'));
+      const selected = S.guidedPass === entry.name;
+      const affected = entry.name === f.rootPass;
+      const node = btn('', {
+        variant: 'ghost',
+        selected,
+        on: () => { S.guidedPass = entry.name; S.focus = 'task'; render(); },
+      });
+      node.classList.add('tc-guided-pass-node');
+      if (affected) node.classList.add('is-affected');
+      node.appendChild(el('span', 'idx', 'Pass ' + entry.pass.idx));
+      node.appendChild(el('strong', null, entry.name));
+      node.appendChild(el('span', 'lbl', entry.label));
+      flow.appendChild(node);
+    });
+    section.appendChild(flow);
+
+    const selected = chain.find((entry) => entry.name === S.guidedPass) || chain.find((entry) => entry.name === f.rootPass);
+    if (selected) {
+      const detail = el('div', 'tc-guided-pass-detail' + (selected.name === f.rootPass ? ' is-root' : ''));
+      detail.appendChild(el('strong', null, 'Pass ' + selected.pass.idx + ' · ' + selected.name));
+      detail.appendChild(el('span', null, selected.note));
+      const passDiff = (D.passEvidence || []).find((item) => item.idx === selected.pass.idx);
+      if (passDiff) {
+        const scopes = (passDiff.scopes || []).map((scope) => scope.name);
+        detail.appendChild(el('small', null, 'IR 快照差异 +' + passDiff.add + ' / −' + passDiff.del
+          + ' · ' + passDiff.groups + ' 个改写区域'
+          + (scopes.length ? ' · 报告涉及 scope：' + scopes.join('、') : '')));
+      }
+      if (selected.name === f.rootPass) {
+        const site = guidedDepthSite(f);
+        if (site) {
+          const operation = el('div', 'tc-guided-pass-operation');
+          operation.appendChild(el('strong', null, '异常作业 · PH-MR-001'));
+          const budgetMap = el('div', 'tc-pass-budget-map');
+          const mapHead = el('div', 'tc-pass-budget-head');
+          mapHead.appendChild(el('span', null, '同驻组'));
+          mapHead.appendChild(el('span', null, 'Right stage 请求 · 每块 ' + kb(site.perStageB)));
+          mapHead.appendChild(el('span', null, '拟合结果'));
+          budgetMap.appendChild(mapHead);
+          for (let group = 0; group < site.groupCount; group++) {
+            const row = el('div', 'tc-pass-budget-row');
+            row.appendChild(el('span', 'group', 'G' + group));
+            const track = el('div', 'tc-pass-budget-track');
+            track.setAttribute('aria-label', '请求 depth ' + site.maxReqDepth + '，可用空间 ' + kb(site.freeB));
+            for (let depth = 0; depth < site.maxReqDepth; depth++) {
+              const tile = el('span', 'tile' + (depth >= site.fittedDepth ? ' is-dropped' : ''));
+              tile.appendChild(el('i', null, String(depth + 1)));
+              tile.appendChild(el('b', null, kb(site.perStageB)));
+              track.appendChild(tile);
+            }
+            track.appendChild(el('span', 'budget-marker', kb(site.freeB) + ' 可用'));
+            row.appendChild(track);
+            const outcome = el('span', 'fit');
+            outcome.appendChild(el('strong', null, 'depth ' + site.fittedDepth));
+            outcome.appendChild(el('small', null, '请求 ' + site.maxReqDepth));
+            row.appendChild(outcome);
+            budgetMap.appendChild(row);
+          }
+          operation.appendChild(budgetMap);
+          const flowCaption = el('div', 'tc-pass-budget-caption');
+          flowCaption.appendChild(el('span', null, 'Tile 请求'));
+          flowCaption.appendChild(el('i', null, '→'));
+          flowCaption.appendChild(el('span', null, 'MemoryReuse 比对片上预算'));
+          flowCaption.appendChild(el('i', null, '→'));
+          flowCaption.appendChild(el('strong', null, '流水深度回退'));
+          operation.appendChild(flowCaption);
+          operation.appendChild(el('small', null, site.file + ':' + site.line
+            + ' · 单级占用 × 请求深度 = ' + kb(site.perStageB) + ' × ' + site.maxReqDepth
+            + ' = ' + kb(site.perStageB * site.maxReqDepth) + '，可用 ' + kb(site.freeB)
+            + '。预算等式本身不能解释为什么拟合为 depth 1，需结合 MemoryReuse 的共享分配状态复核。'));
+          detail.appendChild(operation);
+        }
+      }
+      section.appendChild(detail);
+    }
+    stage.appendChild(section);
+  }
+
   function renderFindingInspector(host, title, meta) {
     const f = findingById[S.finding];
     const chain = f.chain || [];
+    const guided = guidedJourneyActive();
+    const currentStep = guided ? (activeStep() || chain[0]) : null;
+    const currentIndex = guided ? chain.indexOf(currentStep) : -1;
     title.textContent = f.id + ' · ' + (f.kind === 'hygiene' ? '体检项' : '瓶颈链');
-    meta.textContent = f.cost ? f.cost.share + '% of makespan' : '无归因';
+    meta.textContent = guided
+      ? '分析 ' + (currentIndex + 1) + ' / ' + chain.length
+      : (f.cost ? f.cost.share + '% of makespan' : '无归因');
 
     const s1 = inspectorSection(f.title, f.metric);
     if (f.cost) {
@@ -4751,7 +5006,15 @@
     s1.appendChild(el('p', 'tc-note', f.claim));
     host.appendChild(s1);
 
-    if (chain.length) {
+    if (guided && currentStep) {
+      const current = inspectorSection('当前分析',
+        (LEVEL_LABEL[currentStep.level] || currentStep.level) + ' · ' + (ROLE[currentStep.role] || ROLE.observe).label);
+      current.appendChild(el('strong', null, currentStep.headline));
+      if (currentStep.detail) current.appendChild(el('p', 'tc-note', currentStep.detail));
+      host.appendChild(current);
+      if (currentStep.level === 'l1') renderGuidedBudget(host, f);
+      if (currentStep.level === 'compiler') renderGuidedRootEvidence(host, f);
+    } else if (chain.length) {
       const s0 = inspectorSection('跨层链条',
         chain.map((st) => LEVEL_LABEL[st.level] || st.level).join(' → '));
       const lad = el('div', 'tc-ladder');
@@ -4767,7 +5030,7 @@
         if (st.detail) r.appendChild(el('span', 'dt', st.detail));
         /* only a rung that names something on the stage is clickable; a stop
          * rung has nothing to jump to and must not pretend otherwise */
-        if (st.chips.length || st.role !== 'stop') {
+        if ((st.chips.length || st.role !== 'stop') && !guidedJourneyActive()) {
           r.tabIndex = 0;
           r.setAttribute('role', 'button');
           r.classList.add('is-linked');
@@ -4788,9 +5051,11 @@
       host.appendChild(s0);
     }
 
-    const s2 = inspectorSection('证据', f.chips.length ? f.evidence.length + ' 项 · 已在中间标号' : f.evidence.length + ' 项');
+    const shownEvidence = guided && currentStep ? currentStep.evidence : f.evidence;
+    const s2 = inspectorSection('证据', shownEvidence.length + ' 项'
+      + (guided ? ' · 当前分析阶段' : (f.chips.length ? ' · 已在中间标号' : '')));
     const list = el('div', 'tc-evidence');
-    f.evidence.forEach((e) => {
+    shownEvidence.forEach((e) => {
       /* link an evidence row to the marked objects its locator names, so the
        * inspector text and the numbered markers on the stage are the same thing */
       const keysOf = (c) => {
@@ -4802,7 +5067,7 @@
         .some((k) => e.locator.indexOf(k) >= 0 || e.value.indexOf(k) >= 0));
       const r = el('div', 'tc-evidence-row');
       const a = el('span', 'a', e.artifact);
-      if (linked.length) {
+      if (linked.length && !guidedJourneyActive()) {
         a.appendChild(document.createTextNode(' · '));
         a.appendChild(el('span', 'jump', '标号 ' + linked.map((c) => f.chips.indexOf(c) + 1).join(' / ')));
         r.classList.add('is-linked');
@@ -4820,11 +5085,33 @@
     s2.appendChild(list);
     host.appendChild(s2);
 
-    const s3 = inspectorSection('杠杆与护栏');
-    s3.appendChild(el('div', 'inspector-soft-card is-info', '杠杆：' + f.lever));
-    s3.appendChild(el('div', 'inspector-soft-card is-warning', '护栏：' + f.guardrail));
-    s3.appendChild(el('div', 'inspector-soft-card', '复测：' + f.verify));
-    host.appendChild(s3);
+    if (guided) {
+      const nav = el('div', 'tc-guided-nav');
+      if (currentIndex > 0) {
+        nav.appendChild(btn('上一步', {
+          variant: 'ghost',
+          on: () => { applyStep(f, chain[currentIndex - 1]); render(); },
+        }));
+      }
+      if (currentIndex < chain.length - 1) {
+        const next = chain[currentIndex + 1];
+        nav.appendChild(btn('继续分析：' + (LEVEL_LABEL[next.level] || next.level), {
+          variant: 'solid',
+          on: () => { applyStep(f, next); render(); },
+        }));
+      } else {
+        nav.appendChild(el('span', 'tc-journey-done', '已定位到 ' + (f.rootPass || '编译器提示')));
+      }
+      host.appendChild(nav);
+    }
+
+    if (!guided || currentIndex === chain.length - 1) {
+      const s3 = inspectorSection('杠杆与护栏');
+      s3.appendChild(el('div', 'inspector-soft-card is-info', '杠杆：' + f.lever));
+      s3.appendChild(el('div', 'inspector-soft-card is-warning', '护栏：' + f.guardrail));
+      s3.appendChild(el('div', 'inspector-soft-card', '复测：' + f.verify));
+      host.appendChild(s3);
+    }
 
     host.appendChild(renderComposer(f));
   }
@@ -5483,6 +5770,9 @@
   function renderTabs() {
     const host = $('#levelTabs');
     host.textContent = '';
+    host.hidden = guidedJourneyActive();
+    if (host.parentElement) host.parentElement.hidden = host.hidden;
+    if (host.hidden) return;
     const levels = isServingBenchmark() ? LEVELS.filter((l) => l.id === 'e2e') : LEVELS;
     levels.forEach((l) => {
       const b = el('button', 'tab-control-item' + (l.id === S.view ? ' is-selected' : ''), l.label);
@@ -5497,6 +5787,7 @@
   function renderToolbar() {
     const host = $('#viewToolbar');
     host.textContent = '';
+    const guided = guidedJourneyActive();
     /* sub-view switch sits where the view's own tab would: on the left */
     if (S.view === 'compiler') {
       host.appendChild(group('segmented-control segmented-control-muted', [
@@ -5615,7 +5906,7 @@
     }
 
     host.appendChild(right);
-    host.hidden = !host.childNodes.length || (host.childNodes.length === 1 && !right.childNodes.length);
+    host.hidden = guided || !host.childNodes.length || (host.childNodes.length === 1 && !right.childNodes.length);
   }
 
   function renderExplorer() {
@@ -5762,6 +6053,30 @@
         S.chainStep = null;
         S.focus = 'finding';
         applyFocus(f);
+        const primaryTags = f.taskRoles && f.taskRoles.primary && f.taskRoles.primary.length
+          ? f.taskRoles.primary
+          : [f.focus && f.focus.task || (f.contention && f.contention.focus)
+            || (f.subjects && f.subjects.tasks && f.subjects.tasks[0])].filter(Boolean);
+        const relatedTags = (f.taskRoles && f.taskRoles.secondary && f.taskRoles.secondary.length
+          ? f.taskRoles.secondary : (f.subjects && f.subjects.tasks || []).filter((tag) => !primaryTags.includes(tag)));
+        const focusTasks = primaryTags.concat(relatedTags).map((tag) => tasksOf[S.rank][tag]).filter(Boolean);
+        if (focusTasks.length) {
+          const lo = Math.min(...focusTasks.map((task) => task.start));
+          const hi = Math.max(...focusTasks.map((task) => task.end));
+          if (hi > lo) {
+            const pad = Math.max(24, (hi - lo) * 0.12);
+            setWindow(lo - pad, hi + pad);
+          }
+          const primary = tasksOf[S.rank][primaryTags[0]];
+          if (primary) {
+            S.task = primary.tag;
+            S.pathFocus = true;
+            const taskIndex = R().tasks.indexOf(primary);
+            const laneIndex = R().swimlane.blocks.findIndex((blocks) => blocks.some((block) => block[2] === taskIndex));
+            if (laneIndex >= 0) S.scrollToLane = R().swimlane.laneNames[laneIndex];
+          }
+          S.laneFilter = 'summary';
+        }
         if (f.id === 'C2' && f.contention && f.contention.windows && f.contention.windows.length) {
           const focusTask = tasksOf[S.rank][f.contention.focus];
           const lo = Math.min(focusTask ? focusTask.start : Infinity,
@@ -5806,6 +6121,10 @@
    * the inspector is talking about. */
   function applyFocus(f) {
     if (!f) return;
+    if (D.case.guidedJourney && f.chain && f.chain.length) {
+      applyStep(f, f.chain[0]);
+      return;
+    }
     applySubjects(f.subjects || {}, f.focus && f.focus.pass);
   }
 
@@ -5816,6 +6135,11 @@
     if (!f || !st) return;
     S.chainStep = f.id + ':' + (f.chain || []).indexOf(st);
     applySubjects(st.subjects || {}, st.level === 'compiler' ? (f.rootPass || 'MemoryReuse') : null);
+    if (D.case.guidedJourney) {
+      S.view = 'l2';
+      S.l2Panel = 'swimlane';
+      if (f.rootPass) S.guidedPass = f.rootPass;
+    }
   }
 
   function applySubjects(s, passName) {
