@@ -1186,7 +1186,7 @@ const idleRuns = (function () {
 const aicLanes = lanes.filter((l) => l.kind === 'aic');
 const aivLanes = lanes.filter((l) => l.kind === 'aiv');
 
-/* ------------------------------------------------ Worker / Scheduler 口径
+/* ------------------------------------------------ Worker / Scheduler accounting
  * The same block appears twice in this trace. Stating both totals next to
  * each other is the only way to stop them being silently added together. */
 const workerTotal = r2(sum(tasks.map((t) => t.busySum)));
@@ -1952,11 +1952,11 @@ const findings = [
      * both belong to cross-rank Host / Device triage. Do not count C1 as an
      * L2 queue item. */
     queueLevels: ['e2e'],
-    title: '集合点等待 ' + launchSkew.measuredSum + ' us，根因在 rank 启动错峰',
-    metric: '错峰 ' + launchSkew.runnerUs + ' us · Σ(*_wait) ' + waitSpan + ' us',
+    title: '集合点等待 ' + launchSkew.measuredSum + ' us，可由 Rank 启动偏移解释',
+    metric: 'Rank 启动偏移 ' + launchSkew.runnerUs + ' us · Σ(*_wait) ' + waitSpan + ' us',
     cost: {
       us: launchSkew.measuredSum, share: r2((launchSkew.measuredSum / SPAN) * 100),
-      basis: 'Σ(*_wait span)，全部贴合错峰上界',
+      basis: 'Σ(*_wait span)，全部贴合 Rank 启动偏移上界',
     },
     claim: waitTasks.length + ' 个 *_wait 合计 ' + waitSpan + ' us（makespan 的 '
       + r2((waitSpan / SPAN) * 100) + '%），其中最大的两个 '
@@ -1966,7 +1966,7 @@ const findings = [
       + r2((launchSkew.checks.slice(0, 2).reduce((n, c) => n + c.measured, 0) / waitSpan) * 100)
       + '%。把 rank 启动偏移加到对侧到达时刻上得到的上界，这两项分别贴到 '
       + launchSkew.checks[0].fitPct + '% 与 ' + launchSkew.checks[1].fitPct
-      + '% —— 等待量级由错峰解释，不是通信算法本身。',
+      + '% —— 等待量级由 Rank 启动偏移解释，不是通信算法本身。',
     chain: [
       step('l2', 'observe',
         '等待吃掉 ' + r2((waitSpan / SPAN) * 100) + '% 墙钟',
@@ -1979,7 +1979,7 @@ const findings = [
       step('e2e', 'root',
         'rank 启动偏移 ' + launchSkew.runnerUs + ' us',
         '两份 host log 的 ts 同属一个 host 单调钟，对齐后晚发 ' + launchSkew.runnerUs
-          + ' us（chip.run 口径 ' + launchSkew.chipUs + ' us）。两卡任务数与块数相同，AIC busy 只差 '
+          + ' us（chip.run 计时 ' + launchSkew.chipUs + ' us）。两卡任务数与块数相同，AIC busy 只差 '
           + workDeltaPct + '% —— 更慢却更闲，说明多出来的是空转而不是算力差。'
           + launchSkew.checks.length + ' 个 wait '
           + (launchSkew.allUnderBound ? '全部落在上界内' : '有超出上界的项')
@@ -1994,7 +1994,7 @@ const findings = [
           }))),
         { view: 'e2e', ranks: RANK_KEYS.slice(0, 2) }),
       step('l1', 'stop',
-        '不下探 L1 / L0',
+        '不继续分析 L1 / L0',
         '这 ' + waitTasks.length + ' 个 wait 全是单块单核（blockCount=1），核上没有可优化对象：'
           + '压不压得下去取决于对侧什么时候到，不取决于这块核上的代码。'
           + '再往下走只会把一个调度问题包装成一个 kernel 问题。',
@@ -2004,7 +2004,7 @@ const findings = [
     evidence: [],
     focus: { view: 'e2e', ranks: RANK_KEYS.slice(0, 2) },
     lever: '对齐两卡的下发时刻（同步 launch、收紧 host 侧提交路径），而不是去调通信算子或本卡 kernel。',
-    guardrail: '上界只说明「等待能被错峰解释」，不证明错峰是唯一成因；时钟对齐是从同一主机的 mono ts 推的，'
+    guardrail: '上界只说明「等待能被 Rank 启动偏移解释」，不证明它是唯一成因；时钟对齐是从同一主机的 mono ts 推的，'
       + 'dump 里没有显式跨 rank 同步记录；本次仅 2 次调用，偏移量本身没有分布。',
     verify: '固定 case 重跑 ≥10 次，每次记录两卡 runner_run 的 ts 差与 *_wait 合计；偏移收窄，等待应同比收窄。',
   },
@@ -2036,7 +2036,7 @@ const findings = [
         ],
         { view: 'l2', tasks: [aicCritical.focus].concat(aicCritical.rivals).map((t) => t.tag), lanes: aicCritical.lanes }),
       step('l2', 'stop',
-        '根因止于 L2 调度优先级，不下钻 Pass',
+        '归因止于 L2 调度优先级，不继续分析 Pass',
         '本 trace 能证明“谁占了同一组核、谁有 slack、谁在关键链上”，但没有 scheduler 优先级或候选队列字段。'
           + '因此不能把竞争归到 MemoryReuse、tile 或某个 Pass。',
         [], null),
@@ -2056,14 +2056,14 @@ const findings = [
   },
   CASE.id !== 'decode_csa' && CAN.C2 && {
     id: 'C2', kind: 'chain', level: 'l2', severity: 'high', axis: 'granularity',
-    title: '多波小块任务有 ' + waveGapSum + ' us 是块间间隙，不是核上工作',
+    title: '多执行波次小块任务有 ' + waveGapSum + ' us 是块间间隙，不是核上工作',
     metric: waveRows.length + ' 个任务 / ' + waveBlocks + ' 块 · 间隙 ' + waveGapSum + ' us',
     cost: {
       us: waveGapSum, share: r2((waveGapSum / SPAN) * 100),
-      basis: 'Σ(span − 波数 × 块中位时长)，仅取 ≥2 波且 ≥32 块的任务',
+      basis: 'Σ(span − 执行波次数 × 块中位时长)，仅取 ≥2 个执行波次且 ≥32 块的任务',
     },
-    claim: waveRows.length + ' 个多波任务 span 合计 ' + waveSpanSum + ' us，其中 ' + waveGapSum
-      + ' us（makespan 的 ' + r2((waveGapSum / SPAN) * 100) + '%）超出「波数 × 块中位时长」的工作量下界。'
+    claim: waveRows.length + ' 个多执行波次任务 span 合计 ' + waveSpanSum + ' us，其中 ' + waveGapSum
+      + ' us（makespan 的 ' + r2((waveGapSum / SPAN) * 100) + '%）超出「执行波次数 × 块中位时长」的工作量下界。'
       + (exposedRows.length
         ? '其中 ' + exposedRows.length + ' 个任务完全落在所有 *_wait 之外（跨 ' + exposedWindow
           + ' us 墙钟），它们的间隙合计 ' + exposedGap
@@ -2074,12 +2074,12 @@ const findings = [
     chain: [
       step('l2', 'observe',
         '间隙 ' + waveGapSum + ' us，占 makespan ' + r2((waveGapSum / SPAN) * 100) + '%',
-        '按「span − 波数 × 块中位时长」逐任务算，头部是 '
+        '按「span − 执行波次数 × 块中位时长」逐任务算，头部是 '
           + waveRows.slice(0, 3).map((x) => x.t.callable + ' ' + x.gap + ' us').join('、')
           + '。这不是 Σ core-time，是墙钟上的空档。',
         waveRows.slice(0, 6).map((x) => ({
           artifact: 'merged_swimlane blocks', locator: x.t.tag + ' (' + x.t.callable + ')',
-          value: 'span ' + x.t.span + ' us − ' + x.waves + ' 波 × 中位 ' + x.t.durMed
+          value: 'span ' + x.t.span + ' us − ' + x.waves + ' 个执行波次 × 中位 ' + x.t.durMed
             + ' us = 间隙 ' + x.gap + ' us',
         })),
         { view: 'l2', tasks: waveRows.slice(0, 6).map((x) => x.t.tag) }),
@@ -2142,7 +2142,7 @@ const findings = [
         : step('compiler', 'stop',
           '本 dump 没有可接的 PH-MR-001',
           depthSiteList.length
-            ? depthSiteList.length + ' 个流水深度回退点没有一个能接到本链的任务上，不能当根因用。'
+            ? depthSiteList.length + ' 个流水深度回退点没有一个能接到本链的任务上，不能当作已确认的归因。'
             : 'report/perf_hints.log 里没有 PH-MR-001，编译器层在这条链上整层缺证据；'
               + '只能先在 L1 侧验证「减少块数」是否收敛间隙。',
           [], null),
@@ -2162,7 +2162,7 @@ const findings = [
           + ' / ' + gapSite.site.groupCount + ' 组 —— 要吃下全部 ' + gapSite.site.groupCount
           + ' 组还得同时把同驻组数降下来，单减 tile 不够。深度上来之后再把块数往下收。'
         : '把外层迭代折进核内，或用 pl.spmd 一次 fan-out 多块，降低 dispatch / complete 次数。'),
-    guardrail: '「波数 × 块中位时长」是下界而不是可达目标：块变大后中位时长会上升，'
+    guardrail: '「执行波次数 × 块中位时长」是下界而不是可达目标：块变大后中位时长会上升，'
       + '间隙收敛的同时 span 可能不动。必须同时报 span、块数与块中位时长三项，只报间隙会自欺。'
       + (gapSite ? '另外调大 stage 会再触发一次 MemoryReuse 回退，方向是减小同驻 tile，不是加大 stage。' : ''),
     verify: '重编译后核对该源码点的 PH-MR-001 是否消失、块数是否下降，再重测这批任务的 span 与间隙；'
@@ -2180,10 +2180,10 @@ const findings = [
     claim: aivCritical.focus.tag + '（' + aivCritical.focus.callable + '）在关键路径且 slack=0。'
       + 'AIV_26 / AIV_40 / AIV_52 上，它的 block 在 2403–2489 us 左右出现 70–87 us 空档，'
       + '同时 ' + aivCritical.rivals.map((t) => t.tag + '（slack ' + t.slack + ' us）').join('、')
-      + ' 正在运行。这个尾波是可见的 AIV 让核失败，不是 kernel 本身算得慢。',
+      + ' 正在运行。这个末尾执行波次是可见的 AIV 让核失败，不是 kernel 本身算得慢。',
     chain: [
       step('l2', 'observe',
-        '零 slack 的 AIV 任务在最后一波前让出核心',
+        '零 slack 的 AIV 任务在最后一个执行波次前让出核心',
         aivCritical.focus.tag + ' 的 256 块摊在 ' + aivCritical.focus.coreCount + ' 个 AIV，'
           + 'block 中位 ' + aivCritical.focus.durMed + ' us；但 AIV_26 / AIV_40 / AIV_52 在 2403–2489 us'
           + ' 仍穿插执行 ' + aivCritical.rivals.map((t) => t.tag).join(' / ') + '。',
@@ -2195,8 +2195,8 @@ const findings = [
         ],
         { view: 'l2', tasks: [aivCritical.focus].concat(aivCritical.rivals).map((t) => t.tag), lanes: aivCritical.lanes }),
       step('l2', 'stop',
-        '根因止于 L2 调度优先级，不下钻 Pass',
-        '这里没有 producer 未完成或 MemoryReuse 回退的直接证据；可证实的是一个有 slack 的 AIV 任务在关键任务最后一波前获得了核心。',
+        '归因止于 L2 调度优先级，不继续分析 Pass',
+        '这里没有 producer 未完成或 MemoryReuse 回退的直接证据；可证实的是一个有 slack 的 AIV 任务在关键任务最后一个执行波次前获得了核心。',
         [], null),
     ],
     terminus: { level: 'l2', reason: '缺 scheduler 优先级 / 候选队列字段；先用局部优先级实验验证' },
@@ -2208,7 +2208,7 @@ const findings = [
       + ' us 暂时保留 AIV 给关键链，延后 ' + aivCritical.rivals.map((t) => t.tag).join(' / ') + ' 的 dispatch。',
     guardrail: aivCritical.rivals.map((t) => t.tag + ' 的 slack 为 ' + t.slack + ' us').join('，')
       + '；必须限制延后量，避免把尾延迟转移到它们的后继。',
-    verify: '重测 ' + aivCritical.focus.tag + ' 的末波开始时间、span 与关键路径 makespan，'
+    verify: '重测 ' + aivCritical.focus.tag + ' 的末次执行波次开始时间、span 与关键路径 makespan，'
       + '同时确认 ' + aivCritical.rivals.map((t) => t.tag + ' slack').join(' / ') + ' 未变负。',
   },
   CASE.id !== 'decode_csa' && CAN.C3 && {
@@ -2217,7 +2217,7 @@ const findings = [
     metric: stallGap + ' us 墙钟 · setup 占核上 ' + r2(stallHost.setupShare * 100) + '%',
     cost: {
       us: stallGap, share: r2((stallGap / SPAN) * 100),
-      basis: 'span − 波数 × 块内 kernel 时长（duration 与 kernel_duration 之差不计入工作量）',
+      basis: 'span − 执行波次数 × 块内 kernel 时长（duration 与 kernel_duration 之差不计入工作量）',
     },
     claim: (hbLink
       ? 'trace 自带的 hb_violation 标出 ' + hbLink.h.from + '→' + hbLink.h.to + ' 区间 '
@@ -2257,7 +2257,7 @@ const findings = [
           + r2(stallHost.kdurSum / stallHost.blockCount) + ' us，差 ' + r2(stallHost.setupMean)
           + ' us 落在 duration − kernel_duration 里；Scheduler View 记 dispatch→finish '
           + stallHost.svAicpuMean + ' us，再差 ' + stallHost.svOverhead + ' us。'
-          + '三个口径的差额都指向同一段等待，而不是三段独立开销。',
+          + '三段时延构成的差额都指向同一段等待，而不是三段独立开销。',
         [{ artifact: 'Worker View (pid 4)', locator: stallHost.tag + ' duration − kernel_duration',
           value: 'setup mean ' + r2(stallHost.setupMean) + ' us / ' + stallHost.blockCount + ' 块 = '
             + stallHost.setupSum + ' us 核时间' },
@@ -2319,16 +2319,16 @@ const findings = [
   },
   CAN.C4 && {
     id: 'C4', kind: 'chain', level: 'l2', severity: 'medium', axis: 'pipeline',
-    title: longBlock.callable + ' 一波跑完，整段 ' + longBlock.span + ' us 就是一个块的时长',
+    title: longBlock.callable + ' 一个执行波次跑完，整段 ' + longBlock.span + ' us 就是一个块的时长',
     metric: longBlock.blockCount + ' 块 / ' + longBlock.coreCount + ' 核 · ' + r2(wavesOf(longBlock))
-      + ' 波 · 最长块 ' + longBlock.durMax + ' us',
+      + ' 个执行波次 · 最长块 ' + longBlock.durMax + ' us',
     cost: {
       us: longBlock.span, share: r2((longBlock.span / SPAN) * 100),
-      basis: 'span 本身即块时长（波数 ≤ 1.5，无波量化可调）',
+      basis: 'span 本身即块时长（执行波次数 ≤ 1.5，无执行波次量化可调）',
     },
     claim: longBlock.callable + ' 的 ' + longBlock.blockCount + ' 块摊在 ' + longBlock.coreCount
-      + ' 核上一波跑完，最长块 ' + longBlock.durMax + ' us、整段 span ' + longBlock.span
-      + ' us —— 两者几乎相等，说明没有靠加核或改波次能拿到的收益。'
+      + ' 核上一个执行波次跑完，最长块 ' + longBlock.durMax + ' us、整段 span ' + longBlock.span
+      + ' us —— 两者几乎相等，说明没有靠加核或改执行波次能拿到的收益。'
       + (lbAic && lbAiv
         ? 'ExpandMixedKernel 把这个 scope 拆成 ' + longBlock.kernels.map((k) => k.name).join(' + ')
           + '，共用一次 Group launch。这里要特别否掉一个常见误读：两半不是块内串行 —— Cube 侧 '
@@ -2350,9 +2350,9 @@ const findings = [
             + ' / med ' + longBlock.durMed + ' / max ' + longBlock.durMax + ' us' }],
         { view: 'l2', tasks: [longBlock.tag] }),
       step('l1', 'descend',
-        r2(wavesOf(longBlock)) + ' 波，span ≈ 单块时长，没有波量化可调',
+        r2(wavesOf(longBlock)) + ' 个执行波次，span ≈ 单块时长，没有执行波次量化可调',
         '块数 ' + longBlock.blockCount + ' 对核数 ' + longBlock.coreCount + ' 是 '
-          + r2(wavesOf(longBlock)) + ' 波，块中位 ' + longBlock.durMed + ' us、最长 ' + longBlock.durMax
+          + r2(wavesOf(longBlock)) + ' 个执行波次，块中位 ' + longBlock.durMed + ' us、最长 ' + longBlock.durMax
           + ' us，而 span ' + longBlock.span + ' us。setup 只占 ' + r2(longBlock.setupShare * 100)
           + '%，hand-off 只有 ' + longBlock.svOverhead + ' us —— 时间确实花在 kernel 里。'
           + (lbAic && lbAiv
@@ -2371,7 +2371,7 @@ const findings = [
             + longBlock.succ.length + ' 个' }],
         { view: 'l1', tasks: [longBlock.tag] }),
       step('l1', 'stop',
-        '不下探 L0 / 编译器：缺块内证据',
+        '不继续分析 L0 / 编译器：缺块内证据',
         '要判断这 ' + longBlock.durMed + ' us 是 MTE、Cube 还是 Vec 撑起来的，'
           + '需要块内 PMU 或 pipe 级计数，本 dump 只有块级时长。'
           + (depthFor(longBlock.tag) ? '' : '该 scope 也没有对应的 PH-MR-001。')
@@ -2385,7 +2385,7 @@ const findings = [
     lever: '先补采块内 PMU；在此之前唯一可做的是缩小单块工作量（更小的 S1_TILE / 更少的 co-live 操作数），'
       + '并且要作为一次可回滚的对照实验做。',
     guardrail: '不要把「一个任务 span 很大」当成「它被串行化了」。本链已排除 Cube / Vec 串行、'
-      + '排除 hand-off、排除波量化；剩下的解释只能靠新数据，不能靠推断。',
+      + '排除 hand-off、排除执行波次量化；剩下的解释只能靠新数据，不能靠推断。',
     verify: '重采带块内 PMU 的 trace（注意 PMU 打开会改变调度，不能与 PMU-off 基线直接比较），'
       + '确认块时长的构成后再选 pass。',
   },
@@ -2410,7 +2410,7 @@ const hygiene = [
       + Array.from(new Set(tileScalar.map((s) => s.shapes.join('')))).slice(0, 3).join(' / ')
       + ' 这类单元素访问，padding 也补不成一条 line（调不了）；真正值得调的是剩下 '
       + occOf(tileTunable) + ' 次 / ' + tileTunable.length + ' 个源码点，其中 ' + occOf(tileOnChain)
-      + ' 次落在瓶颈链上任务的源码邻域（±40 行）。把 ' + occOf(tileSiteList)
+      + ' 次落在诊断路径上任务的源码邻域（±40 行）。把 ' + occOf(tileSiteList)
       + ' 次当一个数字报，会把不可调项和热点项混成同一个优先级。',
     evidence: [
       { artifact: 'report/perf_hints.log', locator: '按最小末维分桶',
@@ -2434,29 +2434,29 @@ const hygiene = [
       + (depthChainIds.length ? '，可能触发 ' + depthChainIds.join(' / ') + ' 里的深度回退，两项要一起看' : '')
       + '；'
       + '单元素访问不要碰，改不动还会掩盖真正的碎片。',
-    verify: '重编译后核对可调桶的条数与最小末维，并复测对应 kernel 的块时长。',
+    verify: '重编译后核对符合优化条件的访问条数与最小末维，并重新运行 A/B 验证对应 kernel 的块时长。',
   },
   CAN.H2 && {
     id: 'H2', kind: 'hygiene', level: 'l1', severity: 'low', axis: 'balance',
-    title: worstImb.callable + ' 块时长离散 ' + worstImb.imbalance + 'x'
+    title: worstImb.callable + ' Block 时长离散度 ' + worstImb.imbalance + 'x'
       + (imbMultiWave ? '，但决定 span 的不是尾块' : '，span 就等于最长块'),
     metric: 'max ' + worstImb.durMax + ' / med ' + worstImb.durMed + ' us · span ' + worstImb.span
       + ' us（' + r2((worstImb.span / SPAN) * 100) + '%）',
     cost: null,
     unattributed: imbMultiWave
-      ? '离散度只解释 ' + r2(worstImb.durMax - worstImb.durMed) + ' us；该任务 span '
+      ? 'Block 时长离散度只解释 ' + r2(worstImb.durMax - worstImb.durMed) + ' us；该任务 span '
         + worstImb.span + ' us 里的大头是 ' + imbGap + ' us 的块间间隙'
         + (hasGranularityC2 ? '，已归入 C2' : '') + '。'
       : '整个任务只占 makespan ' + r2((worstImb.span / SPAN) * 100) + '%，'
-        + '离散度最多值 ' + r2(worstImb.durMax - worstImb.durMed) + ' us；这个量级折不出墙钟收益。',
+        + 'Block 时长离散度最多贡献 ' + r2(worstImb.durMax - worstImb.durMed) + ' us；这个量级折不出墙钟收益。',
     claim: worstImb.blockCount + ' 块摊到 ' + worstImb.coreCount + ' 核（约 ' + imbWaves
-      + ' 波），最慢块 ' + worstImb.durMax + ' us 是中位块的 ' + worstImb.imbalance
-      + ' 倍 —— 离散度是真的。'
+      + ' 个执行波次），最慢块 ' + worstImb.durMax + ' us 是中位块的 ' + worstImb.imbalance
+      + ' 倍 —— Block 时长离散度确实偏高。'
       + (imbMultiWave
-        ? '但「尾块决定 span」算不过来：' + imbWaves + ' 波 × 中位 ' + worstImb.durMed + ' us = '
+        ? '但「尾块决定 span」算不过来：' + imbWaves + ' 个执行波次 × 中位 ' + worstImb.durMed + ' us = '
           + imbFloor + ' us 的工作量下界，span 却是 ' + worstImb.span + ' us，差的 ' + imbGap
           + ' us 是间隙不是尾块。'
-        : '这是一波跑完的任务，尾块确实决定 span —— 但 span 一共才 ' + worstImb.span
+        : '这是一个执行波次跑完的任务，尾块确实决定 span —— 但 span 一共才 ' + worstImb.span
           + ' us，把最慢块压到中位也只省 ' + r2(worstImb.durMax - worstImb.durMed) + ' us。')
       + (critTags.indexOf(worstImb.tag) >= 0 ? '' : '它也不在依赖关键路径上（slack ' + worstImb.slack + ' us）。')
       + (hasGranularityC2 ? '先看 C2，再谈切分。' : '这条读数本身也没有 makespan 归因。'),
@@ -2465,7 +2465,7 @@ const hygiene = [
         value: 'min ' + worstImb.durMin + ' / med ' + worstImb.durMed + ' / p90 ' + worstImb.durP90
           + ' / max ' + worstImb.durMax + ' us' },
       { artifact: '同一 trace', locator: '工作量下界 vs 实测 span',
-        value: imbWaves + ' 波 × ' + worstImb.durMed + ' us = ' + imbFloor + ' us vs '
+        value: imbWaves + ' 个执行波次 × ' + worstImb.durMed + ' us = ' + imbFloor + ' us vs '
           + worstImb.span + ' us' },
       { artifact: 'deps.json', locator: 'task ' + worstImb.id,
         value: 'block_num=' + worstImb.blockNum + ', scope=' + worstImb.scope + ', slack '
@@ -2492,9 +2492,9 @@ const hygiene = [
       + '%）里有 AIC 任务已 ready 未派发，峰值 ' + rqStat.peak.AIC + ' 个，'
       + (rqStat.avg.AIC < 1.5 ? '但平均只有 ' : '平均 ') + rqStat.avg.AIC + ' 个。'
       + (rqStat.avg.AIC < 1.5
-        ? '占用率低的主因是依赖饥饿'
+        ? '占用率低的主要原因是依赖饥饿'
           + (starveChainIds.length ? '（见 ' + starveChainIds.join(' / ') + '）' : '')
-          + '，不是队列积压。作为独立瓶颈立不住，留在这里是为了让「我见过这个数」有个落点。'
+          + '，不是队列积压。作为独立瓶颈立不住，留在这里是为了让「我见过这个数」有个记录位置。'
         : '队列确实是深的，但本 run 没有 dispatch 延迟的直接计数，无法把排队时长折成墙钟；'
           + '要立成一条链得先补采。'),
     evidence: [
@@ -2663,11 +2663,11 @@ const statusOf = (f) => (f.terminus.level === 'compiler' ? '需要实验' : '需
 
 if (investigationIds.has('C1')) {
   const f = byId.C1;
-  addInvestigation('INV-024', '把集合点等待归因到 rank 启动错峰', statusOf(f),
+  addInvestigation('INV-024', '把集合点等待归因到 Rank 启动偏移', statusOf(f),
     '在不改通信算法的前提下对齐两卡下发时刻，验证等待是否同比收窄。',
     [includeFinding('C1'), includeFinding('H3')],
     [
-      { id: 'H-01', title: 'rank 启动错峰解释了等待的量级', level: '强支持',
+      { id: 'H-01', title: 'Rank 启动偏移解释了等待的量级', level: '强支持',
         claim: f.chain.filter((s) => s.role === 'root')[0].detail,
         evidence: ['C1'],
         need: '缩小启动偏移后，' + waitTasks.length + ' 个 *_wait 的合计是否同比下降。' },
@@ -2722,8 +2722,8 @@ if (CASE.id === 'decode_csa' && investigationIds.has('C2')) {
         : { id: 'H-02', title: '编译器层在本 dump 中无证据', level: '缺证据',
           claim: f.terminus.reason, evidence: ['C2'],
           need: '先在 L1 侧验证「减少块数」是否收敛间隙，再决定是否需要编译侧证据。' },
-      { id: 'H-03', title: '块时长离散是竞争解释', level: '待区分',
-        claim: investigationIds.has('H2') ? byId.H2.unattributed : '本 case 无显著离散任务。',
+      { id: 'H-03', title: 'Block 时长离散度是竞争解释', level: '待区分',
+        claim: investigationIds.has('H2') ? byId.H2.unattributed : '本 case 无明显 Block 时长离散。',
         evidence: compactIds([includeFinding('H2')]),
         need: '同一实验里同时记录 durMax/durMed 与间隙，区分尾块与空档。' },
     ],
@@ -2737,19 +2737,19 @@ if (CASE.id === 'decode_csa' && investigationIds.has('C2')) {
 if (CASE.id === 'decode_csa' && investigationIds.has('C3')) {
   const f = byId.C3;
   addInvestigation('INV-026', '验证 AIV 关键链让核是否缩短 r3t16', statusOf(f),
-    '只延后有 slack 的 AIV 任务，验证 r3t16 的最后一波是否提前完成。',
+    '只延后有 slack 的 AIV 任务，验证 r3t16 的最后一个执行波次是否提前完成。',
     [includeFinding('C3')],
     [
-      { id: 'H-01', title: 'r3t16 的末波被有 slack 的 AIV 任务推迟', level: '强支持',
+      { id: 'H-01', title: 'r3t16 的末次执行波次被有 slack 的 AIV 任务推迟', level: '强支持',
         claim: f.claim, evidence: ['C3'],
-        need: '延后 r2t24/r2t26/r2t25 后，末波开始时间与任务 span 是否同向下降。' },
+        need: '延后 r2t24/r2t26/r2t25 后，末次执行波次开始时间与任务 span 是否同向下降。' },
       { id: 'H-02', title: '让核没有把关键路径压力搬到 r2t53', level: '待验证',
         claim: f.guardrail, evidence: ['C3'],
-        need: '复测 r2t26 的 slack 及 r2t53 的开始时间。' },
+        need: '验证 r2t26 的 slack 及 r2t53 的开始时间。' },
     ],
     [{ id: 'EXP-026-01', status: '待执行', name: '只为 r3t16 保留 AIV',
       change: '不改融合、依赖或 tile；在 r3t16 就绪窗口延后有 slack 的 AIV dispatch',
-      measures: 'r3t16 末波开始 · span · 关键路径 makespan · r2t24/r2t26/r2t25 slack',
+      measures: 'r3t16 末次执行波次开始 · span · 关键路径 makespan · r2t24/r2t26/r2t25 slack',
       guardrail: '任何 rival 越过 latest-start，或 makespan 不降，实验均不成立' }]);
 } else if (investigationIds.has('C3')) {
   const f = byId.C3;
@@ -2784,7 +2784,7 @@ if (investigationIds.has('C4')) {
     [
       { id: 'H-01', title: '已排除的解释', level: '已排除',
         claim: f.guardrail, evidence: ['C4'],
-        need: '不需要再验证：波量化、hand-off、Cube / Vec 串行都已用本 run 的数据排除。' },
+        need: '不需要再验证：执行波次量化、hand-off、Cube / Vec 串行都已用本 run 的数据排除。' },
       { id: 'H-02', title: '块时长由 MTE / Cube / Vec 中的哪一段撑起来', level: '缺证据',
         claim: f.chain.filter((s) => s.role === 'stop')[0].detail, evidence: ['C4'],
         need: '带块内 PMU 重采一次；PMU 会改变调度，需要 PMU-on 的自有基线。' },
@@ -2853,7 +2853,7 @@ const payload = {
       id: 'hostdev', name: 'Host / Device',
       input: 'BenchmarkStats、独立 benchmark',
       answers: '延迟是 Host、Device，还是两者共同贡献',
-      cannot: 'Device 内的依赖与 pipe 根因',
+      cannot: 'Device 内的依赖与 pipe 归因',
       cannotGoto: 'l2',
       state: e2e ? 'partial' : 'absent',
       have: e2e ? 'STRACE host span：bind / runner_run / device_wall / sched，两种时钟已对齐' : null,
@@ -2865,7 +2865,7 @@ const payload = {
     {
       id: 'funcs', name: '函数汇总',
       input: 'name_map*.json + Swimlane',
-      answers: '慢来自单次慢、次数多，还是波动',
+      answers: '执行特征来自单次 Block 时长偏高、重复次数偏高，还是离散度高',
       cannot: '是否影响 wall-clock',
       cannotGoto: 'l2',
       state: 'ok',

@@ -43,6 +43,7 @@
   let TRACE_MATCH = {};
   let findingById = {};
   let tasksOf = {};
+  let e2eFindingPanel = null;
   const hasE2E = () => !!D.e2e;
   const isServingBenchmark = () => D.kind === 'serving-benchmark';
   const multiRank = () => D.case.ranks.length > 1;
@@ -85,8 +86,10 @@
     termTab: 'problems',
     ledger: [],
     tile: null,
-    e2ePanel: 'triage',       /* triage | serving | device | samples
+    e2ePanel: 'serving',      /* serving | device | samples
                                * qwen3: step | ops | api | topo */
+    e2ePanelsCollapsed: false,
+    runHistoryTab: 'overview',
     variant: null,            /* qwen3 case: which capture x stage is armed */
     l2Panel: 'swimlane',      /* swimlane | layers | head */
     l1Panel: 'pipe',          /* pipe | pmu */
@@ -119,7 +122,7 @@
   const LEVELS = [
     { id: 'e2e', label: 'E2E', hint: '端到端与 rank 分解' },
     { id: 'l2', label: 'L2 调度', hint: '任务放置、依赖、关键路径' },
-    { id: 'l1', label: 'L1 / L0', hint: '单核流水与片上预算' },
+    { id: 'l1', label: 'L1 / L0', hint: '单核流水与片上内存容量' },
     { id: 'compiler', label: '编译器', hint: 'Pass、流水深度、搬运粒度' },
     { id: 'isa', label: 'ISA / 布局', hint: '布局与指令层证据' },
   ];
@@ -127,10 +130,10 @@
    * first-class rung: a chain that cannot go further says so here instead of
    * ending on a guess. */
   const ROLE = {
-    observe: { label: '现象', hint: '这一层看到了什么' },
-    descend: { label: '下探', hint: '往下一层追什么' },
-    root: { label: '落点', hint: '可以直接验证的地方' },
-    stop: { label: '止步', hint: '本 dump 到此为止' },
+    observe: { label: '发现', hint: '这一层看到了什么' },
+    descend: { label: '继续分析', hint: '往下一层追什么' },
+    root: { label: '可验证原因', hint: '可以直接验证的地方' },
+    stop: { label: '证据不足', hint: '本 dump 到此为止' },
   };
 
   const LEVEL_LABEL = {};
@@ -210,7 +213,7 @@
     S.scopeReturn = null;
     /* the qwen3 case opens on its own E2E panel: torch step attribution, not
      * the serving triage the other case starts from */
-    S.e2ePanel = D.qwen3 ? 'step' : 'triage';
+    S.e2ePanel = D.qwen3 ? 'step' : 'serving';
     S.variant = D.qwen3
       ? (D.qwen3.variants.find((v) => v.primary) || D.qwen3.variants[0]).id : null;
     S.l2Panel = 'swimlane';
@@ -431,13 +434,13 @@
     } else if (chips.length) {
       acts.appendChild(btn('聚焦证据', {
         size: 'sm', selected: S.focusEvidence,
-        title: '把非证据对象压暗，只留这条瓶颈牵涉到的部分',
+        title: '把非证据对象压暗，只留这条性能发现牵涉到的部分',
         on: () => { S.focusEvidence = !S.focusEvidence; render(); },
       }));
     }
     acts.appendChild(btn('退出', {
       size: 'sm', variant: 'ghost',
-      title: '清除当前瓶颈上下文，回到自由浏览',
+      title: '清除当前性能发现上下文，回到自由浏览',
       on: () => { S.finding = null; S.focusEvidence = false; S.focus = null; render(); },
     }));
     hd.appendChild(acts);
@@ -680,9 +683,9 @@
     const rank = R();
     const sec = el('section');
     const top = rank.scopes.slice(0, 12);
-    sec.appendChild(sectionHead('函数汇总 · 慢在哪一项',
+    sec.appendChild(sectionHead('函数汇总 · 主要成本项',
       'Σ = 重复 × 宽度 × 均值 · 前 ' + top.length + ' / ' + rank.scopes.length,
-      el('span', 'tc-readout', 'Σ 大 ≠ 拖慢墙钟 —— 末列才是')));
+      el('span', 'tc-readout', 'Σ 大 ≠ 影响墙钟 —— 末列才是')));
     const obs = {};
     rank.cpath.segments.forEach((sg) => { obs[sg.tag] = 1; });
     sec.appendChild(table([
@@ -696,7 +699,7 @@
         : '<span class="' + (r.cost.spread > 1.5 ? 'bad' : r.cost.spread > 1.2 ? 'warn' : '') + '">'
           + num(r.cost.spread, 2) + '</span>'), num: true },
       { label: '偏离中位', cell: (r) => (r.cost.skew >= 0 ? '+' : '') + num(r.cost.skew, 0), mono: true, num: true },
-      { label: '主因', cell: (r) => causeOf(r, rank) },
+      { label: '执行特征', cell: (r) => causeOf(r, rank) },
       /* the column that answers what this layer cannot */
       { label: '在路径上', cell: (r) => pathCell(r, obs, rank) },
     ], top, {
@@ -704,11 +707,11 @@
     }));
     sec.appendChild(el('p', 'tc-note',
       '块数 = 重复 × 宽度，Σ = 块数 × 均值，都是恒等式。'
-      + '重复 = launch 次数 × 波数（同一批核跑了几轮），宽度 = 一次铺开占几个核 —— '
+      + '重复 = launch 次数 × 执行波次数（同一批核跑了几轮），宽度 = 一次铺开占几个核 —— '
       + '把两者混成一个「次数」会把「宽」误读成「调用多」。'
       + '偏离中位为负 = 中位高于均值，少数快块把均值拉低了，不是长尾。'
-      + '「主因」的倍数是相对本 run 所有 scope 的中位数。'
-      + '末列来自「路径归责」那一层 —— 本层自己证明不了一个 scope 是否拖慢墙钟。'));
+      + '「执行特征」的倍数是相对本 run 所有 scope 的中位数。'
+      + '末列来自「关键路径归因」那一层 —— 本层自己证明不了一个 scope 是否拖慢墙钟。'));
     stage.appendChild(sec);
   }
 
@@ -727,11 +730,11 @@
     const wobbly = sc.cost.spread != null && sc.cost.spread > 1.5;
     const x = (n) => ' ×' + num(n, n >= 10 ? 0 : 1);
     let main;
-    if (slowX < 2 && manyX < 2) main = '<span class="muted">无突出项</span>';
-    else if (slowX >= manyX * 3) main = '单次慢' + x(slowX);
-    else if (manyX >= slowX * 3) main = '次数多' + x(manyX);
-    else main = '两者兼有';
-    return main + (wobbly ? ' <span class="warn">+ 波动</span>' : '');
+    if (slowX < 2 && manyX < 2) main = '<span class="muted">无突出特征</span>';
+    else if (slowX >= manyX * 3) main = '单次 Block 时长偏高' + x(slowX);
+    else if (manyX >= slowX * 3) main = '重复次数偏高' + x(manyX);
+    else main = '时长与重复次数均偏高';
+    return main + (wobbly ? ' <span class="warn">+ 离散度高</span>' : '');
   }
 
   /* wall-clock relevance comes from the path layer, not from this table */
@@ -932,7 +935,7 @@
     return {
       domain: 'host', title: 'Host 编排主导',
       detail: b.deviceWallUs == null ? 'Host 已采集；device_wall_us 尚未采集' : 'host_wall_us 高于 device_wall_us',
-      action: '常驻 weights / KV cache / workspace，register-once、dispatch-many 后复测',
+      action: '常驻 weights / KV cache / workspace，register-once、dispatch-many 后重新运行 A/B 验证',
     };
   }
 
@@ -1033,6 +1036,44 @@
   function renderE2ETriage(stage) {
     const triage = e2eTriageData();
     renderE2EFlowMap(stage, triage, triageDecision(triage));
+  }
+
+  function renderE2EPanelRegion(stage) {
+    const labels = { serving: 'Serving / Host', device: 'Device 轨迹', samples: '原始测量数据' };
+    const region = el('section', 'tc-e2e-panel-region');
+    const bodyId = 'e2e-panel-region-body';
+    const toggle = btn(S.e2ePanelsCollapsed ? '展开分析' : '收起分析', {
+      variant: 'ghost', size: 'sm',
+      title: S.e2ePanelsCollapsed ? '展开当前 E2E 分析内容' : '收起当前 E2E 分析内容',
+      on: () => { S.e2ePanelsCollapsed = !S.e2ePanelsCollapsed; render(); },
+    });
+    toggle.setAttribute('aria-expanded', S.e2ePanelsCollapsed ? 'false' : 'true');
+    toggle.setAttribute('aria-controls', bodyId);
+    region.appendChild(sectionHead('分层分析', labels[S.e2ePanel] || '', toggle));
+
+    const body = el('div', 'tc-e2e-panel-region-body');
+    body.id = bodyId;
+    body.hidden = S.e2ePanelsCollapsed;
+    const tabs = el('nav', 'tab-control tc-e2e-panel-tabs');
+    tabs.setAttribute('aria-label', 'E2E 分析视图');
+    [
+      { id: 'serving', label: 'Serving / Host' },
+      { id: 'device', label: 'Device 轨迹' },
+      { id: 'samples', label: '原始测量数据' },
+    ].forEach((item) => {
+      const tab = el('button', 'tab-control-item' + (item.id === S.e2ePanel ? ' is-selected' : ''), item.label);
+      tab.type = 'button';
+      tab.setAttribute('aria-current', item.id === S.e2ePanel ? 'page' : 'false');
+      tab.addEventListener('click', () => { S.e2ePanel = item.id; render(); });
+      tabs.appendChild(tab);
+    });
+    body.appendChild(tabs);
+
+    const content = el('div', 'tc-e2e-panel-content');
+    body.appendChild(content);
+    region.appendChild(body);
+    stage.appendChild(region);
+    return content;
   }
 
   function renderE2EWorkers(stage, triage, decision) {
@@ -1282,24 +1323,23 @@
     if (!hasE2E()) { viewE2EAbsent(stage); renderFuncSummary(stage); return; }
 
     const projection = e2eProjection();
-    if (S.e2ePanel === 'triage') {
-      renderE2ETriage(stage);
-      renderE2ECriticalPaths(stage);
-      if (multiRank()) renderE2ECrossRankScheduler(stage);
-      return;
-    }
+    if (S.e2ePanel === 'triage') S.e2ePanel = 'serving';
+    renderE2ETriage(stage);
+    if (e2eFindingPanel) stage.appendChild(e2eFindingPanel);
+    const panelContent = renderE2EPanelRegion(stage);
     if (S.e2ePanel === 'serving') {
       const triage = e2eTriageData();
       const decision = triageDecision(triage);
-      renderE2EWorkers(stage, triage, decision);
-      renderE2ELanes(stage, triage);
-      renderE2ERoundMatrix(stage, triage);
+      renderE2EWorkers(panelContent, triage, decision);
+      renderE2ELanes(panelContent, triage);
+      renderE2ERoundMatrix(panelContent, triage);
       return;
     }
     if (S.e2ePanel === 'device') {
-      renderE2ETraceAtlas(stage, projection);
-      renderE2EStageComposition(stage, projection);
-      renderE2EOperatorScatter(stage, projection);
+      renderE2ETraceAtlas(panelContent, projection);
+      renderE2EStageComposition(panelContent, projection);
+      renderE2EOperatorScatter(panelContent, projection);
+      renderE2ECriticalPaths(panelContent);
       return;
     }
 
@@ -1341,7 +1381,8 @@
     ], rows.map((r) => Object.assign(r, { __selected: r.rank === S.rank && r.traced })), {
       onPick: (r) => { selectAnalysisRank(r.rank, 'l2'); S.focus = 'rank'; render(); },
     }));
-    stage.appendChild(secTab);
+    panelContent.appendChild(secTab);
+    if (multiRank()) renderE2ECrossRankScheduler(panelContent);
 
     /* --- hierarchical span breakdown, both ranks on one shared scale --- */
     const rankKeys = Object.keys(D.ranks);
@@ -1380,11 +1421,11 @@
       rowsWrap.appendChild(row);
     });
     secBreak.appendChild(rowsWrap);
-    stage.appendChild(secBreak);
+    panelContent.appendChild(secBreak);
 
     /* --- reconciliation: host span vs device trace --- */
     const recSec = el('section');
-    recSec.appendChild(sectionHead('对账', 'host sched ↔ device trace'));
+    recSec.appendChild(sectionHead('测量一致性校验', 'host sched ↔ device trace'));
     const recRows = Object.keys(D.ranks).map((rank) => {
       const m = TRACE_MATCH[rank];
       const sw = D.ranks[rank].swimlane;
@@ -1410,8 +1451,8 @@
       { label: 'AIC 占用', num: true, cell: (r) => pct(r.aic) },
       { label: 'AIV 占用', num: true, cell: (r) => pct(r.aiv) },
     ], recRows, { onPick: (r) => { selectAnalysisRank(r.rank, 'l2'); S.focus = 'rank'; render(); } }));
-    stage.appendChild(recSec);
-    renderFuncSummary(stage);
+    panelContent.appendChild(recSec);
+    renderFuncSummary(panelContent);
   }
 
   /* The L2 dump has no host STRACE log, so there is no end-to-end layer to
@@ -1427,7 +1468,7 @@
     ], [
       ['dfx_outputs/**/host.*.log', 'chip.run / bind / runner_run / device_wall 的 span 树'],
       ['  └ inv=', '本次录制里程序被调用了几次（迭代次数 n）'],
-      ['  └ device_wall', '设备墙钟，调优的主指标与复测基准'],
+      ['  └ device_wall', '设备墙钟，调优的主指标与验证基准'],
       ['  └ bind.prebuilt', 'JIT 建图是否命中缓存，第一次调用能不能用'],
       ['distributed_meta.json', '绑定参数的 shape / dtype，case 是否固定'],
     ], {}));
@@ -1726,7 +1767,7 @@
           const cls = k >= 2 || k <= 0.5 ? 'warn' : '';
           return '<span class="' + cls + '">' + num(k, 2) + 'x</span>';
         }()) : '—') },
-      { label: '口径', cell: (r) => (r.note ? esc(r.note) : '—') },
+      { label: '说明', cell: (r) => (r.note ? esc(r.note) : '—') },
     ], rows, { tall: true }));
     stage.appendChild(sec);
 
@@ -1816,7 +1857,7 @@
       { k: '每层任务', v: String(L.perLayer) },
       { k: '层窗口中位数', v: msOrUs(st.medianSpanUs) },
       { k: '最快 / 最慢', v: msOrUs(st.minSpanUs) + ' / ' + msOrUs(st.maxSpanUs) },
-      { k: '离散度', v: pct(st.spreadPct), tone: st.spreadPct > 30 ? 'bad' : st.spreadPct > 12 ? 'warn' : 'good' },
+      { k: '层窗口离散度', v: pct(st.spreadPct), tone: st.spreadPct > 30 ? 'bad' : st.spreadPct > 12 ? 'warn' : 'good' },
       { k: '首层偏差', v: pct(st.firstDeltaPct), tone: Math.abs(st.firstDeltaPct) > 20 ? 'warn' : null },
     ]));
     const note = el('p', 'tc-fineprint');
@@ -1907,7 +1948,7 @@
         { label: '引擎', cell: (r) => (r.kind || '').toUpperCase() },
         { label: '均值', num: true, cell: (r) => num(r.meanUs, 1) },
         { label: 'min / max', num: true, cell: (r) => num(r.minUs, 1) + ' / ' + num(r.maxUs, 1) },
-        { label: '离散', num: true, cell: (r) => (r.spreadX == null ? '—'
+        { label: '层间离散度', num: true, cell: (r) => (r.spreadX == null ? '—'
           : '<span class="' + (r.spreadX > 2 ? 'warn' : '') + '">' + num(r.spreadX, 2) + 'x</span>') },
         { label: '40 层合计', num: true, cell: (r) => num(r.sumUs, 0) },
         { label: '', cell: (r) => bar(r.sumUs / maxSum, r.sumUs === maxSum ? 'warn' : 'neutral') },
@@ -2346,7 +2387,7 @@
      * for the same pixels, and they stay selectable text */
     const pathReadout = el('span', 'tc-readout');
     const ribRight = el('span', 'tc-readout-group');
-    ribRight.appendChild(el('span', 'tc-readout', 'rank span ' + us(cp.makespan)
+    ribRight.appendChild(el('span', 'tc-readout', 'Rank 执行时长 ' + us(cp.makespan)
       + ' · Task 覆盖 ' + us(cp.computeTotal) + ' · 路径间隙 ' + us(cp.stallTotal)));
     ribRight.appendChild(pathReadout);
     ribSec.appendChild(sectionHead('执行主路径 · ' + S.rank + ' · ' + cp.segments.length + ' 个 Task',
@@ -3162,7 +3203,7 @@
       { k: '块 / 核', v: t.blockCount + ' / ' + t.coreCount, u: 'block_num ' + t.blockNum },
       { k: '块中位', v: num(t.durMed, 2), u: 'us' },
       { k: '块最长', v: num(t.durMax, 2), u: 'us', tone: t.imbalance > 3 ? 'warn' : null },
-      { k: '离散度', v: num(t.imbalance, 2) + 'x', u: 'max / med', tone: t.imbalance > 3 ? 'bad' : t.imbalance > 2 ? 'warn' : 'good' },
+      { k: 'Block 时长离散度', v: num(t.imbalance, 2) + 'x', u: 'max / med', tone: t.imbalance > 3 ? 'bad' : t.imbalance > 2 ? 'warn' : 'good' },
       { k: 'kernel 均值', v: num(kernelMean, 2), u: 'us' },
       { k: 'setup 均值', v: num(t.setupMean, 2), u: pct(t.setupShare * 100, 0) + ' of block', tone: t.setupShare > 0.3 ? 'bad' : t.setupShare > 0.1 ? 'warn' : null },
       { k: 'AICPU 视角', v: num(t.svAicpuMean, 1), u: t.svOverhead != null ? '+' + num(t.svOverhead, 1) + ' us hand-off' : '', tone: t.svOverhead > 20 ? 'bad' : t.svOverhead > 5 ? 'warn' : null },
@@ -3193,10 +3234,10 @@
       stage.appendChild(pairSec);
     }
 
-    /* --- three measurements of the same block, side by side --- */
+    /* --- one block, broken down into three timing levels, side by side --- */
     const splitSec = el('section');
-    splitSec.appendChild(sectionHead('一个块的三种口径',
-      'kernel · +local_setup · +hand-off (dispatch→finish)'));
+    splitSec.appendChild(sectionHead('Block 时延分解',
+      'Kernel / Local Setup / Dispatch → Finish'));
     const splitHost = el('div', 'tc-canvas-strip');
     const splitCanvas = el('canvas');
     splitHost.appendChild(splitCanvas);
@@ -3205,8 +3246,8 @@
 
     /* --- per-core block strip + duration distribution --- */
     const distSec = el('section');
-    distSec.appendChild(sectionHead('块分布',
-      t.blockCount + ' 块 / ' + t.coreCount + ' 核 · ' + num(t.blockCount / t.coreCount, 2) + ' 波'));
+    distSec.appendChild(sectionHead('Block 执行时长分布',
+      t.blockCount + ' 块 / ' + t.coreCount + ' 核 · ' + num(t.blockCount / t.coreCount, 2) + ' 执行波次'));
     const distHost = el('div', 'tc-canvas-host');
     const distCanvas = el('canvas');
     distHost.appendChild(distCanvas);
@@ -3215,7 +3256,7 @@
 
     /* --- on-chip tile budget --- */
     const calcSec = el('section');
-    calcSec.appendChild(sectionHead('片上预算试算',
+    calcSec.appendChild(sectionHead('片上内存容量评估',
       'Left / Right = 编译器选的 L0A / L0B staging',
       el('span', 'tc-readout', '上限取自本 run MemoryReuse 报告')));
     calcSec.appendChild(renderCalc());
@@ -3697,7 +3738,7 @@
         ], [
           ['PH-MR-001 × 0', 'MemoryReuse 未报告过任何一次深度回退'],
           ['pl.pipeline × ' + D.pipelineSites.length, '请求的 stage 都放得下，或该 kernel 未进 MemoryReuse'],
-          ['Left / Right / Vec 可用字节 缺失', '片上预算试算器无本 run 实测上限可对账'],
+          ['Left / Right / Vec 可用字节 缺失', '片上内存容量评估缺少本 run 实测上限，无法做测量一致性校验'],
         ], {}));
       } else {
         sec.appendChild(sectionHead('软流水深度回退',
@@ -3888,7 +3929,7 @@
       [Object.keys(A.kernelDirs).length ? null : 'kernels/', '实际编译出的 AIC / AIV 二进制'],
       ['PTOAS TileLib 模板记录', '模板候选与选中原因'],
       ['VPTO scheduler 排布报告', '依赖、延迟、寄存器压力、重物化'],
-      ['cycle cost model 预测', '与实测块时长对账'],
+      ['cycle cost model 预测', '与实测 Block 执行时长比对'],
       ['PMU counter', 'Cube / Vec / MTE / FIXPIPE，需单独建 PMU-on 基线'],
     ].filter((r) => r[0]);
     missing.appendChild(sectionHead('缺失产物', gaps.length + ' 项'));
@@ -3908,7 +3949,7 @@
    * per title so it survives the rail's re-render. */
   const FOLD_BY_DEFAULT = {
     '统计口径': 1, '引擎配对': 1, 'spmd 展开': 1,
-    '运行对象': 1, '两卡对比': 1, '瓶颈链': 1,
+    '运行对象': 1, '两卡对比': 1, '诊断路径': 1,
   };
 
   function inspectorSection(title, kicker) {
@@ -4337,7 +4378,7 @@
     const panelMoved = (S.focus || defaultFocus()) !== 'scope';
     const bar = el('div', 'tc-crumb');
     const back = el('button', 'tc-crumb-back',
-      panelMoved ? '← scope 排行' : '← 恢复时间窗');
+      panelMoved ? '← Scope 性能排序' : '← 恢复时间窗');
     back.type = 'button';
     back.title = (panelMoved ? '回到 L2 面板，并恢复 ' : '恢复 ')
       + num(r.t0, 0) + '–' + num(r.t1, 0) + ' us 的时间窗（Esc）';
@@ -4379,7 +4420,7 @@
     if (A.naiveSum) {
       s0.appendChild(el('div', 'inspector-soft-card is-warning',
         '同一个块在 trace 里出现两次。两边相加得 ' + num(A.naiveSum, 0)
-        + ' us —— 这是重复计数，不是总量。下面的 scope 排行只用 Worker View。'));
+        + ' us —— 这是重复计数，不是总量。下面的 Scope 性能排序只用 Worker View。'));
     }
     /* s0 is built here but appended below: the rail leads with the three
      * questions the L2 page exists to answer, not with its bookkeeping. */
@@ -4390,7 +4431,7 @@
     /* --- 2. scope ranking: core-time × slack --- */
     const top = rank.scopes.slice(0, 10);
     const maxCore = top[0] ? top[0].coreTime : 1;
-    const s1 = inspectorSection('scope 排行', 'Worker core-time · 前 ' + top.length + ' / ' + rank.scopes.length);
+    const s1 = inspectorSection('Scope 性能排序', 'Worker core-time · 前 ' + top.length + ' / ' + rank.scopes.length);
     const rows = el('div', 'tc-scoperows');
     const hd = el('div', 'tc-scoperow is-head');
     [['scope', 'l', '外联后的 incore scope，按 Worker core-time 排'],
@@ -4398,8 +4439,8 @@
      ['core-time', 'n', 'Σ 块时长，跨所有核'],
      ['占', 'n', '占本 rank 总 core-time'],
      ['slack', 'n', 'DAG 上这个 scope 最紧的任务能被推迟多久。'
-       + '0 = 在依赖关键路径上，动它直接缩短总时长；slack 大 = 它胖但不急，先看并行度。' + NL
-       + '不含资源争抢 —— 等核那部分在「关键路径归责」里记作 core-wait。']]
+       + '0 = 在依赖关键路径上，动它直接缩短总时长；slack 大 = 不在关键路径上，优先看并行度。' + NL
+       + '不含资源争抢 —— 等核那部分在「关键路径归因」里记作 core-wait。']]
       .forEach((c) => { const x = el('span', c[1], c[0]); x.title = c[2]; hd.appendChild(x); });
     rows.appendChild(hd);
     top.forEach((sc) => {
@@ -4443,22 +4484,22 @@
     /* --- 3. idle windows --- */
     const idle = rank.idleRuns || [];
     const idleUs = idle.reduce((a, r) => a + r.us, 0);
-    const s2 = inspectorSection('空转窗口',
+    const s2 = inspectorSection('Core 空闲区间',
       idle.length ? '前 ' + Math.min(5, idle.length) + ' / ' + idle.length + ' 段 · '
         + pct((idleUs / rank.swimlane.spanUs) * 100, 1) : '无');
     if (!idle.length) {
       s2.appendChild(el('div', 'tc-foot',
-        '没有 AIC 与 AIV 同时低于 ' + rank.idlePct + '% 的窗口（窗宽 '
+        '没有 AIC 与 AIV 同时低于 ' + rank.idlePct + '% 的 Core 空闲区间（区间宽度 '
         + num(rank.occWindowUs, 1) + ' us）。'));
     } else {
       const ir = el('div', 'tc-scoperows');
       const ih = el('div', 'tc-scoperow is-idle is-head');
-      ['窗口', '时长', 'AIC', 'AIV'].forEach((t, i) => ih.appendChild(el('span', i ? 'n' : 'l', t)));
+      ['区间', '时长', 'AIC', 'AIV'].forEach((t, i) => ih.appendChild(el('span', i ? 'n' : 'l', t)));
       ir.appendChild(ih);
       idle.slice(0, 5).forEach((r) => {
         const b = el('button', 'tc-scoperow is-idle');
         b.type = 'button';
-        b.title = '窗口内实际在跑：' + (r.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('，') || '无')
+        b.title = '区间内实际在跑：' + (r.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('，') || '无')
           + String.fromCharCode(10) + '核容量占用 ' + pct(r.running.capacityPct, 1);
         b.appendChild(el('span', 'l', num(r.t0, 0) + '–' + num(r.t1, 0) + ' us'));
         b.appendChild(el('span', 'n hot', num(r.us, 0)));
@@ -4484,11 +4525,11 @@
         + lanesOf() + ' 核只用掉 ' + pct(worst.running.capacityPct, 1)));
       ic.appendChild(el('div', 'bd', hog
         ? hog.callable + ' 单块跨越整段（span ' + num(hog.span, 0) + ' us，在依赖关键路径上）——挡住全部核。'
-        : (worst.running.top.length ? '窗口内只有零星块在跑。' : '窗口内没有任何块在执行。')));
+        : (worst.running.top.length ? '区间内只有零星块在跑。' : '区间内没有任何块在执行。')));
       ic.title = '占 ' + pct(worst.share, 1) + ' 的 makespan。' + NL
         + (worst.running.top.length
-          ? '窗口内在跑：' + worst.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('、')
-          : '窗口内没有任何块在执行。');
+          ? '区间内在跑：' + worst.running.top.map((t) => t.callable + ' ' + num(t.us, 0) + ' us/' + t.blocks + ' 块').join('、')
+          : '区间内没有任何块在执行。');
       s2.appendChild(ic);
     }
     host.appendChild(s2);
@@ -4516,7 +4557,7 @@
 
   function renderCriticalPath(rank) {
     const c = rank.cpath;
-    const sec = inspectorSection('路径归责', c.segments.length + ' 节点');
+    const sec = inspectorSection('关键路径归因', c.segments.length + ' 节点');
 
     if (!c.acyclic) {
       sec.appendChild(el('div', 'inspector-soft-card is-warning',
@@ -4546,17 +4587,17 @@
      * walk did not tile the makespan the verdict is not usable at all. */
     const bd = el('div', 'inspector-soft-card' + (c.bound === 'compute' && c.tiling.exact ? '' : ' is-warning'));
     bd.appendChild(el('div', 'hd', (BOUND_LABEL[c.bound] || c.bound)
-      + (c.tiling.exact ? '' : ' · 归责未闭合')));
+      + (c.tiling.exact ? '' : ' · 归因未闭合')));
     bd.appendChild(el('div', 'bd', c.tiling.exact
       ? c.boundWhy
       : '走查没有铺满 makespan（' + num(c.tiling.sum, 2) + ' vs ' + num(c.tiling.makespan, 2)
-        + '），逐节点归责不成立，下面的数字不要引用。'));
+        + '），逐节点归因不成立，下面的数字不要引用。'));
     const gate = el('div', 'bd gate');
     gate.textContent = (c.tiling.exact ? '✓ ' : '✗ ')
-      + '归责闭合 compute + stall = makespan（差 ' + num(c.tiling.delta, 2) + ' us）';
+      + '归因闭合 compute + stall = makespan（差 ' + num(c.tiling.delta, 2) + ' us）';
     gate.title = 'compute + stall = ' + num(c.tiling.sum, 2) + ' us vs makespan '
       + num(c.tiling.makespan, 2) + ' us。' + NL
-      + '这条不成立，逐节点归责就不成立 —— 它是整段分析能不能用的前提。';
+      + '这条不成立，逐节点归因就不成立 —— 它是整段分析能不能用的前提。';
     bd.appendChild(gate);
     /* the floor check: a dependency-limited floor cannot exceed the wall
      * time it is a floor for. Nothing checked this until it was violated. */
@@ -4741,8 +4782,8 @@
 
     sec.appendChild(kv([
       ['最宽展开', sc[0] ? sc[0].spmd.cores + ' 核（' + sc[0].name + '）' : '—'],
-      ['多波 scope', waved.length + (waved.length
-        ? ' · 最多 ' + num(Math.max.apply(null, waved.map((x) => x.spmd.waves)), 2) + ' 波' : '')],
+      ['多执行波次 Scope', waved.length + (waved.length
+        ? ' · 最多 ' + num(Math.max.apply(null, waved.map((x) => x.spmd.waves)), 2) + ' 个执行波次' : '')],
       ['单核 scope', single + ' 个'],
     ]));
 
@@ -4751,9 +4792,9 @@
     [['scope', 'l', '外联后的 incore scope'],
      ['核', 'n', '最宽一次 pl.spmd 展开占了几个核'],
      ['块', 'n', '块数'],
-     ['波', 'n', '块数 / 核数。1 波 = 一次填满；>1 波 = 同一批核要跑好几轮，'
+     ['执行波次', 'n', '块数 / 核数。1 个执行波次 = 一次填满；>1 个执行波次 = 同一批核要跑好几轮，'
        + '每轮之间有一次完成回收。'],
-     ['离散', 'n', '最长块 / 中位块。>2 = 同一次展开里各块负载不均，'
+     ['Block 时长离散度', 'n', '最长块 / 中位块。>2 = 同一次展开里各块负载不均，'
        + '最慢的那块决定整个 scope 什么时候结束。']]
       .forEach((c) => { const x = el('span', c[1], c[0]); x.title = c[2]; hd.appendChild(x); });
     rows.appendChild(hd);
@@ -4769,8 +4810,8 @@
       const b = el('button', 'tc-scoperow is-spmd');
       b.type = 'button';
       b.title = x.name + NL + x.spmd.launches + ' 次 launch · 宽度 ' + x.spmd.widths.join('/')
-        + ' 核 · ' + x.spmd.blocks + ' 块 · ' + num(x.spmd.waves, 2) + ' 波' + NL
-        + '离散度 ' + x.spmd.imbalance + 'x（最长块 / 中位块）';
+        + ' 核 · ' + x.spmd.blocks + ' 块 · ' + num(x.spmd.waves, 2) + ' 个执行波次' + NL
+        + 'Block 时长离散度 ' + x.spmd.imbalance + 'x（最长块 / 中位块）';
       const nm = el('span', 'l');
       nm.appendChild(el('span', 'tx', x.name));
       b.appendChild(nm);
@@ -4792,7 +4833,7 @@
     sec.appendChild(rows);
     if (!notable.length) {
       sec.appendChild(el('div', 'tc-foot',
-        '没有多波、不均或变宽的展开；本 case 的形状问题是 ' + single + ' 个 scope 只用 1 个核。'));
+        '没有多执行波次、不均或变宽的展开；本 case 的形状问题是 ' + single + ' 个 scope 只用 1 个核。'));
     }
     return sec;
   }
@@ -4859,14 +4900,14 @@
     const K = D.launchSkew;
     if (K) {
       const cause = el('div', 'inspector-soft-card');
-      cause.appendChild(el('span', 'hd', 'rank1 晚发 ' + num(K.runnerUs, 1) + ' us'));
+      cause.appendChild(el('span', 'hd', 'Rank 启动偏移 · rank1 晚发 ' + num(K.runnerUs, 1) + ' us'));
       cause.appendChild(el('span', 'bd', 'AIC busy ' + num(K.work.rank0.aic.busy, 0) + ' / '
         + num(K.work.rank1.aic.busy, 0) + ' us（差 '
         + pct(Math.abs(K.work.rank0.aic.busy - K.work.rank1.aic.busy) / K.work.rank1.aic.busy * 100, 2)
         + '）——计算量相同，多出来的 span 是等待'));
       const rows = el('div', 'tc-skewrows');
       const hd = el('div', 'tc-skewrow is-head');
-      ['wait', 'rank0 等', '错峰上界', '占比'].forEach((t, i) => hd.appendChild(el('span', i ? 'n' : 'l', t)));
+      ['wait', 'rank0 等', '启动偏移上界', '占比'].forEach((t, i) => hd.appendChild(el('span', i ? 'n' : 'l', t)));
       rows.appendChild(hd);
       K.checks.forEach((c) => {
         const r = el('button', 'tc-skewrow');
@@ -4890,7 +4931,7 @@
     }
     host.appendChild(s2);
 
-    const s3 = inspectorSection('瓶颈链', topChains(3).length + ' 条');
+    const s3 = inspectorSection('诊断路径', topChains(3).length + ' 条');
     topChains(3).forEach((f) => {
       s3.appendChild(btn(f.id + ' · ' + f.title, {
         size: 'sm',
@@ -4977,7 +5018,7 @@
     const rel = D.findings.filter((f) => (f.focus && f.focus.task === t.tag)
       || f.subjects.tasks.indexOf(t.tag) >= 0 || rungsFor(f).length);
     if (rel.length) {
-      const s4 = inspectorSection('关联瓶颈', rel.length + ' 条');
+      const s4 = inspectorSection('关联性能发现', rel.length + ' 条');
       rel.forEach((f) => {
         const at = rungsFor(f).map((st) => LEVEL_LABEL[st.level] || st.level);
         s4.appendChild(btn(f.id + ' · ' + f.title
@@ -5007,21 +5048,21 @@
   function renderFindingInspector(host, title, meta) {
     const f = findingById[S.finding];
     const chain = f.chain || [];
-    title.textContent = f.id + ' · ' + (f.kind === 'hygiene' ? '体检项' : '瓶颈链');
+    title.textContent = f.id + ' · ' + (f.kind === 'hygiene' ? '待归因信号' : '诊断路径');
     meta.textContent = f.cost ? f.cost.share + '% of makespan' : '无归因';
 
     const s1 = inspectorSection(f.title, f.metric);
     if (f.cost) {
       s1.appendChild(el('div', 'inspector-soft-card is-info',
-        '代价 ' + us(f.cost.us, 1) + '（makespan 的 ' + f.cost.share + '%）· 口径：' + f.cost.basis));
+        '代价 ' + us(f.cost.us, 1) + '（makespan 的 ' + f.cost.share + '%）· 测量依据：' + f.cost.basis));
     } else if (f.unattributed) {
-      s1.appendChild(el('div', 'inspector-soft-card is-warning', '不作为瓶颈：' + f.unattributed));
+      s1.appendChild(el('div', 'inspector-soft-card is-warning', '不计入性能发现：' + f.unattributed));
     }
     s1.appendChild(el('p', 'tc-note', f.claim));
     host.appendChild(s1);
 
     if (chain.length) {
-      const s0 = inspectorSection('跨层链条',
+      const s0 = inspectorSection('跨层诊断路径',
         chain.map((st) => LEVEL_LABEL[st.level] || st.level).join(' → '));
       const lad = el('div', 'tc-ladder');
       chain.forEach((st, i) => {
@@ -5089,10 +5130,10 @@
     s2.appendChild(list);
     host.appendChild(s2);
 
-    const s3 = inspectorSection('杠杆与护栏');
-    s3.appendChild(el('div', 'inspector-soft-card is-info', '杠杆：' + f.lever));
-    s3.appendChild(el('div', 'inspector-soft-card is-warning', '护栏：' + f.guardrail));
-    s3.appendChild(el('div', 'inspector-soft-card', '复测：' + f.verify));
+    const s3 = inspectorSection('优化动作与约束风险');
+    s3.appendChild(el('div', 'inspector-soft-card is-info', '优化动作：' + f.lever));
+    s3.appendChild(el('div', 'inspector-soft-card is-warning', '约束与风险：' + f.guardrail));
+    s3.appendChild(el('div', 'inspector-soft-card', '验证：' + f.verify));
     host.appendChild(s3);
 
     host.appendChild(renderComposer(f));
@@ -5187,7 +5228,7 @@
   /* ------------------------------------------------------- experiment */
   function renderComposer(f) {
     const open = openExperiment();
-    const s = inspectorSection('实验台账', open ? '已有 1 个进行中' : '每轮只验证一个假设');
+    const s = inspectorSection('实验记录', open ? '已有 1 个进行中' : '每轮只验证一个假设');
     if (open && open.findingId !== f.id) {
       s.appendChild(el('div', 'inspector-soft-card is-warning',
         open.id + ' 进行中 · 结论后才能开下一个'));
@@ -5212,7 +5253,7 @@
     l1.appendChild(el('span', null, '假设'));
     l1.appendChild(hyp);
     const l2 = el('label');
-    l2.appendChild(el('span', null, '改动'));
+    l2.appendChild(el('span', null, '修改'));
     l2.appendChild(chg);
     form.appendChild(l1);
     form.appendChild(l2);
@@ -5228,7 +5269,7 @@
           title: f.id + ' · ' + f.title,
           hypothesis: hyp.value.trim() || f.lever,
           change: chg.value.trim() || '（未填写改动位置）',
-          correctness: null, perf: null, keep: null,
+          correctness: null, perf: null, keep: null, conclusion: null,
           verify: f.verify, guardrail: f.guardrail,
         });
         render();
@@ -5250,10 +5291,10 @@
       return r;
     };
     steps.appendChild(step('假设', row.hypothesis, true));
-    steps.appendChild(step('改动', row.change, true));
-    steps.appendChild(step('正确性', row.correctness || '待记录', !!row.correctness));
-    steps.appendChild(step('性能', row.perf || row.verify, !!row.perf));
-    steps.appendChild(step('结论', row.keep || '待决定', !!row.keep));
+    steps.appendChild(step('修改', row.change, true));
+    steps.appendChild(step('正确性验证', row.correctness || '待记录', !!row.correctness));
+    steps.appendChild(step('性能验证', row.perf || row.verify, !!row.perf));
+    steps.appendChild(step('结论', row.conclusion || row.keep || '待决定', !!(row.conclusion || row.keep)));
     wrap.appendChild(steps);
 
     const acts = el('div', 'tc-actions');
@@ -5262,31 +5303,32 @@
       inp.type = 'text';
       inp.placeholder = '精度阈值 / 对比基准';
       const lb = el('label');
-      lb.appendChild(el('span', null, '正确性'));
+      lb.appendChild(el('span', null, '正确性验证'));
       lb.appendChild(inp);
       wrap.appendChild(lb);
-      acts.appendChild(btn('记录正确性', {
+      acts.appendChild(btn('记录正确性验证', {
         size: 'sm', variant: 'solid',
         on: () => { row.correctness = inp.value.trim() || '通过（未填写细节）'; render(); },
       }));
     } else if (!row.perf) {
       const inp = el('input');
       inp.type = 'text';
-      inp.placeholder = '复测结果，例如 device_wall 5132.8 → ? us';
+      inp.placeholder = '验证结果，例如 device_wall 5132.8 → ? us';
       const lb = el('label');
-      lb.appendChild(el('span', null, '性能'));
+      lb.appendChild(el('span', null, '性能验证'));
       lb.appendChild(inp);
       wrap.appendChild(lb);
-      acts.appendChild(btn('记录性能', {
+      acts.appendChild(btn('记录性能验证', {
         size: 'sm', variant: 'solid',
-        on: () => { row.perf = inp.value.trim() || '（未填写复测数值）'; render(); },
+        on: () => { row.perf = inp.value.trim() || '（未填写验证数值）'; render(); },
       }));
     } else {
       const guard = el('div', 'inspector-soft-card is-warning');
       guard.textContent = row.guardrail;
       wrap.appendChild(guard);
-      acts.appendChild(btn('保留', { size: 'sm', variant: 'solid', on: () => { row.keep = '保留'; row.state = 'kept'; render(); } }));
-      acts.appendChild(btn('回退', { size: 'sm', on: () => { row.keep = '回退'; row.state = 'reverted'; render(); } }));
+      acts.appendChild(btn('保留修改', { size: 'sm', variant: 'solid', on: () => { row.keep = '保留修改'; row.conclusion = '已确认'; row.state = 'kept'; render(); } }));
+      acts.appendChild(btn('回退修改', { size: 'sm', on: () => { row.keep = '回退修改'; row.conclusion = '已否定'; row.state = 'reverted'; render(); } }));
+      acts.appendChild(btn('需要补充证据', { size: 'sm', variant: 'ghost', title: '结论保持开放，补充证据后再判定', on: () => { row.keep = '需要补充证据'; row.conclusion = '需要补充证据'; row.state = 'open'; render(); } }));
     }
     acts.appendChild(btn('放弃这轮', {
       size: 'sm', variant: 'ghost',
@@ -5296,20 +5338,24 @@
     return wrap;
   }
 
+  const LEDGER_STATE_LABEL = {
+    baseline: '基线', open: '进行中', kept: '已确认', reverted: '已否定',
+  };
+
   function renderLedger() {
-    const s = inspectorSection('台账', S.ledger.length + ' 条');
+    const s = inspectorSection('实验记录', S.ledger.length + ' 条');
     const list = el('div', 'tc-ledger');
     S.ledger.slice().reverse().forEach((row) => {
       const item = el('div', 'tc-ledger-item');
       item.dataset.state = row.state;
       const hd = el('div', 'hd');
       hd.appendChild(el('span', 'id', row.id));
-      hd.appendChild(el('span', 'st', row.state));
+      hd.appendChild(el('span', 'st', LEDGER_STATE_LABEL[row.state] || row.state));
       item.appendChild(hd);
       item.appendChild(el('span', 'ti', row.title));
       const steps = el('div', 'tc-ledger-steps');
-      [['假设', row.hypothesis], ['改动', row.change], ['正确性', row.correctness],
-        ['性能', row.perf], ['结论', row.keep]].forEach((p) => {
+      [['假设', row.hypothesis], ['修改', row.change], ['正确性验证', row.correctness],
+        ['性能验证', row.perf], ['结论', row.conclusion || row.keep]].forEach((p) => {
         const r = el('div', 'tc-ledger-step');
         r.dataset.done = p[1] ? 'true' : 'false';
         r.appendChild(el('span', 'k', p[0]));
@@ -5376,7 +5422,7 @@
 
     const note = el('div', 'inspector-soft-card' + (skew ? ' is-warning' : ''));
     note.textContent = skew
-      ? 'C1 在此闭合：L2 的 ready / 调度读数用于排除片内调度饱和；根因仍由两卡 Host runner_run 启动偏移确认。'
+      ? 'C1 在此闭合：L2 的 ready / 调度读数用于排除片内调度饱和；归因仍由两卡 Host runner_run 启动偏移确认。'
       : '本 run 缺少可对齐的跨 rank Host 时间戳；只能比较两卡的设备侧调度读数。';
     sec.appendChild(note);
     stage.appendChild(sec);
@@ -5739,7 +5785,7 @@
     }
     host.appendChild(s2);
 
-    const s3 = inspectorSection('瓶颈链', topChains(3).length + ' 条 · 体检项见左栏');
+    const s3 = inspectorSection('诊断路径', topChains(3).length + ' 条 · 待归因信号见左栏');
     topChains(3).forEach((f) => {
       s3.appendChild(btn(f.id + ' · ' + f.title, {
         variant: 'ghost', size: 'sm',
@@ -5760,14 +5806,54 @@
       b.type = 'button';
       b.title = l.hint;
       b.setAttribute('aria-pressed', l.id === S.view ? 'true' : 'false');
-      b.addEventListener('click', () => { S.view = l.id; render(); });
+      b.addEventListener('click', () => {
+        S.view = l.id;
+        S.runHistoryTab = ({ e2e: 'overview', l2: 'execution', l1: 'resources', compiler: 'compilation', isa: 'compilation' })[l.id] || 'overview';
+        render();
+      });
       host.appendChild(b);
+    });
+  }
+
+  function openRunHistoryTab(id) {
+    const viewForTab = { overview: 'e2e', compilation: 'compiler', correctness: 'e2e', execution: 'l2', resources: 'l1' };
+    S.runHistoryTab = id;
+    S.view = viewForTab[id] || 'e2e';
+    render();
+  }
+
+  function renderRunHistoryTabs() {
+    const context = $('#runHistoryContext');
+    const health = $('#runHistoryHealth');
+    const host = $('#runHistoryTabs');
+    const visible = !isServingBenchmark();
+    context.hidden = !visible;
+    health.hidden = !visible;
+    host.textContent = '';
+    [
+      { id: 'overview', label: '概览' },
+      { id: 'compilation', label: '编译' },
+      { id: 'correctness', label: '正确性' },
+      { id: 'execution', label: '执行' },
+      { id: 'resources', label: '资源' },
+    ].forEach((item) => {
+      const tab = el('button', 'tab-control-item' + (item.id === S.runHistoryTab ? ' is-selected' : ''), item.label);
+      tab.type = 'button';
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', item.id === S.runHistoryTab ? 'true' : 'false');
+      tab.setAttribute('aria-controls', 'stage');
+      tab.addEventListener('click', () => openRunHistoryTab(item.id));
+      host.appendChild(tab);
+    });
+    $$('#runHistoryHealth [data-run-domain]').forEach((item) => {
+      item.onclick = () => openRunHistoryTab(({ performance: 'overview' })[item.dataset.runDomain] || item.dataset.runDomain);
     });
   }
 
   function renderToolbar() {
     const host = $('#viewToolbar');
     host.textContent = '';
+    host.hidden = S.view === 'e2e' && !isServingBenchmark() && !QW();
     /* sub-view switch sits where the view's own tab would: on the left */
     if (S.view === 'compiler') {
       host.appendChild(group('segmented-control segmented-control-muted', [
@@ -5782,13 +5868,6 @@
         { id: 'ops', label: '设备算子', hint: '融合 kernel 之外还在设备上跑什么' },
         { id: 'api', label: '主机 API', hint: '哪些 CANN 调用吃掉主机时间' },
         { id: 'topo', label: 'TP 对照', hint: 'TP=1 / TP=2 并排' },
-      ], S.e2ePanel, (v) => { S.e2ePanel = v; render(); }));
-    } else if (S.view === 'e2e' && !isServingBenchmark()) {
-      host.appendChild(group('segmented-control segmented-control-muted', [
-        { id: 'triage', label: '定界' },
-        { id: 'serving', label: 'Serving / Host' },
-        { id: 'device', label: 'Device 轨迹' },
-        { id: 'samples', label: '调用数据' },
       ], S.e2ePanel, (v) => { S.e2ePanel = v; render(); }));
     }
     if (S.view === 'l2' && QW()) {
@@ -5980,9 +6059,16 @@
 
     $('[data-bind="explorerMeta"]').textContent = D.case.runDir.slice(0, 18) + '…';
 
-    /* findings queue */
-    const filterHost = $('#findingFilter');
-    filterHost.textContent = '';
+    /* Findings live under the E2E command overview, not in the Run explorer. */
+    e2eFindingPanel = el('section', 'tc-e2e-findings');
+    const findingHead = sectionHead('性能发现 · 诊断路径', '选择一条路径查看证据与下一步');
+    const findingCount = el('span', 'tc-readout');
+    findingHead.appendChild(findingCount);
+    e2eFindingPanel.appendChild(findingHead);
+    const filterHost = el('div', 'tc-chipbar');
+    filterHost.setAttribute('role', 'group');
+    filterHost.setAttribute('aria-label', '按层筛选性能发现');
+    e2eFindingPanel.appendChild(filterHost);
     /* Most chains remain reachable from every layer they traverse. A chain
      * may override that with queueLevels when its causal home is elsewhere:
      * C1, for example, is seen in L2 but belongs to E2E triage. */
@@ -5999,8 +6085,8 @@
         }));
       });
 
-    const list = $('#findingList');
-    list.textContent = '';
+    const list = el('div', 'tc-findings');
+    e2eFindingPanel.appendChild(list);
     const shown = D.findings.filter((f) => S.findingLevel === 'all'
       || (f.queueLevels || f.levels || [f.level]).indexOf(S.findingLevel) >= 0);
     const logged = {};
@@ -6066,12 +6152,12 @@
     };
     const chains = shown.filter((f) => f.kind !== 'hygiene');
     const hyg = shown.filter((f) => f.kind === 'hygiene');
-    group('瓶颈链', chains.length
+    group('诊断路径', chains.length
       ? '合计 ' + num(chains.reduce((n, f) => n + (f.cost ? f.cost.us : 0), 0), 0)
         + ' us · 与 makespan 有时间重叠，不可相加'
       : '本层无', chains);
-    group('体检项', hyg.length ? '无 makespan 归因' : '本层无', hyg);
-    $('[data-bind="findingCount"]').textContent = shown.length + ' / ' + D.findings.length;
+    group('待归因信号', hyg.length ? '无 makespan 归因' : '本层无', hyg);
+    findingCount.textContent = shown.length + ' / ' + D.findings.length;
   }
 
   /* Activating a finding puts the stage where its evidence lives and turns on
@@ -6099,7 +6185,7 @@
      * to arm both, or the screen shows a different run than the claim */
     if (s.variant && QW() && QW().variants.some((v) => v.id === s.variant)) S.variant = s.variant;
     if (s.panel) {
-      if (s.view === 'e2e') S.e2ePanel = s.panel;
+      if (s.view === 'e2e') S.e2ePanel = s.panel === 'triage' ? 'serving' : s.panel;
       else if (s.view === 'l2') S.l2Panel = s.panel;
       else if (s.view === 'l1') S.l1Panel = s.panel;
     }
@@ -6389,11 +6475,6 @@
       tree.appendChild(row);
     });
     $('[data-bind="explorerMeta"]').textContent = 'benchmark';
-    $('[data-bind="findingCount"]').textContent = '采集范围';
-    $('#findingFilter').textContent = '';
-    const list = $('#findingList');
-    list.textContent = '';
-    list.appendChild(el('div', 'inspector-soft-card is-warning', '仅请求级 benchmark 可用；没有同 scope 的 Host / Device wall 拆分，设备侧下钻保持不可用。'));
   }
 
   function renderServingBenchmarkInspector() {
@@ -6472,6 +6553,7 @@
     if (isServingBenchmark()) {
       S.view = 'e2e';
       renderTabs();
+      renderRunHistoryTabs();
       renderToolbar();
       renderServingBenchmarkExplorer();
       viewServingBenchmark(stage);
@@ -6482,6 +6564,7 @@
     }
 
     renderTabs();
+    renderRunHistoryTabs();
     renderToolbar();
     renderExplorer();
     findingBar(stage);
@@ -6504,6 +6587,7 @@
   function switchCase(id) {
     if (id === D.case.id) { toggleCaseMenu(false); return; }
     loadCase(id);
+    S.runHistoryTab = 'overview';
     S.tile = isServingBenchmark() ? null : defaultTile();
     toggleCaseMenu(false);
     renderCaseMenu();
@@ -6547,8 +6631,8 @@
         ? run.benchmark.completed + '/' + run.benchmark.requests + ' 请求 · '
           + num(run.benchmark.outputThroughput, 1) + ' token/s · TTFT P99 ' + num(run.benchmark.latency[0].p99, 0) + ' ms'
         : run.ranks[run.defaultRank].tasks.length + ' 任务 · '
-          + (run.chainCount != null ? run.chainCount + ' 条瓶颈链 · ' + run.hygieneCount + ' 条体检项'
-            : run.findings.length + ' 条瓶颈')
+          + (run.chainCount != null ? run.chainCount + ' 条诊断路径 · ' + run.hygieneCount + ' 条待归因信号'
+            : run.findings.length + ' 条性能发现')
           + ' · ' + run.hints.length + ' 条提示';
       b.appendChild(el('div', 'mt', meta));
       b.addEventListener('click', () => switchCase(c.id));

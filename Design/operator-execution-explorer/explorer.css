@@ -1,0 +1,460 @@
+/* =============================================================
+ * Operator Execution Explorer — page-local layout only.
+ *
+ * Shell, chrome, panes, tabs, buttons, floating playback and the
+ * 2D matrix canvas all come from the PTO design system
+ * (ide-frame / workbench-shell / floating-playback-control /
+ * matrix-canvas). This file adds only the domain layout: the tensor
+ * flow, the code surface, the work-unit / loop / journey board and
+ * the evidence drawer.
+ *
+ * Every color / spacing / radius / type value references a shared
+ * token. No private palette, no private pane skin, no legacy rails.
+ * ============================================================= */
+
+/* ------------------------------------------------------- page shell */
+
+html, body { height: 100%; }
+
+body.explorer-page {
+  margin: 0;
+  overflow: hidden;
+  background: var(--ide-frame-page-bg);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Full-viewport host window: relax the shared 4:3 ratio the same way
+ * the other full-screen PTO demos do it. The gradient, aura, pane
+ * fill, pane header fill and backdrop blur all stay on the shared
+ * ide-frame skin. */
+.explorer-frame {
+  width: 100vw;
+  height: 100dvh;
+  aspect-ratio: auto;
+  border-radius: 0;
+  box-shadow: none;
+}
+.explorer-frame .pto-ide-frame__body,
+.explorer-frame .pto-ide-frame__workarea { min-height: 0; height: 100%; }
+.explorer-frame [data-ide-split="standalone-main"] { height: 100%; }
+
+/* ------------------------------------------------------- source pane */
+
+.explorer-code {
+  padding: var(--space-2) 0 var(--space-5);
+  font: var(--type-mono);
+  line-height: 1.75;
+}
+.explorer-code-line {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  min-height: 21px;
+  white-space: pre;
+}
+.explorer-code-line.is-active {
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+}
+.explorer-code-line.is-active .explorer-code-num { color: var(--primary); }
+.explorer-code-line.is-active .explorer-code-text { color: var(--foreground); }
+.explorer-code-num {
+  padding-right: var(--space-3);
+  text-align: right;
+  color: var(--foreground-muted);
+  user-select: none;
+}
+.explorer-code-text { color: var(--foreground-secondary); }
+
+/* Syntax roles map to semantic tokens; this is a code-semantic
+ * encoding, not a private UI palette. */
+.syntax-keyword { color: var(--primary); }
+.syntax-type { color: var(--accent); }
+.syntax-number { color: var(--warning); }
+.syntax-string { color: var(--success); }
+
+/* ------------------------------------------------------- tensor pane */
+
+.tensor-body {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3);
+  overflow: hidden;
+}
+.tensor-flow {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr) 22px minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: stretch;
+}
+.tensor-block {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.tensor-caption {
+  flex: 0 0 auto;
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.tensor-caption h3 {
+  margin: 0 0 2px;
+  font: var(--type-title-3);
+  color: var(--foreground);
+}
+.tensor-caption span {
+  display: block;
+  color: var(--foreground-secondary);
+  font: var(--type-body-sm);
+  white-space: nowrap;
+}
+.flow-symbol {
+  align-self: center;
+  text-align: center;
+  color: var(--foreground-muted);
+  font-size: 24px;
+  font-weight: 300;
+}
+
+.matrix-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  --matrix-size: min(200px, calc(100% - 68px));
+}
+.matrix-top-axis {
+  position: absolute;
+  top: var(--space-1);
+  left: 50%;
+  transform: translateX(-50%);
+  font: var(--type-micro);
+  color: var(--foreground-secondary);
+  white-space: nowrap;
+}
+.matrix-y-axis {
+  position: absolute;
+  top: calc(34px + var(--matrix-size) / 2);
+  left: var(--space-1);
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: left center;
+  font: var(--type-micro);
+  color: var(--foreground-secondary);
+  white-space: nowrap;
+}
+.matrix-x-labels {
+  position: absolute;
+  top: 18px;
+  left: calc((100% - var(--matrix-size)) / 2);
+  width: var(--matrix-size);
+  display: flex;
+  justify-content: space-between;
+  font: var(--type-micro);
+  color: var(--foreground-muted);
+}
+.matrix-y-labels {
+  position: absolute;
+  top: 34px;
+  left: calc((100% - var(--matrix-size)) / 2 - 30px);
+  height: var(--matrix-size);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  font: var(--type-micro);
+  color: var(--foreground-muted);
+}
+.matrix-host {
+  position: absolute;
+  top: 34px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--matrix-size);
+  height: var(--matrix-size);
+  overflow: hidden;
+}
+.matrix-host canvas { display: block; width: 100%; height: 100%; }
+
+/* Selected-region overlay: A / B / C are data-viz semantic encodings
+ * (blue = left operand, accent = right operand, warning = output). */
+.matrix-focus {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  z-index: 3;
+}
+.matrix-focus--A {
+  background: color-mix(in srgb, var(--primary) 44%, transparent);
+  border: 2px solid var(--primary);
+}
+.matrix-focus--B {
+  background: color-mix(in srgb, var(--accent) 46%, transparent);
+  border: 2px solid var(--accent);
+}
+.matrix-focus--C {
+  background: color-mix(in srgb, var(--warning) 42%, transparent);
+  border: 2px solid var(--warning);
+}
+.matrix-selected-label {
+  position: absolute;
+  top: calc(38px + var(--matrix-size));
+  right: var(--space-3);
+  font: var(--type-mono);
+  color: var(--primary);
+}
+.tensor-block[data-tensor="B"] .matrix-selected-label { color: var(--accent); }
+.tensor-block[data-tensor="C"] .matrix-selected-label { color: var(--warning); }
+
+/* ------------------------------------------------- instructions pane */
+
+.instructions-content {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3);
+  /* clears the shared floating playback bar that floats at the frame
+   * bottom centre */
+  padding-bottom: 96px;
+}
+.instruction-context {
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--foreground-secondary);
+  font: var(--type-body-sm);
+}
+.instructions-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 168px 116px 24px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+.work-unit-list {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-right: var(--space-3);
+  border-right: 1px solid var(--border-subtle);
+}
+#workUnitList {
+  min-height: 0;
+  overflow: auto;
+}
+.work-unit-title {
+  margin-bottom: var(--space-1);
+  color: var(--foreground-secondary);
+  font: var(--type-label);
+  white-space: nowrap;
+}
+.work-unit {
+  width: 100%;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--foreground-secondary);
+  font: var(--type-mono);
+  text-align: left;
+  cursor: pointer;
+}
+.work-unit:hover { background: var(--state-hover); }
+.work-unit.is-selected {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--foreground);
+}
+.output-card {
+  align-self: center;
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--foreground);
+  font: var(--type-body-sm);
+}
+.output-card > span { color: var(--foreground-secondary); }
+.output-card code { color: var(--primary); font: var(--type-mono); line-height: 1.5; }
+.between-arrow {
+  align-self: center;
+  text-align: center;
+  color: var(--foreground-muted);
+  font-size: 22px;
+}
+.nested-groups { min-width: 0; min-height: 0; }
+.loop-group { border-radius: var(--radius-md); }
+.m-loop {
+  height: 100%;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  background: var(--surface-1);
+}
+.n-loop {
+  height: calc(100% - 34px);
+  margin-left: 96px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+}
+.loop-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 28px;
+  white-space: nowrap;
+  color: var(--foreground-secondary);
+  font: var(--type-body-sm);
+}
+.loop-header strong { color: var(--foreground); font: var(--type-title-3); }
+.loop-options { display: flex; gap: var(--space-1); margin-left: var(--space-4); }
+.loop-option {
+  min-width: 38px;
+  min-height: 26px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--foreground-secondary);
+  font: var(--type-label);
+  cursor: pointer;
+}
+.loop-option:hover { background: var(--surface-3); }
+.loop-option.is-selected {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.loop-meta { font: var(--type-body-sm); color: var(--foreground-muted); }
+
+.journey-list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0 var(--space-1);
+}
+.instruction-card {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 78px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+}
+.instruction-card:hover { background: var(--surface-2); }
+.instruction-card.is-selected {
+  background: color-mix(in srgb, var(--primary) 20%, var(--surface-1));
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+}
+.instruction-card strong { font: var(--type-title-3); }
+.instruction-card code {
+  color: var(--foreground-secondary);
+  font: var(--type-mono);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.step-arrow {
+  flex: 0 0 18px;
+  text-align: center;
+  color: var(--foreground-muted);
+  font-size: 20px;
+}
+.inside-matmul {
+  display: block;
+  width: 208px;
+  margin: var(--space-2) 20% 0 auto;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--foreground-secondary);
+  font: var(--type-body-sm);
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+.inside-matmul:hover { background: var(--surface-2); }
+.inside-matmul span { display: block; color: var(--foreground-muted); }
+
+/* ------------------------------------------------- evidence drawer */
+
+.source-drawer {
+  position: absolute;
+  top: 56px;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  width: min(420px, 42vw);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  box-shadow: var(--panel-shell-shadow);
+  backdrop-filter: var(--surface-backdrop-filter-soft);
+  -webkit-backdrop-filter: var(--surface-backdrop-filter-soft);
+  transform: translateX(calc(100% + var(--space-4)));
+  visibility: hidden;
+  transition: transform var(--duration-base) var(--easing-default),
+    visibility var(--duration-base) var(--easing-default);
+  z-index: 60;
+}
+.source-drawer.is-open { transform: translateX(0); visibility: visible; }
+.source-drawer header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.source-drawer h2 { margin: 0; font: var(--type-title-2); color: var(--foreground); }
+.source-drawer__eyebrow {
+  margin: 0 0 var(--space-1);
+  color: var(--foreground-muted);
+  font: var(--type-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.drawer-content {
+  padding: 0 var(--space-4) var(--space-4);
+  overflow: auto;
+  color: var(--foreground-secondary);
+  font: var(--type-body);
+}
+.drawer-content p { margin: 0 0 var(--space-3); }
+.drawer-content a { color: var(--primary); }
+
+/* ------------------------------------------------- narrow viewport */
+
+@media (max-width: 1400px) {
+  .instructions-main { grid-template-columns: 148px 104px 22px minmax(0, 1fr); }
+  .n-loop { margin-left: 72px; }
+  .loop-meta { display: none; }
+  .tensor-flow { grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr) 16px minmax(0, 1fr); }
+  .matrix-area { --matrix-size: min(170px, calc(100% - 60px)); }
+}

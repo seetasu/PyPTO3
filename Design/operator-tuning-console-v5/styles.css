@@ -772,6 +772,37 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .tc-section-head .sub { color: var(--foreground-secondary); font: var(--type-body-sm); }
 .tc-section-head .spacer { flex: 1 1 auto; }
 
+/* Run #107 history context is composed from the three Run-view objects;
+ * the shared PTO tab-control and button classes own their interactive chrome. */
+.kf-run-history-context { display: grid; flex: 0 0 auto; gap: var(--space-2); padding: var(--space-2) var(--tc-gutter) 0; }
+.kf-run-history-context[hidden], .kf-rw-health[hidden] { display: none; }
+.kf-rd-overview { display: grid; grid-template-columns: minmax(220px, 1.15fr) repeat(2, minmax(0, 1fr)); align-items: stretch; gap: var(--space-2); padding-bottom: var(--space-2); border-bottom: 1px solid var(--border-subtle); }
+.kf-rd-summary { display: grid; min-width: 0; align-content: center; gap: var(--space-1); }
+.kf-rd-eyebrow, .kf-rd-titleline, .kf-rd-run { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.kf-rd-eyebrow { color: var(--foreground-muted); font: var(--type-micro); letter-spacing: .08em; }
+.kf-rd-eyebrow > span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.kf-rd-eyebrow > span i { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
+.kf-rd-eyebrow > em { color: var(--foreground-secondary); font-style: normal; letter-spacing: 0; }
+.kf-rd-titleline h2 { margin: 0; color: var(--foreground); font: var(--type-title-2); }
+.kf-rd-verdict { color: var(--warning); font: var(--type-label); }
+.kf-rd-run { color: var(--foreground-muted); font: var(--type-body-sm); }
+.kf-rd-run code { color: var(--foreground-secondary); font: var(--type-mono); }
+.kf-rd-run small { color: var(--foreground-muted); font: inherit; }
+.kf-rd-kpi { display: grid; min-width: 0; align-content: center; gap: var(--space-1); padding-inline: var(--space-3); border-inline-start: 1px solid var(--border-subtle); }
+.kf-rd-kpi > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-2); color: var(--foreground-secondary); font: var(--type-label); }
+.kf-rd-kpi > header em { color: var(--foreground-muted); font: var(--type-micro); font-style: normal; }
+.kf-rd-kpi-main > b { color: var(--foreground); font: var(--type-title-1); }
+.kf-rd-kpi-main > b > i { margin-left: var(--space-1); color: var(--foreground-secondary); font: var(--type-body-sm); font-style: normal; }
+.kf-rd-kpi > small { color: var(--foreground-muted); font: var(--type-body-sm); line-height: 1.4; }
+.kf-rt { width: fit-content; max-width: 100%; overflow-x: auto; }
+.kf-rw-health { display: grid; grid-template-columns: repeat(5, minmax(132px, 1fr)); gap: var(--space-1); overflow-x: auto; padding: var(--space-2) var(--tc-gutter); border-bottom: 1px solid var(--border-subtle); }
+.kf-rw-health-item { display: grid; min-width: 0; min-height: 58px; grid-template-columns: minmax(0, 1fr) auto; align-content: center; justify-content: stretch; gap: var(--space-1) var(--space-2); padding-inline: var(--space-2); text-align: left; white-space: normal; }
+.kf-rw-health-item > b { color: var(--foreground); font: var(--type-label); }
+.kf-rw-health-item > em { color: var(--foreground-muted); font: var(--type-micro); font-style: normal; }
+.kf-rw-health-item.is-ok > em { color: var(--success); }
+.kf-rw-health-item.is-warn > em { color: var(--warning); }
+.kf-rw-health-item > small { grid-column: 1 / -1; color: var(--foreground-muted); font: var(--type-body-sm); line-height: 1.35; }
+
 .tc-toolbar-right { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-left: auto; }
 #viewToolbar { gap: var(--space-2); flex-wrap: wrap; }
 .tc-field { display: inline-flex; align-items: center; gap: var(--space-2); }
@@ -1043,6 +1074,11 @@ button.tc-e2e-flow-node:hover, button.tc-e2e-flow-node:focus-visible { border-co
     radial-gradient(52% 36% at 2% 38%, color-mix(in srgb, var(--accent) 5%, transparent), transparent 74%);
 }
 .tc-e2e-command-overview { gap: var(--space-3) !important; }
+.tc-e2e-findings .tc-findings { flex: 0 0 auto; min-height: auto; overflow: visible; }
+.tc-e2e-panel-region-body { display: flex; flex-direction: column; gap: var(--space-4); }
+.tc-e2e-panel-region-body[hidden] { display: none; }
+.tc-e2e-panel-tabs { max-width: 100%; overflow-x: auto; }
+.tc-e2e-panel-content { display: flex; flex-direction: column; gap: var(--space-4); }
 .tc-e2e-command-overview > .tc-section-head {
   padding: 2px 0;
 }

@@ -47,7 +47,7 @@
       {
         level: 'l2', role: 'observe',
         headline: '零 slack 的 kv_score_proj_0 与非关键工作竞争 AIC',
-        detail: '真实 trace：256 块分布在 24 个 AIC，span 395.64 us；AIC_0 / AIC_18 可见其他任务穿插在其 block 间隙。L2 确认关键任务被共享资源上的工作打断，但单看泳道不能区分块内变慢与调度等待。',
+        detail: '真实 trace：256 个 Block 分布于 24 个 AIC，span 395.64 us；AIC_0 / AIC_18 可见其他任务穿插在其 block 间隙。L2 确认关键任务被共享资源上的工作打断，但单看泳道不能区分块内变慢与调度等待。',
         evidence: [evidence[0]],
         subjects: subjects('l2', [taskId, 'r2t23', 'r3t11']),
         chips: [
@@ -70,7 +70,7 @@
       {
         level: 'compiler', role: 'root',
         headline: 'PH-MR-001 将源码点落到 MemoryReuse 深度回退',
-        detail: '真实 hint：decode_compressor_ratio4.py:110 的 Right 侧每级 stage 需要 32 KB，5 组请求 depth 2；预算 64 KB 时实际拟合为 depth 1。该位置与 kv_score_proj / kv_score_proj_0 的任务源码行对应。它证明发生了回退，但不能单独证明回退造成 L2 span 增长；仍需按提示做单变量重编译与复测。',
+        detail: '真实 hint：decode_compressor_ratio4.py:110 的 Right 侧每级 stage 需要 32 KB，5 组请求 depth 2；预算 64 KB 时实际拟合为 depth 1。该位置与 kv_score_proj / kv_score_proj_0 的任务源码行对应。它证明发生了回退，但不能单独证明回退造成 L2 span 增长；仍需按提示做单变量重编译与验证。',
         evidence: [evidence[1]],
         subjects: Object.assign(subjects('compiler', [taskId], 'depth'), { sites: [hintSite] }),
         chips: [{ kind: 'site', id: hintSite, label: hintSite, value: 'PH-MR-001 · 2→1' }],
@@ -81,7 +81,7 @@
     focus: { view: 'l2', task: taskId },
     lever: '先对该源码点做一个实验：只降低 Right tile 的每级占用或减少同驻 group，观察 MemoryReuse 是否恢复 depth 2；不同时改 AIC 优先级和调度策略。',
     guardrail: '缩小 tile 会增加循环 / 搬运次数，减少 group 可能降低并行度；需要正确性校验，并确认竞争任务 slack 与 makespan 没有恶化。',
-    verify: '重编译检查 PH-MR-001 是否从 2→1 恢复到 2；再重测对应任务的 block 中位时长、span、间隙和 makespan。hint 消失但 L2 不变，说明这条提示不是主因。',
+    verify: '重编译检查 PH-MR-001 是否从 2→1 恢复到 2；再重测对应任务的 block 中位时长、span、间隙和 makespan。hint 消失但 L2 不变，说明这条提示不是主要成因。',
     subjects: subjects('l2', [taskId, 'r2t23', 'r3t11']),
     chips: [
       { kind: 'task', id: taskId, label: 'kv_score_proj_0', value: '395.64 us' },
