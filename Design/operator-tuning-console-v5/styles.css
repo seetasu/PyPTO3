@@ -316,6 +316,23 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
   background: var(--inspector-soft-card-bg);
 }
 
+/* Selection-driven Inspector: flat hierarchy, neutral metadata, no nested cards. */
+.inspector-rail .inspector-section { gap: var(--space-2); }
+.inspector-rail .inspector-section-title { color: var(--foreground-muted); }
+.tc-inspector-identity { display: grid; gap: 4px; min-width: 0; }
+.tc-inspector-identity > strong { color: var(--foreground); font: var(--type-title-3); overflow-wrap: anywhere; }
+.tc-inspector-type, .tc-inspector-context { color: var(--foreground-muted); font: var(--type-body-sm); }
+.tc-inspector-context { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.tc-inspector-interpretation, .tc-inspector-next { margin: 0; color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.5; }
+.tc-inspector-interpretation.is-warning { color: var(--warning); }
+.tc-inspector-interpretation.is-info { color: var(--foreground-secondary); }
+.tc-inspector-actions { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.tc-inspector-all-properties > summary { color: var(--foreground-secondary); font: var(--type-body-sm); cursor: pointer; }
+.tc-inspector-all-properties > .tc-kv { margin-top: var(--space-2); }
+.inspector-rail .tc-kv dt { color: var(--foreground-muted); }
+.inspector-rail .tc-kv dd { overflow-wrap: anywhere; }
+.inspector-rail .tc-kv dd.is-technical-id { font-family: var(--font-mono); }
+
 /* ------------------------------------------------------------ explorer */
 .tc-explorer { display: flex; flex-direction: column; gap: 0; padding: 0 var(--tc-gutter); }
 .tc-explorer .inspector-section:last-child { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }

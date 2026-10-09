@@ -55,7 +55,12 @@
     finding: null,
     chainStep: null,          /* 'C2:1' -- which ladder rung the reader is on */
     findingLevel: 'all',
-    focus: null,               /* 'finding' | 'task' | 'hint' | 'pass' */
+    focus: null,               /* selected inspector object: run | rank | task | dependency | kernel | function | finding | hint | pass */
+    compareRank: null,
+    dependencyFrom: null,
+    dependencyTag: null,
+    selectedKernelIndex: 0,
+    invocation: null,
     /* L2 opens on an annotated per-core trace: the full execution remains
      * visible, but only the strongest performance signals are saturated. */
     laneFilter: 'summary',
@@ -1002,7 +1007,7 @@
       label.type = 'button';
       label.appendChild(el('strong', null, rank));
       label.appendChild(el('small', null, msOrUs(data.swimlane.spanUs) + ' trace'));
-      label.addEventListener('click', () => { selectAnalysisRank(rank, 'l2'); S.focus = null; render(); });
+      label.addEventListener('click', () => { selectAnalysisRank(rank, 'l2'); S.focus = 'rank'; render(); });
       row.appendChild(label);
       const track = el('div', 'track');
       data.cpath.segments.forEach((segment) => {
@@ -1163,7 +1168,7 @@
       label.appendChild(el('strong', null, rank));
       label.appendChild(el('span', null, 'wall ' + num(deviceWall, 0) + ' · trace ' + num(rankData.swimlane.spanUs, 0)));
       label.appendChild(el('small', null, pct(rankData.occupancy.aicUtil, 0) + ' AIC · ' + pct(rankData.occupancy.aivUtil, 0) + ' AIV'));
-      label.addEventListener('click', () => { selectAnalysisRank(rank, 'l2'); S.focus = null; render(); });
+      label.addEventListener('click', () => { selectAnalysisRank(rank, 'l2'); S.focus = 'rank'; render(); });
       row.appendChild(label);
       const track = el('div', 'tc-e2e-atlas-track');
       track.style.height = Math.max(64, laneCount * 16 + 12) + 'px';
@@ -1334,7 +1339,7 @@
       { label: 'host runner_run', num: true, cell: (r) => num(r.host, 1) },
       { label: 'trace', cell: (r) => (r.traced ? '<span class="ok">已采</span>' : '—') },
     ], rows.map((r) => Object.assign(r, { __selected: r.rank === S.rank && r.traced })), {
-      onPick: (r) => { selectAnalysisRank(r.rank, 'l2'); S.focus = null; render(); },
+      onPick: (r) => { selectAnalysisRank(r.rank, 'l2'); S.focus = 'rank'; render(); },
     }));
     stage.appendChild(secTab);
 
@@ -1404,7 +1409,7 @@
       { label: '依赖关键路径', cell: (r) => r.crit + ' 节点', num: true },
       { label: 'AIC 占用', num: true, cell: (r) => pct(r.aic) },
       { label: 'AIV 占用', num: true, cell: (r) => pct(r.aiv) },
-    ], recRows, { onPick: (r) => { selectAnalysisRank(r.rank, 'l2'); render(); } }));
+    ], recRows, { onPick: (r) => { selectAnalysisRank(r.rank, 'l2'); S.focus = 'rank'; render(); } }));
     stage.appendChild(recSec);
     renderFuncSummary(stage);
   }
@@ -3953,18 +3958,279 @@
     host.textContent = '';
     const title = $('[data-bind="inspectorTitle"]');
     const meta = $('[data-bind="inspectorMeta"]');
-
     const focus = S.focus || defaultFocus();
-    const crumb = scopeCrumb();
-    if (crumb) host.appendChild(crumb);
-    if (focus === 'scope') renderScopeInspector(host, title, meta);
-    else if (focus === 'finding' && S.finding) renderFindingInspector(host, title, meta);
-    else if (focus === 'hint' && S.hintSite) renderHintInspector(host, title, meta);
-    else if (focus === 'pass') renderPassInspector(host, title, meta);
-    else if (focus === 'run') renderRunInspector(host, title, meta);
-    else renderTaskInspector(host, title, meta);
+    renderSelectedInspector(host, title, meta, focus);
+  }
 
-    host.appendChild(renderLedger());
+  function inspectorGroup(title, body, kicker) {
+    const section = inspectorSection(title, kicker);
+    if (body) section.appendChild(body);
+    return section;
+  }
+
+  function inspectorEvidence(rows) {
+    return kv(rows.slice(0, 4));
+  }
+
+  function inspectorProperties(rows) {
+    const section = inspectorSection('Properties');
+    const visible = inspectorPropertyList(rows.slice(0, 5));
+    section.appendChild(visible);
+    if (rows.length > 5) {
+      const all = el('details', 'tc-inspector-all-properties');
+      all.appendChild(el('summary', null, 'Show all properties'));
+      all.appendChild(inspectorPropertyList(rows));
+      section.appendChild(all);
+    }
+    return section;
+  }
+
+  function inspectorPropertyList(rows) {
+    const list = kv(rows);
+    list.classList.add('tc-inspector-property-list');
+    list.querySelectorAll('dt').forEach((label) => {
+      if (/id|rank|invocation|kernel|pass|source|path/i.test(label.textContent)) {
+        label.nextElementSibling?.classList.add('is-technical-id');
+      }
+    });
+    return list;
+  }
+
+  function inspectorActions(items) {
+    const section = inspectorSection('Contextual actions');
+    const actions = el('div', 'tc-inspector-actions');
+    items.filter(Boolean).forEach((item) => {
+      actions.appendChild(btn(item.label, { size: 'sm', variant: 'ghost', on: item.on }));
+    });
+    if (actions.childElementCount) section.appendChild(actions);
+    return section;
+  }
+
+  function inspectorIdentity(host, title, meta, type, name, context) {
+    title.textContent = name;
+    meta.textContent = type + (context ? ' · ' + context : '');
+    const identity = el('div', 'tc-inspector-identity');
+    identity.appendChild(el('strong', null, name));
+    identity.appendChild(el('span', 'tc-inspector-type', type));
+    if (context) identity.appendChild(el('span', 'tc-inspector-context', context));
+    host.appendChild(inspectorGroup('Identity', identity));
+  }
+
+  function inspectorInterpretation(host, text, tone) {
+    if (!text) return;
+    const note = el('p', 'tc-inspector-interpretation' + (tone ? ' is-' + tone : ''), text);
+    host.appendChild(inspectorGroup('Key interpretation', note));
+  }
+
+  function renderSelectedInspector(host, title, meta, focus) {
+    if (focus === 'finding' && S.finding && findingById[S.finding]) {
+      renderSelectedFinding(host, title, meta);
+    } else if (focus === 'rank') {
+      renderSelectedRank(host, title, meta);
+    } else if (focus === 'pass') {
+      renderSelectedPass(host, title, meta);
+    } else if (focus === 'hint' && S.hintSite) {
+      renderSelectedArtifact(host, title, meta);
+    } else if (focus === 'dependency' && S.dependencyTag) {
+      renderSelectedDependency(host, title, meta);
+    } else if (focus === 'kernel') {
+      renderSelectedKernel(host, title, meta);
+    } else if (focus === 'invocation') {
+      renderSelectedInvocation(host, title, meta);
+    } else if (focus === 'task' || focus === 'function') {
+      renderSelectedTask(host, title, meta, focus);
+    } else {
+      renderSelectedRun(host, title, meta);
+    }
+  }
+
+  function renderSelectedRun(host, title, meta) {
+    const rankNames = D.case.ranks || [];
+    const traces = rankNames.map((rank) => D.ranks[rank].swimlane.spanUs);
+    const largest = traces.length ? Math.max.apply(null, traces) : null;
+    const smallest = traces.length ? Math.min.apply(null, traces) : null;
+    const skew = largest != null && smallest != null && largest - smallest > Math.max(1, smallest * .05);
+    inspectorIdentity(host, title, meta, 'Run', D.case.program, D.case.runDir);
+    inspectorInterpretation(host, skew ? 'Rank trace span 相差 ' + us(largest - smallest, 1) + '，可检查 rank 间工作量或启动差异。' : null, skew ? 'warning' : null);
+    host.appendChild(inspectorGroup('Key evidence', inspectorEvidence([
+      ['Ranks', rankNames.join(' · ') || '—'],
+      ['Trace span', traces.map((value) => msOrUs(value)).join(' / ') || '—'],
+      ['Kernels / scopes', D.case.callables + ' / ' + scopeCountOf()],
+      ['Device', D.case.device],
+    ])));
+    const properties = [
+      ['Model', D.case.model], ['Captured', D.case.capturedAt],
+      ['Device', D.case.device], ['Ranks', rankNames.join(', ')],
+      ['Cores', D.case.numCores + ' · AIC ' + D.case.aicCount + ' / AIV ' + D.case.aivCount],
+      ['Runtime', D.case.toolchain.runtimeName || '—'],
+      ['PTO-ISA', D.case.toolchain.ptoIsaRevision || '—'], ['Run path', D.case.runDir],
+    ];
+    host.appendChild(inspectorProperties(properties));
+    host.appendChild(inspectorActions([
+      { label: 'View in timeline', on: () => { S.view = 'l2'; S.focus = 'task'; render(); } },
+      rankNames.length > 1 ? { label: 'Compare ranks', on: () => { S.rank = rankNames[0]; S.compareRank = rankNames[1]; S.focus = 'rank'; render(); } } : null,
+      { label: 'Inspect invocation', on: () => { S.invocation = TRACE_MATCH[S.rank]?.inv || null; S.focus = 'invocation'; render(); } },
+    ]));
+  }
+
+  function renderSelectedRank(host, title, meta) {
+    const rank = R();
+    const otherRank = S.compareRank && S.compareRank !== S.rank ? S.compareRank : (D.case.ranks || []).find((item) => item !== S.rank);
+    const other = otherRank && D.ranks[otherRank];
+    const delta = other ? rank.swimlane.spanUs - other.swimlane.spanUs : null;
+    inspectorIdentity(host, title, meta, 'Rank', S.rank, D.case.device);
+    inspectorInterpretation(host, delta != null && Math.abs(delta) > Math.max(1, other.swimlane.spanUs * .05)
+      ? S.rank + ' trace span ' + (delta > 0 ? '高于 ' : '低于 ') + otherRank + ' ' + us(Math.abs(delta), 1) + '。'
+      : null, delta != null && Math.abs(delta) > Math.max(1, other.swimlane.spanUs * .05) ? 'warning' : null);
+    host.appendChild(inspectorGroup('Key evidence', inspectorEvidence([
+      ['Trace span', msOrUs(rank.swimlane.spanUs)],
+      ['AIC / AIV occupancy', pct(rank.occupancy.aicUtil) + ' / ' + pct(rank.occupancy.aivUtil)],
+      ['Critical path', rank.critical.tags.length + ' tasks'],
+      ...(other ? [['vs ' + otherRank, (delta > 0 ? '+' : '') + us(delta, 1) + ' trace span']] : []),
+    ])));
+    host.appendChild(inspectorProperties([
+      ['Rank', S.rank], ['Invocation', TRACE_MATCH[S.rank]?.inv ?? '—'],
+      ['Trace span', us(rank.swimlane.spanUs, 1)], ['Tasks', rank.tasks.length],
+      ['Lanes', rank.swimlane.lanes.length],
+      ['Scheduler occupancy', pct(rank.scheduler.perLaneUtil)], ['Baseline rank', otherRank || '—'],
+    ]));
+    host.appendChild(inspectorActions([
+      { label: 'View in timeline', on: () => { S.view = 'l2'; S.focus = 'task'; render(); } },
+      otherRank ? { label: 'Compare with ' + otherRank, on: () => { S.compareRank = otherRank; S.focus = 'rank'; render(); } } : null,
+      { label: 'View PMU', on: () => { S.view = 'l1'; S.l1Panel = 'pmu'; S.focus = 'task'; render(); } },
+    ]));
+  }
+
+  function renderSelectedInvocation(host, title, meta) {
+    const rank = R();
+    const matched = TRACE_MATCH[S.rank];
+    const inv = S.invocation || (matched && matched.inv);
+    const invocationData = inv != null && D.e2e && D.e2e[S.rank] ? D.e2e[S.rank][inv] : null;
+    const deviceWall = invocationData && invocationData['chip.run.runner_run.device_wall'];
+    const scheduledWall = invocationData && invocationData['chip.run.runner_run.device_wall.sched'];
+    inspectorIdentity(host, title, meta, 'Invocation', 'inv=' + (inv == null ? '—' : inv), S.rank + ' · ' + D.case.program);
+    inspectorInterpretation(host, matched && matched.inv === Number(inv) ? 'Host invocation 与当前 rank trace 已匹配。' : '该 invocation 没有与当前 rank trace 对齐。', matched && matched.inv === Number(inv) ? null : 'warning');
+    host.appendChild(inspectorGroup('Key evidence', inspectorEvidence([
+      ['Device wall', deviceWall ? msOrUs(deviceWall.us) : '—'],
+      ['Scheduled wall', scheduledWall ? msOrUs(scheduledWall.us) : '—'],
+      ['Trace span', msOrUs(rank.swimlane.spanUs)],
+      ['Trace match delta', matched && matched.inv === Number(inv) ? us(matched.diff, 1) : '—'],
+    ])));
+    host.appendChild(inspectorProperties([['Invocation', inv], ['Rank', S.rank], ['Run', D.case.program], ['Device', D.case.device], ['Captured', D.case.capturedAt]]));
+    host.appendChild(inspectorActions([{ label: 'View in timeline', on: () => { S.view = 'l2'; S.focus = 'task'; render(); } }]));
+  }
+
+  function renderSelectedTask(host, title, meta, focus) {
+    const task = curTask();
+    const rank = R();
+    const path = pathRole(rank, task.tag);
+    const kernels = task.kernels || [];
+    const kernel = kernels[S.selectedKernelIndex] || kernels[0];
+    const isFunction = focus === 'function' || task.kind === 'function';
+    const type = focus === 'kernel' ? 'Kernel' : (isFunction ? 'Function' : 'Task');
+    const name = focus === 'kernel' && kernel ? kernel.name : task.callable;
+    inspectorIdentity(host, title, meta, type, name, S.rank + ' · ' + task.tag);
+    inspectorInterpretation(host, path.onCpm || path.onObs ? pathLabel(path) : null, path.onCpm ? 'warning' : null);
+    const evidence = focus === 'kernel' && kernel ? [
+      ['Kernel core time', us(kernel.coreTime, 1)],
+      ['Blocks / cores', kernel.blocks + ' / ' + kernel.cores],
+      ['Parent task path', path.onCpm ? 'Critical path' : path.onObs ? 'Dependency path' : 'Off path'],
+      ['Parent task span', us(task.span, 1)],
+    ] : [
+      ['Wall span', us(task.span, 1)],
+      ['Kernel core time', us(task.kdurSum, 1)],
+      ['Blocks / cores', task.blockCount + ' / ' + task.coreCount],
+      ['Path role', path.onCpm ? 'Critical path' : path.onObs ? 'Dependency path' : 'Off path'],
+    ];
+    host.appendChild(inspectorGroup('Key evidence', inspectorEvidence(evidence)));
+    const properties = [
+      ['Task ID', task.id], ['Callable', task.callable], ['Rank', S.rank],
+      ['Source', task.src ? srcLabel(task.src) : (D.sourceMap ? 'Unmapped' : 'Unavailable')],
+      ['Ring / scope', 'r' + task.ring + ' · ' + task.scope],
+      ['Time window', us(task.start, 1) + ' → ' + us(task.end, 1)],
+      ['Block duration p50 / p90', us(task.durMed, 2) + ' / ' + us(task.durP90, 2)],
+      ['Kernel', kernels.map((item) => item.name).join(' · ') || task.callable],
+      ['Dependencies', task.pred.length + ' incoming · ' + task.succ.length + ' outgoing'],
+    ];
+    host.appendChild(inspectorProperties(properties));
+    const actions = [
+      { label: 'View in timeline', on: () => { S.view = 'l2'; S.focus = 'task'; render(); } },
+      { label: 'Open dependency path', on: () => { S.view = 'l2'; S.deps = 'path'; S.pathOnly = 'cpm'; S.focus = 'task'; render(); } },
+      { label: 'View PMU', on: () => { S.view = 'l1'; S.l1Panel = 'pmu'; S.focus = 'task'; render(); } },
+      { label: 'Inspect function', on: () => { S.focus = 'function'; render(); } },
+      kernels.length ? { label: 'Inspect kernel', on: () => { S.selectedKernelIndex = (S.selectedKernelIndex + 1) % kernels.length; S.focus = 'kernel'; render(); } } : null,
+      (task.succ[0] || task.pred[0]) ? { label: 'Inspect dependency', on: () => { S.dependencyFrom = task.tag; S.dependencyTag = task.succ[0] || task.pred[0]; S.focus = 'dependency'; render(); } } : null,
+      task.src ? { label: 'View compiler context', on: () => { S.view = 'compiler'; S.compilerTab = 'passes'; S.focus = 'task'; render(); } } : null,
+    ];
+    host.appendChild(inspectorActions(actions));
+  }
+
+  function renderSelectedDependency(host, title, meta) {
+    const task = tasksOf[S.rank][S.dependencyTag] || curTask();
+    const from = tasksOf[S.rank][S.dependencyFrom];
+    inspectorIdentity(host, title, meta, 'Dependency', from ? from.callable + ' → ' + task.callable : task.callable, S.rank);
+    inspectorInterpretation(host, from ? '依赖关系连接两个执行任务；可在时间线上检查其先后与关键路径影响。' : null);
+    host.appendChild(inspectorGroup('Key evidence', inspectorEvidence([
+      ['Predecessor', from ? from.callable : '—'], ['Successor', task.callable], ['Path role', pathLabel(pathRole(R(), task.tag))],
+    ])));
+    host.appendChild(inspectorProperties([['From task', from ? from.tag : '—'], ['To task', task.tag], ['Rank', S.rank], ['Callable', task.callable]]));
+    host.appendChild(inspectorActions([{ label: 'Open dependency path', on: () => { S.view = 'l2'; S.deps = 'path'; S.pathOnly = 'cpm'; S.focus = 'task'; S.task = task.tag; render(); } }]));
+  }
+
+  function renderSelectedKernel(host, title, meta) {
+    renderSelectedTask(host, title, meta, 'kernel');
+  }
+
+  function renderSelectedArtifact(host, title, meta) {
+    const site = D.depthSites.find((item) => item.key === S.hintSite) || D.tileSites.find((item) => item.key === S.hintSite);
+    if (!site) return renderSelectedTask(host, title, meta, 'task');
+    const depth = D.depthSites.includes(site);
+    inspectorIdentity(host, title, meta, 'Artifact', site.file + ':' + site.line, site.module);
+    inspectorInterpretation(host, depth ? '请求深度受每 stage 可用内存约束。' : '当前源码提示关联末维搬运与 cache-line 利用。', 'info');
+    host.appendChild(inspectorGroup('Key evidence', inspectorEvidence(depth ? [
+      ['Pipeline groups', site.groupCount], ['Fitted depth', site.fittedDepth + ' / ' + site.maxReqDepth],
+      ['Per-stage / free', kb(site.perStageB) + ' / ' + kb(site.freeB)],
+    ] : [['Operators', Object.keys(site.ops).join(', ')], ['Tail dimension', site.minB + ' B'], ['Suggested', '≥ ' + site.recB + ' B']])));
+    host.appendChild(inspectorProperties([['Source', site.file + ':' + site.line], ['Module', site.module], ['Type', depth ? 'Pipeline depth hint' : 'Tile granularity hint']]));
+    host.appendChild(inspectorActions([{ label: 'Open source', on: () => { S.view = 'compiler'; S.compilerTab = depth ? 'depth' : 'granularity'; render(); } }]));
+  }
+
+  function renderSelectedPass(host, title, meta) {
+    const pass = D.passes.find((item) => item.idx === S.pass) || D.passes[0];
+    const previous = D.passes.find((item) => item.idx === pass.idx - 1);
+    inspectorIdentity(host, title, meta, 'Pass', pass.name, '#' + pass.idx);
+    const delta = previous ? pass.lines - previous.lines : pass.delta;
+    inspectorInterpretation(host, delta ? '相对前一 Pass，IR 行数 ' + (delta > 0 ? '+' : '') + delta + '。' : null);
+    host.appendChild(inspectorGroup('Key evidence', inspectorEvidence([
+      ['IR lines', pass.lines], ['Pipeline', pass.counts.pipeline], ['Matmul tiles', pass.counts.matmul], ['SPMD', pass.counts.spmd],
+    ])));
+    host.appendChild(inspectorProperties([['Pass', pass.name], ['File', pass.file], ['Index', pass.idx], ['IR lines', pass.lines], ['Δ lines', pass.delta], ...Object.entries(pass.counts).map(([key, value]) => [key, value])]));
+    host.appendChild(inspectorActions([{ label: 'View in compiler', on: () => { S.view = 'compiler'; S.compilerTab = 'passes'; render(); } }]));
+  }
+
+  function renderSelectedFinding(host, title, meta) {
+    const finding = findingById[S.finding];
+    const evidence = (finding.evidence || []).slice(0, 4).map((item) => [item.artifact, item.value]);
+    const taskTag = (finding.subjects.tasks || [])[0];
+    const relatedTask = taskTag && tasksOf[S.rank][taskTag];
+    const dependencyFrom = relatedTask && relatedTask.succ.length ? relatedTask.tag : (relatedTask && relatedTask.pred[0]);
+    const dependencyTag = relatedTask && relatedTask.succ.length ? relatedTask.succ[0] : taskTag;
+    const siteKey = (finding.subjects.sites || [])[0];
+    inspectorIdentity(host, title, meta, finding.kind === 'hygiene' ? 'Finding · Health check' : 'Finding', finding.id + ' · ' + finding.title, finding.level);
+    inspectorInterpretation(host, finding.claim || finding.unattributed || '', finding.cost || finding.unattributed ? 'warning' : null);
+    host.appendChild(inspectorGroup('Key evidence', inspectorEvidence(evidence.length ? evidence : [['Status', 'No measured attribution']])));
+    host.appendChild(inspectorProperties([
+      ['Finding ID', finding.id], ['Severity / level', finding.level], ['Metric', finding.metric],
+      ['Attributed cost', finding.cost ? us(finding.cost.us, 1) + ' · ' + finding.cost.share + '%' : 'Unattributed'],
+      ['Evidence items', finding.evidence.length], ['Scope', finding.cost ? finding.cost.basis : 'No makespan attribution'],
+    ]));
+    const next = el('p', 'tc-inspector-next', 'Next: ' + (finding.lever || finding.verify || 'inspect the linked evidence'));
+    host.appendChild(inspectorGroup('Next', next));
+    host.appendChild(inspectorActions([
+      { label: 'View in timeline', on: () => { applyFocus(finding); S.view = finding.subjects.view || 'l2'; S.focus = 'finding'; render(); } },
+      taskTag && dependencyTag && dependencyFrom ? { label: 'Open dependency path', on: () => { S.dependencyFrom = dependencyFrom; S.dependencyTag = dependencyTag; S.task = dependencyTag; S.view = 'l2'; S.deps = 'path'; S.pathOnly = 'cpm'; S.focus = 'dependency'; render(); } } : null,
+      siteKey ? { label: 'Open source', on: () => { S.hintSite = siteKey; S.view = 'compiler'; S.focus = 'hint'; render(); } } : null,
+    ]));
   }
 
   /* the inspector follows the view unless the user pinned something else.
@@ -3977,7 +4243,7 @@
      * objects; with another capture armed they would describe a different run
      * than the stage does */
     if (QW() && !onPrimaryVariant()) return 'run';
-    if (S.view === 'l2') return 'scope';
+    if (S.view === 'l2') return 'task';
     return 'task';
   }
 
@@ -5105,7 +5371,7 @@
       { label: 'ready>0', key: 'readyShare', num: true },
       { label: 'AIC 占用', key: 'aic', num: true },
     ], rows, {
-      onPick: (row) => { selectAnalysisRank(row.rank, 'l2'); S.focus = null; render(); },
+      onPick: (row) => { selectAnalysisRank(row.rank, 'l2'); S.focus = 'rank'; render(); },
     }));
 
     const note = el('div', 'inspector-soft-card' + (skew ? ' is-warning' : ''));
@@ -5494,7 +5760,7 @@
       b.type = 'button';
       b.title = l.hint;
       b.setAttribute('aria-pressed', l.id === S.view ? 'true' : 'false');
-      b.addEventListener('click', () => { S.view = l.id; S.focus = null; render(); });
+      b.addEventListener('click', () => { S.view = l.id; render(); });
       host.appendChild(b);
     });
   }
@@ -5612,6 +5878,7 @@
       right.appendChild(field('分析 rank', select(Object.keys(D.ranks).map((r) => ({ id: r, label: r })), S.rank,
         (v) => {
           selectAnalysisRank(v);
+          S.focus = 'rank';
           render();
         })));
       if (S.view === 'compiler' || S.view === 'isa') {
@@ -5662,6 +5929,7 @@
           selected: rank === S.rank,
           on: () => {
             S.rank = rank;
+            S.focus = 'rank';
             S.t0 = 0; S.t1 = R().swimlane.spanUs;
             if (!tasksOf[S.rank][S.task]) S.task = R().tasks[0].tag;
             render();
@@ -5671,7 +5939,7 @@
           Object.keys(D.e2e[rank]).forEach((inv) => {
             row(2, 'inv=' + inv + (m && m.inv === +inv ? ' · traced' : ''),
               us(D.e2e[rank][inv]['chip.run.runner_run.device_wall'].us, 0), {
-                on: () => { S.rank = rank; S.view = 'e2e'; render(); },
+                on: () => { S.rank = rank; S.invocation = Number(inv); S.view = 'e2e'; S.focus = 'invocation'; render(); },
               });
           });
         } else {
@@ -6130,22 +6398,26 @@
 
   function renderServingBenchmarkInspector() {
     const b = D.benchmark;
-    $('[data-bind="inspectorTitle"]').textContent = 'Benchmark';
-    $('[data-bind="inspectorMeta"]').textContent = 'request-level';
     const host = $('#inspector');
     host.textContent = '';
-    const summary = inspectorSection('负载指纹', '真实压测');
-    summary.appendChild(kv([
-      ['模型', D.case.model],
-      ['并发', b.concurrency + ' requests'],
-      ['输入 / 输出', '256 / 64 tokens per request'],
-      ['完成率', b.completed + ' / ' + b.requests],
-      ['Trace', b.trace.raw],
+    const title = $('[data-bind="inspectorTitle"]');
+    const meta = $('[data-bind="inspectorMeta"]');
+    inspectorIdentity(host, title, meta, 'Run · request benchmark', D.case.program, 'request-level');
+    inspectorInterpretation(host, '当前只有请求级结果；不能据此归因 Host 与 Device 时延。', 'warning');
+    host.appendChild(inspectorGroup('Key evidence', inspectorEvidence([
+      ['TTFT P95', num(b.latency[0].p99, 1) + ' ms'],
+      ['TPOT P95', num(b.latency[1].p99, 1) + ' ms'],
+      ['Output throughput', num(b.outputThroughput, 1) + ' token/s'],
+      ['Completed', b.completed + ' / ' + b.requests],
+    ])));
+    host.appendChild(inspectorProperties([
+      ['Model', D.case.model], ['Concurrency', b.concurrency + ' requests'],
+      ['Input / output', '256 / 64 tokens'], ['Trace', b.trace.raw],
+      ...b.trace.missing.map((item, index) => ['Unavailable artifact ' + (index + 1), item]),
     ]));
-    host.appendChild(summary);
-    const caveat = inspectorSection('不能推断', b.trace.missing.length + ' 项');
-    b.trace.missing.forEach((item) => caveat.appendChild(el('div', 'inspector-soft-card is-warning', item)));
-    host.appendChild(caveat);
+    host.appendChild(inspectorActions([
+      { label: 'View request samples', on: () => { S.e2ePanel = 'samples'; render(); } },
+    ]));
   }
 
   function renderServingBenchmarkDock() {
