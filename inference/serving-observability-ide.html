@@ -2046,7 +2046,7 @@ button.operator-tree-toggle:hover {
     .so-dse-deployment-actions { display: flex; align-items: center; gap: 8px; }
     .so-dse-deployment-body { padding: 12px; }
     .so-dse-canvas { min-width: 0; }
-    .so-placement-canvas { position: relative; min-width: 0; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 10px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--surface-2); isolation: isolate; }
+    .so-placement-canvas { position: relative; min-width: 0; display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); gap: 10px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--surface-2); isolation: isolate; }
     .so-placement-toolbar { grid-column: 1 / -1; display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 3px 2px; }
     .so-placement-toolbar-copy { min-width: 0; }
     .so-placement-toolbar-copy strong { display: block; color: var(--foreground); font-size: 13px; }
@@ -2055,7 +2055,7 @@ button.operator-tree-toggle:hover {
     .so-placement-toolbar-hint::before { width: 6px; height: 6px; border-radius: 50%; background: #44a57b; content: ''; }
     .so-placement-region { position: relative; z-index: 2; min-width: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 9px; background: var(--surface-1); box-shadow: var(--shadow-sm); }
     .so-placement-region-head { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-2); }
-    .so-placement-region-head h3 { margin: 0; color: var(--foreground); font-size: 12px; font-weight: 650; }
+    .so-placement-region-head h3 { margin: 0; color: var(--foreground); font-size: 12px; font-weight: 650; white-space: nowrap; }
     .so-placement-region-head > span { overflow: hidden; color: var(--foreground-muted); font-family: var(--font-mono); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
     .so-placement-region-body { min-width: 0; padding: 12px; }
     .so-placement-stage-list { display: grid; gap: 7px; }
@@ -2098,6 +2098,7 @@ button.operator-tree-toggle:hover {
     .so-placement-experts i:nth-child(4n + 1) { background: #9ecbb8; }
     .so-placement-shared { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 6px; background: #eef7f3; color: #316b55; font-size: 9px; }
     .so-placement-layer-region { border-color: var(--border-subtle); background: var(--surface-2); }
+    .so-placement-pipeline-region { align-self: start; }
     .so-original-layer-host { width: 100%; min-height: 400px; display: block; background: var(--surface-2); }
     .so-placement-rank-region { grid-column: 1 / -1; }
     .so-placement-memory-legend { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
@@ -6337,9 +6338,9 @@ button.operator-tree-toggle:hover {
         return '<section class="so-placement-canvas" data-placement-canvas>' +
           '<div class="so-placement-toolbar"><div class="so-placement-toolbar-copy"><strong>Placement Canvas</strong><span data-placement-summary>Select a Rank to trace Model → PP / TP / EP → Device placement</span></div><div class="so-placement-toolbar-hint">' + candidate.gpu + ' Ascend A2 · Click a Rank card</div></div>' +
           '<svg class="so-placement-connection-layer" data-placement-connections aria-hidden="true"></svg>' +
-          '<section class="so-placement-region"><div class="so-placement-region-head"><h3>Model / Pipeline</h3><span>DeepSeek V4 · 43 Layers</span></div><div class="so-placement-region-body"><div class="so-placement-stage-list">' + candidate.poolPlan.map(renderStages).join('') + '</div><div class="so-placement-model-track"><span class="so-placement-endpoint"><span>Token</span><i></i></span><span><span class="so-placement-layers">' + renderLayers() + '</span><span class="so-placement-layer-labels"><span>L0</span><span>L10</span><span>L21</span><span>L32</span><span>L42</span></span></span><span class="so-placement-endpoint"><span>Logits</span><i></i></span></div></div></section>' +
-          '<section class="so-placement-region so-placement-layer-region">' + renderOriginalTransformerLayer() + '</section>' +
           '<section class="so-placement-region so-placement-rank-region"><div class="so-placement-region-head"><h3>Rank Placement</h3><span class="so-placement-memory-legend">' + memoryLegend + '</span></div><div class="so-placement-region-body"><section class="so-placement-node"><div class="so-placement-node-head"><strong>Node 0</strong><span>Devices 0–' + (candidate.gpu - 1) + '</span></div><div class="so-placement-node-body"><div class="so-placement-pools" style="--pool-count:' + candidate.poolPlan.length + '">' + candidate.poolPlan.map(renderPool).join('') + '</div></div></section></div></section>' +
+          '<section class="so-placement-region so-placement-pipeline-region"><div class="so-placement-region-head"><h3>Model / Pipeline</h3><span>DeepSeek V4 · 43 Layers</span></div><div class="so-placement-region-body"><div class="so-placement-stage-list">' + candidate.poolPlan.map(renderStages).join('') + '</div><div class="so-placement-model-track"><span class="so-placement-endpoint"><span>Token</span><i></i></span><span><span class="so-placement-layers">' + renderLayers() + '</span><span class="so-placement-layer-labels"><span>L0</span><span>L10</span><span>L21</span><span>L32</span><span>L42</span></span></span><span class="so-placement-endpoint"><span>Logits</span><i></i></span></div></div></section>' +
+          '<section class="so-placement-region so-placement-layer-region">' + renderOriginalTransformerLayer() + '</section>' +
           '</section>';
       }
 
@@ -6352,7 +6353,8 @@ button.operator-tree-toggle:hover {
         var layerTemplate = canvas.querySelector('[data-placement-layer-template]');
         var layerRoot = layerHost.attachShadow({ mode: 'open' });
         layerRoot.appendChild(layerTemplate.content.cloneNode(true));
-        var selectedRank = null;
+        var firstPoolStart = Number(String(candidate.poolPlan[0].ranks).split(/[–-]/)[0]);
+        var selectedRank = isNaN(firstPoolStart) ? null : firstPoolStart;
         var activePoolId = candidate.poolPlan[0].id;
 
         layerRoot.querySelectorAll('.experts').forEach(function (grid) {
@@ -6427,13 +6429,17 @@ button.operator-tree-toggle:hover {
             { axis: 'tp', color: '#04d793', element: layerRoot.querySelector('[data-original-layer-source="tp"][data-original-layer-value="' + (Number(card.getAttribute('data-placement-tp')) % 2) + '"]') },
             { axis: 'ep', color: '#7be8c5', element: layerRoot.querySelector('[data-original-mode-panel="' + phaseForPool(card.getAttribute('data-placement-pool')) + '"] [data-original-layer-source="ep"][data-original-layer-value="' + (phaseForPool(card.getAttribute('data-placement-pool')) === 'prefill' ? 0 : Number(card.getAttribute('data-placement-ep')) % 2) + '"]') }
           ];
-          var endBase = pointFor(card, 'top');
+          var cardTop = pointFor(card, 'top');
+          var cardBottom = pointFor(card, 'bottom');
           sources.forEach(function (source, index) {
             if (!source.element) return;
-            var start = pointFor(source.element, 'bottom');
-            var end = { x: endBase.x + (index - 1) * 11, y: endBase.y };
-            var span = Math.max(40, end.y - start.y);
-            var bend = Math.min(128, span * .38);
+            var sourceTop = pointFor(source.element, 'top');
+            var sourceBottom = pointFor(source.element, 'bottom');
+            var upward = cardBottom.y < sourceTop.y;
+            var start = upward ? sourceTop : sourceBottom;
+            var end = { x: (upward ? cardBottom.x : cardTop.x) + (index - 1) * 11, y: upward ? cardBottom.y : cardTop.y };
+            var span = end.y - start.y;
+            var bend = Math.min(128, Math.max(30, Math.abs(span) * .38)) * (span >= 0 ? 1 : -1);
             var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.setAttribute('d', 'M ' + start.x.toFixed(1) + ' ' + start.y.toFixed(1) + ' C ' + start.x.toFixed(1) + ' ' + (start.y + bend).toFixed(1) + ', ' + end.x.toFixed(1) + ' ' + (end.y - bend).toFixed(1) + ', ' + end.x.toFixed(1) + ' ' + end.y.toFixed(1));
             path.setAttribute('class', 'so-placement-connection');
