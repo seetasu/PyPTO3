@@ -5860,7 +5860,7 @@ button.operator-tree-toggle:hover {
         }
         var isFinal = stage.id === 'intent-ranked';
         host.hidden = false;
-        host.innerHTML = '<div class="so-dse-stage-detail-head"><div><h3 id="dse-stage-detail-title">' + esc(stage.label) + '</h3><p>' + esc(stage.summary) + '</p></div><span class="so-pill ' + (isFinal ? 'accent' : '') + '">' + stage.count + ' candidates</span></div><div class="so-dse-stage-summary"><span>Candidate population</span><code>' + esc(stage.caption || stage.kind) + '</code></div>' + (stage.id === 'search-space' ? renderDseSearchSpaceCandidates() : '') + (stage.id === 'deployment-candidates' ? renderDseStageCompare(dseStageCompareContext('deployment-candidates')) : '') + (isFinal ? renderDseParetoCandidates(explore) : '');
+        host.innerHTML = '<div class="so-dse-stage-detail-head"><div><h3 id="dse-stage-detail-title">' + esc(stage.label) + '</h3><p>' + esc(stage.summary) + '</p></div><span class="so-pill ' + (isFinal ? 'accent' : '') + '">' + stage.count + ' candidates</span></div>' + (stage.id === 'search-space' ? renderDseSearchSpaceCandidates() : '') + (stage.id === 'deployment-candidates' ? renderDseStageCompare(dseStageCompareContext('deployment-candidates')) : '') + (isFinal ? renderDseParetoCandidates(explore) : '');
         if (stage.id === 'deployment-candidates') {
           window.requestAnimationFrame(function () { drawDseStageCompareChart(host.querySelector('[data-dse-stage-compare-chart]'), dseStageCompareContext('deployment-candidates')); });
         }

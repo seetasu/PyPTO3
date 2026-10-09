@@ -53,6 +53,7 @@ SCOPE_GATED_SKILLS = (
     "skills/fix-pr/SKILL.md",
     "skills/git-commit/SKILL.md",
     "skills/github-pr/SKILL.md",
+    "skills/ship/SKILL.md",
 )
 
 GITHUB_CONTEXT_VARIABLES = (

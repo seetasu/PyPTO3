@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ship Change"
+  short_description: "Publish, merge, and clean one completed change"
+  default_prompt: "Use $ship to publish, merge, and clean up my current change."

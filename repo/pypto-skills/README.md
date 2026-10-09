@@ -18,6 +18,7 @@ Reusable repository development workflows:
 - `create-issue`
 - `fix-issue`
 - `auto-pr`
+- `ship`
 
 These skills discover and honor the consumer repository's policies, test
 commands, issue forms, and commit conventions.
