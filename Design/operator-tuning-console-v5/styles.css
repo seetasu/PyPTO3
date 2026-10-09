@@ -1777,3 +1777,71 @@ button.tc-e2e-command-card:hover, button.tc-e2e-command-card:focus-visible {
 /* the readout was already being tagged is-crit in a few places (path role,
  * layer-boundary confidence, capture validation) with nothing to show for it */
 .tc-readout.is-crit { color: var(--warning); }
+
+/* Keep the E2E landing view focused on the diagnosis and its primary evidence.
+ * Secondary comparisons remain available, but do not compete for first scan. */
+.tc-stage--e2e {
+  background: var(--surface-0, var(--background));
+}
+.tc-e2e-command-card,
+.tc-e2e-action-card {
+  min-height: 152px;
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  box-shadow: none;
+}
+.tc-e2e-command-card[data-active="true"] {
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+.tc-e2e-action-card {
+  gap: var(--space-2);
+  border-color: var(--border-subtle);
+  background: var(--surface-1);
+}
+.tc-e2e-action-button { box-shadow: none; }
+.tc-e2e-critical-map {
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+.tc-e2e-secondary-detail {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+}
+.tc-e2e-secondary-summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--foreground-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+.tc-e2e-secondary-summary::-webkit-details-marker { display: none; }
+.tc-e2e-secondary-summary::before {
+  content: "+";
+  width: 1em;
+  color: var(--foreground-muted);
+  font-family: var(--font-mono);
+}
+.tc-e2e-secondary-detail[open] > .tc-e2e-secondary-summary::before { content: "−"; }
+.tc-e2e-secondary-summary > strong { color: var(--foreground); font: var(--type-label); }
+.tc-e2e-secondary-summary > span { color: var(--foreground-muted); font: var(--type-body-sm); }
+.tc-e2e-secondary-detail > .tc-tiles { margin-top: var(--space-2); }
+
+@media (max-width: 980px) {
+  #levelTabs { overflow-x: auto; flex-wrap: nowrap; }
+  #levelTabs > * { flex: 0 0 auto; white-space: nowrap; }
+  .tc-e2e-command-overview > .tc-section-head { flex-wrap: wrap; align-items: flex-start; }
+  .tc-e2e-command-overview > .tc-section-head h2 { flex: 1 0 100%; font-size: 21px; }
+  .tc-e2e-command-overview > .tc-section-head .sub { flex: 1 1 160px; min-width: 0; }
+  .tc-e2e-command-overview > .tc-section-head .tc-readout { white-space: normal; overflow-wrap: anywhere; }
+  .tc-stage--e2e .tc-e2e-command-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tc-stage--e2e .tc-e2e-command-card,
+  .tc-stage--e2e .tc-e2e-action-card { min-height: 136px; }
+  .tc-stage--e2e .tc-e2e-action-card { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .tc-stage--e2e .tc-e2e-command-grid { grid-template-columns: minmax(0, 1fr); }
+  .tc-stage--e2e .tc-e2e-action-card { grid-column: auto; }
+  .tc-stage--e2e .tc-e2e-command-card { min-height: 118px; }
+  .tc-e2e-secondary-summary { flex-wrap: wrap; }
+}

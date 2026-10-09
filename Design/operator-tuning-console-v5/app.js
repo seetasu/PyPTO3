@@ -936,7 +936,7 @@
     const servingWait = triage.servingWait && triageNumber(triage.servingWait, 'avgUs', 'avg_us');
     const sec = el('section', 'tc-e2e-command-overview');
     sec.id = 'e2e-triage';
-    sec.appendChild(sectionHead('端到端运行总览', '把一次真实请求的 Serving、Host 与 Device 信号放到同一张首屏，先定界再下钻',
+    sec.appendChild(sectionHead('端到端运行总览', '同一请求的 Serving、Host 与 Device 信号',
       el('span', 'tc-readout', b.measured ? b.source + ' · 同一 scope 实测' : b.source + ' · scope 不完整')));
     const grid = el('div', 'tc-e2e-command-grid');
     const percentOfE2E = (value) => b.e2eWallUs && value != null
@@ -3901,7 +3901,10 @@
    * scrolling against 1-2 on every other tab. Nothing is removed: a folded
    * section is one click from its full content, and the fold state is kept
    * per title so it survives the rail's re-render. */
-  const FOLD_BY_DEFAULT = { '统计口径': 1, '引擎配对': 1, 'spmd 展开': 1 };
+  const FOLD_BY_DEFAULT = {
+    '统计口径': 1, '引擎配对': 1, 'spmd 展开': 1,
+    '运行对象': 1, '两卡对比': 1, '瓶颈链': 1,
+  };
 
   function inspectorSection(title, kicker) {
     const s = el('section', 'inspector-section');
@@ -5065,9 +5068,11 @@
     const ranks = D.case.ranks.filter((rank) => D.ranks[rank] && TRACE_MATCH[rank]);
     const skew = D.launchSkew;
     const base = ranks[0];
-    const sec = el('section');
-    sec.appendChild(sectionHead('跨 rank 调度与 ready queue',
-      'E2E 对照 · 点行进入该 rank 的 L2 工作台'));
+    const sec = el('details', 'tc-e2e-secondary-detail');
+    const summary = el('summary', 'tc-e2e-secondary-summary');
+    summary.appendChild(el('strong', null, '跨 rank 调度与 ready queue'));
+    summary.appendChild(el('span', null, '查看调度读数与 rank 对照'));
+    sec.appendChild(summary);
 
     const waitSum = skew ? skew.measuredSum : 0;
     sec.appendChild(tiles([
@@ -6285,6 +6290,17 @@
 
   function boot() {
     if (window.PtoIdeFrame) window.PtoIdeFrame.initAll();
+    const compactWorkarea = window.matchMedia('(max-width: 980px)');
+    const syncWorkarea = () => {
+      const shouldCollapse = compactWorkarea.matches;
+      ['explorer', 'inspector'].forEach((pane) => {
+        const toggle = document.querySelector('[data-ide-toggle="' + pane + '"]');
+        const expanded = toggle?.getAttribute('aria-expanded') === 'true';
+        if (toggle && expanded === shouldCollapse) toggle.click();
+      });
+    };
+    syncWorkarea();
+    compactWorkarea.addEventListener('change', syncWorkarea);
     if (EMBED_VIEW) document.body.classList.add('tc-embed-view');
     loadCase(initialCase);
     S.tile = isServingBenchmark() ? null : defaultTile();
