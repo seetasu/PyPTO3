@@ -19,7 +19,8 @@ full-suite run.
 Resolve the [repository scope gate](../../lib/repository/scope.md) before any
 mutation. A `ship` request authorizes publishing, merging, and cleaning up only
 the one pull request this invocation creates or updates; it never authorizes
-cleanup of pre-existing branches or unrelated pull requests.
+cleanup of pre-existing branches or unrelated pull requests. A later explicit
+`ship cleanup` request has the narrower authority defined below.
 
 Read and use [automatic pull request](../auto-pr/SKILL.md) to publish the
 current change and obtain its exact PR identity. It owns commit, push,
@@ -41,6 +42,22 @@ An explicit `ship` invocation authorizes merging this verified PR. If it is
 not mergeable or needs a decision, leave the PR and its branch intact, report
 the blocker, and stop. After the merge request succeeds, re-read the PR and
 require its server state to be merged before any cleanup.
+
+## Reconcile a browser-merged pull request
+
+GitHub's browser merge and branch deletion do not modify a local checkout. On
+an explicit later `ship cleanup` request, do not publish, merge, or inspect a
+set of old branches. Instead, use the current local branch as the only cleanup
+candidate:
+
+1. Require a clean worktree, then refresh the configured head remote and base
+   remote with pruning.
+2. Resolve exactly one merged PR for that branch on the configured host. Its
+   recorded head OID must equal the live local branch OID; an absent, ambiguous,
+   open, or mismatched PR preserves the branch and stops the workflow.
+3. Treat that verified merged PR and branch as the delivery identity, then run
+   the local return-and-cleanup sequence below. Do not infer candidates from
+   names such as `ship/*`.
 
 ## Return the local checkout to its default branch
 
