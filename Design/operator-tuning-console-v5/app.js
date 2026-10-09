@@ -89,7 +89,7 @@
     e2ePanel: 'serving',      /* serving | device | samples
                                * qwen3: step | ops | api | topo */
     e2ePanelsCollapsed: false,
-    runHistoryTab: 'overview',
+    activeTab: 'overview',
     variant: null,            /* qwen3 case: which capture x stage is armed */
     l2Panel: 'swimlane',      /* swimlane | layers | head */
     l1Panel: 'pipe',          /* pipe | pmu */
@@ -944,8 +944,8 @@
     const servingWait = triage.servingWait && triageNumber(triage.servingWait, 'avgUs', 'avg_us');
     const sec = el('section', 'tc-e2e-command-overview');
     sec.id = 'e2e-triage';
-    sec.appendChild(sectionHead('端到端运行总览', '同一请求的 Serving、Host 与 Device 信号',
-      el('span', 'tc-readout', b.measured ? b.source + ' · 同一 scope 实测' : b.source + ' · scope 不完整')));
+    const readout = el('span', 'tc-readout', b.measured ? b.source + ' · 同一 scope 实测' : b.source + ' · scope 不完整');
+    readout.classList.add('tc-e2e-command-readout');
     const grid = el('div', 'tc-e2e-command-grid');
     const percentOfE2E = (value) => b.e2eWallUs && value != null
       ? Math.max(4, Math.min(100, value / b.e2eWallUs * 100)) : 12;
@@ -994,6 +994,7 @@
     action.appendChild(actionButton);
     grid.appendChild(action);
     sec.appendChild(grid);
+    sec.appendChild(readout);
     stage.appendChild(sec);
   }
 
@@ -1453,6 +1454,69 @@
     ], recRows, { onPick: (r) => { selectAnalysisRank(r.rank, 'l2'); S.focus = 'rank'; render(); } }));
     panelContent.appendChild(recSec);
     renderFuncSummary(panelContent);
+  }
+
+  function viewRun107Correctness(stage) {
+    const root = el('section', 'tc-run107-correctness');
+    root.innerHTML = `<header class="tc-correctness-heading"><div><span class="tc-correctness-eyebrow">CORRECTNESS · RUN #107</span><h1>首个分歧</h1></div><span class="tc-correctness-state" data-state>1 个分歧</span></header>
+      <section class="inspector-soft-card is-warning tc-correctness-root"><span>↳</span><div><b>可能根因</b><p>动态索引进入 GM store offset，触发 <code>INDEX / i64</code> 限制。</p></div><button class="btn btn-solid btn-sm" type="button" data-fix>应用 fallback 并创建新 Run</button></section>
+      <section class="tc-correctness-oracles" aria-label="Oracle 验证结果"><article><span>CPU</span><div><b>Torch golden_decode_layer</b><small>argmax · B16</small></div><em>MATCH</em></article><article><span>HOST</span><div><b>FP32 carry reference</b><small>ratio tolerance</small></div><em>MATCH</em></article><article class="is-blocked"><span>PTO</span><div><b>PyPTO device</b><small data-result>codegen blocked</small></div><em data-device>BLOCKED</em></article></section>
+      <section class="tc-correctness-divergence"><header><div><i></i><b>首个阻塞</b><code>设备 Oracle 未启动</code></div><span>codegen <b>index vs i64</b></span></header><div class="tc-correctness-trace" aria-label="首个阻塞下钻路径"><span>算子</span><button data-node="write">decode_layer</button><span>›</span><span>Task</span><button data-node="write">fa_work_build</button><span>›</span><span>Pass</span><button data-node="write">ISA Emission</button><span>›</span><span>Tensor</span><button data-node="work-table">fa_work_table</button><span>›</span><span>索引</span><button data-node="index">cursor + wp</button></div>
+        <section class="tc-correctness-ir"><header class="tc-correctness-ir-head"><div><span class="tc-correctness-eyebrow">IR LOCATION</span><b>fa_work_table 在阻塞 IR 中的位置</b></div><span>after ISA Emission</span></header><div class="tc-correctness-legend"><span><i></i>Tensor · 已匹配</span><span><i class="is-op"></i>Op</span><span><i class="is-first"></i>首错 Tensor</span><span><i class="is-derived"></i>传播 Tensor</span></div><div class="tc-correctness-workspace"><div class="tc-correctness-canvas" aria-label="decode_layer 的全量 IR 图" tabindex="0"></div><aside class="tc-correctness-node-inspector" aria-live="polite"></aside></div></section></section>`;
+    stage.appendChild(root);
+    const graph = root.querySelector('.tc-correctness-canvas');
+    const details = root.querySelector('.tc-correctness-node-inspector');
+    const nodes = [
+      ['index','tensor',30,205,'matched','cursor + wp','scalar · INDEX · runtime value','MATCHED INDEX INPUT','动态标量已进入当前 Task，尚未发生类型归一。','fa_work_build','offset = cursor + wp','地址偏移的来源已确定；问题发生在它参与 GM store 地址计算之后。'],
+      ['work-table','tensor',30,60,'first','fa_work_table','[B, MAX_CTX_BLOCKS] · I32 · GM','FIRST BLOCKED TENSOR','上游索引仍为动态值；首次无法完成地址类型归一。','fa_work_build','fa_work_table[cursor + wp] = work_item','阻塞范围已缩小到 Tensor write boundary。动态 INDEX 在 GM store offset 降级时与 i64 地址类型冲突。'],
+      ['q-tile','tensor',30,350,'matched','q_tile','[B, H, D] · BF16 · UB','MATCHED INPUT TENSOR','Query Tile 在首错路径之外，当前没有地址归一异常。','q_proj','q_tile = q_proj(...)','该 Tensor 是已确认可用的输入；它不会解释 work-table 地址阻塞。'],
+      ['k-cache','tensor',260,350,'matched','k_cache','[KV, D] · BF16 · GM paged','MATCHED STATE TENSOR','K cache 已完成分页地址映射，不是当前阻塞对象。','cache state','k_block = k_cache[page_id]','该 Tensor 与首错 Tensor 分离，为 fa_fused 提供匹配的状态输入。'],
+      ['v-cache','tensor',500,350,'matched','v_cache','[KV, D] · BF16 · GM paged','MATCHED STATE TENSOR','V cache 当前不参与首错归因。','cache state','v_block = v_cache[page_id]','该 Tensor 仍可用；后续 PV matmul 的阻塞来自 attention_probs 未产生。'],
+      ['index-add','op',280,218,'matched','index.add','offset compute · INDEX','OFFSET PRODUCER','生成的 INDEX 将作为 tensor.write 的地址偏移。','fa_work_build','offset = index.add(cursor, wp)','该 Op 保留了动态 INDEX，是首错 Tensor 的地址输入。'],
+      ['write','op',520,145,'blocked','tensor.write[index]','GM store · blocked during ISA Emission','SUSPECT WRITE OP','Tensor base 与 offset 在此汇合，地址类型无法统一。','fa_work_build','tensor.write(fa_work_table, offset, work_item)','首个阻塞发生在此 Op；动态 offset 无法与 GM store 的 i64 地址类型统一。'],
+      ['work-row','tensor',760,70,'derived','work_row','[MAX_CTX_BLOCKS] · I32 · GM view','PROPAGATED TENSOR','该 view 将携带相同的地址不确定性。','tensor.write[index]','work_row = fa_work_table.view(offset)','这是由首错 Tensor 衍生的 Tensor，琥珀色表示传播状态。'],
+      ['fa-fused','op',760,215,'derived','fa_fused','Task · not emitted','BLOCKED CONSUMER OP','该 Task 依赖 fa_work_table 的合法地址视图。','work_row','scores = fa_fused(q_tile, k_cache, work_row)','下游 Op 尚未获得可执行 IR；它是首错路径的消费者，不是根因。'],
+      ['scores','tensor',1000,215,'derived','attention_scores','[B, H, N] · FP32 · UB','PROPAGATED TENSOR','依赖未发射的 fa_fused，没有可验证的设备值。','fa_fused','attention_scores = qk_matmul(...)','该 Tensor 位于首错路径下游，不能作为 INDEX / i64 的直接证据。'],
+      ['softmax','op',1240,228,'derived','softmax.prepare','Vector · not emitted','PROPAGATED OP','输入 attention_scores 未产生可执行设备值。','attention_scores','probs = softmax.prepare(attention_scores)','这里只传播由 fa_work_table 地址失败引起的状态。'],
+      ['probs','tensor',1480,215,'derived','attention_probs','[B, H, N] · BF16 · UB','PROPAGATED TENSOR','需要由 softmax.prepare 发射后才能获得实际数值。','softmax.prepare','attention_probs = cast_bf16(probs)','这是下游传播结果，与首错 Tensor 的诊断意义不同。'],
+      ['pv','op',1480,350,'derived','pv_matmul','Cube · not emitted','PROPAGATED OP','概率 Tensor 未产出，因此 PV matmul 无法执行。','attention_probs / v_cache','attn_tmp = pv_matmul(attention_probs, v_cache)','下游计算被标记为传播状态，这里不提供错误归因。'],
+      ['attn-tmp','tensor',1720,350,'derived','attn_tmp','[B, H, D] · FP32 · UB','PROPAGATED TENSOR','该 Tensor 由未发射的 PV matmul 定义。','pv_matmul','attn_tmp = pv_matmul(...)','传播状态沿数据流传递，与首错 Tensor 明确区分。'],
+      ['online','op',1720,215,'derived','online_softmax','Vector reduce · not emitted','PROPAGATED OP','attn_tmp 没有设备值，在线归约无法执行。','attn_tmp','attn_out = online_softmax(attn_tmp)','这是下游收敛步骤；不可执行状态由上游首错 Tensor 导致。'],
+      ['attn-out','tensor',1960,215,'derived','attn_out','[B, H, D] · BF16 · GM','PROPAGATED TENSOR','attention 输出尚无设备侧结果。','online_softmax','attn_out = cast_bf16(online_out)','这是首错路径的远端传播结果，不参与根因归因。'],
+      ['out-proj','op',1960,350,'derived','out_proj','Cube · not emitted','PROPAGATED OP','attention 输出不可用，输出投影无法发射。','attn_out','layer_out = out_proj(attn_out)','最终投影不是根因；这里只展示首错对完整路径的影响范围。'],
+      ['layer-out','tensor',2200,350,'derived','layer_out','[B, D] · FP32 · GM','PROPAGATED OUTPUT TENSOR','最终输出没有设备侧结果，因为首个 Tensor write 尚未发射。','out_proj','layer_out = out_proj(attn_out)','这是完整 IR 路径的末端 Tensor，汇总首错阻塞的影响范围。'],
+    ];
+    const helper = window.PtoPassIrGraphNodePattern;
+    const graphStage = el('div', 'tc-correctness-graph-stage');
+    graphStage.innerHTML = `<span style="left:30px">01 · ADDRESS</span><span style="left:520px">02 · WORK TABLE</span><span style="left:1000px">03 · ATTENTION</span><span style="left:1960px">04 · OUTPUT</span><svg viewBox="0 0 2420 500" aria-hidden="true"><defs><marker id="tc-correctness-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--border-strong)"/></marker><marker id="tc-correctness-arrow-danger" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--danger)"/></marker><marker id="tc-correctness-arrow-warning" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--warning)"/></marker></defs><path d="M206 254H280" marker-end="url(#tc-correctness-arrow)"/><path class="is-blocked" d="M456 254L520 181M206 109L520 181" marker-end="url(#tc-correctness-arrow-danger)"/><path class="is-derived" d="M696 181L760 119M848 168V215M696 181L760 251M206 399L760 251M436 399L760 251M936 251H1000M1176 264H1240M1416 264H1480M1568 313V350M676 399L1480 386M1656 386H1720M1808 350V287M1896 251H1960M2048 313V350M2136 386H2200" marker-end="url(#tc-correctness-arrow-warning)"/></svg>`;
+    graph.appendChild(graphStage);
+    const selectNode = (item, card) => {
+      graphStage.querySelectorAll('.node-card').forEach((candidate) => candidate.classList.toggle('selected', candidate === card));
+      details.dataset.state = item[4];
+      details.innerHTML = `<header><span class="tc-correctness-eyebrow">${item[7]}</span><b>${item[5]}</b><small>${item[6]}</small></header><section class="tc-correctness-node-status"><b>● ${item[4] === 'blocked' ? 'First blocking boundary' : item[4] === 'first' ? 'First blocked tensor' : item[4] === 'derived' ? 'Propagated state' : 'Matched'}</b><span>${item[8]}</span></section><section><h2>Block evidence</h2><dl><div><dt>Pass</dt><dd>${item[4] === 'matched' ? 'Matched' : 'ISA Emission'}</dd></div><div><dt>Task</dt><dd>${item[9]}</dd></div><div><dt>Rule</dt><dd>${item[4] === 'blocked' || item[4] === 'first' ? 'INDEX / i64' : item[4] === 'derived' ? '传播状态' : '—'}</dd></div></dl></section><section><h2>IR expression</h2><code>${item[10]}</code></section><section><h2>Diagnosis</h2><p>${item[11]}</p><div class="tc-correctness-node-actions"><button class="btn btn-ghost btn-sm" type="button" data-ir-action="source">定位源码</button><button class="btn btn-ghost btn-sm" type="button" data-ir-action="pass">查看 Pass IR</button></div></section>`;
+      details.querySelectorAll('[data-ir-action]').forEach((button) => button.addEventListener('click', () => toast(button.dataset.irAction === 'source' ? '已定位 decode_layer.py · fa_work_build · 动态索引写入' : '已打开 ISA Emission 前的 Pass IR 快照')));
+    };
+    nodes.forEach((item) => {
+      const card = helper ? helper.buildNodeCardElement(item[1] === 'op'
+        ? { id: item[0], type: 'op', frame: { width: 176 }, data: { opType: item[5], stage: item[9], latency: item[4] === 'blocked' ? 'blocked' : '—', outShape: [item[6]] } }
+        : { id: item[0], type: 'tensor', frame: { width: 176 }, data: { symbol: item[5], shape: [item[6]], rawShape: [item[6]], dtype: 'fp32', format: 'GM' } }, { compact: true, selected: item[0] === 'work-table', accent: item[4] === 'blocked' ? 'var(--danger)' : item[4] === 'derived' ? 'var(--warning)' : 'var(--accent)' }) : el('button', 'tc-correctness-node', item[5]);
+      card.classList.add(`is-${item[4]}`); card.dataset.correctnessNode = item[0]; card.style.left = `${item[2]}px`; card.style.top = `${item[3]}px`; card.tabIndex = 0; card.setAttribute('aria-label', `${item[5]} · ${item[6]}`);
+      card.addEventListener('click', () => selectNode(item, card));
+      card.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectNode(item, card); } });
+      graphStage.appendChild(card);
+      if (item[0] === 'work-table') selectNode(item, card);
+    });
+    root.querySelectorAll('[data-node]').forEach((button) => button.addEventListener('click', () => {
+      const target = graphStage.querySelector(`[data-correctness-node="${button.dataset.node}"]`);
+      if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); target.click(); }
+    }));
+    root.querySelector('[data-fix]').addEventListener('click', () => {
+      root.querySelector('[data-state]').textContent = '3 / 3 oracle 一致'; root.querySelector('[data-state]').classList.add('is-good');
+      root.querySelector('[data-result]').textContent = '16 / 16 argmax'; root.querySelector('[data-device]').textContent = 'MATCH'; root.querySelector('.tc-correctness-oracles article.is-blocked').classList.remove('is-blocked'); root.querySelector('.tc-correctness-divergence').classList.add('is-resolved');
+      root.querySelector('.tc-correctness-root').innerHTML = '<span>✓</span><div><b>Fallback 已验证</b><p>16 / 16 batch argmax 一致；FP32 carry reference 的比例容差满足预期。</p></div><button class="btn btn-solid btn-sm" type="button">签发可信基线 →</button>';
+      root.querySelector('.tc-correctness-root button').addEventListener('click', () => toast('已进入可信基线签发流程'));
+      toast('复验通过：首个分歧已消除');
+    });
   }
 
   /* The L2 dump has no host STRACE log, so there is no end-to-end layer to
@@ -4278,7 +4342,7 @@
    * L2 asks "which scope ate the time / when was the machine idle";
    * L1 asks "what happened inside one kernel". Different panel. */
   function defaultFocus() {
-    if (S.view === 'e2e' || S.view === 'isa') return 'run';
+    if (S.view === 'e2e' || S.view === 'isa' || S.view === 'correctness') return 'run';
     if (S.view === 'compiler') return S.compilerTab === 'passes' ? 'pass' : (S.hintSite ? 'hint' : 'run');
     /* scope and task panels are built from the one capture that has task
      * objects; with another capture armed they would describe a different run
@@ -5800,15 +5864,29 @@
   function renderTabs() {
     const host = $('#levelTabs');
     host.textContent = '';
-    const levels = isServingBenchmark() ? LEVELS.filter((l) => l.id === 'e2e') : LEVELS;
-    levels.forEach((l) => {
-      const b = el('button', 'tab-control-item' + (l.id === S.view ? ' is-selected' : ''), l.label);
+    const tabs = isServingBenchmark() ? [
+      { id: 'e2e', label: 'E2E', view: 'e2e', hint: '端到端请求分析' },
+    ] : [
+      { id: 'overview', label: '概览', view: 'e2e', hint: 'Run 总览' },
+      { id: 'compilation', label: '编译', view: 'compiler', hint: 'Run 编译结果' },
+      { id: 'correctness', label: '正确性', view: 'correctness', hint: 'Run 正确性结果' },
+      { id: 'resources', label: '资源', view: 'l1', hint: 'Run 资源结果' },
+      { id: 'l2', label: 'L2 调度', view: 'l2', hint: '任务放置、依赖、关键路径' },
+      { id: 'l1', label: 'L1/L0', view: 'l1', hint: '单核流水与片上内存容量' },
+      { id: 'isa', label: 'ISA/布局', view: 'isa', hint: '布局与指令层证据' },
+    ];
+    tabs.forEach((tab) => {
+      const selected = isServingBenchmark() ? tab.id === 'e2e' : tab.id === S.activeTab;
+      const b = el('button', 'tab-control-item' + (selected ? ' is-selected' : ''), tab.label);
       b.type = 'button';
-      b.title = l.hint;
-      b.setAttribute('aria-pressed', l.id === S.view ? 'true' : 'false');
+      b.title = tab.hint;
+      b.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', selected ? 'true' : 'false');
+      b.setAttribute('aria-controls', 'stage');
       b.addEventListener('click', () => {
-        S.view = l.id;
-        S.runHistoryTab = ({ e2e: 'overview', l2: 'execution', l1: 'resources', compiler: 'compilation', isa: 'compilation' })[l.id] || 'overview';
+        S.activeTab = tab.id;
+        S.view = tab.view;
         render();
       });
       host.appendChild(b);
@@ -5816,8 +5894,8 @@
   }
 
   function openRunHistoryTab(id) {
-    const viewForTab = { overview: 'e2e', compilation: 'compiler', correctness: 'e2e', execution: 'l2', resources: 'l1' };
-    S.runHistoryTab = id;
+    const viewForTab = { overview: 'e2e', compilation: 'compiler', correctness: 'correctness', execution: 'l2', resources: 'l1' };
+    S.activeTab = id;
     S.view = viewForTab[id] || 'e2e';
     render();
   }
@@ -5825,27 +5903,10 @@
   function renderRunHistoryTabs() {
     const context = $('#runHistoryContext');
     const health = $('#runHistoryHealth');
-    const host = $('#runHistoryTabs');
     const visible = !isServingBenchmark();
     context.hidden = !visible;
     health.hidden = !visible;
-    host.textContent = '';
-    [
-      { id: 'overview', label: '概览' },
-      { id: 'compilation', label: '编译' },
-      { id: 'correctness', label: '正确性' },
-      { id: 'execution', label: '执行' },
-      { id: 'resources', label: '资源' },
-    ].forEach((item) => {
-      const tab = el('button', 'tab-control-item' + (item.id === S.runHistoryTab ? ' is-selected' : ''), item.label);
-      tab.type = 'button';
-      tab.setAttribute('role', 'tab');
-      tab.setAttribute('aria-selected', item.id === S.runHistoryTab ? 'true' : 'false');
-      tab.setAttribute('aria-controls', 'stage');
-      tab.addEventListener('click', () => openRunHistoryTab(item.id));
-      host.appendChild(tab);
-    });
-    $$('#runHistoryHealth [data-run-domain]').forEach((item) => {
+    health.querySelectorAll('[data-run-domain]').forEach((item) => {
       item.onclick = () => openRunHistoryTab(({ performance: 'overview' })[item.dataset.runDomain] || item.dataset.runDomain);
     });
   }
@@ -5853,7 +5914,7 @@
   function renderToolbar() {
     const host = $('#viewToolbar');
     host.textContent = '';
-    host.hidden = S.view === 'e2e' && !isServingBenchmark() && !QW();
+    host.hidden = (S.view === 'e2e' && !isServingBenchmark() && !QW()) || S.view === 'correctness';
     /* sub-view switch sits where the view's own tab would: on the left */
     if (S.view === 'compiler') {
       host.appendChild(group('segmented-control segmented-control-muted', [
@@ -6545,6 +6606,13 @@
 
   function render() {
     const stage = $('#stage');
+    const activeTabView = {
+      overview: 'e2e', compilation: 'compiler', correctness: 'correctness', resources: 'l1',
+      l2: 'l2', l1: 'l1', isa: 'isa',
+    };
+    if (activeTabView[S.activeTab] !== S.view) {
+      S.activeTab = ({ e2e: 'overview', l2: 'l2', l1: 'l1', compiler: 'compilation', isa: 'isa', correctness: 'correctness' })[S.view] || 'overview';
+    }
     if (stage.__ro) { stage.__ro.disconnect(); stage.__ro = null; }
     stage.__redraw = null;
     stage.textContent = '';
@@ -6554,9 +6622,9 @@
       S.view = 'e2e';
       renderTabs();
       renderRunHistoryTabs();
-      renderToolbar();
       renderServingBenchmarkExplorer();
       viewServingBenchmark(stage);
+      renderToolbar();
       renderServingBenchmarkInspector();
       renderServingBenchmarkStatus();
       $('[data-bind="caseChip"]').textContent = D.case.program + ' · request-level';
@@ -6565,16 +6633,17 @@
 
     renderTabs();
     renderRunHistoryTabs();
-    renderToolbar();
     renderExplorer();
     findingBar(stage);
 
     if (S.view === 'e2e') viewE2E(stage);
+    else if (S.view === 'correctness') viewRun107Correctness(stage);
     else if (S.view === 'l2') viewL2(stage);
     else if (S.view === 'l1') viewL1(stage);
     else if (S.view === 'compiler') viewCompiler(stage);
     else viewISA(stage);
 
+    renderToolbar();
     renderInspector();
     renderStatus();
     $('[data-bind="caseChip"]').textContent = D.case.program + ' · '
@@ -6587,7 +6656,6 @@
   function switchCase(id) {
     if (id === D.case.id) { toggleCaseMenu(false); return; }
     loadCase(id);
-    S.runHistoryTab = 'overview';
     S.tile = isServingBenchmark() ? null : defaultTile();
     toggleCaseMenu(false);
     renderCaseMenu();

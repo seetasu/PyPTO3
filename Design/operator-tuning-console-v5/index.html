@@ -12,7 +12,8 @@
 <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/swimlane-task/pattern.css">
-<link rel="stylesheet" href="styles.css?v=46">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/pass-ir-graph-node/pattern.css">
+<link rel="stylesheet" href="styles.css?v=47">
 </head>
 <body class="pto-ide-frame-preview-page tc-page">
 <main class="pto-ide-frame tc-frame" data-ide-frame data-host="standalone" aria-label="Tuning Console">
@@ -115,10 +116,9 @@
                     <small>reference 147 µs · MTE stall 31%</small>
                   </article>
                 </section>
-                <nav class="kf-rt tab-control" id="runHistoryTabs" role="tablist" aria-label="Run 视图"></nav>
               </div>
               <div class="pto-ide-frame__tabstrip">
-                <nav class="tab-control" id="levelTabs" aria-label="调优层级"></nav>
+                <nav class="tab-control" id="levelTabs" role="tablist" aria-label="Run 与调优视图"></nav>
               </div>
               <header class="pto-ide-frame__pane-header" id="viewToolbar"></header>
               <section class="kf-rw-health" id="runHistoryHealth" aria-label="Run #107 分析状态">
@@ -152,11 +152,12 @@
 <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
 <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
 <script src="../../vendor/pto-design-system/patterns/swimlane-task/pattern.js"></script>
+<script src="../../vendor/pto-design-system/patterns/pass-ir-graph-node/pattern.js"></script>
 <script src="data.js?v=19"></script>
 <script src="serving-trace-data.js?v=1"></script>
 <script src="serving-benchmark-data.js?v=1"></script>
 <script src="qwen3-profiles-data.js?v=1"></script>
 <script src="mock-pass-case.js?v=1"></script>
-<script src="app.js?v=80"></script>
+<script src="app.js?v=83"></script>
 </body>
 </html>
