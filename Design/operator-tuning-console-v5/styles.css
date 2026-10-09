@@ -24,6 +24,19 @@ body.tc-page {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Run history and its active stage form one document flow. This view expands
+ * with its content so the browser page owns scrolling instead of an inner pane. */
+html:has(body.tc-page:not(.tc-embed-view)),
+body.tc-page:not(.tc-embed-view) { height: auto; min-height: 100%; overflow: auto; }
+body.tc-page:not(.tc-embed-view) .tc-frame { height: auto; min-height: 100dvh; }
+body.tc-page:not(.tc-embed-view) .pto-ide-frame__body,
+body.tc-page:not(.tc-embed-view) .pto-ide-frame__workarea,
+body.tc-page:not(.tc-embed-view) [data-ide-pane="main-row"],
+body.tc-page:not(.tc-embed-view) [data-ide-split="standalone-main"] { min-height: 0; overflow: visible; }
+body.tc-page:not(.tc-embed-view) [data-ide-pane="main-row"] { flex: 0 0 auto; }
+body.tc-page:not(.tc-embed-view) [data-ide-split="standalone-main"] { height: auto; }
+body.tc-page:not(.tc-embed-view) [data-ide-pane="editor-preview"] { height: auto; overflow: visible; }
+
 /* Full-viewport host window. The shared 4:3 ratio is relaxed the same way
  * the other full-screen PTO demos in this repo do it; the gradient, aura,
  * pane fill and blur all stay on the shared ide-frame skin. */
@@ -764,13 +777,9 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 /* ---------------------------------------------------------- view stage */
 .tc-stage { display: flex; flex-direction: column; gap: var(--space-4); overflow: auto;
   padding: var(--space-3) var(--tc-gutter) var(--space-4); }
+body.tc-page:not(.tc-embed-view) .tc-stage { flex: 0 0 auto; min-height: auto; overflow: visible; }
 .tc-stage > section { display: flex; flex-direction: column; gap: var(--space-2); }
 .tc-stage-fill { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: var(--space-2); }
-
-.tc-section-head { display: flex; align-items: baseline; gap: var(--space-3); }
-.tc-section-head h2 { margin: 0; font: var(--type-title-3); color: var(--foreground); }
-.tc-section-head .sub { color: var(--foreground-secondary); font: var(--type-body-sm); }
-.tc-section-head .spacer { flex: 1 1 auto; }
 
 /* Run #107 history context is composed from the three Run-view objects;
  * the shared PTO tab-control and button classes own their interactive chrome. */
@@ -794,9 +803,9 @@ body.tc-embed-view .tc-stage { flex: 1 1 auto; min-height: 0; }
 .kf-rd-kpi-main > b { color: var(--foreground); font: var(--type-title-1); }
 .kf-rd-kpi-main > b > i { margin-left: var(--space-1); color: var(--foreground-secondary); font: var(--type-body-sm); font-style: normal; }
 .kf-rd-kpi > small { color: var(--foreground-muted); font: var(--type-body-sm); line-height: 1.4; }
-.kf-rt { width: fit-content; max-width: 100%; overflow-x: auto; }
-.kf-rw-health { display: grid; grid-template-columns: repeat(5, minmax(132px, 1fr)); gap: var(--space-1); overflow-x: auto; padding: var(--space-2) var(--tc-gutter); border-bottom: 1px solid var(--border-subtle); }
-.kf-rw-health-item { display: grid; min-width: 0; min-height: 58px; grid-template-columns: minmax(0, 1fr) auto; align-content: center; justify-content: stretch; gap: var(--space-1) var(--space-2); padding-inline: var(--space-2); text-align: left; white-space: normal; }
+.kf-rw-health { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-1); overflow: visible; padding: var(--space-2) var(--tc-gutter); border-bottom: 1px solid var(--border-subtle); }
+.kf-rw-health-item { display: grid; min-width: 0; min-height: 58px; grid-template-columns: minmax(0, 1fr) auto; align-content: center; justify-content: stretch; gap: var(--space-1) var(--space-2); padding: var(--space-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--foreground-secondary); background: transparent; cursor: pointer; text-align: left; white-space: normal; }
+.kf-rw-health-item:hover { border-color: color-mix(in srgb, var(--primary) 42%, var(--border-subtle)); background: var(--surface-2); }
 .kf-rw-health-item > b { color: var(--foreground); font: var(--type-label); }
 .kf-rw-health-item > em { color: var(--foreground-muted); font: var(--type-micro); font-style: normal; }
 .kf-rw-health-item.is-ok > em { color: var(--success); }
@@ -1079,13 +1088,7 @@ button.tc-e2e-flow-node:hover, button.tc-e2e-flow-node:focus-visible { border-co
 .tc-e2e-panel-region-body[hidden] { display: none; }
 .tc-e2e-panel-tabs { max-width: 100%; overflow-x: auto; }
 .tc-e2e-panel-content { display: flex; flex-direction: column; gap: var(--space-4); }
-.tc-e2e-command-overview > .tc-section-head {
-  padding: 2px 0;
-}
-.tc-e2e-command-overview > .tc-section-head h2 {
-  font-size: clamp(21px, 2.2vw, 29px);
-  letter-spacing: -.035em;
-}
+.tc-e2e-command-readout { align-self: flex-end; }
 .tc-e2e-command-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(230px, .9fr);
@@ -1883,10 +1886,7 @@ button.tc-e2e-command-card:hover, button.tc-e2e-command-card:focus-visible {
 @media (max-width: 980px) {
   #levelTabs { overflow-x: auto; flex-wrap: nowrap; }
   #levelTabs > * { flex: 0 0 auto; white-space: nowrap; }
-  .tc-e2e-command-overview > .tc-section-head { flex-wrap: wrap; align-items: flex-start; }
-  .tc-e2e-command-overview > .tc-section-head h2 { flex: 1 0 100%; font-size: 21px; }
-  .tc-e2e-command-overview > .tc-section-head .sub { flex: 1 1 160px; min-width: 0; }
-  .tc-e2e-command-overview > .tc-section-head .tc-readout { white-space: normal; overflow-wrap: anywhere; }
+  .tc-e2e-command-readout { align-self: flex-start; white-space: normal; overflow-wrap: anywhere; }
   .tc-stage--e2e .tc-e2e-command-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tc-stage--e2e .tc-e2e-command-card,
   .tc-stage--e2e .tc-e2e-action-card { min-height: 136px; }
@@ -1897,4 +1897,82 @@ button.tc-e2e-command-card:hover, button.tc-e2e-command-card:focus-visible {
   .tc-stage--e2e .tc-e2e-action-card { grid-column: auto; }
   .tc-stage--e2e .tc-e2e-command-card { min-height: 118px; }
   .tc-e2e-secondary-summary { flex-wrap: wrap; }
+}
+
+/* Run #107 correctness diagnosis, ported from Toolkit Studio into the PTO pane. */
+.tc-run107-correctness { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; padding: var(--space-4) var(--space-5) var(--space-6); }
+.tc-correctness-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.tc-correctness-heading h1 { margin: 4px 0 0; font: var(--type-title-1); }
+.tc-correctness-eyebrow { display: block; color: var(--foreground-muted); font: var(--type-micro); letter-spacing: .08em; }
+.tc-correctness-state { flex: 0 0 auto; padding: 4px 9px; border-radius: var(--radius-pill); color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); font: var(--type-label); }
+.tc-correctness-state.is-good { color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.tc-correctness-root { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.tc-correctness-root > span { color: var(--warning); font: var(--type-title-2); }
+.tc-correctness-root > div { flex: 1 1 auto; min-width: 0; }
+.tc-correctness-root b { font: var(--type-label); }
+.tc-correctness-root p { margin: 4px 0 0; color: var(--foreground-secondary); font: var(--type-body); }
+.tc-correctness-root code, .tc-correctness-trace button, .tc-correctness-node-inspector code { color: var(--foreground); font-family: var(--font-mono); }
+.tc-correctness-oracles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+.tc-correctness-oracles article { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); min-width: 0; padding: var(--space-3) 0; border-bottom: 1px solid var(--border-subtle); }
+.tc-correctness-oracles article > span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: var(--radius-md); color: var(--foreground-secondary); background: var(--surface-3); font: var(--type-mono); }
+.tc-correctness-oracles article b, .tc-correctness-oracles article small { display: block; overflow-wrap: anywhere; }
+.tc-correctness-oracles article b { font: var(--type-label); }
+.tc-correctness-oracles article small { margin-top: 3px; color: var(--foreground-muted); font: var(--type-body-sm); }
+.tc-correctness-oracles article em { color: var(--success); font: var(--type-label); font-style: normal; }
+.tc-correctness-oracles article.is-blocked em { color: var(--danger); }
+.tc-correctness-divergence { min-width: 0; overflow: hidden; border-top: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border-subtle)); }
+.tc-correctness-divergence > header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--border-subtle); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.tc-correctness-divergence > header > div { display: flex; align-items: center; gap: var(--space-2); }
+.tc-correctness-divergence > header code { color: var(--foreground-muted); }
+.tc-correctness-divergence > header > span b { color: var(--danger); font-family: var(--font-mono); }
+.tc-correctness-danger-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+.tc-correctness-trace { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; padding: var(--space-3) 0; color: var(--foreground-muted); font: var(--type-body-sm); }
+.tc-correctness-trace button { padding: 3px 7px; border: 1px solid color-mix(in srgb, var(--danger) 36%, var(--border-subtle)); border-radius: var(--radius-sm); color: var(--foreground-secondary); background: var(--surface-2); font-size: 12px; cursor: pointer; }
+.tc-correctness-trace button:hover, .tc-correctness-trace button:focus-visible { color: var(--foreground); border-color: var(--danger); outline: none; }
+.tc-correctness-ir { min-width: 0; overflow: hidden; background: color-mix(in srgb, var(--background) 72%, transparent); }
+.tc-correctness-ir-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+.tc-correctness-ir-head .tc-correctness-eyebrow { margin-bottom: 3px; }
+.tc-correctness-ir-head b { color: var(--foreground-secondary); font: var(--type-mono); }
+.tc-correctness-ir-head > span { color: var(--foreground-muted); font: var(--type-body-sm); white-space: nowrap; }
+.tc-correctness-legend { display: flex; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-subtle); color: var(--foreground-muted); font: var(--type-body-sm); }
+.tc-correctness-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tc-correctness-legend i { width: 12px; height: 8px; border-radius: 3px; background: var(--accent); }
+.tc-correctness-legend i.is-op { border-radius: var(--radius-pill); background: var(--primary); }
+.tc-correctness-legend i.is-first { background: var(--danger); }
+.tc-correctness-legend i.is-derived { background: var(--warning); }
+.tc-correctness-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 300px; min-height: 520px; }
+.tc-correctness-canvas { min-width: 0; min-height: 520px; overflow: auto; border-right: 1px solid var(--border-subtle); background-image: linear-gradient(color-mix(in srgb, var(--foreground) 3%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--foreground) 3%, transparent) 1px, transparent 1px); background-size: 20px 20px; }
+.tc-correctness-graph-stage { position: relative; width: 2420px; height: 500px; }
+.tc-correctness-graph-stage > span { position: absolute; top: 10px; z-index: 2; color: var(--foreground-muted); font: var(--type-micro); letter-spacing: .08em; }
+.tc-correctness-graph-stage > svg { position: absolute; inset: 0; width: 2420px; height: 500px; overflow: visible; pointer-events: none; }
+.tc-correctness-graph-stage > svg path { fill: none; stroke: var(--border-strong); stroke-width: 1.25; }
+.tc-correctness-graph-stage > svg path.is-blocked { stroke: var(--danger); }
+.tc-correctness-graph-stage > svg path.is-derived { stroke: var(--warning); }
+.tc-correctness-graph-stage .node-card { position: absolute; z-index: 1; box-shadow: none; }
+.tc-correctness-graph-stage .node-card.is-blocked, .tc-correctness-graph-stage .node-card.is-first { border-color: var(--danger); }
+.tc-correctness-graph-stage .node-card.is-derived { border-color: color-mix(in srgb, var(--warning) 65%, var(--border-default)); }
+.tc-correctness-graph-stage .node-card.selected { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 68%, transparent); }
+.tc-correctness-node-inspector { max-height: 620px; overflow: auto; padding: var(--space-3); }
+.tc-correctness-node-inspector > header { padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+.tc-correctness-node-inspector > header b, .tc-correctness-node-inspector > header small { display: block; overflow-wrap: anywhere; }
+.tc-correctness-node-inspector > header b { margin-top: 5px; font: var(--type-mono); }
+.tc-correctness-node-inspector > header small { margin-top: 4px; color: var(--foreground-muted); font: var(--type-body-sm); }
+.tc-correctness-node-inspector > section { padding: var(--space-3) 0; border-bottom: 1px solid var(--border-subtle); }
+.tc-correctness-node-inspector h2 { margin: 0 0 var(--space-2); color: var(--foreground-muted); font: var(--type-label); }
+.tc-correctness-node-inspector dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px var(--space-3); margin: 0; font: var(--type-body-sm); }
+.tc-correctness-node-inspector dt { color: var(--foreground-muted); }
+.tc-correctness-node-inspector dd { min-width: 0; margin: 0; color: var(--foreground-secondary); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.tc-correctness-node-inspector code { display: block; overflow-wrap: anywhere; font-size: 12px; }
+.tc-correctness-node-inspector p, .tc-correctness-node-status span { margin: 0; color: var(--foreground-secondary); font: var(--type-body); line-height: 1.5; }
+.tc-correctness-node-status b { display: block; margin-bottom: var(--space-1); color: var(--danger); font: var(--type-label); }
+.tc-correctness-node-inspector[data-state="matched"] .tc-correctness-node-status b { color: var(--success); }
+.tc-correctness-node-inspector[data-state="derived"] .tc-correctness-node-status b { color: var(--warning); }
+.tc-correctness-node-actions { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+.tc-correctness-divergence.is-resolved { opacity: .48; }
+.tc-correctness-node { position: absolute; width: 176px; min-height: 40px; }
+@media (max-width: 1000px) {
+  .tc-correctness-oracles { grid-template-columns: minmax(0, 1fr); }
+  .tc-correctness-workspace { grid-template-columns: minmax(0, 1fr); }
+  .tc-correctness-canvas { border-right: 0; border-bottom: 1px solid var(--border-subtle); }
+  .tc-correctness-node-inspector { max-height: none; }
 }
