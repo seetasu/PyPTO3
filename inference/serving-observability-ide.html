@@ -1809,19 +1809,30 @@ button.operator-tree-toggle:hover {
     .so-dse-change-state { min-height: 16px; margin-bottom: 7px; color: var(--foreground-muted); font-size: 10px; }
     .so-dse-change-state.is-dirty { color: var(--warning); }
     .so-dse-update .so-button { width: 100%; }
-    .so-dse-exploration { display: grid; gap: 14px; min-width: 0; }
+    .so-dse-exploration { display: grid; gap: 14px; min-width: 0; container-type: inline-size; }
     .so-dse-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
     .so-dse-lineage { min-height: 330px; overflow: hidden; background: var(--surface-2); --trace-chart-height: 330px; }
     .so-dse-sweep-analysis[hidden] { display: none; }
-    .so-dse-sweep-analysis { padding: var(--space-4); border-top: 1px solid var(--border-subtle); background: var(--surface-1); }
+    .so-dse-sweep-analysis { padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: 9px; background: var(--surface-1); }
     .so-dse-stage-detail[hidden] { display: none; }
-    .so-dse-stage-detail { padding: var(--space-4); border-top: 1px solid var(--border-subtle); background: var(--surface-1); }
+    .so-dse-stage-detail { padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: 9px; background: var(--surface-1); }
     .so-dse-stage-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
     .so-dse-stage-detail-head h3 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
     .so-dse-stage-detail-head p { max-width: 860px; margin: var(--space-2) 0 0; color: var(--foreground-secondary); font: var(--type-body); }
-    .so-dse-stage-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; margin-top: var(--space-4); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-2); }
-    .so-dse-stage-summary span { color: var(--foreground-muted); font: var(--type-body-sm); }
-    .so-dse-stage-summary code { overflow: hidden; color: var(--foreground-secondary); font: var(--type-mono); text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-intent-grid { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); gap: 16px; margin-top: var(--space-4); }
+    @container (max-width: 1100px) { .so-dse-intent-grid { grid-template-columns: 1fr; } }
+    .so-dse-candidates { display: grid; align-content: start; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-2); }
+    .so-dse-candidate-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: var(--space-2); }
+    .so-dse-candidate-tab { display: grid; gap: 3px; min-width: 0; padding: 9px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-3); color: var(--foreground); cursor: pointer; text-align: left; }
+    .so-dse-candidate-tab:hover { border-color: var(--border-strong); background: var(--surface-4); }
+    .so-dse-candidate-tab.is-active { border-color: var(--primary); background: var(--state-selected); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent); }
+    .so-dse-candidate-tab strong { font-family: var(--font-mono); font-size: 13px; }
+    .so-dse-candidate-tab span { overflow: hidden; color: var(--foreground-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-candidate-detail { display: grid; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-1); }
+    .so-dse-candidate-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .so-dse-candidate-detail-head h3 { margin: 0; font-size: 14px; }
+    .so-dse-candidate-detail-summary { display: flex; align-items: flex-start; gap: 7px; }
+    .so-dse-candidate-detail-summary p { margin: 0; color: var(--foreground-secondary); font-size: 11px; line-height: 1.5; }
     .so-dse-stage-compare { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
     .so-dse-compare-conclusion { display: grid; grid-template-columns: minmax(210px, .72fr) minmax(0, 1.5fr); gap: var(--space-3); padding: 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--primary) 6%, var(--surface-2)); }
     .so-dse-compare-conclusion-title { display: grid; align-content: start; gap: 5px; }
@@ -1959,10 +1970,7 @@ button.operator-tree-toggle:hover {
     .so-dse-candidate-table tbody tr:last-child td { border-bottom: 0; }
     .so-dse-candidate-table tbody tr:hover { background: var(--state-hover); }
     .so-dse-stage-pareto { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle); }
-    .so-dse-stage-pareto-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
-    .so-dse-stage-pareto-head h4 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
-    .so-dse-stage-pareto-head p { margin: var(--space-2) 0 0; color: var(--foreground-secondary); font: var(--type-body-sm); }
-    .so-dse-pareto-chart { margin-top: var(--space-4); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-2); }
+    .so-dse-pareto-chart { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-2); }
     .so-dse-pareto-chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
     .so-dse-pareto-chart-head h5 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
     .so-dse-pareto-chart-head p { margin: var(--space-2) 0 0; color: var(--foreground-secondary); font: var(--type-body-sm); }
@@ -1970,7 +1978,7 @@ button.operator-tree-toggle:hover {
     .so-dse-pareto-chart-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
     .so-dse-pareto-chart-legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--legend-color); }
     .so-dse-pareto-chart-legend i.is-dominated { background: transparent; border: 1px solid var(--legend-color); }
-    .so-dse-pareto-chart svg { width: 100%; height: 292px; display: block; margin-top: var(--space-2); overflow: visible; }
+    .so-dse-pareto-chart svg { width: 100%; height: auto; min-height: 320px; display: block; margin-top: var(--space-2); overflow: visible; }
     .so-dse-pareto-frontier { fill: none; stroke: var(--success); stroke-width: 1.5; stroke-dasharray: 4 3; opacity: .75; vector-effect: non-scaling-stroke; }
     .so-dse-pareto-point { stroke: var(--surface-2); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
     .so-dse-pareto-point.is-pareto { fill: var(--success); }
@@ -2014,7 +2022,6 @@ button.operator-tree-toggle:hover {
     .so-dse-chart-confidence { fill: color-mix(in srgb, var(--point-color) 13%, transparent); stroke: color-mix(in srgb, var(--point-color) 72%, transparent); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
     .so-dse-chart-threshold { stroke: var(--danger); stroke-width: 1; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
     .so-dse-chart-threshold-label { fill: var(--danger); font-size: 10px; }
-    .so-dse-candidates { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; padding: 12px; }
     .so-dse-candidate { position: relative; min-width: 0; min-height: 0; padding: 12px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-2); color: var(--foreground); cursor: pointer; text-align: left; }
     .so-dse-candidate:hover { border-color: var(--border-strong); background: var(--surface-3); }
     .so-dse-candidate.is-active { border-color: var(--primary); background: var(--state-selected); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent); }
@@ -2165,7 +2172,6 @@ button.operator-tree-toggle:hover {
     .so-dse-benchmark strong { display: block; margin-top: 5px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
     .so-dse-benchmark small { display: block; margin-top: 4px; color: var(--foreground-muted); font-size: 10px; }
     @media (max-width: 1420px) {
-      .so-dse-candidates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .so-dse-capacity-limits { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .so-dse-config-grid { grid-template-columns: 1fr 1fr; }
       .so-dse-config-card:first-child { grid-column: 1 / -1; }
@@ -2182,7 +2188,6 @@ button.operator-tree-toggle:hover {
       .so-dse-analysis-panels { grid-template-columns: 1fr; }
     }
     @media (max-width: 760px) {
-      .so-dse-candidates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .so-dse-capacity-limits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .so-dse-config-grid { grid-template-columns: 1fr; }
       .so-dse-config-card:first-child { grid-column: auto; }
@@ -5129,7 +5134,7 @@ button.operator-tree-toggle:hover {
 
       function currentDseCandidate() {
         var candidates = dseCandidateCatalog(state.scenarioExplore);
-        return candidates.find(function (item) { return item.id === state.scenarioExplore.selectedCandidate; }) || null;
+        return candidates.find(function (item) { return item.id === state.scenarioExplore.selectedCandidate; }) || candidates[0] || null;
       }
 
       function dseField(label, field, value, options) {
@@ -5181,7 +5186,7 @@ button.operator-tree-toggle:hover {
       }
 
       function renderDseLineage(explore) {
-        return '<section class="so-dse-section"><div class="so-dse-section-head"><div><h2>Candidate population lineage</h2><p>从 9 个部署结构筛选出 4 个候选方案。</p></div><div class="so-dse-meta"><span class="so-pill">EXP-' + String(explore.revision).padStart(3, '0') + '</span><span class="so-pill accent">' + (explore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark') + '</span></div></div><div class="so-dse-lineage" id="dse-candidate-lineage"></div><div class="so-dse-sweep-analysis" id="dse-sweep-analysis" role="region" aria-live="polite" aria-labelledby="dse-sweep-analysis-title" hidden></div><div class="so-dse-stage-detail" id="dse-stage-detail" role="region" aria-live="polite" aria-labelledby="dse-stage-detail-title" hidden></div></section>';
+        return '<section class="so-dse-section"><div class="so-dse-section-head"><div><h2>Candidate population lineage</h2><p>从 9 个部署结构筛选出 4 个候选方案。</p></div><div class="so-dse-meta"><span class="so-pill">EXP-' + String(explore.revision).padStart(3, '0') + '</span><span class="so-pill accent">' + (explore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark') + '</span></div></div><div class="so-dse-lineage" id="dse-candidate-lineage"></div></section><div class="so-dse-sweep-analysis" id="dse-sweep-analysis" role="region" aria-live="polite" aria-labelledby="dse-sweep-analysis-title" hidden></div><div class="so-dse-stage-detail" id="dse-stage-detail" role="region" aria-live="polite" aria-labelledby="dse-stage-detail-title" hidden></div>';
       }
 
       function dseLineageData(explore) {
@@ -5913,8 +5918,8 @@ button.operator-tree-toggle:hover {
         if (!svg || !explore) return;
         var data = dseParetoCandidateData(explore);
         var frontier = dseParetoFrontier(data);
-        var width = Math.max(640, Math.round(svg.clientWidth || 760));
-        var height = 292;
+        var width = Math.max(360, Math.round(svg.clientWidth || 760));
+        var height = 320;
         var pad = { left: 68, right: 40, top: 24, bottom: 48 };
         var plotWidth = width - pad.left - pad.right;
         var plotHeight = height - pad.top - pad.bottom;
@@ -6010,13 +6015,18 @@ button.operator-tree-toggle:hover {
 
       function renderDseParetoCandidates(explore) {
         var candidates = dseCandidateCatalog(explore);
-        var paretoData = dseParetoCandidateData(explore);
-        var paretoCount = dseParetoFrontier(paretoData).length;
-        return '<div class="so-dse-stage-pareto"><div class="so-dse-stage-pareto-head"><div><h4>Pareto frontier candidates</h4><p>选择方案查看 placement 与运行配置。</p></div><span class="so-pill accent">' + paretoCount + ' Pareto</span></div><div class="so-dse-pareto-chart"><div class="so-dse-pareto-chart-head"><div><h5>Pareto frontier</h5><p>实心为 Pareto，空心为 dominated。</p></div><div class="so-dse-pareto-chart-legend"><span><i style="--legend-color:var(--success)"></i>Pareto</span><span><i class="is-dominated" style="--legend-color:var(--danger)"></i>Dominated</span></div></div><svg data-dse-pareto-chart></svg></div><div class="so-dse-candidates">' + candidates.map(function (item) {
-          var active = item.id === explore.selectedCandidate;
-          var tight = item.ttft > Number(explore.ttftSla) * .85 || item.tpot > Number(explore.tpotSla) * .9;
-          return '<button class="so-dse-candidate' + (active ? ' is-active' : '') + '" type="button" data-dse-candidate="' + item.id + '" aria-pressed="' + active + '"><div class="so-dse-candidate-top"><h3>' + esc(item.name) + '</h3><span class="so-pill' + (item.id === 'balanced' ? ' accent' : '') + '">' + esc(item.badge) + '</span></div><div class="so-dse-candidate-summary"><span class="so-dse-sla' + (tight ? ' is-tight' : '') + '">' + (tight ? 'SLA TIGHT' : 'SLA PASS') + '</span><p>' + esc(item.description) + '</p></div><div class="so-dse-candidate-metrics"><div><span>Throughput</span><strong>' + item.throughput + ' tok/s</strong></div><div><span>P95 TTFT</span><strong>' + item.ttft + ' ms</strong></div><div><span>P95 TPOT</span><strong>' + item.tpot + ' ms</strong></div></div></button>';
-        }).join('') + '</div></div>';
+        var structureIds = ['D3', 'D4', 'A3', 'A2'];
+        var selectedIndex = candidates.findIndex(function (item) { return item.id === explore.selectedCandidate; });
+        if (selectedIndex < 0) selectedIndex = 0;
+        var selected = candidates[selectedIndex];
+        var tabs = candidates.map(function (item, index) {
+          var active = index === selectedIndex;
+          return '<button class="so-dse-candidate-tab' + (active ? ' is-active' : '') + '" type="button" data-dse-candidate="' + item.id + '" aria-pressed="' + active + '"><strong>' + esc(structureIds[index] || item.id) + '</strong><span>' + esc(item.name) + '</span></button>';
+        }).join('');
+        var tight = selected.ttft > Number(explore.ttftSla) * .85 || selected.tpot > Number(explore.tpotSla) * .9;
+        var detail = '<article class="so-dse-candidate-detail"><div class="so-dse-candidate-detail-head"><h3>' + esc(selected.name) + '</h3><span class="so-pill' + (selectedIndex === 0 ? ' accent' : '') + '">' + esc(selected.badge) + '</span></div><div class="so-dse-candidate-detail-summary"><span class="so-dse-sla' + (tight ? ' is-tight' : '') + '">' + (tight ? 'SLA TIGHT' : 'SLA PASS') + '</span><p>' + esc(selected.description) + '</p></div><div class="so-dse-candidate-metrics"><div><span>Throughput</span><strong>' + selected.throughput + ' tok/s</strong></div><div><span>P95 TTFT</span><strong>' + selected.ttft + ' ms</strong></div><div><span>P95 TPOT</span><strong>' + selected.tpot + ' ms</strong></div></div><div class="so-dse-candidate-config">' + esc(selected.config) + ' · ' + (selected.split ? 'Prefill / Decode 分离部署' : '统一 Serving 部署') + '</div></article>';
+        var chart = '<section class="so-dse-pareto-chart"><div class="so-dse-pareto-chart-head"><div><h5>Pareto frontier</h5><p>实心为 Pareto，空心为 dominated。</p></div><div class="so-dse-pareto-chart-legend"><span><i style="--legend-color:var(--success)"></i>Pareto</span><span><i class="is-dominated" style="--legend-color:var(--danger)"></i>Dominated</span></div></div><svg data-dse-pareto-chart></svg></section>';
+        return '<div class="so-dse-stage-pareto"><div class="so-dse-intent-grid"><section class="so-dse-candidates"><div class="so-dse-candidate-tabs">' + tabs + '</div>' + detail + '</section>' + chart + '</div></div>';
       }
 
       function renderOriginalTransformerLayer() {
