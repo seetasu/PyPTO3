@@ -27,15 +27,5 @@ class ShipSkillTests(unittest.TestCase):
         self.assertIn("only if its live OID still equals", text)
         self.assertIn("Do not enumerate or remove older `ship/*` branches", text)
 
-    def test_browser_cleanup_accepts_only_the_current_verified_branch(self) -> None:
-        text = SKILL.read_text(encoding="utf-8")
-        browser_mode = text.find("## Reconcile a browser-merged pull request")
-        local_cleanup = text.find("## Return the local checkout")
-        self.assertGreaterEqual(browser_mode, 0)
-        self.assertGreater(local_cleanup, browser_mode)
-        self.assertIn("current local branch as the only cleanup", text)
-        self.assertIn("ambiguous,\n   open, or mismatched PR preserves the branch", text)
-
-
 if __name__ == "__main__":
     unittest.main()

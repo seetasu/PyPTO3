@@ -1827,7 +1827,8 @@ button.operator-tree-toggle:hover {
     .so-dse-candidate-tab:hover { border-color: var(--border-strong); background: var(--surface-4); }
     .so-dse-candidate-tab.is-active { border-color: var(--primary); background: var(--state-selected); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent); }
     .so-dse-candidate-tab strong { font-family: var(--font-mono); font-size: 13px; }
-    .so-dse-candidate-tab span { overflow: hidden; color: var(--foreground-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-candidate-tab-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; }
+    .so-dse-candidate-tab-tag { overflow: hidden; color: var(--foreground-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
     .so-dse-candidate-detail { display: grid; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-1); }
     .so-dse-candidate-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .so-dse-candidate-detail-head h3 { margin: 0; font-size: 14px; }
@@ -2033,12 +2034,13 @@ button.operator-tree-toggle:hover {
     .so-dse-candidate-policy { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 7px; }
     .so-dse-candidate-policy span { max-width: 100%; padding: 4px 6px; overflow: hidden; border-radius: 4px; background: var(--surface-3); color: var(--foreground-muted); font-size: 10px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
     .so-dse-candidate.is-active .so-dse-candidate-policy span { background: var(--surface-2); }
-    .so-dse-candidate-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+    .so-dse-candidate-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
     .so-dse-candidate-metrics span { display: block; color: var(--foreground-muted); font-size: 10px; }
     .so-dse-candidate-metrics strong { display: block; margin-top: 3px; font-size: 13px; }
     .so-dse-candidate-foot { display: none; }
     .so-dse-sla { display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 20px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--success) 32%, var(--border-default)); border-radius: 999px; color: var(--success); font-size: 9px; font-weight: 700; letter-spacing: .02em; line-height: 1; white-space: nowrap; }
     .so-dse-sla.is-tight { border-color: color-mix(in srgb, var(--warning) 38%, var(--border-default)); color: var(--warning); }
+    .so-dse-sla.is-fail { border-color: color-mix(in srgb, var(--danger) 42%, var(--border-default)); color: var(--danger); }
     .so-dse-deployment-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px; border-bottom: 1px solid var(--border-subtle); }
     .so-dse-deployment-head h2 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
     .so-dse-deployment-head p { margin: 5px 0 0; color: var(--foreground-secondary); font-size: 11px; line-height: 1.5; }
@@ -3173,6 +3175,8 @@ button.operator-tree-toggle:hover {
           editingGroup: null,
           dirty: false,
           revision: 1,
+          optimizationObjective: { primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' },
+          appliedObjective: { primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' },
           selectedCandidate: null,
           selectedSweep: null,
           selectedLineageId: 'search-space',
@@ -5047,6 +5051,8 @@ button.operator-tree-toggle:hover {
           editingGroup: null,
           dirty: false,
           revision: 1,
+          optimizationObjective: { primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' },
+          appliedObjective: { primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' },
           selectedCandidate: null,
           selectedSweep: null,
           selectedLineageId: 'search-space',
@@ -5069,72 +5075,133 @@ button.operator-tree-toggle:hover {
         });
       }
 
-      function dseCandidateCatalog(explore) {
-        var deviceFactor = Math.max(.5, Math.min(1.25, Number(explore.maxDevices || 16) / 16));
-        var devices = Math.max(8, Math.round(Number(explore.maxDevices || 16)));
-        var balancedPrefillDevices = Math.min(4, devices - 4);
-        var balancedDecodeDevices = devices - balancedPrefillDevices;
-        var latencyPrefillDevices = devices >= 16 ? 8 : 4;
-        var latencyDecodeDevices = devices - latencyPrefillDevices;
-        var efficientDevices = Math.min(8, devices);
-        return [
-          {
-            id: 'balanced', name: 'Balanced', badge: 'Recommended', description: '满足 SLA 后的最高稳定吞吐，同时保留 KV 余量。', split: true,
-            config: 'P/D split · PP 2 · TP 2 · EP 4 · DP 2', devices: devices,
-            throughput: (19.4 * deviceFactor).toFixed(1) + 'k', ttft: 742, tpot: 21.6, hbm: 84, kv: 18, concurrency: Math.round(224 * deviceFactor), communication: 17, confidence: 89,
-            parallelism: { pp: 2, tp: 2, ep: 4, dp: 2 },
+      var DSE_FEASIBLE_IDS = ['A2', 'A3', 'D3', 'D4'];
+
+      function dseDeploymentRichConfig(id) {
+        var configs = {
+          A2: {
+            tag: 'Balanced',
+            description: 'Aggregated TP4 双副本，吞吐与资源余量之间的稳定基线。',
+            split: false,
+            hbm: 84, kv: 18, concurrency: 224, communication: 17, confidence: 89,
+            parallelism: { pp: 1, tp: 4, ep: 1, dp: 2 },
             poolPlan: [
-              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–' + (balancedPrefillDevices - 1), devices: balancedPrefillDevices, parallelism: 'TP 4 · EP 4', topology: { pp: 1, tp: 4, ep: 4, dp: 1 }, replicas: '1 replica', batch: '8 seq · 32K tokens', execution: 'Chunked prefill · 4K chunk' },
-              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: balancedPrefillDevices + '–' + (devices - 1), devices: balancedDecodeDevices, parallelism: 'TP 2 · EP ' + Math.max(2, Math.min(6, Math.floor(balancedDecodeDevices / 2))) + ' · DP 2', topology: { pp: 2, tp: 2, ep: Math.max(2, Math.min(6, Math.floor(balancedDecodeDevices / 2))), dp: 2 }, replicas: '2 replicas', batch: '32 seq / replica', execution: 'Step batching · MTP verify' }
+              { id: 'unified', label: 'Unified serving pool', role: 'Prefill + Decode', ranks: '0–7', devices: 8, parallelism: 'TP 4 · DP 2', topology: { pp: 1, tp: 4, ep: 1, dp: 2 }, replicas: '2 replicas', batch: '16 mixed seq', execution: 'Phase-aware continuous batch' }
             ],
-            schedulerPolicy: { name: 'Disaggregated continuous batching', routing: 'Prefix affinity → least-loaded replica', admission: 'SLA-aware · 224 inflight hard cap', batching: 'Prefill 32K tok · Decode 32 seq', preemption: 'Recompute · protect active Decode', kvHandoff: 'Direct P→D transfer · 2-copy buffer' },
-            runtimeLimits: { maxConcurrency: '16 req / worker', tokenBudget: '32K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '64 req / replica', prefillChunk: '4K tokens', requestTimeout: '60 s' },
+            schedulerPolicy: { name: 'Aggregated phase-aware batching', routing: 'Prefix affinity → least-loaded replica', admission: 'SLA-aware · 224 inflight hard cap', batching: 'Mixed 16 seq · 24K tok budget', preemption: 'Recompute long Prefill', kvHandoff: 'In-place KV · no pool transfer' },
+            runtimeLimits: { maxConcurrency: '16 req / worker', tokenBudget: '24K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '64 req / replica', prefillChunk: '4K tokens', requestTimeout: '60 s' },
             memoryPolicy: { name: 'Paged KV cache · balanced reserve', kvDtype: 'INT8', blockSize: '128 tokens', prefixCache: 'Enabled · LRU', pressure: 'Backpressure at 88% HBM', allocations: [{ label: 'Weights', value: 54, color: '#6d8fcb' }, { label: 'KV cache', value: 22, color: '#47a77d' }, { label: 'Workspace', value: 8, color: '#d19a4a' }, { label: 'Reserve', value: 16, color: '#cfd5dc' }] }
           },
-          {
-            id: 'latency', name: 'Lowest latency', badge: 'Latency', description: '扩大 TP 并减少队列等待，交互式请求延迟最低。', split: true,
-            config: 'P/D split · PP 2 · TP 4 · EP 2 · DP 1', devices: devices,
-            throughput: (16.8 * deviceFactor).toFixed(1) + 'k', ttft: 518, tpot: 17.9, hbm: 88, kv: 12, concurrency: Math.round(176 * deviceFactor), communication: 23, confidence: 92,
-            parallelism: { pp: 2, tp: 4, ep: 2, dp: 1 },
+          A3: {
+            tag: 'Lowest TTFT',
+            description: 'Aggregated TP8 单副本，把首 token 时延压到最低。',
+            split: false,
+            hbm: 88, kv: 12, concurrency: 176, communication: 23, confidence: 92,
+            parallelism: { pp: 1, tp: 8, ep: 1, dp: 1 },
             poolPlan: [
-              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–' + (latencyPrefillDevices - 1), devices: latencyPrefillDevices, parallelism: 'TP 4 · EP 2', topology: { pp: 1, tp: 4, ep: 2, dp: latencyPrefillDevices >= 8 ? 2 : 1 }, replicas: (latencyPrefillDevices >= 8 ? '2 replicas' : '1 replica'), batch: '4 seq · 16K tokens', execution: 'Chunked prefill · 2K chunk' },
-              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: latencyPrefillDevices + '–' + (devices - 1), devices: latencyDecodeDevices, parallelism: 'TP 4 · EP 2 · DP 1', topology: { pp: 2, tp: 4, ep: 2, dp: 1 }, replicas: '1 replica', batch: '16 seq / replica', execution: 'Priority step batching' }
+              { id: 'unified', label: 'Unified serving pool', role: 'Prefill + Decode', ranks: '0–7', devices: 8, parallelism: 'TP 8', topology: { pp: 1, tp: 8, ep: 1, dp: 1 }, replicas: '1 replica', batch: '12 mixed seq', execution: 'Latency-first phase batching' }
             ],
-            schedulerPolicy: { name: 'Latency-first phase scheduler', routing: 'Shortest queue · prefix affinity', admission: 'TTFT guard · 176 inflight hard cap', batching: 'Prefill 16K tok · Decode 16 seq', preemption: 'Decode priority · preempt Prefill', kvHandoff: 'Direct P→D transfer · eager copy' },
+            schedulerPolicy: { name: 'Aggregated latency-first batching', routing: 'Shortest queue · prefix affinity', admission: 'TTFT guard · 176 inflight hard cap', batching: 'Mixed 12 seq · 16K tok budget', preemption: 'Decode priority · preempt Prefill', kvHandoff: 'In-place KV · eager sync' },
             runtimeLimits: { maxConcurrency: '12 req / worker', tokenBudget: '16K tokens / batch', maxContext: '64K tokens / req', queueCapacity: '32 req / replica', prefillChunk: '2K tokens', requestTimeout: '30 s' },
             memoryPolicy: { name: 'Paged KV cache · latency reserve', kvDtype: 'INT8', blockSize: '64 tokens', prefixCache: 'Enabled · recency weighted', pressure: 'Preempt Prefill at 88% HBM', allocations: [{ label: 'Weights', value: 58, color: '#6d8fcb' }, { label: 'KV cache', value: 20, color: '#47a77d' }, { label: 'Workspace', value: 10, color: '#d19a4a' }, { label: 'Reserve', value: 12, color: '#cfd5dc' }] }
           },
-          {
-            id: 'throughput', name: 'Highest throughput', badge: 'Throughput', description: '更大 EP world 与连续批处理，以更小 SLA 余量换取吞吐。', split: true,
-            config: 'P/D split · PP 2 · TP 2 · EP 8 · DP 2', devices: devices,
-            throughput: (21.7 * deviceFactor).toFixed(1) + 'k', ttft: 928, tpot: 24.8, hbm: 88, kv: 8, concurrency: Math.round(256 * deviceFactor), communication: 28, confidence: 82,
-            parallelism: { pp: 2, tp: 2, ep: 8, dp: 2 },
+          D3: {
+            tag: 'More GPU headroom',
+            description: 'Disaggregated P:TP4 / D:TP2 只用 6 GPU，保留最多资源余量。',
+            split: true,
+            hbm: 80, kv: 22, concurrency: 192, communication: 14, confidence: 87,
+            parallelism: { pp: 1, tp: 2, ep: 1, dp: 1 },
             poolPlan: [
-              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–' + (balancedPrefillDevices - 1), devices: balancedPrefillDevices, parallelism: 'TP 4 · EP 4', topology: { pp: 1, tp: 4, ep: 4, dp: 1 }, replicas: '1 replica', batch: '12 seq · 48K tokens', execution: 'Chunked prefill · 8K chunk' },
-              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: balancedPrefillDevices + '–' + (devices - 1), devices: balancedDecodeDevices, parallelism: 'TP 2 · EP ' + Math.min(8, balancedDecodeDevices) + ' · DP 2', topology: { pp: 2, tp: 2, ep: Math.min(8, balancedDecodeDevices), dp: 2 }, replicas: '2 replicas', batch: '48 seq / replica', execution: 'Deep step batching · MTP verify' }
+              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–3', devices: 4, parallelism: 'TP 4', topology: { pp: 1, tp: 4, ep: 1, dp: 1 }, replicas: '1 replica', batch: '8 seq · 32K tokens', execution: 'Chunked prefill · 4K chunk' },
+              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: '4–5', devices: 2, parallelism: 'TP 2', topology: { pp: 1, tp: 2, ep: 1, dp: 1 }, replicas: '1 replica', batch: '32 seq', execution: 'Step batching · MTP verify' }
             ],
-            schedulerPolicy: { name: 'Throughput-first continuous batching', routing: 'Token budget → least-loaded replica', admission: 'Queue stable · 256 inflight hard cap', batching: 'Prefill 48K tok · Decode 48 seq', preemption: 'No preemption inside Decode step', kvHandoff: 'Batched P→D transfer · 3-copy buffer' },
-            runtimeLimits: { maxConcurrency: '24 req / worker', tokenBudget: '48K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '96 req / replica', prefillChunk: '8K tokens', requestTimeout: '90 s' },
-            memoryPolicy: { name: 'Paged KV cache · high occupancy', kvDtype: 'INT8', blockSize: '256 tokens', prefixCache: 'Enabled · frequency weighted', pressure: 'Throttle admission at 88% HBM', allocations: [{ label: 'Weights', value: 52, color: '#6d8fcb' }, { label: 'KV cache', value: 28, color: '#47a77d' }, { label: 'Workspace', value: 8, color: '#d19a4a' }, { label: 'Reserve', value: 12, color: '#cfd5dc' }] }
+            schedulerPolicy: { name: 'Disaggregated continuous batching', routing: 'Prefix affinity → least-loaded replica', admission: 'SLA-aware · 192 inflight hard cap', batching: 'Prefill 32K tok · Decode 32 seq', preemption: 'Recompute · protect active Decode', kvHandoff: 'Direct P→D transfer · 2-copy buffer' },
+            runtimeLimits: { maxConcurrency: '16 req / worker', tokenBudget: '32K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '64 req / replica', prefillChunk: '4K tokens', requestTimeout: '60 s' },
+            memoryPolicy: { name: 'Paged KV cache · headroom reserve', kvDtype: 'INT8', blockSize: '128 tokens', prefixCache: 'Enabled · LRU', pressure: 'Backpressure at 80% HBM', allocations: [{ label: 'Weights', value: 48, color: '#6d8fcb' }, { label: 'KV cache', value: 18, color: '#47a77d' }, { label: 'Workspace', value: 8, color: '#d19a4a' }, { label: 'Reserve', value: 26, color: '#cfd5dc' }] }
           },
-          {
-            id: 'efficient', name: 'Resource efficient', badge: 'Efficiency', description: '统一 Serving 使用更少的 Device，保持较低通信开销。', split: false,
-            config: 'Unified · PP 2 · TP 2 · EP 4 · DP 1', devices: efficientDevices,
-            throughput: (12.9 * Math.min(1, deviceFactor * 2)).toFixed(1) + 'k', ttft: 884, tpot: 24.1, hbm: 86, kv: 13, concurrency: 128, communication: 14, confidence: 87,
-            parallelism: { pp: 2, tp: 2, ep: 4, dp: 1 },
+          D4: {
+            tag: 'Highest throughput',
+            description: 'Disaggregated P:TP4 / D:TP4 用满 8 GPU，换取最高 sustained throughput。',
+            split: true,
+            hbm: 86, kv: 16, concurrency: 256, communication: 21, confidence: 85,
+            parallelism: { pp: 1, tp: 4, ep: 1, dp: 1 },
             poolPlan: [
-              { id: 'unified', label: 'Unified serving pool', role: 'Prefill + Decode', ranks: '0–' + (efficientDevices - 1), devices: efficientDevices, parallelism: 'PP 2 · TP 2 · EP 4', topology: { pp: 2, tp: 2, ep: 4, dp: 1 }, replicas: '1 replica', batch: '24 mixed seq', execution: 'Phase-aware continuous batch' }
+              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–3', devices: 4, parallelism: 'TP 4', topology: { pp: 1, tp: 4, ep: 1, dp: 1 }, replicas: '1 replica', batch: '12 seq · 48K tokens', execution: 'Chunked prefill · 8K chunk' },
+              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: '4–7', devices: 4, parallelism: 'TP 4', topology: { pp: 1, tp: 4, ep: 1, dp: 1 }, replicas: '1 replica', batch: '48 seq', execution: 'Deep step batching · MTP verify' }
             ],
-            schedulerPolicy: { name: 'Unified phase-aware batching', routing: 'Single pool · prefix affinity', admission: 'Capacity guard · 128 inflight hard cap', batching: '24 mixed seq · 24K tok budget', preemption: 'Recompute long Prefill', kvHandoff: 'In-place KV · no pool transfer' },
-            runtimeLimits: { maxConcurrency: '16 req / worker', tokenBudget: '24K tokens / batch', maxContext: '64K tokens / req', queueCapacity: '48 req / replica', prefillChunk: '4K tokens', requestTimeout: '60 s' },
-            memoryPolicy: { name: 'Paged KV cache · compact footprint', kvDtype: 'INT8', blockSize: '128 tokens', prefixCache: 'Enabled · LRU', pressure: 'Backpressure at 86% HBM', allocations: [{ label: 'Weights', value: 58, color: '#6d8fcb' }, { label: 'KV cache', value: 18, color: '#47a77d' }, { label: 'Workspace', value: 10, color: '#d19a4a' }, { label: 'Reserve', value: 14, color: '#cfd5dc' }] }
+            schedulerPolicy: { name: 'Disaggregated throughput-first batching', routing: 'Token budget → least-loaded replica', admission: 'Queue stable · 256 inflight hard cap', batching: 'Prefill 48K tok · Decode 48 seq', preemption: 'No preemption inside Decode step', kvHandoff: 'Batched P→D transfer · 3-copy buffer' },
+            runtimeLimits: { maxConcurrency: '24 req / worker', tokenBudget: '48K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '96 req / replica', prefillChunk: '8K tokens', requestTimeout: '90 s' },
+            memoryPolicy: { name: 'Paged KV cache · high occupancy', kvDtype: 'INT8', blockSize: '256 tokens', prefixCache: 'Enabled · frequency weighted', pressure: 'Throttle admission at 86% HBM', allocations: [{ label: 'Weights', value: 52, color: '#6d8fcb' }, { label: 'KV cache', value: 24, color: '#47a77d' }, { label: 'Workspace', value: 8, color: '#d19a4a' }, { label: 'Reserve', value: 16, color: '#cfd5dc' }] }
           }
-        ];
+        };
+        return configs[id] || null;
+      }
+
+      function dseFeasibleCandidates() {
+        return dseCandidateData().filter(function (candidate) { return DSE_FEASIBLE_IDS.indexOf(candidate.id) >= 0; });
+      }
+
+      function getCandidateSlaState(candidate, explore) {
+        var ttftSla = Number(explore.ttftSla);
+        var tpotSla = Number(explore.tpotSla);
+        if (Number(candidate.ttft) > ttftSla || Number(candidate.itl) > tpotSla) return 'FAIL';
+        if (Number(candidate.ttft) >= ttftSla * .9 || Number(candidate.itl) >= tpotSla * .9) return 'TIGHT';
+        return 'PASS';
+      }
+
+      function dseObjective(explore) {
+        return explore.optimizationObjective || { primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' };
+      }
+
+      function dseAppliedObjective(explore) {
+        return explore.appliedObjective || dseObjective(explore);
+      }
+
+      function dsePrimaryObjectiveLabel(primary) {
+        if (primary === 'minimize-latency') return 'Minimize latency';
+        if (primary === 'maximize-efficiency') return 'Maximize resource efficiency';
+        return 'Maximize sustained throughput';
+      }
+
+      function dseSecondaryObjectiveLabel(secondary) {
+        if (secondary === 'preserve-kv-headroom') return 'Preserve KV headroom';
+        if (secondary === 'minimize-gpu') return 'Minimize GPU usage';
+        return 'None';
+      }
+
+      function dseObjectiveRecommendation(primary) {
+        if (primary === 'minimize-latency') return 'lowest TTFT';
+        if (primary === 'maximize-efficiency') return 'best GPU efficiency';
+        return 'highest sustained throughput';
+      }
+
+      function dseRankCandidates(explore) {
+        var objective = dseAppliedObjective(explore);
+        var primary = objective.primary || 'maximize-throughput';
+        var secondary = objective.secondary || 'none';
+        var maxDevices = Number(explore.maxDevices || 0);
+        return dseFeasibleCandidates().filter(function (candidate) {
+          if (getCandidateSlaState(candidate, explore) === 'FAIL') return false;
+          return !maxDevices || Number(candidate.gpu) <= maxDevices;
+        }).sort(function (a, b) {
+          var diff;
+          if (primary === 'minimize-latency') diff = Number(a.ttft) - Number(b.ttft);
+          else if (primary === 'maximize-efficiency') diff = Number(b.tokenPerGpu) - Number(a.tokenPerGpu);
+          else diff = Number(b.throughput) - Number(a.throughput);
+          if (diff !== 0) return diff;
+          if (secondary === 'preserve-kv-headroom') diff = dseStageCompareMetric(b, 'hbmHeadroom') - dseStageCompareMetric(a, 'hbmHeadroom');
+          else if (secondary === 'minimize-gpu') diff = Number(a.gpu) - Number(b.gpu);
+          return diff;
+        });
+      }
+
+      function dseRankedCandidates() {
+        return dseRankCandidates(state.scenarioExplore);
       }
 
       function currentDseCandidate() {
-        var candidates = dseCandidateCatalog(state.scenarioExplore);
-        return candidates.find(function (item) { return item.id === state.scenarioExplore.selectedCandidate; }) || candidates[0] || null;
+        var ranked = dseRankedCandidates();
+        return ranked.find(function (candidate) { return candidate.id === state.scenarioExplore.selectedCandidate; }) || ranked[0] || null;
       }
 
       function dseField(label, field, value, options) {
@@ -5174,10 +5241,12 @@ button.operator-tree-toggle:hover {
       }
 
       function renderDseIntentPanel(explore) {
-        var html = '<aside class="so-dse-intent"><section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Intent</h2><p>描述服务目标，生成可编辑条件。</p></div><span class="so-pill accent">Natural language</span></div><div class="so-dse-intent-body"><textarea class="so-input so-dse-intent-text" data-dse-intent>' + esc(explore.intent) + '</textarea><div class="so-dse-intent-actions"><span class="so-dse-parse-state">' + (explore.parsed ? '已解析 5 组条件' : '待解析') + '</span><button class="so-button" type="button" data-action="parse-scenario-intent">解析意图</button></div></div></section>';
+        var html = '<aside class="so-dse-intent"><section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Intent</h2><p>描述服务目标，生成可编辑条件。</p></div><span class="so-pill accent">Natural language</span></div><div class="so-dse-intent-body"><textarea class="so-input so-dse-intent-text" data-dse-intent>' + esc(explore.intent) + '</textarea><div class="so-dse-intent-actions"><span class="so-dse-parse-state">' + (explore.parsed ? 'Intent parsed' : '待解析') + '</span><button class="so-button" type="button" data-action="parse-scenario-intent">解析意图</button></div></div></section>';
         html += '<section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Tuning knobs</h2><p>修改后更新设计空间。</p></div>' + (explore.dirty ? '<span class="so-pill warm">Changed</span>' : '<span class="so-pill">已同步</span>') + '</div><div class="so-dse-knobs">';
         html += renderDseKnob(explore, 'model', 'Model', explore.model + ' · ' + explore.precision, '<div class="so-dse-field-grid">' + dseField('Model', 'model', explore.model, { full: true, values: [{ value: 'DeepSeek V4', label: 'DeepSeek V4' }, { value: 'Qwen3 235B-A22B', label: 'Qwen3 235B-A22B' }] }) + dseField('Precision', 'precision', explore.precision, { full: true, values: [{ value: 'W8A8', label: 'W8A8' }, { value: 'BF16', label: 'BF16' }] }) + '</div>');
         html += renderDseKnob(explore, 'workload', 'Workload', explore.requestRate + ' req/s · P95 ' + Number(explore.promptP95).toLocaleString() + ' prompt', '<div class="so-dse-field-grid">' + dseField('Peak request rate', 'requestRate', explore.requestRate, { type: 'number' }) + dseField('Concurrency', 'concurrency', explore.concurrency, { type: 'number' }) + dseField('Prompt P95', 'promptP95', explore.promptP95, { type: 'number' }) + dseField('Output P50', 'outputP50', explore.outputP50, { type: 'number' }) + '</div>');
+        var objective = dseObjective(explore);
+        html += renderDseKnob(explore, 'objective', 'Optimization objective', dsePrimaryObjectiveLabel(objective.primary) + ' ↑', '<div class="so-dse-field-grid">' + dseField('Primary objective', 'optimizationObjectivePrimary', objective.primary, { full: true, values: [{ value: 'maximize-throughput', label: 'Maximize sustained throughput' }, { value: 'minimize-latency', label: 'Minimize latency' }, { value: 'maximize-efficiency', label: 'Maximize resource efficiency' }] }) + dseField('Secondary preference', 'optimizationObjectiveSecondary', objective.secondary, { full: true, values: [{ value: 'preserve-kv-headroom', label: 'Preserve KV headroom' }, { value: 'minimize-gpu', label: 'Minimize GPU usage' }, { value: 'none', label: 'None' }] }) + '</div>');
         html += renderDseKnob(explore, 'sla', 'SLA', 'TTFT ≤ ' + explore.ttftSla + ' ms · TPOT ≤ ' + explore.tpotSla + ' ms', '<div class="so-dse-field-grid">' + dseField('P95 TTFT · ms', 'ttftSla', explore.ttftSla, { type: 'number' }) + dseField('P95 TPOT · ms', 'tpotSla', explore.tpotSla, { type: 'number' }) + '</div>');
         html += renderDseKnob(explore, 'hardware', 'Hardware budget', explore.deviceType + ' × ' + explore.maxDevices, '<div class="so-dse-field-grid">' + dseField('Accelerator', 'deviceType', explore.deviceType, { full: true, values: [{ value: 'Ascend A2 64 GB', label: 'Ascend A2 · 64 GB' }, { value: 'Ascend A3 96 GB', label: 'Ascend A3 · 96 GB' }] }) + dseField('Max devices', 'maxDevices', explore.maxDevices, { type: 'number' }) + dseField('HBM reserve · %', 'hbmReserve', explore.hbmReserve, { type: 'number' }) + '</div>');
         html += renderDseKnob(explore, 'evaluation', 'Evaluation mode', explore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark', '<div class="so-dse-mode"><button type="button" class="' + (explore.evaluationMode === 'fast' ? 'is-active' : '') + '" data-dse-mode="fast">Fast estimate</button><button type="button" class="' + (explore.evaluationMode === 'hardware' ? 'is-active' : '') + '" data-dse-mode="hardware">Hardware benchmark</button></div>');
@@ -5190,6 +5259,16 @@ button.operator-tree-toggle:hover {
       }
 
       function dseLineageData(explore) {
+        var ranked = dseRankCandidates(explore);
+        var appliedObjective = dseAppliedObjective(explore);
+        var topCandidate = ranked[0] || null;
+        var stageCandidates = ranked.length ? ranked : dseFeasibleCandidates();
+        var stageLabels = stageCandidates.map(function (candidate, index) {
+          var prefix = ranked.length ? '#' + (index + 1) + ' ' : '';
+          return prefix + candidate.id + ' · ' + candidate.gpu + ' GPU · ' + candidate.ttft + ' / ' + candidate.itl + ' ms';
+        });
+        var rankedSummary = ranked.length ? (ranked.length + ' 个候选均满足 Hard Constraints；按照 ' + dsePrimaryObjectiveLabel(appliedObjective.primary) + ' 排序，' + topCandidate.id + ' 排名第一。') : '当前没有候选满足 Hard Constraints；请放宽 SLA 或 GPU budget。';
+        var rankedCaption = ranked.length ? (topCandidate.id + ' recommended · ' + dseObjectiveRecommendation(appliedObjective.primary)) : 'No feasible candidate';
         return {
           title: 'Candidate population lineage',
           stages: [
@@ -5238,24 +5317,19 @@ button.operator-tree-toggle:hover {
               }
             },
             {
-              id: 'intent-ranked', label: 'Intent ranking', kind: 'ranked deployments', count: 4,
-              summary: 'D3 以 6 GPU 满足全部目标，排名第一；D4、A3、A2 均使用 8 GPU',
-              caption: 'D3 recommended · minimum 6 GPU',
-              segments: [{ count: 1, tone: 3 }, { count: 3, tone: 2 }],
-              layout: { columns: 1, rows: 4, width: 0, height: 54 },
-              candidateLabels: [
-                '#1 D3 · 6 GPU · 395 / 18 ms',
-                '#2 D4 · 8 GPU · 390 / 13 ms',
-                '#3 A3 · 8 GPU · 300 / 15 ms',
-                '#4 A2 · 8 GPU · 440 / 18 ms'
-              ]
+              id: 'intent-ranked', label: 'Intent ranking', kind: 'ranked deployments', count: stageCandidates.length,
+              summary: rankedSummary,
+              caption: rankedCaption,
+              segments: ranked.length ? [{ count: 1, tone: 3 }, { count: Math.max(0, ranked.length - 1), tone: 2 }] : [{ count: stageCandidates.length, tone: 2 }],
+              layout: { columns: 1, rows: Math.max(1, stageCandidates.length), width: 0, height: 54 },
+              candidateLabels: stageLabels
             }
           ]
         };
       }
 
-      function dseSweepCandidateData() {
-        return [
+      function dseCandidateData() {
+        var all = [
           { id: 'A1', type: 'Aggregated', config: 'Aggregated · TP2', gpu: 8, ttft: 610, itl: 19, decodeTp: 2, decodeSweep: [[1, 9], [4, 13], [8, 18], [12, 20], [16, 27]], throughput: 9.2, tokenPerGpu: 1180, latency: 1320, throughput95: .55, tokenPerGpu95: 92, latency95: 96 },
           { id: 'A2', type: 'Aggregated', config: 'Aggregated · TP4 · 2 replicas · 8 GPU', gpu: 8, ttft: 440, itl: 18, decodeTp: 4, decodeSweep: [[1, 8], [4, 10], [8, 12], [16, 16], [28, 20], [32, 24]], throughput: 10.8, tokenPerGpu: 1420, latency: 1120, throughput95: .48, tokenPerGpu95: 78, latency95: 82 },
           { id: 'A3', type: 'Aggregated', config: 'Aggregated · TP8 · 1 replica · 8 GPU', gpu: 8, ttft: 300, itl: 15, decodeTp: 8, decodeSweep: [[1, 7], [8, 9], [16, 11], [32, 15], [52, 20], [64, 25]], throughput: 13.7, tokenPerGpu: 1530, latency: 930, throughput95: .52, tokenPerGpu95: 74, latency95: 70 },
@@ -5266,10 +5340,14 @@ button.operator-tree-toggle:hover {
           { id: 'D5', type: 'Disaggregated', config: 'Disaggregated · P:TP8 / D:TP2 · 10 GPU', gpu: 10, ttft: 275, itl: 18, decodeTp: 2, decodeSweep: [[1, 9], [4, 14], [8, 19], [12, 21], [16, 28]], throughput: 12.8, tokenPerGpu: 1460, latency: 930, throughput95: .47, tokenPerGpu95: 80, latency95: 68 },
           { id: 'D6', type: 'Disaggregated', config: 'Disaggregated · P:TP8 / D:TP4 · 12 GPU', gpu: 12, ttft: 270, itl: 13, decodeTp: 4, decodeSweep: [[1, 8], [4, 11], [8, 13], [16, 17], [28, 21], [32, 25]], throughput: 15.6, tokenPerGpu: 1390, latency: 790, throughput95: .54, tokenPerGpu95: 88, latency95: 60 }
         ];
+        return all.map(function (candidate) {
+          var rich = dseDeploymentRichConfig(candidate.id);
+          return Object.assign({}, candidate, rich || {}, { name: candidate.id, badge: rich ? rich.tag : candidate.type });
+        });
       }
 
       function dseSweepContext(branchId) {
-        var allCandidates = dseSweepCandidateData();
+        var allCandidates = dseCandidateData();
         if (branchId === 'prefill-sweep') {
           return {
             id: branchId,
@@ -5536,7 +5614,7 @@ button.operator-tree-toggle:hover {
       }
 
       function dseStageCompareContext(id) {
-        var allCandidates = dseSweepCandidateData();
+        var allCandidates = dseCandidateData();
         if (id === 'prefill-sweep') {
           return {
             id: id,
@@ -5838,7 +5916,7 @@ button.operator-tree-toggle:hover {
       function renderDseDeploymentCandidatesDetail() {
         var sourceIds = ['A2', 'A3', 'D3', 'D4', 'D5', 'D6'];
         var feasibleIds = ['A2', 'A3', 'D3', 'D4'];
-        var candidates = dseSweepCandidateData();
+        var candidates = dseCandidateData();
         var byId = function (id) { return candidates.find(function (candidate) { return candidate.id === id; }); };
         var candidateTags = function (ids) { return ids.map(function (id) { return esc(id); }).join(' · '); };
         var feasibleCards = feasibleIds.map(function (id) {
@@ -5898,11 +5976,8 @@ button.operator-tree-toggle:hover {
       }
 
       function dseParetoCandidateData(explore) {
-        var userThroughput = { balanced: 86, latency: 91, throughput: 93, efficient: 78 };
-        return dseCandidateCatalog(explore).map(function (candidate) {
-          var throughput = Number.parseFloat(candidate.throughput) * 1000;
-          var devices = Math.max(1, Number(candidate.devices || 1));
-          return { id: candidate.id, name: candidate.name, config: candidate.config, x: throughput / devices, y: userThroughput[candidate.id] || 0 };
+        return dseRankCandidates(explore).map(function (candidate) {
+          return { id: candidate.id, name: candidate.id, config: candidate.config, x: Number(candidate.tokenPerGpu), y: Number(candidate.throughput), gpu: candidate.gpu };
         });
       }
 
@@ -5952,8 +6027,8 @@ button.operator-tree-toggle:hover {
         }
         svg.append(dseSvgNode('line', { class: 'so-dse-chart-axis', x1: pad.left, y1: pad.top + plotHeight, x2: pad.left + plotWidth, y2: pad.top + plotHeight }));
         svg.append(dseSvgNode('line', { class: 'so-dse-chart-axis', x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotHeight }));
-        svg.append(dseSvgNode('text', { class: 'so-dse-chart-axis-label', x: pad.left + plotWidth / 2, y: height - 5, 'text-anchor': 'middle' }, 'tokens/s/gpu ↑'));
-        svg.append(dseSvgNode('text', { class: 'so-dse-chart-axis-label', x: 14, y: pad.top + plotHeight / 2, transform: 'rotate(-90 14 ' + (pad.top + plotHeight / 2) + ')', 'text-anchor': 'middle' }, 'tokens/s/user ↑'));
+        svg.append(dseSvgNode('text', { class: 'so-dse-chart-axis-label', x: pad.left + plotWidth / 2, y: height - 5, 'text-anchor': 'middle' }, 'tok/s/GPU ↑'));
+        svg.append(dseSvgNode('text', { class: 'so-dse-chart-axis-label', x: 14, y: pad.top + plotHeight / 2, transform: 'rotate(-90 14 ' + (pad.top + plotHeight / 2) + ')', 'text-anchor': 'middle' }, 'sustained throughput · tok/s ↑'));
         if (frontier.length > 1) {
           var frontierPath = frontier.map(function (candidate, index) { return (index ? 'L ' : 'M ') + xScale(candidate.x) + ' ' + yScale(candidate.y); }).join(' ');
           svg.append(dseSvgNode('path', { class: 'so-dse-pareto-frontier', d: frontierPath }));
@@ -5962,7 +6037,7 @@ button.operator-tree-toggle:hover {
           var isPareto = frontier.indexOf(candidate) >= 0;
           var pointGroup = dseSvgNode('g', { 'data-dse-pareto-candidate': candidate.id });
           var point = dseSvgNode('circle', { class: 'so-dse-pareto-point ' + (isPareto ? 'is-pareto' : 'is-dominated'), cx: xScale(candidate.x), cy: yScale(candidate.y), r: isPareto ? 5.5 : 5 });
-          point.append(dseSvgNode('title', {}, candidate.id + ' · ' + (isPareto ? 'Pareto' : 'Dominated') + ' · 配置: ' + candidate.config + ' · ' + Math.round(candidate.x).toLocaleString() + ' tokens/s/gpu · ' + candidate.y + ' tokens/s/user'));
+          point.append(dseSvgNode('title', {}, candidate.id + ' · ' + (isPareto ? 'Pareto' : 'Dominated') + ' · ' + candidate.config + ' · ' + Math.round(candidate.x).toLocaleString() + ' tok/s/GPU · ' + candidate.y + ' tok/s'));
           pointGroup.append(point);
           var labelOnLeft = xScale(candidate.x) > pad.left + plotWidth * .78;
           pointGroup.append(dseSvgNode('text', { class: 'so-dse-pareto-label', x: xScale(candidate.x) + (labelOnLeft ? -8 : 8), y: yScale(candidate.y) + (index % 2 ? 15 : -9), 'text-anchor': labelOnLeft ? 'end' : 'start' }, candidate.name));
@@ -6014,17 +6089,19 @@ button.operator-tree-toggle:hover {
       }
 
       function renderDseParetoCandidates(explore) {
-        var candidates = dseCandidateCatalog(explore);
-        var structureIds = ['D3', 'D4', 'A3', 'A2'];
-        var selectedIndex = candidates.findIndex(function (item) { return item.id === explore.selectedCandidate; });
+        var ranked = dseRankCandidates(explore);
+        var selectedIndex = ranked.findIndex(function (candidate) { return candidate.id === explore.selectedCandidate; });
         if (selectedIndex < 0) selectedIndex = 0;
-        var selected = candidates[selectedIndex];
-        var tabs = candidates.map(function (item, index) {
+        var selected = ranked[selectedIndex];
+        if (!selected) return '<div class="so-dse-stage-pareto"><div class="so-empty">当前没有满足 Hard Constraints 的候选。</div></div>';
+        var tabs = ranked.map(function (candidate, index) {
           var active = index === selectedIndex;
-          return '<button class="so-dse-candidate-tab' + (active ? ' is-active' : '') + '" type="button" data-dse-candidate="' + item.id + '" aria-pressed="' + active + '"><strong>' + esc(structureIds[index] || item.id) + '</strong><span>' + esc(item.name) + '</span></button>';
+          var state = getCandidateSlaState(candidate, explore);
+          var stateClass = state === 'FAIL' ? ' is-fail' : state === 'TIGHT' ? ' is-tight' : '';
+          var stateLabel = state === 'FAIL' ? 'SLA FAIL' : state === 'TIGHT' ? 'SLA TIGHT' : 'SLA PASS';
+          return '<button class="so-dse-candidate-tab' + (active ? ' is-active' : '') + '" type="button" data-dse-candidate="' + candidate.id + '" aria-pressed="' + active + '"><span class="so-dse-candidate-tab-head"><strong>' + esc(candidate.id) + '</strong><span class="so-dse-sla' + stateClass + '">' + stateLabel + '</span></span><span class="so-dse-candidate-tab-tag">' + esc(candidate.tag || '') + '</span></button>';
         }).join('');
-        var tight = selected.ttft > Number(explore.ttftSla) * .85 || selected.tpot > Number(explore.tpotSla) * .9;
-        var detail = '<article class="so-dse-candidate-detail"><div class="so-dse-candidate-detail-head"><h3>' + esc(selected.name) + '</h3><span class="so-pill' + (selectedIndex === 0 ? ' accent' : '') + '">' + esc(selected.badge) + '</span></div><div class="so-dse-candidate-detail-summary"><span class="so-dse-sla' + (tight ? ' is-tight' : '') + '">' + (tight ? 'SLA TIGHT' : 'SLA PASS') + '</span><p>' + esc(selected.description) + '</p></div><div class="so-dse-candidate-metrics"><div><span>Throughput</span><strong>' + selected.throughput + ' tok/s</strong></div><div><span>P95 TTFT</span><strong>' + selected.ttft + ' ms</strong></div><div><span>P95 TPOT</span><strong>' + selected.tpot + ' ms</strong></div></div><div class="so-dse-candidate-config">' + esc(selected.config) + ' · ' + (selected.split ? 'Prefill / Decode 分离部署' : '统一 Serving 部署') + '</div></article>';
+        var detail = '<article class="so-dse-candidate-detail"><div class="so-dse-candidate-detail-head"><h3>' + esc(selected.id) + '</h3><span class="so-pill' + (selectedIndex === 0 ? ' accent' : '') + '">' + esc(selected.tag || '') + '</span></div><div class="so-dse-candidate-detail-summary"><p>' + esc(selected.description || '') + '</p></div><div class="so-dse-candidate-metrics"><div><span>Throughput</span><strong>' + selected.throughput + ' tok/s</strong></div><div><span>P95 TTFT</span><strong>' + selected.ttft + ' ms</strong></div><div><span>P95 TPOT</span><strong>' + selected.itl + ' ms</strong></div><div><span>GPU</span><strong>' + selected.gpu + '</strong></div></div><div class="so-dse-candidate-config">' + esc(selected.config) + ' · ' + (selected.split ? 'Prefill / Decode 分离部署' : '统一 Serving 部署') + '</div></article>';
         var chart = '<section class="so-dse-pareto-chart"><div class="so-dse-pareto-chart-head"><div><h5>Pareto frontier</h5><p>实心为 Pareto，空心为 dominated。</p></div><div class="so-dse-pareto-chart-legend"><span><i style="--legend-color:var(--success)"></i>Pareto</span><span><i class="is-dominated" style="--legend-color:var(--danger)"></i>Dominated</span></div></div><svg data-dse-pareto-chart></svg></section>';
         return '<div class="so-dse-stage-pareto"><div class="so-dse-intent-grid"><section class="so-dse-candidates"><div class="so-dse-candidate-tabs">' + tabs + '</div>' + detail + '</section>' + chart + '</div></div>';
       }
@@ -6259,11 +6336,11 @@ button.operator-tree-toggle:hover {
         }
         var memoryLegend = candidate.memoryPolicy.allocations.map(function (item) { return '<span><i style="--memory-color:' + item.color + '"></i>' + esc(item.label) + '</span>'; }).join('') + '<span><i style="--memory-color:#e4e7eb"></i>Free</span>';
         return '<section class="so-placement-canvas" data-placement-canvas>' +
-          '<div class="so-placement-toolbar"><div class="so-placement-toolbar-copy"><strong>Placement Canvas</strong><span data-placement-summary>Select a Rank to trace Model → PP / TP / EP → Device placement</span></div><div class="so-placement-toolbar-hint">' + candidate.devices + ' Ascend A2 · Click a Rank card</div></div>' +
+          '<div class="so-placement-toolbar"><div class="so-placement-toolbar-copy"><strong>Placement Canvas</strong><span data-placement-summary>Select a Rank to trace Model → PP / TP / EP → Device placement</span></div><div class="so-placement-toolbar-hint">' + candidate.gpu + ' Ascend A2 · Click a Rank card</div></div>' +
           '<svg class="so-placement-connection-layer" data-placement-connections aria-hidden="true"></svg>' +
           '<section class="so-placement-region"><div class="so-placement-region-head"><h3>Model / Pipeline</h3><span>DeepSeek V4 · 43 Layers</span></div><div class="so-placement-region-body"><div class="so-placement-stage-list">' + candidate.poolPlan.map(renderStages).join('') + '</div><div class="so-placement-model-track"><span class="so-placement-endpoint"><span>Token</span><i></i></span><span><span class="so-placement-layers">' + renderLayers() + '</span><span class="so-placement-layer-labels"><span>L0</span><span>L10</span><span>L21</span><span>L32</span><span>L42</span></span></span><span class="so-placement-endpoint"><span>Logits</span><i></i></span></div></div></section>' +
           '<section class="so-placement-region so-placement-layer-region">' + renderOriginalTransformerLayer() + '</section>' +
-          '<section class="so-placement-region so-placement-rank-region"><div class="so-placement-region-head"><h3>Rank Placement</h3><span class="so-placement-memory-legend">' + memoryLegend + '</span></div><div class="so-placement-region-body"><section class="so-placement-node"><div class="so-placement-node-head"><strong>Node 0</strong><span>Devices 0–' + (candidate.devices - 1) + '</span></div><div class="so-placement-node-body"><div class="so-placement-pools" style="--pool-count:' + candidate.poolPlan.length + '">' + candidate.poolPlan.map(renderPool).join('') + '</div></div></section></div></section>' +
+          '<section class="so-placement-region so-placement-rank-region"><div class="so-placement-region-head"><h3>Rank Placement</h3><span class="so-placement-memory-legend">' + memoryLegend + '</span></div><div class="so-placement-region-body"><section class="so-placement-node"><div class="so-placement-node-head"><strong>Node 0</strong><span>Devices 0–' + (candidate.gpu - 1) + '</span></div><div class="so-placement-node-body"><div class="so-placement-pools" style="--pool-count:' + candidate.poolPlan.length + '">' + candidate.poolPlan.map(renderPool).join('') + '</div></div></section></div></section>' +
           '</section>';
       }
 
@@ -6412,17 +6489,18 @@ button.operator-tree-toggle:hover {
 
       function renderDseDeployment(explore) {
         var candidate = currentDseCandidate();
+        var topCandidateId = (dseRankCandidates(explore)[0] || {}).id;
         var metrics = [
           ['Throughput', candidate.throughput + ' tok/s', '+8.4% vs next'],
           ['P95 TTFT', candidate.ttft + ' ms', (Number(explore.ttftSla) - candidate.ttft) + ' ms headroom'],
-          ['P95 TPOT', candidate.tpot + ' ms', (Number(explore.tpotSla) - candidate.tpot).toFixed(1) + ' ms headroom'],
+          ['P95 TPOT', candidate.itl + ' ms', (Number(explore.tpotSla) - candidate.itl).toFixed(1) + ' ms headroom'],
           ['HBM / device', candidate.hbm + '%', (100 - candidate.hbm) + '% free'],
           ['KV capacity', candidate.kv + '%', 'headroom'],
           ['System inflight', candidate.concurrency + ' req', explore.concurrency + ' requested'],
           ['Communication', candidate.communication + '%', 'step time'],
           ['Confidence', candidate.confidence + '%', explore.evaluationMode === 'fast' ? 'modeled' : 'measured']
         ];
-        return '<section class="so-dse-section"><div class="so-dse-deployment-head"><div><h2>' + esc(candidate.name) + ' · Deployment canvas</h2><p>' + esc(candidate.config) + ' · ' + (candidate.split ? 'Prefill / Decode 分离部署' : '统一 Serving 部署') + '</p></div><div class="so-dse-deployment-actions"><span class="so-pill' + (candidate.id === 'balanced' ? ' accent' : '') + '">' + esc(candidate.badge) + '</span><button class="so-button primary" type="button" data-action="adopt-dse-candidate">采用此方案</button></div></div><div class="so-dse-deployment-body"><div class="so-dse-canvas">' + renderDseTopology(candidate) + '</div>' + renderDseDeploymentConfig(candidate) + '<div class="so-dse-benchmarks">' + metrics.map(function (metric) { return '<div class="so-dse-benchmark"><span>' + esc(metric[0]) + '</span><strong>' + esc(metric[1]) + '</strong><small>' + esc(metric[2]) + '</small></div>'; }).join('') + '</div></div></section>';
+        return '<section class="so-dse-section"><div class="so-dse-deployment-head"><div><h2>' + esc(candidate.name) + ' · Deployment canvas</h2><p>' + esc(candidate.config) + ' · ' + (candidate.split ? 'Prefill / Decode 分离部署' : '统一 Serving 部署') + '</p></div><div class="so-dse-deployment-actions"><span class="so-pill' + (candidate.id === topCandidateId ? ' accent' : '') + '">' + esc(candidate.badge) + '</span><button class="so-button primary" type="button" data-action="adopt-dse-candidate">采用此方案</button></div></div><div class="so-dse-deployment-body"><div class="so-dse-canvas">' + renderDseTopology(candidate) + '</div>' + renderDseDeploymentConfig(candidate) + '<div class="so-dse-benchmarks">' + metrics.map(function (metric) { return '<div class="so-dse-benchmark"><span>' + esc(metric[0]) + '</span><strong>' + esc(metric[1]) + '</strong><small>' + esc(metric[2]) + '</small></div>'; }).join('') + '</div></div></section>';
       }
 
       function renderScenarioNew() {
@@ -7545,7 +7623,12 @@ button.operator-tree-toggle:hover {
           function syncDseField() {
             var field = el.getAttribute('data-dse-field');
             var numericFields = ['requestRate', 'concurrency', 'promptP95', 'outputP50', 'ttftSla', 'tpotSla', 'maxDevices', 'hbmReserve'];
-            state.scenarioExplore[field] = numericFields.indexOf(field) >= 0 ? Number(el.value) : el.value;
+            if (field === 'optimizationObjectivePrimary' || field === 'optimizationObjectiveSecondary') {
+              var objective = dseObjective(state.scenarioExplore);
+              state.scenarioExplore.optimizationObjective = Object.assign({}, objective, field === 'optimizationObjectivePrimary' ? { primary: el.value } : { secondary: el.value });
+            } else {
+              state.scenarioExplore[field] = numericFields.indexOf(field) >= 0 ? Number(el.value) : el.value;
+            }
             state.scenarioExplore.dirty = true;
           }
           el.addEventListener('input', function () {
@@ -7625,7 +7708,7 @@ button.operator-tree-toggle:hover {
             if (action === 'save-scenario-draft') { state.scenarioDraft.status = 'saved'; render(); }
             if (action === 'create-scenario') createScenarioFromDraft();
             if (action === 'parse-scenario-intent') parseScenarioIntent();
-            if (action === 'update-design-space') { state.scenarioExplore.dirty = false; state.scenarioExplore.revision += 1; state.scenarioExplore.selectedCandidate = null; state.scenarioExplore.selectedLineageId = 'intent-ranked'; render(); }
+            if (action === 'update-design-space') { state.scenarioExplore.appliedObjective = Object.assign({}, dseObjective(state.scenarioExplore)); state.scenarioExplore.dirty = false; state.scenarioExplore.revision += 1; state.scenarioExplore.selectedLineageId = 'intent-ranked'; state.scenarioExplore.selectedCandidate = (dseRankCandidates(state.scenarioExplore)[0] || {}).id || null; render(); }
             if (action === 'adopt-dse-candidate') createScenarioFromExplorer();
             if (action === 'run-created-scenario') { state.route = 'run'; startRun(); }
             if (action === 'rerun') startRun();
@@ -7682,6 +7765,14 @@ button.operator-tree-toggle:hover {
         else if (/A2/i.test(intent)) explore.deviceType = 'Ascend A2 64 GB';
         if (/hardware benchmark|硬件实测|真实运行/i.test(intent)) explore.evaluationMode = 'hardware';
         else if (/fast estimate|快速估算|快速模式/i.test(intent)) explore.evaluationMode = 'fast';
+        var primary = null;
+        if (/(?:maximi[sz]e|最大化)[^。;；,，]*sustained throughput|最大化[^。;；,，]*吞吐|吞吐优先/i.test(intent)) primary = 'maximize-throughput';
+        if (/(?:minimi[sz]e|最小化|降低)[^。;；,，]*latenc|延迟优先|latency[- ]?first/i.test(intent)) primary = 'minimize-latency';
+        if (/(?:resource|资源)[^。;；,，]*efficien|能效|每卡吞吐|token per gpu/i.test(intent)) primary = 'maximize-efficiency';
+        var secondary = null;
+        if (/kv|hbm|缓存余量|容量余量|headroom/i.test(intent)) secondary = 'preserve-kv-headroom';
+        if (/(?:minimi[sz]e|最少|少用)[^。;；,，]*(?:gpu|卡|devices?)/i.test(intent)) secondary = 'minimize-gpu';
+        explore.optimizationObjective = Object.assign({ primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' }, explore.optimizationObjective, primary ? { primary: primary } : null, secondary ? { secondary: secondary } : null);
         explore.parsed = true;
         explore.dirty = true;
         explore.editingGroup = null;
@@ -7701,7 +7792,7 @@ button.operator-tree-toggle:hover {
           revision: revision,
           model: explore.model,
           workload: explore.requestRate + ' req/s · prompt P95 ' + explore.promptP95 + ' · output P50 ' + explore.outputP50,
-          hardware: explore.deviceType + ' / ' + candidate.devices + ' devices',
+          hardware: explore.deviceType + ' / ' + candidate.gpu + ' devices',
           goal: 'P95 TTFT ≤ ' + explore.ttftSla + ' ms · P95 TPOT ≤ ' + explore.tpotSla + ' ms · maximize sustained throughput',
           kind: 'deepseek',
           planning: {
@@ -7724,7 +7815,7 @@ button.operator-tree-toggle:hover {
             evaluationEvidence: {
               throughputTokensPerSecond: candidate.throughput,
               p95TtftMs: candidate.ttft,
-              p95TpotMs: candidate.tpot,
+              p95TpotMs: candidate.itl,
               hbmUtilizationPercent: candidate.hbm,
               kvHeadroomPercent: candidate.kv,
               concurrencyCapacity: candidate.concurrency,
