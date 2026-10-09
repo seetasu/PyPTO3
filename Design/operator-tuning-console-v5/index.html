@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tuning Console · decode_csa</title>
-<meta name="description" content="算子调优闭环工作台：以一次真实上板执行为对象，从端到端、L2 调度、单核流水、编译降级到 ISA 布局逐层定位瓶颈，并用实验台账约束每轮只验证一个假设。">
+<meta name="description" content="算子调优闭环工作台：以一次真实上板执行为对象，从端到端、L2 调度、单核流水、编译降级到 ISA 布局逐层定位性能发现，并用实验记录约束每轮只验证一个假设。">
 <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
 <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
@@ -93,22 +93,41 @@
                   </div>
                   <div id="runTree" class="tc-tree"></div>
                 </section>
-                <section class="inspector-section">
-                  <div class="inspector-section-head">
-                    <h3 class="inspector-section-title">瓶颈队列</h3>
-                    <span class="inspector-section-kicker" data-bind="findingCount"></span>
-                  </div>
-                  <div class="tc-chipbar" id="findingFilter" role="group" aria-label="按层筛选瓶颈"></div>
-                  <div id="findingList" class="tc-findings"></div>
-                </section>
               </div>
             </aside>
 
             <section class="pto-ide-frame__pane" data-ide-pane="editor-preview">
+              <div class="kf-run-history-context" id="runHistoryContext">
+                <section class="kf-rd-overview" aria-label="Run #107 运行摘要">
+                  <div class="kf-rd-summary">
+                    <div class="kf-rd-eyebrow"><span><i aria-hidden="true"></i>RUN SNAPSHOT</span><em class="is-archive">已完成</em></div>
+                    <div class="kf-rd-titleline"><h2>decode_fwd_layers</h2><span class="kf-rd-verdict is-warn">性能告警</span></div>
+                    <div class="kf-rd-run"><span>Run · </span><code>#107</code><i class="kf-rd-meta-sep" aria-hidden="true"></i><small><i aria-hidden="true">◷</i>12:51</small></div>
+                  </div>
+                  <article class="kf-rd-kpi is-warn is-latency">
+                    <header><span>Latency</span><em>目标 &lt; 1.50 ms</em></header>
+                    <div class="kf-rd-kpi-main"><b>1.82<i>ms</i></b></div>
+                    <small>Critical Path 1.41 ms · 等待 / 停顿 37%</small>
+                  </article>
+                  <article class="kf-rd-kpi is-warn">
+                    <header><span>最长任务</span><em>Task #182</em></header>
+                    <div class="kf-rd-kpi-main"><b>214<i>µs</i></b></div>
+                    <small>reference 147 µs · MTE stall 31%</small>
+                  </article>
+                </section>
+                <nav class="kf-rt tab-control" id="runHistoryTabs" role="tablist" aria-label="Run 视图"></nav>
+              </div>
               <div class="pto-ide-frame__tabstrip">
                 <nav class="tab-control" id="levelTabs" aria-label="调优层级"></nav>
               </div>
               <header class="pto-ide-frame__pane-header" id="viewToolbar"></header>
+              <section class="kf-rw-health" id="runHistoryHealth" aria-label="Run #107 分析状态">
+                <button class="btn btn-ghost kf-rw-health-item is-ok" type="button" data-run-domain="compilation"><b>编译</b><em>PASS</em><small>42 Pass · 45 Kernel</small></button>
+                <button class="btn btn-ghost kf-rw-health-item is-ok" type="button" data-run-domain="correctness"><b>正确性</b><em>PASS</em><small>3 / 3 Oracle · 12 / 12 checkpoint</small></button>
+                <button class="btn btn-ghost kf-rw-health-item is-ok" type="button" data-run-domain="execution"><b>执行</b><em>PASS</em><small>428 Task · Dependency Graph 完整</small></button>
+                <button class="btn btn-ghost kf-rw-health-item is-warn" type="button" data-run-domain="performance"><b>性能</b><em>WARNING</em><small>1.82 ms · 目标 &lt; 1.50 ms</small></button>
+                <button class="btn btn-ghost kf-rw-health-item is-ok" type="button" data-run-domain="resources"><b>资源</b><em>PASS</em><small>未发现溢出 · L0B peak 81%</small></button>
+              </section>
               <div class="pto-ide-frame__pane-body tc-stage" id="stage"></div>
             </section>
 

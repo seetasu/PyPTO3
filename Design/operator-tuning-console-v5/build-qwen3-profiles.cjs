@@ -1075,7 +1075,7 @@ finding({
     + '动 Cube 侧的 tile 形状对这一层没有帮助。',
   guardrail: '加深流水会抬高 L1 / UB 占用，可能反过来把 depth 压回 1（见编译器层的 PH-MR-001）；'
     + 'PMU 开着采的这一轮不能与 PMU 关闭的基线比墙钟。',
-  verify: '复测同一 step 的 aic_mte2_ratio 与 aicore_kernel_0 时长，两者要一起降。',
+  verify: '验证同一 step 的 aic_mte2_ratio 与 aicore_kernel_0 时长，两者要一起降。',
 });
 
 finding({

@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PyPTO · Operator Execution Explorer</title>
+  <meta name="description" content="PyPTO MatMul 算子执行浏览器：源码、Tensor 切片变换与逻辑执行步骤联动。">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/floating-playback-control/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/matrix-canvas/pattern.css">
+  <link rel="stylesheet" href="./explorer.css">
+</head>
+<body class="pto-ide-frame-preview-page explorer-page">
+<section class="pto-ide-frame explorer-frame" data-ide-frame data-host="standalone" aria-label="PyPTO MatMul operator execution explorer">
+
+  <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+    <div class="pto-ide-frame__topbar-left">
+      <span class="pto-ide-frame__pane-title">Operator Execution Explorer</span>
+      <span class="pto-ide-frame__crumbs">MatMul · PyPTO 3.0 · static source recovery</span>
+    </div>
+    <div class="pto-ide-frame__topbar-right">
+      <div class="pto-ide-frame__window-actions" aria-label="View controls">
+        <button class="pto-ide-frame__window-action" id="evidenceToggle" type="button" aria-controls="sourceDrawer" aria-expanded="false" title="Evidence" aria-label="Toggle evidence details">
+          <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 16v-4"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="pto-ide-frame__body">
+    <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" data-ide-slot="activity-rail" aria-label="Activity rail">
+      <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer" aria-controls="sourcePane" aria-expanded="true" aria-pressed="true" title="Source" aria-label="Toggle source pane">
+        <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
+        </svg>
+      </button>
+      <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" title="Search" aria-label="Search">
+        <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.3-4.3"></path>
+        </svg>
+      </button>
+      <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" title="Source control" aria-label="Source control">
+        <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="18" cy="18" r="3"></circle>
+          <circle cx="6" cy="6" r="3"></circle>
+          <path d="M13 6h3a2 2 0 0 1 2 2v7"></path>
+          <path d="M6 9v12"></path>
+        </svg>
+      </button>
+      <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" title="Terminal" aria-label="Terminal">
+        <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+          <path d="m7 9 3 3-3 3"></path>
+          <path d="M12 15h5"></path>
+        </svg>
+      </button>
+    </nav>
+
+    <div class="pto-ide-frame__workarea">
+      <div class="pto-ide-frame__split" data-ide-split="explorer-vertical" data-split-direction="vertical" data-sizes="53,47" data-min-size="330,300" data-storage-key="pto-explorer-vertical-v1">
+
+        <section class="pto-ide-frame__pane pto-ide-frame__pane--stack" data-ide-pane="top-row">
+          <div class="pto-ide-frame__split" data-ide-split="standalone-main" data-split-direction="horizontal" data-sizes="38,62" data-pixel-sizes="460" data-min-size="380,440" data-storage-key="pto-explorer-main-v1">
+
+            <section class="pto-ide-frame__pane" data-ide-pane="explorer" id="sourcePane">
+              <header class="pto-ide-frame__pane-header">
+                <span class="pto-ide-frame__pane-title">Source</span>
+                <span class="pto-ide-frame__pane-meta">matmul.py · excerpt</span>
+              </header>
+              <div class="pto-ide-frame__tabstrip">
+                <div class="tab-control" role="tablist" aria-label="Source file">
+                  <button class="tab-control-item is-selected" id="sourceFileTab" type="button" role="tab" aria-selected="true">matmul.py</button>
+                  <button class="tab-control-item" id="sourceAllTab" type="button" role="tab" aria-selected="false">All evidence</button>
+                </div>
+              </div>
+              <div class="pto-ide-frame__pane-body explorer-code" id="sourceCode" aria-label="MatMul Python source"></div>
+            </section>
+
+            <section class="pto-ide-frame__pane" data-ide-pane="tensor">
+              <header class="pto-ide-frame__pane-header">
+                <span class="pto-ide-frame__pane-title">Tensor State &amp; Transformation</span>
+                <span class="pto-ide-frame__pane-meta">row slice × column slice → output tile</span>
+              </header>
+              <div class="pto-ide-frame__pane-body tensor-body">
+                <div class="tensor-flow">
+
+                  <section class="tensor-block" data-tensor="A">
+                    <header class="tensor-caption">
+                      <div>
+                        <h3>A – Input Matrix</h3>
+                        <span>A : [256, 256] (M × K)</span>
+                      </div>
+                      <button class="btn btn-sm btn-ghost" type="button" data-source="sliceA">Source ↗</button>
+                    </header>
+                    <div class="matrix-area">
+                      <div class="matrix-top-axis">K (columns)</div>
+                      <div class="matrix-y-axis">M (rows)</div>
+                      <div class="matrix-x-labels"><span>0</span><span>64</span><span>128</span><span>192</span><span>256</span></div>
+                      <div class="matrix-y-labels"><span>0</span><span>64</span><span>128</span><span>192</span><span>256</span></div>
+                      <div class="matrix-host">
+                        <canvas id="matrixA" aria-label="A matrix with selected horizontal slice"></canvas>
+                        <div class="matrix-focus matrix-focus--A" id="focusA" aria-hidden="true"></div>
+                      </div>
+                      <span class="matrix-selected-label" id="captionA"></span>
+                    </div>
+                  </section>
+
+                  <div class="flow-symbol">×</div>
+
+                  <section class="tensor-block" data-tensor="B">
+                    <header class="tensor-caption">
+                      <div>
+                        <h3>B – Input Matrix</h3>
+                        <span>B : [256, 256] (K × N)</span>
+                      </div>
+                      <button class="btn btn-sm btn-ghost" type="button" data-source="sliceB">Source ↗</button>
+                    </header>
+                    <div class="matrix-area">
+                      <div class="matrix-top-axis">N (columns)</div>
+                      <div class="matrix-y-axis">K (rows)</div>
+                      <div class="matrix-x-labels"><span>0</span><span>64</span><span>128</span><span>192</span><span>256</span></div>
+                      <div class="matrix-y-labels"><span>0</span><span>64</span><span>128</span><span>192</span><span>256</span></div>
+                      <div class="matrix-host">
+                        <canvas id="matrixB" aria-label="B matrix with selected vertical slice"></canvas>
+                        <div class="matrix-focus matrix-focus--B" id="focusB" aria-hidden="true"></div>
+                      </div>
+                      <span class="matrix-selected-label" id="captionB"></span>
+                    </div>
+                  </section>
+
+                  <div class="flow-symbol">→</div>
+
+                  <section class="tensor-block" data-tensor="C">
+                    <header class="tensor-caption">
+                      <div>
+                        <h3>C – Output Matrix</h3>
+                        <span>C : [256, 256] (M × N)</span>
+                      </div>
+                      <button class="btn btn-sm btn-ghost" type="button" data-source="write">Source ↗</button>
+                    </header>
+                    <div class="matrix-area">
+                      <div class="matrix-top-axis">N (columns)</div>
+                      <div class="matrix-y-axis">M (rows)</div>
+                      <div class="matrix-x-labels"><span>0</span><span>64</span><span>128</span><span>192</span><span>256</span></div>
+                      <div class="matrix-y-labels"><span>0</span><span>64</span><span>128</span><span>192</span><span>256</span></div>
+                      <div class="matrix-host">
+                        <canvas id="matrixC" aria-label="C matrix with selected output tile"></canvas>
+                        <div class="matrix-focus matrix-focus--C" id="focusC" aria-hidden="true"></div>
+                      </div>
+                      <span class="matrix-selected-label" id="captionC"></span>
+                    </div>
+                  </section>
+
+                </div>
+              </div>
+            </section>
+
+          </div>
+        </section>
+
+        <section class="pto-ide-frame__pane" data-ide-pane="instructions">
+          <header class="pto-ide-frame__pane-header">
+            <span class="pto-ide-frame__pane-title">Instructions</span>
+            <span class="pto-ide-frame__pane-meta">confirmed · logical order · repeated iterations grouped</span>
+          </header>
+          <div class="pto-ide-frame__pane-body instructions-content">
+            <div class="instruction-context" id="instructionContext"></div>
+            <div class="instructions-main">
+              <aside class="work-unit-list">
+                <div class="work-unit-title">16 work units (M × N)</div>
+                <div id="workUnitList" role="listbox" aria-label="Logical work units"></div>
+              </aside>
+              <div class="output-card" id="outputCard"></div>
+              <div class="between-arrow">→</div>
+              <div class="nested-groups">
+                <div class="loop-group m-loop">
+                  <div class="loop-header">
+                    <strong>Parallel M loop</strong>
+                    <span>for mb in pl.parallel(0, 256, 64)</span>
+                    <div class="loop-options" id="mOptions"></div>
+                    <span class="loop-meta">4 iterations (0, 64, 128, 192) · tile size 64</span>
+                  </div>
+                  <div class="loop-group n-loop">
+                    <div class="loop-header">
+                      <strong>Parallel N loop</strong>
+                      <span>for nb in pl.parallel(0, 256, 64)</span>
+                      <div class="loop-options" id="nOptions"></div>
+                      <span class="loop-meta">4 iterations (0, 64, 128, 192) · tile size 64</span>
+                    </div>
+                    <div class="journey-list" id="journeyList" role="list" aria-label="Logical execution steps"></div>
+                    <button class="inside-matmul" id="insideMatmul" type="button">
+                      Inside pl.matmul
+                      <span>internal K handling requires compiler evidence</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="pto-ide-frame__floating-playback-mount" id="playbackMount"></div>
+
+  <aside class="source-drawer" id="sourceDrawer" aria-label="Evidence details" aria-hidden="true">
+    <header>
+      <div>
+        <p class="source-drawer__eyebrow">Evidence</p>
+        <h2 id="drawerTitle">Source</h2>
+      </div>
+      <button class="btn btn-sm btn-ghost" id="closeDrawer" type="button" aria-label="Close evidence details">Close</button>
+    </header>
+    <div class="drawer-content" id="drawerContent"></div>
+  </aside>
+
+</section>
+<script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
+<script src="../../vendor/pto-design-system/patterns/floating-playback-control/pattern.js"></script>
+<script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+<script src="../../vendor/pto-design-system/patterns/matrix-canvas/pattern.js"></script>
+<script type="module" src="./explorer.js"></script>
+</body>
+</html>
