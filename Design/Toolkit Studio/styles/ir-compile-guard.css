@@ -1,20 +1,15 @@
 /* Compile guard — kernel-centric view (stage 2) */
 
-.kf-kg {
+/* 变量同时挂在 .kf-kg 与 .kf-kg-trace 上：Run → Compilation 会把 #kgTrace 借走
+   当独立页签，验证状态的成功、警告和异常色仍需可用。IR 阶段本身保持中性。 */
+.kf-kg,
+.kf-kg-trace {
   --kg-ok:   var(--success);
   --kg-warn: var(--warning);
   --kg-bad:  var(--danger);
+}
 
-  /* IR stratum ramp (abstract → physical), used by the pass drill-down strip.
-     Ranges come from the pass property contracts in pass_properties.h. */
-  --irp-s0: #4E7C90;
-  --irp-s1: #57808C;
-  --irp-s2: #6E8288;
-  --irp-s3: #A2814F;
-  --irp-s4: #BC7440;
-  --irp-s5: #C4612F;
-  --irp-s6: #CE5622;
-
+.kf-kg {
   display: grid;
   gap: 9px;
   margin-bottom: 12px;
@@ -61,11 +56,15 @@
 .kf-kg-target { color: var(--foreground-muted); font: var(--kf-type-2xs) var(--font-mono); }
 .kf-kg-hint { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.45; }
 
-/* ---------- summary cards ---------- */
-.kf-kg-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 1px;
-  overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--border-subtle); }
-.kf-kg-card { padding: 6px 8px 7px; background: var(--surface-1); }
-.kf-kg-card dt { color: var(--foreground-muted); font: 8.5px/1 var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+/* ---------- summary strip ----------
+   One strip, not five cards: a single hairline outline holds the metrics and
+   vertical rules separate them, so the numbers read as one instrument. */
+.kf-kg-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 0;
+  overflow: hidden; border: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent);
+  border-radius: var(--radius-md); background: transparent; }
+.kf-kg-card { padding: 6px 11px 7px; background: transparent; }
+.kf-kg-card + .kf-kg-card { border-left: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); }
+.kf-kg-card dt { color: var(--foreground-muted); font: 9px/1 var(--font-sans); letter-spacing: .06em; text-transform: uppercase; }
 .kf-kg-card dd { margin: 4px 0 0; color: var(--foreground-secondary); font: 600 14px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
 .kf-kg-card small { display: block; margin-top: 3px; overflow: hidden; color: var(--foreground-muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .kf-kg-card.is-ok dd { color: var(--kg-ok); }
@@ -133,7 +132,7 @@
 
 .kf-kg-sec { padding: 9px 11px 11px; border-bottom: 1px solid var(--border-subtle); }
 .kf-kg-sec:last-child { border-bottom: 0; }
-.kf-kg-sec h4 { margin: 0 0 7px; color: var(--foreground-muted); font: 8.5px/1 var(--font-mono); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+.kf-kg-sec h4 { margin: 0 0 7px; color: var(--foreground-secondary); font: 600 9.5px/1 var(--font-sans); letter-spacing: .07em; text-transform: uppercase; }
 .kf-kg-none { margin: 0; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.5; }
 .kf-kg-empty { margin: 0; padding: 20px 12px; color: var(--foreground-muted); font-size: var(--kf-type-xs); text-align: center; }
 
@@ -180,27 +179,27 @@
 /* ---------- compile trace (event timeline for the selected kernel) ----------
    Slots are typed events, not magnitudes: colour = event class, uniform height.
    Line count is deliberately NOT encoded — it measures how much the compiler
-   moved, not what it did to this kernel. */
+   moved, not what it did to this kernel.
+
+   The trace is a working region, not a card: the Pass River inside it is the
+   bounded surface. The heading, the river and the selected-pass detail are
+   separated by spacing and a single rule, so they do not read as a card that
+   contains two more cards. */
 .kf-kg-trace {
   overflow: hidden;
-  border: 1px solid var(--border-subtle); border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  border: 0; border-radius: 0;
+  background: transparent;
 }
 .kf-kg-thead {
   display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
   padding: 8px 11px 7px;
 }
-.kf-kg-thead h4 { margin: 0; color: var(--foreground-muted); font: 8.5px/1 var(--font-mono); font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
-.kf-kg-thead h4 b { color: var(--foreground); font-size: 11px; letter-spacing: 0; text-transform: none; }
+/* heading is a human label; the source it names stays an identifier */
+.kf-kg-thead h4 { margin: 0; color: var(--foreground-secondary); font: 600 10px/1 var(--font-sans); letter-spacing: .07em; text-transform: uppercase; }
+.kf-kg-thead h4 b { color: var(--foreground); font: 600 10px/1 var(--font-mono); letter-spacing: 0; text-transform: none; }
 .kf-kg-tmeta { margin-left: auto; color: var(--foreground-muted); font: 9px var(--font-mono); }
 
 .kf-kg-track { overflow: hidden; margin: 0 11px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
-.kf-kg-strata { display: flex; height: 13px; }
-.kf-kg-strata span {
-  display: grid; overflow: hidden; place-items: center;
-  color: color-mix(in srgb, #fff 88%, transparent); background: var(--kg-c);
-  font: 8px/1 var(--font-mono); letter-spacing: .06em; white-space: nowrap;
-}
 .kf-kg-slots { display: flex; background: color-mix(in srgb, var(--background) 70%, transparent); }
 .kf-kg-slot {
   position: relative; display: grid; flex: 1 1 0; min-width: 0;
@@ -215,30 +214,13 @@
 .kf-kg-slot:hover em { color: var(--foreground-secondary); }
 .kf-kg-slot.is-sel { background: color-mix(in srgb, var(--primary) 16%, transparent); }
 .kf-kg-slot.is-sel em { color: var(--foreground); font-weight: 600; }
-.kf-kg-slot i { display: block; width: 100%; height: 6px; background: var(--border-strong); font-style: normal; }
-.kf-kg-slot.is-absent i { height: 1px; background: color-mix(in srgb, var(--border-strong) 40%, transparent); }
-.kf-kg-slot.is-same i { height: 1px; }
-.kf-kg-slot.is-touch i { height: 6px; background: color-mix(in srgb, var(--kg-c) 45%, transparent); }
-.kf-kg-slot.is-milestone i { height: 14px; border-radius: 2px; background: var(--kg-c); }
-.kf-kg-slot.is-birth i { box-shadow: inset 0 0 0 1.5px var(--foreground); }
-.kf-kg-slot.is-mem i { background: var(--primary); }
-.kf-kg-slot.is-intent i { background: var(--kg-ok); }
-.kf-kg-slot.is-bad i { background: var(--kg-warn); }
-.kf-kg-slot.is-rt i { background: var(--foreground-muted); }
+.kf-kg-slot i { display: block; width: 100%; height: 6px; background: var(--foreground-muted); font-style: normal; }
+.kf-kg-slot.is-pass i, .kf-kg-slot.is-warning i, .kf-kg-slot.is-unresolved i { height: 10px; background: var(--foreground-muted); }
+.kf-kg-slot.is-error i { height: 12px; background: var(--warning); }
+.kf-kg-slot.is-first_divergence i { height: 12px; background: var(--danger); }
+.kf-kg-slot.is-first_divergence i { box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 72%, transparent); }
+.kf-kg-slot.is-not_collected i { height: 1px; background: color-mix(in srgb, var(--foreground-muted) 55%, transparent); }
 .kf-kg-slot:hover i { filter: brightness(1.4); }
-/* legend — rendered from the kinds actually present in this kernel's trace */
-.kf-kg-legend { display: flex; flex-wrap: wrap; gap: 4px 11px; margin: 6px 11px 0; }
-.kf-kg-legend span { display: inline-flex; align-items: center; gap: 4px; color: var(--foreground-muted); font: 9px var(--font-mono); }
-.kf-kg-legend i { display: block; width: 8px; height: 3px; background: var(--border-strong); font-style: normal; }
-.kf-kg-legend i.is-milestone { height: 9px; border-radius: 2px; background: var(--kg-c); }
-.kf-kg-legend i.is-birth { box-shadow: inset 0 0 0 1.5px var(--foreground); }
-.kf-kg-legend i.is-mem { background: var(--primary); }
-.kf-kg-legend i.is-intent { background: var(--kg-ok); }
-.kf-kg-legend i.is-bad { background: var(--kg-warn); }
-.kf-kg-legend i.is-rt { background: var(--foreground-muted); }
-.kf-kg-legend i.is-touch { height: 4px; background: color-mix(in srgb, var(--kg-c) 45%, transparent); }
-.kf-kg-legend i.is-same { height: 1px; }
-.kf-kg-legend i.is-absent { height: 1px; background: color-mix(in srgb, var(--border-strong) 40%, transparent); }
 
 /* ---------- selected pass, operator level ---------- */
 .kf-kg-pdetail { margin: 8px 11px 11px; border-top: 1px solid var(--border-subtle); padding-top: 9px; }
@@ -246,39 +228,71 @@
 .kf-kg-pdi { padding: 1px 5px; border-radius: var(--radius-sm); color: #fff; font: 600 9px var(--font-mono); }
 .kf-kg-pdhead b { color: var(--foreground); font: 650 12px var(--font-mono); }
 .kf-kg-pdk { margin-left: auto; color: var(--foreground-muted); font: 9px var(--font-mono); }
-.kf-kg-pdesc { margin: 0 0 8px; color: var(--foreground-muted); font-size: var(--kf-type-2xs); line-height: 1.5; }
+.kf-kg-vtag { padding: 2px 5px; border: 1px solid currentColor; border-radius: 3px; font: 600 8px var(--font-mono); letter-spacing: .03em; }
+.kf-kg-vtag.is-pass { color: var(--foreground-muted); }
+.kf-kg-vtag.is-warning, .kf-kg-vtag.is-unresolved { color: var(--foreground-muted); border-style: dashed; }
+.kf-kg-vtag.is-error { color: var(--warning); }
+.kf-kg-vtag.is-first_divergence { color: var(--danger); }
+.kf-kg-vtag.is-not_collected { color: var(--foreground-muted); border-style: dashed; }
+.kf-kg-vsummary { margin: 0 0 5px; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.45; }
+/* the pass description is prose, and it is the second thing read after the
+   pass name — secondary, not muted */
+.kf-kg-pdesc { margin: 0 0 8px; color: var(--foreground-secondary); font-size: var(--kf-type-2xs); line-height: 1.5; }
+/* A metric strip, not a card: the detail panel already opens with a rule, so
+   these only need vertical dividers between them. */
 .kf-kg-pstats {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 1px;
-  overflow: hidden; margin-bottom: 8px; border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm); background: var(--border-subtle);
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 0;
+  overflow: hidden; margin-bottom: 8px; border: 0;
+  background: transparent;
 }
-.kf-kg-pstats > div { padding: 5px 7px 6px; background: var(--surface-1); }
-.kf-kg-pstats dt { color: var(--foreground-muted); font: 8px/1 var(--font-mono); letter-spacing: .05em; text-transform: uppercase; }
+.kf-kg-pstats > div { padding: 5px 11px 6px; background: transparent; }
+.kf-kg-pstats > div:first-child { padding-left: 0; }
+.kf-kg-pstats > div + div { border-left: 1px solid color-mix(in srgb, var(--border-subtle) 80%, transparent); }
+.kf-kg-pstats dt { color: var(--foreground-muted); font: 9px/1 var(--font-sans); letter-spacing: .05em; text-transform: uppercase; }
 .kf-kg-pstats dd { margin: 4px 0 0; color: var(--foreground-secondary); font: 600 12px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
 .kf-kg-pstats dd em { margin-left: 5px; color: var(--foreground-muted); font: 400 9px var(--font-mono); font-style: normal; }
 .kf-kg-props { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; }
-.kf-kg-prop { padding: 1px 5px; border: 1px solid var(--kg-ok); border-radius: 3px; color: var(--kg-ok); font: 9px var(--font-mono); }
-.kf-kg-prop.is-lost { border-style: dashed; border-color: var(--kg-bad); color: var(--kg-bad); }
-.kf-kg-prop.is-none { border-style: dotted; border-color: var(--border-strong); color: var(--foreground-muted); }
+/* produced / invalidated 性质是 IR 里的标识符，继续 mono；
+   is-none 这一颗装的是整句说明，按散文处理。 */
+.kf-kg-prop { padding: 1px 5px; border: 1px solid var(--border-strong); border-radius: 3px; color: var(--foreground-secondary); font: 9px var(--font-mono); }
+.kf-kg-prop.is-lost { border-style: dashed; border-color: var(--border-strong); color: var(--foreground-secondary); }
+.kf-kg-prop.is-none { border-style: dotted; border-color: var(--border-strong); color: var(--foreground-muted); font-family: var(--font-sans); font-size: 10px; }
+
+/* 「这个 Pass 有变更的 Kernel」——把 kf-kg-pdk 上的计数展开成名单。
+   名单可能到 40 项，所以给固定上限 + 内部滚动，不让它把 IR diff 推到屏幕外。 */
+.kf-kg-pchg { margin-bottom: 8px; }
+.kf-kg-pchg-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+.kf-kg-pchg-head b { color: var(--foreground-secondary); font: 600 10px var(--font-sans); }
+.kf-kg-pchg-head span { color: var(--foreground-muted); font: 9px var(--font-mono); }
+.kf-kg-pchg-list { display: flex; flex-wrap: wrap; gap: 3px; max-height: 112px; overflow: auto; }
+.kf-kg-pchg-item {
+  display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 6px;
+  border: 1px solid var(--border-subtle); border-radius: 3px; white-space: nowrap;
+}
+.kf-kg-pchg-item i { font: 400 8px var(--font-mono); font-style: normal; }
+.kf-kg-pchg-item b { color: var(--foreground-secondary); font: 400 10px var(--font-mono); }
+.kf-kg-pchg-item em { color: var(--foreground-muted); font: 400 9px var(--font-mono); font-style: normal; }
+/* 在这个 Pass 里诞生的 Kernel 是「无中生有」，和「被改写」不是一回事 */
+.kf-kg-pchg-item.is-born { border-style: dashed; }
+.kf-kg-pchg-item.is-born em { color: var(--foreground-muted); }
 
 /* per-kernel strip inside an expanded row */
 .kf-kg-track.is-mini { margin: 0 0 7px; }
-.kf-kg-track.is-mini .kf-kg-strata { height: 9px; font-size: 0; }
 .kf-kg-track.is-mini .kf-kg-slots { --mini: 1; }
 .kf-kg-track.is-mini .kf-kg-slot { grid-template-rows: 15px auto; }
-.kf-kg-track.is-mini .kf-kg-slot.is-milestone i { height: 10px; }
 .kf-kg-track.is-mini .kf-kg-slot em { font-size: 6.5px; }
 
 /* ---------- Pass 河 -----------------------------------------------------
-   Borrowed from Design/pass-atlas: IR form bands sit above a single
-   execution spine, while meaningful transforms become decision dots and
-   mechanical rewrites stay as quiet ticks. The SVG remains horizontally
-   scrollable so every real pass keeps its own hit target. */
+   IR form bands sit above a single execution spine. A circle means the Pass
+   changed IR; a vertical bar means it did not. Color is reserved for the
+   first error and its subsequent mismatches. */
+/* The river is the working area of this tab, so it keeps a boundary — one
+   step lighter than a container, so it reads as a surface rather than a card. */
 .kf-kg-river-wrap {
   overflow-x: auto;
   overflow-y: hidden;
   margin: 0 11px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, transparent);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--background) 70%, transparent);
   scrollbar-width: thin;
@@ -318,7 +332,13 @@
 .kf-kg-river-node.is-sel .kf-kg-river-glow { opacity: .55; }
 .kf-kg-river-node.is-sel .kf-kg-river-dot { stroke: var(--foreground); stroke-width: 2.4; }
 .kf-kg-river-node.is-sel .kf-kg-river-index { fill: var(--foreground); font-weight: 700; }
-.kf-kg-river-node.is-mechanical .kf-kg-river-glow { opacity: 0; }
+.kf-kg-river-node.is-first_divergence .kf-kg-river-glow { opacity: .42; }
+.kf-kg-river-node.is-first_divergence .kf-kg-river-index { fill: var(--danger); font-weight: 700; }
+.kf-kg-river-node.is-error .kf-kg-river-glow { opacity: .22; }
+.kf-kg-river-node.is-error .kf-kg-river-index { fill: var(--warning); font-weight: 700; }
+.kf-kg-river-node.is-warning .kf-kg-river-ring,
+.kf-kg-river-node.is-unresolved .kf-kg-river-ring { stroke-dasharray: 3 2; }
+
 @media (prefers-reduced-motion: reduce) {
   .kf-kg-river-node .kf-kg-river-glow,
   .kf-kg-river-node .kf-kg-river-ring,
@@ -327,12 +347,12 @@
 }
 
 /* Tooltip now carries the milestone description, so it wraps rather than
-   forcing one long line. */
+   forcing one long line. The description is a sentence, so it is set in sans. */
 .kf-kg-tip {
   position: fixed; z-index: 60; max-width: 268px; padding: 6px 9px;
   border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
   background: var(--surface-1); box-shadow: 0 8px 22px rgb(0 0 0 / .42);
-  color: var(--foreground-muted); font: 10px/1.5 var(--font-mono);
+  color: var(--foreground-secondary); font: 11px/1.5 var(--font-sans);
   opacity: 0; pointer-events: none; transition: opacity 90ms ease; white-space: normal;
 }
 .kf-kg-tip b { display: block; margin-bottom: 3px; color: var(--foreground); }
@@ -344,20 +364,22 @@
 .kf-kg-hunk pre.is-before { color: color-mix(in srgb, var(--warning) 78%, var(--foreground-muted)); background: color-mix(in srgb, var(--warning) 5%, transparent); }
 .kf-kg-hunk pre.is-after { color: color-mix(in srgb, var(--success) 72%, var(--foreground-secondary)); background: color-mix(in srgb, var(--success) 5%, transparent); border-top: 1px solid var(--border-subtle); }
 
-/* ---------- pass visuals ---------- */
+/* ---------- pass visuals ----------
+   The visual belongs to the selected pass, which is already an outlined
+   region; it only needs a quiet ground and the rule above its caption. */
 .kf-kg-visbox {
-  margin: 0 0 8px; padding: 8px 9px 6px;
-  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--background) 60%, transparent);
+  margin: 0 0 8px; padding: 10px 11px 7px;
+  border: 0; border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--background) 55%, transparent);
 }
 .kf-kg-vis { display: block; width: 100%; height: auto; overflow: visible; }
 .kf-kg-visbox figcaption {
   margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border-subtle);
-  color: var(--foreground-muted); font: 9px/1.45 var(--font-mono);
+  color: var(--foreground-muted); font: 10px/1.45 var(--font-sans);
 }
 .kf-kg-raw > summary {
   padding: 4px 0; color: var(--foreground-muted); cursor: pointer;
-  font: 9px var(--font-mono); list-style: none;
+  font: 10px var(--font-sans); list-style: none;
 }
 .kf-kg-raw > summary::-webkit-details-marker { display: none; }
 .kf-kg-raw > summary::before { content: "▸ "; }
@@ -369,9 +391,9 @@
 .kf-kg-facts { display: grid; gap: 3px; }
 .kf-kg-fact-h {
   margin: 2px 0 3px; color: var(--foreground-muted);
-  font: 8.5px/1.4 var(--font-mono); letter-spacing: .04em;
+  font: 9px/1.4 var(--font-sans); letter-spacing: .04em;
 }
-.kf-kg-fact-h code { color: var(--foreground-secondary); font-size: 9.5px; }
+.kf-kg-fact-h code { color: var(--foreground-secondary); font: 9.5px var(--font-mono); }
 .kf-kg-fact {
   display: grid; align-items: center; gap: 8px; width: 100%;
   grid-template-columns: 132px 74px minmax(60px, 1fr) auto;
@@ -384,7 +406,7 @@
 .kf-kg-fact code { overflow: hidden; color: var(--foreground-secondary); font: 9.5px var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
 .kf-kg-fact-t { color: var(--primary); font: 9px var(--font-mono); }
 .kf-kg-fact-b { display: flex; gap: 1px; height: 11px; }
-.kf-kg-fact-b i { min-width: 1px; border-radius: 1px; background: var(--irp-s2); }
+.kf-kg-fact-b i { min-width: 1px; border-radius: 1px; background: var(--foreground-muted); }
 .kf-kg-fact.is-sel .kf-kg-fact-b i { background: var(--primary); }
 .kf-kg-fact-n { color: var(--foreground-muted); font: 9px var(--font-mono); white-space: nowrap; }
 .kf-kg-fact-n b { color: var(--foreground-secondary); font-weight: 600; }

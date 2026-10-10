@@ -87,7 +87,7 @@
   function facets() {
     const C = K(), T = D();
     const out = [
-      { k: 'fn', n: C.kernels.length, label: '生成函数', sub: 'passes_dump 末态' },
+      { k: 'fn', n: C.kernels.length, label: '生成 Kernel', sub: 'passes_dump 末态' },
       { k: 'pass', n: C.passNames.length, label: '编译 Pass', sub: '逐 pass 快照' }
     ];
     if (T) out.push({ k: 'core', n: T.counts.lanes, label: '参与核心', sub: 'dfx 泳道' });
@@ -182,7 +182,7 @@
       const b = t.n * d[1];
       const mb = b >= 1048576;
       return {
-        id: 't' + i, name: num(t.n) + ' 元素', tag: d[0], bytes: b,
+        id: String(i), name: num(t.n) + ' 元素', tag: d[0], bytes: b,
         chip: mb ? (b / 1048576).toFixed(b >= 10485760 ? 0 : 1) : Math.round(b / 1024),
         chipU: mb ? ' MB' : ' KB',
         segs: [],
@@ -282,6 +282,11 @@
       if (!l) return;
       st.sel = l.dataset.fanLeaf;
       render();
+      if (st.opts.onSelect) {
+        const kind = st.facet === 'fn' ? 'kernel' : st.facet === 'pass' ? 'pass' :
+          st.facet === 'tensor' ? 'tensor' : st.facet === 'space' ? 'buffer' : 'kernel';
+        st.opts.onSelect({ kind, id: st.sel });
+      }
       // the compile guard lives on another tab, so the host decides how to get
       // there rather than this module reaching across for it
       if (st.facet === 'fn' && st.opts.onKernel) st.opts.onKernel(st.sel);

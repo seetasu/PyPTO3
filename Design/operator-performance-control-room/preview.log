@@ -1,0 +1,22 @@
+
+> operator-performance-control-room@0.0.0 dev
+> vite --host 127.0.0.1 --port 4173
+
+
+  VITE v6.4.2  ready in 237 ms
+
+  ➜  Local:   http://127.0.0.1:4173/
+  ➜  press h + enter to show help
+11:32:24 [vite] (client) hmr update /src/App.jsx
+11:34:41 [vite] (client) hmr update /src/App.jsx
+14:27:02 [vite] (client) page reload index.html
+14:27:02 [vite] vite.config.mjs changed, restarting server...
+14:27:02 [vite] vite.config.mjs changed, restarting server...
+14:27:02 [vite] (client) hmr update /src/App.jsx
+14:27:02 [vite] (client) page reload src/main.jsx
+14:27:02 [vite] (client) hmr update /src/styles.css
+14:27:02 [vite] vite.config.mjs changed, restarting server...
+14:27:02 [vite] (client) hmr update /src/App.jsx
+14:27:02 [vite] (client) page reload src/main.jsx
+14:27:02 [vite] (client) hmr update /src/styles.css
+14:27:02 [vite] server restarted.

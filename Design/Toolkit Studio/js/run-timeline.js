@@ -15,8 +15,9 @@
   const esc = (s) => String(s).replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  const st = { sel: null, tab: 'sum', track: 'both', host: null,
-               scroll: { tasks: 0, cores: 0 }, reveal: false, edges: true };
+  const st = { sel: null, tab: 'sum', track: 'both', host: null, opts: {},
+               scroll: { tasks: 0, cores: 0 }, reveal: false, edges: true,
+               hl: null, revealHl: false, hlTrack: 'both', range: null };
 
   const us = (v) => v >= 1000 ? (v / 1000).toFixed(2) + ' ms' : v.toFixed(2) + ' µs';
   const kbytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB'
@@ -24,11 +25,43 @@
 
   function data() { return window.PTO_RUN_TRACE || null; }
 
+  /* ---------- external highlight ----------
+     Asked for by the Execution facets table ("every task of this kernel / this
+     core / this chain"). Hit blocks get is-hl and the rest is-dim — dimmed, not
+     hidden, so the shape of the run stays readable while one object is traced.
+     Held in state because scrolling and selecting both re-render. */
+  function resolveHighlight(spec) {
+    const D = data();
+    if (!D || !spec) return null;
+    const hit = new Set();
+    (spec.tasks || []).forEach(i => { if (D.tasks[i]) hit.add(Number(i)); });
+    const kernels = spec.kernels ? new Set(spec.kernels) : null;
+    const lanes = spec.lanes ? new Set(spec.lanes) : null;
+    if (kernels || lanes) {
+      const laneNames = D.lanes.map(l => l.n);
+      D.tasks.forEach((t, i) => {
+        if (kernels && t.ks.some(x => kernels.has(x.kn))) { hit.add(i); return; }
+        if (lanes && (t.l || []).some(li => lanes.has(laneNames[li]))) hit.add(i);
+      });
+    }
+    return hit.size ? hit : null;
+  }
+
+  function blockTone(i) {
+    if (!st.hl) return '';
+    return st.hl.has(i) ? ' is-hl' : ' is-dim';
+  }
+
   /* ---------- axis ---------- */
+  function domain(D) {
+    const r = st.range;
+    if (!r || !isFinite(r.from) || !isFinite(r.to) || r.to <= r.from) return { from: 0, to: D.span, span: D.span };
+    return { from: Math.max(0, r.from), to: Math.min(D.span, r.to), span: Math.max(1, Math.min(D.span, r.to) - Math.max(0, r.from)) };
+  }
   function axis(D) {
-    const step = 100, out = [];
-    for (let t = 0; t <= D.span; t += step) {
-      out.push('<span style="left:' + (t / D.span * 100) + '%">' + t + '</span>');
+    const q = domain(D), step = q.span <= 80 ? 10 : q.span <= 180 ? 20 : 100, out = [];
+    for (let t = Math.ceil(q.from / step) * step; t <= q.to; t += step) {
+      out.push('<span style="left:' + ((t - q.from) / q.span * 100) + '%">' + t + '</span>');
     }
     return '<div class="kf-tl-axis"><div class="kf-tl-lbl">时间 µs</div>' +
       '<div class="kf-tl-ax">' + out.join('') + '</div></div>';
@@ -36,6 +69,7 @@
 
   /* ---------- track 1: logical tasks, grouped by kernel ---------- */
   function taskTrack(D) {
+    const q = domain(D);
     // one row per kernel that actually executed, earliest first
     const rows = D.kroll.slice().sort((a, b) => a.s - b.s);
     return rows.map(k => {
@@ -46,18 +80,22 @@
       const mine = [];
       D.tasks.forEach((t, i) => t.ks.forEach(x => { if (x.k === k.k) mine.push([t, i, x]); }));
       const blocks = mine.map(([t, i, x]) => {
-        const w = Math.max(0.16, (x.e - x.s) / D.span * 100);
+        if (x.e < q.from || x.s > q.to) return '';
+        const from = Math.max(q.from, x.s), to = Math.min(q.to, x.e);
+        const w = Math.max(0.16, (to - from) / q.span * 100);
         const on = st.sel === i ? ' is-sel' : '';
         const title = name + ' · ' + t.r + 't' + t.ti +
           '\n' + us(x.s) + ' → ' + us(x.e) + '（wall ' + us(x.e - x.s) + '）' +
           '\n' + x.c + ' 核 · 累计忙碌 ' + us(x.b) +
           (t.ks.length > 1 ? '\n同一任务还下沉为 ' + t.ks.filter(y => y.k !== k.k).map(y => y.kn).join('、') : '');
-        return '<i class="kf-tl-b' + on + '" data-tl-task="' + i + '"' +
-          ' style="left:' + (x.s / D.span * 100) + '%;width:' + w + '%"' +
+        return '<i class="kf-tl-b' + on + blockTone(i) + '" data-tl-task="' + i + '"' +
+          ' style="left:' + ((from - q.from) / q.span * 100) + '%;width:' + w + '%"' +
           ' title="' + esc(title) + '"></i>';
       }).join('');
       const hit = mine.some(m => m[1] === st.sel);
+      const hlHit = st.hl && mine.some(m => st.hl.has(m[1]));
       return '<div class="kf-tl-row is-' + be.toLowerCase() + (hit ? ' is-hit' : '') +
+        (hlHit ? ' is-hl-row' : '') +
         '" data-tl-kernel="' + k.k + '">' +
         '<div class="kf-tl-lbl" title="' + esc(name + ' · ' + be + ' · ' + k.n + ' 次调用 · 累计忙碌 ' + us(k.busy) + ' · 最多 ' + k.maxc + ' 核并发') + '"><code>' + esc(name) + '</code>' +
           '<em>' + esc(be) + '</em><b>' + k.n + '</b></div>' +
@@ -68,21 +106,26 @@
 
   /* ---------- track 2: physical cores ---------- */
   function laneTrack(D) {
+    const q = domain(D);
     const byLane = [];
     D.lanes.forEach(() => byLane.push([]));
     D.segs.forEach(s => { if (byLane[s[0]]) byLane[s[0]].push(s); });
     return D.lanes.map((l, li) => {
       const blocks = byLane[li].map(s => {
+        if (s[2] + s[3] < q.from || s[2] > q.to) return '';
         const t = D.tasks[s[1]];
-        const w = Math.max(0.16, s[3] / D.span * 100);
+        const from = Math.max(q.from, s[2]), to = Math.min(q.to, s[2] + s[3]);
+        const w = Math.max(0.16, (to - from) / q.span * 100);
         const on = st.sel === s[1] ? ' is-sel' : '';
-        return '<i class="kf-tl-b' + on + '" data-tl-task="' + s[1] + '"' +
-          ' style="left:' + (s[2] / D.span * 100) + '%;width:' + w + '%"' +
+        return '<i class="kf-tl-b' + on + blockTone(s[1]) + '" data-tl-task="' + s[1] + '"' +
+          ' style="left:' + ((from - q.from) / q.span * 100) + '%;width:' + w + '%"' +
           ' title="' + esc(l.n + ' · ' + (t ? t.kn : '') + '\n' + us(s[2]) + ' + ' + us(s[3])) + '"></i>';
       }).join('');
       const busy = byLane[li].reduce((a, s) => a + s[3], 0);
       const hit = st.sel != null && D.tasks[st.sel] && D.tasks[st.sel].l.indexOf(li) >= 0;
-      return '<div class="kf-tl-row is-core is-' + l.k.toLowerCase() + (hit ? ' is-hit' : '') + '">' +
+      const hlHit = st.hl && byLane[li].some(s => st.hl.has(s[1]));
+      return '<div class="kf-tl-row is-core is-' + l.k.toLowerCase() + (hit ? ' is-hit' : '') +
+        (hlHit ? ' is-hl-row' : '') + '">' +
         '<div class="kf-tl-lbl" title="' + esc(l.n + ' · 忙碌 ' + us(busy) + ' / ' + us(D.span) + ' · ' + byLane[li].length + ' 段') + '"><code>' + esc(l.n) + '</code>' +
           '<b>' + Math.round(busy / D.span * 100) + '%</b></div>' +
         '<div class="kf-tl-lane">' + blocks + '</div>' +
@@ -296,6 +339,18 @@
     });
   }
 
+  // external highlight reveals the first hit of the track the caller asked for
+  function revealHighlight() {
+    if (!st.hl || !st.host) return;
+    const want = st.hlTrack === 'tasks' ? ['.kf-tl-tasks']
+               : st.hlTrack === 'cores' ? ['.kf-tl-cores']
+               : ['.kf-tl-tasks', '.kf-tl-cores'];
+    want.forEach(sel => {
+      const box = $(sel, st.host);
+      revealIn(box, box && $('.kf-tl-b.is-hl', box));
+    });
+  }
+
   /* ---------- mount ---------- */
   function mount(host) {
     const D = data();
@@ -308,12 +363,13 @@
     const wideT = D.tasks.reduce((a, t, i) =>
       (t.e - t.s) > (a ? D.tasks[a].e - D.tasks[a].s : -1) ? i : a, null);
     const W = D.tasks[wideT];
+    const q = domain(D);
 
     host.innerHTML =
       '<section class="kf-rd-sec kf-tl">' +
         '<div class="kf-rd-h">执行时间线' +
           '<small>' + D.counts.tasks + ' 个逻辑任务落到 ' + D.counts.kernels + ' 个 kernel · ' +
-          D.counts.lanes + ' 个核心 · 全程 ' + us(D.span) +
+          D.counts.lanes + ' 个核心 · ' + (st.range ? '当前窗口 ' + us(q.from) + ' → ' + us(q.to) : '全程 ' + us(D.span)) +
           ' · 来自 dfx_outputs/</small></div>' +
         '<div class="kf-tl-hint">' +
           '<span><i class="is-aic"></i>AIC（Cube）</span>' +
@@ -333,36 +389,82 @@
             '<div class="kf-tl-thead">核心泳道 · AIC / AIV <b>' + D.counts.lanes + '</b></div>' +
             '<div class="kf-tl-scroll kf-tl-cores">' + laneTrack(D) + '</div>' +
           '</div>' +
-          inspector(D) +
+          (st.opts.inlineInspector === false ? '' : inspector(D)) +
         '</div>' +
       '</section>';
 
     restoreScroll();
     if (st.reveal) { st.reveal = false; revealSelection(); }
+    if (st.revealHl) { st.revealHl = false; revealHighlight(); }
     // Measured off the rendered blocks. Called synchronously on purpose:
     // getBoundingClientRect forces the layout we need, and rAF does not fire
     // at all while the page is in a hidden tab, which silently lost the edges.
     drawEdges();
   }
 
-  function rerender() { if (st.host) mount(st.host); }
+  function rerender() { if (st.host) mount(st.host, st.opts); }
+
+  function notifySelect() {
+    if (st.sel == null) { st.opts.onClear?.(); return; }
+    st.opts.onSelect?.({ kind: 'task', id: String(st.sel) });
+  }
 
   document.addEventListener('click', (e) => {
     if (!st.host || !st.host.contains(e.target)) return;
     if (e.target.closest('[data-tl-edges]')) { st.edges = !st.edges; rerender(); return; }
-    if (e.target.closest('[data-tl-close]')) { st.sel = null; rerender(); return; }
+    if (e.target.closest('[data-tl-close]')) { st.sel = null; rerender(); notifySelect(); return; }
     const tab = e.target.closest('[data-tl-tab]');
     if (tab) { st.tab = tab.dataset.tlTab; rerender(); return; }
     const b = e.target.closest('[data-tl-task]');
-    if (b) { st.sel = Number(b.dataset.tlTask); st.reveal = true; rerender(); return; }
+    if (b) { st.sel = Number(b.dataset.tlTask); st.reveal = true; st.hl = null; rerender(); notifySelect(); return; }
     const k = e.target.closest('[data-tl-kernel]');
     if (k) {                                   // row label: jump to its first task
       const kid = Number(k.dataset.tlKernel);
       const D = data();
       const i = D.tasks.findIndex(t => t.k === kid);
-      if (i >= 0) { st.sel = i; st.reveal = true; rerender(); }
+      if (i >= 0) { st.sel = i; st.reveal = true; st.hl = null; rerender(); notifySelect(); }
+      return;
     }
+    // anything else inside the timeline clears the external highlight
+    if (st.hl) { st.hl = null; rerender(); }
   });
 
-  window.PTO_TIMELINE = { mount, reset() { st.sel = null; st.tab = 'sum'; } };
+  window.PTO_TIMELINE = {
+    mount(host, opts) {
+      st.opts = opts || {};
+      if (Object.prototype.hasOwnProperty.call(st.opts, 'selectedTaskId') && st.opts.selectedTaskId != null && Number(st.opts.selectedTaskId) !== st.sel) {
+        st.sel = Number(st.opts.selectedTaskId); st.reveal = true;
+      }
+      return mount(host);
+    },
+    selectTask(id) {
+      if (id == null || Number(id) === st.sel) return;
+      st.sel = Number(id); st.reveal = true; rerender();
+    },
+    focusRange(range) {
+      st.range = range && isFinite(range.from) && isFinite(range.to) ? { from: Number(range.from), to: Number(range.to) } : null;
+      if (st.host) rerender();
+    },
+    /* { kernels | lanes | tasks } — see resolveHighlight. Called by the
+       Execution facets table; pass null to drop the highlight. */
+    setHighlight(spec, opts) {
+      st.hl = resolveHighlight(spec);
+      st.hlTrack = (opts && opts.track) || 'both';
+      st.revealHl = !!st.hl;
+      if (st.host) rerender();
+      return !!st.hl;
+    },
+    clearHighlight() {
+      if (!st.hl) return;
+      st.hl = null;
+      if (st.host) rerender();
+    },
+    setEdges(on) {
+      const next = !!on;
+      if (st.edges === next) return;
+      st.edges = next;
+      if (st.host) rerender();
+    },
+    reset() { st.sel = null; st.tab = 'sum'; st.hl = null; st.range = null; }
+  };
 })();

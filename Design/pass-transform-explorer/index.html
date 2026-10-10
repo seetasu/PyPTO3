@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="按 Pass 逐站检查 PyPTO 编译流水线：代码 Diff、结构图变化与每个 Pass 的实测优化证据。">
+<title>Pass Transform Explorer · PyPTO</title>
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+<link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css?v=2">
+<link rel="stylesheet" href="styles.css?v=mv0m54b8">
+</head>
+<body class="pto-ide-frame ptx" data-host="standalone">
+
+<header class="pto-ide-frame__topbar ptx-topbar">
+  <div class="pto-ide-frame__topbar-left">
+    <a class="btn btn-ghost btn-sm" href="../../launch.html">PTO</a>
+    <span class="pto-ide-frame__pane-title">Pass Transform Explorer</span>
+    <select id="runSelect" class="ptx-select" aria-label="选择算子编译运行"></select>
+  </div>
+  <div class="pto-ide-frame__topbar-center ptx-topbar-center">
+    <span id="runMeta" class="ptx-meta"></span>
+  </div>
+  <div class="pto-ide-frame__topbar-right">
+    <button id="prevPass" class="btn btn-ghost btn-sm" title="上一个 Pass (←)">←</button>
+    <button id="nextPass" class="btn btn-ghost btn-sm" title="下一个 Pass (→)">→</button>
+    <button id="docToggle" class="btn btn-ghost btn-sm" title="打开 / 关闭 Pass 说明 (D)" aria-controls="docPane" aria-pressed="false">说明</button>
+    <button id="themeToggle" class="btn btn-ghost btn-sm btn-icon" title="切换主题" aria-label="切换主题">◐</button>
+  </div>
+</header>
+
+<div class="ptx-body">
+
+  <!-- ── Pass timeline ─────────────────────────────────────────────── -->
+  <aside class="ptx-rail" id="rail">
+    <div class="ptx-rail__head">
+      <div class="ptx-seg ptx-seg--mode" id="railMode">
+        <button data-mode="pass" class="is-active">按 Pass</button>
+        <button data-mode="callable">按 Callable</button>
+      </div>
+      <div id="railHeadPass">
+        <div class="ptx-rail__title">Pass 流水线</div>
+        <div id="railSummary" class="ptx-rail__summary"></div>
+        <div class="ptx-perfkey" id="perfKey" aria-label="按性能影响分档筛选"></div>
+        <label class="ptx-checkline">
+          <input type="checkbox" id="onlyChanged"> 只看改动了 IR 的 Pass
+        </label>
+        <input type="search" id="passFilter" class="ptx-input" placeholder="过滤 Pass 名称…">
+      </div>
+      <div id="railHeadCallable" hidden>
+        <div class="ptx-rail__title">Callable 清单</div>
+        <div id="callableSummary" class="ptx-rail__summary"></div>
+        <label class="ptx-checkline">
+          <input type="checkbox" id="onlyKernels"> 只看设备核函数（AIC / AIV）
+        </label>
+        <input type="search" id="callableFilter" class="ptx-input" placeholder="过滤 Callable 名称…">
+      </div>
+    </div>
+    <nav class="ptx-rail__list" id="passList" aria-label="Pass 时间线"></nav>
+    <nav class="ptx-rail__list" id="callableList" aria-label="Callable 清单" hidden></nav>
+  </aside>
+
+  <!-- ── Main ──────────────────────────────────────────────────────── -->
+  <main class="ptx-main">
+    <header class="ptx-passhead" id="passHead">
+      <div class="ptx-passhead__top">
+        <span class="ptx-phase" id="passPhase"></span>
+        <span class="ptx-perftier" id="passPerfTier" hidden></span>
+        <h1 class="ptx-passhead__name" id="passName">—</h1>
+        <span class="ptx-delta" id="passDelta"></span>
+        <span class="ptx-flex"></span>
+        <a class="ptx-srclink" id="passSource" target="_blank" rel="noreferrer" hidden>Pass 源码</a>
+        <button class="ptx-docbtn" id="docOpen" title="查看这个 Pass 的说明文档 (D)" aria-controls="docPane" aria-expanded="false">Pass 说明</button>
+      </div>
+      <p class="ptx-passhead__headline" id="passHeadline"></p>
+      <div class="ptx-tabs" role="tablist">
+        <button class="ptx-tab" data-tab="overview" role="tab">变化概览</button>
+        <button class="ptx-tab" data-tab="diff" role="tab">代码 Diff</button>
+        <button class="ptx-tab" data-tab="graph" role="tab">结构图</button>
+        <button class="ptx-tab" data-tab="memmap" role="tab" id="memmapTab" hidden>内存地图</button>
+      </div>
+    </header>
+
+    <header class="ptx-passhead" id="callableHead" hidden>
+      <div class="ptx-passhead__top">
+        <span class="ptx-phase" id="cKind"></span>
+        <h1 class="ptx-passhead__name" id="cName">—</h1>
+        <span class="ptx-delta" id="cDelta"></span>
+        <span class="ptx-flex"></span>
+        <span class="ptx-meta" id="cSource"></span>
+      </div>
+      <p class="ptx-passhead__headline" id="cHeadline"></p>
+    </header>
+
+    <section class="ptx-view" id="viewCallable" hidden></section>
+
+    <section class="ptx-view" id="viewOverview" hidden></section>
+
+    <section class="ptx-view ptx-view--flush" id="viewDiff" hidden>
+      <div class="ptx-subbar">
+        <div class="ptx-chips" id="diffFnChips"></div>
+        <span class="ptx-flex"></span>
+        <div class="ptx-seg" id="diffMode">
+          <button data-mode="split" class="is-active">并排</button>
+          <button data-mode="unified">统一</button>
+        </div>
+        <button id="diffExpand" class="btn btn-ghost btn-sm" title="全屏查看代码 Diff (F，Esc 退出)">全屏</button>
+      </div>
+      <div class="ptx-diff" id="diffBody"></div>
+      <div class="ptx-hscroll" id="diffHScroll" hidden aria-label="并排 Diff 的水平滚动"><div></div></div>
+    </section>
+
+    <section class="ptx-view ptx-view--flush" id="viewGraph" hidden>
+      <div class="ptx-subbar">
+        <div class="ptx-seg ptx-seg--lens" id="lensPicker"></div>
+        <span class="ptx-flex"></span>
+        <div class="ptx-legend">
+          <span class="ptx-dot ptx-dot--add"></span>新增
+          <span class="ptx-dot ptx-dot--del"></span>删除
+          <span class="ptx-dot ptx-dot--chg"></span>属性改变
+          <span class="ptx-dot ptx-dot--same"></span>未变
+        </div>
+        <select id="graphFn" class="ptx-select ptx-select--sm" aria-label="选择函数"></select>
+      </div>
+      <div class="ptx-graph" id="graphBody"></div>
+    </section>
+
+    <section class="ptx-view ptx-view--flush" id="viewMemmap" hidden>
+      <div class="ptx-subbar">
+        <select id="mmFn" class="ptx-select ptx-select--sm" aria-label="选择计算函数"></select>
+        <div class="ptx-seg" id="mmSide" aria-label="切换 Pass 前后">
+          <button data-side="before">Pass 前</button>
+          <button data-side="after" class="is-active">Pass 后</button>
+        </div>
+        <div class="ptx-seg" id="mmAxis" aria-label="横轴范围">
+          <button data-axis="limit" class="is-active" title="每条泳道按硬件容量画满">硬件上限</button>
+          <button data-axis="used" title="每条泳道只画到高水位">已使用</button>
+        </div>
+        <div class="ptx-seg" id="mmZoom" aria-label="缩放">
+          <button data-zoom="out" title="缩小 (Ctrl+滚轮)">−</button>
+          <button data-zoom="reset" id="mmZoomLabel" title="还原">1.0×</button>
+          <button data-zoom="in" title="放大 (Ctrl+滚轮)">+</button>
+        </div>
+        <span class="ptx-flex"></span>
+        <div class="mm-spaces" id="mmSpaces" aria-label="内存空间筛选"></div>
+      </div>
+      <div class="mm-strip" id="mmStrip" aria-label="异常统计"></div>
+      <div class="mm-body" id="mmBody">
+        <div class="mm-src" id="mmSrc" aria-label="快照源码"></div>
+        <div class="mm-map" id="mmMap" aria-label="地址 × 生命周期内存地图"></div>
+      </div>
+      <div class="mm-inspector" id="mmInspector"></div>
+      <div class="mm-tip" id="mmTip" hidden></div>
+    </section>
+  </main>
+
+  <!-- ── Pass documentation: a drawer the reader opens on demand ────── -->
+  <aside class="ptx-doc" id="docPane" aria-label="Pass 说明" aria-hidden="true" inert>
+    <div class="ptx-doc__head">
+      <span>Pass 说明</span>
+      <small id="docOrigin"></small>
+      <button class="ptx-doc__close" id="docClose" title="关闭 (Esc)" aria-label="关闭 Pass 说明">×</button>
+    </div>
+    <div class="ptx-doc__body" id="docBody"></div>
+  </aside>
+
+</div>
+
+<div class="ptx-toast" id="toast" hidden></div>
+
+<script src="lib/bundle.js?v=mv0m54b8"></script>
+<script src="data/index.js?v=mv0m54b8"></script>
+<script src="app.js?v=mv0m54b8"></script>
+<script id="ptxBootCheck">
+(function () {
+  // index.html needs lib/bundle.js and data/index.js, which build.mjs writes
+  // and .gitignore excludes. Without them the shell paints and then does
+  // nothing at all, with the only clue in the console.
+  //
+  // Judged by behaviour rather than by a variable read at parse time: the
+  // single-file build carries this same markup but inflates its assets
+  // asynchronously, so an instant check there blanked a page that was about to
+  // work. Wait for load, leave a grace period, and speak up only if the rail
+  // never filled in.
+  function missingParts() {
+    if (window.PTXLib && window.PTX_INDEX) return null;
+    var rail = document.getElementById('passList');
+    if (rail && rail.children.length) return null;
+    var missing = [];
+    if (!window.PTXLib) missing.push('lib/bundle.js');
+    if (!window.PTX_INDEX) missing.push('data/index.js');
+    return missing.length ? missing : null;
+  }
+
+  function report() {
+    var missing = missingParts();
+    if (!missing) return;
+    var fromDisk = location.protocol === 'file:';
+    var html = ''
+      + '<div class="ptx-boot__card">'
+      + '<h1>数据没有加载</h1>'
+      + '<p>这个页面需要 <code>' + missing.join('</code> 和 <code>') + '</code>，但浏览器没有拿到。'
+      + (missing.length > 1 ? '它们' : '它') + '由 <code>build.mjs</code> 生成，仓库里不跟踪，'
+      + '所以新克隆或换一个工作区之后要先构建一次。</p>'
+      + '<h2>先构建</h2>'
+      + '<pre>cd Design/pass-transform-explorer\nnode build.mjs</pre>';
+    if (fromDisk) {
+      html += '<h2>再选一种打开方式</h2>'
+        + '<p>你现在是用 <code>file://</code> 直接打开的。这个版本按需加载几十份 IR 快照，'
+        + '浏览器对本地文件的限制可能让部分请求取不到，建议二选一：</p>'
+        + '<pre>npx http-server . -p 4178 -c-1</pre>'
+        + '<p>然后访问 <code>http://localhost:4178/Design/pass-transform-explorer/index.html</code>；'
+        + '或者构建单文件版，双击即可打开、不需要服务器：</p>'
+        + '<pre>node build-demo.mjs</pre>'
+        + '<p>生成的 <code>demo.html</code> 把全部快照内嵌在一个文件里。</p>';
+    } else {
+      html += '<h2>再刷新本页</h2><p>构建完成后直接刷新即可。</p>';
+    }
+    html += '</div>';
+    var box = document.createElement('div');
+    box.className = 'ptx-boot';
+    box.innerHTML = html;
+    document.body.innerHTML = '';
+    document.body.appendChild(box);
+  }
+
+  function arm() { setTimeout(report, 2500); }
+  if (document.readyState === 'complete') arm();
+  else window.addEventListener('load', arm);
+})();
+</script>
+</body>
+</html>

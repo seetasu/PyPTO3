@@ -1813,15 +1813,26 @@ button.operator-tree-toggle:hover {
     .so-dse-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
     .so-dse-lineage { min-height: 330px; overflow: hidden; background: var(--surface-2); --trace-chart-height: 330px; }
     .so-dse-sweep-analysis[hidden] { display: none; }
-    .so-dse-sweep-analysis { padding: var(--space-4); border-top: 1px solid var(--border-subtle); background: var(--surface-1); }
+    .so-dse-sweep-analysis { padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: 9px; background: var(--surface-1); }
     .so-dse-stage-detail[hidden] { display: none; }
-    .so-dse-stage-detail { padding: var(--space-4); border-top: 1px solid var(--border-subtle); background: var(--surface-1); }
+    .so-dse-stage-detail { padding: var(--space-4); border: 1px solid var(--border-subtle); border-radius: 9px; background: var(--surface-1); }
     .so-dse-stage-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
     .so-dse-stage-detail-head h3 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
     .so-dse-stage-detail-head p { max-width: 860px; margin: var(--space-2) 0 0; color: var(--foreground-secondary); font: var(--type-body); }
-    .so-dse-stage-summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; margin-top: var(--space-4); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-2); }
-    .so-dse-stage-summary span { color: var(--foreground-muted); font: var(--type-body-sm); }
-    .so-dse-stage-summary code { overflow: hidden; color: var(--foreground-secondary); font: var(--type-mono); text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-intent-grid { display: grid; grid-template-columns: minmax(min(320px, 100%), 0.95fr) minmax(0, 1.05fr); gap: 16px; margin-top: var(--space-4); }
+    .so-dse-candidates { display: grid; align-content: start; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-2); }
+    .so-dse-candidate-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: var(--space-2); }
+    .so-dse-candidate-tab { display: grid; gap: 3px; min-width: 0; padding: 9px 10px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-3); color: var(--foreground); cursor: pointer; text-align: left; }
+    .so-dse-candidate-tab:hover { border-color: var(--border-strong); background: var(--surface-4); }
+    .so-dse-candidate-tab.is-active { border-color: var(--primary); background: var(--state-selected); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent); }
+    .so-dse-candidate-tab strong { font-family: var(--font-mono); font-size: 13px; }
+    .so-dse-candidate-tab-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; min-width: 0; }
+    .so-dse-candidate-tab-tag { overflow: hidden; color: var(--foreground-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .so-dse-candidate-detail { display: grid; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-1); }
+    .so-dse-candidate-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .so-dse-candidate-detail-head h3 { margin: 0; font-size: 14px; }
+    .so-dse-candidate-detail-summary { display: flex; align-items: flex-start; gap: 7px; }
+    .so-dse-candidate-detail-summary p { margin: 0; color: var(--foreground-secondary); font-size: 11px; line-height: 1.5; }
     .so-dse-stage-compare { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
     .so-dse-compare-conclusion { display: grid; grid-template-columns: minmax(210px, .72fr) minmax(0, 1.5fr); gap: var(--space-3); padding: 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--primary) 6%, var(--surface-2)); }
     .so-dse-compare-conclusion-title { display: grid; align-content: start; gap: 5px; }
@@ -1959,10 +1970,7 @@ button.operator-tree-toggle:hover {
     .so-dse-candidate-table tbody tr:last-child td { border-bottom: 0; }
     .so-dse-candidate-table tbody tr:hover { background: var(--state-hover); }
     .so-dse-stage-pareto { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle); }
-    .so-dse-stage-pareto-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
-    .so-dse-stage-pareto-head h4 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
-    .so-dse-stage-pareto-head p { margin: var(--space-2) 0 0; color: var(--foreground-secondary); font: var(--type-body-sm); }
-    .so-dse-pareto-chart { margin-top: var(--space-4); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-2); }
+    .so-dse-pareto-chart { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-2); }
     .so-dse-pareto-chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
     .so-dse-pareto-chart-head h5 { margin: 0; color: var(--foreground); font: var(--type-title-3); }
     .so-dse-pareto-chart-head p { margin: var(--space-2) 0 0; color: var(--foreground-secondary); font: var(--type-body-sm); }
@@ -1970,7 +1978,7 @@ button.operator-tree-toggle:hover {
     .so-dse-pareto-chart-legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
     .so-dse-pareto-chart-legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--legend-color); }
     .so-dse-pareto-chart-legend i.is-dominated { background: transparent; border: 1px solid var(--legend-color); }
-    .so-dse-pareto-chart svg { width: 100%; height: 292px; display: block; margin-top: var(--space-2); overflow: visible; }
+    .so-dse-pareto-chart svg { width: 100%; height: auto; min-height: 320px; display: block; margin-top: var(--space-2); overflow: visible; }
     .so-dse-pareto-frontier { fill: none; stroke: var(--success); stroke-width: 1.5; stroke-dasharray: 4 3; opacity: .75; vector-effect: non-scaling-stroke; }
     .so-dse-pareto-point { stroke: var(--surface-2); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
     .so-dse-pareto-point.is-pareto { fill: var(--success); }
@@ -2014,7 +2022,6 @@ button.operator-tree-toggle:hover {
     .so-dse-chart-confidence { fill: color-mix(in srgb, var(--point-color) 13%, transparent); stroke: color-mix(in srgb, var(--point-color) 72%, transparent); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
     .so-dse-chart-threshold { stroke: var(--danger); stroke-width: 1; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
     .so-dse-chart-threshold-label { fill: var(--danger); font-size: 10px; }
-    .so-dse-candidates { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; padding: 12px; }
     .so-dse-candidate { position: relative; min-width: 0; min-height: 0; padding: 12px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-2); color: var(--foreground); cursor: pointer; text-align: left; }
     .so-dse-candidate:hover { border-color: var(--border-strong); background: var(--surface-3); }
     .so-dse-candidate.is-active { border-color: var(--primary); background: var(--state-selected); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 14%, transparent); }
@@ -2026,19 +2033,20 @@ button.operator-tree-toggle:hover {
     .so-dse-candidate-policy { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 7px; }
     .so-dse-candidate-policy span { max-width: 100%; padding: 4px 6px; overflow: hidden; border-radius: 4px; background: var(--surface-3); color: var(--foreground-muted); font-size: 10px; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
     .so-dse-candidate.is-active .so-dse-candidate-policy span { background: var(--surface-2); }
-    .so-dse-candidate-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+    .so-dse-candidate-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
     .so-dse-candidate-metrics span { display: block; color: var(--foreground-muted); font-size: 10px; }
     .so-dse-candidate-metrics strong { display: block; margin-top: 3px; font-size: 13px; }
     .so-dse-candidate-foot { display: none; }
     .so-dse-sla { display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 20px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--success) 32%, var(--border-default)); border-radius: 999px; color: var(--success); font-size: 9px; font-weight: 700; letter-spacing: .02em; line-height: 1; white-space: nowrap; }
     .so-dse-sla.is-tight { border-color: color-mix(in srgb, var(--warning) 38%, var(--border-default)); color: var(--warning); }
+    .so-dse-sla.is-fail { border-color: color-mix(in srgb, var(--danger) 42%, var(--border-default)); color: var(--danger); }
     .so-dse-deployment-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px; border-bottom: 1px solid var(--border-subtle); }
     .so-dse-deployment-head h2 { margin: 0; font-size: 16px; letter-spacing: -.02em; }
     .so-dse-deployment-head p { margin: 5px 0 0; color: var(--foreground-secondary); font-size: 11px; line-height: 1.5; }
     .so-dse-deployment-actions { display: flex; align-items: center; gap: 8px; }
     .so-dse-deployment-body { padding: 12px; }
     .so-dse-canvas { min-width: 0; }
-    .so-placement-canvas { position: relative; min-width: 0; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 10px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--surface-2); isolation: isolate; }
+    .so-placement-canvas { position: relative; min-width: 0; display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); gap: 10px; padding: 10px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--surface-2); isolation: isolate; }
     .so-placement-toolbar { grid-column: 1 / -1; display: flex; min-height: 38px; align-items: center; justify-content: space-between; gap: 12px; padding: 0 3px 2px; }
     .so-placement-toolbar-copy { min-width: 0; }
     .so-placement-toolbar-copy strong { display: block; color: var(--foreground); font-size: 13px; }
@@ -2047,7 +2055,7 @@ button.operator-tree-toggle:hover {
     .so-placement-toolbar-hint::before { width: 6px; height: 6px; border-radius: 50%; background: #44a57b; content: ''; }
     .so-placement-region { position: relative; z-index: 2; min-width: 0; overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 9px; background: var(--surface-1); box-shadow: var(--shadow-sm); }
     .so-placement-region-head { display: flex; min-height: 42px; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-2); }
-    .so-placement-region-head h3 { margin: 0; color: var(--foreground); font-size: 12px; font-weight: 650; }
+    .so-placement-region-head h3 { margin: 0; color: var(--foreground); font-size: 12px; font-weight: 650; white-space: nowrap; }
     .so-placement-region-head > span { overflow: hidden; color: var(--foreground-muted); font-family: var(--font-mono); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
     .so-placement-region-body { min-width: 0; padding: 12px; }
     .so-placement-stage-list { display: grid; gap: 7px; }
@@ -2090,6 +2098,7 @@ button.operator-tree-toggle:hover {
     .so-placement-experts i:nth-child(4n + 1) { background: #9ecbb8; }
     .so-placement-shared { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 6px; background: #eef7f3; color: #316b55; font-size: 9px; }
     .so-placement-layer-region { border-color: var(--border-subtle); background: var(--surface-2); }
+    .so-placement-pipeline-region { align-self: start; }
     .so-original-layer-host { width: 100%; min-height: 400px; display: block; background: var(--surface-2); }
     .so-placement-rank-region { grid-column: 1 / -1; }
     .so-placement-memory-legend { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
@@ -2165,7 +2174,6 @@ button.operator-tree-toggle:hover {
     .so-dse-benchmark strong { display: block; margin-top: 5px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
     .so-dse-benchmark small { display: block; margin-top: 4px; color: var(--foreground-muted); font-size: 10px; }
     @media (max-width: 1420px) {
-      .so-dse-candidates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .so-dse-capacity-limits { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .so-dse-config-grid { grid-template-columns: 1fr 1fr; }
       .so-dse-config-card:first-child { grid-column: 1 / -1; }
@@ -2182,7 +2190,6 @@ button.operator-tree-toggle:hover {
       .so-dse-analysis-panels { grid-template-columns: 1fr; }
     }
     @media (max-width: 760px) {
-      .so-dse-candidates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .so-dse-capacity-limits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .so-dse-config-grid { grid-template-columns: 1fr; }
       .so-dse-config-card:first-child { grid-column: auto; }
@@ -3168,6 +3175,8 @@ button.operator-tree-toggle:hover {
           editingGroup: null,
           dirty: false,
           revision: 1,
+          optimizationObjective: { primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' },
+          appliedObjective: { primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' },
           selectedCandidate: null,
           selectedSweep: null,
           selectedLineageId: 'search-space',
@@ -3465,6 +3474,14 @@ button.operator-tree-toggle:hover {
             { id: 'ep8-compute', lane: 'Expert Compute', label: 'expert compute', start: 6547, dur: 398.2, color: '#d4a66c', kind: 'kernel', task: 'expert-mlp-r4', tensor: 'tensor-expert-31' },
             { id: 'ep8-perf', lane: 'Memory / Perf Hint', label: 'PH001 · innermost dim 256B', start: 6988, dur: 104, color: '#8f7aa8', kind: 'memory', hint: 'PH001' }
           ]
+        },
+        pypto: {
+          id: 'pypto', label: 'PyPTO Serving Trace', kind: 'serving', path: 'PyPTO Serving', engine: 'PyPTO Serving',
+          window: 0, dominant: '未采集', taskCount: 0, tensorCount: 0, edgeCount: 0, eventCount: 0,
+          memory: '未采集', hint: '未采集', memorySections: [], hints: [],
+          events: [], lanes: [], tasks: [], tensors: [], edges: [], taskIndex: {}, tensorIndex: {},
+          request: { requestId: '', promptTokens: null, maxTokens: null, batchSize: null, modelId: '' },
+          coverage: { serving: true, hostRuntime: true, dfxTasks: false, tensorGraph: false, moeRouting: false, deviceTrace: false, memory: false, pmu: false }
         }
       };
 
@@ -3478,7 +3495,8 @@ button.operator-tree-toggle:hover {
         { id: 'RUN-043', name: 'HCA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'hca', kind: 'attention', status: 'Completed', progress: 100, sloRate: 98.1, snapshot: '2026-07-26 22:27:38 +08:00', config: 'attention=HCA · startpos=8192 · batch=8', artifact: 'decode_attention_hca_startpos8192' },
         { id: 'RUN-044', name: 'SWA · Decode Attention', scenarioId: 'deepseek', evidenceId: 'swa', kind: 'attention', status: 'Completed', progress: 100, sloRate: 99.2, snapshot: '2026-07-26 22:28:04 +08:00', config: 'attention=SWA · startpos=8192 · batch=8', artifact: 'decode_attention_swa_startpos8192' },
         { id: 'RUN-045', name: 'EP8 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep8', kind: 'moe', status: 'Completed', progress: 100, sloRate: 93.4, snapshot: '2026-07-26 23:04:02 +08:00', config: 'expert_parallel=8 · balanced routing', artifact: 'moe_ep8_balanced' },
-        { id: 'RUN-046', name: 'EP2 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep2', kind: 'moe', status: 'Completed', progress: 100, sloRate: 98.4, snapshot: '2026-07-26 23:14:08 +08:00', config: 'expert_parallel=2 · balanced routing', artifact: 'moe_ep2_balanced' }
+        { id: 'RUN-046', name: 'EP2 · MoE Balanced', scenarioId: 'deepseek', evidenceId: 'ep2', kind: 'moe', status: 'Completed', progress: 100, sloRate: 98.4, snapshot: '2026-07-26 23:14:08 +08:00', config: 'expert_parallel=2 · balanced routing', artifact: 'moe_ep2_balanced' },
+        { id: 'RUN-047', name: 'PyPTO Serving Trace', scenarioId: 'deepseek', evidenceId: 'pypto', kind: 'serving', engine: 'PyPTO Serving', status: 'Completed', progress: 100, sloRate: null, snapshot: '2026-09-10 09:31:31 +00:00', config: 'request cmpl-2fb23b49 · prompt 64 · max 128 · batch 1', artifact: 'trace_view_pypto.json' }
       ];
 
       var modelOperators = [
@@ -4405,6 +4423,9 @@ button.operator-tree-toggle:hover {
       }
 
       function serviceMetricsFor(run, profile) {
+        if (run && run.kind === 'serving') {
+          return { ttft: null, tpot: null, throughput: null, sloRate: null, queueWaitP95: null, kvHeadroom: null, kvPagesRemaining: null, kvPagesTotal: null };
+        }
         var summary = profile && profile.summary;
         var queue = profile && profile.serving && profile.serving.queue;
         var kv = profile && profile.memory && profile.memory.kv;
@@ -4425,8 +4446,36 @@ button.operator-tree-toggle:hover {
       }
 
       function renderRunMetadata(run, scenario, evidence, baselineRun, baseEvidence) {
-        var group = evidence.kind === 'moe' ? 'DFX · MoE distributed execution' : 'DFX · Attention execution';
-        return '<details class="so-card so-run-metadata"><summary>Run Metadata / Configuration</summary><div class="so-run-metadata__body"><dl class="so-kv"><dt>Controlled Run</dt><dd class="so-mono">' + esc(run.id) + '</dd><dt>Status / captured</dt><dd>' + esc(run.status + ' · ' + run.snapshot) + '</dd><dt>Scenario snapshot</dt><dd>' + esc(scenario.revision + ' · ' + scenario.name) + '</dd><dt>Configuration</dt><dd>' + esc(run.config) + (baselineRun ? '<span class="so-baseline-inline">基线 · ' + esc(baselineRun.config) + '</span>' : '') + '</dd><dt>Evidence group</dt><dd>' + esc(group) + '</dd><dt>Hierarchy</dt><dd>' + (evidence.kind === 'moe' ? evidence.rankCount + ' Rank → Core → Event' : 'Core → Event') + '</dd><dt>Runtime graph</dt><dd>' + evidenceTaskCount(evidence) + ' Task → ' + evidenceTensorCount(evidence) + ' Tensor → ' + evidenceEdgeCount(evidence) + ' Edge' + (baseEvidence ? baselineInline(evidenceTaskCount(evidence), evidenceTaskCount(baseEvidence), evidenceTaskCount(baseEvidence) + ' Task · ' + evidenceTensorCount(baseEvidence) + ' Tensor · ' + evidenceEdgeCount(baseEvidence) + ' Edge', 'neutral', baselineRun.id) : '') + '</dd><dt>Artifact</dt><dd class="so-mono">' + esc(run.artifact || '—') + '</dd></dl></div></details>';
+        var group = evidence.kind === 'moe' ? 'DFX · MoE distributed execution' : evidence.kind === 'serving' ? 'Serving · host runtime trace' : 'DFX · Attention execution';
+        var hierarchy = evidence.kind === 'moe' ? evidence.rankCount + ' Rank → Core → Event' : evidence.kind === 'serving' ? 'Request → Layer → Span' : 'Core → Event';
+        var runtimeGraph = evidence.kind === 'serving' ? '未采集 Task / Tensor / Dependency' : evidenceTaskCount(evidence) + ' Task → ' + evidenceTensorCount(evidence) + ' Tensor → ' + evidenceEdgeCount(evidence) + ' Edge' + (baseEvidence ? baselineInline(evidenceTaskCount(evidence), evidenceTaskCount(baseEvidence), evidenceTaskCount(baseEvidence) + ' Task · ' + evidenceTensorCount(baseEvidence) + ' Tensor · ' + evidenceEdgeCount(baseEvidence) + ' Edge', 'neutral', baselineRun.id) : '');
+        var configLine = esc(run.config) + (baselineRun ? '<span class="so-baseline-inline">基线 · ' + esc(baselineRun.config) + '</span>' : '');
+        if (evidence.kind === 'serving') {
+          var req = evidence.request || {};
+          configLine = esc('engine ' + (run.engine || evidence.engine || 'PyPTO Serving') + ' · request ' + (req.requestId || '—') + ' · prompt ' + (req.promptTokens == null ? '—' : req.promptTokens) + ' · max ' + (req.maxTokens == null ? '—' : req.maxTokens) + ' · batch ' + (req.batchSize == null ? '—' : req.batchSize));
+        }
+        return '<details class="so-card so-run-metadata"><summary>Run Metadata / Configuration</summary><div class="so-run-metadata__body"><dl class="so-kv"><dt>Controlled Run</dt><dd class="so-mono">' + esc(run.id) + '</dd><dt>Status / captured</dt><dd>' + esc(run.status + ' · ' + run.snapshot) + '</dd><dt>Scenario snapshot</dt><dd>' + esc(scenario.revision + ' · ' + scenario.name) + '</dd><dt>Configuration</dt><dd>' + configLine + '</dd><dt>Evidence group</dt><dd>' + esc(group) + '</dd><dt>Hierarchy</dt><dd>' + esc(hierarchy) + '</dd><dt>Runtime graph</dt><dd>' + runtimeGraph + '</dd><dt>Artifact</dt><dd class="so-mono">' + esc(run.artifact || '—') + '</dd></dl></div></details>';
+      }
+
+      function renderDataCoverage(evidence) {
+        if (evidence.kind === 'serving') {
+          var items = [
+            ['Serving Trace', true],
+            ['Host Runtime', true],
+            ['DFX Tasks', false],
+            ['Tensor Graph', false],
+            ['MoE Routing', false],
+            ['Device Trace', false],
+            ['Memory', false],
+            ['PMU', false]
+          ];
+          var spans = items.map(function (item) {
+            return '<span class="so-coverage-item">' + item[0] + ' <b class="' + (item[1] ? '' : 'is-missing') + '">' + (item[1] ? '✓' : '未采集') + '</b></span>';
+          }).join('');
+          return '<section class="so-card so-data-coverage" aria-label="Data Coverage"><strong>Data Coverage</strong><span class="so-coverage-list" style="display:flex;flex-wrap:wrap;gap:2px 16px">' + spans + '</span></section>';
+        }
+        var hasMemory = !!(evidence.memorySections && evidence.memorySections.length);
+        return '<section class="so-card so-data-coverage" aria-label="Data Coverage"><strong>Data Coverage</strong><span>Trace <b>✓</b> · Memory <b class="' + (hasMemory ? '' : 'is-missing') + '">' + (hasMemory ? '✓' : '未采集') + '</b> · PMU <b class="is-missing">—</b></span></section>';
       }
 
       function renderOverview() {
@@ -4446,15 +4495,19 @@ button.operator-tree-toggle:hover {
         html += metric('TPOT', value(currentService.tpot == null ? '—' : roundText(currentService.tpot), currentService.tpot == null ? '' : ' ms'), 'p50 · 越低越好', '', baselineService ? baselineMarkup(currentService.tpot, baselineService.tpot, roundText(baselineService.tpot) + ' ms', 'lower', baselineRun.id) : '');
         html += metric('Queue Wait · P95', value(currentService.queueWaitP95 == null ? '—' : Number(currentService.queueWaitP95).toFixed(1), currentService.queueWaitP95 == null ? '' : ' ms'), '请求排队 · 越低越好', '', baselineService ? baselineMarkup(currentService.queueWaitP95, baselineService.queueWaitP95, Number(baselineService.queueWaitP95).toFixed(1) + ' ms', 'lower', baselineRun.id) : '');
         html += metric('Throughput', value(currentService.throughput == null ? '—' : Number(currentService.throughput).toLocaleString('en-US'), currentService.throughput == null ? '' : ' tok/s'), '持续输出 · 越高越好', '', baselineService ? baselineMarkup(currentService.throughput, baselineService.throughput, Number(baselineService.throughput).toLocaleString('en-US') + ' tok/s', 'higher', baselineRun.id) : '');
-        html += metric('SLO 达成率', value(currentService.sloRate.toFixed(1), '%'), currentService.sloRate >= 98 ? '达到目标 · ≥ 98%' : '未达到目标 · ≥ 98%', currentService.sloRate >= 98 ? '' : 'warn', baselineService ? baselineMarkup(currentService.sloRate, baselineService.sloRate, baselineService.sloRate.toFixed(1) + '%', 'higher', baselineRun.id) : '');
+        html += metric('SLO 达成率', value(currentService.sloRate == null ? '—' : currentService.sloRate.toFixed(1), currentService.sloRate == null ? '' : '%'), currentService.sloRate == null ? '未采集 · 单请求 Trace 无基准 SLO' : (currentService.sloRate >= 98 ? '达到目标 · ≥ 98%' : '未达到目标 · ≥ 98%'), currentService.sloRate == null ? 'muted' : (currentService.sloRate >= 98 ? '' : 'warn'), baselineService ? baselineMarkup(currentService.sloRate, baselineService.sloRate, baselineService.sloRate.toFixed(1) + '%', 'higher', baselineRun.id) : '');
         html += metric('KV Headroom', value(currentService.kvHeadroom == null ? '—' : Number(currentService.kvHeadroom).toFixed(1), currentService.kvHeadroom == null ? '' : '%'), currentService.kvPagesRemaining == null ? '容量余量 · 越高越好' : currentService.kvPagesRemaining + ' / ' + currentService.kvPagesTotal + ' 页可用', currentService.kvHeadroom != null && currentService.kvHeadroom < 15 ? 'warn' : '', baselineService ? baselineMarkup(currentService.kvHeadroom, baselineService.kvHeadroom, Number(baselineService.kvHeadroom).toFixed(1) + '%', 'higher', baselineRun.id) : '');
         html += '</div>';
-        html += '<section class="so-card so-data-coverage" aria-label="Data Coverage"><strong>Data Coverage</strong><span>Trace <b>✓</b> · Memory <b>✓</b> · PMU <b class="is-missing">—</b></span></section>';
+        html += renderDataCoverage(evidence);
         html += renderRunMetadata(run, scenario, evidence, baselineRun, baseEvidence);
         var runFindings = allRunFindings();
         ensureFindingSelection(runFindings);
-        html += '<div class="so-diagnostic-workspace"><section class="so-findings-column" aria-labelledby="run-findings-title"><div class="so-section-title so-findings-section-title"><h2 id="run-findings-title">诊断发现 <span class="so-findings-count">' + runFindings.length + '</span></h2><span class="so-finding-evidence">' + runFindings.filter(function (item) { return item.severity === 'High'; }).length + ' 个高优先级</span></div><div class="so-findings so-findings-overview">' + (runFindings.length ? runFindings.map(findingCard).join('') : '<div class="so-empty">当前 Run 尚未生成 Finding。</div>') + '</div></section><section class="so-diagnostic-graph-column" aria-label="诊断图谱">' + renderDiagnosticGraphPanel() + '</section></div>';
+        html += '<div class="so-diagnostic-workspace"><section class="so-findings-column" aria-labelledby="run-findings-title"><div class="so-section-title so-findings-section-title"><h2 id="run-findings-title">诊断发现 <span class="so-findings-count">' + runFindings.length + '</span></h2><span class="so-finding-evidence">' + runFindings.filter(function (item) { return item.severity === 'High'; }).length + ' 个高优先级</span></div><div class="so-findings so-findings-overview">' + (runFindings.length ? runFindings.map(findingCard).join('') : '<div class="so-empty">当前 Run 尚未生成 Finding。</div>') + '</div></section><section class="so-diagnostic-graph-column" aria-label="诊断图谱">' + (evidence.kind === 'serving' ? renderServingDiagnosticPanel() : renderDiagnosticGraphPanel()) + '</section></div>';
         return html;
+      }
+
+      function renderServingDiagnosticPanel() {
+        return '<div class="so-section-title so-diagnostic-graph-section-title"><div><h2>诊断图谱</h2><p>从症状、异常维度到根因与验证建议</p></div></div><section class="so-diagnostic-graph-panel" aria-label="诊断图谱"><div class="so-empty" style="padding:28px">未采集诊断图谱数据。<br>当前 Run 是 Serving 单请求 Trace，不包含 DFX 语义诊断（Task / Tensor / Rank / Memory）。</div></section>';
       }
 
       function findingRecommendation(item) {
@@ -4508,7 +4561,7 @@ button.operator-tree-toggle:hover {
           else if (state.coreFilter !== 'all' && event.laneId !== state.coreFilter) return false;
           if (state.tracePreset === 'long' && event.dur < Math.max(10, evidence.window * .015)) return false;
           if (state.tracePreset === 'wait' && !/wait|gather|dispatch|meta|push/i.test(event.funcName)) return false;
-          if (search && [event.funcName, event.taskId, event.lane, event.rawName].join(' ').toLowerCase().indexOf(search) < 0) return false;
+          if (search && [event.funcName, event.taskId, event.lane, event.rawName, event.processName, event.cat].join(' ').toLowerCase().indexOf(search) < 0) return false;
           return true;
         });
       }
@@ -4516,10 +4569,13 @@ button.operator-tree-toggle:hover {
       function visibleTraceLanes(evidence) {
         var map = {};
         filteredTraceEvents(evidence).forEach(function (event) {
-          if (!map[event.lane]) map[event.lane] = { id: event.laneId, label: event.lane, kind: event.laneKind, events: [] };
+          if (!map[event.lane]) map[event.lane] = { id: event.laneId, label: event.lane, kind: event.laneKind, events: [], order: event.laneOrder };
           map[event.lane].events.push(event);
         });
-        return Object.keys(map).map(function (key) { return map[key]; }).sort(function (a, b) { return a.label.localeCompare(b.label, undefined, { numeric: true }); });
+        return Object.keys(map).map(function (key) { return map[key]; }).sort(function (a, b) {
+          if (a.order != null && b.order != null) return a.order - b.order;
+          return a.label.localeCompare(b.label, undefined, { numeric: true });
+        });
       }
 
       function traceLaneIdentity(lane) {
@@ -4534,9 +4590,12 @@ button.operator-tree-toggle:hover {
           var canvasId = 'trace-canvas-' + String(lane.id || lane.label).replace(/[^a-z0-9]/gi, '-') + '-' + laneIndex;
           var baseLane = baseLanes.find(function (item) { return traceLaneIdentity(item) === traceLaneIdentity(lane); }) || null;
           var currentRow = '<div class="so-trace-row"><div class="so-trace-label">' + esc(laneDisplayLabel(lane.label)) + '<small>' + events.length + ' events · 当前</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" id="' + canvasId + '" data-trace-source="current" data-trace-lane="' + esc(lane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="' + esc(laneDisplayLabel(lane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer aria-label="' + esc(laneDisplayLabel(lane.label)) + ' events"></div></div></div>';
-          var baselineRow = baseLane
-            ? '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(baseLane.label)) + '<small>' + baseLane.events.length + ' events</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" data-trace-source="baseline" data-trace-lane="' + esc(baseLane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="基线 ' + esc(laneDisplayLabel(baseLane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer></div></div></div>'
-            : '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(lane.label)) + '</div><div class="so-trace-missing">基线无对应 Lane</div></div>';
+          var baselineRow = '';
+          if (baseEvidence) {
+            baselineRow = baseLane
+              ? '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(baseLane.label)) + '<small>' + baseLane.events.length + ' events</small></div><div class="so-trace-canvas-wrap"><canvas class="so-trace-canvas" data-trace-source="baseline" data-trace-lane="' + esc(baseLane.label) + '" data-trace-canvas="true" tabindex="0" aria-label="基线 ' + esc(laneDisplayLabel(baseLane.label)) + ' timeline"></canvas><div class="so-trace-hit-layer" data-trace-hit-layer></div></div></div>'
+              : '<div class="so-trace-row is-baseline"><div class="so-trace-label">基线 · ' + esc(laneDisplayLabel(lane.label)) + '</div><div class="so-trace-missing">基线无对应 Lane</div></div>';
+          }
           return currentRow + baselineRow;
         }).join('');
         if (lanes.length > shown.length) html += '<div class="so-lane-cap">已渲染 ' + shown.length + ' / ' + lanes.length + ' lanes。<button class="so-link" data-action="show-more-lanes">继续展开</button></div>';
@@ -4555,9 +4614,28 @@ button.operator-tree-toggle:hover {
         return '<div class="so-trace-legend" aria-label="Trace event color legend"><span class="so-trace-legend-title">事件颜色</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#c8945d"></i>AIC 计算 / Expert</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#5f9b9b"></i>AIV 计算</span><span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:#b86d68"></i>Wait / Gather / Metadata</span>' + (baselineRun ? '<span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:color-mix(in srgb,#5f9b9b 48%,transparent)"></i>基线 · 弱化泳道</span>' : '') + '<span class="so-trace-legend-hint">悬停彩色事件条查看详情</span></div>';
       }
 
+      function servingLegend(evidence) {
+        var layers = evidence.lanes || [];
+        var items = layers.map(function (layer) {
+          var swatch = (layer.events && layer.events[0] && layer.events[0].color) || '#5f6775';
+          return '<span class="so-trace-legend-item"><i class="so-trace-legend-swatch" style="--legend-color:' + esc(swatch) + '"></i>' + esc(layer.label) + '</span>';
+        }).join('');
+        return '<div class="so-trace-legend" aria-label="Serving trace layer legend"><span class="so-trace-legend-title">层级</span>' + items + '<span class="so-trace-legend-hint">悬停 span 查看详情 · 详情不包含 DFX Task / Tensor</span></div>';
+      }
+
       function traceTooltipHtml(task) {
         var event = task && task.event || {};
         var end = Number(event.start || 0) + Number(event.dur || 0);
+        if (event.kind && event.processName !== undefined && ['serving', 'scheduler', 'worker', 'executor', 'dspark', 'host', 'chip'].indexOf(event.kind) >= 0) {
+          return '<div class="so-timeline-tooltip__title"><span class="so-trace-tooltip-swatch" style="background:' + esc(event.color || '#5f6775') + '"></span>' + esc(event.funcName || event.label || 'span') + '</div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">layer</span><span class="so-timeline-tooltip__value">' + esc(event.lane || '—') + '</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">category</span><span class="so-timeline-tooltip__value">' + esc(event.cat || '—') + '</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">process</span><span class="so-timeline-tooltip__value">' + esc(event.processName || String(event.pid || '—')) + '</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">thread</span><span class="so-timeline-tooltip__value">' + esc(event.threadName || String(event.tid || '—')) + '</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">start</span><span class="so-timeline-tooltip__value">' + roundText(event.start) + ' μs</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">duration</span><span class="so-timeline-tooltip__value">' + roundText(event.dur) + ' μs</span></div>' +
+            '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">end</span><span class="so-timeline-tooltip__value">' + roundText(end) + ' μs</span></div>';
+        }
         return '<div class="so-timeline-tooltip__title"><span class="so-trace-tooltip-swatch" style="background:' + esc(event.color || '#5f6775') + '"></span>' + esc(event.funcName || event.label || 'runtime event') + '</div>' +
           '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">来源</span><span class="so-timeline-tooltip__value">' + esc(task && task.sourceLabel || '当前 Run') + '</span></div>' +
           '<div class="so-timeline-tooltip__row"><span class="so-timeline-tooltip__key">lane</span><span class="so-timeline-tooltip__value">' + esc(laneDisplayLabel(event.lane || task.lane || '—')) + '</span></div>' +
@@ -4575,6 +4653,13 @@ button.operator-tree-toggle:hover {
           var selectedLabel = state.selectedRank || 'All ranks';
           var physicalCoreCount = evidence.coreCount || (evidence.id === 'ep8' ? 66 : 6);
           return '<aside class="so-card so-hierarchy"><div class="so-hierarchy-head"><div class="so-eyebrow">TRACE SCOPE</div><div class="so-finding-title" style="margin-top:5px">Rank timeline focus</div></div><div class="so-hierarchy-list"><div class="so-hierarchy-stat"><span>Ranks</span><strong>' + evidence.rankCount + '</strong><small>' + (base ? '基线 · ' + base.rankCount + ' ranks' : '当前 Run') + '</small></div><div class="so-hierarchy-stat"><span>Physical core lanes</span><strong>' + physicalCoreCount + '</strong><small>' + (base ? '基线 · ' + (base.coreCount || (base.aicoreCount || 0) + (base.aicpuCount || 0)) + ' physical' : '按执行角色聚合') + '</small></div><div class="so-hierarchy-stat"><span>Execution window</span><strong>' + roundText(evidence.window) + ' μs</strong><small>' + (base ? '基线 · ' + roundText(base.window) + ' μs' : '当前窗口') + '</small></div><div class="so-hierarchy-stat"><span>Current drill</span><strong>' + esc(selectedLabel) + '</strong><small>Rank detail 在选中行内展开</small></div></div></aside>';
+        }
+        if (evidence.kind === 'serving') {
+          var req = evidence.request || {};
+          var layerButtons = '<button class="so-hierarchy-item ' + (state.coreFilter === 'all' ? 'is-active' : '') + '" data-core-filter="all"><span>All layers</span><span>' + (evidence.lanes || []).length + '</span></button>' + (evidence.lanes || []).map(function (layer) {
+            return '<button class="so-hierarchy-item ' + (state.coreFilter === layer.id ? 'is-active' : '') + '" data-core-filter="' + esc(layer.id) + '"><span>' + esc(layer.label) + '</span><span>' + layer.events.length + '</span></button>';
+          }).join('');
+          return '<aside class="so-card so-hierarchy"><div class="so-hierarchy-head"><div class="so-eyebrow">TRACE SCOPE</div><div class="so-finding-title" style="margin-top:5px">Single request trace</div></div><div class="so-hierarchy-list"><div class="so-hierarchy-stat"><span>Request</span><strong class="so-mono" style="font-size:12px">' + esc(req.requestId || '—') + '</strong><small>prompt ' + (req.promptTokens == null ? '—' : req.promptTokens) + ' · max ' + (req.maxTokens == null ? '—' : req.maxTokens) + ' · batch ' + (req.batchSize == null ? '—' : req.batchSize) + '</small></div><div class="so-hierarchy-stat"><span>Prefill / Decode</span><strong>' + (req.prefillSteps == null ? '—' : req.prefillSteps) + ' / ' + (req.decodeSteps == null ? '—' : req.decodeSteps) + '</strong><small>' + esc(req.modelId || '—') + '</small></div><div class="so-hierarchy-stat"><span>Execution window</span><strong>' + roundText(evidence.window) + ' μs</strong><small>raw trace ' + evidence.rawTraceEventCount + ' events</small></div><div class="so-divider"></div>' + layerButtons + '</div></aside>';
         }
         var html = '<aside class="so-card so-hierarchy"><div class="so-hierarchy-head"><div class="so-eyebrow">EXECUTION HIERARCHY</div><div class="so-finding-title" style="margin-top:5px">' + (evidence.ranks ? 'Rank → Core' : 'Core → Event') + '</div></div><div class="so-hierarchy-list">';
         if (base) html += '<div class="so-hierarchy-stat"><span>基线摘要</span><strong>' + esc(baseRun.id) + '</strong><small>' + (base.coreCount || 0) + ' cores · ' + base.eventCount + ' events · ' + roundText(base.window) + ' μs</small></div><div class="so-divider"></div>';
@@ -4612,6 +4697,7 @@ button.operator-tree-toggle:hover {
       }
 
       function renderDependencyGraph(evidence) {
+        if (evidence.kind === 'serving') return '<div class="so-card"><div class="so-card-head"><div><h3>Dependency Graph</h3><div class="so-finding-summary">Task / Tensor dependency</div></div><button class="so-button" data-trace-view="timeline">回到 Timeline</button></div><div class="so-empty" style="padding:24px">未采集 Task / Tensor Dependency 数据。<br>当前 Run 是 Serving 单请求 Trace，仅包含跨层 span 的时间嵌套关系，不包含 DFX task / tensor dependency。</div></div>';
         var event = selectedEvent();
         if (!event) return '<div class="so-card"><div class="so-empty">先在 Timeline 选中一个 runtime event，再查看该 Task 的一跳 Tensor / Dependency 关系。</div></div>';
         var ctx = selectedTaskContext(evidence, event);
@@ -4662,12 +4748,48 @@ button.operator-tree-toggle:hover {
         return '<div class="so-object-crumb"><strong>' + (evidence.kind === 'moe' ? 'MoE' : 'Attention') + '</strong><span>›</span><strong>' + (event.rank == null ? '' : 'Rank ' + event.rank + ' › ') + event.coreType.toUpperCase() + '_' + event.coreId + '</strong><span>›</span><strong>' + esc(event.funcName) + '</strong><span>›</span><strong>Task ' + esc(event.taskId) + '</strong></div><div class="so-detail-grid"><div class="so-detail-panel"><h4>Runtime Event</h4><dl class="so-kv"><dt>Timing</dt><dd>' + roundText(event.start) + ' → ' + roundText(event.start + event.dur) + ' μs</dd><dt>Duration</dt><dd>' + roundText(event.dur) + ' μs</dd><dt>Kernel / setup</dt><dd>' + roundText(event.kernelDuration) + ' / ' + roundText(event.setupDuration) + ' μs</dd></dl></div><div class="so-detail-panel"><h4>Runtime Task</h4><dl class="so-kv"><dt>Task ID</dt><dd class="so-mono">' + esc(event.taskId) + '</dd><dt>Scope</dt><dd>' + esc(ctx.task && ctx.task.scope || '—') + '</dd><dt>Early dispatch</dt><dd>' + esc(ctx.task && ctx.task.early_dispatch == null ? '—' : ctx.task.early_dispatch) + '</dd><dt>Block num</dt><dd>' + esc(ctx.task && ctx.task.block_num || '—') + '</dd></dl></div><div class="so-detail-panel"><h4>Relations</h4><dl class="so-kv"><dt>Tensors</dt><dd>' + ctx.tensorArgs.length + '</dd><dt>Incoming</dt><dd>' + ctx.incoming.length + '</dd><dt>Outgoing</dt><dd>' + ctx.outgoing.length + '</dd><dt>Fan in / out</dt><dd>' + esc(event.fanin || '—') + ' / ' + esc(event.fanout || '—') + '</dd></dl></div></div>';
       }
 
+      function renderServingEvidenceDock(evidence) {
+        var tabs = [['summary', 'Runtime Span'], ['tensors', 'Tensors'], ['dependencies', 'Dependencies'], ['args', 'Raw Args']];
+        if (!tabs.some(function (tab) { return tab[0] === state.evidenceTab; })) state.evidenceTab = 'summary';
+        var event = selectedEvent();
+        var label = event ? event.funcName : 'No span selected';
+        return '<section class="so-card so-evidence-dock" aria-label="Runtime Span Inspector"><div class="so-task-inspector-head"><div><h3>Runtime Span Inspector</h3><p>当前 Serving / Runtime span 的 category、duration 与原始 trace args</p></div><span class="so-pill">' + esc(label) + '</span></div><div class="so-evidence-tabs">' + tabs.map(function (tab) { return '<button class="so-evidence-tab ' + (state.evidenceTab === tab[0] ? 'is-active' : '') + '" data-evidence-tab="' + tab[0] + '">' + tab[1] + '</button>'; }).join('') + '</div><div class="so-evidence-body">' + renderServingEvidenceBody(evidence) + '</div></section>';
+      }
+
+      function renderServingEvidenceBody(evidence) {
+        var event = selectedEvent();
+        if (!event) return '<div class="so-empty">在 Timeline 选中一个 Serving / Runtime span 后，这里会展示其 category、duration、process / thread 与原始 args。</div>';
+        if (state.evidenceTab === 'tensors') return '<div class="so-object-crumb"><strong>' + esc(event.funcName) + '</strong><span>›</span><span>Tensors</span></div><div class="so-empty" style="padding:18px">未采集 Tensor 数据。<br>当前 Run 是 Serving 单请求 Trace，不包含 DFX tensor argument 记录。</div>';
+        if (state.evidenceTab === 'dependencies') return '<div class="so-object-crumb"><strong>' + esc(event.funcName) + '</strong><span>›</span><span>Dependencies</span></div><div class="so-empty" style="padding:18px">未采集 Task / Tensor Dependency 数据。<br>当前 Run 不包含 DFX task / tensor dependency，只有 span 时间嵌套关系。</div>';
+        if (state.evidenceTab === 'args') {
+          var args = event.args || {};
+          var keys = Object.keys(args);
+          var rows = keys.length ? keys.map(function (key) { return '<div class="so-object-row"><strong class="so-mono">' + esc(key) + '</strong><span class="so-mono">' + esc(JSON.stringify(args[key])) + '</span></div>'; }).join('') : '<div class="so-finding-summary">该 span 没有 args。</div>';
+          return '<div class="so-object-crumb"><strong>' + esc(event.funcName) + '</strong><span>›</span><span>raw trace args</span></div><div class="so-object-list">' + rows + '</div>';
+        }
+        var req = evidence.request || {};
+        var children = (evidence.events || []).filter(function (item) { return item.parentId === event.id; });
+        var hierarchyRows = '';
+        if (event.parentName) hierarchyRows += '<dt>Parent</dt><dd class="so-mono">' + esc(event.parentName) + '</dd>';
+        hierarchyRows += '<dt>Children</dt><dd>' + (children.length ? children.slice(0, 6).map(function (item) { return esc(item.funcName); }).join(' · ') + (children.length > 6 ? ' · +' + (children.length - 6) : '') : '—') + '</dd>';
+        return '<div class="so-object-crumb"><strong>Runtime Span</strong><span>›</span><strong>' + esc(event.funcName) + '</strong></div><div class="so-detail-grid"><div class="so-detail-panel"><h4>Runtime Span</h4><dl class="so-kv"><dt>Name</dt><dd class="so-mono">' + esc(event.funcName) + '</dd><dt>Category</dt><dd>' + esc(event.cat || event.kind || '—') + '</dd><dt>Duration</dt><dd>' + roundText(event.dur) + ' μs</dd><dt>Process / Thread</dt><dd>' + esc(event.processName || String(event.pid || '—')) + ' / ' + esc(event.threadName || String(event.tid || '—')) + '</dd></dl></div><div class="so-detail-panel"><h4>Request</h4><dl class="so-kv"><dt>Request</dt><dd class="so-mono">' + esc(req.requestId || '—') + '</dd><dt>Model</dt><dd class="so-mono">' + esc(req.modelId || '—') + '</dd><dt>Batch Size</dt><dd>' + (req.batchSize == null ? '—' : req.batchSize) + '</dd></dl></div><div class="so-detail-panel"><h4>Execution hierarchy</h4><dl class="so-kv">' + hierarchyRows + '</dl><p class="so-finding-summary">按时间嵌套推导，非 DFX Task Dependency。</p></div></div>';
+      }
+
       function renderEvidenceDock(evidence) {
+        if (evidence.kind === 'serving') return renderServingEvidenceDock(evidence);
         var tabs = [['summary', 'Summary'], ['tensors', 'Tensors'], ['dependencies', 'Dependencies']];
         if (!tabs.some(function (tab) { return tab[0] === state.evidenceTab; })) state.evidenceTab = 'summary';
         var event = selectedEvent();
         var taskLabel = event && event.taskId ? 'Task ' + event.taskId : 'No task selected';
         return '<section class="so-card so-evidence-dock" aria-label="Selected Task Inspector"><div class="so-task-inspector-head"><div><h3>Selected Task Inspector</h3><p>当前 Task 的 runtime、tensor 与一跳 dependency 上下文</p></div><span class="so-pill">' + esc(taskLabel) + '</span></div><div class="so-evidence-tabs">' + tabs.map(function (tab) { return '<button class="so-evidence-tab ' + (state.evidenceTab === tab[0] ? 'is-active' : '') + '" data-evidence-tab="' + tab[0] + '">' + tab[1] + '</button>'; }).join('') + '</div><div class="so-evidence-body">' + renderEvidenceBody(evidence) + '</div></section>';
+      }
+
+      function traceFootnote(evidence, baseEvidence, sharedWindow) {
+        if (evidence.kind === 'serving') {
+          var req = evidence.request || {};
+          return esc(evidence.label) + ' · ' + evidence.eventCount + ' spans · request ' + esc(req.requestId || '—') + ' · prefill ×' + (req.prefillSteps == null ? '—' : req.prefillSteps) + ' · decode ×' + (req.decodeSteps == null ? '—' : req.decodeSteps) + ' · raw trace ' + evidence.rawTraceEventCount + ' events';
+        }
+        return esc(evidence.label) + ' · ' + evidenceTaskCount(evidence) + ' tasks · ' + evidenceTensorCount(evidence) + ' tensors · ' + evidenceEdgeCount(evidence) + ' dependency edges' + (baseEvidence ? '<span class="so-baseline-inline">基线 · ' + evidenceTaskCount(baseEvidence) + ' tasks · ' + evidenceTensorCount(baseEvidence) + ' tensors · 共享时间轴 ' + roundText(sharedWindow) + ' μs</span>' : '');
       }
 
       function renderTrace() {
@@ -4679,15 +4801,16 @@ button.operator-tree-toggle:hover {
         html += observeTabs();
         if (state.dfxStatus !== 'ready') return html + '<div class="so-grid two" style="margin-top:12px">' + dfxStatusCard() + '</div>';
         html += renderSubpageFindings('trace');
-        html += '<div class="so-workbench-toolbar"><div><span class="so-pill accent">' + esc(currentRun().id + ' · ' + currentRun().name) + '</span><select class="so-select so-compact-select" data-trace-preset><option value="all" ' + (state.tracePreset === 'all' ? 'selected' : '') + '>All events</option><option value="long" ' + (state.tracePreset === 'long' ? 'selected' : '') + '>Long-pole events</option><option value="wait" ' + (state.tracePreset === 'wait' ? 'selected' : '') + '>Wait / gather</option></select><input class="so-input so-search" data-trace-search value="' + esc(state.traceSearch) + '" placeholder="Search function / task / core"><span class="so-pill">' + filteredTraceEvents(evidence).length + ' / ' + evidence.eventCount + ' events</span></div><div><div class="so-view-toggle" role="tablist" aria-label="Trace 视图"><button type="button" role="tab" aria-selected="' + (state.traceView === 'timeline') + '" class="' + (state.traceView === 'timeline' ? 'is-active' : '') + '" data-trace-view="timeline">Timeline</button><button type="button" role="tab" aria-selected="' + (state.traceView === 'dependency') + '" class="' + (state.traceView === 'dependency' ? 'is-active' : '') + '" data-trace-view="dependency">Dependency Graph</button></div><button class="so-button" data-action="trace-zoom-out">−</button><span class="so-pill">' + state.traceZoom + '×</span><button class="so-button" data-action="trace-zoom-in">＋</button></div></div>';
-        if (evidence.kind !== 'moe') html += traceLegend();
+        html += '<div class="so-workbench-toolbar"><div><span class="so-pill accent">' + esc(currentRun().id + ' · ' + currentRun().name) + '</span><select class="so-select so-compact-select" data-trace-preset><option value="all" ' + (state.tracePreset === 'all' ? 'selected' : '') + '>All events</option><option value="long" ' + (state.tracePreset === 'long' ? 'selected' : '') + '>Long-pole events</option><option value="wait" ' + (state.tracePreset === 'wait' ? 'selected' : '') + '>Wait / gather</option></select><input class="so-input so-search" data-trace-search value="' + esc(state.traceSearch) + '" placeholder="Search span / layer / process"><span class="so-pill">' + filteredTraceEvents(evidence).length + ' / ' + evidence.eventCount + ' events</span></div><div><div class="so-view-toggle" role="tablist" aria-label="Trace 视图"><button type="button" role="tab" aria-selected="' + (state.traceView === 'timeline') + '" class="' + (state.traceView === 'timeline' ? 'is-active' : '') + '" data-trace-view="timeline">Timeline</button><button type="button" role="tab" aria-selected="' + (state.traceView === 'dependency') + '" class="' + (state.traceView === 'dependency' ? 'is-active' : '') + '" data-trace-view="dependency">Dependency Graph</button></div><button class="so-button" data-action="trace-zoom-out">−</button><span class="so-pill">' + state.traceZoom + '×</span><button class="so-button" data-action="trace-zoom-in">＋</button></div></div>';
+        if (evidence.kind === 'serving') html += servingLegend(evidence);
+        else if (evidence.kind !== 'moe') html += traceLegend();
         if (evidence.kind === 'moe' && state.traceView === 'timeline') {
           html += '<div class="so-analysis-layout">' + renderHierarchy(evidence) + '<div>' + renderMoeTraceBody(evidence) + renderEvidenceDock(evidence) + '</div></div>';
         } else {
           html += '<div class="so-analysis-layout">' + renderHierarchy(evidence) + '<div>';
           if (evidence.ranks && !state.selectedRank && state.traceView === 'timeline') html += renderRankOverview(evidence);
           else if (state.traceView === 'dependency') html += renderDependencyGraph(evidence);
-          else html += '<div class="so-trace-scroll"><div class="so-trace"><div class="so-trace-scale"><span>0 μs</span><span>' + Math.round(sharedWindow * .25) + ' μs</span><span>' + Math.round(sharedWindow * .5) + ' μs</span><span>' + Math.round(sharedWindow * .75) + ' μs</span><span>' + sharedWindow + ' μs</span></div>' + traceRows(evidence, baseEvidence) + '<div class="so-trace-note">' + esc(evidence.label) + ' · ' + evidenceTaskCount(evidence) + ' tasks · ' + evidenceTensorCount(evidence) + ' tensors · ' + evidenceEdgeCount(evidence) + ' dependency edges' + (baseEvidence ? '<span class="so-baseline-inline">基线 · ' + evidenceTaskCount(baseEvidence) + ' tasks · ' + evidenceTensorCount(baseEvidence) + ' tensors · 共享时间轴 ' + roundText(sharedWindow) + ' μs</span>' : '') + '</div></div></div>';
+          else html += '<div class="so-trace-scroll"><div class="so-trace"><div class="so-trace-scale"><span>0 μs</span><span>' + Math.round(sharedWindow * .25) + ' μs</span><span>' + Math.round(sharedWindow * .5) + ' μs</span><span>' + Math.round(sharedWindow * .75) + ' μs</span><span>' + sharedWindow + ' μs</span></div>' + traceRows(evidence, baseEvidence) + '<div class="so-trace-note">' + traceFootnote(evidence, baseEvidence, sharedWindow) + '</div></div></div>';
           html += renderEvidenceDock(evidence) + '</div></div>';
         }
         return html;
@@ -4705,6 +4828,9 @@ button.operator-tree-toggle:hover {
 
       function renderCompare() {
         var run = currentRun();
+        if (run.kind === 'serving') {
+          return observeRunHeader() + observeTabs() + '<section class="so-card"><div class="so-card-body"><div class="so-empty"><strong>未采集对比数据</strong><span>当前 Run 是 Serving 单请求 Trace，没有可比较的同类 Controlled Run 与服务基准指标。</span></div></div></section>';
+        }
         if (!state.showComparison) {
           return observeRunHeader() + observeTabs() + '<section class="so-card"><div class="so-card-body"><div class="so-empty"><strong>对比数据已隐藏</strong><span>打开“显示对比”后，将恢复所选基线与其他兼容 Run 的比较。</span></div></div></section>';
         }
@@ -4925,6 +5051,8 @@ button.operator-tree-toggle:hover {
           editingGroup: null,
           dirty: false,
           revision: 1,
+          optimizationObjective: { primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' },
+          appliedObjective: { primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' },
           selectedCandidate: null,
           selectedSweep: null,
           selectedLineageId: 'search-space',
@@ -4947,72 +5075,133 @@ button.operator-tree-toggle:hover {
         });
       }
 
-      function dseCandidateCatalog(explore) {
-        var deviceFactor = Math.max(.5, Math.min(1.25, Number(explore.maxDevices || 16) / 16));
-        var devices = Math.max(8, Math.round(Number(explore.maxDevices || 16)));
-        var balancedPrefillDevices = Math.min(4, devices - 4);
-        var balancedDecodeDevices = devices - balancedPrefillDevices;
-        var latencyPrefillDevices = devices >= 16 ? 8 : 4;
-        var latencyDecodeDevices = devices - latencyPrefillDevices;
-        var efficientDevices = Math.min(8, devices);
-        return [
-          {
-            id: 'balanced', name: 'Balanced', badge: 'Recommended', description: '满足 SLA 后的最高稳定吞吐，同时保留 KV 余量。', split: true,
-            config: 'P/D split · PP 2 · TP 2 · EP 4 · DP 2', devices: devices,
-            throughput: (19.4 * deviceFactor).toFixed(1) + 'k', ttft: 742, tpot: 21.6, hbm: 84, kv: 18, concurrency: Math.round(224 * deviceFactor), communication: 17, confidence: 89,
-            parallelism: { pp: 2, tp: 2, ep: 4, dp: 2 },
+      var DSE_FEASIBLE_IDS = ['A2', 'A3', 'D3', 'D4'];
+
+      function dseDeploymentRichConfig(id) {
+        var configs = {
+          A2: {
+            tag: 'Balanced',
+            description: 'Aggregated TP4 双副本，吞吐与资源余量之间的稳定基线。',
+            split: false,
+            hbm: 84, kv: 18, concurrency: 224, communication: 17, confidence: 89,
+            parallelism: { pp: 1, tp: 4, ep: 1, dp: 2 },
             poolPlan: [
-              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–' + (balancedPrefillDevices - 1), devices: balancedPrefillDevices, parallelism: 'TP 4 · EP 4', topology: { pp: 1, tp: 4, ep: 4, dp: 1 }, replicas: '1 replica', batch: '8 seq · 32K tokens', execution: 'Chunked prefill · 4K chunk' },
-              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: balancedPrefillDevices + '–' + (devices - 1), devices: balancedDecodeDevices, parallelism: 'TP 2 · EP ' + Math.max(2, Math.min(6, Math.floor(balancedDecodeDevices / 2))) + ' · DP 2', topology: { pp: 2, tp: 2, ep: Math.max(2, Math.min(6, Math.floor(balancedDecodeDevices / 2))), dp: 2 }, replicas: '2 replicas', batch: '32 seq / replica', execution: 'Step batching · MTP verify' }
+              { id: 'unified', label: 'Unified serving pool', role: 'Prefill + Decode', ranks: '0–7', devices: 8, parallelism: 'TP 4 · DP 2', topology: { pp: 1, tp: 4, ep: 1, dp: 2 }, replicas: '2 replicas', batch: '16 mixed seq', execution: 'Phase-aware continuous batch' }
             ],
-            schedulerPolicy: { name: 'Disaggregated continuous batching', routing: 'Prefix affinity → least-loaded replica', admission: 'SLA-aware · 224 inflight hard cap', batching: 'Prefill 32K tok · Decode 32 seq', preemption: 'Recompute · protect active Decode', kvHandoff: 'Direct P→D transfer · 2-copy buffer' },
-            runtimeLimits: { maxConcurrency: '16 req / worker', tokenBudget: '32K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '64 req / replica', prefillChunk: '4K tokens', requestTimeout: '60 s' },
+            schedulerPolicy: { name: 'Aggregated phase-aware batching', routing: 'Prefix affinity → least-loaded replica', admission: 'SLA-aware · 224 inflight hard cap', batching: 'Mixed 16 seq · 24K tok budget', preemption: 'Recompute long Prefill', kvHandoff: 'In-place KV · no pool transfer' },
+            runtimeLimits: { maxConcurrency: '16 req / worker', tokenBudget: '24K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '64 req / replica', prefillChunk: '4K tokens', requestTimeout: '60 s' },
             memoryPolicy: { name: 'Paged KV cache · balanced reserve', kvDtype: 'INT8', blockSize: '128 tokens', prefixCache: 'Enabled · LRU', pressure: 'Backpressure at 88% HBM', allocations: [{ label: 'Weights', value: 54, color: '#6d8fcb' }, { label: 'KV cache', value: 22, color: '#47a77d' }, { label: 'Workspace', value: 8, color: '#d19a4a' }, { label: 'Reserve', value: 16, color: '#cfd5dc' }] }
           },
-          {
-            id: 'latency', name: 'Lowest latency', badge: 'Latency', description: '扩大 TP 并减少队列等待，交互式请求延迟最低。', split: true,
-            config: 'P/D split · PP 2 · TP 4 · EP 2 · DP 1', devices: devices,
-            throughput: (16.8 * deviceFactor).toFixed(1) + 'k', ttft: 518, tpot: 17.9, hbm: 88, kv: 12, concurrency: Math.round(176 * deviceFactor), communication: 23, confidence: 92,
-            parallelism: { pp: 2, tp: 4, ep: 2, dp: 1 },
+          A3: {
+            tag: 'Lowest TTFT',
+            description: 'Aggregated TP8 单副本，把首 token 时延压到最低。',
+            split: false,
+            hbm: 88, kv: 12, concurrency: 176, communication: 23, confidence: 92,
+            parallelism: { pp: 1, tp: 8, ep: 1, dp: 1 },
             poolPlan: [
-              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–' + (latencyPrefillDevices - 1), devices: latencyPrefillDevices, parallelism: 'TP 4 · EP 2', topology: { pp: 1, tp: 4, ep: 2, dp: latencyPrefillDevices >= 8 ? 2 : 1 }, replicas: (latencyPrefillDevices >= 8 ? '2 replicas' : '1 replica'), batch: '4 seq · 16K tokens', execution: 'Chunked prefill · 2K chunk' },
-              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: latencyPrefillDevices + '–' + (devices - 1), devices: latencyDecodeDevices, parallelism: 'TP 4 · EP 2 · DP 1', topology: { pp: 2, tp: 4, ep: 2, dp: 1 }, replicas: '1 replica', batch: '16 seq / replica', execution: 'Priority step batching' }
+              { id: 'unified', label: 'Unified serving pool', role: 'Prefill + Decode', ranks: '0–7', devices: 8, parallelism: 'TP 8', topology: { pp: 1, tp: 8, ep: 1, dp: 1 }, replicas: '1 replica', batch: '12 mixed seq', execution: 'Latency-first phase batching' }
             ],
-            schedulerPolicy: { name: 'Latency-first phase scheduler', routing: 'Shortest queue · prefix affinity', admission: 'TTFT guard · 176 inflight hard cap', batching: 'Prefill 16K tok · Decode 16 seq', preemption: 'Decode priority · preempt Prefill', kvHandoff: 'Direct P→D transfer · eager copy' },
+            schedulerPolicy: { name: 'Aggregated latency-first batching', routing: 'Shortest queue · prefix affinity', admission: 'TTFT guard · 176 inflight hard cap', batching: 'Mixed 12 seq · 16K tok budget', preemption: 'Decode priority · preempt Prefill', kvHandoff: 'In-place KV · eager sync' },
             runtimeLimits: { maxConcurrency: '12 req / worker', tokenBudget: '16K tokens / batch', maxContext: '64K tokens / req', queueCapacity: '32 req / replica', prefillChunk: '2K tokens', requestTimeout: '30 s' },
             memoryPolicy: { name: 'Paged KV cache · latency reserve', kvDtype: 'INT8', blockSize: '64 tokens', prefixCache: 'Enabled · recency weighted', pressure: 'Preempt Prefill at 88% HBM', allocations: [{ label: 'Weights', value: 58, color: '#6d8fcb' }, { label: 'KV cache', value: 20, color: '#47a77d' }, { label: 'Workspace', value: 10, color: '#d19a4a' }, { label: 'Reserve', value: 12, color: '#cfd5dc' }] }
           },
-          {
-            id: 'throughput', name: 'Highest throughput', badge: 'Throughput', description: '更大 EP world 与连续批处理，以更小 SLA 余量换取吞吐。', split: true,
-            config: 'P/D split · PP 2 · TP 2 · EP 8 · DP 2', devices: devices,
-            throughput: (21.7 * deviceFactor).toFixed(1) + 'k', ttft: 928, tpot: 24.8, hbm: 88, kv: 8, concurrency: Math.round(256 * deviceFactor), communication: 28, confidence: 82,
-            parallelism: { pp: 2, tp: 2, ep: 8, dp: 2 },
+          D3: {
+            tag: 'More GPU headroom',
+            description: 'Disaggregated P:TP4 / D:TP2 只用 6 GPU，保留最多资源余量。',
+            split: true,
+            hbm: 80, kv: 22, concurrency: 192, communication: 14, confidence: 87,
+            parallelism: { pp: 1, tp: 2, ep: 1, dp: 1 },
             poolPlan: [
-              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–' + (balancedPrefillDevices - 1), devices: balancedPrefillDevices, parallelism: 'TP 4 · EP 4', topology: { pp: 1, tp: 4, ep: 4, dp: 1 }, replicas: '1 replica', batch: '12 seq · 48K tokens', execution: 'Chunked prefill · 8K chunk' },
-              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: balancedPrefillDevices + '–' + (devices - 1), devices: balancedDecodeDevices, parallelism: 'TP 2 · EP ' + Math.min(8, balancedDecodeDevices) + ' · DP 2', topology: { pp: 2, tp: 2, ep: Math.min(8, balancedDecodeDevices), dp: 2 }, replicas: '2 replicas', batch: '48 seq / replica', execution: 'Deep step batching · MTP verify' }
+              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–3', devices: 4, parallelism: 'TP 4', topology: { pp: 1, tp: 4, ep: 1, dp: 1 }, replicas: '1 replica', batch: '8 seq · 32K tokens', execution: 'Chunked prefill · 4K chunk' },
+              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: '4–5', devices: 2, parallelism: 'TP 2', topology: { pp: 1, tp: 2, ep: 1, dp: 1 }, replicas: '1 replica', batch: '32 seq', execution: 'Step batching · MTP verify' }
             ],
-            schedulerPolicy: { name: 'Throughput-first continuous batching', routing: 'Token budget → least-loaded replica', admission: 'Queue stable · 256 inflight hard cap', batching: 'Prefill 48K tok · Decode 48 seq', preemption: 'No preemption inside Decode step', kvHandoff: 'Batched P→D transfer · 3-copy buffer' },
-            runtimeLimits: { maxConcurrency: '24 req / worker', tokenBudget: '48K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '96 req / replica', prefillChunk: '8K tokens', requestTimeout: '90 s' },
-            memoryPolicy: { name: 'Paged KV cache · high occupancy', kvDtype: 'INT8', blockSize: '256 tokens', prefixCache: 'Enabled · frequency weighted', pressure: 'Throttle admission at 88% HBM', allocations: [{ label: 'Weights', value: 52, color: '#6d8fcb' }, { label: 'KV cache', value: 28, color: '#47a77d' }, { label: 'Workspace', value: 8, color: '#d19a4a' }, { label: 'Reserve', value: 12, color: '#cfd5dc' }] }
+            schedulerPolicy: { name: 'Disaggregated continuous batching', routing: 'Prefix affinity → least-loaded replica', admission: 'SLA-aware · 192 inflight hard cap', batching: 'Prefill 32K tok · Decode 32 seq', preemption: 'Recompute · protect active Decode', kvHandoff: 'Direct P→D transfer · 2-copy buffer' },
+            runtimeLimits: { maxConcurrency: '16 req / worker', tokenBudget: '32K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '64 req / replica', prefillChunk: '4K tokens', requestTimeout: '60 s' },
+            memoryPolicy: { name: 'Paged KV cache · headroom reserve', kvDtype: 'INT8', blockSize: '128 tokens', prefixCache: 'Enabled · LRU', pressure: 'Backpressure at 80% HBM', allocations: [{ label: 'Weights', value: 48, color: '#6d8fcb' }, { label: 'KV cache', value: 18, color: '#47a77d' }, { label: 'Workspace', value: 8, color: '#d19a4a' }, { label: 'Reserve', value: 26, color: '#cfd5dc' }] }
           },
-          {
-            id: 'efficient', name: 'Resource efficient', badge: 'Efficiency', description: '统一 Serving 使用更少的 Device，保持较低通信开销。', split: false,
-            config: 'Unified · PP 2 · TP 2 · EP 4 · DP 1', devices: efficientDevices,
-            throughput: (12.9 * Math.min(1, deviceFactor * 2)).toFixed(1) + 'k', ttft: 884, tpot: 24.1, hbm: 86, kv: 13, concurrency: 128, communication: 14, confidence: 87,
-            parallelism: { pp: 2, tp: 2, ep: 4, dp: 1 },
+          D4: {
+            tag: 'Highest throughput',
+            description: 'Disaggregated P:TP4 / D:TP4 用满 8 GPU，换取最高 sustained throughput。',
+            split: true,
+            hbm: 86, kv: 16, concurrency: 256, communication: 21, confidence: 85,
+            parallelism: { pp: 1, tp: 4, ep: 1, dp: 1 },
             poolPlan: [
-              { id: 'unified', label: 'Unified serving pool', role: 'Prefill + Decode', ranks: '0–' + (efficientDevices - 1), devices: efficientDevices, parallelism: 'PP 2 · TP 2 · EP 4', topology: { pp: 2, tp: 2, ep: 4, dp: 1 }, replicas: '1 replica', batch: '24 mixed seq', execution: 'Phase-aware continuous batch' }
+              { id: 'prefill', label: 'Prefill pool', role: 'KV producer', ranks: '0–3', devices: 4, parallelism: 'TP 4', topology: { pp: 1, tp: 4, ep: 1, dp: 1 }, replicas: '1 replica', batch: '12 seq · 48K tokens', execution: 'Chunked prefill · 8K chunk' },
+              { id: 'decode', label: 'Decode pool', role: 'KV consumer', ranks: '4–7', devices: 4, parallelism: 'TP 4', topology: { pp: 1, tp: 4, ep: 1, dp: 1 }, replicas: '1 replica', batch: '48 seq', execution: 'Deep step batching · MTP verify' }
             ],
-            schedulerPolicy: { name: 'Unified phase-aware batching', routing: 'Single pool · prefix affinity', admission: 'Capacity guard · 128 inflight hard cap', batching: '24 mixed seq · 24K tok budget', preemption: 'Recompute long Prefill', kvHandoff: 'In-place KV · no pool transfer' },
-            runtimeLimits: { maxConcurrency: '16 req / worker', tokenBudget: '24K tokens / batch', maxContext: '64K tokens / req', queueCapacity: '48 req / replica', prefillChunk: '4K tokens', requestTimeout: '60 s' },
-            memoryPolicy: { name: 'Paged KV cache · compact footprint', kvDtype: 'INT8', blockSize: '128 tokens', prefixCache: 'Enabled · LRU', pressure: 'Backpressure at 86% HBM', allocations: [{ label: 'Weights', value: 58, color: '#6d8fcb' }, { label: 'KV cache', value: 18, color: '#47a77d' }, { label: 'Workspace', value: 10, color: '#d19a4a' }, { label: 'Reserve', value: 14, color: '#cfd5dc' }] }
+            schedulerPolicy: { name: 'Disaggregated throughput-first batching', routing: 'Token budget → least-loaded replica', admission: 'Queue stable · 256 inflight hard cap', batching: 'Prefill 48K tok · Decode 48 seq', preemption: 'No preemption inside Decode step', kvHandoff: 'Batched P→D transfer · 3-copy buffer' },
+            runtimeLimits: { maxConcurrency: '24 req / worker', tokenBudget: '48K tokens / batch', maxContext: '128K tokens / req', queueCapacity: '96 req / replica', prefillChunk: '8K tokens', requestTimeout: '90 s' },
+            memoryPolicy: { name: 'Paged KV cache · high occupancy', kvDtype: 'INT8', blockSize: '256 tokens', prefixCache: 'Enabled · frequency weighted', pressure: 'Throttle admission at 86% HBM', allocations: [{ label: 'Weights', value: 52, color: '#6d8fcb' }, { label: 'KV cache', value: 24, color: '#47a77d' }, { label: 'Workspace', value: 8, color: '#d19a4a' }, { label: 'Reserve', value: 16, color: '#cfd5dc' }] }
           }
-        ];
+        };
+        return configs[id] || null;
+      }
+
+      function dseFeasibleCandidates() {
+        return dseCandidateData().filter(function (candidate) { return DSE_FEASIBLE_IDS.indexOf(candidate.id) >= 0; });
+      }
+
+      function getCandidateSlaState(candidate, explore) {
+        var ttftSla = Number(explore.ttftSla);
+        var tpotSla = Number(explore.tpotSla);
+        if (Number(candidate.ttft) > ttftSla || Number(candidate.itl) > tpotSla) return 'FAIL';
+        if (Number(candidate.ttft) >= ttftSla * .9 || Number(candidate.itl) >= tpotSla * .9) return 'TIGHT';
+        return 'PASS';
+      }
+
+      function dseObjective(explore) {
+        return explore.optimizationObjective || { primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' };
+      }
+
+      function dseAppliedObjective(explore) {
+        return explore.appliedObjective || dseObjective(explore);
+      }
+
+      function dsePrimaryObjectiveLabel(primary) {
+        if (primary === 'minimize-latency') return 'Minimize latency';
+        if (primary === 'maximize-efficiency') return 'Maximize resource efficiency';
+        return 'Maximize sustained throughput';
+      }
+
+      function dseSecondaryObjectiveLabel(secondary) {
+        if (secondary === 'preserve-kv-headroom') return 'Preserve KV headroom';
+        if (secondary === 'minimize-gpu') return 'Minimize GPU usage';
+        return 'None';
+      }
+
+      function dseObjectiveRecommendation(primary) {
+        if (primary === 'minimize-latency') return 'lowest TTFT';
+        if (primary === 'maximize-efficiency') return 'best GPU efficiency';
+        return 'highest sustained throughput';
+      }
+
+      function dseRankCandidates(explore) {
+        var objective = dseAppliedObjective(explore);
+        var primary = objective.primary || 'maximize-throughput';
+        var secondary = objective.secondary || 'none';
+        var maxDevices = Number(explore.maxDevices || 0);
+        return dseFeasibleCandidates().filter(function (candidate) {
+          if (getCandidateSlaState(candidate, explore) === 'FAIL') return false;
+          return !maxDevices || Number(candidate.gpu) <= maxDevices;
+        }).sort(function (a, b) {
+          var diff;
+          if (primary === 'minimize-latency') diff = Number(a.ttft) - Number(b.ttft);
+          else if (primary === 'maximize-efficiency') diff = Number(b.tokenPerGpu) - Number(a.tokenPerGpu);
+          else diff = Number(b.throughput) - Number(a.throughput);
+          if (diff !== 0) return diff;
+          if (secondary === 'preserve-kv-headroom') diff = dseStageCompareMetric(b, 'hbmHeadroom') - dseStageCompareMetric(a, 'hbmHeadroom');
+          else if (secondary === 'minimize-gpu') diff = Number(a.gpu) - Number(b.gpu);
+          return diff;
+        });
+      }
+
+      function dseRankedCandidates() {
+        return dseRankCandidates(state.scenarioExplore);
       }
 
       function currentDseCandidate() {
-        var candidates = dseCandidateCatalog(state.scenarioExplore);
-        return candidates.find(function (item) { return item.id === state.scenarioExplore.selectedCandidate; }) || null;
+        var ranked = dseRankedCandidates();
+        return ranked.find(function (candidate) { return candidate.id === state.scenarioExplore.selectedCandidate; }) || ranked[0] || null;
       }
 
       function dseField(label, field, value, options) {
@@ -5052,10 +5241,12 @@ button.operator-tree-toggle:hover {
       }
 
       function renderDseIntentPanel(explore) {
-        var html = '<aside class="so-dse-intent"><section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Intent</h2><p>描述服务目标，生成可编辑条件。</p></div><span class="so-pill accent">Natural language</span></div><div class="so-dse-intent-body"><textarea class="so-input so-dse-intent-text" data-dse-intent>' + esc(explore.intent) + '</textarea><div class="so-dse-intent-actions"><span class="so-dse-parse-state">' + (explore.parsed ? '已解析 5 组条件' : '待解析') + '</span><button class="so-button" type="button" data-action="parse-scenario-intent">解析意图</button></div></div></section>';
+        var html = '<aside class="so-dse-intent"><section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Intent</h2><p>描述服务目标，生成可编辑条件。</p></div><span class="so-pill accent">Natural language</span></div><div class="so-dse-intent-body"><textarea class="so-input so-dse-intent-text" data-dse-intent>' + esc(explore.intent) + '</textarea><div class="so-dse-intent-actions"><span class="so-dse-parse-state">' + (explore.parsed ? 'Intent parsed' : '待解析') + '</span><button class="so-button" type="button" data-action="parse-scenario-intent">解析意图</button></div></div></section>';
         html += '<section class="so-dse-panel"><div class="so-dse-panel-head"><div><h2>Tuning knobs</h2><p>修改后更新设计空间。</p></div>' + (explore.dirty ? '<span class="so-pill warm">Changed</span>' : '<span class="so-pill">已同步</span>') + '</div><div class="so-dse-knobs">';
         html += renderDseKnob(explore, 'model', 'Model', explore.model + ' · ' + explore.precision, '<div class="so-dse-field-grid">' + dseField('Model', 'model', explore.model, { full: true, values: [{ value: 'DeepSeek V4', label: 'DeepSeek V4' }, { value: 'Qwen3 235B-A22B', label: 'Qwen3 235B-A22B' }] }) + dseField('Precision', 'precision', explore.precision, { full: true, values: [{ value: 'W8A8', label: 'W8A8' }, { value: 'BF16', label: 'BF16' }] }) + '</div>');
         html += renderDseKnob(explore, 'workload', 'Workload', explore.requestRate + ' req/s · P95 ' + Number(explore.promptP95).toLocaleString() + ' prompt', '<div class="so-dse-field-grid">' + dseField('Peak request rate', 'requestRate', explore.requestRate, { type: 'number' }) + dseField('Concurrency', 'concurrency', explore.concurrency, { type: 'number' }) + dseField('Prompt P95', 'promptP95', explore.promptP95, { type: 'number' }) + dseField('Output P50', 'outputP50', explore.outputP50, { type: 'number' }) + '</div>');
+        var objective = dseObjective(explore);
+        html += renderDseKnob(explore, 'objective', 'Optimization objective', dsePrimaryObjectiveLabel(objective.primary) + ' ↑', '<div class="so-dse-field-grid">' + dseField('Primary objective', 'optimizationObjectivePrimary', objective.primary, { full: true, values: [{ value: 'maximize-throughput', label: 'Maximize sustained throughput' }, { value: 'minimize-latency', label: 'Minimize latency' }, { value: 'maximize-efficiency', label: 'Maximize resource efficiency' }] }) + dseField('Secondary preference', 'optimizationObjectiveSecondary', objective.secondary, { full: true, values: [{ value: 'preserve-kv-headroom', label: 'Preserve KV headroom' }, { value: 'minimize-gpu', label: 'Minimize GPU usage' }, { value: 'none', label: 'None' }] }) + '</div>');
         html += renderDseKnob(explore, 'sla', 'SLA', 'TTFT ≤ ' + explore.ttftSla + ' ms · TPOT ≤ ' + explore.tpotSla + ' ms', '<div class="so-dse-field-grid">' + dseField('P95 TTFT · ms', 'ttftSla', explore.ttftSla, { type: 'number' }) + dseField('P95 TPOT · ms', 'tpotSla', explore.tpotSla, { type: 'number' }) + '</div>');
         html += renderDseKnob(explore, 'hardware', 'Hardware budget', explore.deviceType + ' × ' + explore.maxDevices, '<div class="so-dse-field-grid">' + dseField('Accelerator', 'deviceType', explore.deviceType, { full: true, values: [{ value: 'Ascend A2 64 GB', label: 'Ascend A2 · 64 GB' }, { value: 'Ascend A3 96 GB', label: 'Ascend A3 · 96 GB' }] }) + dseField('Max devices', 'maxDevices', explore.maxDevices, { type: 'number' }) + dseField('HBM reserve · %', 'hbmReserve', explore.hbmReserve, { type: 'number' }) + '</div>');
         html += renderDseKnob(explore, 'evaluation', 'Evaluation mode', explore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark', '<div class="so-dse-mode"><button type="button" class="' + (explore.evaluationMode === 'fast' ? 'is-active' : '') + '" data-dse-mode="fast">Fast estimate</button><button type="button" class="' + (explore.evaluationMode === 'hardware' ? 'is-active' : '') + '" data-dse-mode="hardware">Hardware benchmark</button></div>');
@@ -5064,10 +5255,20 @@ button.operator-tree-toggle:hover {
       }
 
       function renderDseLineage(explore) {
-        return '<section class="so-dse-section"><div class="so-dse-section-head"><div><h2>Candidate population lineage</h2><p>从 9 个部署结构筛选出 4 个候选方案。</p></div><div class="so-dse-meta"><span class="so-pill">EXP-' + String(explore.revision).padStart(3, '0') + '</span><span class="so-pill accent">' + (explore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark') + '</span></div></div><div class="so-dse-lineage" id="dse-candidate-lineage"></div><div class="so-dse-sweep-analysis" id="dse-sweep-analysis" role="region" aria-live="polite" aria-labelledby="dse-sweep-analysis-title" hidden></div><div class="so-dse-stage-detail" id="dse-stage-detail" role="region" aria-live="polite" aria-labelledby="dse-stage-detail-title" hidden></div></section>';
+        return '<section class="so-dse-section"><div class="so-dse-section-head"><div><h2>Candidate population lineage</h2><p>从 9 个部署结构筛选出 4 个候选方案。</p></div><div class="so-dse-meta"><span class="so-pill">EXP-' + String(explore.revision).padStart(3, '0') + '</span><span class="so-pill accent">' + (explore.evaluationMode === 'fast' ? 'Fast estimate' : 'Hardware benchmark') + '</span></div></div><div class="so-dse-lineage" id="dse-candidate-lineage"></div></section><div class="so-dse-sweep-analysis" id="dse-sweep-analysis" role="region" aria-live="polite" aria-labelledby="dse-sweep-analysis-title" hidden></div><div class="so-dse-stage-detail" id="dse-stage-detail" role="region" aria-live="polite" aria-labelledby="dse-stage-detail-title" hidden></div>';
       }
 
       function dseLineageData(explore) {
+        var ranked = dseRankCandidates(explore);
+        var appliedObjective = dseAppliedObjective(explore);
+        var topCandidate = ranked[0] || null;
+        var stageCandidates = ranked.length ? ranked : dseFeasibleCandidates();
+        var stageLabels = stageCandidates.map(function (candidate, index) {
+          var prefix = ranked.length ? '#' + (index + 1) + ' ' : '';
+          return prefix + candidate.id + ' · ' + candidate.gpu + ' GPU · ' + candidate.ttft + ' / ' + candidate.itl + ' ms';
+        });
+        var rankedSummary = ranked.length ? (ranked.length + ' 个候选均满足 Hard Constraints；按照 ' + dsePrimaryObjectiveLabel(appliedObjective.primary) + ' 排序，' + topCandidate.id + ' 排名第一。') : '当前没有候选满足 Hard Constraints；请放宽 SLA 或 GPU budget。';
+        var rankedCaption = ranked.length ? (topCandidate.id + ' recommended · ' + dseObjectiveRecommendation(appliedObjective.primary)) : 'No feasible candidate';
         return {
           title: 'Candidate population lineage',
           stages: [
@@ -5116,24 +5317,19 @@ button.operator-tree-toggle:hover {
               }
             },
             {
-              id: 'intent-ranked', label: 'Intent ranking', kind: 'ranked deployments', count: 4,
-              summary: 'D3 以 6 GPU 满足全部目标，排名第一；D4、A3、A2 均使用 8 GPU',
-              caption: 'D3 recommended · minimum 6 GPU',
-              segments: [{ count: 1, tone: 3 }, { count: 3, tone: 2 }],
-              layout: { columns: 1, rows: 4, width: 0, height: 54 },
-              candidateLabels: [
-                '#1 D3 · 6 GPU · 395 / 18 ms',
-                '#2 D4 · 8 GPU · 390 / 13 ms',
-                '#3 A3 · 8 GPU · 300 / 15 ms',
-                '#4 A2 · 8 GPU · 440 / 18 ms'
-              ]
+              id: 'intent-ranked', label: 'Intent ranking', kind: 'ranked deployments', count: stageCandidates.length,
+              summary: rankedSummary,
+              caption: rankedCaption,
+              segments: ranked.length ? [{ count: 1, tone: 3 }, { count: Math.max(0, ranked.length - 1), tone: 2 }] : [{ count: stageCandidates.length, tone: 2 }],
+              layout: { columns: 1, rows: Math.max(1, stageCandidates.length), width: 0, height: 54 },
+              candidateLabels: stageLabels
             }
           ]
         };
       }
 
-      function dseSweepCandidateData() {
-        return [
+      function dseCandidateData() {
+        var all = [
           { id: 'A1', type: 'Aggregated', config: 'Aggregated · TP2', gpu: 8, ttft: 610, itl: 19, decodeTp: 2, decodeSweep: [[1, 9], [4, 13], [8, 18], [12, 20], [16, 27]], throughput: 9.2, tokenPerGpu: 1180, latency: 1320, throughput95: .55, tokenPerGpu95: 92, latency95: 96 },
           { id: 'A2', type: 'Aggregated', config: 'Aggregated · TP4 · 2 replicas · 8 GPU', gpu: 8, ttft: 440, itl: 18, decodeTp: 4, decodeSweep: [[1, 8], [4, 10], [8, 12], [16, 16], [28, 20], [32, 24]], throughput: 10.8, tokenPerGpu: 1420, latency: 1120, throughput95: .48, tokenPerGpu95: 78, latency95: 82 },
           { id: 'A3', type: 'Aggregated', config: 'Aggregated · TP8 · 1 replica · 8 GPU', gpu: 8, ttft: 300, itl: 15, decodeTp: 8, decodeSweep: [[1, 7], [8, 9], [16, 11], [32, 15], [52, 20], [64, 25]], throughput: 13.7, tokenPerGpu: 1530, latency: 930, throughput95: .52, tokenPerGpu95: 74, latency95: 70 },
@@ -5144,10 +5340,14 @@ button.operator-tree-toggle:hover {
           { id: 'D5', type: 'Disaggregated', config: 'Disaggregated · P:TP8 / D:TP2 · 10 GPU', gpu: 10, ttft: 275, itl: 18, decodeTp: 2, decodeSweep: [[1, 9], [4, 14], [8, 19], [12, 21], [16, 28]], throughput: 12.8, tokenPerGpu: 1460, latency: 930, throughput95: .47, tokenPerGpu95: 80, latency95: 68 },
           { id: 'D6', type: 'Disaggregated', config: 'Disaggregated · P:TP8 / D:TP4 · 12 GPU', gpu: 12, ttft: 270, itl: 13, decodeTp: 4, decodeSweep: [[1, 8], [4, 11], [8, 13], [16, 17], [28, 21], [32, 25]], throughput: 15.6, tokenPerGpu: 1390, latency: 790, throughput95: .54, tokenPerGpu95: 88, latency95: 60 }
         ];
+        return all.map(function (candidate) {
+          var rich = dseDeploymentRichConfig(candidate.id);
+          return Object.assign({}, candidate, rich || {}, { name: candidate.id, badge: rich ? rich.tag : candidate.type });
+        });
       }
 
       function dseSweepContext(branchId) {
-        var allCandidates = dseSweepCandidateData();
+        var allCandidates = dseCandidateData();
         if (branchId === 'prefill-sweep') {
           return {
             id: branchId,
@@ -5414,7 +5614,7 @@ button.operator-tree-toggle:hover {
       }
 
       function dseStageCompareContext(id) {
-        var allCandidates = dseSweepCandidateData();
+        var allCandidates = dseCandidateData();
         if (id === 'prefill-sweep') {
           return {
             id: id,
@@ -5716,7 +5916,7 @@ button.operator-tree-toggle:hover {
       function renderDseDeploymentCandidatesDetail() {
         var sourceIds = ['A2', 'A3', 'D3', 'D4', 'D5', 'D6'];
         var feasibleIds = ['A2', 'A3', 'D3', 'D4'];
-        var candidates = dseSweepCandidateData();
+        var candidates = dseCandidateData();
         var byId = function (id) { return candidates.find(function (candidate) { return candidate.id === id; }); };
         var candidateTags = function (ids) { return ids.map(function (id) { return esc(id); }).join(' · '); };
         var feasibleCards = feasibleIds.map(function (id) {
@@ -5743,7 +5943,7 @@ button.operator-tree-toggle:hover {
         }
         var isFinal = stage.id === 'intent-ranked';
         host.hidden = false;
-        host.innerHTML = '<div class="so-dse-stage-detail-head"><div><h3 id="dse-stage-detail-title">' + esc(stage.label) + '</h3><p>' + esc(stage.summary) + '</p></div><span class="so-pill ' + (isFinal ? 'accent' : '') + '">' + stage.count + ' candidates</span></div><div class="so-dse-stage-summary"><span>Candidate population</span><code>' + esc(stage.caption || stage.kind) + '</code></div>' + (stage.id === 'search-space' ? renderDseSearchSpaceCandidates() : '') + (stage.id === 'deployment-candidates' ? renderDseStageCompare(dseStageCompareContext('deployment-candidates')) : '') + (isFinal ? renderDseParetoCandidates(explore) : '');
+        host.innerHTML = '<div class="so-dse-stage-detail-head"><div><h3 id="dse-stage-detail-title">' + esc(stage.label) + '</h3><p>' + esc(stage.summary) + '</p></div><span class="so-pill ' + (isFinal ? 'accent' : '') + '">' + stage.count + ' candidates</span></div>' + (stage.id === 'search-space' ? renderDseSearchSpaceCandidates() : '') + (stage.id === 'deployment-candidates' ? renderDseStageCompare(dseStageCompareContext('deployment-candidates')) : '') + (isFinal ? renderDseParetoCandidates(explore) : '');
         if (stage.id === 'deployment-candidates') {
           window.requestAnimationFrame(function () { drawDseStageCompareChart(host.querySelector('[data-dse-stage-compare-chart]'), dseStageCompareContext('deployment-candidates')); });
         }
@@ -5776,11 +5976,8 @@ button.operator-tree-toggle:hover {
       }
 
       function dseParetoCandidateData(explore) {
-        var userThroughput = { balanced: 86, latency: 91, throughput: 93, efficient: 78 };
-        return dseCandidateCatalog(explore).map(function (candidate) {
-          var throughput = Number.parseFloat(candidate.throughput) * 1000;
-          var devices = Math.max(1, Number(candidate.devices || 1));
-          return { id: candidate.id, name: candidate.name, config: candidate.config, x: throughput / devices, y: userThroughput[candidate.id] || 0 };
+        return dseRankCandidates(explore).map(function (candidate) {
+          return { id: candidate.id, name: candidate.id, config: candidate.config, x: Number(candidate.tokenPerGpu), y: Number(candidate.throughput), gpu: candidate.gpu };
         });
       }
 
@@ -5796,8 +5993,8 @@ button.operator-tree-toggle:hover {
         if (!svg || !explore) return;
         var data = dseParetoCandidateData(explore);
         var frontier = dseParetoFrontier(data);
-        var width = Math.max(640, Math.round(svg.clientWidth || 760));
-        var height = 292;
+        var width = Math.max(360, Math.round(svg.clientWidth || 760));
+        var height = 320;
         var pad = { left: 68, right: 40, top: 24, bottom: 48 };
         var plotWidth = width - pad.left - pad.right;
         var plotHeight = height - pad.top - pad.bottom;
@@ -5830,8 +6027,8 @@ button.operator-tree-toggle:hover {
         }
         svg.append(dseSvgNode('line', { class: 'so-dse-chart-axis', x1: pad.left, y1: pad.top + plotHeight, x2: pad.left + plotWidth, y2: pad.top + plotHeight }));
         svg.append(dseSvgNode('line', { class: 'so-dse-chart-axis', x1: pad.left, y1: pad.top, x2: pad.left, y2: pad.top + plotHeight }));
-        svg.append(dseSvgNode('text', { class: 'so-dse-chart-axis-label', x: pad.left + plotWidth / 2, y: height - 5, 'text-anchor': 'middle' }, 'tokens/s/gpu ↑'));
-        svg.append(dseSvgNode('text', { class: 'so-dse-chart-axis-label', x: 14, y: pad.top + plotHeight / 2, transform: 'rotate(-90 14 ' + (pad.top + plotHeight / 2) + ')', 'text-anchor': 'middle' }, 'tokens/s/user ↑'));
+        svg.append(dseSvgNode('text', { class: 'so-dse-chart-axis-label', x: pad.left + plotWidth / 2, y: height - 5, 'text-anchor': 'middle' }, 'tok/s/GPU ↑'));
+        svg.append(dseSvgNode('text', { class: 'so-dse-chart-axis-label', x: 14, y: pad.top + plotHeight / 2, transform: 'rotate(-90 14 ' + (pad.top + plotHeight / 2) + ')', 'text-anchor': 'middle' }, 'sustained throughput · tok/s ↑'));
         if (frontier.length > 1) {
           var frontierPath = frontier.map(function (candidate, index) { return (index ? 'L ' : 'M ') + xScale(candidate.x) + ' ' + yScale(candidate.y); }).join(' ');
           svg.append(dseSvgNode('path', { class: 'so-dse-pareto-frontier', d: frontierPath }));
@@ -5840,7 +6037,7 @@ button.operator-tree-toggle:hover {
           var isPareto = frontier.indexOf(candidate) >= 0;
           var pointGroup = dseSvgNode('g', { 'data-dse-pareto-candidate': candidate.id });
           var point = dseSvgNode('circle', { class: 'so-dse-pareto-point ' + (isPareto ? 'is-pareto' : 'is-dominated'), cx: xScale(candidate.x), cy: yScale(candidate.y), r: isPareto ? 5.5 : 5 });
-          point.append(dseSvgNode('title', {}, candidate.id + ' · ' + (isPareto ? 'Pareto' : 'Dominated') + ' · 配置: ' + candidate.config + ' · ' + Math.round(candidate.x).toLocaleString() + ' tokens/s/gpu · ' + candidate.y + ' tokens/s/user'));
+          point.append(dseSvgNode('title', {}, candidate.id + ' · ' + (isPareto ? 'Pareto' : 'Dominated') + ' · ' + candidate.config + ' · ' + Math.round(candidate.x).toLocaleString() + ' tok/s/GPU · ' + candidate.y + ' tok/s'));
           pointGroup.append(point);
           var labelOnLeft = xScale(candidate.x) > pad.left + plotWidth * .78;
           pointGroup.append(dseSvgNode('text', { class: 'so-dse-pareto-label', x: xScale(candidate.x) + (labelOnLeft ? -8 : 8), y: yScale(candidate.y) + (index % 2 ? 15 : -9), 'text-anchor': labelOnLeft ? 'end' : 'start' }, candidate.name));
@@ -5892,14 +6089,21 @@ button.operator-tree-toggle:hover {
       }
 
       function renderDseParetoCandidates(explore) {
-        var candidates = dseCandidateCatalog(explore);
-        var paretoData = dseParetoCandidateData(explore);
-        var paretoCount = dseParetoFrontier(paretoData).length;
-        return '<div class="so-dse-stage-pareto"><div class="so-dse-stage-pareto-head"><div><h4>Pareto frontier candidates</h4><p>选择方案查看 placement 与运行配置。</p></div><span class="so-pill accent">' + paretoCount + ' Pareto</span></div><div class="so-dse-pareto-chart"><div class="so-dse-pareto-chart-head"><div><h5>Pareto frontier</h5><p>实心为 Pareto，空心为 dominated。</p></div><div class="so-dse-pareto-chart-legend"><span><i style="--legend-color:var(--success)"></i>Pareto</span><span><i class="is-dominated" style="--legend-color:var(--danger)"></i>Dominated</span></div></div><svg data-dse-pareto-chart></svg></div><div class="so-dse-candidates">' + candidates.map(function (item) {
-          var active = item.id === explore.selectedCandidate;
-          var tight = item.ttft > Number(explore.ttftSla) * .85 || item.tpot > Number(explore.tpotSla) * .9;
-          return '<button class="so-dse-candidate' + (active ? ' is-active' : '') + '" type="button" data-dse-candidate="' + item.id + '" aria-pressed="' + active + '"><div class="so-dse-candidate-top"><h3>' + esc(item.name) + '</h3><span class="so-pill' + (item.id === 'balanced' ? ' accent' : '') + '">' + esc(item.badge) + '</span></div><div class="so-dse-candidate-summary"><span class="so-dse-sla' + (tight ? ' is-tight' : '') + '">' + (tight ? 'SLA TIGHT' : 'SLA PASS') + '</span><p>' + esc(item.description) + '</p></div><div class="so-dse-candidate-metrics"><div><span>Throughput</span><strong>' + item.throughput + ' tok/s</strong></div><div><span>P95 TTFT</span><strong>' + item.ttft + ' ms</strong></div><div><span>P95 TPOT</span><strong>' + item.tpot + ' ms</strong></div></div></button>';
-        }).join('') + '</div></div>';
+        var ranked = dseRankCandidates(explore);
+        var selectedIndex = ranked.findIndex(function (candidate) { return candidate.id === explore.selectedCandidate; });
+        if (selectedIndex < 0) selectedIndex = 0;
+        var selected = ranked[selectedIndex];
+        if (!selected) return '<div class="so-dse-stage-pareto"><div class="so-empty">当前没有满足 Hard Constraints 的候选。</div></div>';
+        var tabs = ranked.map(function (candidate, index) {
+          var active = index === selectedIndex;
+          var state = getCandidateSlaState(candidate, explore);
+          var stateClass = state === 'FAIL' ? ' is-fail' : state === 'TIGHT' ? ' is-tight' : '';
+          var stateLabel = state === 'FAIL' ? 'SLA FAIL' : state === 'TIGHT' ? 'SLA TIGHT' : 'SLA PASS';
+          return '<button class="so-dse-candidate-tab' + (active ? ' is-active' : '') + '" type="button" data-dse-candidate="' + candidate.id + '" aria-pressed="' + active + '"><span class="so-dse-candidate-tab-head"><strong>' + esc(candidate.id) + '</strong><span class="so-dse-sla' + stateClass + '">' + stateLabel + '</span></span><span class="so-dse-candidate-tab-tag">' + esc(candidate.tag || '') + '</span></button>';
+        }).join('');
+        var detail = '<article class="so-dse-candidate-detail"><div class="so-dse-candidate-detail-head"><h3>' + esc(selected.id) + '</h3><span class="so-pill' + (selectedIndex === 0 ? ' accent' : '') + '">' + esc(selected.tag || '') + '</span></div><div class="so-dse-candidate-detail-summary"><p>' + esc(selected.description || '') + '</p></div><div class="so-dse-candidate-metrics"><div><span>Throughput</span><strong>' + selected.throughput + ' tok/s</strong></div><div><span>P95 TTFT</span><strong>' + selected.ttft + ' ms</strong></div><div><span>P95 TPOT</span><strong>' + selected.itl + ' ms</strong></div><div><span>GPU</span><strong>' + selected.gpu + '</strong></div></div><div class="so-dse-candidate-config">' + esc(selected.config) + ' · ' + (selected.split ? 'Prefill / Decode 分离部署' : '统一 Serving 部署') + '</div></article>';
+        var chart = '<section class="so-dse-pareto-chart"><div class="so-dse-pareto-chart-head"><div><h5>Pareto frontier</h5><p>实心为 Pareto，空心为 dominated。</p></div><div class="so-dse-pareto-chart-legend"><span><i style="--legend-color:var(--success)"></i>Pareto</span><span><i class="is-dominated" style="--legend-color:var(--danger)"></i>Dominated</span></div></div><svg data-dse-pareto-chart></svg></section>';
+        return '<div class="so-dse-stage-pareto"><div class="so-dse-intent-grid"><section class="so-dse-candidates"><div class="so-dse-candidate-tabs">' + tabs + '</div>' + detail + '</section>' + chart + '</div></div>';
       }
 
       function renderOriginalTransformerLayer() {
@@ -6132,11 +6336,11 @@ button.operator-tree-toggle:hover {
         }
         var memoryLegend = candidate.memoryPolicy.allocations.map(function (item) { return '<span><i style="--memory-color:' + item.color + '"></i>' + esc(item.label) + '</span>'; }).join('') + '<span><i style="--memory-color:#e4e7eb"></i>Free</span>';
         return '<section class="so-placement-canvas" data-placement-canvas>' +
-          '<div class="so-placement-toolbar"><div class="so-placement-toolbar-copy"><strong>Placement Canvas</strong><span data-placement-summary>Select a Rank to trace Model → PP / TP / EP → Device placement</span></div><div class="so-placement-toolbar-hint">' + candidate.devices + ' Ascend A2 · Click a Rank card</div></div>' +
+          '<div class="so-placement-toolbar"><div class="so-placement-toolbar-copy"><strong>Placement Canvas</strong><span data-placement-summary>Select a Rank to trace Model → PP / TP / EP → Device placement</span></div><div class="so-placement-toolbar-hint">' + candidate.gpu + ' Ascend A2 · Click a Rank card</div></div>' +
           '<svg class="so-placement-connection-layer" data-placement-connections aria-hidden="true"></svg>' +
-          '<section class="so-placement-region"><div class="so-placement-region-head"><h3>Model / Pipeline</h3><span>DeepSeek V4 · 43 Layers</span></div><div class="so-placement-region-body"><div class="so-placement-stage-list">' + candidate.poolPlan.map(renderStages).join('') + '</div><div class="so-placement-model-track"><span class="so-placement-endpoint"><span>Token</span><i></i></span><span><span class="so-placement-layers">' + renderLayers() + '</span><span class="so-placement-layer-labels"><span>L0</span><span>L10</span><span>L21</span><span>L32</span><span>L42</span></span></span><span class="so-placement-endpoint"><span>Logits</span><i></i></span></div></div></section>' +
+          '<section class="so-placement-region so-placement-rank-region"><div class="so-placement-region-head"><h3>Rank Placement</h3><span class="so-placement-memory-legend">' + memoryLegend + '</span></div><div class="so-placement-region-body"><section class="so-placement-node"><div class="so-placement-node-head"><strong>Node 0</strong><span>Devices 0–' + (candidate.gpu - 1) + '</span></div><div class="so-placement-node-body"><div class="so-placement-pools" style="--pool-count:' + candidate.poolPlan.length + '">' + candidate.poolPlan.map(renderPool).join('') + '</div></div></section></div></section>' +
+          '<section class="so-placement-region so-placement-pipeline-region"><div class="so-placement-region-head"><h3>Model / Pipeline</h3><span>DeepSeek V4 · 43 Layers</span></div><div class="so-placement-region-body"><div class="so-placement-stage-list">' + candidate.poolPlan.map(renderStages).join('') + '</div><div class="so-placement-model-track"><span class="so-placement-endpoint"><span>Token</span><i></i></span><span><span class="so-placement-layers">' + renderLayers() + '</span><span class="so-placement-layer-labels"><span>L0</span><span>L10</span><span>L21</span><span>L32</span><span>L42</span></span></span><span class="so-placement-endpoint"><span>Logits</span><i></i></span></div></div></section>' +
           '<section class="so-placement-region so-placement-layer-region">' + renderOriginalTransformerLayer() + '</section>' +
-          '<section class="so-placement-region so-placement-rank-region"><div class="so-placement-region-head"><h3>Rank Placement</h3><span class="so-placement-memory-legend">' + memoryLegend + '</span></div><div class="so-placement-region-body"><section class="so-placement-node"><div class="so-placement-node-head"><strong>Node 0</strong><span>Devices 0–' + (candidate.devices - 1) + '</span></div><div class="so-placement-node-body"><div class="so-placement-pools" style="--pool-count:' + candidate.poolPlan.length + '">' + candidate.poolPlan.map(renderPool).join('') + '</div></div></section></div></section>' +
           '</section>';
       }
 
@@ -6149,7 +6353,8 @@ button.operator-tree-toggle:hover {
         var layerTemplate = canvas.querySelector('[data-placement-layer-template]');
         var layerRoot = layerHost.attachShadow({ mode: 'open' });
         layerRoot.appendChild(layerTemplate.content.cloneNode(true));
-        var selectedRank = null;
+        var firstPoolStart = Number(String(candidate.poolPlan[0].ranks).split(/[–-]/)[0]);
+        var selectedRank = isNaN(firstPoolStart) ? null : firstPoolStart;
         var activePoolId = candidate.poolPlan[0].id;
 
         layerRoot.querySelectorAll('.experts').forEach(function (grid) {
@@ -6224,13 +6429,17 @@ button.operator-tree-toggle:hover {
             { axis: 'tp', color: '#04d793', element: layerRoot.querySelector('[data-original-layer-source="tp"][data-original-layer-value="' + (Number(card.getAttribute('data-placement-tp')) % 2) + '"]') },
             { axis: 'ep', color: '#7be8c5', element: layerRoot.querySelector('[data-original-mode-panel="' + phaseForPool(card.getAttribute('data-placement-pool')) + '"] [data-original-layer-source="ep"][data-original-layer-value="' + (phaseForPool(card.getAttribute('data-placement-pool')) === 'prefill' ? 0 : Number(card.getAttribute('data-placement-ep')) % 2) + '"]') }
           ];
-          var endBase = pointFor(card, 'top');
+          var cardTop = pointFor(card, 'top');
+          var cardBottom = pointFor(card, 'bottom');
           sources.forEach(function (source, index) {
             if (!source.element) return;
-            var start = pointFor(source.element, 'bottom');
-            var end = { x: endBase.x + (index - 1) * 11, y: endBase.y };
-            var span = Math.max(40, end.y - start.y);
-            var bend = Math.min(128, span * .38);
+            var sourceTop = pointFor(source.element, 'top');
+            var sourceBottom = pointFor(source.element, 'bottom');
+            var upward = cardBottom.y < sourceTop.y;
+            var start = upward ? sourceTop : sourceBottom;
+            var end = { x: (upward ? cardBottom.x : cardTop.x) + (index - 1) * 11, y: upward ? cardBottom.y : cardTop.y };
+            var span = end.y - start.y;
+            var bend = Math.min(128, Math.max(30, Math.abs(span) * .38)) * (span >= 0 ? 1 : -1);
             var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.setAttribute('d', 'M ' + start.x.toFixed(1) + ' ' + start.y.toFixed(1) + ' C ' + start.x.toFixed(1) + ' ' + (start.y + bend).toFixed(1) + ', ' + end.x.toFixed(1) + ' ' + (end.y - bend).toFixed(1) + ', ' + end.x.toFixed(1) + ' ' + end.y.toFixed(1));
             path.setAttribute('class', 'so-placement-connection');
@@ -6285,17 +6494,18 @@ button.operator-tree-toggle:hover {
 
       function renderDseDeployment(explore) {
         var candidate = currentDseCandidate();
+        var topCandidateId = (dseRankCandidates(explore)[0] || {}).id;
         var metrics = [
           ['Throughput', candidate.throughput + ' tok/s', '+8.4% vs next'],
           ['P95 TTFT', candidate.ttft + ' ms', (Number(explore.ttftSla) - candidate.ttft) + ' ms headroom'],
-          ['P95 TPOT', candidate.tpot + ' ms', (Number(explore.tpotSla) - candidate.tpot).toFixed(1) + ' ms headroom'],
+          ['P95 TPOT', candidate.itl + ' ms', (Number(explore.tpotSla) - candidate.itl).toFixed(1) + ' ms headroom'],
           ['HBM / device', candidate.hbm + '%', (100 - candidate.hbm) + '% free'],
           ['KV capacity', candidate.kv + '%', 'headroom'],
           ['System inflight', candidate.concurrency + ' req', explore.concurrency + ' requested'],
           ['Communication', candidate.communication + '%', 'step time'],
           ['Confidence', candidate.confidence + '%', explore.evaluationMode === 'fast' ? 'modeled' : 'measured']
         ];
-        return '<section class="so-dse-section"><div class="so-dse-deployment-head"><div><h2>' + esc(candidate.name) + ' · Deployment canvas</h2><p>' + esc(candidate.config) + ' · ' + (candidate.split ? 'Prefill / Decode 分离部署' : '统一 Serving 部署') + '</p></div><div class="so-dse-deployment-actions"><span class="so-pill' + (candidate.id === 'balanced' ? ' accent' : '') + '">' + esc(candidate.badge) + '</span><button class="so-button primary" type="button" data-action="adopt-dse-candidate">采用此方案</button></div></div><div class="so-dse-deployment-body"><div class="so-dse-canvas">' + renderDseTopology(candidate) + '</div>' + renderDseDeploymentConfig(candidate) + '<div class="so-dse-benchmarks">' + metrics.map(function (metric) { return '<div class="so-dse-benchmark"><span>' + esc(metric[0]) + '</span><strong>' + esc(metric[1]) + '</strong><small>' + esc(metric[2]) + '</small></div>'; }).join('') + '</div></div></section>';
+        return '<section class="so-dse-section"><div class="so-dse-deployment-head"><div><h2>' + esc(candidate.name) + ' · Deployment canvas</h2><p>' + esc(candidate.config) + ' · ' + (candidate.split ? 'Prefill / Decode 分离部署' : '统一 Serving 部署') + '</p></div><div class="so-dse-deployment-actions"><span class="so-pill' + (candidate.id === topCandidateId ? ' accent' : '') + '">' + esc(candidate.badge) + '</span><button class="so-button primary" type="button" data-action="adopt-dse-candidate">采用此方案</button></div></div><div class="so-dse-deployment-body"><div class="so-dse-canvas">' + renderDseTopology(candidate) + '</div>' + renderDseDeploymentConfig(candidate) + '<div class="so-dse-benchmarks">' + metrics.map(function (metric) { return '<div class="so-dse-benchmark"><span>' + esc(metric[0]) + '</span><strong>' + esc(metric[1]) + '</strong><small>' + esc(metric[2]) + '</small></div>'; }).join('') + '</div></div></section>';
       }
 
       function renderScenarioNew() {
@@ -6643,8 +6853,26 @@ button.operator-tree-toggle:hover {
         return renderSimple('workspace');
       }
 
+      function renderServingInspector(evidence) {
+        var event = selectedEvent();
+        var req = evidence.request || {};
+        var html = '<div class="so-inspector-title"><div><h2>Selected evidence</h2><p>点击 Trace span 查看</p></div><span class="so-pill accent">' + (event ? 'linked' : esc(currentRun().id)) + '</span></div>';
+        if (!event) {
+          if (state.dfxStatus !== 'ready') return html + dfxStatusCard();
+          return html + '<div class="so-card"><div class="so-card-body" style="padding-top:14px"><div class="so-empty">尚未选中 span。<br>在 Timeline 选择 Serving / Host Runtime span。</div><div class="so-divider"></div><dl class="so-kv"><dt>Run</dt><dd>' + esc(currentRun().id + ' · ' + currentRun().name) + '</dd><dt>Spans</dt><dd>' + evidence.eventCount + '</dd><dt>Request</dt><dd class="so-mono">' + esc(req.requestId || '—') + '</dd><dt>Task / Tensor / Dependency</dt><dd>未采集</dd><dt>Memory / PMU</dt><dd>未采集</dd></dl></div></div>';
+        }
+        var children = (evidence.events || []).filter(function (item) { return item.parentId === event.id; });
+        var argsKeys = Object.keys(event.args || {});
+        var hierarchy = '';
+        if (event.parentName) hierarchy += '<dt>Parent</dt><dd class="so-mono">' + esc(event.parentName) + '</dd>';
+        hierarchy += '<dt>Children</dt><dd>' + (children.length ? children.slice(0, 5).map(function (item) { return esc(item.funcName); }).join(' · ') + (children.length > 5 ? ' · +' + (children.length - 5) : '') : '—') + '</dd>';
+        html += '<div class="so-card"><div class="so-card-head"><h3>' + esc(event.funcName || event.label) + '</h3><span class="so-pill">' + roundText(event.dur) + ' μs</span></div><div class="so-card-body"><dl class="so-kv"><dt>Span</dt><dd class="so-mono">' + event.id + '</dd><dt>Category</dt><dd>' + esc(event.cat || event.kind || '—') + '</dd><dt>Layer</dt><dd>' + esc(event.lane || '—') + '</dd><dt>Timing</dt><dd>' + roundText(event.start) + ' → ' + roundText(event.start + event.dur) + ' μs</dd><dt>Process / Thread</dt><dd>' + esc(event.processName || String(event.pid || '—')) + ' / ' + esc(event.threadName || String(event.tid || '—')) + '</dd><dt>Request</dt><dd class="so-mono">' + esc(req.requestId || '—') + '</dd><dt>Model</dt><dd class="so-mono">' + esc(req.modelId || '—') + '</dd><dt>Batch Size</dt><dd>' + (req.batchSize == null ? '—' : req.batchSize) + '</dd></dl><div class="so-divider"></div><div class="so-inspector-block"><h3>Execution hierarchy</h3><dl class="so-kv">' + hierarchy + '</dl><div class="so-finding-summary">按时间嵌套推导，非 DFX Task Dependency。</div></div><div class="so-inspector-block"><h3>Raw Args</h3>' + (argsKeys.length ? argsKeys.map(function (key) { return '<div class="so-object-row"><strong class="so-mono">' + esc(key) + '</strong><span class="so-mono">' + esc(JSON.stringify(event.args[key])) + '</span></div>'; }).join('') : '<div class="so-finding-summary">该 span 没有 args。</div>') + '</div><div class="so-inspector-block"><h3>Data coverage</h3><dl class="so-kv"><dt>DFX Tasks / Tensor / Dependency</dt><dd>未采集</dd><dt>MoE Routing / Rank</dt><dd>未采集</dd><dt>Memory / PMU</dt><dd>未采集</dd></dl></div></div></div>';
+        return html;
+      }
+
       function renderInspector() {
         var evidence = currentEvidence();
+        if (evidence.kind === 'serving') return renderServingInspector(evidence);
         var event = selectedEvent();
         var html = '<div class="so-inspector-title"><div><h2>Selected evidence</h2><p>点击 Trace event 或 Finding 查看</p></div><span class="so-pill accent">' + (state.selectedEvent ? 'linked' : esc(currentRun().id)) + '</span></div>';
         if (!event && !state.selectedRequest) {
@@ -7400,7 +7628,12 @@ button.operator-tree-toggle:hover {
           function syncDseField() {
             var field = el.getAttribute('data-dse-field');
             var numericFields = ['requestRate', 'concurrency', 'promptP95', 'outputP50', 'ttftSla', 'tpotSla', 'maxDevices', 'hbmReserve'];
-            state.scenarioExplore[field] = numericFields.indexOf(field) >= 0 ? Number(el.value) : el.value;
+            if (field === 'optimizationObjectivePrimary' || field === 'optimizationObjectiveSecondary') {
+              var objective = dseObjective(state.scenarioExplore);
+              state.scenarioExplore.optimizationObjective = Object.assign({}, objective, field === 'optimizationObjectivePrimary' ? { primary: el.value } : { secondary: el.value });
+            } else {
+              state.scenarioExplore[field] = numericFields.indexOf(field) >= 0 ? Number(el.value) : el.value;
+            }
             state.scenarioExplore.dirty = true;
           }
           el.addEventListener('input', function () {
@@ -7480,7 +7713,7 @@ button.operator-tree-toggle:hover {
             if (action === 'save-scenario-draft') { state.scenarioDraft.status = 'saved'; render(); }
             if (action === 'create-scenario') createScenarioFromDraft();
             if (action === 'parse-scenario-intent') parseScenarioIntent();
-            if (action === 'update-design-space') { state.scenarioExplore.dirty = false; state.scenarioExplore.revision += 1; state.scenarioExplore.selectedCandidate = null; state.scenarioExplore.selectedLineageId = 'intent-ranked'; render(); }
+            if (action === 'update-design-space') { state.scenarioExplore.appliedObjective = Object.assign({}, dseObjective(state.scenarioExplore)); state.scenarioExplore.dirty = false; state.scenarioExplore.revision += 1; state.scenarioExplore.selectedLineageId = 'intent-ranked'; state.scenarioExplore.selectedCandidate = (dseRankCandidates(state.scenarioExplore)[0] || {}).id || null; render(); }
             if (action === 'adopt-dse-candidate') createScenarioFromExplorer();
             if (action === 'run-created-scenario') { state.route = 'run'; startRun(); }
             if (action === 'rerun') startRun();
@@ -7537,6 +7770,14 @@ button.operator-tree-toggle:hover {
         else if (/A2/i.test(intent)) explore.deviceType = 'Ascend A2 64 GB';
         if (/hardware benchmark|硬件实测|真实运行/i.test(intent)) explore.evaluationMode = 'hardware';
         else if (/fast estimate|快速估算|快速模式/i.test(intent)) explore.evaluationMode = 'fast';
+        var primary = null;
+        if (/(?:maximi[sz]e|最大化)[^。;；,，]*sustained throughput|最大化[^。;；,，]*吞吐|吞吐优先/i.test(intent)) primary = 'maximize-throughput';
+        if (/(?:minimi[sz]e|最小化|降低)[^。;；,，]*latenc|延迟优先|latency[- ]?first/i.test(intent)) primary = 'minimize-latency';
+        if (/(?:resource|资源)[^。;；,，]*efficien|能效|每卡吞吐|token per gpu/i.test(intent)) primary = 'maximize-efficiency';
+        var secondary = null;
+        if (/kv|hbm|缓存余量|容量余量|headroom/i.test(intent)) secondary = 'preserve-kv-headroom';
+        if (/(?:minimi[sz]e|最少|少用)[^。;；,，]*(?:gpu|卡|devices?)/i.test(intent)) secondary = 'minimize-gpu';
+        explore.optimizationObjective = Object.assign({ primary: 'maximize-throughput', secondary: 'preserve-kv-headroom' }, explore.optimizationObjective, primary ? { primary: primary } : null, secondary ? { secondary: secondary } : null);
         explore.parsed = true;
         explore.dirty = true;
         explore.editingGroup = null;
@@ -7556,7 +7797,7 @@ button.operator-tree-toggle:hover {
           revision: revision,
           model: explore.model,
           workload: explore.requestRate + ' req/s · prompt P95 ' + explore.promptP95 + ' · output P50 ' + explore.outputP50,
-          hardware: explore.deviceType + ' / ' + candidate.devices + ' devices',
+          hardware: explore.deviceType + ' / ' + candidate.gpu + ' devices',
           goal: 'P95 TTFT ≤ ' + explore.ttftSla + ' ms · P95 TPOT ≤ ' + explore.tpotSla + ' ms · maximize sustained throughput',
           kind: 'deepseek',
           planning: {
@@ -7579,7 +7820,7 @@ button.operator-tree-toggle:hover {
             evaluationEvidence: {
               throughputTokensPerSecond: candidate.throughput,
               p95TtftMs: candidate.ttft,
-              p95TpotMs: candidate.tpot,
+              p95TpotMs: candidate.itl,
               hbmUtilizationPercent: candidate.hbm,
               kvHeadroomPercent: candidate.kv,
               concurrencyCapacity: candidate.concurrency,

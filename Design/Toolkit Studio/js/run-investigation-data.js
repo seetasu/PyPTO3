@@ -1,0 +1,272 @@
+/*
+ * Run investigation graph adapter.
+ *
+ * This module deliberately derives its evidence from the existing correctness
+ * profiles and compilation fixture. It contains no second numerical fixture:
+ * missing source material stays missing in the returned investigation.
+ */
+(function () {
+  'use strict';
+
+  const TABS = new Set(['correctness', 'execution', 'compilation']);
+  const KINDS = new Set(['tensor', 'task', 'pass', 'buffer']);
+  const STATES = new Set(['normal', 'abnormal', 'unresolved']);
+  const EDGE_TYPES = new Set(['locate', 'promote', 'continue', 'checked', 'unresolved', 'support', 'diagnose']);
+
+  const asArray = value => Array.isArray(value) ? value : [];
+  const present = value => value !== undefined && value !== null && value !== '';
+  const text = value => present(value) ? String(value) : '未采集';
+  const action = (runId, tab, kind, id, extra) => Object.assign({ runId, tab, kind, id }, extra || {});
+
+  function evidence(id, title, note, columns, rows, source, scope, missing, next) {
+    return { id, title, note, columns, rows, source, scope, missing: missing ? '此范围证据不完整，不能视为通过' : '', action: next || null };
+  }
+
+  function node(id, kind, state, title, signal, summary, evidenceRefs, meta) {
+    /* `state` only shapes cause-exploration cards; every other kind derives its
+       emphasis from `kind` itself (finding / reasoning / entity / hypothesis /
+       diagnosis). `signal` is pure content — it never toggles the DOM structure. */
+    return Object.assign({ id, kind, state: STATES.has(state) ? state : undefined, title, signal, summary, evidenceRefs }, meta || {});
+  }
+
+  function edge(from, to, type, label) {
+    return { id: from + '-' + to, source: from, target: to, relation: EDGE_TYPES.has(type) ? type : 'unresolved', label };
+  }
+
+  function profile106() {
+    return window.PTO_CORRECTNESS_DIAGNOSTICS?.profiles?.run_106 || null;
+  }
+
+  function fixture109() {
+    return window.PTO_COMPILATION?.numericalFixtures?.compiler_semantic_error || null;
+  }
+
+  function build106(profile) {
+    const result = profile?.result;
+    const first = profile?.firstDivergence;
+    const tensors = asArray(profile?.tensors);
+    const runtime = profile?.runtime;
+    const tasks = asArray(runtime?.tasks);
+    const output = tensors.find(t => t.id === result?.output || t.id === 'out');
+    const attention = tensors.find(t => t.id === 'attention_out');
+    const score = tensors.find(t => t.id === 'attn_score');
+    const softmax = tensors.find(t => t.id === 'softmax_p');
+    const observedInputs = ['q', 'k', 'v', 'q_rotated', 'k_rotated'].map(id => tensors.find(t => t.id === id));
+    const producer = tasks.find(t => t.id === '182');
+    const overlap = runtime?.timeline?.overlap;
+    const repeatability = profile?.repeatability;
+    const compiler = profile?.compiler;
+    const validation = compiler?.numericalValidation;
+    const hasOutput = !!result && !!output && output.ref && output.act && present(result.maxAbs);
+    const hasFirst = !!first && first.id === 'attention_out' && !!attention && attention.ref && attention.act && present(attention.maxAbs);
+    const inputsKnown = observedInputs.length === 5 && observedInputs.every(t => t?.state === 'match' && t.ref && t.act);
+    const hasProducer = !!producer && producer.semantic === 'Attention';
+    const hasOverlap = !!overlap && overlap.a === '182' && overlap.b === '197' && runtime?.timeline?.buffer === 'B2';
+    const hasRepeatability = !!repeatability && Number.isFinite(repeatability.runs) && typeof repeatability.stable === 'boolean';
+    const passesKnown = validation?.status === 'pass' && Number.isFinite(validation.passed) && Number.isFinite(validation.total);
+    const structuralKnown = compiler?.structuralVerification?.status === 'pass';
+    const refs = {};
+
+    refs.output = evidence('output', '输出比较', hasOutput ? '设备输出与 Golden 的比较已记录。' : '缺少输出比较，不能确认输出偏差。',
+      ['输出', '最大绝对误差', '最大相对误差', '结论'], hasOutput ? [[text(result.output), result.maxAbs, result.maxRel, text(result.verdict)]] : [],
+      'Run #106 正确性与执行采集记录', '输出 out', !hasOutput,
+      action('run_106', 'correctness', 'tensor', 'out'));
+    refs['first-divergence'] = evidence('first-divergence', '已采集检查点中的首个分歧', hasFirst ? '采样链将首个已记录的分歧定位到 attention_out。' : '采样链或 attention_out 比较缺失。',
+      ['Tensor', '最大绝对误差', '最大相对误差', '参考'], hasFirst ? [[attention.id, attention.maxAbs, attention.maxRel, attention.ref ? '已提供' : '缺失']] : [],
+      'Run #106 正确性与执行采集记录', '已采样 tensor', !hasFirst,
+      action('run_106', 'correctness', 'tensor', 'attention_out'));
+    refs['unchecked-intermediates'] = evidence('unchecked-intermediates', '未比较的中间值', 'attn_score 与 softmax_p 没有参考值；输入匹配不等于计算链已证明正确。',
+      ['Tensor', '实际值', '参考值', '状态'], [[text(score?.id), score?.act ? '已提供' : '缺失', score?.ref ? '已提供' : '缺失', '未解决'], [text(softmax?.id), softmax?.act ? '已提供' : '缺失', softmax?.ref ? '已提供' : '缺失', '未解决']],
+      'Run #106 正确性与执行采集记录', 'Attention 中间值', true,
+      action('run_106', 'correctness', 'tensor', 'attn_score'));
+    refs['observed-inputs'] = evidence('observed-inputs', '已观察到的上游输入', inputsKnown ? '当前采样中这些输入均有参考比较并匹配。' : '上游输入比较不完整，不能将其视为已匹配。',
+      ['Tensor', '状态', '参考'], inputsKnown ? observedInputs.map(t => [t.id, t.state, '已提供']) : [],
+      'Run #106 正确性与执行采集记录', 'q / k / v / q_rotated / k_rotated', !inputsKnown,
+      action('run_106', 'correctness', 'tensor', 'q'));
+    refs['producer-task'] = evidence('producer-task', 'Attention 生产任务', hasProducer ? 'attention_out 的生产任务为 Task #182（Attention）。' : 'Task #182 与 Attention 的映射缺失。',
+      ['任务', '语义', '读取', '写入'], hasProducer ? [[producer.id, producer.semantic, producer.reads.join(' · '), producer.writes.join(' · ')]] : [],
+      'Run #106 正确性与执行采集记录', 'Task #182', !hasProducer,
+      action('run_106', 'execution', 'task', '182'));
+    refs['buffer-overlap'] = evidence('buffer-overlap', '共享缓冲区重叠', hasOverlap ? 'Task #182 与 #197 在 B2 上发生时间重叠；排序关系仍需验证。' : 'B2 重叠或任务标识未采集。',
+      ['Buffer', '任务 A', '任务 B', '重叠区间'], hasOverlap ? [[runtime.timeline.buffer, overlap.a, overlap.b, overlap.from + '–' + overlap.to]] : [],
+      'Run #106 正确性与执行采集记录', 'B2 与任务时间线', !hasOverlap,
+      action('run_106', 'execution', 'buffer', 'B2', { taskIds: ['182', '197'], range: overlap ? { from: overlap.from, to: overlap.to } : null }));
+    refs.repeatability = evidence('repeatability', '重复运行', hasRepeatability ? (repeatability.stable ? '重复运行结果稳定。' : '重复运行结果不稳定，作为排序调查的支持线索。') : '重复运行记录缺失。',
+      ['运行次数', '稳定', '说明'], hasRepeatability ? [[repeatability.runs, repeatability.stable ? '是' : '否', text(repeatability.summary)]] : [],
+      'Run #106 正确性与执行采集记录', 'Run #106', !hasRepeatability,
+      action('run_106', 'execution', 'task', '182'));
+    refs['compiler-checks'] = evidence('compiler-checks', '编译阶段检查', structuralKnown && passesKnown ? '结构检查通过；已记录的 ' + validation.passed + ' 个 selected-output Pass 检查通过。' : '编译检查证据不完整，不能据此排除编译问题。',
+      ['检查', '状态', '范围'], [structuralKnown ? ['Structural verification', 'pass', '已记录'] : ['Structural verification', '未采集', '未知'], passesKnown ? ['Selected-output Pass validation', validation.passed + '/' + validation.total + ' pass', '已记录的 Pass 输出'] : ['Selected-output Pass validation', '未采集', '未知']],
+      'Run #106 正确性与执行采集记录', '结构与 selected output', !(structuralKnown && passesKnown),
+      action('run_106', 'compilation', 'pass', null));
+
+    const runtimeEvidenceReady = hasOutput && hasFirst && hasProducer && hasOverlap && tasks.some(t => t.id === '197' && t.expectsAfter === '182');
+    const nodes = [
+      // Primary investigation spine — one visual center line, left → right.
+      node('output-out', 'finding', undefined, '输出 out 不一致', hasOutput ? String(result.maxAbs) : '未采集', hasOutput ? '最大绝对误差 · 输出偏差已观察到' : '无法确认输出状态。', ['output'], { spineIndex: 0 }),
+      node('device-result', 'reasoning', undefined, '设备结果偏差', hasOutput ? 'MISMATCH' : '未采集', '沿已采集检查点定位。', ['output'], { spineIndex: 1 }),
+      // Side checks / support evidence — kept out of the spine's visual weight.
+      node('input-observed', 'cause', inputsKnown ? 'normal' : 'unresolved', '上游输入', inputsKnown ? '匹配' : '未采集', '只覆盖已采样输入，不证明整个计算链。', ['observed-inputs', 'unchecked-intermediates'], { lane: 'above' }),
+      node('first-attention-out', 'entity', hasFirst ? undefined : 'unresolved', 'attention_out 首个分歧', hasFirst ? String(attention.maxAbs) : '未采集', hasFirst ? '分歧在 Attention 输出处出现。' : '无法确认首个分歧。', ['first-divergence'], { spineIndex: 2 }),
+      node('compiler-checks', 'cause', structuralKnown && passesKnown ? 'normal' : 'unresolved', '编译检查', passesKnown ? validation.passed + '/' + validation.total : '未采集', '结构检查通过 · 已记录 Pass 输出匹配。', ['compiler-checks'], { lane: 'above' }),
+      node('attention-182', 'entity', undefined, 'Attention / Task #182', hasProducer ? 'Task #182' : '未采集', hasProducer ? '产生 attention_out · 继续检查执行排序。' : '缺少生产任务证据。', ['producer-task'], { spineIndex: 3 }),
+      node('intermediate-gap', 'cause', 'unresolved', '中间计算证据缺口', '未采集', 'attn_score / softmax_p 缺少参考值，尚不能排除中间计算。', ['unchecked-intermediates'], { lane: 'below' }),
+      node('b2-overlap', 'cause', hasOverlap ? 'abnormal' : 'unresolved', 'B2 重叠访问', hasOverlap ? '182 × 197' : '未采集', hasOverlap ? '重叠是待验证的运行时风险信号。' : '无法判断共享缓冲区关系。', ['buffer-overlap'], { spineIndex: 4 }),
+      node('repeatability', 'cause', 'unresolved', '重复运行', hasRepeatability ? (repeatability.stable ? '稳定' : '不稳定') : '未采集', hasRepeatability && !repeatability.stable ? '结果不稳定，支持进一步检查排序。' : '尚无不稳定性支持证据。', ['repeatability'], { lane: 'below' }),
+      node('war-hypothesis', 'hypothesis', undefined, '缺少 WAR 排序依赖', '待验证', '时间线支持此假设，但尚未证明其为根因。', ['buffer-overlap', 'producer-task', 'repeatability'], { spineIndex: 5 }),
+      node('runtime-judgment', 'diagnosis', undefined, 'Runtime / Dataflow 诊断', '待验证', '运行时数据流是当前调查方向，根因待 WAR 排序验证。', [], { spineIndex: 6 })
+    ];
+    const edges = [
+      edge('output-out', 'device-result', 'locate', '设备比较'),
+      edge('device-result', 'first-attention-out', 'locate', '沿检查点定位'),
+      edge('output-out', 'input-observed', 'checked', '检查输入'),
+      edge('output-out', 'compiler-checks', 'checked', '检查编译'),
+      edge('first-attention-out', 'intermediate-gap', 'unresolved', '参考缺口'),
+      edge('attention-182', 'repeatability', 'support', '重复运行'),
+      edge('repeatability', 'war-hypothesis', 'support', '支持线索'),
+
+      edge('first-attention-out', 'attention-182', 'continue', '生产任务'),
+      edge('attention-182', 'b2-overlap', 'locate', '共享 B2'),
+      edge('b2-overlap', 'war-hypothesis', 'promote', '待验证的排序风险'),
+      edge('war-hypothesis', 'runtime-judgment', 'diagnose', '运行时方向'),
+      edge('compiler-checks', 'first-attention-out', 'support', '已记录编译检查')
+    ];
+    return { nodes, edges, evidenceById: refs, summary: hasOutput && hasFirst ? '输出偏差已定位到 attention_out 的采样链，下一步验证 Task #182 与 #197 的 B2 排序。' : hasOutput ? '输出偏差已观察到，但已采集检查点中的首个分歧尚未完整定位。' : 'Run #106 的输出比较未完整采集。', judgment: runtimeEvidenceReady ? '优先检查 Runtime 排序，根因待验证。' : '关键证据不足，暂不能确定调查方向。', nextStep: '检查 Task #182 与 #197 的依赖与 B2 访问顺序；补齐依赖后固定输入复验，并补齐中间值参考比较。', action: action('run_106', 'execution', 'buffer', 'B2', { taskIds: ['182', '197'], range: overlap ? { from: overlap.from, to: overlap.to } : null }) };
+  }
+
+  function build109(fixture) {
+    const structural = window.PTO_CORRECTNESS_DIAGNOSTICS?.profiles?.run_109?.compiler?.structuralVerification?.status;
+    const passes = asArray(fixture?.passes);
+    const firstName = fixture?.firstDivergentPass;
+    const firstIndex = passes.findIndex(p => p.name === firstName);
+    const first = firstIndex >= 0 ? passes[firstIndex] : null;
+    const adjacent = firstIndex > 0 ? passes[firstIndex - 1] : null;
+    const sourceReady = fixture?.status === 'fail' && first && fixture?.tolerance && present(fixture.tolerance.rtol) && present(fixture.tolerance.atol);
+    const refs = {};
+    refs['compiler-numerical-validation'] = evidence('compiler-numerical-validation', '编译数值校验', sourceReady ? 'Host IR 的逐 Pass 比较首先在 ExpandMixedKernel 记录为 mismatch。' : '编译数值校验证据不完整。',
+      ['Pass', '状态', '最大绝对误差', '最大相对误差'], sourceReady ? [[first.name, first.status, first.maxAbs, first.maxRel]] : [],
+      'Run #109 逐 Pass 数值校验记录', 'Host IR per-pass validation', !sourceReady,
+      action('run_109', 'compilation', 'pass', firstName || null));
+    refs['compiler-tolerance'] = evidence('compiler-tolerance', '比较容差', sourceReady ? '使用本次编译校验记录的容差。' : '容差未采集。',
+      ['rtol', 'atol'], sourceReady ? [[fixture.tolerance.rtol, fixture.tolerance.atol]] : [],
+      'Run #109 逐 Pass 数值校验记录', 'Host IR validation', !sourceReady,
+      action('run_109', 'compilation', 'pass', firstName || null));
+    refs['adjacent-pass'] = evidence('adjacent-pass', '相邻 Pass', adjacent ? '首个分歧前的相邻 Pass 已记录。IR 变换细节仍需精确比对。' : '缺少首个分歧前的相邻 Pass。',
+      ['Pass', '状态'], adjacent ? [[adjacent.name, adjacent.status], [text(first?.name), text(first?.status)]] : [],
+      'Run #109 逐 Pass 数值校验记录', 'ExpandMixedKernel 相邻 Pass', !adjacent,
+      action('run_109', 'compilation', 'pass', firstName || null));
+    refs['device-not-evaluated'] = evidence('device-not-evaluated', '设备执行', '该 Run 未进入设备执行；不能从本调查归因运行时或设备。',
+      ['设备执行'], [['未执行']], 'Run #109 执行阶段记录', '设备阶段', false, null);
+    refs.structure = evidence('structure', '结构校验', structural === 'pass' ? '结构校验通过；不代表数值语义等价。' : '结构校验记录缺失。', ['检查', '状态'], [['结构', structural || '未采集']], 'Run #109 编译结构校验', '已检查 IR 结构', structural !== 'pass', action('run_109', 'compilation', 'pass', firstName || null));
+    const nodes = [
+      node('compiler-validation', 'finding', sourceReady ? undefined : 'unresolved', 'Host IR 输出不一致', sourceReady ? String(first?.maxAbs) : '未采集', '逐 Pass 数值校验记录到输出分歧。', ['compiler-numerical-validation', 'compiler-tolerance'], { spineIndex: 0 }),
+      node('validation-split', 'reasoning', sourceReady && structural === 'pass' ? undefined : 'unresolved', '结构通过 / 数值失败', sourceReady && structural === 'pass' ? 'PASS / FAIL' : '证据不足', '结构有效，但数值语义未保持一致。', ['structure', 'compiler-numerical-validation'], { spineIndex: 1 }),
+      node('structure', 'cause', structural === 'pass' ? 'normal' : 'unresolved', '结构校验', structural === 'pass' ? '通过' : '未采集', '结构有效不代表数值等价。', ['structure'], { lane: 'above' }),
+      node('device-scope', 'cause', 'unresolved', '设备阶段未执行', '未执行', '没有设备证据，不能形成运行时诊断。', ['device-not-evaluated'], { lane: 'below' }),
+      node('expand-mixed-kernel', 'entity', sourceReady ? undefined : 'unresolved', 'ExpandMixedKernel', sourceReady ? '首个分歧' : '未采集', '首个分歧定位不等于已知具体变换。', ['compiler-numerical-validation'], { spineIndex: 2 }),
+      node('adjacent-pass-ir', 'reasoning', adjacent ? undefined : 'unresolved', '相邻 Pass 与 IR Diff', adjacent ? '相邻 IR' : '未采集', '需要对这一区间的精确变换做 IR diff。', ['adjacent-pass'], { spineIndex: 3 }),
+      node('compiler-diagnosis', 'diagnosis', undefined, 'Compiler 语义变换诊断', '待验证', '当前定位到编译阶段和 Pass 边界，具体错误变换仍需验证。', [], { spineIndex: 4 })
+    ];
+    const edges = [
+      edge('compiler-validation', 'validation-split', 'continue', '校验结果分化'),
+      edge('compiler-validation', 'structure', 'checked', '结构检查'),
+      edge('compiler-validation', 'device-scope', 'unresolved', '未执行'),
+      edge('validation-split', 'expand-mixed-kernel', 'locate', '首个记录分歧'),
+      edge('expand-mixed-kernel', 'adjacent-pass-ir', 'continue', '检查相邻 IR'),
+      edge('adjacent-pass-ir', 'compiler-diagnosis', 'diagnose', '精确变换待验证')
+    ];
+    return { nodes, edges, evidenceById: refs, summary: sourceReady ? 'Host IR 数值校验首先在 ExpandMixedKernel 出现分歧；应比较相邻 Pass 的精确 IR 变换。' : 'Run #109 的编译校验证据不完整。', judgment: sourceReady ? '偏差定位到 Compiler 阶段，具体错误变换待检查 IR Diff。' : '编译校验证据不足，暂不能确认首个分歧 Pass。', nextStep: '对 ExpandMixedKernel 与其相邻 Pass 的 IR 做精确 diff，并保留 Host IR 数值比较上下文。', action: action('run_109', 'compilation', 'pass', firstName || null) };
+  }
+
+  function build106OrderingRisk(profile) {
+    const base = build106(profile);
+    const runtime = profile?.runtime;
+    const tasks = asArray(runtime?.tasks);
+    const reader = tasks.find(task => task.id === '182');
+    const writer = tasks.find(task => task.id === '197');
+    const overlap = runtime?.timeline?.overlap;
+    const hasOverlap = !!overlap && overlap.a === '182' && overlap.b === '197' && runtime?.timeline?.buffer === 'B2';
+    const hasOrderingExpectation = !!writer && writer.expectsAfter === '182';
+    const hasReader = !!reader && reader.semantic === 'Attention';
+    const compilerChecked = base.nodes.find(item => item.id === 'compiler-checks')?.state === 'normal';
+    const inputsChecked = base.nodes.find(item => item.id === 'input-observed')?.state === 'normal';
+    const repeatability = profile?.repeatability;
+    const repeatableRisk = !!repeatability && repeatability.stable === false;
+    const nodes = [
+      node('ordering-signal', 'finding', undefined, '共享访问出现排序风险', hasOverlap ? 'B2 · 182 × 197' : '未采集', hasOverlap ? '同一缓冲区上的读写任务发生时间重叠。' : '缺少共享访问时间线。', ['buffer-overlap'], { spineIndex: 0 }),
+      node('shared-b2', 'entity', undefined, '共享缓冲区 B2', hasOverlap ? '读 / 写共用' : '未采集', '作为本次排序调查的共同对象。', ['buffer-overlap'], { spineIndex: 1 }),
+      node('observed-inputs', 'cause', inputsChecked ? 'normal' : 'unresolved', '已采集上游输入', inputsChecked ? '匹配' : '未采集', '已检查输入作为边界证据，不能替代排序验证。', ['observed-inputs'], { lane: 'above' }),
+      node('task-182-reader', 'reasoning', undefined, 'Task #182 读取 B2', hasReader ? 'Attention' : '未采集', hasReader ? 'Attention 在重叠窗口内读取共享缓冲区。' : '读取方语义未完整采集。', ['producer-task'], { spineIndex: 2 }),
+      node('compiler-scope', 'cause', compilerChecked ? 'normal' : 'unresolved', '编译检查范围', compilerChecked ? '已匹配' : '未采集', '已记录编译检查通过，调查继续聚焦运行时顺序。', ['compiler-checks'], { lane: 'above' }),
+      node('task-197-writer', 'finding', undefined, 'Task #197 写入 B2', hasOrderingExpectation ? '应在 #182 之后' : '未采集', hasOrderingExpectation ? '任务记录包含对 #182 的后置期望。' : '写入方排序期望未采集。', ['buffer-overlap'], { spineIndex: 3 }),
+      node('overlap-window', 'cause', hasOverlap ? 'abnormal' : 'unresolved', '读写重叠窗口', hasOverlap ? overlap.from + '–' + overlap.to + ' μs' : '未采集', hasOverlap ? '重叠是排序风险信号，尚不是已证实根因。' : '无法确认重叠范围。', ['buffer-overlap'], { spineIndex: 4 }),
+      node('repeatability-signal', 'cause', repeatableRisk ? 'abnormal' : 'unresolved', '重复运行信号', repeatableRisk ? '不稳定' : '未采集', repeatableRisk ? '不稳定结果支持继续验证依赖顺序。' : '缺少支持排序风险的重复运行记录。', ['repeatability'], { lane: 'below' }),
+      node('war-hypothesis', 'hypothesis', undefined, '缺少 WAR 排序依赖', hasOrderingExpectation ? '待验证' : '证据不足', '需要确认 #197 的写入是否被 #182 的读取顺序约束。', ['buffer-overlap', 'producer-task', 'repeatability'], { spineIndex: 5 }),
+      node('runtime-ordering-diagnosis', 'diagnosis', undefined, 'Runtime 排序诊断', '待验证', '优先检查 Task #182 → #197 的依赖声明与 B2 访问顺序。', [], { spineIndex: 6 })
+    ];
+    const edges = [
+      edge('ordering-signal', 'shared-b2', 'locate', '聚焦共享对象'),
+      edge('shared-b2', 'task-182-reader', 'continue', '读取方'),
+      edge('task-182-reader', 'task-197-writer', 'locate', '并发写入'),
+      edge('task-197-writer', 'overlap-window', 'locate', '时间重叠'),
+      edge('overlap-window', 'war-hypothesis', 'promote', '验证 WAR'),
+      edge('war-hypothesis', 'runtime-ordering-diagnosis', 'diagnose', '排序方向'),
+      edge('ordering-signal', 'observed-inputs', 'checked', '检查输入'),
+      edge('shared-b2', 'compiler-scope', 'checked', '检查编译'),
+      edge('task-182-reader', 'repeatability-signal', 'support', '重复运行'),
+      edge('repeatability-signal', 'war-hypothesis', 'support', '支持线索')
+    ];
+    return {
+      nodes, edges, evidenceById: base.evidenceById,
+      summary: hasOverlap ? '共享缓冲区 B2 出现读写重叠，当前沿 Task #182 → #197 的排序关系继续调查。' : '排序风险的关键时间线尚未完整采集。',
+      judgment: hasOverlap && hasOrderingExpectation ? '优先检查 Runtime 排序，根因待验证。' : '关键排序证据不足，暂不能确认 WAR 风险。',
+      nextStep: '打开 #182 / #197 的排序证据，核对重叠区间内的依赖声明；补齐依赖后固定输入复验。',
+      action: base.action
+    };
+  }
+
+  function cases(runId) {
+    if (runId === 'run_106' && profile106()) {
+      return [
+        { id: 'output-deviation', title: '输出偏差', marker: 'FAIL · 正确性', tone: 'danger', location: 'attention_out → Task #182', description: '输出结果与参考值不一致，当前沿 attention_out → Task #182 → B2 重叠访问继续定位。', investigationData: build106(profile106()) },
+        { id: 'ordering-risk', title: '排序风险', marker: 'WARNING · Runtime', tone: 'warning', location: 'B2 · Task #182 / #197', description: '共享缓冲区出现读写重叠，当前重点验证 Task #182 → #197 的 WAR 排序关系。', investigationData: build106OrderingRisk(profile106()) }
+      ];
+    }
+    if (runId === 'run_109' && window.PTO_CORRECTNESS_DIAGNOSTICS?.profiles?.run_109) {
+      return [{ id: 'compiler-semantic', title: '语义偏差', description: 'Host IR 数值校验出现分歧，当前检查 ExpandMixedKernel 相邻 Pass 的语义变换。', investigationData: build109(fixture109()) }];
+    }
+    return [];
+  }
+
+  function build(runId) {
+    return cases(runId)[0]?.investigationData || null;
+  }
+
+  function resolveAction(runId, candidate) {
+    if (!candidate || candidate.runId !== runId || !TABS.has(candidate.tab) || !KINDS.has(candidate.kind)) return null;
+    const allowedTarget = (candidate.kind === 'tensor' && candidate.tab === 'correctness') ||
+      (candidate.kind === 'task' && candidate.tab === 'execution') ||
+      (candidate.kind === 'buffer' && candidate.tab === 'execution') ||
+      (candidate.kind === 'pass' && candidate.tab === 'compilation');
+    if (!allowedTarget) return null;
+    const investigation = build(runId);
+    if (!investigation) return null;
+    const profile = runId === 'run_106' ? profile106() : null;
+    const fixture = runId === 'run_109' ? fixture109() : null;
+    const id = candidate.id == null ? null : String(candidate.id);
+    const hasEntity = runId === 'run_106' && (
+      (candidate.kind === 'tensor' && asArray(profile?.tensors).some(t => t.id === id)) ||
+      (candidate.kind === 'task' && asArray(profile?.runtime?.tasks).some(t => t.id === id)) ||
+      (candidate.kind === 'buffer' && profile?.runtime?.timeline?.buffer === id) ||
+      (candidate.kind === 'pass' && id === null)
+    ) || runId === 'run_109' && candidate.kind === 'pass' && asArray(fixture?.passes).some(p => p.name === id);
+    if (candidate.id !== null && candidate.id !== undefined && !hasEntity) return null;
+    if (!hasEntity || (candidate.kind === 'pass' && candidate.tab !== 'compilation')) return null;
+    const normalized = { runId, tab: candidate.tab, kind: candidate.kind, id };
+    if (candidate.taskIds) { if (!Array.isArray(candidate.taskIds) || !candidate.taskIds.every(id => asArray(profile?.runtime?.tasks).some(t => t.id === String(id)))) return null; normalized.taskIds = candidate.taskIds.map(String); }
+    if (candidate.range) { const {from,to} = candidate.range; if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) return null; normalized.range = {from,to}; }
+    return normalized;
+  }
+
+  window.PTO_RUN_INVESTIGATION = Object.freeze({ build, cases, resolveAction });
+}());

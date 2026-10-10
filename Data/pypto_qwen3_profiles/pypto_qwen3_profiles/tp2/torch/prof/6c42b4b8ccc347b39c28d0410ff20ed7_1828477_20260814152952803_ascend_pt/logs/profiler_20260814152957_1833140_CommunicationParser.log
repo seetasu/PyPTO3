@@ -1,0 +1,3 @@
+[2026-08-14-15:29:57.551] [INFO] [AscendProfiler_CommunicationParser:97] Profiler logger initialized at: /tmp/pypto_qwen3_tp2_profiles/rank0_torch/6c42b4b8ccc347b39c28d0410ff20ed7_1828477_20260814152952803_ascend_pt/logs/profiler_20260814152957_1833140_CommunicationParser.log
+[2026-08-14-15:29:57.551] [INFO] [AscendProfiler_CommunicationParser:66] CommunicationParser start.
+[2026-08-14-15:29:57.553] [INFO] [AscendProfiler_CommunicationParser:73] CommunicationParser finish.

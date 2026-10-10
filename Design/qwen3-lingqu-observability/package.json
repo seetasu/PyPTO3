@@ -1,0 +1,10 @@
+{
+  "name": "qwen3-lingqu-observability",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data": "node build-data.cjs",
+    "dev": "node ../distributed-observability-prototype/node_modules/vite/bin/vite.js --host 127.0.0.1",
+    "build": "node build-data.cjs && node ../distributed-observability-prototype/node_modules/vite/bin/vite.js build"
+  }
+}

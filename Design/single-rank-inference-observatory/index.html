@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rank Scope · Single Rank Inference Observatory</title>
+    <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+    <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+    <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+    <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+    <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+    <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+    <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/swimlane-task/pattern.css">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="Single Rank Inference Observatory">
+      <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+        <div class="pto-ide-frame__topbar-left">
+          <div class="pto-ide-frame__host-chip" aria-hidden="true">
+            <svg class="pto-ide-frame__host-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="m7 9 3 3-3 3"></path><path d="M12 15h5"></path></svg>
+          </div>
+          <div class="pto-ide-frame__workspace"><strong>Rank Scope</strong><span>· Single Rank Observatory</span></div>
+        </div>
+        <div class="pto-ide-frame__topbar-center">
+          <button class="pto-ide-frame__search" type="button" data-search-trigger aria-label="搜索本次 Trace">
+            <svg class="pto-ide-frame__search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+            <span>搜索事件、算子或线程</span>
+          </button>
+        </div>
+        <div class="pto-ide-frame__topbar-right">
+          <div class="pto-ide-frame__window-actions" aria-label="窗口控制">
+            <button class="pto-ide-frame__window-action is-selected" type="button" data-ide-toggle="visualization" aria-label="切换底部统计视图" aria-controls="rank-bottom-dock" aria-expanded="true" aria-pressed="true" title="Distribution">
+              <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 15h18"></path></svg>
+            </button>
+            <button class="pto-ide-frame__window-action" type="button" data-ide-toggle="terminal" aria-label="切换验证终端" aria-controls="rank-terminal-pane" aria-expanded="false" aria-pressed="false" title="Terminal">
+              <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m7 9 3 3-3 3"></path><path d="M12 15h5"></path></svg>
+            </button>
+            <button class="pto-ide-frame__window-action" type="button" data-ide-toggle="inspector" data-expanded-label="收起检查器" data-collapsed-label="展开检查器" aria-label="收起检查器" aria-controls="rank-inspector-pane" aria-expanded="true" aria-pressed="true" title="Inspector">
+              <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M15 3v18"></path></svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="pto-ide-frame__body">
+        <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" aria-label="活动栏">
+          <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer" aria-label="切换排查列表" aria-controls="rank-explorer-pane" aria-expanded="true" aria-pressed="true" title="Explorer">
+            <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+          </button>
+          <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-search-trigger aria-label="搜索" title="Search">
+            <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          </button>
+          <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-evidence-trigger aria-label="证据链" title="Source control">
+            <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7"></path><path d="M6 9v12"></path></svg>
+          </button>
+          <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" data-ide-toggle="terminal" aria-label="终端" aria-controls="rank-terminal-pane" aria-expanded="false" aria-pressed="false" title="Terminal">
+            <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m7 9 3 3-3 3"></path><path d="M12 15h5"></path></svg>
+          </button>
+        </nav>
+
+        <div class="pto-ide-frame__workarea">
+          <div class="pto-ide-frame__split" data-ide-split="rank-observatory-vertical" data-split-direction="vertical" data-sizes="72,28" data-min-size="360,190" data-storage-key="rank-observatory-vertical-v1">
+            <section class="pto-ide-frame__pane pto-ide-frame__pane--stack" data-ide-pane="main-row">
+              <div class="pto-ide-frame__split" data-ide-split="rank-observatory-main" data-split-direction="horizontal" data-sizes="22,51,27" data-pixel-sizes="300" data-min-size="230,470,270" data-storage-key="rank-observatory-main-v1">
+                <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="rank-explorer-pane">
+                  <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">Investigation</span><span class="pto-ide-frame__pane-meta">1 trace</span></header>
+                  <div class="pto-ide-frame__pane-body investigator-tree">
+                    <section class="tree-group" aria-labelledby="run-group-title">
+                      <p class="tree-kicker" id="run-group-title">当前运行</p>
+                      <button class="tree-item is-selected" type="button" data-view="overview"><span class="tree-dot tree-dot--danger"></span><span><strong>Slow decode alert</strong><small>2026-09-08 · 256 requests</small></span></button>
+                      <button class="tree-item" type="button" data-view="cohort"><span class="tree-dot"></span><span><strong>Request cohort</strong><small>256 completed · 0 failed</small></span></button>
+                    </section>
+                    <section class="tree-group" aria-labelledby="task-group-title">
+                      <p class="tree-kicker" id="task-group-title">排查切片</p>
+                      <button class="tree-item" type="button" data-problem="ttft"><span class="tree-icon">T</span><span><strong>首 token 排队</strong><small>P99 3.43 s · burst admission</small></span></button>
+                      <button class="tree-item" type="button" data-problem="decode"><span class="tree-icon">D</span><span><strong>长 decode</strong><small>P50 26.84 s · selected</small></span></button>
+                      <button class="tree-item" type="button" data-problem="communication"><span class="tree-icon">C</span><span><strong>通信未重叠</strong><small>12.31 s non-overlapped</small></span></button>
+                      <button class="tree-item" type="button" data-problem="speculation"><span class="tree-icon">S</span><span><strong>投机接受率</strong><small>1.996% accepted</small></span></button>
+                    </section>
+                    <section class="tree-group" aria-labelledby="scope-group-title">
+                      <p class="tree-kicker" id="scope-group-title">观测范围</p>
+                      <div class="scope-row"><span>Process</span><code>Python · 2669105</code></div>
+                      <div class="scope-row"><span>Device</span><code>NPU 0</code></div>
+                      <div class="scope-row"><span>Rank</span><code>logical id unavailable</code></div>
+                    </section>
+                  </div>
+                </aside>
+
+                <section class="pto-ide-frame__pane" data-ide-pane="editor-preview">
+                  <div class="pto-ide-frame__tabstrip">
+                    <div class="tab-control" role="tablist" aria-label="主视图">
+                      <button class="tab-control-item is-selected" type="button" data-tab="trace" role="tab" aria-selected="true">Trace</button>
+                      <button class="tab-control-item" type="button" data-tab="requests" role="tab" aria-selected="false">Requests</button>
+                      <button class="tab-control-item" type="button" data-tab="evidence" role="tab" aria-selected="false">Evidence</button>
+                    </div>
+                  </div>
+                  <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">Observed rank · critical path</span><span class="pto-ide-frame__pane-meta" id="trace-range">NPU 0 trace · 19.1–48.1 s</span></header>
+                  <div class="pto-ide-frame__pane-body">
+                    <section class="rank-workspace" aria-label="观测 Rank 的关键路径分析">
+                      <div class="run-strip">
+                        <div><span class="metric-label">WORKLOAD</span><strong>256 × 256 → 64</strong><small>burst · max concurrency 256</small></div>
+                        <div><span class="metric-label">OUTPUT</span><strong>597.5 tok/s</strong><small>27.42 s · zero failures</small></div>
+                        <div><span class="metric-label">USER IMPACT</span><strong>26.84 s P50</strong><small>request completion</small></div>
+                      </div>
+                      <div class="trace-toolbar">
+                        <div class="segmented-control segmented-control-muted" role="group" aria-label="Trace 分类筛选">
+                          <button type="button" class="is-selected" data-lane-filter="all">关键路径</button>
+                          <button type="button" data-lane-filter="compute">计算</button>
+                          <button type="button" data-lane-filter="communication">通信</button>
+                          <button type="button" data-lane-filter="wait">等待</button>
+                        </div>
+                        <span class="toolbar-readout" id="trace-summary">29 graph calls · 4 active lanes</span>
+                      </div>
+                      <div class="trace-stage" id="trace-stage">
+                        <div class="trace-yaxis" aria-hidden="true">
+                          <span>Python / graph</span><span>NPU 0 / compute</span><span>NPU 0 / comm</span><span>NPU 0 / wait</span>
+                        </div>
+                        <canvas id="trace-canvas" aria-label="Observed-rank execution trace. Click an event to inspect its evidence."></canvas>
+                      </div>
+                      <div class="stage-footnote"><span>relative to profiler start</span><span>selected event is shown in the inspector</span></div>
+                      <div class="cohort-section">
+                        <div class="cohort-section-head"><div><span class="metric-label">REQUEST DISTRIBUTION</span><strong>同批请求没有同时完成</strong></div><span class="cohort-caption">按端到端完成时间分桶</span></div>
+                        <div class="cohort-ribbon" aria-label="256 个请求的端到端延迟分布">
+                          <button class="cohort-band cohort-band--fast" data-request-group="fast" type="button"><strong>2</strong><span>&lt; 22 s</span></button>
+                          <button class="cohort-band cohort-band--stable" data-request-group="early" type="button"><strong>24</strong><span>22–25 s</span></button>
+                          <button class="cohort-band cohort-band--stable" data-request-group="mid" type="button"><strong>66</strong><span>25–26.5 s</span></button>
+                          <button class="cohort-band cohort-band--warn" data-request-group="slow" type="button"><strong>78</strong><span>26.5–27 s</span></button>
+                          <button class="cohort-band cohort-band--slow" data-request-group="tail" type="button"><strong>86</strong><span>27–28 s</span></button>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </section>
+
+                <aside class="pto-ide-frame__pane" data-ide-pane="inspector" id="rank-inspector-pane">
+                  <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">Evidence inspector</span><span class="pto-ide-frame__pane-meta">rank-local</span></header>
+                  <div class="pto-ide-frame__pane-body inspector-rail rank-inspector">
+                    <section class="inspector-section">
+                      <div class="inspector-section-head"><div><p class="inspector-section-kicker">SELECTED EVENT</p><h2 class="inspector-section-title" id="selected-name">npu_fx_compiler inference</h2></div></div>
+                      <div class="inspector-kv"><span>time</span><code id="selected-time">20.15–21.14 s</code></div>
+                      <div class="inspector-kv"><span>duration</span><code id="selected-duration">994.3 ms</code></div>
+                      <div class="inspector-kv"><span>thread</span><code id="selected-thread">Python · 2669105</code></div>
+                    </section>
+                    <section class="inspector-section">
+                      <div class="inspector-section-head"><div><p class="inspector-section-kicker">WHAT THIS MEANS</p><h2 class="inspector-section-title" id="selected-title">Host-side graph path is serial</h2></div></div>
+                      <p class="inspector-prose" id="selected-summary">29 calls occupy roughly 19.5 s of the active window. The trace name alone cannot prove repeated compilation, but it is a rank-local critical-path candidate.</p>
+                    </section>
+                    <section class="inspector-section">
+                      <div class="inspector-section-head"><div><p class="inspector-section-kicker">SUPPORTING SIGNALS</p><h2 class="inspector-section-title">当前证据</h2></div></div>
+                      <div class="signal-list" id="signal-list">
+                        <button class="signal-row" type="button" data-problem="decode"><span>Decode interval</span><strong>783 → 121 ms</strong></button>
+                        <button class="signal-row" type="button" data-problem="communication"><span>Non-overlapped communication</span><strong>12.31 s</strong></button>
+                        <button class="signal-row" type="button" data-problem="speculation"><span>Draft acceptance</span><strong>1.996%</strong></button>
+                      </div>
+                    </section>
+                    <section class="inspector-section">
+                      <div class="inspector-soft-card is-warning" id="hypothesis-card">
+                        <p class="inspector-section-kicker">NEXT VALIDATION</p>
+                        <strong id="hypothesis-title">确认图缓存命中与动态 shape</strong>
+                        <p id="hypothesis-body">热态重跑，记录 prefill / decode shape 和 cache hit/miss；不要把本 Trace 直接解释为全网问题。</p>
+                        <button class="btn btn-sm" type="button" id="validate-button">标记为待验证</button>
+                      </div>
+                    </section>
+                  </div>
+                </aside>
+              </div>
+            </section>
+
+            <section class="pto-ide-frame__pane pto-ide-frame__bottom-dock" data-ide-pane="bottom-panel" data-ide-bottom-dock id="rank-bottom-dock">
+              <div class="pto-ide-frame__bottom-view" data-ide-bottom-panel="visualization">
+                <header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">Cohort distribution</span><span class="pto-ide-frame__pane-meta">TTFT and end-to-end latency · 256 requests</span></header>
+                <div class="pto-ide-frame__pane-body distribution-panel">
+                  <div class="distribution-legend"><span><i class="legend-dot legend-dot--primary"></i>TTFT</span><span><i class="legend-dot legend-dot--warning"></i>end-to-end</span><span class="distribution-note">click a band above to retain the investigative context</span></div>
+                  <canvas id="distribution-canvas" aria-label="TTFT and end-to-end latency distributions"></canvas>
+                </div>
+              </div>
+              <div class="pto-ide-frame__bottom-view pto-ide-frame__terminal" data-ide-bottom-panel="terminal" id="rank-terminal-pane" hidden>
+                <div class="pto-ide-frame__terminal-tabs"><div class="pto-ide-frame__terminal-tablist"><span class="pto-ide-frame__terminal-tab is-selected">Validation terminal</span></div><div class="pto-ide-frame__terminal-actions"><button class="pto-ide-frame__terminal-action" type="button" data-ide-close="terminal" aria-label="关闭终端"><svg viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div></div>
+                <div class="pto-ide-frame__terminal-body"><p class="pto-ide-frame__terminal-line"><span class="pto-ide-frame__terminal-prompt">rank-scope %</span> compare --speculative on,off --warmup 20</p><p class="pto-ide-frame__terminal-line">expected: separate graph-cache, communication-overlap, and acceptance-rate effects</p></div>
+              </div>
+            </section>
+          </div>
+          <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome"><span>Trace loaded · 6,458,204 events · NPU 0 only</span><span id="status-message">Scope: rank-local evidence, not cluster attribution</span></footer>
+        </div>
+      </div>
+    </main>
+    <script src="../../vendor/pto-design-system/patterns/workbench-shell/pattern.js"></script>
+    <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+    <script src="../../vendor/pto-design-system/patterns/swimlane-task/pattern.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

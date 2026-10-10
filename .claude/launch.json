@@ -1,0 +1,33 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "design-static",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        ".",
+        "-p",
+        "4178",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 4178
+    },
+    {
+      "name": "tuning-console",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        ".",
+        "-p",
+        "4191",
+        "-c-1",
+        "--silent"
+      ],
+      "port": 4191
+    }
+  ]
+}

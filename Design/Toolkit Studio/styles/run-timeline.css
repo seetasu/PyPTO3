@@ -62,6 +62,14 @@
 .kf-tl-b:hover { outline: 1px solid var(--foreground); outline-offset: 1px; }
 .kf-tl-b.is-sel { background: var(--warning); outline: 1px solid var(--warning); outline-offset: 1px; z-index: 2; }
 
+/* External highlight from the Execution facets table. Everything that is not
+   part of the traced object drops to a ghost but stays visible — the shape of
+   the run is the context for the one object being traced. */
+.kf-tl-b.is-dim { opacity: .13; }
+.kf-tl-b.is-hl { outline: 1px solid var(--foreground); outline-offset: 1px; z-index: 2; }
+.kf-tl-row.is-hl-row { background: color-mix(in srgb, var(--surface-2) 34%, transparent); }
+.kf-tl-row.is-hl-row .kf-tl-lbl code { color: var(--foreground); }
+
 /* inspector */
 .kf-tl-insp { align-self: start; border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface-1) 62%, transparent); }
