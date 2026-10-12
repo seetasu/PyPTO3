@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="DeepSeek-V4-Flash GBS256 推理压测与 PyTorch profiler 结果分析" />
+  <title>Execution Triage V2 · GBS256</title>
+  <link rel="icon" type="image/svg+xml" href="../../pto-studio-logo.svg" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="../../launch.html" aria-label="返回 PTO3 Design Lab"><span class="brand-mark">P</span><span>EXECUTION TRIAGE <i>V2</i></span></a>
+      <div class="top-actions"><span class="source-badge"><b></b> BENCHMARK + PROFILER</span><a href="../execution-triage-workbench/index.html" class="old-link">查看单请求版 ↗</a></div>
+    </header>
+    <section class="intro">
+      <div class="intro-copy"><div class="kicker">DSpark Serving <span>·</span> Load run 2026.09.08</div><h1>256 个请求，<em>一次压测</em></h1><p>DeepSeek-V4-Flash · w8a8 · 16 NPU · 输入 256 tokens / 输出 64 tokens · 突发并发</p></div>
+      <div class="run-chip"><span>RUN ID</span><strong>20260908-121730</strong><span class="ok">256 / 256 COMPLETED</span></div>
+    </section>
+    <section class="metrics" aria-label="压测汇总指标">
+      <article class="metric primary"><div class="metric-label">已完成请求</div><div class="metric-value" id="completed">—</div><div class="metric-foot" id="failed">—</div><div class="metric-spark"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></article>
+      <article class="metric"><div class="metric-label">请求吞吐</div><div class="metric-value"><span id="req-rate">—</span><small>req/s</small></div><div class="metric-foot">压测窗口 <b id="duration">—</b></div></article>
+      <article class="metric"><div class="metric-label">输出吞吐</div><div class="metric-value"><span id="out-rate">—</span><small>tokens/s</small></div><div class="metric-foot">总 token 吞吐 <b id="total-rate">—</b> tok/s</div></article>
+      <article class="metric"><div class="metric-label">TTFT · 首 token 延迟</div><div class="metric-value"><span id="ttft-p50">—</span><small>ms P50</small></div><div class="metric-foot">均值 <b id="ttft-mean">—</b> ms · P99 <b id="ttft-p99">—</b> ms</div></article>
+      <article class="metric"><div class="metric-label">TPOT · 输出 token 间隔</div><div class="metric-value"><span id="tpot-p50">—</span><small>ms P50</small></div><div class="metric-foot">均值 <b id="tpot-mean">—</b> ms · P99 <b id="tpot-p99">—</b> ms</div></article>
+    </section>
+    <section class="content-grid">
+      <article class="panel latency-panel">
+        <div class="panel-head"><div><div class="eyebrow">REQUEST DISTRIBUTION</div><h2>请求延迟分布</h2></div><div class="segmented" role="tablist" aria-label="延迟指标"><button class="is-active" data-kind="ttft" role="tab" aria-selected="true">TTFT</button><button data-kind="tpot" role="tab" aria-selected="false">TPOT</button><button data-kind="itl" role="tab" aria-selected="false">ITL</button></div></div>
+        <div class="chart-wrap"><div class="axis-y"><span id="axis-top">—</span><span id="axis-mid">—</span><span>0</span></div><div class="histogram" id="histogram" role="img" aria-label="256 个请求的延迟分布"></div></div>
+        <div class="chart-legend"><span><i class="dot mint"></i><b id="chart-name">TTFT</b> 样本</span><span class="chart-range" id="chart-range">—</span></div>
+        <div class="chart-note">柱高表示落入该延迟区间的样本数。TTFT / TPOT 为每请求一个样本；ITL 展示全部有效输出间隔。</div>
+      </article>
+      <article class="panel workload-panel">
+        <div class="panel-head"><div><div class="eyebrow">WORKLOAD SHAPE</div><h2>负载形态</h2></div><span class="panel-icon">↗</span></div>
+        <div class="load-line"><span>并发上限</span><b id="concurrency">—</b><div class="load-track"><i style="width:100%"></i></div></div>
+        <div class="load-line"><span>请求到达</span><b>突发提交</b><div class="load-track burst"><i></i></div></div>
+        <div class="token-pair"><div><span>输入 tokens</span><b id="input-tokens">—</b><small>256 tokens / request</small></div><div><span>输出 tokens</span><b id="output-tokens">—</b><small>64 tokens / request</small></div></div>
+        <div class="load-foot"><span class="pulse"></span><div><b>请求速率：∞</b><small>基准客户端立即提交请求，服务端最高并发为 256。</small></div></div>
+      </article>
+    </section>
+    <section class="panel profiler-panel">
+      <div class="panel-head profiler-head"><div><div class="eyebrow">PYTORCH PROFILER · CHROME TRACE</div><h2>执行跟踪：时间主要落在哪里</h2><p>从压缩包内 645 万条 profiler event 汇总。下面是各类事件累计时长靠前的条目。</p></div><div class="trace-stats"><span><b id="event-count">—</b><small> events</small></span><span><b id="trace-span">—</b><small> trace span</small></span></div></div>
+      <div class="profile-layout"><div class="profile-list" id="profile-list"></div><aside class="profile-aside"><div class="aside-mark">TRACE</div><b>累计事件时长不是墙钟占比</b><p>Device、Host 与等待事件会重叠；这里对 event duration 求和用于找高频耗时项，不可把各行相加当作总推理时间。Trace 覆盖区间也不等于压测的 27.4 秒窗口。</p><div class="trace-legend"><span><i class="dot purple"></i>非 cpu_op · 设备 / 等待事件</span><span><i class="dot blue"></i>Host cpu_op</span></div></aside></div>
+      <footer class="trace-source">来源：<code>dsv4-flash-dspark-a3-dp4tp4ep16-gbs256-in256o64.zip</code> → profiler JSON + <code>result3.json</code></footer>
+    </section>
+    <footer class="page-foot"><span>Execution Triage V2</span><span>基准摘要与 profiler trace 分开展示 · 指标来自同一次压缩包</span></footer>
+  </main>
+  <script src="./result-data.js"></script><script src="./trace-data.js"></script><script src="./app.js"></script>
+</body>
+</html>

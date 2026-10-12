@@ -29,9 +29,15 @@ const card = (title, sub, ms, tone, text) => ({ title, sub, ms: r2(ms), tone: to
 const sumMs = (floors) => r2(floors.reduce((a, f) => a + f.ms, 0));
 
 /* ------------------------------------------------------------ DSpark serving */
+let TRACE = null;
+function traceEvents() {
+  if (!TRACE) TRACE = JSON.parse(fs.readFileSync(path.join(ROOT, 'Data', 'serving-strace-swimlane(2).json'), 'utf8'));
+  return TRACE;
+}
+
 // P0：请求级服务指标。输出时刻取调度器 process_step_output（只算落在请求窗口内的）。
 function dsparkRequest(run) {
-  const trace = JSON.parse(fs.readFileSync(path.join(ROOT, 'Data', 'serving-strace-swimlane(2).json'), 'utf8'));
+  const trace = traceEvents();
   const ev = trace.traceEvents.filter((e) => e.ph === 'X');
   const http = ev.find((e) => e.name === 'http.completions');
   const t0 = http.ts; const t1 = http.ts + http.dur;
@@ -57,6 +63,78 @@ function dsparkRequest(run) {
     timeline,
     tailMs,
   };
+}
+
+/* 单步流转：一个 step 内 Serving / Worker / 16 条 lane 的真实先后与重叠。
+ * 时间以“上一步结束”为 0（ms）；负值表示在上一步期间已经并行发生。 */
+function dsparkFlows(run) {
+  const trace = traceEvents();
+  const ev = trace.traceEvents.filter((e) => e.ph === 'X');
+  const pn = {};
+  trace.traceEvents.filter((e) => e.ph === 'M' && e.name === 'process_name').forEach((e) => { pn[e.pid] = e.args.name; });
+  const pidOf = (re) => Number(Object.keys(pn).find((p) => re.test(pn[p])));
+  const LANE = pidOf(/STRACE/); const API = pidOf(/serving-api/); const WORKER = pidOf(/serving-worker/);
+  const http = ev.find((e) => e.name === 'http.completions');
+  const end = (e) => e.ts + e.dur;
+  const phase = (e) => e.name.split('| ')[1];
+  const sched = ev.filter((e) => e.pid === API && /^scheduler\./.test(e.name));
+  const worker = ev.filter((e) => e.pid === WORKER && /^WorkerProcess\.(prepare_decode|dispatch_decode|reclaim_decode|batch_prefill|execute_step)$/.test(e.name));
+  const label = (s) => (s.id === 'Prefill' ? 'P' : s.id === 'Draft init' ? 'DI' : s.id);
+
+  const out = {};
+  let prevEnd = http.ts;
+  run.steps.forEach((s) => {
+    const spans = ev.filter((e) => e.pid === LANE && e.args && e.args.invocation === s.inv);
+    const runs = spans.filter((e) => phase(e) === 'simpler_run').sort((a, b) => a.tid - b.tid);
+    const lanes = runs.map((r) => {
+      const own = spans.filter((e) => e.tid === r.tid);
+      const get = (n) => own.find((e) => phase(e) === n);
+      const b = get('bind'); const rr = get('runner_run');
+      return { dev: r.tid, start: r.ts, bindStart: b.ts, bindEnd: end(b), rrStart: rr.ts, end: end(r) };
+    });
+    const minStart = Math.min(...lanes.map((l) => l.start));
+    const maxEnd = Math.max(...lanes.map((l) => l.end));
+    const crit = lanes.reduce((a, b) => (b.rrStart > a.rrStart ? b : a));
+    // 本步的 dispatch：在第一条 lane 开始前结束的最近一次
+    const disp = worker.filter((e) => /dispatch_decode$/.test(e.name) && end(e) <= minStart + 1000).sort((a, b) => end(b) - end(a))[0];
+    const ownStep = disp ? disp.args.step_id : null;
+    const queue = disp ? sched.filter((e) => /queue_worker_step$/.test(e.name) && e.ts <= disp.ts).sort((a, b) => b.ts - a.ts)[0] : null;
+    const output = sched.filter((e) => /process_step_output$/.test(e.name) && e.ts >= maxEnd - 1000).sort((a, b) => a.ts - b.ts)[0];
+    const reclaim = ownStep != null ? worker.find((e) => /reclaim_decode$/.test(e.name) && e.args.step_id === ownStep) : null;
+    const lo = Math.max(prevEnd - 260000, Math.min(prevEnd, minStart, disp ? disp.ts : Infinity, queue ? queue.ts : Infinity) - 8000);
+    const hi = Math.max(maxEnd + 12000, output ? end(output) + 2000 : 0);
+    const rel = (t) => r2((t - prevEnd) / 1000);
+    const clip = (list, kindOf) => list.filter((e) => end(e) > lo && e.ts < hi).map((e) => {
+      const a = Math.max(e.ts, lo); const b = Math.min(end(e), hi);
+      return { n: e.name.replace(/^(scheduler|WorkerProcess)\./, ''), s: rel(a), d: r2((b - a) / 1000), kind: kindOf(e) };
+    });
+    out[label(s)] = {
+      t0: rel(lo),
+      t1: rel(hi),
+      crit: crit.dev,
+      critStart: rel(crit.rrStart),
+      laneStart: rel(minStart),
+      end: rel(maxEnd),
+      hostMs: r2(s.gapWorkerMs + s.hostMs),
+      deviceMs: s.deviceMs,
+      periodMs: s.periodMs,
+      lanes: lanes.map((l) => ({ dev: l.dev, start: rel(l.start), bindStart: rel(l.bindStart), bindEnd: rel(l.bindEnd), rrStart: rel(l.rrStart), end: rel(l.end) })),
+      serving: clip(sched, (e) => (/wait_worker_output$/.test(e.name) ? 'wait' : e === queue || e === output ? 'own' : 'other')),
+      worker: clip(worker, (e) => {
+        if (/reclaim_decode$/.test(e.name)) return e === reclaim ? 'wait' : 'other';
+        if (ownStep == null || e.args.step_id == null) return 'own';
+        return e.args.step_id === ownStep ? 'own' : e.args.step_id > ownStep ? 'next' : 'other';
+      }),
+      links: {
+        queue: queue ? rel(queue.ts) : null,
+        dispatch: disp ? [rel(disp.ts), rel(end(disp))] : null,
+        reclaimEnd: reclaim ? rel(end(reclaim)) : null,
+        output: output ? rel(output.ts) : null,
+      },
+    };
+    prevEnd = maxEnd;
+  });
+  return out;
 }
 
 function dspark() {
@@ -132,6 +210,12 @@ function dspark() {
     whatIf: `对齐次慢 lane，E2E 约 −${(run.decode.whatIfSaveMs / 1000).toFixed(2)} s`,
     perStep,
     request: dsparkRequest(run),
+    flows: dsparkFlows(run),
+    defaultStep: (() => {
+      const d = run.steps.filter((x) => x.decodeStep);
+      const med = perStep.p50Ms;
+      return label(d.reduce((a, b) => (Math.abs(b.periodMs - med) < Math.abs(a.periodMs - med) ? b : a)));
+    })(),
     analysis: './analysis.html#run=serving_dspark_gbs1',
     towers: {
       serving: { ms: run.totals.servingMs, caption: '每个 step 中只有调度器在推进的时间', floors: servingFloors },

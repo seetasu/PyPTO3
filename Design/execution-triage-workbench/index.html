@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="DSpark Serving 单请求的性能定界：Serving · Host · Device 三栋楼，楼高即耗时" />
+  <meta name="description" content="DSpark Serving 单请求的性能定界：Serving · Host · Device 三层流转与关键路径" />
   <title>Execution Triage</title>
   <link rel="icon" type="image/svg+xml" href="../../pto-studio-logo.svg" />
   <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
@@ -28,7 +28,7 @@
         </a>
       </div>
 
-      <svg class="iso" id="iso" role="img" aria-label="三栋楼：Serving、Host、Device，楼高表示耗时"></svg>
+      <svg class="iso" id="iso" role="img" aria-label="单个 step 的流转：Serving、Host、Device 三块板与关键路径"></svg>
 
       <div class="scene-foot">
         <div class="request" id="request"></div>
@@ -43,6 +43,8 @@
       <div class="floor-list" id="floorList"></div>
     </section>
   </div>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
 
   <script src="./home-data.js"></script>
   <script src="./home.js"></script>
