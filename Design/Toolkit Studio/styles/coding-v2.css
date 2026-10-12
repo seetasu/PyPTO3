@@ -318,6 +318,12 @@
 #dslEditor .kf-pa-source-tag.t-cube { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 42%, var(--border-subtle)); background: color-mix(in srgb, var(--warning) 8%, transparent); }
 #dslEditor .kf-pa-source-tag.t-vector { color: var(--success); border-color: color-mix(in srgb, var(--success) 42%, var(--border-subtle)); background: color-mix(in srgb, var(--success) 8%, transparent); }
 #dslEditor .kf-pa-source-tag.t-meta { color: var(--foreground-muted); border-color: var(--border-subtle); background: var(--surface-2); }
+/* 带 .is-node 的标签表示该行对应右侧计算图里的某个节点——标签文字就是那个节点的标题，
+   前面加一个小圆点做视觉标记，方便和图里的节点对号入座。 */
+#dslEditor .kf-pa-source-tag.is-node { display: inline-flex; align-items: center; gap: 5px; }
+#dslEditor .kf-pa-source-tag.is-node::before {
+  content: ''; flex: none; width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+}
 #dslEditor .kf-pa-source-row.is-paged-attention-line-active .kf-pa-source-tag,
 #dslEditor .kf-pa-source-row.is-paged-attention-line-target .kf-pa-source-tag {
   color: var(--foreground-primary); border-color: var(--primary); background: color-mix(in srgb, var(--primary) 18%, transparent);
