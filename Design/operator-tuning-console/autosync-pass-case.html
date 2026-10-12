@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="交互式 PTOAS Pass 调优工作台：调整自动同步与流水策略，模拟编译并查看性能与泳道变化">
+  <title>AutoSync 调优工作台 · Tuning Console</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/swimlane-task/pattern.css">
+  <link rel="stylesheet" href="autosync-pass-case.css?v=2">
+</head>
+<body class="pto-ide-frame-preview-page ap-page">
+<main class="pto-ide-frame ap-frame" data-ide-frame data-host="standalone" aria-label="AutoSync 调优工作台">
+  <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+    <div class="pto-ide-frame__topbar-left">
+      <a class="btn btn-ghost btn-sm" href="../../launch.html">PTO</a>
+      <a class="btn btn-ghost btn-sm" href="index.html">Tuning Console</a>
+      <span class="pto-ide-frame__pane-title">AutoSync 调优工作台</span>
+    </div>
+    <div class="pto-ide-frame__topbar-center ap-breadcrumb">编译器 / Pass 实验 / <strong id="workloadName">GEMM</strong></div>
+    <div class="pto-ide-frame__topbar-right">
+      <span class="ap-dirty"><i></i> MOCK 实验环境</span>
+      <button class="pto-ide-frame__window-action" id="themeToggle" type="button" title="切换主题" aria-label="切换主题">◐</button>
+    </div>
+  </header>
+  <div class="ap-shell">
+    <aside class="ap-sidebar">
+      <div class="ap-side-title">实验对象</div>
+      <label class="ap-field-label" for="workloadSelect">Workload</label>
+      <select id="workloadSelect" class="ap-select">
+        <option value="gemm">GEMM · PTOAS #643</option>
+        <option value="flash">FlashAttention · PTOAS #646</option>
+      </select>
+      <div class="ap-side-meta" id="workloadMeta">6144³ · A2/A3 · 双缓冲 K-loop</div>
+      <div class="ap-divider"></div>
+      <div class="ap-side-title">编译配置 <span>Pass pipeline</span></div>
+      <div id="passControls" class="ap-pass-controls"></div>
+      <div class="ap-divider"></div>
+      <div class="ap-side-title">实验操作</div>
+      <button class="ap-primary" id="runButton" type="button"><span>▶</span> 编译并运行</button>
+      <button class="ap-secondary" id="resetButton" type="button">恢复基线配置</button>
+      <div class="ap-run-status" id="runStatus" aria-live="polite">配置已载入 · 尚未运行</div>
+      <div class="ap-side-note"><b>演示模式</b><br>交互、泳道与性能数值由教学模型模拟；Issue 测量数据只用于标定基线。实验结果不代表真实硬件复测。</div>
+    </aside>
+
+    <section class="ap-workspace">
+      <div class="ap-work-title">
+        <div><div class="ap-eyebrow">PTOAS · PASS EXPERIMENT</div><h1 id="title">AutoSync 同步密度实验</h1><p id="subtitle">调整 Pass 行为，观察生成同步、阶段重叠与吞吐变化。</p></div>
+        <div class="ap-run-chip"><span>当前实验</span><b id="runLabel">未运行</b></div>
+      </div>
+      <nav class="ap-tabs" aria-label="分析视图">
+        <button class="is-active" data-view="timeline" type="button">性能泳道</button>
+        <button data-view="metrics" type="button">性能对比</button>
+        <button data-view="compiler" type="button">编译产物</button>
+      </nav>
+
+      <section class="ap-view is-visible" data-panel="timeline">
+        <div class="ap-summary-row">
+          <article class="ap-metric"><span>模拟吞吐</span><strong id="throughput">120.9</strong><small id="throughputUnit">TFLOPS</small></article>
+          <article class="ap-metric"><span>相对基线</span><strong id="delta" class="negative">—</strong><small>本次配置 / Issue 基线</small></article>
+          <article class="ap-metric"><span>同步点估算</span><strong id="barrierCount">—</strong><small>wait / barrier · 模拟</small></article>
+          <article class="ap-metric"><span>流水重叠率</span><strong id="overlap">—</strong><small>load 与 compute 时间重叠</small></article>
+        </div>
+        <article class="ap-panel ap-timeline-panel">
+          <div class="ap-panel-head"><div><span class="ap-kicker">L2 / PIPE STAGE TRACE · MOCK</span><h2>Kernel 执行时间线</h2></div><div class="ap-legend"><span><i class="mte2"></i>MTE2 Load</span><span><i class="cube"></i>Cube Compute</span><span><i class="mte3"></i>MTE3 Store</span><span><i class="sync"></i>Sync wait</span></div></div>
+          <div class="ap-timeline" id="timeline"></div>
+          <div class="ap-time-axis"><span>0 μs</span><span>阶段时序为模拟值 · 可用于观察配置变化</span><span id="axisEnd">— μs</span></div>
+          <div class="ap-insight" id="insight"></div>
+        </article>
+        <div class="ap-bottom-grid">
+          <article class="ap-panel"><div class="ap-panel-head"><div><span class="ap-kicker">编译决策</span><h2>Pass 执行摘要</h2></div><span class="ap-mock-tag">MOCK</span></div><div id="passSummary" class="ap-pass-summary"></div></article>
+          <article class="ap-panel"><div class="ap-panel-head"><div><span class="ap-kicker">下一步</span><h2>实验建议</h2></div></div><div id="recommendation" class="ap-recommend"></div></article>
+        </div>
+      </section>
+      <section class="ap-view" data-panel="metrics">
+        <article class="ap-panel"><div class="ap-panel-head"><div><span class="ap-kicker">BASELINE VS CURRENT</span><h2>吞吐与延迟</h2></div><span class="ap-mock-tag">运行后更新</span></div><div id="metricChart" class="ap-metric-chart"></div><p class="ap-chart-note" id="metricNote"></p></article>
+        <article class="ap-panel ap-benchmark-panel"><div class="ap-panel-head"><div><span class="ap-kicker">ISSUE REFERENCE</span><h2>Issue 实测基准</h2></div><span class="ap-source-pill" id="issueId">#643</span></div><div id="issueReference"></div><p class="ap-chart-note">基准来自仓库归档的 issue 报告；当前实验值是可交互 mock，用于演示分析闭环。</p></article>
+      </section>
+      <section class="ap-view" data-panel="compiler">
+        <div class="ap-compiler-grid">
+          <article class="ap-panel"><div class="ap-panel-head"><div><span class="ap-kicker">PASS PIPELINE</span><h2>编译阶段与改写结果</h2></div></div><div id="passPipeline" class="ap-pipeline"></div></article>
+          <article class="ap-panel ap-code-panel"><div class="ap-panel-head"><div><span class="ap-kicker">GENERATED CODE · MOCK DIFF</span><h2>同步指令变化</h2></div><span id="codeMode" class="ap-mock-tag">未运行</span></div><pre id="codeDiff"></pre><p class="ap-chart-note">代码片段为结构化 mock，用来表达同步密度变化，不是 PTOAS 实际生成源码。</p></article>
+        </div>
+      </section>
+      <footer class="ap-footer"><span>来源：<a id="issueLink" href="https://github.com/hw-native-sys/PTOAS/issues/643" target="_blank" rel="noreferrer">PTOAS #643 ↗</a> · <a href="https://github.com/hw-native-sys/PTOAS/issues/646" target="_blank" rel="noreferrer">#646 ↗</a></span><span>模拟交互 · 不会调用真实编译器</span></footer>
+    </section>
+  </div>
+</main>
+<script src="autosync-pass-case.js?v=2"></script>
+</body>
+</html>

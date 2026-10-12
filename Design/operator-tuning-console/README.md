@@ -13,6 +13,8 @@ Data/_jit_decode_fwd_layers_20260625_184941/          qwen3_14b_fwd 的编译产
 
 Case 菜单另有一个 **「模拟 PH-MR-001 · MemoryReuse」** 教学案例。它复用 `decode_csa` 的真实 L2 轨迹与 `decode_compressor_ratio4.py:110` 的真实 PH-MR-001（Right、depth 2→1、5 组、32 KB/stage、64 KB free），把它们关联到 `MemoryReuse`。L1 PMU 桥接是构造数据；提示与 L2 的因果关系仍是待验证假设，不代表已确认的编译器缺陷。选中瓶颈后，主区保留 L2 泳道并展示相关 Pass 作业路径；右侧面板按分析进度呈现证据、片上预算试算和 PH-MR-001 根因线索。页签和可跳层阶梯在旅程中收起。案例集中在 `mock-pass-case.js`，真实数据生成器不会读取或覆盖它。
 
+Case 菜单新增 **「PTOAS · AutoSync」** 交互式 Pass 实验工作台，打开 `autosync-pass-case.html`。可切换 GEMM #643 / FlashAttention #646 workload，调节自动同步、分支合并、同步外提等 Pass 配置，运行模拟编译并查看泳道、吞吐对比和生成代码差异。Issue 数字用于基线标定；实验吞吐、同步数量和时序是教学 mock，不代表真实硬件复测。#643 的性能数据来自 Issue 报告；#646 的 164.18 TFLOPS 来自手工编辑生成 C++ 移除 barrier 的变体，不代表 PTOAS 已合入修复。该工作台提供 kernel / pipe 级交互，不把 mock 数据映射成本页真实 L2 task 泳道。
+
 生成器有两支，都只读 dump、不造数：
 
 ```bash
@@ -30,7 +32,7 @@ node build-qwen3-profiles.cjs  # -> qwen3-profiles-data.js torch 归因 / PMU / 
 | 区域 | 内容 |
 |---|---|
 | Explorer | 运行树（program → rank/device → invocation → 产物）+ **瓶颈队列**：分两组，上面是**瓶颈链**（每条带 makespan 归因、跨层阶梯和明确的止步层），下面是**体检项**（真实读数但无归因）。按层筛选时，一条链在它经过的每一层都会出现 |
-| 中心 | 五个层级视图，用页面级 Tab 切换：E2E / L2 调度 / L1·L0 / 编译器 / ISA·布局 |
+| 中心 | 五个层级视图，用页面级 Tab 切换：E2E / L2 调度 / L1·L0 / 编译器 / ISA·布局；分隔线右侧另有「修改对比」 |
 | Inspector | 跟随当前视图的对象（Run / 任务 / 提示 / Pass / 瓶颈条目）+ **实验台账**编辑器 |
 
 信息架构以证据作用域划分：**E2E 始终并排比较全部 rank**，用于界定跨 rank 的 Host / Device 问题；
@@ -44,9 +46,58 @@ node build-qwen3-profiles.cjs  # -> qwen3-profiles-data.js torch 归因 / PMU / 
 - **每轮只验证一个假设**：台账同时只允许一条 `open` 实验。已有进行中实验时，点开另一条瓶颈只会看到拦截提示和
   「回到 Ex」按钮，不给第二个「开始实验」。
 - **顺序是固定的**：实验步进器必须先记录正确性，才出现性能输入框；两者齐了才出现「保留 / 回退」，
-  并在决定前再显示一次该条目的护栏。
+  并在决定前再显示一次该条目的护栏。有复测样本的条目多一步「导入复测 run」，排在正确性之前。
 - **每条结论都带护栏和复测口径**：瓶颈条目由 `证据 → 杠杆 → 护栏 → 复测` 四段组成，护栏写的是这条杠杆的代价
   （例如 prefetch 占 SDMA、提前 dispatch 以吞吐换时延、PMU-on 不能与 PMU-off 基线比较）。
+- **保留要有对比撑腰**：导入复测后，「修改对比」页把基线 B0 和候选 run 并排；护栏越界或两次 run 不可比时，
+  「保留」按钮直接禁用，只能回退或重采。
+
+---
+
+## 修改对比：一轮实验改了什么、动了什么、守住了什么
+
+台账原来的「性能」一步只有一个文本框：读者自己敲 `device_wall 5132.8 → ? us`，屏幕既不知道改的是哪几行，
+也说不出这个差值是否超出噪声、护栏里点名的那几个任务有没有被推过界。「修改对比」是第六个页签（与五个层级视图
+用分隔线隔开，`6` 键直达），只回答 keep / revert 需要的三件事。
+
+**真实与模拟的边界。** `Data/` 下没有任何一份 dump 带同一程序改动后的第二次采集，所以候选侧全部是
+`experiment-compare-data.js` 里的模拟复测，页面上每处候选数字都带「模拟复测」标签。真实的部分是：
+
+- 基线侧每个数字都由 `app.js` 的 `compareBase` 从当前 run 读出（task span / slack / durMed、makespan、
+  device_wall、启动偏移、PH-MR-001 拟合深度），fixture 只给候选值和 σ；唯一一条 fixture 自带基线的读数（模拟 PMU 的 mte2）
+  会标「基线亦为模拟」。
+- diff 里的上下文行逐行抄自源码（`Data/DeepseekV4/deepseek_v4_flash_dspark/`、`repo/pypto-lib/models/qwen3_14b/`），
+  行号对得上；改动用到的 `pl.system.task_dummy`、`DistributedConfig.num_sub_workers` 都是 `repo/pto` 里真实存在的 API。
+- C4 的改动顺带暴露了一个真实约束：`prefill_fwd.py:180` 断言 `MLP_M_TILE == TOK_TILE`，只改一处编不过。
+
+**页面自上而下：**
+
+| 区块 | 内容 |
+|---|---|
+| 两次 run | 基线 B0（实测）与候选 Ex（模拟复测）的 run 目录、采集时间、次数、PMU / 泳道级别；下方一排可比性检查：程序 / shape、平台 / 工具链、卡数、PMU、泳道级别、重复次数 |
+| 结论 | 建议保留 / 建议回退 / 证据不足 / 不可比，目标改善数、护栏守住数、正确性，一句话理由 |
+| 改了什么 | 左：带新旧两列行号的 unified diff；右：编译产物（perf hint 是否消除、任务数 / 块数变化、改动面说明） |
+| 指标对比 | 按 E2E → L2 → L1 → 编译器排序；每行标「目标 / 护栏 / 观察」，给基线、候选 ± σ、Δ 条形、Δ%、判定；点行跳到该层看基线（带任务的行直接选中任务） |
+| 关键窗口 | 瓶颈所在时间窗里，相关任务上下两条：上基线、下候选；虚线是 latest-finish（基线 end + slack），候选越过它就变红 |
+
+**判定规则**（`judgeMetric` / `buildComparison`）：
+
+- Δ 在候选自身 2σ 以内记为「持平」，不算改善。基线只有 1 次 trace，噪声只能用候选的 σ 估，这一点以黄色检查项常驻。
+- 护栏看绝对界（如 slack ≥ 0）或回退容差（如 rank1 device_wall 回退不超过 2%，且需超出 2σ 才算）。
+- 可比性任一项阻断（PMU 状态不同、工具链 / 泳道级别不同、复测少于 5 次）→ 不可比；此时所有差值去色、判定列显示「仅参考」。
+- 否则：正确性未过或任一护栏越界 → 建议回退；有目标超出 2σ 改善且无目标变差 → 建议保留；其余 → 证据不足。
+
+**五份样本**覆盖了四种结局：
+
+| 条目 | 改动 | 结局 |
+|---|---|---|
+| C1 | `decode_csa.py:2043` 每 rank 一个 sub-worker | 建议保留：启动偏移与等待同步收窄，rank1 / host bind 在容差内 |
+| C2 | `decode_csa.py:872/910` indexer 侧 `kv_score_proj` 晚一跳下发 | 建议保留：kv_score_proj_0 −19.6%，两个 rival slack 仍为正 |
+| C3 | `decode_compressor_ratio4.py:145` pool 前加 dispatch 屏障 | 建议回退：r3t16 变短，但 `rmsnorm_rope_cache_write` slack −41.6 us，尾延迟转给了后继；makespan 变化在噪声内，靠护栏才看出来 |
+| MOCK-C1 | `decode_compressor_ratio4.py` kv_score_proj 的 K 切分 512 → 256 | 建议保留：PH-MR-001 在该点 5 → 0，块中位 −17.9% |
+| C4（qwen3） | `prefill_fwd.py` `TOK_TILE` / `MLP_M_TILE` 128 → 64，同时开 PMU 重采 | 不可比：PMU off → on、只复测 3 次，「保留」禁用 |
+
+引导式的 MOCK case 没有页签，从步进器「导入复测 run」进入对比，「回到 MOCK-C1」回到分析的最后一级而不是第一级。
 
 ---
 
@@ -1276,6 +1327,10 @@ L2 页曾经把 7 个分区全部展开、配 12 段说明文字，右栏要滚 
 | 证据条「聚焦证据」 | 压暗非证据对象（不隐藏，仍可悬停点击）；再点一次恢复 |
 | 证据条「退出」 | 清除瓶颈上下文；切页签不会清除，方便跨层追同一条 |
 | `1`–`5` | 切换五个层级视图 |
+| `6` / 「修改对比」页签 | 基线 B0 与实验复测的前后对比；没有导入过复测时列出本 case 可做的实验 |
+| 步进器「导入复测 run」 | 挂上模拟复测，跳到对比页；正确性和性能两步的输入框从对比结果预填 |
+| 对比页指标行 | 跳到该层看基线；带任务的行直接选中该任务 |
+| 台账「查看对比」 | 回看任一已导入复测的实验；多于一条时工具栏可切换 |
 | `/` | 聚焦搜索（kernel / 任务 / 编译提示 / Pass，回车跳第一条） |
 | L2 泳道点击 | 选中任务 → Inspector 显示绑定张量、依赖链、关联瓶颈、所在核占用；观测路径条上该节点亮起 |
 | L2 观测路径点击 | 选中该节点 → 泳道滚到它真正跑的那条 lane；节点在窗口外时先把窗口挪过去 |
@@ -1295,7 +1350,8 @@ L2 页曾经把 7 个分区全部展开、配 12 段说明文字，右栏要滚 
 Design/operator-tuning-console/
 ├── index.html        ide-frame shell 与槽位
 ├── styles.css        仅页面级布局；颜色全部走 token
-├── app.js            状态机、五个视图、canvas 渲染、台账逻辑
+├── app.js            状态机、五个视图 + 修改对比、canvas 渲染、台账逻辑
+├── experiment-compare-data.js  修改对比的模拟复测样本（候选侧数值、diff、编译产物变化）
 ├── build-data.cjs    从 dump 目录生成 data.js（可重跑）
 ├── data.js           生成产物，勿手改
 └── README.md

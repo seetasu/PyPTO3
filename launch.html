@@ -657,6 +657,34 @@
     // 新增或更新 Design Demo 时，在此数组维护其 updatedAt（YYYY-MM-DD）。
     const demos = [
       {
+        title: "Serving · Host · Device 观测",
+        subtitle: "Inference · Request Path",
+        category: "内存与性能",
+        status: "新增",
+        version: "01 / Observe",
+        updatedAt: "2026-10-12",
+        description: "默认展示 256 条真实请求的 TTFT / ITL 分布与服务吞吐，并可点选匿名样本查看请求指标；16 Rank 拓扑作为独立示意视图，资源值明确标注为演示数据。",
+        href: "Design/serving-host-device-observability/index.html",
+        preview: "Design/assets/launch-previews/tuning-console.svg",
+        tags: ["Serving", "Host", "Ascend Device", "Request Trace"]
+      },
+      {
+        title: "执行定界工作台",
+        subtitle: "Execution Triage · Serving / Host / Device",
+        category: "内存与性能",
+        status: "新增",
+        version: "02 / Towers",
+        updatedAt: "2026-10-12",
+        description: "一次上板执行画成三栋等轴测楼：Serving、Host、Device，楼高即关键路径耗时，瓶颈那栋标红；楼层是 step 或模型层，右侧逐层列出构成。内置 DSpark Serving、Qwen3-14B TP1 / TP2、decode_csa 四份真实数据，详细分析页保留关键路径瀑布与证据覆盖。",
+        href: "Design/execution-triage-workbench/index.html",
+        preview: "Design/assets/launch-previews/tuning-console.svg",
+        tags: ["定界", "Isometric", "Qwen3-14B", "DSpark", "device_wall"],
+        variants: [
+          { label: "首页 · 三栋楼", href: "Design/execution-triage-workbench/index.html" },
+          { label: "详细分析", href: "Design/execution-triage-workbench/analysis.html" }
+        ]
+      },
+      {
         title: "算子调优控制台",
         subtitle: "Tuning Console · 多版本探索",
         category: "内存与性能",

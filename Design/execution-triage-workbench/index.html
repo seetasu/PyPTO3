@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="昇腾模型 / 算子一次上板执行的性能定界：Serving · Host · Device 三栋楼，楼高即耗时" />
+  <title>Execution Triage</title>
+  <link rel="icon" type="image/svg+xml" href="../../pto-studio-logo.svg" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="./home.css" />
+</head>
+<body>
+  <div class="shell">
+    <!-- 场景：三栋楼 = Serving / Host / Device，楼高 = 关键路径耗时 -->
+    <section class="scene" aria-label="执行定界场景">
+      <div class="scene-head">
+        <div class="eyebrow" id="eyebrow"></div>
+        <h1 class="layer-name" id="layerName"></h1>
+        <div class="meta" id="layerMeta"></div>
+        <p class="headline" id="headline"></p>
+      </div>
+
+      <div class="scene-tools">
+        <a class="tool" id="analysisLink" href="./analysis.html" title="打开详细分析" aria-label="打开详细分析">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8" /></svg>
+        </a>
+      </div>
+
+      <svg class="iso" id="iso" role="img" aria-label="三栋楼：Serving、Host、Device，楼高表示耗时"></svg>
+
+      <div class="scene-foot">
+        <div class="run-picker">
+          <button class="pill" id="runButton" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="runMenu">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h12M4 7l3-3M4 7l3 3M20 17H8m12 0-3-3m3 3-3 3" /></svg>
+            <span>切换执行</span>
+          </button>
+          <ul class="run-menu" id="runMenu" role="listbox" aria-label="选择一次执行" hidden></ul>
+        </div>
+        <div class="run-summary" id="runSummary"></div>
+        <button class="compass" id="notesButton" type="button" aria-expanded="false" aria-controls="notes" title="数据口径">i</button>
+        <div class="notes" id="notes" hidden></div>
+      </div>
+    </section>
+
+    <!-- 楼层：选中那栋楼的每一层由什么构成 -->
+    <section class="floors" aria-labelledby="floorsTitle">
+      <header class="floors-head">
+        <h2 id="floorsTitle"></h2>
+        <p id="floorsCaption"></p>
+      </header>
+      <div class="floor-list" id="floorList"></div>
+    </section>
+  </div>
+
+  <script src="./home-data.js"></script>
+  <script src="./home.js"></script>
+</body>
+</html>
