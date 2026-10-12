@@ -9,7 +9,7 @@
   ];
   const passes = ['Semantic Lowering', 'Layout Planning', 'Parallel Mapping', 'Memory Scheduling', 'ISA Emission'];
   const guards = ['Op legality', 'Dependencies', 'Manual scope', 'Liveness', 'Paged layout', 'Index width', 'ISA capacity', 'FP32 carry'];
-  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionLayers: { precision: true, shape: false, hardware: false, dep: false, risk: true }, pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pagedAttentionAgentOpen: false, pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
+  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionLayers: { precision: true, shape: false, hardware: false, dep: false, risk: true }, pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pagedAttentionAgentOpen: false, sourceRegionFocus: null, sourceRegionLine: null, pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
   const EXPLORER_STEP = 1;
   const WORKFLOW_STEPS = [0, 2, 3, 4];
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -186,8 +186,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   let passesGraphInstance = null;
 
   // Minimal Python syntax highlighter — stateful across lines so triple-quoted
-  // docstrings that span multiple rows stay a single string token. Returns one
+  // strings that span multiple rows stay a single string token. Returns one
   // HTML string per source line (token spans styled by `.kf-code .tok-*`).
+  // 它不是语法分析器：逐字符扫描 + 几条顺序规则，目标只是视觉分层。
   const PY_KEYWORDS = new Set([
     'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def',
     'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if',
@@ -195,47 +196,84 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     'return', 'try', 'while', 'with', 'yield', 'match', 'case'
   ]);
 
+  // 内置函数 / 类型 / 异常。单独给一个颜色，和普通调用区分开。
+  const PY_BUILTINS = new Set([
+    'abs', 'aiter', 'all', 'anext', 'any', 'ascii', 'bin', 'bool', 'breakpoint',
+    'bytearray', 'bytes', 'callable', 'chr', 'classmethod', 'compile', 'complex',
+    'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval', 'exec', 'filter',
+    'float', 'format', 'frozenset', 'getattr', 'globals', 'hasattr', 'hash', 'help',
+    'hex', 'id', 'input', 'int', 'isinstance', 'issubclass', 'iter', 'len', 'list',
+    'locals', 'map', 'max', 'memoryview', 'min', 'next', 'object', 'oct', 'open',
+    'ord', 'pow', 'print', 'property', 'range', 'repr', 'reversed', 'round', 'set',
+    'setattr', 'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple',
+    'type', 'vars', 'zip',
+    'ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException',
+    'Exception', 'ImportError', 'IndexError', 'KeyError', 'KeyboardInterrupt',
+    'MemoryError', 'NameError', 'NotImplementedError', 'OSError', 'OverflowError',
+    'RuntimeError', 'StopIteration', 'TypeError', 'ValueError', 'ZeroDivisionError',
+  ]);
+
   function highlightPythonLines(source) {
     const esc = (s) => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const span = (cls, s) => `<span class="${cls}">${esc(s)}</span>`;
     const lines = source.split('\n');
     const out = [];
-    let triple = null; // active multi-line string delimiter: '"""' or "'''"
+    let triple = null; // { quote, cls } — 跨行中的三引号字符串
 
     for (let li = 0; li < lines.length; li++) {
       const line = lines[li];
       let html = '';
       let i = 0;
 
+      // 同类相邻 token 合并成一个 span。decode_layer.py 有 1768 行，逐字符各出一个
+      // span 会把 DOM 体积翻好几倍；plain 与 token 两个缓冲互斥，谁在用另一个必为空。
+      let plain = '';
+      let tokCls = null;
+      let tokBuf = '';
+      const flushPlain = () => { if (plain) { html += esc(plain); plain = ''; } };
+      const flushTok = () => { if (tokBuf) { html += span(tokCls, tokBuf); tokCls = null; tokBuf = ''; } };
+      const pushTok = (cls, s) => {
+        if (tokCls !== cls) { flushPlain(); flushTok(); tokCls = cls; }
+        tokBuf += s;
+      };
+      const pushPlain = (s) => { flushTok(); plain += s; };
+
       if (triple) {
-        const close = line.indexOf(triple);
-        if (close === -1) { out.push(span('tok-str', line)); continue; }
-        html += span('tok-str', line.slice(0, close + 3));
+        const close = line.indexOf(triple.quote);
+        if (close === -1) { out.push(span(triple.cls, line)); continue; }
+        html += span(triple.cls, line.slice(0, close + 3));
         i = close + 3;
         triple = null;
       }
 
       let expectName = null; // 'func' | 'class' — next identifier is a definition name
-      let plain = '';
-      const flush = () => { if (plain) { html += esc(plain); plain = ''; } };
+      let prev = '';         // 上一个有意义的字符，用于判断 x.y 是不是属性访问
 
       while (i < line.length) {
         const rest = line.slice(i);
         const ch = line[i];
 
         // comment
-        if (ch === '#') { flush(); html += span('tok-com', line.slice(i)); i = line.length; break; }
+        if (ch === '#') { pushTok('tok-com', line.slice(i)); i = line.length; break; }
 
-        // string (optional r/b/u/f prefix)
+        // 字符串（可带 r/b/u/f 前缀）。三引号且顶在视觉行首 → 当 docstring 单独上色。
         const sm = /^([rRbBuUfF]{0,2})("""|'''|"|')/.exec(rest);
         if (sm) {
-          flush();
+          const prefixLen = sm[1].length;
           const q = sm[2];
-          const startQuote = i + sm[1].length;
+          const startQuote = i + prefixLen;
+          const tokenStart = i;
+          const cls = q.length === 3 && line.slice(0, tokenStart).trim() === '' ? 'tok-doc' : 'tok-str';
+          let text;
           if (q.length === 3) {
             const after = line.indexOf(q, startQuote + 3);
-            if (after === -1) { html += span('tok-str', line.slice(i)); triple = q; i = line.length; break; }
-            html += span('tok-str', line.slice(i, after + 3));
+            if (after === -1) {
+              pushTok(cls, line.slice(tokenStart));
+              triple = { quote: q, cls };
+              i = line.length;
+              break;
+            }
+            text = line.slice(tokenStart, after + 3);
             i = after + 3;
           } else {
             let j = startQuote + 1;
@@ -244,44 +282,74 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
               if (line[j] === q) { j++; break; }
               j++;
             }
-            html += span('tok-str', line.slice(i, j));
+            text = line.slice(tokenStart, j);
             i = j;
           }
+          // f-string：把 {...} 里的内容单独上色（只做一层，不解析格式串与嵌套花括号）
+          const bodyFrom = prefixLen + q.length;
+          if (/[fF]/.test(sm[1]) && text.length >= bodyFrom + q.length && text.endsWith(q)) {
+            pushTok(cls, text.slice(0, bodyFrom));
+            const body = text.slice(bodyFrom, text.length - q.length);
+            const re = /\{[^{}]*\}/g;
+            let at = 0;
+            let brace;
+            while ((brace = re.exec(body))) {
+              if (brace.index > at) pushTok(cls, body.slice(at, brace.index));
+              pushTok('tok-interp', brace[0]);
+              at = brace.index + brace[0].length;
+            }
+            if (at < body.length) pushTok(cls, body.slice(at));
+            pushTok(cls, text.slice(text.length - q.length));
+          } else {
+            pushTok(cls, text);
+          }
+          prev = text.slice(-1);
           continue;
         }
 
         // number
         const nm = /^(0[xXoObB][0-9a-fA-F_]+|(?:\d[\d_]*\.?\d*|\.\d+)(?:[eE][+-]?\d+)?[jJ]?)/.exec(rest);
-        if (nm && /\d/.test(nm[0])) { flush(); html += span('tok-num', nm[0]); i += nm[0].length; continue; }
+        if (nm && /\d/.test(nm[0])) { pushTok('tok-num', nm[0]); prev = nm[0].slice(-1); i += nm[0].length; continue; }
 
         // decorator (only at the visual start of a line)
         if (ch === '@') {
           const dm = /^@[A-Za-z_][\w.]*/.exec(rest);
-          if (dm && line.slice(0, i).trim() === '') { flush(); html += span('tok-dec', dm[0]); i += dm[0].length; continue; }
+          if (dm && line.slice(0, i).trim() === '') { pushTok('tok-dec', dm[0]); prev = dm[0].slice(-1); i += dm[0].length; continue; }
         }
 
-        // identifier / keyword
+        // identifier / keyword / 属性
         const im = /^[A-Za-z_]\w*/.exec(rest);
         if (im) {
           const word = im[0];
-          flush();
+          const isCall = /^\s*\(/.test(line.slice(i + word.length));
+          const isAttr = prev === '.';
           let cls = null;
           if (expectName) { cls = expectName === 'class' ? 'tok-cls' : 'tok-fn'; expectName = null; }
           else if (word === 'def') { cls = 'tok-kw'; expectName = 'func'; }
           else if (word === 'class') { cls = 'tok-kw'; expectName = 'class'; }
+          else if (isAttr) cls = isCall ? 'tok-fn' : 'tok-prop';
           else if (PY_KEYWORDS.has(word)) cls = 'tok-kw';
           else if (word === 'True' || word === 'False' || word === 'None') cls = 'tok-const';
           else if (word === 'self' || word === 'cls') cls = 'tok-self';
-          else if (/^\s*\(/.test(line.slice(i + word.length))) cls = 'tok-fn';
-          if (cls) html += span(cls, word); else plain += word;
+          else if (PY_BUILTINS.has(word)) cls = 'tok-builtin';
+          else if (isCall) cls = 'tok-fn';
+          if (cls) pushTok(cls, word); else pushPlain(word);
+          prev = word.slice(-1);
           i += word.length;
           continue;
         }
 
-        plain += ch;
+        // 运算符（相邻同类会合并成一个 span，所以不用穷举 **= / >>= 这类组合）
+        if (/^(?::=|[-+*/%@&|^~<>=!])/.test(rest)) { pushTok('tok-op', ch); prev = ch; i++; continue; }
+        // 括号与分隔符（. 不在此列，属性链保持干净）
+        if (/[()[\]{},:;]/.test(ch)) { pushTok('tok-punc', ch); prev = ch; i++; continue; }
+
+        pushPlain(ch);
+        prev = ch;
         i++;
       }
-      flush();
+      flushTok();
+      flushPlain();
       out.push(html);
     }
     return out;
@@ -292,6 +360,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (passes && Object.prototype.hasOwnProperty.call(passes, file)) return passes[file];
     if (file === 'matmul.py') return matmulSource;
     if (file === PTO3_TILE_LAB_FILE) return pto3TileLabSource;
+    if (file === PAGED_ATTENTION_PYPTO_FILE) return window.PTO_PAGED_ATTENTION_PYPTO_SOURCE || '';
     return state.sourceCache[file] || window.PTO_DECODE_LAYER_SOURCE || '';
   }
 
@@ -335,13 +404,29 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return !!(passes && Object.prototype.hasOwnProperty.call(passes, file));
   }
 
+  // 行的前导空白宽度（按等宽字体的字符格数算）。用于软换行时的悬挂缩进：
+  // 续行要退到本行内容起始处，而不是贴到代码框最左边。tab 按 4 格推进，
+  // 与 styles/demo.css 里的 tab-size: 4 保持一致。
+  function sourceLineIndentCh(lineText) {
+    let width = 0;
+    for (const ch of lineText) {
+      if (ch === ' ') width += 1;
+      else if (ch === '\t') width += 4 - (width % 4);
+      else break;
+    }
+    return width;
+  }
+
   function renderFullSource() {
     const isPasses = isPassesDumpFile(state.activeFile);
     const source = resolveSource(state.activeFile);
     const editor = $('#dslEditor');
     const highlighted = highlightPythonLines(source);
+    const rawLines = source.split('\n');
     const sourceIntentLines = !isPasses ? resolveIntentSourceLines(source) : {};
     const fragment = document.createDocumentFragment();
+    // 该文件若参与「逐行语义切段」，row 上会挂 focus / 段首标签
+    const regionSpec = sourceRegionSpec(state.activeFile);
     highlighted.forEach((lineHtml, index) => {
       const lineNumber = index + 1;
       const row = document.createElement('div');
@@ -350,6 +435,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       let sourceTag = null;
       gutter.textContent = lineNumber;
       code.innerHTML = lineHtml || ' ';
+      // 悬挂缩进：续行与本行内容左对齐（VS Code 的 wrappingIndent: same 效果）
+      const indentCh = sourceLineIndentCh(rawLines[index] || '');
+      if (indentCh) code.style.setProperty('--kf-code-indent', `${indentCh}ch`);
       if (!isPasses && sourceIntentLines[lineNumber]) row.dataset.intentLine = sourceIntentLines[lineNumber];
       if (isPasses) { row.dataset.passesLine = String(lineNumber); row.tabIndex = 0; }
       if (state.activeFile === 'matmul.py') {
@@ -384,21 +472,21 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         row.tabIndex = 0;
         row.title = `${{ signature: 'JIT 入口契约', scope1: 'Scope 1 · RMSNorm + QKV', scope2: 'Scope 2 · RoPE + KV Cache', scope3: 'Scope 3 · Output + MLP', smoke: '编译 Smoke Test' }[focus]} · 点击同步右侧分析`;
       }
-      if (isPagedAttentionFile(state.activeFile)) {
-        const focus = pagedAttentionFocusForLine(lineNumber);
-        sourceTag = pagedAttentionSourceTags[lineNumber] || null;
+      if (regionSpec) {
+        const focus = regionSpec.focusForLine(lineNumber);
+        sourceTag = regionSpec.tags[lineNumber] || null;
         row.dataset.pagedAttentionLine = String(lineNumber);
         row.dataset.pagedAttentionFocus = focus;
         row.classList.add('kf-pa-source-row');
         row.tabIndex = 0;
-        row.title = `${{ dynamic: '动态 Shape 声明', builder: 'Program Builder 与 Init', qk: 'QK Matmul · Cube', softmax: 'Softmax Prepare · Vector', pv: 'PV Matmul · Cube', online: 'Online Update · Vector', orchestration: '动态维度推导', paging: 'Paged KV 编排', golden: 'Torch Golden', runtime: '运行配置与验证' }[focus]} · 点击同步计算图与源码`;
+        row.title = regionSpec.rowTitle(focus);
       }
       row.append(gutter, code);
       if (sourceTag) {
         const tag = document.createElement('span');
-        tag.className = `kf-pa-source-tag is-${sourceTag.focus}`;
+        tag.className = regionSpec.tagClass(sourceTag);
         tag.textContent = sourceTag.label;
-        tag.title = `${pagedAttentionFocusMeta[sourceTag.focus].detail} · 点击同步计算图`;
+        tag.title = regionSpec.tagTitle(sourceTag);
         tag.setAttribute('aria-label', `${sourceTag.label} 源码阶段标签`);
         row.append(tag);
       }
@@ -414,11 +502,14 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (state.activeFile === QWEN_DECODE_FILE) {
       $$('#dslEditor [data-qwen-decode-focus]').forEach(row => row.classList.toggle('is-qwen-decode-line-active', row.dataset.qwenDecodeFocus === state.qwenDecodeFocus));
     }
-    if (isPagedAttentionFile(state.activeFile)) {
-      $$('#dslEditor [data-paged-attention-focus]').forEach(row => row.classList.toggle('is-paged-attention-line-active', row.dataset.pagedAttentionFocus === state.pagedAttentionFocus));
-      if (state.pagedAttentionLine) markPagedAttentionTargetLine(state.pagedAttentionLine);
+    if (regionSpec) {
+      highlightSourceRegionRows(regionSpec.activeFocus());
+      const line = regionSpec.restoreLine();
+      if (line) markSourceRegionTargetLine(line);
     }
+    // 换文件时段落条重新判定，下拉也一并收起（段表是跟文件走的）
     SOURCE_REGION_BAR_STATE.focus = undefined;
+    SOURCE_REGION_BAR_STATE.open = false;
     renderSourceRegionBar();
     $('[data-editor-tab="source"]').textContent = state.activeFile;
     editor.setAttribute('aria-label', `${state.activeFile} 全量源码`);
@@ -1216,6 +1307,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   const PAGED_ATTENTION_FILE = 'examples/models/06_paged_attention_dynamic.py';
   const PAGED_ATTENTION_ROOT_FILE = 'paged_attention_dynamic.py';
   const isPagedAttentionFile = (file) => file === PAGED_ATTENTION_FILE || file === PAGED_ATTENTION_ROOT_FILE;
+  // 第二个享受「逐行语义切段」待遇的文件：同一套源码地图 / 段首标签 / 行高亮，
+  // 只是段落表换成它自己的（详见 sourceRegionSpec）。
+  const PAGED_ATTENTION_PYPTO_FILE = 'paged_attention_pypto.py';
+  const isPagedAttentionPyptoFile = (file) => file === PAGED_ATTENTION_PYPTO_FILE;
   const RMSNORM_FILE = 'examples/models/qwen3_jit/kernels/rmsnorm.py';
   const attentionFocusMeta = {
     position: { label: '位置索引', lines: '52–60', detail: '读取 seq_lens，定位当前 token，并保留 RoPE 行维度' },
@@ -1496,6 +1591,52 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     368: { focus: 'golden', label: 'Torch Golden' },
     457: { focus: 'runtime', label: 'Runtime / Verify' },
   };
+  /* ---- paged_attention_pypto.py 的语义切段 ---------------------------------
+     第二个享受同一套「逐行语义切段」的文件（内容来自 hw-native-sys/pypto-lib
+     的 models/qwen3_14b/paged_attention_pypto.py）。它把 Phase-0（Q/K/V 归一化 +
+     RoPE + Cache 写回）和动态 Paged Attention 融合进同一个 SPMD Kernel，全文件
+     只有一个顶层函数，所以按"函数的编译/执行阶段"切段，而不是按函数切段。 */
+  const pagedAttentionPyptoFocusMeta = {
+    constants: { label: '模块常量与静态断言', lines: '9–65', detail: 'BATCH / HEAD_DIM / BLOCK_SIZE / STACK_* 等编译期常量与 8 条 assert 自检' },
+    signature: { label: '函数签名与张量契约', lines: '67–108', detail: '27 个 Tensor / TaskID 入参，导出 out，并把分页缓存 reshape 成 BSND 视图' },
+    spmd: { label: 'SPMD 入口与生产者依赖', lines: '109–126', detail: '24 个 SPMD block，显式声明 7 个 Phase-0 生产者的 TaskId 依赖' },
+    kvphase: { label: 'Phase 0 · K/V 归一化与 Cache 写回', lines: '127–213', detail: '前 32 个 AIV lane：K 做 RMSNorm + RoPE 写 key cache，V 乘 inv_rms 写 value cache' },
+    qphase: { label: 'Phase 0 · Q 归一化与 RoPE', lines: '215–251', detail: '每组 GROUP 个 query head 做 RMSNorm + RoPE，按 BSND 行写回 q2d' },
+    barrier: { label: 'Phase-0 发布与全核 Barrier', lines: '253–259', detail: 'cacheinvalid → fence → syncall(MIX) → cacheinvalid，保证 PA 读到已发布的 Q/K/V' },
+    taskloop: { label: 'Attention 任务循环与 Q 装载', lines: '261–277', detail: '每个 (batch, kv_head) 一个 task，推导 page / stack 数并把 Q tile 装进 L1' },
+    qk: { label: 'QK 生产 · Cube', lines: '278–362', detail: '按 STACK_PAGES 逐页 load K、matmul 出 score 写入 transfer，含 1/2/3 页末栈 tail 分支' },
+    pv: { label: 'PV 生产 · Cube', lines: '364–724', detail: '一次预取整栈 V 并 ping-pong P，按页数分 1/2/3/4 页 tail 分支做 matmul_acc' },
+    softmax: { label: '在线 Softmax 与 FIFO 更新 · Vector', lines: '726–862', detail: '双 AIV lane 上 scale / mask / row_max / exp / row_sum，用 pending FIFO 做三态 rescale' },
+    out: { label: '输出归一化与写回', lines: '864–875', detail: 'o / l_sum 归一化并转 BF16 写回 out2d，返回本 kernel 的 attn_tid' },
+  };
+  // 段首标签。tone 决定配色：flow=编排/结构（蓝）、cube=矩阵乘（黄）、
+  // vector=向量归约（绿）、meta=声明/常量（灰）。
+  const pagedAttentionPyptoSourceTags = {
+    9: { focus: 'constants', label: 'Constants', tone: 'meta' },
+    67: { focus: 'signature', label: 'Signature', tone: 'meta' },
+    109: { focus: 'spmd', label: 'SPMD', tone: 'flow' },
+    127: { focus: 'kvphase', label: 'Phase 0 · K/V', tone: 'vector' },
+    215: { focus: 'qphase', label: 'Phase 0 · Q', tone: 'vector' },
+    253: { focus: 'barrier', label: 'Barrier', tone: 'flow' },
+    261: { focus: 'taskloop', label: 'Task Loop', tone: 'flow' },
+    278: { focus: 'qk', label: 'QK · Cube', tone: 'cube' },
+    364: { focus: 'pv', label: 'PV · Cube', tone: 'cube' },
+    726: { focus: 'softmax', label: 'Softmax', tone: 'vector' },
+    864: { focus: 'out', label: 'Output', tone: 'meta' },
+  };
+  function pagedAttentionPyptoFocusForLine(lineNumber) {
+    return lineNumber < 67 ? 'constants'
+      : lineNumber < 109 ? 'signature'
+      : lineNumber < 127 ? 'spmd'
+      : lineNumber < 215 ? 'kvphase'
+      : lineNumber < 253 ? 'qphase'
+      : lineNumber < 261 ? 'barrier'
+      : lineNumber < 278 ? 'taskloop'
+      : lineNumber < 364 ? 'qk'
+      : lineNumber < 726 ? 'pv'
+      : lineNumber < 864 ? 'softmax'
+      : 'out';
+  }
   const pagedAttentionObjectDetails = {
     dynamic: { object: 'pl.dynamic · 运行时维度', code: 'B, H, D, block_size = pl.dynamic(...)', semantic: '声明编译时未知、运行时绑定的维度；让同一 Kernel 覆盖不同 Batch、Context 与分页大小。', io: [['输入', 'Tensor.dim / 调用点实参'], ['输出', '符号维度 B、H、D、M'], ['Shape · dtype · layout', '[B×H,D] · BF16 · row-major'], ['Memory space', 'Host metadata → GM Tensor view']], deps: '被 Builder、Paged KV 与 q_loop 共同消费；不产生数据依赖边。', sync: '不产生 sync；只在编译时形成 Shape guard。', pass: 'Semantic Lowering（已解析）→ Layout Planning（待确认动态 stride）', isa: '当前无法从源码确认具体 ISA；预计落入 scalar address / shape guard。', impact: '动态性减少重编译，但保守边界检查会增加少量标量开销。', evidence: 'source' },
     builder: { object: 'Program Builder · Init', code: 'program = pl.program(...)  ·  fa_work_build(...)', semantic: '创建程序上下文并预分配工作表；把 q_tile、head_dim、block_size 固化为 Tile 级契约。', io: [['输入', '动态 Shape + page table'], ['输出', 'fa_work_table、初始化 Task'], ['Shape · dtype · layout', '[B×M] · INT32 · contiguous；work state · FP32'], ['Memory space', 'GM 持久化工作表；Task metadata 在编排侧']], deps: '初始化完成后，QK / Softmax / PV / Online 才可消费工作表。', sync: '需要 init → compute 的一次前置 event，避免未初始化工作表被读取。', pass: 'Semantic Lowering → Parallel Mapping（初始化 Task 与 compute Task 分离）', isa: 'AICPU / orchestration 生成 init dispatch；具体指令待 ISA Emission。', impact: '一次性初始化成本换取持久化 workspace；影响 GM 占用与首 token 延迟。', evidence: 'infer' },
@@ -1521,7 +1662,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       <footer><i class="${evidence.cls}">${evidence.short}</i><span>源码选择会同步下方计算图、调度与依赖视图</span></footer>
     </section>`;
   }
-  const pagedAttentionComputationGraph = {
+
+  const pagedAttentionComputationGraph = {
     width: 650,
     height: 890,
     nodes: [
@@ -1635,6 +1777,75 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   // 只在源码面板内部滚动，不带动整页
+  /* ---- 源码区域解析：按文件选择一套「切段配置」 -------------------------------
+     同一套机制服务多个文件——逐行标注（data-paged-…）、顶部源码地图、段首标签、
+     行高亮 / 目标闪烁、点击定位——差别只在数据与右侧联动：
+       · paged_attention_dynamic.py → 10 段，选中时联动右侧算子面板
+       · paged_attention_pypto.py   → 11 段，只做源码侧高亮（无算子面板）
+     返回 null 表示该文件不参与语义切段。 */
+  function sourceRegionSpec(file = state.activeFile) {
+    if (isPagedAttentionFile(file)) {
+      return {
+        key: 'pagedAttention',
+        meta: pagedAttentionFocusMeta,
+        tags: pagedAttentionSourceTags,
+        focusForLine: pagedAttentionFocusForLine,
+        headerDetail: '许可声明、模块 docstring 与 import',
+        tagClass: (tag) => `kf-pa-source-tag is-${tag.focus}`,
+        tagTitle: (tag) => `${pagedAttentionFocusMeta[tag.focus].detail} · 点击同步计算图`,
+        rowTitle: (focus) => `${{ dynamic: '动态 Shape 声明', builder: 'Program Builder 与 Init', qk: 'QK Matmul · Cube', softmax: 'Softmax Prepare · Vector', pv: 'PV Matmul · Cube', online: 'Online Update · Vector', orchestration: '动态维度推导', paging: 'Paged KV 编排', golden: 'Torch Golden', runtime: '运行配置与验证' }[focus]} · 点击同步计算图与源码`,
+        activeFocus: () => state.pagedAttentionFocus,
+        setLine: (line) => { state.pagedAttentionLine = line; },
+        restoreLine: () => state.pagedAttentionLine,
+        onSelectRegion: (focus) => { syncPagedAttentionSelection(focus); renderPagedAttentionInspector(); },
+        onSelectRow: (focus, line) => {
+          syncPagedAttentionSelection(focus);
+          state.pagedAttentionLine = line;
+          state.pagedAttentionDetailOpen = true;
+          if (state.opTab !== 'overview') state.opTab = 'overview';
+          markSourceRegionTargetLine(line);
+          renderPagedAttentionInspector();
+        },
+      };
+    }
+    if (isPagedAttentionPyptoFile(file)) {
+      return {
+        key: 'pagedAttentionPypto',
+        meta: pagedAttentionPyptoFocusMeta,
+        tags: pagedAttentionPyptoSourceTags,
+        focusForLine: pagedAttentionPyptoFocusForLine,
+        headerDetail: '许可证声明与模块 docstring',
+        // 该文件默认不展示右侧面板；源码地图右上角给一个「可视化」按钮，
+        // 点它才展开 inspector 并收起左侧资源管理器（见 setSourceRegionVisualize）
+        visualize: true,
+        tagClass: (tag) => `kf-pa-source-tag t-${tag.tone}`,
+        tagTitle: (tag) => `${pagedAttentionPyptoFocusMeta[tag.focus].detail} · 点击定位该段`,
+        rowTitle: (focus) => `${pagedAttentionPyptoFocusMeta[focus]?.label || ''} · 点击定位该段`,
+        activeFocus: () => state.sourceRegionFocus,
+        setLine: (line) => { state.sourceRegionLine = line; },
+        restoreLine: () => state.sourceRegionLine,
+        onSelectRegion: (focus) => {
+          state.sourceRegionFocus = focus;
+          highlightSourceRegionRows(focus);
+        },
+        onSelectRow: (focus, line) => {
+          state.sourceRegionFocus = focus;
+          state.sourceRegionLine = line;
+          highlightSourceRegionRows(focus);
+          markSourceRegionTargetLine(line);
+        },
+      };
+    }
+    return null;
+  }
+
+  // 当前选中的 focus 对应的整段行高亮（两个文件共用）
+  function highlightSourceRegionRows(focus) {
+    $$('#dslEditor [data-paged-attention-focus]').forEach((row) => {
+      row.classList.toggle('is-paged-attention-line-active', row.dataset.pagedAttentionFocus === focus);
+    });
+  }
+
   /* ---- 源码地图 · 贴在源码顶部 ---------------------------------------------
      这排东西原来是右侧面板概览里的一个区块「源码地图」。放在右侧的问题是：
      它只能告诉你这个文件分成哪几段，没法告诉你**现在读到了哪一段**——而后者
@@ -1643,26 +1854,32 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   // focus: undefined = 尚未判定（下次渲染时按滚动位置算）；null = 在任何段之前的文件头
   const SOURCE_REGION_BAR_STATE = { open: false, focus: undefined };
 
+  // 当前文件某一段的行号区间（随文件切换，沿用旧名以兼容既有调用点）
   function pagedAttentionRegionRange(key) {
-    const meta = pagedAttentionFocusMeta[key];
-    return meta ? meta.lines.split('–').map(Number) : null;
+    return sourceRegionRange(sourceRegionSpec(), key);
+  }
+
+  // 右侧算子面板要求"定位到某一段"时的入口，只对 paged_attention 生效
+  function focusPagedAttentionSource(focus) {
+    if (!isPagedAttentionFile(state.activeFile)) return;
+    focusSourceRegion(focus);
   }
 
   /* 选中某一段 → 源码跟着走。计算图节点、Tile 卡片这些地方原本只给源码行
-     加了个 is-paged-attention-line-active 的高亮 class 就完事，可是 563 行的
+     加了个 is-paged-attention-line-active 的高亮 class 就完事，可是几百行的
      文件里那一段几乎总在屏幕外，看上去就是"点了没反应"。这里统一补上定位：
      滚到段首行、标记它、并让顶部段落条切过去。 */
-  function focusPagedAttentionSource(focus) {
-    if (!isPagedAttentionFile(state.activeFile)) return;
-    const rows = $$('#dslEditor [data-paged-attention-focus]');
-    if (!rows.length) return;
-    rows.forEach((row) => row.classList.toggle('is-paged-attention-line-active', row.dataset.pagedAttentionFocus === focus));
-    const range = pagedAttentionRegionRange(focus);
+  function focusSourceRegion(focus) {
+    const spec = sourceRegionSpec();
+    if (!spec) return;
+    if (!$('#dslEditor [data-paged-attention-focus]')) return;
+    highlightSourceRegionRows(focus);
+    const range = sourceRegionRange(spec, focus);
     const line = range ? range[0] : null;
     const target = line ? $(`#dslEditor [data-paged-attention-line="${line}"]`) : null;
     if (!target) return;
-    state.pagedAttentionLine = line;
-    markPagedAttentionTargetLine(line);
+    spec.setLine(line);
+    markSourceRegionTargetLine(line);
     // 顶部对齐，理由同风险跳转：居中会让段落条落在上一段上
     scrollEditorRowIntoView(target, { align: 'top' });
     const bar = $('#sourceRegionBar');
@@ -1672,37 +1889,53 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     }
   }
 
+  function sourceRegionRange(spec, key) {
+    const meta = spec?.meta?.[key];
+    return meta ? meta.lines.split('–').map(Number) : null;
+  }
+
   // 行号 → 所属段。落在任何段之前（许可头 / import）时返回 null。
   function pagedAttentionRegionForLine(line) {
-    for (const key of Object.keys(pagedAttentionFocusMeta)) {
-      const range = pagedAttentionRegionRange(key);
+    const spec = sourceRegionSpec();
+    if (!spec) return null;
+    for (const key of Object.keys(spec.meta)) {
+      const range = sourceRegionRange(spec, key);
       if (range && line >= range[0] && line <= range[1]) return key;
     }
     return null;
   }
 
   // 当前段 = 滚动容器顶部往下一点的位置上那一行落在哪个段的行段里。
-  // 按 focusMeta 的行段判，不用 pagedAttentionFocusForLine——后者把第 1–34 行的
-  // 许可头也算进 dynamic，条上就会出现"你在 35–41 段"而屏幕上是第 3 行的矛盾。
+  // 按 focusMeta 的行段判，不用 *FocusForLine——后者是连续映射，会把许可头也
+  // 算进第一段，条上就会出现"你在 35–41 段"而屏幕上是第 3 行的矛盾。
   // 落在任何段之前时返回 null，由调用方显示"文件头"。
-  function currentPagedAttentionRegion() {
-    const first = $('#dslEditor [data-paged-attention-line]');
-    if (!first) return null;
+  function currentSourceRegion(spec) {
+    const rows = $$('#dslEditor [data-paged-attention-line]');
+    if (!rows.length) return null;
     const box = editorScrollBox();
     const anchorY = (box ? box.getBoundingClientRect().top : 0) + 8;
-    // 代码视图每行等高，所以按行高算而不是遍历 564 行量 rect——滚动时每帧遍历
-    // 一遍会把布局抖起来，这里只量首行一次。
-    const firstRect = first.getBoundingClientRect();
-    const rowH = firstRect.height;
-    if (!rowH) return null;
-    const total = $$('#dslEditor [data-paged-attention-line]').length;
-    const offset = Math.floor((anchorY - firstRect.top) / rowH);
-    const topLine = Math.min(Math.max(Number(first.dataset.pagedAttentionLine) + offset, 1), total);
-    for (const key of Object.keys(pagedAttentionFocusMeta)) {
-      const range = pagedAttentionRegionRange(key);
-      if (range && topLine >= range[0] && topLine <= range[1]) return key;
+    // 源码开启自动换行后每行高度不再相等，不能再用「行高 × 偏移」估算。行在文档
+    // 里是自上而下单调排列的，二分找第一行「底边越过锚点」的行即可——O(log n)
+    // 次测量，不会像遍历几百行那样把布局抖起来。
+    let lo = 0;
+    let hi = rows.length - 1;
+    let found = rows.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (rows[mid].getBoundingClientRect().bottom > anchorY) {
+        found = mid;
+        hi = mid - 1;
+      } else {
+        lo = mid + 1;
+      }
     }
-    return null;
+    const topLine = Number(rows[found].dataset.pagedAttentionLine);
+    // 还在首个段之前（许可头 / import）→ 文件头
+    const firstStart = sourceRegionRange(spec, Object.keys(spec.meta)[0]);
+    if (firstStart && topLine < firstStart[0]) return null;
+    // 其余情况直接读这一行的段。逐行映射是连续的（段之间的空行归到前一段），
+    // 所以滚过分隔空行时条子不会再误判成"文件头"。
+    return rows[found].dataset.pagedAttentionFocus;
   }
 
   function editorScrollBox() {
@@ -1714,28 +1947,32 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   function renderSourceRegionBar() {
     const bar = $('#sourceRegionBar');
     if (!bar) return;
-    if (!isPagedAttentionFile(state.activeFile) || state.editorTab !== 'source') {
+    const spec = state.editorTab === 'source' ? sourceRegionSpec() : null;
+    if (!spec) {
       bar.hidden = true;
       bar.replaceChildren();
       return;
     }
     bar.hidden = false;
-    const active = SOURCE_REGION_BAR_STATE.focus !== undefined ? SOURCE_REGION_BAR_STATE.focus : currentPagedAttentionRegion();
+    const active = SOURCE_REGION_BAR_STATE.focus !== undefined ? SOURCE_REGION_BAR_STATE.focus : currentSourceRegion(spec);
     SOURCE_REGION_BAR_STATE.focus = active;
-    const entries = Object.entries(pagedAttentionFocusMeta);
+    const entries = Object.entries(spec.meta);
     const index = entries.findIndex(([key]) => key === active);
     // 还没进入第一段（许可头 / import）时不硬套一个段名
     const meta = active
-      ? pagedAttentionFocusMeta[active]
-      : { label: '文件头', lines: `1–${pagedAttentionRegionRange(entries[0][0])[0] - 1}`, detail: '许可声明、模块 docstring 与 import' };
+      ? spec.meta[active]
+      : { label: '文件头', lines: `1–${sourceRegionRange(spec, entries[0][0])[0] - 1}`, detail: spec.headerDetail };
     bar.innerHTML = `
-      <button type="button" class="kf-source-region__head" data-source-region-toggle aria-expanded="${SOURCE_REGION_BAR_STATE.open}">
-        <span class="kf-source-region__pos">${active ? `${index + 1}/${entries.length}` : `—/${entries.length}`}</span>
-        <b>${meta.label}</b>
-        <i>${meta.lines}</i>
-        <small>${meta.detail}</small>
-        <em aria-hidden="true">${SOURCE_REGION_BAR_STATE.open ? '收起' : '全部'}</em>
-      </button>
+      <div class="kf-source-region__bar">
+        <button type="button" class="kf-source-region__head" data-source-region-toggle aria-expanded="${SOURCE_REGION_BAR_STATE.open}">
+          <span class="kf-source-region__pos">${active ? `${index + 1}/${entries.length}` : `—/${entries.length}`}</span>
+          <b>${meta.label}</b>
+          <i>${meta.lines}</i>
+          <small>${meta.detail}</small>
+          <em aria-hidden="true">${SOURCE_REGION_BAR_STATE.open ? '收起' : '全部'}</em>
+        </button>
+        ${spec.visualize ? `<button type="button" class="kf-source-region__visualize" data-source-region-visualize aria-pressed="${isSourceRegionVisualizeOn()}" title="展开右侧面板并收起资源管理器"><i aria-hidden="true">◫</i><span>可视化</span></button>` : ''}
+      </div>
       <div class="kf-source-region__list"${SOURCE_REGION_BAR_STATE.open ? '' : ' hidden'}>
         ${entries.map(([key, item], order) => `<button type="button" class="${key === active ? 'is-active' : ''}" data-source-region="${key}"><span>${String(order + 1).padStart(2, '0')}</span><b>${item.label}</b><i>${item.lines}</i><small>${item.detail}</small></button>`).join('')}
       </div>`;
@@ -1745,13 +1982,567 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   function syncSourceRegionBar() {
     const bar = $('#sourceRegionBar');
     if (!bar || bar.hidden) return;
+    const spec = sourceRegionSpec();
+    if (!spec) return;
     // null 是合法值（滚到文件头），所以只能比"变没变"，不能用真值判断——
-    // 否则从第一段往上滚回许可头时条子会卡在"动态 Shape 声明"上。
+    // 否则从第一段往上滚回许可头时条子会卡在第一段上。
     if (!$('#dslEditor [data-paged-attention-line]')) return;
-    const active = currentPagedAttentionRegion();
+    const active = currentSourceRegion(spec);
     if (active === SOURCE_REGION_BAR_STATE.focus) return;
     SOURCE_REGION_BAR_STATE.focus = active;
     renderSourceRegionBar();
+  }
+
+  let pypaGraphController = null;
+  let pypaGraphView = 'overview';
+  let pypaGraphTransform = null;
+  let pypaGraphRenderedView = null;
+  let pypaGraphSize = null;
+  const pypaExpandedStages = new Set();
+  const PYPA_SCENE_WIDTH = 2260;
+  const PYPA_SCENE_HEIGHT = 1480;
+  const pypaEscape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]);
+
+  function pypaVisibleGraph() {
+    const source = window.PTO_PYPA_TASK_GRAPH;
+    if (!source || pypaGraphView === 'overview') return source;
+    // 这里是计算语义图。坐标表达数据依赖，不表达 AIC/AIV 的实际执行时序。
+    const sourceLines = { 'q-proj': 68, 'k-proj': 68, 'v-proj': 68, 'q-prep': 229, 'k-prep': 175,
+      'v-scale': 201, q: 248, k: 198, v: 210, aux: 68, 'cache-append': 195,
+      'k-cache': 195, 'v-cache': 210, qk: 296, scores: 301, 'scale-mask': 777,
+      softmax: 790, probability: 802, pv: 447, 'context-acc': 842,
+      context: 856, 'output-norm': 864, output: 869 };
+    const n = (id, x, y, type, title, sub, lines, api, detail, extra = {}) => ({
+      id, x, y, w: type === 'data' ? 170 : 188, h: 88, type, kind: type,
+      badge: type === 'data' ? 'DATA' : 'OPERATION', title, sub, lines, api, detail,
+      sourceLine: sourceLines[id],
+      evidence: type === 'data' ? '源码数据对象'
+        : ['q-prep', 'k-prep', 'cache-append', 'scale-mask', 'output-norm'].includes(id)
+          ? '源码操作的语义归并' : '源码显式计算',
+      ...extra,
+    });
+    const nodes = [
+      n('q-proj', 340, 290, 'data', 'Q Projection', 'q_proj', '68–94', 'q_proj', '外部投影结果，作为 Q 归一化输入。'),
+      n('k-proj', 340, 515, 'data', 'K Projection', 'k_proj', '68–94', 'k_proj', '外部投影结果，作为 K 归一化输入。'),
+      n('v-proj', 340, 740, 'data', 'V Projection', 'v_proj', '68–94', 'v_proj', '外部投影结果，经 inv_rms 缩放后写入 V Cache。'),
+      n('q-prep', 565, 290, 'operation', 'Q Norm → RoPE', 'RMSNorm + 旋转位置编码', '215–250', 'pl.row_sum · pl.recip · pl.concat', 'Q 乘 inv_rms、按 head 求 RMSNorm，再施加 RoPE；结果写入 q2d。', { expandable: true, details: [
+        ['Q RMSNorm', '216–234', 'row_sum → recip(sqrt) → gamma'], ['Q RoPE', '235–246', 'cos/sin 旋转半维'], ['写入 Q', '247–250', 'BF16 q2d；不写 KV Cache'],
+      ] }),
+      n('k-prep', 565, 515, 'operation', 'K Norm → RoPE', 'RMSNorm + 旋转位置编码', '162–198', 'pl.row_sum · pl.recip · pl.concat', 'K 乘 inv_rms、按 head 求 RMSNorm，再施加 RoPE。', { expandable: true, details: [
+        ['K RMSNorm', '162–180', 'row_sum → recip(sqrt) → gamma'], ['K RoPE', '181–193', 'cos/sin 旋转半维'], ['BF16 K', '194–198', '准备写入 Key Cache'],
+      ] }),
+      n('v-scale', 565, 740, 'operation', 'V Scaling', 'V × inv_rms', '200–213', 'pl.mul · pl.cast', 'V 按 inv_rms 缩放并转 BF16。', { expandable: true, details: [
+        ['V 缩放', '200–209', 'v_proj × inv_rms → BF16'], ['写入 V', '210–213', '准备写入 Value Cache'],
+      ] }),
+      n('q', 800, 290, 'data', 'Q', 'BF16 · q2d', '247–250', 'q2d[...] = pl.cast(...)', 'Q 单独写入 q2d，后续加载为 QK 的 q_tile。'),
+      n('k', 800, 515, 'data', 'K', 'BF16 · k_rotated', '181–198', 'pl.cast(k_rotated)', '当前 token 的 K 将追加到 Key Cache。'),
+      n('v', 800, 740, 'data', 'V', 'BF16 · v_row_bf16', '200–213', 'pl.cast(pl.mul(...))', '当前 token 的 V 将追加到 Value Cache。'),
+      n('aux', 1035, 405, 'data', 'Aux Inputs', 'seq_lens · block_table · slot_mapping', '68–94', 'pl.read · pl.tensor.read', 'seq_lens 确定位置与有效列，slot_mapping 指定 K/V 写入行，block_table 映射 K/V 读取的物理 page。'),
+      n('cache-append', 1035, 625, 'operation', 'Cache Append', '仅 K/V 写入分页缓存', '194–213', 'key_cache_bsnd[...] · value_cache_bsnd[...]', 'slot_mapping 决定当前 token 的写入行；Q 不进入 KV Cache。', { expandable: true, details: [
+        ['Page Size', '9–65', 'BLOCK_SIZE=128'], ['写入位置', '146–155', 'seq_lens 与 slot_mapping'], ['追加 K', '194–198', 'key_cache_bsnd'], ['追加 V', '210–213', 'value_cache_bsnd'], ['分页读取', '285–295', 'block_table_2d → physical page'],
+      ] }),
+      n('k-cache', 1260, 515, 'data', 'K Cache', 'paged K · BF16', '194–198', 'key_cache_bsnd', '包含历史与当前 token 的 K；QK 用 block_table_2d 读取物理 page。'),
+      n('v-cache', 1260, 740, 'data', 'V Cache', 'paged V · BF16', '210–213', 'value_cache_bsnd', '包含历史与当前 token 的 V；PV 用 block_table_2d 读取物理 page。'),
+      n('qk', 1260, 290, 'operation', 'QK Matmul', 'Q × K Cacheᵀ', '285–356', 'pl.load · pl.matmul', 'Q tile 与按 block_table 映射的 K page 相乘，逐 page 生成 FP32 Scores。', { expandable: true, details: [
+        ['K Page lookup', '285–295', 'block_table_2d → key_cache_bsnd'], ['QK', '296–300', 'pl.matmul(q_tile, Kᵀ)'], ['Tail pages', '307–356', '末 stack 的 1–3 page 分支'],
+      ] }),
+      n('scores', 1490, 290, 'data', 'Scores', 'FP32 · per stack', '296–305', 'score_transfer', 'QK 生成的未缩放 score，按 page 写入当前 stack。'),
+      n('scale-mask', 1490, 515, 'operation', 'Scaling + Mask', 'SCALE · valid_cols', '777–788', 'pl.tile.muls · pl.set_validshape · pl.fillpad', '先缩放 Scores，再按 seq_len 屏蔽末 stack 无效列。', { expandable: true, details: [
+        ['Scaling', '777–777', 'score × SCALE'], ['尾列 Mask', '778–788', 'valid_cols → fillpad(min)'],
+      ] }),
+      n('softmax', 1490, 740, 'operation', 'Online Softmax', '跨 Stack 更新 m / l_sum', '745–823', 'pl.row_max · pl.exp · pl.row_sum', '按 stack 更新 running max 与归一化和，产生本 stack 的 BF16 probability。', { expandable: true, details: [
+        ['初始状态', '745–756', 'm=-∞；l_sum=0；rescale FIFO=(1,1)'], ['当前 stack 最大值', '789–790', 'local_m → next_m=max(local_m,m)'], ['旧状态重缩放', '791–791', 'rescale=exp(m−next_m)'], ['概率与归一化和', '792–800', 'P=exp(score−next_m)；l_sum=rescale·l_sum+ΣP'], ['输出 P', '802–815', 'BF16 probability_transfer'], ['传递状态', '823–855', 'm、l_sum、rescale FIFO 跨 stack 更新'],
+      ] }),
+      n('probability', 1490, 965, 'data', 'Probability P', 'BF16 · per stack', '802–815', 'probability_transfer', 'Online Softmax 对当前 stack 生成的未除以全局 l_sum 的权重，用于 PV。'),
+      n('pv', 1260, 965, 'operation', 'PV Matmul', 'P × V Cache', '369–718', 'pl.load · pl.matmul · pl.matmul_acc', 'BF16 probability 与按 block_table 读取的 V page 相乘并在 stack 内累积。', { expandable: true, details: [
+        ['V Page lookup', '369–405', 'block_table_2d → value_cache_bsnd'], ['PV 累积', '405–718', 'matmul / matmul_acc；处理 tail pages'], ['局部 Context', '503–718', 'FP32 pv_transfer'],
+      ] }),
+      n('context-acc', 1035, 965, 'operation', 'Context Accumulate', '跨 Stack 重缩放并累积', '827–855', 'pl.row_expand_mul · pl.add', '旧 context 乘延迟的 rescale，再加当前 stack 的 PV partial。', { expandable: true, details: [
+        ['读取 PV partial', '830–840', 'pv_transfer → pv_aiv'], ['重缩放与累积', '842–844', 'o = o × pending0 + pv'], ['Rescale FIFO', '848–855', 'pending1 → pending0；rescale → pending1'],
+      ] }),
+      n('context', 800, 965, 'data', 'Context', 'FP32 · o + l_sum', '842–861', 'o · l_sum', '跨 stack 保留的输出累积量 o 与归一化和 l_sum。'),
+      n('output-norm', 565, 965, 'operation', 'Output Normalize', 'o / l_sum → BF16', '864–872', 'pl.recip · pl.row_expand_mul · pl.cast · pl.store', '所有 stack 结束后做最终归一化，转 BF16 并写回 out2d。', { expandable: true, details: [
+        ['最终归一化', '864–866', 'ctx = o / l_sum'], ['BF16 写回', '866–872', 'cast → out2d'],
+      ] }),
+      n('output', 340, 965, 'data', 'Attention Output', 'BF16 · out2d', '869–872', 'pl.store(..., out2d)', '最终 Attention Output，按 batch、kv_head 和 GROUP 对应行写回。'),
+    ];
+    const e = (s, t, label, extra = {}) => ({ s, t, type: 'data', label, ...extra });
+    const edges = [
+      e('q-proj','q-prep','Q Projection'), e('q-prep','q','Q'),
+      e('k-proj','k-prep','K Projection'), e('k-prep','k','K'),
+      e('v-proj','v-scale','V Projection'), e('v-scale','v','V'),
+      e('k','cache-append','K'), e('v','cache-append','V'),
+      e('aux','cache-append','slot_mapping'), e('aux','qk','block_table'), e('aux','scale-mask','seq_lens'),
+      e('cache-append','k-cache','K'), e('cache-append','v-cache','V'),
+      e('q','qk','Q'), e('k-cache','qk','K · block_table'),
+      e('qk','scores','Scores'), e('scores','scale-mask','Scores'),
+      e('scale-mask','softmax','scaled / masked Scores'), e('softmax','probability','P'),
+      e('probability','pv','P'), e('v-cache','pv','V · block_table'),
+      e('pv','context-acc','PV partial'), e('softmax','context-acc','rescale / l_sum', { route: 'state' }),
+      e('context-acc','context','Context'), e('context','output-norm','Context'), e('output-norm','output','BF16 Output'),
+    ];
+    const expanded = nodes.find((node) => node.expandable && pypaExpandedStages.has(node.id));
+    if (expanded) {
+      const childHeight = 68;
+      const childGap = 26;
+      const groupHeight = 62 + expanded.details.length * (childHeight + childGap) + 12;
+      const offset = groupHeight - expanded.h + 35;
+      // 给局部子图留出真实画布空间；同一行的下游与后续行一起下移。
+      nodes.forEach((node) => {
+        if (node.y > expanded.y || (node.y === expanded.y && node.x > expanded.x)) node.y += offset;
+      });
+      expanded.expandedGroup = true;
+      expanded.h = 42;
+      expanded.w = 226;
+      expanded.groupHeight = groupHeight;
+      expanded.details.forEach(([title, lines, formula], index) => {
+        const id = `${expanded.id}:detail:${index}`;
+        nodes.push({ id, parentId: expanded.id, x: expanded.x + 13,
+          y: expanded.y + 60 + index * (childHeight + childGap), w: 200, h: childHeight,
+          type: 'operation', kind: 'operation', badge: 'OPERATION', title, sub: formula,
+          lines, api: formula, detail: `${expanded.title} · ${formula}`,
+          sourceLine: Number(lines.match(/\d+/)?.[0]), evidence: '源码显式计算', childOperation: true });
+        if (index) edges.push(e(`${expanded.id}:detail:${index - 1}`, id, '', { route: 'detail' }));
+      });
+      const first = `${expanded.id}:detail:0`;
+      const last = `${expanded.id}:detail:${expanded.details.length - 1}`;
+      edges.forEach((edge) => {
+        if (edge.route === 'detail') return;
+        if (edge.s === expanded.id) edge.s = last;
+        if (edge.t === expanded.id) edge.t = first;
+      });
+    }
+    const groupOffset = expanded ? expanded.groupHeight - 88 + 35 : 0;
+    return { nodes, edges, width: 1750, height: 1120 + groupOffset, groups: [
+      { label: 'QKV Preparation', x: 310, y: 225, w: 690, h: 645 + (expanded && expanded.y < 900 ? groupOffset : 0) },
+      { label: 'Paged Attention', x: 1010, y: 225, w: 690, h: 835 + groupOffset },
+      { label: 'Output', x: 310, y: 900 + (expanded && expanded.y < 900 ? groupOffset : 0), w: 690, h: 160 + (expanded && expanded.y === 965 ? groupOffset : 0) },
+    ] };
+  }
+
+  function renderPyptoTaskGraph() {
+    const graph = pypaVisibleGraph();
+    const viewport = $('#pypaTaskViewport');
+    const scene = $('#pypaTaskScene');
+    if (!graph || !viewport || !scene) return;
+    pypaGraphController?.abort?.();
+    const controller = new AbortController();
+    pypaGraphController = controller;
+    const placedNodes = graph.nodes.map((node) => ({
+      ...node,
+      y: pypaGraphView === 'overview' ? node.y + (node.y >= 600 ? 70 : 0) + (node.y >= 760 ? 60 : 0) : node.y,
+    }));
+    const sceneWidth = graph.width || PYPA_SCENE_WIDTH;
+    const sceneHeight = graph.height || PYPA_SCENE_HEIGHT;
+    scene.style.width = `${sceneWidth}px`;
+    scene.style.height = `${sceneHeight}px`;
+    const byId = new Map(placedNodes.map((node) => [node.id, node]));
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.classList.add('kf-pypa-graph__edges');
+    svg.setAttribute('viewBox', `0 0 ${sceneWidth} ${sceneHeight}`);
+    svg.style.width = `${sceneWidth}px`;
+    svg.style.height = `${sceneHeight}px`;
+    svg.setAttribute('aria-hidden', 'true');
+    const defs = document.createElementNS(svgNS, 'defs');
+    ['dep', 'data', 'sync', 'loop', 'state', 'detail'].forEach((type) => {
+      const marker = document.createElementNS(svgNS, 'marker');
+      marker.setAttribute('id', `pypa-arrow-${type}`);
+      marker.setAttribute('viewBox', '0 0 10 10');
+      marker.setAttribute('refX', '9'); marker.setAttribute('refY', '5');
+      marker.setAttribute('markerWidth', '7'); marker.setAttribute('markerHeight', '7');
+      marker.setAttribute('orient', 'auto-start-reverse');
+      const arrow = document.createElementNS(svgNS, 'path');
+      arrow.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+      arrow.setAttribute('class', `kf-pypa-graph__arrow is-${type}`);
+      marker.appendChild(arrow); defs.appendChild(marker);
+    });
+    svg.appendChild(defs);
+    graph.edges.forEach((edge) => {
+      const source = byId.get(edge.s);
+      const target = byId.get(edge.t);
+      if (!source || !target) return;
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const vertical = Math.abs(dy) > Math.abs(dx) * 0.95;
+      let sx, sy, tx, ty, path;
+      if (edge.route === 'state') {
+        sx = source.x + source.w / 2; sy = source.y + source.h;
+        tx = target.x + target.w / 2; ty = target.y + target.h;
+        const routeY = Math.max(source.y + source.h, target.y + target.h) + 115;
+        path = `M ${sx} ${sy} C ${sx} ${routeY}, ${tx} ${routeY}, ${tx} ${ty}`;
+      } else if (vertical) {
+        const down = dy > 0;
+        sx = source.x + source.w / 2; sy = source.y + (down ? source.h : 0);
+        tx = target.x + target.w / 2; ty = target.y + (down ? 0 : target.h);
+        const mid = (sy + ty) / 2;
+        path = `M ${sx} ${sy} C ${sx} ${mid}, ${tx} ${mid}, ${tx} ${ty}`;
+      } else {
+        const right = dx > 0;
+        sx = source.x + (right ? source.w : 0); sy = source.y + source.h / 2;
+        tx = target.x + (right ? 0 : target.w); ty = target.y + target.h / 2;
+        const mid = (sx + tx) / 2;
+        path = `M ${sx} ${sy} C ${mid} ${sy}, ${mid} ${ty}, ${tx} ${ty}`;
+      }
+      const line = document.createElementNS(svgNS, 'path');
+      line.setAttribute('d', path);
+      line.setAttribute('class', `kf-pypa-graph__edge is-${edge.route || edge.type || 'dep'}`);
+      line.setAttribute('marker-end', `url(#pypa-arrow-${edge.route || edge.type || 'dep'})`);
+      svg.appendChild(line);
+      if (pypaGraphView === 'compute' && edge.label) {
+        const label = document.createElementNS(svgNS, 'text');
+        const labelX = (sx + tx) / 2;
+        const labelY = (sy + ty) / 2 - 7;
+        label.setAttribute('x', String(labelX));
+        label.setAttribute('y', String(labelY));
+        label.setAttribute('class', 'kf-pypa-graph__edge-label');
+        label.textContent = edge.label;
+        svg.appendChild(label);
+      }
+    });
+    scene.replaceChildren();
+    graph.groups?.forEach((group) => {
+      const box = document.createElement('div');
+      box.className = 'kf-pypa-graph__group';
+      box.style.cssText = `left:${group.x}px;top:${group.y}px;width:${group.w}px;height:${group.h}px`;
+      box.innerHTML = `<span>${pypaEscape(group.label)}</span>`;
+      scene.appendChild(box);
+    });
+    placedNodes.filter((node) => node.expandedGroup).forEach((node) => {
+      const box = document.createElement('div');
+      box.className = `kf-pypa-graph__expanded-group${node.id === pypaSelectedNodeId ? ' is-selected' : ''}`;
+      box.dataset.pypaGroup = node.id;
+      box.style.cssText = `left:${node.x - 3}px;top:${node.y - 8}px;width:${node.w + 6}px;height:${node.groupHeight}px`;
+      scene.appendChild(box);
+    });
+    scene.appendChild(svg);
+    placedNodes.forEach((node) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `kf-pypa-graph__node is-${node.kind}${pypaGraphView === 'compute' ? ' is-computation' : ''}${node.expandedGroup ? ' is-expanded-head' : ''}${node.childOperation ? ' is-detail-node' : ''}${node.id === pypaSelectedNodeId ? ' is-selected' : ''}`;
+      button.dataset.pypaNode = node.id;
+      if (node.expandable) {
+        button.dataset.pypaExpand = node.id;
+        button.setAttribute('aria-expanded', String(pypaExpandedStages.has(node.id)));
+      }
+      button.style.left = `${node.x}px`;
+      button.style.top = `${node.y}px`;
+      button.style.width = `${node.w}px`;
+      button.style.minHeight = `${node.h}px`;
+      button.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${node.meta?.length ? '，' + node.meta.join('，') : ''}`);
+      button.innerHTML = `<span class="kf-pypa-graph__node-head">${node.expandedGroup || node.childOperation ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : `<small>${pypaEscape(node.sub)}</small>`}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
+      scene.appendChild(button);
+    });
+    // 初始取景：按视图给出一个「刚好铺满」的默认变换，供 复位 使用
+    const defaultView = () => {
+      const fit = pypaGraphView === 'overview'
+        ? Math.min(0.65, (viewport.clientWidth - 32) / 1500, (viewport.clientHeight - 32) / 1040)
+        : Math.min(0.68, (viewport.clientWidth - 48) / 1450, (viewport.clientHeight - 190) / 880);
+      return {
+        scale: fit,
+        tx: pypaGraphView === 'overview'
+          ? (viewport.clientWidth - 1500 * fit) / 2 - 450 * fit
+          : (viewport.clientWidth - 1390 * fit) / 2 - 310 * fit,
+        ty: pypaGraphView === 'overview' ? 250 : 185 - 225 * fit,
+      };
+    };
+    const viewportWidth = viewport.clientWidth;
+    const viewportHeight = viewport.clientHeight;
+    let { scale, tx, ty } = defaultView();
+    // 面板收起时视口是 0×0，这时算出来的取景是废的。如果把它当成「用户视角」缓存下来，
+    // 面板一显示就会沿用这个畸形变换（缩放会变成负数）。所以只有两次都是在可见状态下
+    // 渲染的，才允许沿用上一次的平移与缩放。
+    const reusable = viewportWidth > 1 && viewportHeight > 1 && pypaGraphSize?.w > 1 && pypaGraphSize?.h > 1;
+    if (reusable && pypaGraphRenderedView === pypaGraphView && pypaGraphTransform) {
+      ({ scale, tx, ty } = pypaGraphTransform);
+    }
+    pypaGraphRenderedView = pypaGraphView;
+    pypaGraphSize = { w: viewportWidth, h: viewportHeight };
+    const clampScale = (value) => Math.max(0.28, Math.min(1.6, value));
+    const apply = () => {
+      scene.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+      pypaGraphTransform = { scale, tx, ty };
+      syncPypaGraphZoom();
+    };
+    // 以视口中心为锚点缩放：按钮和键盘都没有鼠标位置，绕中心最符合直觉。
+    const zoomBy = (factor) => {
+      const cx = viewport.clientWidth / 2;
+      const cy = viewport.clientHeight / 2;
+      const next = clampScale(scale * factor);
+      if (next === scale) return;
+      tx = cx - (cx - tx) * (next / scale);
+      ty = cy - (cy - ty) * (next / scale);
+      scale = next;
+      apply();
+    };
+    controller.getScale = () => scale;
+    controller.zoomBy = zoomBy;
+    controller.setScale = (value) => zoomBy(value / scale);
+    controller.reset = () => { ({ scale, tx, ty } = defaultView()); apply(); };
+    controller.fit = () => {
+      const box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+      [...placedNodes, ...(graph.groups || [])].forEach((item) => {
+        box.minX = Math.min(box.minX, item.x);
+        box.minY = Math.min(box.minY, item.y);
+        box.maxX = Math.max(box.maxX, item.x + (item.w ?? 0));
+        box.maxY = Math.max(box.maxY, item.y + (item.h ?? 0));
+      });
+      if (!Number.isFinite(box.minX)) return;
+      const pad = 44;
+      const boxW = Math.max(1, box.maxX - box.minX);
+      const boxH = Math.max(1, box.maxY - box.minY);
+      scale = clampScale(Math.min((viewport.clientWidth - pad * 2) / boxW, (viewport.clientHeight - pad * 2) / boxH));
+      tx = (viewport.clientWidth - boxW * scale) / 2 - box.minX * scale;
+      ty = (viewport.clientHeight - boxH * scale) / 2 - box.minY * scale;
+      apply();
+    };
+    controller.focusNode = (node) => {
+      tx = viewport.clientWidth / 2 - (node.x + node.w / 2) * scale;
+      ty = viewport.clientHeight / 2 - (node.y + node.h / 2) * scale;
+      apply();
+    };
+    apply();
+    let last = null;
+    viewport.addEventListener('pointerdown', (event) => {
+      if (event.target.closest('[data-pypa-node], [data-pypa-ops], #pypaNodeInspector')) return;
+      last = { x: event.clientX, y: event.clientY };
+      viewport.setPointerCapture(event.pointerId);
+    }, { signal: controller.signal });
+    viewport.addEventListener('pointermove', (event) => {
+      if (!last) return;
+      tx += event.clientX - last.x; ty += event.clientY - last.y;
+      last = { x: event.clientX, y: event.clientY };
+      apply();
+    }, { signal: controller.signal });
+    viewport.addEventListener('pointerup', () => { last = null; }, { signal: controller.signal });
+    viewport.addEventListener('pointercancel', () => { last = null; }, { signal: controller.signal });
+    viewport.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const x = event.clientX - rect.left, y = event.clientY - rect.top;
+      const worldX = (x - tx) / scale, worldY = (y - ty) / scale;
+      scale = clampScale(scale * (event.deltaY < 0 ? 1.1 : 0.9));
+      tx = x - worldX * scale; ty = y - worldY * scale;
+      apply();
+    }, { passive: false, signal: controller.signal });
+    // 双击空白处 = 适应画布（双击节点留给选中/定位）
+    viewport.addEventListener('dblclick', (event) => {
+      if (event.target.closest('[data-pypa-node]')) return;
+      controller.fit();
+    }, { signal: controller.signal });
+    viewport.addEventListener('keydown', (event) => {
+      if (event.key === '+' || event.key === '=') { event.preventDefault(); zoomBy(1.1); }
+      else if (event.key === '-' || event.key === '_') { event.preventDefault(); zoomBy(1 / 1.1); }
+      else if (event.key === '0') { event.preventDefault(); controller.fit(); }
+      else if (event.key === '1') { event.preventDefault(); controller.setScale(1); }
+    }, { signal: controller.signal });
+    // 面板从「收起」切到「显示」时，视口才第一次有尺寸——这时按默认取景重新框一遍。
+    // 尺寸本来就有、只是被拖动调宽调窄的，不动用户当前的平移与缩放。
+    if (typeof ResizeObserver !== 'undefined') {
+      // 用当前尺寸初始化，而不是 0——否则 observer 的首次回调会被当成"面板刚出现"，
+      // 每次重渲染都把用户刚调好的缩放平移复位掉。
+      let lastWidth = viewport.clientWidth;
+      let lastHeight = viewport.clientHeight;
+      const observer = new ResizeObserver(() => {
+        const width = viewport.clientWidth;
+        const height = viewport.clientHeight;
+        const appeared = (lastWidth <= 1 || lastHeight <= 1) && width > 1 && height > 1;
+        lastWidth = width;
+        lastHeight = height;
+        if (appeared) controller.reset();
+      });
+      observer.observe(viewport);
+      controller.signal.addEventListener('abort', () => observer.disconnect());
+    }
+  }
+
+  // 缩放读数：图每次重建都会换一个 controller，所以读的时候现取
+  function syncPypaGraphZoom() {
+    const readout = $('#pypaGraphZoom');
+    if (!readout) return;
+    const scale = pypaGraphController?.getScale?.();
+    readout.textContent = scale ? `${Math.round(scale * 100)}%` : '—';
+  }
+
+  let pypaSelectedNodeId = null;
+  function selectPypaGraphNode(node, { pan = false } = {}) {
+    if (!node || pypaGraphView !== 'compute') return;
+    pypaSelectedNodeId = node.id;
+    $$('#pypaTaskScene [data-pypa-node]').forEach((item) => item.classList.toggle('is-selected', item.dataset.pypaNode === pypaSelectedNodeId));
+    $$('#pypaTaskScene [data-pypa-group]').forEach((item) => item.classList.toggle('is-selected', item.dataset.pypaGroup === pypaSelectedNodeId));
+    if (pan) pypaGraphController?.focusNode?.(node);
+    const inspector = $('#pypaNodeInspector');
+    if (inspector) {
+      inspector.hidden = false;
+      inspector.innerHTML = `<div class="kf-pypa-graph__inspector-head"><span>NODE INSPECTOR</span><button type="button" data-pypa-inspector-close aria-label="关闭节点详情">×</button></div><strong>${pypaEscape(node.title)}</strong><p>${pypaEscape(node.detail)}</p><div><span>${node.type === 'operation' ? '计算操作' : '数据对象'}</span><span>源码 ${pypaEscape(node.lines)}</span></div><small>关联 API · ${pypaEscape(node.api)}</small><em>${pypaEscape(node.evidence)}；图中位置表达计算依赖，不代表设备执行时序。</em>`;
+    }
+  }
+
+  /* 总览保留原始任务图；计算流程按 operation 阶段收起跨 pipe 的执行细节。 */
+  function renderSourceRegionPanel() {
+    const host = $('#inspector');
+    if (!host) return;
+    pypaGraphController?.abort?.();
+    pypaGraphController = null;
+    host.classList.remove('is-op-inspector');
+    $('#inspectorTitle').textContent = '计算流程图';
+    $('#inspectorMeta').textContent = PAGED_ATTENTION_PYPTO_FILE;
+    host.innerHTML = `
+      <section class="kf-pypa-graph" aria-label="Paged Attention 计算流程">
+        <div class="kf-pypa-graph__viewport" id="pypaTaskViewport" tabindex="0" aria-label="任务计算图画布：拖拽平移、滚轮缩放，加减号缩放，0 适应画布"><div class="kf-pypa-graph__scene" id="pypaTaskScene"></div></div>
+        <div class="kf-pypa-graph__ops" role="group" aria-label="画布操作">
+          <div class="kf-pypa-graph__zoom">
+            <button type="button" data-pypa-op="out" aria-label="缩小" title="缩小（-）">−</button>
+            <span class="kf-pypa-graph__readout" id="pypaGraphZoom" aria-live="polite">100%</span>
+            <button type="button" data-pypa-op="in" aria-label="放大" title="放大（+）">＋</button>
+          </div>
+          <span class="kf-pypa-graph__sep" aria-hidden="true"></span>
+          <button type="button" data-pypa-op="fit" title="适应画布（0）">适应</button>
+          <button type="button" data-pypa-op="actual" title="按原始比例显示">1:1</button>
+          <button type="button" data-pypa-op="reset" title="回到初始视图">复位</button>
+        </div>
+        <div class="kf-pypa-graph__overview"><span class="kf-eyebrow">算子概述</span><b>Qwen3-14B · Paged Attention</b>${pypaGraphView === 'compute'
+          ? '<p>Q/K/V 平行准备；K/V 追加到分页缓存。Q 与 K Cache 形成 Scores，Softmax 生成 P，P 与 V Cache 形成 Context，最后归一化输出。</p><small>蓝色：计算操作 · 绿色：数据对象 · 分组框：算法语义区域</small>'
+          : '<p>24 个 MIX SPMD block 先完成 Q/K/V 准备，再以 3 个 transfer buffer 与 FFTS event 串起 AIC QK → AIV Softmax → AIC PV → AIV 输出。相邻 stack 可重叠执行。</p><small>7 个启动依赖 · 32 个 Phase-0 AIV lane · 最多 128 个 work item · PRE_LAUNCH=2</small>'}</div>
+        <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角"><button class="btn btn-ghost${pypaGraphView === 'overview' ? ' is-active' : ''}" type="button" data-pypa-view="overview" aria-pressed="${pypaGraphView === 'overview'}">总览</button><button class="btn btn-ghost${pypaGraphView === 'compute' ? ' is-active' : ''}" type="button" data-pypa-view="compute" aria-pressed="${pypaGraphView === 'compute'}">计算流程</button><button class="btn btn-ghost" type="button" disabled>Tensor Shape</button><button class="btn btn-ghost" type="button" disabled>精度</button><button class="btn btn-ghost" type="button" disabled>执行硬件</button><button class="btn btn-ghost" type="button" disabled>Buffer / Memory</button></div>
+        ${pypaGraphView === 'compute' ? '<aside class="kf-pypa-graph__inspector" id="pypaNodeInspector" aria-label="Node Inspector" hidden></aside>' : ''}
+        ${pypaGraphView === 'overview' ? '<footer class="kf-pypa-graph__status" id="pypaGraphStatus">拖拽平移 · 滚轮缩放 · 点击节点定位源码</footer>' : ''}
+      </section>`;
+    renderPyptoTaskGraph();
+  }
+
+  /* ---- 可视化模式：源码地图右上角的按钮 -------------------------------------
+     这个文件默认只看代码（右侧面板收起、资源管理器保留）；点「可视化」切到
+     「代码 30% + 分析面板 70%」并把左侧资源管理器收起。再点一次切回代码优先。
+
+     这里直接管 #ideMainSplit 三个 pane 的 hidden / flex，**不点 ide-frame 的
+     toggle 按钮**：那个按钮内部会走 setSizes() 重新分配并写 localStorage，
+     既没法精确还原进入前的宽度，退出后也会把宽度留在被改过的状态。
+     做法是进入前先快照三个 pane 的 inline 状态，离开文件时原样贴回去。 */
+  const MAIN_SPLIT_PANES = ['explorer', 'editor-preview', 'inspector'];
+
+  // 进入「只看代码 / 可视化」之前的布局快照；null 表示当前没接管
+  let pyptoPaneSnapshot = null;
+
+  function mainSplitPane(name) {
+    return $(`#ideMainSplit > [data-ide-pane="${name}"]`);
+  }
+
+  function paneGutterAfter(pane) {
+    const next = pane?.nextElementSibling;
+    return next?.classList?.contains('pto-workbench-shell__split-gutter') ? next : null;
+  }
+
+  function captureMainSplitLayout() {
+    return MAIN_SPLIT_PANES.map((name) => {
+      const pane = mainSplitPane(name);
+      if (!pane) return null;
+      // 每段分隔条挂在它左边那个 pane 之后（pane0 之后是 0↔1 的条，依此类推）
+      const gutter = paneGutterAfter(pane);
+      return {
+        pane,
+        gutter,
+        hidden: pane.hidden,
+        gutterHidden: gutter ? gutter.hidden : null,
+        flex: pane.style.flex,
+        flexBasis: pane.style.flexBasis,
+        width: pane.style.width,
+        grow: Number.parseFloat(pane.style.flex || '') || 0,
+      };
+    });
+  }
+
+  function restoreMainSplitLayout(snapshot) {
+    (snapshot || []).forEach((entry) => {
+      if (!entry) return;
+      entry.pane.hidden = entry.hidden;
+      entry.pane.style.flex = entry.flex;
+      entry.pane.style.flexBasis = entry.flexBasis;
+      entry.pane.style.width = entry.width;
+      if (entry.gutter && entry.gutterHidden != null) entry.gutter.hidden = entry.gutterHidden;
+    });
+  }
+
+  // 按 [explorer, editor, inspector] 的可见性与 flex-grow 重排。
+  // 隐藏的 pane 是 display:none，不参与 flex 分配，所以剩余可见 pane 自动平分整宽；
+  // 分隔条只有夹在两个可见 pane 之间时才显示。
+  function applyMainSplitLayout(snapshot, visible, grows) {
+    (snapshot || []).forEach((entry, index) => {
+      if (!entry) return;
+      const shown = visible[index];
+      entry.pane.hidden = !shown;
+      entry.pane.style.flex = shown ? `${grows[index]} 1 0%` : '0 0 0px';
+      entry.pane.style.flexBasis = shown ? '0%' : '0px';
+      entry.pane.style.width = 'auto';
+      if (entry.gutter) entry.gutter.hidden = !(shown && visible[index + 1]);
+    });
+  }
+
+  // 代码优先：资源管理器保持原比例，编辑器吃掉分析面板让出来的那份宽度
+  function applyCodeFirstMainSplit(snapshot) {
+    const [explorer, editor, inspector] = snapshot || [];
+    const explorerVisible = Boolean(explorer) && !explorer.hidden;
+    const editorGrow = (editor?.grow || 0) + (inspector?.grow || 0) + (explorerVisible ? 0 : (explorer?.grow || 0));
+    applyMainSplitLayout(
+      snapshot,
+      [explorerVisible, true, false],
+      [explorer?.grow || 1, editorGrow || 1, 0],
+    );
+  }
+
+  // 可视化：收起资源管理器，代码 30% / 分析面板 70%
+  function applyVisualizeMainSplit(snapshot) {
+    applyMainSplitLayout(snapshot, [false, true, true], [0, 30, 70]);
+  }
+
+  function isSourceRegionVisualizeOn() {
+    const inspector = mainSplitPane('inspector');
+    return Boolean(inspector) && !inspector.hidden;
+  }
+
+  // 窄屏（<1180px）时响应式样式会把 inspector 整个 display:none（见
+  // typography-responsive.css），这时"可视化"只会白白收起资源管理器、留一大片空白。
+  function inspectorPaneDisplayable() {
+    const inspector = mainSplitPane('inspector');
+    return Boolean(inspector) && !inspector.hidden && inspector.getClientRects().length > 0;
+  }
+
+  function syncSourceRegionVisualizeButton() {
+    const on = isSourceRegionVisualizeOn();
+    $$('[data-source-region-visualize]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(on));
+      button.classList.toggle('is-on', on);
+    });
+  }
+
+  // 选中该文件：先快照当前布局，再切成代码优先（右侧面板不展示）
+  function enterPagedAttentionPyptoLayout() {
+    if (!pyptoPaneSnapshot) pyptoPaneSnapshot = captureMainSplitLayout();
+    applyCodeFirstMainSplit(pyptoPaneSnapshot);
+    syncSourceRegionVisualizeButton();
+  }
+
+  // 离开该文件：把快照原样贴回去，等于这个文件从没动过分栏宽度
+  function leavePagedAttentionPyptoLayout() {
+    if (!pyptoPaneSnapshot) return;
+    restoreMainSplitLayout(pyptoPaneSnapshot);
+    pyptoPaneSnapshot = null;
+    syncSourceRegionVisualizeButton();
+  }
+
+  function setSourceRegionVisualize(on) {
+    if (!pyptoPaneSnapshot) pyptoPaneSnapshot = captureMainSplitLayout();
+    if (!on) {
+      applyCodeFirstMainSplit(pyptoPaneSnapshot);
+    } else {
+      applyVisualizeMainSplit(pyptoPaneSnapshot);
+      // 收起资源管理器后右侧面板却显示不出来（窄屏）→ 退回代码优先，别留空白
+      if (!inspectorPaneDisplayable()) applyCodeFirstMainSplit(pyptoPaneSnapshot);
+    }
+    syncSourceRegionVisualizeButton();
+    if (isSourceRegionVisualizeOn() && isPagedAttentionPyptoFile(state.activeFile)) renderSourceRegionPanel();
   }
 
   // align: 'center'（默认，看上下文）| 'top'（把目标行顶到顶部往下一点）。
@@ -1778,20 +2569,27 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     requestAnimationFrame(settle);
   }
 
-  function markPagedAttentionTargetLine(line) {
+  function markSourceRegionTargetLine(line) {
     const row = $(`#dslEditor [data-paged-attention-line="${line}"]`);
     $$('#dslEditor .is-paged-attention-line-target').forEach((el) => el.classList.remove('is-paged-attention-line-target'));
     if (row) row.classList.add('is-paged-attention-line-target');
     return row;
   }
 
-  // 卡片 → 源码：精确定位到该声明 / 该 Kernel 的定义行
-  function revealPagedAttentionLine(line) {
+  // 卡片 / 段落条 → 源码：精确定位到某一行
+  function revealSourceRegionLine(line, { align = 'center' } = {}) {
+    const spec = sourceRegionSpec();
     const target = Number(line);
-    if (!target || !isPagedAttentionFile(state.activeFile)) return;
-    state.pagedAttentionLine = target;
-    const row = markPagedAttentionTargetLine(target);
-    if (row) scrollEditorRowIntoView(row);
+    if (!target || !spec) return;
+    spec.setLine(target);
+    const row = markSourceRegionTargetLine(target);
+    if (row) scrollEditorRowIntoView(row, { align });
+  }
+
+  // 卡片 → 源码：精确定位到该声明 / 该 Kernel 的定义行（仅 paged_attention 面板使用）
+  function revealPagedAttentionLine(line) {
+    if (!isPagedAttentionFile(state.activeFile)) return;
+    revealSourceRegionLine(line);
   }
 
   // §5.1 JIT 入口与函数层级
@@ -2452,7 +3250,14 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     // 一屏里出现两次；风险的归属地已经由抽屉里每条的行号按钮承担，去掉。
     return `
       <p class="kf-op-inline-note">1 个 Orchestration 驱动 5 个 InCore kernel，按 KV Block 迭代做 online softmax。点节点展开核内子图并定位源码。</p>
-      <div class="kf-pa-graph-panel">${paGraphLayerSwitch()}<div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
+      <div class="kf-pa-graph-panel">${paGraphLayerSwitch()}
+      <div class="kf-pa-graph-canvas">
+        <button type="button" class="kf-pa-graph-maximize" data-graph-maximize title="最大化查看 · 支持缩放与拖拽" aria-label="最大化查看任务计算图">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>
+          <span>最大化</span>
+        </button>
+        <div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-pa-computation__stage" id="pagedAttentionComputationGraph" aria-label="动态 Paged Attention 任务计算图"></div>
+      </div>
       <footer id="pagedAttentionGraphStatus" class="kf-pa-graph-status">点击节点展开核内子图并定位源码 · 拖拽 / 缩放查看全图</footer></div>`;
   }
 
@@ -2787,7 +3592,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       drawer,
       mode: state.opMode,
     });
-    $$('#dslEditor [data-paged-attention-focus]').forEach(row => row.classList.toggle('is-paged-attention-line-active', row.dataset.pagedAttentionFocus === state.pagedAttentionFocus));
+    highlightSourceRegionRows(state.pagedAttentionFocus);
     // 走同一条定位路径：顶部对齐 + 标记段首行 + 段落条跟着切。原来这里是
     // 单独一句 scrollIntoView({block:'center'})，既不更新段落条，居中之后
     // 段落条还会落在上一段上。
@@ -2795,11 +3600,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (state.opTab === 'overview' && !drawer) renderPagedAttentionComputationGraph();
   }
 
-  function renderPagedAttentionComputationGraph() {
-    const pattern = window.PtoModelGraphvizPattern;
-    const stage = $('#pagedAttentionComputationGraph');
-    const status = $('#pagedAttentionGraphStatus');
-    if (!pattern || !stage) return;
+  // 把"从 state 构建这张任务计算图"的逻辑单独抽出来：内联小图和最大化弹窗
+  // 用的是同一份数据、同一套叠加图层，只有承载的画布与 fit 参数不同。
+  function buildPagedAttentionGraphSpec() {
     const overlays = {
       data: {
         'pa-query': ['[B×H, D] · In', 'io:activation'], 'pa-context': ['[B] · In', 'io:state'], 'pa-table': ['[B×MaxBlocks] · In', 'io:state'], 'pa-page': ['scalar block_id → row', 'sem:comm'], 'pa-kv': ['slice [Block, D] × 2 · In', 'io:state'], 'pa-qk': ['sij [q_tile, block_size] · Out', 'sem:linear'], 'pa-mask': ['[q_tile, valid_len] · view', 'sem:comm'], 'pa-softmax': ['pij [q,B] · mi/li [q,1] · Out', 'sem:softmax'], 'pa-pv': ['oi_tmp [q_tile, D] · Out', 'sem:linear'], 'pa-online': ['mi/li/oi · InOut · dst · Out', 'sem:softmax'], 'pa-out': ['[B×H, D] · Out', 'io:output'],
@@ -2991,38 +3794,63 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       nodes: graphNodes,
       edges: orthogonalEdges,
     };
-    stage.classList.toggle('is-expanded', Boolean(expandedId));
-    pagedAttentionGraphController = pattern.renderController(stage, graph, {
+    return { graph, childFocusMap, expandedId, expandedSpec };
+  }
+
+  // 内联小图与最大化弹窗共用的 renderController 选项。
+  function pagedAttentionGraphOptions(graph, childFocusMap, rerender) {
+    const pattern = window.PtoModelGraphvizPattern;
+    return {
       ariaLabel: 'Dynamic paged attention with page lookup, QK, softmax, PV and online update',
       colormap: pattern.modelArchitectureColormap(graph),
       fitMode: 'full', viewportPadding: 18, autoFit: true,
       interaction: { panZoom: true, selectableClusters: false },
       overlays: { edgeTags: true },
-      onSelect: ({ nodeId }) => {
-        if (pagedAttentionDrilldowns[nodeId]) {
-          state.pagedAttentionExpandedNode = state.pagedAttentionExpandedNode === nodeId ? null : nodeId;
-          state.pagedAttentionFocus = pagedAttentionDrilldowns[nodeId].focus;
-          pagedAttentionGraphController?.destroy?.();
-          pagedAttentionGraphController = null;
-          renderPagedAttentionComputationGraph();
-          // 展开细粒度子图的同时源码也要跟过去——否则展开了一个 kernel 的内部，
-          // 中间还停在别处
-          focusPagedAttentionSource(state.pagedAttentionFocus);
-          return;
-        }
-        const focus = pagedAttentionGraphFocus[nodeId] || childFocusMap.get(nodeId);
-        if (!focus) return;
-        if (pagedAttentionGraphFocus[nodeId]) state.pagedAttentionNode = nodeId;
-        syncPagedAttentionSelection(focus);
-        // 不再自动弹「对象详情」抽屉。抽屉盖住面板 body，图就不再挂载了——
-        // 点完一个节点必须先关抽屉才能点下一个，源码联动只能用一次。
-        // 节点点击的语义是"带我去这一段"，详情仍可从张量表等入口打开。
-        focusPagedAttentionSource(focus);
-        const meta = pagedAttentionFocusMeta[focus];
-        if (status && meta) status.textContent = `${meta.label} · 源码第 ${meta.lines} 行 · ${meta.detail}${pagedAttentionPrecisionNotes[nodeId] ? ` · ${pagedAttentionPrecisionNotes[nodeId]}` : ''}`;
-        renderPagedAttentionInspector();
-      },
-    });
+      onSelect: ({ nodeId }) => handlePagedAttentionGraphSelect(nodeId, childFocusMap, rerender),
+    };
+  }
+
+  // 节点点击：可下钻的节点就地展开 / 收起，其余节点联动源码并刷新内联面板。
+  function handlePagedAttentionGraphSelect(nodeId, childFocusMap, rerender) {
+    const status = $('#pagedAttentionGraphStatus');
+    if (pagedAttentionDrilldowns[nodeId]) {
+      state.pagedAttentionExpandedNode = state.pagedAttentionExpandedNode === nodeId ? null : nodeId;
+      state.pagedAttentionFocus = pagedAttentionDrilldowns[nodeId].focus;
+      // 展开细粒度子图的同时源码也要跟过去——否则展开了一个 kernel 的内部，
+      // 中间还停在别处
+      rerender();
+      focusPagedAttentionSource(state.pagedAttentionFocus);
+      return;
+    }
+    const focus = pagedAttentionGraphFocus[nodeId] || childFocusMap.get(nodeId);
+    if (!focus) return;
+    if (pagedAttentionGraphFocus[nodeId]) state.pagedAttentionNode = nodeId;
+    syncPagedAttentionSelection(focus);
+    // 不再自动弹「对象详情」抽屉。抽屉盖住面板 body，图就不再挂载了——
+    // 点完一个节点必须先关抽屉才能点下一个，源码联动只能用一次。
+    // 节点点击的语义是"带我去这一段"，详情仍可从张量表等入口打开。
+    focusPagedAttentionSource(focus);
+    const meta = pagedAttentionFocusMeta[focus];
+    if (status && meta) status.textContent = `${meta.label} · 源码第 ${meta.lines} 行 · ${meta.detail}${pagedAttentionPrecisionNotes[nodeId] ? ` · ${pagedAttentionPrecisionNotes[nodeId]}` : ''}`;
+    renderPagedAttentionInspector();
+  }
+
+  function renderPagedAttentionComputationGraph() {
+    const pattern = window.PtoModelGraphvizPattern;
+    const stage = $('#pagedAttentionComputationGraph');
+    const status = $('#pagedAttentionGraphStatus');
+    if (!pattern || !stage) return;
+    // renderController 会清空容器，但旧控制器挂在容器上的监听要显式 abort 掉，
+    // 否则每次重渲都会多叠一层 pointer/wheel 监听。
+    pagedAttentionGraphController?.destroy?.();
+    pagedAttentionGraphController = null;
+    const { graph, childFocusMap, expandedId, expandedSpec } = buildPagedAttentionGraphSpec();
+    stage.classList.toggle('is-expanded', Boolean(expandedId));
+    pagedAttentionGraphController = pattern.renderController(
+      stage,
+      graph,
+      pagedAttentionGraphOptions(graph, childFocusMap, () => renderPagedAttentionComputationGraph()),
+    );
     if (expandedId) {
       const detailCluster = stage.querySelector(`[data-cluster-id="${expandedId}-detail"]`);
       detailCluster?.addEventListener('click', (event) => {
@@ -3030,13 +3858,175 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         event.preventDefault();
         event.stopImmediatePropagation();
         state.pagedAttentionExpandedNode = null;
-        pagedAttentionGraphController?.destroy?.();
-        pagedAttentionGraphController = null;
         renderPagedAttentionComputationGraph();
       }, true);
+      const layers = state.pagedAttentionLayers;
       const onNames = PA_GRAPH_LAYERS.filter(([key]) => layers[key]).map(([, label]) => label);
-          if (status) status.textContent = `${pagedAttentionFocusMeta[expandedSpec.focus].label} 已展开 · 点击 − 收起${onNames.length ? ` · 已叠加 ${onNames.join(' / ')}` : ' · 未叠加图层'}${pagedAttentionPrecisionNotes[expandedId] ? ` · ${pagedAttentionPrecisionNotes[expandedId]}` : ''}`;
+      if (status) status.textContent = `${pagedAttentionFocusMeta[expandedSpec.focus].label} 已展开 · 点击 − 收起${onNames.length ? ` · 已叠加 ${onNames.join(' / ')}` : ' · 未叠加图层'}${pagedAttentionPrecisionNotes[expandedId] ? ` · ${pagedAttentionPrecisionNotes[expandedId]}` : ''}`;
     }
+  }
+
+  /* ---- 任务计算图最大化视图 ------------------------------------------------
+     小图塞在概览第一屏里只有 380px 高，细粒度子图展开后基本看不清。这里给一个
+     占满视口的大弹窗，复用同一份图数据与叠加图层，画布操作交给 model-graphviz
+     自带的 pan/zoom，再补一排放大 / 缩小 / 适应 / 1:1 按钮与缩放读数。
+     单击节点仍然联动源码——弹窗只是画布变大，语义不变。 */
+  let pagedAttentionGraphModalController = null;
+  let pagedAttentionGraphModalEl = null;
+
+  function isPagedAttentionGraphModalOpen() {
+    return Boolean(pagedAttentionGraphModalEl && !pagedAttentionGraphModalEl.hidden);
+  }
+
+  function ensurePagedAttentionGraphModal() {
+    if (pagedAttentionGraphModalEl) return pagedAttentionGraphModalEl;
+    const el = document.createElement('div');
+    el.className = 'kf-graph-modal';
+    el.hidden = true;
+    el.innerHTML = `
+      <div class="kf-graph-modal__backdrop" data-graph-modal-close></div>
+      <div class="kf-graph-modal__dialog" role="dialog" aria-modal="true" aria-label="任务计算图 · 最大化视图">
+        <header class="kf-graph-modal__header">
+          <div class="kf-graph-modal__title">
+            <span class="kf-graph-modal__eyebrow">任务计算图</span>
+            <h2>paged_attention · 编排与核内子图</h2>
+          </div>
+          <div class="kf-graph-modal__actions">
+            <button type="button" class="kf-graph-modal__x" data-graph-modal-close aria-label="关闭最大化视图" title="关闭（Esc）">×</button>
+          </div>
+        </header>
+        <div class="kf-graph-modal__toolbar">
+          <div class="kf-graph-modal__zoom" role="group" aria-label="画布缩放">
+            <button type="button" data-graph-zoom="out" aria-label="缩小" title="缩小">−</button>
+            <span class="kf-graph-modal__readout" data-graph-zoom-readout aria-live="polite">100%</span>
+            <button type="button" data-graph-zoom="in" aria-label="放大" title="放大">＋</button>
+            <button type="button" data-graph-fit title="适应画布">适应</button>
+            <button type="button" data-graph-reset title="重置为原始比例">1:1</button>
+          </div>
+          <span class="kf-graph-modal__hint">滚轮缩放 · 拖拽平移 · 点击节点联动源码</span>
+          <div class="kf-graph-modal__layers" data-graph-modal-layers></div>
+        </div>
+        <div class="pto-model-graphviz-pattern-page pto-model-graphviz-stage kf-graph-modal__stage" id="pagedAttentionGraphModalStage" aria-label="任务计算图画布"></div>
+      </div>`;
+    document.body.appendChild(el);
+    pagedAttentionGraphModalEl = el;
+    bindPagedAttentionGraphModal(el);
+    return el;
+  }
+
+  function bindPagedAttentionGraphModal(el) {
+    el.addEventListener('click', (event) => {
+      if (event.target.closest('[data-graph-modal-close]')) { closePagedAttentionGraphModal(); return; }
+      const zoom = event.target.closest('[data-graph-zoom]');
+      if (zoom) { zoomPagedAttentionGraphModal(zoom.dataset.graphZoom === 'in' ? 1.2 : 1 / 1.2); return; }
+      if (event.target.closest('[data-graph-fit]')) { pagedAttentionGraphModalController?.fit?.(); scheduleGraphModalReadout(); return; }
+      if (event.target.closest('[data-graph-reset]')) { resetPagedAttentionGraphModalZoom(); return; }
+    });
+    // 弹窗里滚轮直接缩放（小图要按住 Ctrl），缩放后刷新百分比读数。
+    el.querySelector('#pagedAttentionGraphModalStage')?.addEventListener('wheel', () => scheduleGraphModalReadout(), { passive: true });
+  }
+
+  function scheduleGraphModalReadout() {
+    requestAnimationFrame(updatePagedAttentionGraphModalReadout);
+  }
+
+  function updatePagedAttentionGraphModalReadout() {
+    const controller = pagedAttentionGraphModalController;
+    const readout = pagedAttentionGraphModalEl?.querySelector('[data-graph-zoom-readout]');
+    if (!controller || !readout || typeof controller.getTransform !== 'function') return;
+    const transform = controller.getTransform();
+    if (transform) readout.textContent = `${Math.round(transform.zoom * 100)}%`;
+  }
+
+  // 以画布中心为锚点缩放——按钮点击没有鼠标位置，围绕中心才符合直觉。
+  function zoomPagedAttentionGraphModal(factor) {
+    const controller = pagedAttentionGraphModalController;
+    const stage = pagedAttentionGraphModalEl?.querySelector('#pagedAttentionGraphModalStage');
+    if (!controller || !stage || typeof controller.getTransform !== 'function') return;
+    const t = controller.getTransform();
+    const rect = stage.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const z0 = t.zoom;
+    const z1 = Math.max(0.18, Math.min(2.6, z0 * factor));
+    controller.setTransform({
+      tx: cx - (cx - t.tx) * (z1 / z0),
+      ty: cy - (cy - t.ty) * (z1 / z0),
+      zoom: z1,
+    });
+    updatePagedAttentionGraphModalReadout();
+  }
+
+  // 1:1 把图按原始像素居中摆放，便于看清节点文字。
+  function resetPagedAttentionGraphModalZoom() {
+    const controller = pagedAttentionGraphModalController;
+    const stage = pagedAttentionGraphModalEl?.querySelector('#pagedAttentionGraphModalStage');
+    if (!controller || !stage) return;
+    const w = controller.graph?.width || 1180;
+    const h = controller.graph?.height || 520;
+    const rect = stage.getBoundingClientRect();
+    controller.setTransform?.({ tx: (rect.width - w) / 2, ty: (rect.height - h) / 2, zoom: 1 });
+    updatePagedAttentionGraphModalReadout();
+  }
+
+  function renderPagedAttentionGraphModal() {
+    const pattern = window.PtoModelGraphvizPattern;
+    const modal = ensurePagedAttentionGraphModal();
+    const stage = modal.querySelector('#pagedAttentionGraphModalStage');
+    if (!pattern || !stage) return;
+    const layersHost = modal.querySelector('[data-graph-modal-layers]');
+    if (layersHost) layersHost.innerHTML = paGraphLayerSwitch();
+    pagedAttentionGraphModalController?.destroy?.();
+    pagedAttentionGraphModalController = null;
+    const { graph, childFocusMap } = buildPagedAttentionGraphSpec();
+    pagedAttentionGraphModalController = pattern.renderController(stage, graph, {
+      ariaLabel: 'Dynamic paged attention task computation graph · maximized',
+      colormap: pattern.modelArchitectureColormap(graph),
+      fitMode: 'full', viewportPadding: 32, autoFit: true,
+      interaction: { panZoom: true, wheelZoomWithoutModifier: true, selectableClusters: false },
+      overlays: { edgeTags: true },
+      onSelect: ({ nodeId }) => handlePagedAttentionGraphSelect(
+        nodeId,
+        childFocusMap,
+        () => { renderPagedAttentionComputationGraph(); renderPagedAttentionGraphModal(); },
+      ),
+    });
+    if (typeof pagedAttentionGraphModalController?.fit === 'function') {
+      requestAnimationFrame(() => {
+        pagedAttentionGraphModalController?.fit?.();
+        scheduleGraphModalReadout();
+      });
+    }
+  }
+
+  function openPagedAttentionGraphModal() {
+    const modal = ensurePagedAttentionGraphModal();
+    modal.hidden = false;
+    requestAnimationFrame(() => {
+      modal.classList.add('is-open');
+      renderPagedAttentionGraphModal();
+    });
+    modal.querySelector('.kf-graph-modal__x')?.focus?.();
+  }
+
+  function closePagedAttentionGraphModal() {
+    const modal = pagedAttentionGraphModalEl;
+    if (!modal || modal.hidden) return;
+    modal.classList.remove('is-open');
+    pagedAttentionGraphModalController?.destroy?.();
+    pagedAttentionGraphModalController = null;
+    const stage = modal.querySelector('#pagedAttentionGraphModalStage');
+    if (stage) stage.innerHTML = '';
+    modal.hidden = true;
+  }
+
+  // 叠加图层开关会同时影响内联小图和弹窗，统一把两边的按钮态刷成 state。
+  function syncPagedAttentionLayerSwitches() {
+    $$('[data-pa-layer]').forEach((button) => {
+      const on = Boolean(state.pagedAttentionLayers[button.dataset.paLayer]);
+      button.classList.toggle('is-on', on);
+      button.setAttribute('aria-checked', String(on));
+    });
   }
 
   // §10.1 统一选择上下文：当前 Function → 当前 Task → 当前 Tensor / Dependency 保持联动
@@ -3460,6 +4450,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     }
     if (isPagedAttentionFile(state.activeFile)) {
       renderPagedAttentionInspector();
+      return;
+    }
+    if (isPagedAttentionPyptoFile(state.activeFile)) {
+      renderSourceRegionPanel();
       return;
     }
     if (state.activeFile === PTO3_TILE_LAB_FILE) {
@@ -4132,6 +5126,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
 
   document.addEventListener('click', (event) => {
     if (!event.target.closest('#envControl') && !event.target.closest('#envFingerprintPanel')) setEnvironmentPanel(false);
+    // 源码地图的下拉：点到条以外的任何地方就收起。放在最前面是为了不被下面
+    // 那些带 return 的分支吃掉（比如点文件树、点右侧面板）。点条内的地方——
+    // 开关按钮 / 段按钮 / 可视化按钮——由各自的处理分支负责。
+    if (SOURCE_REGION_BAR_STATE.open && !event.target.closest('#sourceRegionBar')) {
+      SOURCE_REGION_BAR_STATE.open = false;
+      renderSourceRegionBar();
+    }
     const blockingIrAction = event.target.closest('[data-blocking-ir-action]');
     if (blockingIrAction) {
       toast(blockingIrAction.dataset.blockingIrAction === 'source'
@@ -4222,6 +5223,16 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         if (filePath === PTO3_TILE_LAB_FILE) {
           state.pto3LabTab = 'loops';
           state.pto3LabFocus = 'matmul';
+        }
+        if (isPagedAttentionPyptoFile(filePath)) {
+          state.sourceRegionFocus = null;
+          state.sourceRegionLine = null;
+          // 先不展示右侧面板：快照当前布局后切成"只看代码"。需要看分析时
+          // 点源码地图上的「可视化」。
+          enterPagedAttentionPyptoLayout();
+        } else {
+          // 离开该文件时把进入前的分栏宽度原样贴回去
+          leavePagedAttentionPyptoLayout();
         }
         state.hardwareFlowLine = 0;
         state.hardwareFlowPinned = false;
@@ -4360,7 +5371,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       // 也不重渲染——重渲染会把抽屉的滚动位置弹回顶部。
       const target = $(`#dslEditor [data-paged-attention-line="${line}"]`) || $(`#dslEditor div:nth-child(${line})`);
       if (target) {
-        markPagedAttentionTargetLine(line);
+        markSourceRegionTargetLine(line);
         scrollEditorRowIntoView(target, { align: 'top' });
         // 源码顶部的段落条跟着走，指出这条风险落在哪一段。按行号直接算，不读
         // 滚动位置——滚动这一刻还没落定。
@@ -4398,18 +5409,21 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       state.pagedAttentionDetailOpen = false;
       renderPagedAttentionInspector();
     }
+    // 任务计算图最大化：打开大弹窗看同一张图，画布操作见 kf-graph-modal。
+    const graphMaximize = event.target.closest('[data-graph-maximize]');
+    if (graphMaximize) {
+      openPagedAttentionGraphModal();
+      return;
+    }
     // 叠加图层开关：只重挂计算图，不重渲整个面板——重渲会把 Body 滚回顶部，
-    // 而开关就在图上方，开一下就跳走很难受。
+    // 而开关就在图上方，开一下就跳走很难受。弹窗打开时两边一起刷。
     const pagedAttentionLayer = event.target.closest('[data-pa-layer]');
     if (pagedAttentionLayer) {
       const key = pagedAttentionLayer.dataset.paLayer;
       state.pagedAttentionLayers = { ...state.pagedAttentionLayers, [key]: !state.pagedAttentionLayers[key] };
-      const on = state.pagedAttentionLayers[key];
-      pagedAttentionLayer.classList.toggle('is-on', on);
-      pagedAttentionLayer.setAttribute('aria-checked', String(on));
-      pagedAttentionGraphController?.destroy?.();
-      pagedAttentionGraphController = null;
+      syncPagedAttentionLayerSwitches();
       renderPagedAttentionComputationGraph();
+      if (isPagedAttentionGraphModalOpen()) renderPagedAttentionGraphModal();
       return;
     }
     const pagedAttentionTaskPick = event.target.closest('[data-pa2-task]');
@@ -4436,7 +5450,69 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       syncPagedAttentionSelection(state.pagedAttentionPipeKernel);
       renderPagedAttentionInspector({ scrollToFocus: true });
     }
+    // 计算流程图画布操作（缩放 / 适应 / 1:1 / 复位）
+    const pypaOp = event.target.closest('[data-pypa-op]');
+    if (pypaOp && isPagedAttentionPyptoFile(state.activeFile)) {
+      const controller = pypaGraphController;
+      if (controller) {
+        const op = pypaOp.dataset.pypaOp;
+        if (op === 'in') controller.zoomBy?.(1.1);
+        else if (op === 'out') controller.zoomBy?.(1 / 1.1);
+        else if (op === 'fit') controller.fit?.();
+        else if (op === 'actual') controller.setScale?.(1);
+        else if (op === 'reset') controller.reset?.();
+      }
+      return;
+    }
     // 源码地图（贴在源码顶部的 sticky 条）
+    const pypaViewButton = event.target.closest('[data-pypa-view]');
+    if (pypaViewButton && isPagedAttentionPyptoFile(state.activeFile)) {
+      const nextView = pypaViewButton.dataset.pypaView;
+      if (nextView !== pypaGraphView) {
+        pypaGraphView = nextView;
+        pypaGraphTransform = null;
+        renderSourceRegionPanel();
+      }
+      return;
+    }
+    if (event.target.closest('[data-pypa-inspector-close]')) {
+      const panel = $('#pypaNodeInspector');
+      if (panel) panel.hidden = true;
+      return;
+    }
+    const pyptoNode = event.target.closest('[data-pypa-node]');
+    if (pyptoNode && isPagedAttentionPyptoFile(state.activeFile)) {
+      const node = pypaVisibleGraph()?.nodes.find((item) => item.id === pyptoNode.dataset.pypaNode);
+      if (!node) return;
+      if (node.expandable) {
+        if (pypaExpandedStages.has(node.id)) pypaExpandedStages.delete(node.id);
+        else { pypaExpandedStages.clear(); pypaExpandedStages.add(node.id); }
+        renderPyptoTaskGraph();
+        if (pypaExpandedStages.has(node.id)) {
+          const visible = pypaVisibleGraph().nodes.find((item) => item.id === node.id);
+          if (visible) pypaGraphController?.focusNode?.({ ...visible, h: visible.groupHeight || visible.h });
+        }
+      }
+      if (pypaGraphView === 'compute') selectPypaGraphNode(node);
+      else $$('#pypaTaskScene [data-pypa-node]').forEach((item) => item.classList.toggle('is-selected', item.dataset.pypaNode === node.id));
+      const line = Number(node.sourceLine || node.lines?.match(/\d+/)?.[0]);
+      if (line) {
+        const focus = pagedAttentionPyptoFocusForLine(line);
+        state.sourceRegionFocus = focus;
+        focusSourceRegion(focus);
+        if (pypaGraphView === 'compute') revealSourceRegionLine(line);
+      }
+      const status = $('#pypaGraphStatus');
+      if (status) status.textContent = `${node.title} · 源码 ${node.lines || '—'} · ${node.detail}`;
+      return;
+    }
+    if (event.target.closest('[data-source-region-visualize]')) {
+      // 切模式时顺手把下拉收掉——否则列表会浮在刚换过的布局上
+      SOURCE_REGION_BAR_STATE.open = false;
+      setSourceRegionVisualize(!isSourceRegionVisualizeOn());
+      renderSourceRegionBar();
+      return;
+    }
     if (event.target.closest('[data-source-region-toggle]')) {
       SOURCE_REGION_BAR_STATE.open = !SOURCE_REGION_BAR_STATE.open;
       renderSourceRegionBar();
@@ -4444,15 +5520,15 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     }
     const sourceRegion = event.target.closest('[data-source-region]');
     if (sourceRegion) {
+      const spec = sourceRegionSpec();
       const key = sourceRegion.dataset.sourceRegion;
-      const range = pagedAttentionRegionRange(key);
+      const range = spec ? sourceRegionRange(spec, key) : null;
       SOURCE_REGION_BAR_STATE.open = false;
       SOURCE_REGION_BAR_STATE.focus = key;
-      syncPagedAttentionSelection(key);
       renderSourceRegionBar();
-      // 跳到段首行，并让右侧面板跟着切到同一段
-      if (range) revealPagedAttentionLine(range[0]);
-      renderPagedAttentionInspector();
+      // 跳到段首行；顶部对齐是为了让顶部段落条停在刚点的这一段上（居中会落到上一段）
+      if (range) revealSourceRegionLine(range[0], { align: 'top' });
+      spec?.onSelectRegion?.(key);
       return;
     }
     // Agent 结论的"完整分析"折叠：只记状态，展开动作交给 <details> 自己完成。
@@ -4468,7 +5544,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (pagedAttentionJump) {
       const jumpLine = Number(pagedAttentionJump.dataset.pa2Jump);
       state.pagedAttentionLine = jumpLine;
-      markPagedAttentionTargetLine(jumpLine);
+      markSourceRegionTargetLine(jumpLine);
       revealPagedAttentionLine(jumpLine);
       return;
     }
@@ -4484,14 +5560,30 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       renderPagedAttentionInspector({ scrollToFocus: !line });
       if (line) revealPagedAttentionLine(line);
     }
-    const pagedAttentionLine = event.target.closest('#dslEditor [data-paged-attention-line]');
-    if (pagedAttentionLine && isPagedAttentionFile(state.activeFile)) {
-      syncPagedAttentionSelection(pagedAttentionLine.dataset.pagedAttentionFocus);
-      state.pagedAttentionLine = Number(pagedAttentionLine.dataset.pagedAttentionLine);
-      state.pagedAttentionDetailOpen = true;
-      if (state.opTab !== 'overview') state.opTab = 'overview';
-      markPagedAttentionTargetLine(state.pagedAttentionLine);
-      renderPagedAttentionInspector();
+    const sourceRegionRow = event.target.closest('#dslEditor [data-paged-attention-line]');
+    if (sourceRegionRow) {
+      const spec = sourceRegionSpec();
+      if (spec) {
+        const focus = sourceRegionRow.dataset.pagedAttentionFocus;
+        const line = Number(sourceRegionRow.dataset.pagedAttentionLine);
+        if (spec.onSelectRow) spec.onSelectRow(focus, line);
+        else {
+          highlightSourceRegionRows(focus);
+          markSourceRegionTargetLine(line);
+        }
+        if (isPagedAttentionPyptoFile(state.activeFile) && pypaGraphView === 'compute' && isSourceRegionVisualizeOn()) {
+          const matches = pypaVisibleGraph().nodes.filter((node) => {
+            const [start, end = start] = node.lines.split('–').map(Number);
+            return line >= start && line <= end;
+          });
+          matches.sort((a, b) => {
+            const span = (node) => { const [start, end = start] = node.lines.split('–').map(Number); return end - start; };
+            return span(a) - span(b) || (a.type === 'operation' ? -1 : 1);
+          });
+          if (matches[0]) selectPypaGraphNode(matches[0], { pan: true });
+        }
+        return;
+      }
     }
     if (event.target.closest('[data-paged-attention-action="tests"]')) toast('已生成测试清单：动态 Shape 组合 · Q Head 尾 Tile · KV 末块 · 空/短 Context · BF16 Online Softmax');
     if (event.target.closest('[data-next]')) goTo(state.step + 1);
@@ -4597,6 +5689,17 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     closeModelSelector();
+    // 最大化弹窗优先关闭，避免 Esc 一路穿透到下面的抽屉
+    if (isPagedAttentionGraphModalOpen()) {
+      closePagedAttentionGraphModal();
+      return;
+    }
+    // 源码地图的下拉：Esc 先收它
+    if (SOURCE_REGION_BAR_STATE.open) {
+      SOURCE_REGION_BAR_STATE.open = false;
+      renderSourceRegionBar();
+      return;
+    }
     // 抽屉（风险 / 护栏 / 置信度 / 对象详情）共用同一个关闭路径
     if (state.opDrawer || state.pagedAttentionDetailOpen) {
       state.opDrawer = null;

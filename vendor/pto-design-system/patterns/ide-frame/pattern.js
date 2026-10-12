@@ -314,9 +314,18 @@
 
   function initInspectorToggle(frame, splits, splitInstances) {
     const toggle = qs(frame, '[data-ide-toggle="inspector"]');
-    const inspector = qs(frame, '[data-ide-pane="inspector"]');
     const mainSplit = qs(frame, '[data-ide-split="standalone-main"]');
-    if (!toggle || !inspector || !mainSplit) return null;
+    if (!toggle || !mainSplit) return null;
+    // A page may contain more than one [data-ide-pane="inspector"] (e.g. the model
+    // architecture view has its own inspector column). Resolve the pane the button
+    // actually controls — honour aria-controls first, then the main split's own
+    // panes — instead of taking the first match in the frame, which would silently
+    // collapse an unrelated pane.
+    const controlledId = toggle.getAttribute('aria-controls');
+    const inspector = (controlledId ? qs(frame, `#${controlledId}`) : null)
+      || directPanes(mainSplit).find((pane) => pane.dataset.idePane === 'inspector')
+      || qs(frame, '[data-ide-pane="inspector"]');
+    if (!inspector) return null;
 
     const splitIndex = splits.indexOf(mainSplit);
     const resizeInstance = splitInstances[splitIndex];
