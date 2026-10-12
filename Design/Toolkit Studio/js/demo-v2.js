@@ -1609,20 +1609,51 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     softmax: { label: '在线 Softmax 与 FIFO 更新 · Vector', lines: '726–862', detail: '双 AIV lane 上 scale / mask / row_max / exp / row_sum，用 pending FIFO 做三态 rescale' },
     out: { label: '输出归一化与写回', lines: '864–875', detail: 'o / l_sum 归一化并转 BF16 写回 out2d，返回本 kernel 的 attn_tid' },
   };
-  // 段首标签。tone 决定配色：flow=编排/结构（蓝）、cube=矩阵乘（黄）、
-  // vector=向量归约（绿）、meta=声明/常量（灰）。
+  // 行标签。比段落表细——除 11 个段首外，还在「能跟右侧计算图节点对上」的行上补了锚点，
+  // 标签文字直接沿用计算图节点的标题（node 字段记下出处，用于 tooltip 与圆点标记）。
+  // 对不上的（例如常量块、tail 分支）就用本地描述，不强行凑。
   const pagedAttentionPyptoSourceTags = {
     9: { focus: 'constants', label: 'Constants', tone: 'meta' },
-    67: { focus: 'signature', label: 'Signature', tone: 'meta' },
-    109: { focus: 'spmd', label: 'SPMD', tone: 'flow' },
-    127: { focus: 'kvphase', label: 'Phase 0 · K/V', tone: 'vector' },
+    17: { focus: 'constants', label: 'Shape 常量', tone: 'meta' },
+    68: { focus: 'signature', label: 'Signature', tone: 'meta', node: '总览 q_proj_tid / k_proj_tid / v_proj_tid / rms_tid / attn_out_seed_tid / mlp_out_seed_tid / scratch_ready_tid（7 个 Producer 节点）· 计算流程 Q/K/V Projection · Aux Inputs' },
+    102: { focus: 'signature', label: 'Cache BSND 视图', tone: 'flow' },
+    106: { focus: 'signature', label: 'q2d', tone: 'flow', node: '总览「q2d」· 计算流程「Q」' },
+    109: { focus: 'spmd', label: 'SPMD', tone: 'flow', node: '总览「attn_swpipe_spmd × 24」' },
+    128: { focus: 'kvphase', label: 'Phase 0 · K/V', tone: 'vector', node: '总览「Q/K Norm + RoPE + KV append」' },
+    152: { focus: 'kvphase', label: 'write_slot 夹取', tone: 'flow' },
+    175: { focus: 'kvphase', label: 'K Norm → RoPE', tone: 'vector', node: '计算流程「K Norm → RoPE」' },
+    184: { focus: 'kvphase', label: 'K RoPE', tone: 'vector', node: '计算流程「K Norm → RoPE」子步「K RoPE」' },
+    195: { focus: 'kvphase', label: 'Cache Append', tone: 'flow', node: '计算流程「Cache Append」·「K Cache」' },
+    200: { focus: 'kvphase', label: 'V Scaling', tone: 'vector', node: '计算流程「V Scaling」' },
+    210: { focus: 'kvphase', label: 'V Cache', tone: 'flow', node: '计算流程「V Cache」·「V」· 总览「K / V Cache」' },
     215: { focus: 'qphase', label: 'Phase 0 · Q', tone: 'vector' },
-    253: { focus: 'barrier', label: 'Barrier', tone: 'flow' },
-    261: { focus: 'taskloop', label: 'Task Loop', tone: 'flow' },
+    229: { focus: 'qphase', label: 'Q Norm → RoPE', tone: 'vector', node: '计算流程「Q Norm → RoPE」' },
+    237: { focus: 'qphase', label: 'Q RoPE', tone: 'vector', node: '计算流程「Q Norm → RoPE」子步「Q RoPE」' },
+    248: { focus: 'qphase', label: 'Q', tone: 'flow', node: '计算流程「Q」' },
+    254: { focus: 'barrier', label: 'Barrier', tone: 'flow', node: '总览「cacheinvalid → fence → syncall」' },
+    261: { focus: 'taskloop', label: 'work items', tone: 'flow', node: '总览「(batch, kv_head) work items」' },
     278: { focus: 'qk', label: 'QK · Cube', tone: 'cube' },
-    364: { focus: 'pv', label: 'PV · Cube', tone: 'cube' },
-    726: { focus: 'softmax', label: 'Softmax', tone: 'vector' },
-    864: { focus: 'out', label: 'Output', tone: 'meta' },
+    279: { focus: 'qk', label: 'tick + PRE_LAUNCH', tone: 'flow', node: '总览「tick + PRE_LAUNCH」' },
+    296: { focus: 'qk', label: 'QK Matmul', tone: 'cube', node: '计算流程「QK Matmul」· 总览「QK page producer」' },
+    301: { focus: 'qk', label: 'score_transfer', tone: 'cube', node: '总览「score_transfer」· 计算流程「Scores」' },
+    307: { focus: 'qk', label: 'Tail 1–3 page', tone: 'cube' },
+    357: { focus: 'qk', label: 'QK_READY', tone: 'flow', node: '总览「QK_READY」' },
+    365: { focus: 'pv', label: 'PV · Cube', tone: 'cube' },
+    447: { focus: 'pv', label: 'PV Matmul', tone: 'cube', node: '计算流程「PV Matmul」· 总览「PV page accumulation」' },
+    503: { focus: 'pv', label: 'pv_transfer', tone: 'cube', node: '总览「pv_transfer」' },
+    506: { focus: 'pv', label: 'Tail 1–3 page', tone: 'cube' },
+    719: { focus: 'pv', label: 'PV_READY', tone: 'flow', node: '总览「PV_READY」' },
+    726: { focus: 'softmax', label: 'Softmax', tone: 'vector', node: '总览「Online softmax update」' },
+    745: { focus: 'softmax', label: 'm / l_sum 初值', tone: 'vector' },
+    754: { focus: 'softmax', label: 'Rescale FIFO', tone: 'vector' },
+    777: { focus: 'softmax', label: 'Scaling + Mask', tone: 'vector', node: '计算流程「Scaling + Mask」' },
+    790: { focus: 'softmax', label: 'Online Softmax', tone: 'vector', node: '计算流程「Online Softmax」' },
+    802: { focus: 'softmax', label: 'Probability P', tone: 'vector', node: '计算流程「Probability P」· 总览「probability_transfer」' },
+    817: { focus: 'softmax', label: 'SOFTMAX_READY', tone: 'flow', node: '总览「SOFTMAX_READY」' },
+    842: { focus: 'softmax', label: 'Context Accumulate', tone: 'vector', node: '计算流程「Context Accumulate」· 总览「Output rescale + accumulate」' },
+    856: { focus: 'softmax', label: 'Context', tone: 'vector', node: '计算流程「Context」' },
+    864: { focus: 'out', label: 'Output Normalize', tone: 'meta', node: '计算流程「Output Normalize」· 总览「Normalize context + store」' },
+    869: { focus: 'out', label: 'Attention Output', tone: 'meta', node: '计算流程「Attention Output」' },
   };
   function pagedAttentionPyptoFocusForLine(lineNumber) {
     return lineNumber < 67 ? 'constants'
@@ -1818,8 +1849,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         // 该文件默认不展示右侧面板；源码地图右上角给一个「可视化」按钮，
         // 点它才展开 inspector 并收起左侧资源管理器（见 setSourceRegionVisualize）
         visualize: true,
-        tagClass: (tag) => `kf-pa-source-tag t-${tag.tone}`,
-        tagTitle: (tag) => `${pagedAttentionPyptoFocusMeta[tag.focus].detail} · 点击定位该段`,
+        // 带 node 的标签表示「这一行对应右侧计算图的某个节点」，加个圆点标记；
+        // 标签文字本身就是那个节点的标题。
+        tagClass: (tag) => `kf-pa-source-tag t-${tag.tone}${tag.node ? ' is-node' : ''}`,
+        tagTitle: (tag) => `${pagedAttentionPyptoFocusMeta[tag.focus].detail} · 点击定位该段${tag.node ? ` · 对应计算图节点：${tag.node}` : ''}`,
         rowTitle: (focus) => `${pagedAttentionPyptoFocusMeta[focus]?.label || ''} · 点击定位该段`,
         activeFocus: () => state.sourceRegionFocus,
         setLine: (line) => { state.sourceRegionLine = line; },
@@ -2008,67 +2041,65 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   function pypaVisibleGraph() {
     const source = window.PTO_PYPA_TASK_GRAPH;
     if (!source || pypaGraphView === 'overview') return source;
-    // 这里是计算语义图。坐标表达数据依赖，不表达 AIC/AIV 的实际执行时序。
+    // 计算语义数据只描述实体与依赖，坐标由通用布局器计算。
     const sourceLines = { 'q-proj': 68, 'k-proj': 68, 'v-proj': 68, 'q-prep': 229, 'k-prep': 175,
-      'v-scale': 201, q: 248, k: 198, v: 210, aux: 68, 'cache-append': 195,
+      'v-scale': 200, q: 248, k: 198, v: 210, aux: 68, 'cache-append': 195,
       'k-cache': 195, 'v-cache': 210, qk: 296, scores: 301, 'scale-mask': 777,
       softmax: 790, probability: 802, pv: 447, 'context-acc': 842,
       context: 856, 'output-norm': 864, output: 869 };
-    const n = (id, x, y, type, title, sub, lines, api, detail, extra = {}) => ({
-      id, x, y, w: type === 'data' ? 170 : 188, h: 88, type, kind: type,
+    const n = (id, type, title, sub, lines, api, detail, extra = {}) => ({
+      id, w: type === 'data' ? 170 : 188, h: 88, type, semanticType: extra.expandable ? 'composite' : type, kind: type,
       badge: type === 'data' ? 'DATA' : 'OPERATION', title, sub, lines, api, detail,
       sourceLine: sourceLines[id],
       evidence: type === 'data' ? '源码数据对象'
         : ['q-prep', 'k-prep', 'cache-append', 'scale-mask', 'output-norm'].includes(id)
           ? '源码操作的语义归并' : '源码显式计算',
+      subgraph: window.PTO_PYPA_SEMANTIC_SUBGRAPHS?.[id],
       ...extra,
     });
     const nodes = [
-      n('q-proj', 340, 290, 'data', 'Q Projection', 'q_proj', '68–94', 'q_proj', '外部投影结果，作为 Q 归一化输入。'),
-      n('k-proj', 340, 515, 'data', 'K Projection', 'k_proj', '68–94', 'k_proj', '外部投影结果，作为 K 归一化输入。'),
-      n('v-proj', 340, 740, 'data', 'V Projection', 'v_proj', '68–94', 'v_proj', '外部投影结果，经 inv_rms 缩放后写入 V Cache。'),
-      n('q-prep', 565, 290, 'operation', 'Q Norm → RoPE', 'RMSNorm + 旋转位置编码', '215–250', 'pl.row_sum · pl.recip · pl.concat', 'Q 乘 inv_rms、按 head 求 RMSNorm，再施加 RoPE；结果写入 q2d。', { expandable: true, details: [
-        ['Q RMSNorm', '216–234', 'row_sum → recip(sqrt) → gamma'], ['Q RoPE', '235–246', 'cos/sin 旋转半维'], ['写入 Q', '247–250', 'BF16 q2d；不写 KV Cache'],
-      ] }),
-      n('k-prep', 565, 515, 'operation', 'K Norm → RoPE', 'RMSNorm + 旋转位置编码', '162–198', 'pl.row_sum · pl.recip · pl.concat', 'K 乘 inv_rms、按 head 求 RMSNorm，再施加 RoPE。', { expandable: true, details: [
-        ['K RMSNorm', '162–180', 'row_sum → recip(sqrt) → gamma'], ['K RoPE', '181–193', 'cos/sin 旋转半维'], ['BF16 K', '194–198', '准备写入 Key Cache'],
-      ] }),
-      n('v-scale', 565, 740, 'operation', 'V Scaling', 'V × inv_rms', '200–213', 'pl.mul · pl.cast', 'V 按 inv_rms 缩放并转 BF16。', { expandable: true, details: [
-        ['V 缩放', '200–209', 'v_proj × inv_rms → BF16'], ['写入 V', '210–213', '准备写入 Value Cache'],
-      ] }),
-      n('q', 800, 290, 'data', 'Q', 'BF16 · q2d', '247–250', 'q2d[...] = pl.cast(...)', 'Q 单独写入 q2d，后续加载为 QK 的 q_tile。'),
-      n('k', 800, 515, 'data', 'K', 'BF16 · k_rotated', '181–198', 'pl.cast(k_rotated)', '当前 token 的 K 将追加到 Key Cache。'),
-      n('v', 800, 740, 'data', 'V', 'BF16 · v_row_bf16', '200–213', 'pl.cast(pl.mul(...))', '当前 token 的 V 将追加到 Value Cache。'),
-      n('aux', 1035, 405, 'data', 'Aux Inputs', 'seq_lens · block_table · slot_mapping', '68–94', 'pl.read · pl.tensor.read', 'seq_lens 确定位置与有效列，slot_mapping 指定 K/V 写入行，block_table 映射 K/V 读取的物理 page。'),
-      n('cache-append', 1035, 625, 'operation', 'Cache Append', '仅 K/V 写入分页缓存', '194–213', 'key_cache_bsnd[...] · value_cache_bsnd[...]', 'slot_mapping 决定当前 token 的写入行；Q 不进入 KV Cache。', { expandable: true, details: [
-        ['Page Size', '9–65', 'BLOCK_SIZE=128'], ['写入位置', '146–155', 'seq_lens 与 slot_mapping'], ['追加 K', '194–198', 'key_cache_bsnd'], ['追加 V', '210–213', 'value_cache_bsnd'], ['分页读取', '285–295', 'block_table_2d → physical page'],
-      ] }),
-      n('k-cache', 1260, 515, 'data', 'K Cache', 'paged K · BF16', '194–198', 'key_cache_bsnd', '包含历史与当前 token 的 K；QK 用 block_table_2d 读取物理 page。'),
-      n('v-cache', 1260, 740, 'data', 'V Cache', 'paged V · BF16', '210–213', 'value_cache_bsnd', '包含历史与当前 token 的 V；PV 用 block_table_2d 读取物理 page。'),
-      n('qk', 1260, 290, 'operation', 'QK Matmul', 'Q × K Cacheᵀ', '285–356', 'pl.load · pl.matmul', 'Q tile 与按 block_table 映射的 K page 相乘，逐 page 生成 FP32 Scores。', { expandable: true, details: [
-        ['K Page lookup', '285–295', 'block_table_2d → key_cache_bsnd'], ['QK', '296–300', 'pl.matmul(q_tile, Kᵀ)'], ['Tail pages', '307–356', '末 stack 的 1–3 page 分支'],
-      ] }),
-      n('scores', 1490, 290, 'data', 'Scores', 'FP32 · per stack', '296–305', 'score_transfer', 'QK 生成的未缩放 score，按 page 写入当前 stack。'),
-      n('scale-mask', 1490, 515, 'operation', 'Scaling + Mask', 'SCALE · valid_cols', '777–788', 'pl.tile.muls · pl.set_validshape · pl.fillpad', '先缩放 Scores，再按 seq_len 屏蔽末 stack 无效列。', { expandable: true, details: [
-        ['Scaling', '777–777', 'score × SCALE'], ['尾列 Mask', '778–788', 'valid_cols → fillpad(min)'],
-      ] }),
-      n('softmax', 1490, 740, 'operation', 'Online Softmax', '跨 Stack 更新 m / l_sum', '745–823', 'pl.row_max · pl.exp · pl.row_sum', '按 stack 更新 running max 与归一化和，产生本 stack 的 BF16 probability。', { expandable: true, details: [
-        ['初始状态', '745–756', 'm=-∞；l_sum=0；rescale FIFO=(1,1)'], ['当前 stack 最大值', '789–790', 'local_m → next_m=max(local_m,m)'], ['旧状态重缩放', '791–791', 'rescale=exp(m−next_m)'], ['概率与归一化和', '792–800', 'P=exp(score−next_m)；l_sum=rescale·l_sum+ΣP'], ['输出 P', '802–815', 'BF16 probability_transfer'], ['传递状态', '823–855', 'm、l_sum、rescale FIFO 跨 stack 更新'],
-      ] }),
-      n('probability', 1490, 965, 'data', 'Probability P', 'BF16 · per stack', '802–815', 'probability_transfer', 'Online Softmax 对当前 stack 生成的未除以全局 l_sum 的权重，用于 PV。'),
-      n('pv', 1260, 965, 'operation', 'PV Matmul', 'P × V Cache', '369–718', 'pl.load · pl.matmul · pl.matmul_acc', 'BF16 probability 与按 block_table 读取的 V page 相乘并在 stack 内累积。', { expandable: true, details: [
-        ['V Page lookup', '369–405', 'block_table_2d → value_cache_bsnd'], ['PV 累积', '405–718', 'matmul / matmul_acc；处理 tail pages'], ['局部 Context', '503–718', 'FP32 pv_transfer'],
-      ] }),
-      n('context-acc', 1035, 965, 'operation', 'Context Accumulate', '跨 Stack 重缩放并累积', '827–855', 'pl.row_expand_mul · pl.add', '旧 context 乘延迟的 rescale，再加当前 stack 的 PV partial。', { expandable: true, details: [
-        ['读取 PV partial', '830–840', 'pv_transfer → pv_aiv'], ['重缩放与累积', '842–844', 'o = o × pending0 + pv'], ['Rescale FIFO', '848–855', 'pending1 → pending0；rescale → pending1'],
-      ] }),
-      n('context', 800, 965, 'data', 'Context', 'FP32 · o + l_sum', '842–861', 'o · l_sum', '跨 stack 保留的输出累积量 o 与归一化和 l_sum。'),
-      n('output-norm', 565, 965, 'operation', 'Output Normalize', 'o / l_sum → BF16', '864–872', 'pl.recip · pl.row_expand_mul · pl.cast · pl.store', '所有 stack 结束后做最终归一化，转 BF16 并写回 out2d。', { expandable: true, details: [
-        ['最终归一化', '864–866', 'ctx = o / l_sum'], ['BF16 写回', '866–872', 'cast → out2d'],
-      ] }),
-      n('output', 340, 965, 'data', 'Attention Output', 'BF16 · out2d', '869–872', 'pl.store(..., out2d)', '最终 Attention Output，按 batch、kv_head 和 GROUP 对应行写回。'),
+      n('q-proj', 'data', 'Q Projection', 'q_proj', '68–94', 'q_proj', '外部投影结果，作为 Q 归一化输入。'),
+      n('k-proj', 'data', 'K Projection', 'k_proj', '68–94', 'k_proj', '外部投影结果，作为 K 归一化输入。'),
+      n('v-proj', 'data', 'V Projection', 'v_proj', '68–94', 'v_proj', '外部投影结果，经 inv_rms 缩放后写入 V Cache。'),
+      n('q-prep', 'operation', 'Q Norm → RoPE', 'RMSNorm + 旋转位置编码', '215–250', 'pl.row_sum · pl.recip · pl.concat', 'Q 乘 inv_rms、按 head 求 RMSNorm，再施加 RoPE；结果写入 q2d。', { expandable: true }),
+      n('k-prep', 'operation', 'K Norm → RoPE', 'RMSNorm + 旋转位置编码', '162–198', 'pl.row_sum · pl.recip · pl.concat', 'K 乘 inv_rms、按 head 求 RMSNorm，再施加 RoPE。', { expandable: true }),
+      n('v-scale', 'operation', 'V Scaling', 'V × inv_rms', '200–213', 'pl.mul · pl.cast', 'V 按 inv_rms 缩放并转 BF16。', { expandable: true }),
+      n('q', 'data', 'Q', 'BF16 · q2d', '247–250', 'q2d[...] = pl.cast(...)', 'Q 单独写入 q2d，后续加载为 QK 的 q_tile。'),
+      n('k', 'data', 'K', 'BF16 · k_rotated', '181–198', 'pl.cast(k_rotated)', '当前 token 的 K 将追加到 Key Cache。'),
+      n('v', 'data', 'V', 'BF16 · v_row_bf16', '200–213', 'pl.cast(pl.mul(...))', '当前 token 的 V 将追加到 Value Cache。'),
+      n('aux', 'data', 'Aux Inputs', 'seq_lens · block_table · slot_mapping', '68–94', 'pl.read · pl.tensor.read', 'seq_lens 确定位置与有效列，slot_mapping 指定 K/V 写入行，block_table 映射 K/V 读取的物理 page。'),
+      n('cache-append', 'operation', 'Cache Append', '仅 K/V 写入分页缓存', '194–198、210–213', 'key_cache_bsnd[...] · value_cache_bsnd[...]', 'slot_mapping 决定当前 token 的写入行；Q 不进入 KV Cache。', { expandable: true, sourceRanges: [[194, 198], [210, 213]] }),
+      n('k-cache', 'data', 'K Cache', 'paged K · BF16', '194–198', 'key_cache_bsnd', '包含历史与当前 token 的 K；QK 用 block_table_2d 读取物理 page。'),
+      n('v-cache', 'data', 'V Cache', 'paged V · BF16', '210–213', 'value_cache_bsnd', '包含历史与当前 token 的 V；PV 用 block_table_2d 读取物理 page。'),
+      n('qk', 'operation', 'QK Matmul', 'Q × K Cacheᵀ', '285–356', 'pl.load · pl.matmul', 'Q tile 与按 block_table 映射的 K page 相乘，逐 page 生成 FP32 Scores。', { expandable: true }),
+      n('scores', 'data', 'Scores', 'FP32 · per stack', '296–305', 'score_transfer', 'QK 生成的未缩放 score，按 page 写入当前 stack。'),
+      n('scale-mask', 'operation', 'Scaling + Mask', 'SCALE · valid_cols', '777–788', 'pl.tile.muls · pl.set_validshape · pl.fillpad', '先缩放 Scores，再按 seq_len 屏蔽末 stack 无效列。', { expandable: true }),
+      n('softmax', 'operation', 'Online Softmax', '跨 Stack 更新 m / l_sum', '745–823', 'pl.row_max · pl.exp · pl.row_sum', '按 stack 更新 running max 与归一化和，产生本 stack 的 BF16 probability。', { expandable: true }),
+      n('probability', 'data', 'Probability P', 'BF16 · per stack', '802–815', 'probability_transfer', 'Online Softmax 对当前 stack 生成的未除以全局 l_sum 的权重，用于 PV。'),
+      n('pv', 'operation', 'PV Matmul', 'P × V Cache', '369–718', 'pl.load · pl.matmul · pl.matmul_acc', 'BF16 probability 与按 block_table 读取的 V page 相乘并在 stack 内累积。', { expandable: true }),
+      n('context-acc', 'operation', 'Context Accumulate', '跨 Stack 重缩放并累积', '827–855', 'pl.row_expand_mul · pl.add', '旧 context 乘延迟的 rescale，再加当前 stack 的 PV partial。', { expandable: true }),
+      n('context', 'data', 'Context', 'FP32 · o + l_sum', '842–861', 'o · l_sum', '跨 stack 保留的输出累积量 o 与归一化和 l_sum。'),
+      n('output-norm', 'operation', 'Output Normalize', 'o / l_sum → BF16', '864–872', 'pl.recip · pl.row_expand_mul · pl.cast · pl.store', '所有 stack 结束后做最终归一化，转 BF16 并写回 out2d。', { expandable: true }),
+      n('output', 'data', 'Attention Output', 'BF16 · out2d', '869–872', 'pl.store(..., out2d)', '最终 Attention Output，按 batch、kv_head 和 GROUP 对应行写回。'),
     ];
-    const e = (s, t, label, extra = {}) => ({ s, t, type: 'data', label, ...extra });
+    const ports = {
+      'q-proj>q-prep': { targetPort: 'Q' }, 'q-prep>q': { sourcePort: 'Q' },
+      'k-proj>k-prep': { targetPort: 'K' }, 'k-prep>k': { sourcePort: 'K' },
+      'v-proj>v-scale': { targetPort: 'V' }, 'v-scale>v': { sourcePort: 'V' },
+      'k>cache-append': { targetPort: 'K' }, 'v>cache-append': { targetPort: 'V' },
+      'aux>cache-append': { targetPort: 'slot' }, 'cache-append>k-cache': { sourcePort: 'K' },
+      'cache-append>v-cache': { sourcePort: 'V' }, 'aux>qk': { targetPort: 'block' },
+      'q>qk': { targetPort: 'Q' }, 'k-cache>qk': { targetPort: 'K' },
+      'qk>scores': { sourcePort: 'Scores' }, 'scores>scale-mask': { targetPort: 'Scores' },
+      'aux>scale-mask': { targetPort: 'seq' }, 'scale-mask>softmax': { sourcePort: 'Scores', targetPort: 'Scores' },
+      'softmax>probability': { sourcePort: 'P' }, 'softmax>context-acc': { sourcePort: 'state', targetPort: 'state' },
+      'softmax>context': { sourcePort: 'state' },
+      'probability>pv': { targetPort: 'P' }, 'v-cache>pv': { targetPort: 'V' },
+      'pv>context-acc': { sourcePort: 'partial', targetPort: 'partial' },
+      'context-acc>context': { sourcePort: 'Context' }, 'context>output-norm': { targetPort: 'Context' },
+      'output-norm>output': { sourcePort: 'Output' },
+    };
+    const e = (s, t, label, extra = {}) => ({ s, t, type: 'data', label, ...ports[`${s}>${t}`], ...extra });
     const edges = [
       e('q-proj','q-prep','Q Projection'), e('q-prep','q','Q'),
       e('k-proj','k-prep','K Projection'), e('k-prep','k','K'),
@@ -2080,46 +2111,18 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       e('qk','scores','Scores'), e('scores','scale-mask','Scores'),
       e('scale-mask','softmax','scaled / masked Scores'), e('softmax','probability','P'),
       e('probability','pv','P'), e('v-cache','pv','V · block_table'),
-      e('pv','context-acc','PV partial'), e('softmax','context-acc','rescale / l_sum', { route: 'state' }),
+      e('pv','context-acc','PV partial'), e('softmax','context-acc','rescale', { route: 'state', type: 'state' }),
+      e('softmax','context','l_sum', { route: 'state', type: 'state' }),
       e('context-acc','context','Context'), e('context','output-norm','Context'), e('output-norm','output','BF16 Output'),
     ];
-    const expanded = nodes.find((node) => node.expandable && pypaExpandedStages.has(node.id));
-    if (expanded) {
-      const childHeight = 68;
-      const childGap = 26;
-      const groupHeight = 62 + expanded.details.length * (childHeight + childGap) + 12;
-      const offset = groupHeight - expanded.h + 35;
-      // 给局部子图留出真实画布空间；同一行的下游与后续行一起下移。
-      nodes.forEach((node) => {
-        if (node.y > expanded.y || (node.y === expanded.y && node.x > expanded.x)) node.y += offset;
-      });
-      expanded.expandedGroup = true;
-      expanded.h = 42;
-      expanded.w = 226;
-      expanded.groupHeight = groupHeight;
-      expanded.details.forEach(([title, lines, formula], index) => {
-        const id = `${expanded.id}:detail:${index}`;
-        nodes.push({ id, parentId: expanded.id, x: expanded.x + 13,
-          y: expanded.y + 60 + index * (childHeight + childGap), w: 200, h: childHeight,
-          type: 'operation', kind: 'operation', badge: 'OPERATION', title, sub: formula,
-          lines, api: formula, detail: `${expanded.title} · ${formula}`,
-          sourceLine: Number(lines.match(/\d+/)?.[0]), evidence: '源码显式计算', childOperation: true });
-        if (index) edges.push(e(`${expanded.id}:detail:${index - 1}`, id, '', { route: 'detail' }));
-      });
-      const first = `${expanded.id}:detail:0`;
-      const last = `${expanded.id}:detail:${expanded.details.length - 1}`;
-      edges.forEach((edge) => {
-        if (edge.route === 'detail') return;
-        if (edge.s === expanded.id) edge.s = last;
-        if (edge.t === expanded.id) edge.t = first;
-      });
-    }
-    const groupOffset = expanded ? expanded.groupHeight - 88 + 35 : 0;
-    return { nodes, edges, width: 1750, height: 1120 + groupOffset, groups: [
-      { label: 'QKV Preparation', x: 310, y: 225, w: 690, h: 645 + (expanded && expanded.y < 900 ? groupOffset : 0) },
-      { label: 'Paged Attention', x: 1010, y: 225, w: 690, h: 835 + groupOffset },
-      { label: 'Output', x: 310, y: 900 + (expanded && expanded.y < 900 ? groupOffset : 0), w: 690, h: 160 + (expanded && expanded.y === 965 ? groupOffset : 0) },
-    ] };
+    return window.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize({ id: 'paged-attention', nodes, edges, groups: [
+      { id: 'qkv-preparation', semanticType: 'region', label: 'QKV Preparation',
+        members: ['q-proj', 'k-proj', 'v-proj', 'q-prep', 'k-prep', 'v-scale', 'q', 'k', 'v'] },
+      { id: 'paged-attention', semanticType: 'region', label: 'Paged Attention',
+        members: ['cache-append', 'k-cache', 'v-cache', 'qk', 'scores', 'scale-mask', 'softmax', 'probability', 'pv', 'context-acc'] },
+      { id: 'output', semanticType: 'region', label: 'Output',
+        members: ['context', 'output-norm', 'output'] },
+    ] }, pypaExpandedStages);
   }
 
   function renderPyptoTaskGraph() {
@@ -2147,7 +2150,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     svg.style.height = `${sceneHeight}px`;
     svg.setAttribute('aria-hidden', 'true');
     const defs = document.createElementNS(svgNS, 'defs');
-    ['dep', 'data', 'sync', 'loop', 'state', 'detail'].forEach((type) => {
+    ['dep', 'data', 'sync', 'loop', 'state', 'detail', 'computation', 'control', 'feedback'].forEach((type) => {
       const marker = document.createElementNS(svgNS, 'marker');
       marker.setAttribute('id', `pypa-arrow-${type}`);
       marker.setAttribute('viewBox', '0 0 10 10');
@@ -2160,10 +2163,28 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       marker.appendChild(arrow); defs.appendChild(marker);
     });
     svg.appendChild(defs);
-    graph.edges.forEach((edge) => {
+    graph.edges.forEach((edge, index) => {
       const source = byId.get(edge.s);
       const target = byId.get(edge.t);
       if (!source || !target) return;
+      const routed = pypaGraphView === 'compute' ? graph.edgeRoutes?.[index] : null;
+      if (routed) {
+        const line = document.createElementNS(svgNS, 'path');
+        line.setAttribute('d', routed.path);
+        line.setAttribute('class', `kf-pypa-graph__edge is-${edge.route || edge.type}`);
+        line.setAttribute('marker-end', `url(#pypa-arrow-${edge.route || edge.type})`);
+        svg.appendChild(line);
+        if (edge.label) {
+          const label = document.createElementNS(svgNS, 'text');
+          label.setAttribute('x', String(routed.labelX));
+          label.setAttribute('y', String(routed.labelY));
+          label.setAttribute('text-anchor', 'middle');
+          label.setAttribute('class', 'kf-pypa-graph__edge-label');
+          label.textContent = edge.label;
+          svg.appendChild(label);
+        }
+        return;
+      }
       const dx = target.x - source.x;
       const dy = target.y - source.y;
       const vertical = Math.abs(dy) > Math.abs(dx) * 0.95;
@@ -2173,6 +2194,11 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         tx = target.x + target.w / 2; ty = target.y + target.h;
         const routeY = Math.max(source.y + source.h, target.y + target.h) + 115;
         path = `M ${sx} ${sy} C ${sx} ${routeY}, ${tx} ${routeY}, ${tx} ${ty}`;
+      } else if (edge.route === 'feedback') {
+        sx = source.x + source.w; sy = source.y + source.h / 2;
+        tx = target.x + target.w; ty = target.y + target.h / 2;
+        const routeX = Math.max(sx, tx) + 32;
+        path = `M ${sx} ${sy} C ${routeX} ${sy}, ${routeX} ${ty}, ${tx} ${ty}`;
       } else if (vertical) {
         const down = dy > 0;
         sx = source.x + source.w / 2; sy = source.y + (down ? source.h : 0);
@@ -2193,7 +2219,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       svg.appendChild(line);
       if (pypaGraphView === 'compute' && edge.label) {
         const label = document.createElementNS(svgNS, 'text');
-        const labelX = (sx + tx) / 2;
+        const labelX = edge.route === 'feedback' ? Math.max(sx, tx) + 28 : (sx + tx) / 2;
         const labelY = (sy + ty) / 2 - 7;
         label.setAttribute('x', String(labelX));
         label.setAttribute('y', String(labelY));
@@ -2214,7 +2240,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       const box = document.createElement('div');
       box.className = `kf-pypa-graph__expanded-group${node.id === pypaSelectedNodeId ? ' is-selected' : ''}`;
       box.dataset.pypaGroup = node.id;
-      box.style.cssText = `left:${node.x - 3}px;top:${node.y - 8}px;width:${node.w + 6}px;height:${node.groupHeight}px`;
+      box.style.cssText = `left:${node.x - 3}px;top:${node.y - 8}px;width:${node.groupWidth + 6}px;height:${node.groupHeight}px`;
       scene.appendChild(box);
     });
     scene.appendChild(svg);
@@ -2232,21 +2258,23 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       button.style.width = `${node.w}px`;
       button.style.minHeight = `${node.h}px`;
       button.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${node.meta?.length ? '，' + node.meta.join('，') : ''}`);
-      button.innerHTML = `<span class="kf-pypa-graph__node-head">${node.expandedGroup || node.childOperation ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : `<small>${pypaEscape(node.sub)}</small>`}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
+      button.innerHTML = `<span class="kf-pypa-graph__node-head">${node.expandedGroup || (node.childOperation && node.type === 'operation') ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : `<small>${pypaEscape(node.sub)}</small>`}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
       scene.appendChild(button);
     });
-    // 初始取景：按视图给出一个「刚好铺满」的默认变换，供 复位 使用
+    // 计算图从入口向下阅读；Reset 回到入口，Fit 才显示整个长图。
     const defaultView = () => {
-      const fit = pypaGraphView === 'overview'
-        ? Math.min(0.65, (viewport.clientWidth - 32) / 1500, (viewport.clientHeight - 32) / 1040)
-        : Math.min(0.68, (viewport.clientWidth - 48) / 1450, (viewport.clientHeight - 190) / 880);
-      return {
-        scale: fit,
-        tx: pypaGraphView === 'overview'
-          ? (viewport.clientWidth - 1500 * fit) / 2 - 450 * fit
-          : (viewport.clientWidth - 1390 * fit) / 2 - 310 * fit,
-        ty: pypaGraphView === 'overview' ? 250 : 185 - 225 * fit,
-      };
+      if (pypaGraphView === 'overview') {
+        const fit = Math.min(0.65, (viewport.clientWidth - 32) / 1500, (viewport.clientHeight - 32) / 1040);
+        return { scale: fit, tx: (viewport.clientWidth - 1500 * fit) / 2 - 450 * fit, ty: 250 };
+      }
+      const roots = placedNodes.filter((node) => !node.parentId);
+      const topY = Math.min(...roots.map((node) => node.y));
+      const firstRow = roots.filter((node) => node.y === topY);
+      const left = Math.min(...firstRow.map((node) => node.x));
+      const right = Math.max(...firstRow.map((node) => node.x + node.w));
+      const scale = Math.min(0.9, Math.max(0.5, (viewport.clientWidth - 48) / (right - left)));
+      return { scale, tx: viewport.clientWidth / 2 - (left + right) * scale / 2,
+        ty: Math.min(185, Math.max(80, viewport.clientHeight * 0.25)) - topY * scale };
     };
     const viewportWidth = viewport.clientWidth;
     const viewportHeight = viewport.clientHeight;
@@ -2260,7 +2288,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     }
     pypaGraphRenderedView = pypaGraphView;
     pypaGraphSize = { w: viewportWidth, h: viewportHeight };
-    const clampScale = (value) => Math.max(0.28, Math.min(1.6, value));
+    const clampScale = (value) => Math.max(0.06, Math.min(1.6, value));
     const apply = () => {
       scene.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
       pypaGraphTransform = { scale, tx, ty };
@@ -2282,26 +2310,38 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     controller.setScale = (value) => zoomBy(value / scale);
     controller.reset = () => { ({ scale, tx, ty } = defaultView()); apply(); };
     controller.fit = () => {
-      const box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-      [...placedNodes, ...(graph.groups || [])].forEach((item) => {
-        box.minX = Math.min(box.minX, item.x);
-        box.minY = Math.min(box.minY, item.y);
-        box.maxX = Math.max(box.maxX, item.x + (item.w ?? 0));
-        box.maxY = Math.max(box.maxY, item.y + (item.h ?? 0));
-      });
-      if (!Number.isFinite(box.minX)) return;
-      const pad = 44;
-      const boxW = Math.max(1, box.maxX - box.minX);
-      const boxH = Math.max(1, box.maxY - box.minY);
-      scale = clampScale(Math.min((viewport.clientWidth - pad * 2) / boxW, (viewport.clientHeight - pad * 2) / boxH));
-      tx = (viewport.clientWidth - boxW * scale) / 2 - box.minX * scale;
-      ty = (viewport.clientHeight - boxH * scale) / 2 - box.minY * scale;
+      if (pypaGraphView === 'overview') {
+        const box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        placedNodes.forEach((item) => {
+          box.minX = Math.min(box.minX, item.x); box.minY = Math.min(box.minY, item.y);
+          box.maxX = Math.max(box.maxX, item.x + item.w); box.maxY = Math.max(box.maxY, item.y + item.h);
+        });
+        const pad = 44, w = box.maxX - box.minX, h = box.maxY - box.minY;
+        scale = clampScale(Math.min((viewport.clientWidth - pad * 2) / w, (viewport.clientHeight - pad * 2) / h));
+        tx = (viewport.clientWidth - w * scale) / 2 - box.minX * scale;
+        ty = (viewport.clientHeight - h * scale) / 2 - box.minY * scale;
+        apply();
+        return;
+      }
+      const pad = 32;
+      scale = clampScale(Math.min((viewport.clientWidth - pad * 2) / sceneWidth, (viewport.clientHeight - pad * 2) / sceneHeight));
+      tx = (viewport.clientWidth - sceneWidth * scale) / 2;
+      ty = (viewport.clientHeight - sceneHeight * scale) / 2;
+      apply();
+    };
+    const nodeAnchor = (node) => ({ x: node.x + node.w / 2, y: node.y + Math.min(node.h, 88) / 2 });
+    controller.screenPoint = (node) => {
+      const point = nodeAnchor(node);
+      return { x: tx + point.x * scale, y: ty + point.y * scale };
+    };
+    controller.keepNodeAt = (node, point) => {
+      const anchor = nodeAnchor(node);
+      tx = point.x - anchor.x * scale;
+      ty = point.y - anchor.y * scale;
       apply();
     };
     controller.focusNode = (node) => {
-      tx = viewport.clientWidth / 2 - (node.x + node.w / 2) * scale;
-      ty = viewport.clientHeight / 2 - (node.y + node.h / 2) * scale;
-      apply();
+      controller.keepNodeAt(node, { x: viewport.clientWidth / 2, y: viewport.clientHeight / 2 });
     };
     apply();
     let last = null;
@@ -2367,6 +2407,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   let pypaSelectedNodeId = null;
+  function pypaSourceRanges(node) {
+    if (node.sourceRanges) return node.sourceRanges;
+    return String(node.lines || '').split('、').map((part) => {
+      const [start, end = start] = part.split('–').map(Number);
+      return [start, end];
+    }).filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end));
+  }
   function selectPypaGraphNode(node, { pan = false } = {}) {
     if (!node || pypaGraphView !== 'compute') return;
     pypaSelectedNodeId = node.id;
@@ -2376,11 +2423,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const inspector = $('#pypaNodeInspector');
     if (inspector) {
       inspector.hidden = false;
-      inspector.innerHTML = `<div class="kf-pypa-graph__inspector-head"><span>NODE INSPECTOR</span><button type="button" data-pypa-inspector-close aria-label="关闭节点详情">×</button></div><strong>${pypaEscape(node.title)}</strong><p>${pypaEscape(node.detail)}</p><div><span>${node.type === 'operation' ? '计算操作' : '数据对象'}</span><span>源码 ${pypaEscape(node.lines)}</span></div><small>关联 API · ${pypaEscape(node.api)}</small><em>${pypaEscape(node.evidence)}；图中位置表达计算依赖，不代表设备执行时序。</em>`;
+      const category = node.semanticType === 'state' ? '迭代状态' : node.semanticType === 'composite' ? '复合计算' : node.type === 'operation' ? '计算操作' : '数据对象';
+      inspector.innerHTML = `<div class="kf-pypa-graph__inspector-head"><span>NODE INSPECTOR</span><button type="button" data-pypa-inspector-close aria-label="关闭节点详情">×</button></div><strong>${pypaEscape(node.title)}</strong><p>${pypaEscape(node.detail)}</p><div><span>${category}</span><span>源码 ${pypaEscape(node.lines)}</span></div><small>关联 API · ${pypaEscape(node.api)}</small><em>${pypaEscape(node.evidence)}；图中位置表达计算依赖，不代表设备执行时序。</em>`;
     }
   }
 
-  /* 总览保留原始任务图；计算流程按 operation 阶段收起跨 pipe 的执行细节。 */
+  /* 总览保留任务执行图；计算流程按语义计算、数据与状态依赖组织。 */
   function renderSourceRegionPanel() {
     const host = $('#inspector');
     if (!host) return;
@@ -5485,13 +5533,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       const node = pypaVisibleGraph()?.nodes.find((item) => item.id === pyptoNode.dataset.pypaNode);
       if (!node) return;
       if (node.expandable) {
+        const screenAnchor = pypaGraphController?.screenPoint?.(node);
         if (pypaExpandedStages.has(node.id)) pypaExpandedStages.delete(node.id);
-        else { pypaExpandedStages.clear(); pypaExpandedStages.add(node.id); }
+        else pypaExpandedStages.add(node.id);
         renderPyptoTaskGraph();
-        if (pypaExpandedStages.has(node.id)) {
-          const visible = pypaVisibleGraph().nodes.find((item) => item.id === node.id);
-          if (visible) pypaGraphController?.focusNode?.({ ...visible, h: visible.groupHeight || visible.h });
-        }
+        const visible = pypaVisibleGraph().nodes.find((item) => item.id === node.id);
+        if (visible && screenAnchor) pypaGraphController?.keepNodeAt?.(visible, screenAnchor);
       }
       if (pypaGraphView === 'compute') selectPypaGraphNode(node);
       else $$('#pypaTaskScene [data-pypa-node]').forEach((item) => item.classList.toggle('is-selected', item.dataset.pypaNode === node.id));
@@ -5573,12 +5620,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         }
         if (isPagedAttentionPyptoFile(state.activeFile) && pypaGraphView === 'compute' && isSourceRegionVisualizeOn()) {
           const matches = pypaVisibleGraph().nodes.filter((node) => {
-            const [start, end = start] = node.lines.split('–').map(Number);
-            return line >= start && line <= end;
+            return pypaSourceRanges(node).some(([start, end]) => line >= start && line <= end);
           });
           matches.sort((a, b) => {
-            const span = (node) => { const [start, end = start] = node.lines.split('–').map(Number); return end - start; };
-            return span(a) - span(b) || (a.type === 'operation' ? -1 : 1);
+            const span = (node) => Math.min(...pypaSourceRanges(node).map(([start, end]) => end - start));
+            const depth = (node) => node.id.split('/').length;
+            return span(a) - span(b) || depth(b) - depth(a) || (a.type === 'operation' ? -1 : 1);
           });
           if (matches[0]) selectPypaGraphNode(matches[0], { pan: true });
         }

@@ -803,6 +803,9 @@
 .kf-pypa-graph__edge.is-loop { stroke: var(--accent); stroke-dasharray: 8 6; }
 .kf-pypa-graph__edge.is-dep { stroke-dasharray: 4 5; }
 .kf-pypa-graph__edge.is-state { stroke: var(--accent); stroke-dasharray: 6 5; }
+.kf-pypa-graph__edge.is-computation { stroke: var(--foreground-secondary); }
+.kf-pypa-graph__edge.is-control { stroke: var(--warning); stroke-dasharray: 7 5; }
+.kf-pypa-graph__edge.is-feedback { stroke: var(--accent); stroke-dasharray: 6 5; }
 .kf-pypa-graph__edge.is-detail { stroke: var(--foreground); stroke-width: 2.5; opacity: .9; }
 .kf-pypa-graph__edge-label { fill: var(--foreground-secondary); font: 700 13px var(--font-sans); paint-order: stroke; stroke: var(--surface-1); stroke-width: 5px; stroke-linejoin: round; pointer-events: none; }
 .kf-pypa-graph__arrow.is-dep { fill: var(--foreground-muted); }
@@ -810,6 +813,9 @@
 .kf-pypa-graph__arrow.is-sync { fill: var(--warning); }
 .kf-pypa-graph__arrow.is-loop { fill: var(--accent); }
 .kf-pypa-graph__arrow.is-state { fill: var(--accent); }
+.kf-pypa-graph__arrow.is-computation { fill: var(--foreground-secondary); }
+.kf-pypa-graph__arrow.is-control { fill: var(--warning); }
+.kf-pypa-graph__arrow.is-feedback { fill: var(--accent); }
 .kf-pypa-graph__arrow.is-detail { fill: var(--foreground); }
 .kf-pypa-graph__group { position: absolute; z-index: 0; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border-subtle)); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--primary) 3%, transparent); pointer-events: none; }
 .kf-pypa-graph__group > span { position: absolute; top: 12px; left: 16px; color: var(--foreground-muted); font: 700 14px var(--font-sans); letter-spacing: .04em; }
