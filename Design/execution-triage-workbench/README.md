@@ -1,51 +1,50 @@
-# Execution Triage · 执行定界工作台
+# Execution Triage · DSpark Serving
 
-面向昇腾平台上模型 / 算子的一次上板执行。打开页面后，开发者先看到这次执行的性能瓶颈落在 **Serving、Host 还是 Device**，再按需下钻。
+DSpark Serving 单请求（DeepSeek-V4-Flash w8a8，16 NPU，GBS1）的性能定界 demo。只加载这一份数据。
 
 | 页面 | 作用 |
 |---|---|
-| `index.html` · 首页 | 极简定界：三栋楼，楼高即耗时 |
-| `analysis.html` · 详细分析 | 关键路径三段条、Step 节奏、单步瀑布和证据覆盖（仅 DSpark 与 decode_csa） |
+| `index.html` · 首页 | 三栋楼：Serving / Host / Device，楼高即耗时 |
+| `analysis.html` · 详细分析 | 关键路径三段条、Step 节奏、单步瀑布、层详情 |
 
-## 首页：三栋楼
+数据来源：`Data/serving-strace-swimlane(2).json`。Serving、Worker 和 16 条 Host STRACE lane 共用 host `CLOCK_MONOTONIC`。
 
-- **场景**：一次执行画成三栋等轴测线框楼——① Serving ② Host ③ Device。
-  - **楼高 = 该层在关键路径上的耗时**，所有执行共用同一比例尺。瓶颈那栋楼默认选中并标红。
-  - 没有采集的层只画虚线地基，标为“未采集”。
-  - Device 是上界时，楼顶用虚线表示。
-- **楼层**：选中那栋楼的每一层是一个 step（Qwen3 的 Device 楼是模型的 40 层，decode_csa 是每次调用），层高与该层耗时成正比。悬停显示 `D10 STEP` / `L17 LAYER` 标签，点击可选中。
-- **左上**：层名、关键路径占比、耗时与楼层数；选中瓶颈层时给出一句话结论和假设收益。
-- **右侧**：从顶层往下逐层列出构成卡片，每层 2 张；红色数值是关键项，灰色表示已被流水覆盖或可以忽略。与场景双向联动，支持 ↑ / ↓ 键切换楼层。
-- **左下**：切换执行；**右下 i**：数据口径与来源。
-- 状态写在 URL hash 里（`#run=…&layer=…&floor=…`），可以直接分享。
+## 首页
 
-## 内置执行
+页面上只放数字、标签和图形，口径说明都记录在本文件中。
 
-| 执行 | 瓶颈 | 首页结论 | 来源 |
-|---|---|---|---|
-| DSpark Serving · 单请求 | Host | device 6 的 bind 拖住了 52/52 个 decode step | `Data/serving-strace-swimlane(2).json` |
-| Qwen3-14B TP1 | Host | 设备 60% 时间在等 Host，每步约 45 ms 花在 KV 布局转换 | `Data/pypto_qwen3_profiles/…/tp1/` |
-| Qwen3-14B TP2 | Device | decode 只用了 60 核中的 6 个，gate/up 占每层约一半 | `Data/pypto_qwen3_profiles/…/tp2/` |
-| decode_csa · 单算子 | Host | 稳态调用里设备只忙约 3% | `Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617` |
+- **左上 · 每个 decode step 的时间去哪了（P1）**
+  - 大字为 decode 步长均值 233 ms，附 P50 224 ms / P90 265 ms。
+  - 下方三行构成：Serving 0.11 ms ≈ 0%、Host 108 ms 47%、Device ≤ 124 ms ≤ 53%，三者相加等于步长。点击某一行即选中对应那栋楼。
+- **中间 · 三栋楼**
+  - 楼高 = 该层在关键路径上的总耗时，楼下标签显示每步毫秒。默认选中 Host。
+  - 楼层 = step（`P` = prefill，`DI` = 草稿初始化，`D01`–`D52` = decode）。悬停显示 `D10 STEP`，点击选中。
+  - **楼面分户 = 16 张 NPU**：沿左立面从左到右排，转过墙角接右立面。Host 楼上每格按“这张卡在这一步的耗时 ÷ 本步中位数”着色，越红越慢；贯穿各层的红色竖条就是 device 6。悬停某一格显示 `dev 6 · 134 ms`，并描出整列。Device 楼只分户、不着色。
+- **底部 · 这次请求的服务指标（P0）**
+  - 指标：E2E 12.57 s，首次输出 421 ms，输出间隔 P50 225 ms，输出 53 次。
+  - 下方是请求时间线：每段一个 step，宽度等于耗时，标出“首次输出”；悬停、点击与楼层联动。
+- **右侧**：选中那栋楼从顶层往下逐层列出 2 张构成卡片，红色数值为关键项；每层下方有一条 16 格的分卡色带，与楼面对应。支持 ↑ / ↓ 切换楼层。
+- **右上 ↗**：打开详细分析页。
+- 状态写在 URL hash 里（`#layer=…&floor=…`），可以直接分享。
 
 ## 口径
 
-- **DSpark**：Serving、Worker 和 16 条 Host STRACE lane 共用 host 时钟。16 条 lane 在 runner_run 末尾同步结束，所以最晚进入 runner_run 的 lane 决定一步的长度。
-  - 它进入 runner_run 之前的时间计为 Host。
-  - 它的 runner_run 计为 Device。这部分包含同步等待，是**上界**。
-- **Qwen3**：
-  - Host = 每个 step 的设备空闲期（`step_trace_time.csv` 的 Free + Preparing），属于推导值。
-  - Device = Computing。
-  - KV 布局转换取自 `trace_view.json` 中 `compact_vllm_kv_for_contract` 与 `scatter_contract_kv_to_vllm` 两个函数。
-  - Device 楼的 40 层来自 L2 泳道。泳道与 profiler 是两次独立进程，时间轴不对齐。
-  - TP1 不在数据集验收范围内；TP2 只保留了 rank0，TP 通信在融合 kernel 内部，profiler 看不到。
-- **decode_csa**：Device = `device_wall`（设备时钟），Host = `chip.run − device_wall`，两者只比较时长。
+- **step 的边界**：每个 step 从上一步结束算到本步 16 条 lane 全部结束。16 条 lane 在 runner_run 末尾同步结束，所以最晚进入 runner_run 的 lane（关键 lane）决定一步的长度。
+  - 它进入 runner_run 之前的时间计为 **Host**；step 之间只有 Worker 在工作的空档也计为 Host。
+  - 它的 runner_run 计为 **Device**。没有采集 device_wall，runner_run 里含跨卡同步等待，所以是**上界**。
+  - 只有调度器在推进的时间计为 **Serving**。调度本身约 0.47 ms/step，已被流水覆盖。
+- **分卡数值**：Host 楼每格 = 这条 lane 从本步起点到进入 runner_run 的时间；Device 楼每格 = 这条 lane 的 runner_run（含等待，所以不着色）。
+- **请求指标**：
+  - 请求是非流式的（`stream: false`，`max_tokens: 128`）。首次输出取服务端第一次 `scheduler.process_step_output`，不是客户端 TTFT。
+  - 每次输出都记录为 `new_tokens=1`，每次实际输出的 token 数无法确认，所以给的是“输出间隔”，不是 TPOT。
+  - 只统计落在请求窗口内的输出。流水预下发的 D53 在响应返回后才结束，不计入 E2E。
+- **暂未放在首屏（P2）**：device 6 与次慢 lane 同时进入 runner_run 时，E2E 预计约 −1.88 s（−15%）。这条结论保留在详细分析页。
 
 ## 数据生成
 
 ```bash
-node Design/execution-triage-workbench/build-data.cjs        # data.js：详细分析页（DSpark + decode_csa）
-node Design/execution-triage-workbench/build-home-data.cjs   # home-data.js：首页四次执行
+node Design/execution-triage-workbench/build-data.cjs        # data.js：详细分析页
+node Design/execution-triage-workbench/build-home-data.cjs   # home-data.js：首页（依赖 data.js）
 ```
 
-`build-home-data.cjs` 依赖 `data.js`，以及 `Design/operator-tuning-console/qwen3-profiles-data.js` 中已有的 Qwen3 解析结果（只读）；TP1 的逐步 Python 函数耗时直接从原始 `trace_view.json` 读取。
+两个脚本都只读取 `Data/serving-strace-swimlane(2).json`。

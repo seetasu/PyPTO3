@@ -46,18 +46,6 @@ h1, h2, p { margin: 0; }
 .brand strong { font: var(--type-title-3); }
 .brand .crumb { font: var(--type-body-sm); color: var(--foreground-muted); padding-left: var(--space-2); border-left: 1px solid var(--border-default); }
 
-.run-switch { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-lg); background: var(--surface-2); }
-.run-switch button {
-  white-space: nowrap;
-  display: flex; align-items: center; gap: var(--space-2);
-  border: 0; border-radius: var(--radius-md);
-  padding: 6px var(--space-3);
-  background: transparent; color: var(--foreground-secondary);
-  font: var(--type-label);
-}
-.run-switch button:hover { color: var(--foreground); }
-.run-switch button[aria-selected='true'] { background: var(--surface-4); color: var(--foreground); }
-.run-switch .kind { font: var(--type-micro); color: var(--foreground-muted); padding: 1px 6px; border-radius: var(--radius-pill); border: 1px solid var(--border-default); }
 
 .top-actions { display: flex; align-items: center; gap: var(--space-3); margin-left: auto; min-width: 0; }
 .run-meta { font: var(--type-body-sm); color: var(--foreground-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -230,10 +218,6 @@ h1, h2, p { margin: 0; }
 .steps-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--foreground-secondary); font: var(--type-body-sm); }
 .steps-list b { color: var(--foreground); font-weight: 500; }
 .tagline { font: var(--type-micro); color: var(--foreground-muted); margin-left: 4px; }
-.empty { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-6) 0; color: var(--foreground-secondary); }
-.empty strong { color: var(--foreground); font: var(--type-title-3); }
-.link-btn { align-self: flex-start; border: 1px solid var(--border-default); background: var(--surface-2); border-radius: var(--radius-md); padding: 6px var(--space-3); font: var(--type-label); }
-.link-btn:hover { background: var(--surface-3); }
 
 /* ------------------------------------------------------------- footer & tooltip */
 .sources { margin-top: var(--space-4); font: var(--type-body-sm); color: var(--foreground-muted); display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-5); }
@@ -260,9 +244,6 @@ h1, h2, p { margin: 0; }
 @media (max-width: 760px) {
   .top { flex-wrap: wrap; padding: var(--space-2) var(--space-4); gap: var(--space-2) var(--space-3); }
   .brand .crumb, .run-meta { display: none; }
-  .run-switch { order: 3; width: 100%; }
-  .run-switch button { flex: 1 1 0; min-width: 0; justify-content: center; }
-  .run-switch .rt { overflow: hidden; text-overflow: ellipsis; }
   .page { padding: var(--space-4); }
   .triage { padding: var(--space-4); }
   .layers { grid-template-columns: 1fr; }

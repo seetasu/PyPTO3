@@ -173,124 +173,6 @@
     };
   }
 
-  function operatorView(run, stepId) {
-    const inv = run.invocations.find((i) => i.id === stepId) || run.invocations.find((i) => i.warm);
-    const cold = run.invocations.find((i) => i.rank === inv.rank && !i.warm);
-    const warm = run.invocations.find((i) => i.rank === inv.rank && i.warm);
-    const d = inv.deviceSplit;
-    const bindRest = Math.max(0, inv.bindMs - inv.bindArgsMs - inv.bindPrebuiltMs);
-    const layers = {
-      serving: { na: true, ms: 0, status: { text: '不适用', cls: '' }, top: '单算子直接调用，没有 Serving 层', parts: [] },
-      host: {
-        ms: inv.hostMs,
-        status: { text: '首要瓶颈', cls: 'critical' },
-        top: `runner_run 内 ${fmtMs(inv.rrHostMs)} 不在 device_wall 内`,
-        parts: [
-          { label: 'runner_run 内非 device', ms: inv.rrHostMs, layer: 'host' },
-          { label: 'bind.prebuilt', ms: inv.bindPrebuiltMs, layer: 'host', shade: 0.75 },
-          { label: 'bind.args', ms: inv.bindArgsMs, layer: 'host', shade: 0.55 },
-          { label: '阶段间隙', ms: inv.otherMs + bindRest, layer: 'host', shade: 0.35 },
-          { label: 'validate', ms: inv.validateMs, layer: 'host', shade: 0.2 },
-        ],
-      },
-      device: {
-        ms: inv.deviceMs,
-        status: { text: '次要', cls: '' },
-        top: `device_wall ${fmtMs(inv.deviceMs)}，kernel 调度段 ${fmtMs(d.sched)}`,
-        parts: [
-          { label: 'sched（kernel 执行）', ms: d.sched, layer: 'device' },
-          { label: 'orch', ms: d.orch, layer: 'device', shade: 0.6 },
-          { label: 'preamble / post', ms: d.preamble + d.postOrch, layer: 'device', shade: 0.35 },
-        ],
-      },
-    };
-    const hostShare = pct(inv.hostMs, inv.chipMs);
-    const devShare = pct(inv.deviceMs, inv.chipMs);
-    const coldNote = inv.warm
-      ? `同 rank 首次调用另有 <b>bind.prebuilt ${fmtMs(cold.bindPrebuiltMs)}</b>（预编译产物加载），稳态已消失。`
-      : `这是首次调用：<b>bind.prebuilt ${fmtMs(inv.bindPrebuiltMs)}</b> 为冷启动开销，第 2 次调用降至 ${fmtMs(warm.bindPrebuiltMs)}。`;
-    return {
-      run,
-      e2eMs: inv.chipMs,
-      boundTitle: `chip.run ${fmtMs(inv.chipMs)} · ${inv.id}${inv.warm ? '（稳态）' : '（首次）'}`,
-      boundNote: 'Host 与 Device 用不同时钟，只比较时长',
-      layers,
-      verdict: {
-        layer: 'host',
-        title: '瓶颈在 Host',
-        titleNote: 'device 只忙了 runner_run 的一小段',
-        text: `Device 实际执行仅 <b>${fmtMs(inv.deviceMs)}</b>（${fmtPct(devShare)}），Host 占 <b>${fmtPct(hostShare)}</b>。` +
-          `runner_run 在 Host 侧持续 ${fmtMs(inv.runnerMs)}，其中 <b>${fmtMs(inv.rrHostMs)}</b> 不在 device_wall 内（下发 / 同步等待，当前未细分）。${coldNote}`,
-        whatIf: { value: `≤ ${fmtPct(devShare)}`, text: `此时只优化 kernel，chip.run 最多改善 ${fmtPct(devShare)}；先拆 runner_run 内的 Host 时间收益更大` },
-        coverage: [
-          { label: 'chip.run host 阶段', state: 'measured' },
-          { label: 'device_wall 拆分', state: 'measured' },
-          { label: 'AICore swimlane', state: 'measured' },
-          { label: 'runner_run 内 host 细分', state: 'missing' },
-        ],
-      },
-      rhythm: {
-        title: '调用对比',
-        sub: '同一算子的每次 chip.run，按层堆叠。首次调用含冷启动（bind.prebuilt）。点击柱子切换调用。',
-        unit: 'ms',
-        items: run.invocations.map((i) => ({
-          id: i.id,
-          serving: 0,
-          host: i.hostMs,
-          device: i.deviceMs,
-          tip: [
-            ['Host · bind', i.bindMs, 'host'],
-            ['Host · runner_run 内非 device', i.rrHostMs, 'host'],
-            ['Host · validate / 间隙', i.validateMs + i.otherMs, 'host'],
-            ['Device · device_wall', i.deviceMs, 'device'],
-          ],
-          foot: i.warm ? '稳态调用' : '首次调用（含冷启动）',
-        })),
-      },
-      step: inv,
-      waterfall: operatorWaterfall(inv),
-      detail: { serving: () => operatorDetailServing(), host: () => operatorDetailHost(run, inv), device: () => operatorDetailDevice(run, inv) },
-      sources: [
-        ['数据', run.source],
-        ['时钟', run.clock],
-        ['负载', run.workload],
-        ['采集', run.capturedAt],
-      ],
-      meta: `${run.subtitle} · ${run.capturedAt}`,
-    };
-  }
-
-  function operatorWaterfall(inv) {
-    const m = inv.marks;
-    const d = inv.deviceSplit;
-    const bindEnd = m.bind + inv.bindMs;
-    const rows = [
-      { label: 'chip.run', group: 'host', segs: [{ s: 0, d: inv.chipMs, kind: 'span', name: 'chip.run', tip: 'Host 侧整次调用' }] },
-      { label: 'bind.args', group: 'host', segs: [{ s: m.bind, d: inv.bindArgsMs, kind: 'host', name: 'bind.args' }] },
-      { label: 'bind.prebuilt', group: 'host', segs: [{ s: m.bindPrebuilt, d: Math.max(inv.bindPrebuiltMs, 0.01), kind: 'host', name: 'bind.prebuilt', tip: inv.warm ? '稳态：已缓存' : '首次：预编译产物加载 / 注册' }] },
-      { label: '间隙', group: 'host', segs: m.runner - bindEnd > 0.05 ? [{ s: bindEnd, d: m.runner - bindEnd, kind: 'wait', name: 'bind → runner_run 间隙', tip: '未被任何 span 覆盖' }] : [] },
-      { label: 'runner_run', group: 'host', crit: true, segs: [
-        { s: m.runner, d: inv.runnerMs - inv.deviceMs, kind: 'host', name: 'runner_run 内非 device', tip: '下发 / 同步等待，未细分（位置示意）' },
-        { s: m.runner + inv.runnerMs - inv.deviceMs, d: inv.deviceMs, kind: 'device', name: 'device_wall', tip: '设备时钟，仅时长可比，位置示意' },
-      ] },
-      { label: 'device_wall', group: 'device', segs: [
-        { s: m.runner + inv.runnerMs - inv.deviceMs, d: d.preamble, kind: 'device', shade: 0.4, name: 'preamble' },
-        { s: m.runner + inv.runnerMs - inv.deviceMs + d.preamble, d: d.orch, kind: 'device', shade: 0.7, name: 'orch' },
-        { s: m.runner + inv.runnerMs - inv.deviceMs + d.preamble, d: d.sched, kind: 'device', name: 'sched（kernel 执行）' },
-      ] },
-      { label: 'validate', group: 'host', segs: [{ s: m.validate, d: inv.validateMs, kind: 'host', name: 'validate' }] },
-    ];
-    return {
-      title: `关键路径 · ${inv.id}`,
-      sub: 'chip.run 的 Host 阶段按 host 时钟定位；device_wall 来自设备时钟，只能比较时长，图中贴在 runner_run 末尾示意。',
-      spanMs: inv.chipMs,
-      rows,
-      markers: [],
-      brackets: [],
-      legend: [['host', 'Host 阶段'], ['wait', '未覆盖间隙'], ['device', 'Device（device_wall）']],
-    };
-  }
-
   /* ================================================================ detail */
 
   function head(layer, view, sub) {
@@ -368,10 +250,9 @@
         <h4>下一步</h4>
         <ol class="steps-list">
           <li>开启 <b>device_wall</b> 与 L2 swimlane 采集，把 Device 段从上界变成实测。</li>
-          <li>有设备侧数据后，Device 段可继续下钻到算子与核占用（见算子级示例）。</li>
+          <li>有设备侧数据后，Device 段可继续下钻到算子与核占用。</li>
         </ol>
-      </section>
-      <section><button class="link-btn" type="button" data-goto-run="operator_decode_csa" data-goto-layer="device">查看算子级 Device 下钻示例 →</button></section>`;
+      </section>`;
   }
 
   function servingDetailServing(run) {
@@ -401,90 +282,22 @@
       </section>` : ''}`;
   }
 
-  function operatorDetailHost(run, inv) {
-    const rows = run.invocations.map((i) => `
-      <div class="hbar ${i.id === inv.id ? 'hot' : ''}">
-        <span class="name">${esc(i.id)}</span>
-        <span class="track"><span class="fill" style="width:${(i.hostMs / Math.max(...run.invocations.map((x) => x.hostMs))) * 100}%"></span></span>
-        <span class="val">${i.hostMs.toFixed(1)}</span>
-      </div>`).join('');
-    return `
-      ${head('host', currentView, 'Host 段 = chip.run 中除 device_wall 之外的全部时间。')}
-      <section>
-        <h4>构成 · ${esc(inv.id)}</h4>
-        ${kv(currentView.layers.host.parts.map((p) => [p.label, fmtMs(p.ms)]))}
-      </section>
-      <section>
-        <h4>各次调用 Host 时间（ms）</h4>
-        <div class="hbars wide">${rows}</div>
-      </section>
-      <section>
-        <h4>下一步</h4>
-        <ol class="steps-list">
-          <li>在 runner_run 内补 STRACE 埋点（launch、同步、结果等待），拆开 <b>${fmtMs(inv.rrHostMs)}</b> 的非 device 时间。</li>
-          <li>首次调用的 bind.prebuilt 可通过预热或缓存移出关键路径。</li>
-        </ol>
-      </section>`;
-  }
-
-  function operatorDetailDevice(run, inv) {
-    const dv = run.device;
-    const max = Math.max(...dv.top.map((t) => t.coreMs));
-    const bars = dv.top.map((t) => `
-      <div class="hbar">
-        <span class="name" title="${esc(t.name)}">${esc(t.name)}</span>
-        <span class="track"><span class="fill" style="width:${(t.coreMs / max) * 100}%;background:var(--layer-device);opacity:.85"></span></span>
-        <span class="val">${t.coreMs.toFixed(1)}</span>
-      </div>`).join('');
-    return `
-      ${head('device', currentView, `device_wall 实测。只占 chip.run 的 ${fmtPct(pct(inv.deviceMs, inv.chipMs))}，在 Host 问题解决前，这里的优化收益有限。`)}
-      <section>
-        <h4>device_wall 拆分 · ${esc(inv.id)}</h4>
-        ${kv(currentView.layers.device.parts.map((p) => [p.label, fmtMs(p.ms)]))}
-      </section>
-      <section>
-        <h4>核占用（rank0 swimlane，${dv.tasks} 个任务 / ${dv.blocks} 个 block）</h4>
-        ${kv([
-          ['kernel 跨度', fmtMs(dv.spanMs)],
-          ['AIC / AIV 利用率', `${dv.aicUtil.toFixed(1)}% / ${dv.aivUtil.toFixed(1)}%`],
-          ['全核空闲占比', `${dv.idlePct}%`],
-          ['关键链占跨度', `${dv.critShare.toFixed(1)}%`],
-          ['kernel / setup 核时', `${fmtMs(dv.kernelMs)} / ${fmtMs(dv.setupMs)}`],
-        ])}
-      </section>
-      <section>
-        <h4>核时最高的算子（ms，累计核时）</h4>
-        <div class="hbars wide">${bars}</div>
-      </section>`;
-  }
-
-  function operatorDetailServing() {
-    return `
-      ${head('serving', currentView, '')}
-      <div class="empty">
-        <strong>这次执行没有 Serving 层</strong>
-        <span>算子通过 chip.run 直接上板，定界只在 Host 与 Device 之间进行。模型推理请求可以看到 Serving 段。</span>
-        <button class="link-btn" type="button" data-goto-run="serving_dspark_gbs1" data-goto-layer="serving">查看模型 Serving 示例 →</button>
-      </div>`;
-  }
-
   /* ================================================================ render */
 
-  const state = { runId: DATA.runs[0].id, step: {}, layer: null };
+  const RUN = DATA.runs[0];
+  const state = { step: null, layer: null };
   let currentView = null;
 
   function buildView() {
-    const run = DATA.runs.find((r) => r.id === state.runId);
-    const v = run.kind === 'model' ? servingView(run, state.step[run.id]) : operatorView(run, state.step[run.id]);
-    state.step[run.id] = v.step.id;
-    if (!state.layer || (v.layers[state.layer] && v.layers[state.layer].na && state.layer !== 'serving')) state.layer = v.verdict.layer;
+    const v = servingView(RUN, state.step);
+    state.step = v.step.id;
+    if (!state.layer) state.layer = v.verdict.layer;
     return v;
   }
 
   function render() {
     currentView = buildView();
     const v = currentView;
-    renderRunSwitch();
     $('#runMeta').textContent = v.meta;
     renderVerdict(v);
     renderBound(v);
@@ -494,13 +307,6 @@
     $('#detail').innerHTML = v.detail[state.layer]();
     $('#sources').innerHTML = v.sources.map(([k, val]) => `<span>${k}：<code>${esc(val)}</code></span>`).join('');
     writeHash();
-  }
-
-  function renderRunSwitch() {
-    $('#runSwitch').innerHTML = DATA.runs.map((r) => `
-      <button type="button" role="tab" aria-selected="${r.id === state.runId}" data-run="${r.id}">
-        <span class="kind">${r.kind === 'model' ? '模型' : '算子'}</span><span class="rt">${esc(r.title)}</span>
-      </button>`).join('');
   }
 
   function renderVerdict(v) {
@@ -644,7 +450,7 @@
       hit.addEventListener('mouseenter', (e) => showTip(e, tipHtml));
       hit.addEventListener('mousemove', moveTip);
       hit.addEventListener('mouseleave', hideTip);
-      const pick = () => { state.step[v.run.id] = it.id; hideTip(); render(); };
+      const pick = () => { state.step = it.id; hideTip(); render(); };
       hit.addEventListener('click', pick);
       hit.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
     });
@@ -761,22 +567,16 @@
 
   /* ---------------------------------------------------------------- state & events */
   function writeHash() {
-    const h = `run=${state.runId}&step=${encodeURIComponent(state.step[state.runId] || '')}&layer=${state.layer}`;
+    const h = `step=${encodeURIComponent(state.step || '')}&layer=${state.layer}`;
     if (location.hash.slice(1) !== h) history.replaceState(null, '', `#${h}`);
   }
   function readHash() {
     const p = new URLSearchParams(location.hash.slice(1));
-    const run = p.get('run');
-    if (run && DATA.runs.some((r) => r.id === run)) state.runId = run;
-    if (p.get('step')) state.step[state.runId] = p.get('step');
+    if (p.get('step')) state.step = p.get('step');
     if (LAYERS.includes(p.get('layer'))) state.layer = p.get('layer');
   }
 
   document.addEventListener('click', (e) => {
-    const runBtn = e.target.closest('[data-run]');
-    if (runBtn) { state.runId = runBtn.dataset.run; state.layer = null; render(); return; }
-    const goto = e.target.closest('[data-goto-run]');
-    if (goto) { state.runId = goto.dataset.gotoRun; state.layer = goto.dataset.gotoLayer; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
     const layerBtn = e.target.closest('[data-layer]');
     if (layerBtn) { state.layer = layerBtn.dataset.layer; render(); }
   });

@@ -670,15 +670,15 @@
       },
       {
         title: "执行定界工作台",
-        subtitle: "Execution Triage · Serving / Host / Device",
+        subtitle: "Execution Triage · DSpark Serving",
         category: "内存与性能",
         status: "新增",
-        version: "02 / Towers",
+        version: "03 / DSpark",
         updatedAt: "2026-10-12",
-        description: "一次上板执行画成三栋等轴测楼：Serving、Host、Device，楼高即关键路径耗时，瓶颈那栋标红；楼层是 step 或模型层，右侧逐层列出构成。内置 DSpark Serving、Qwen3-14B TP1 / TP2、decode_csa 四份真实数据，详细分析页保留关键路径瀑布与证据覆盖。",
+        description: "DSpark Serving 单请求（DeepSeek-V4-Flash，16 NPU）画成三栋等轴测楼：Serving、Host、Device，楼高即每步耗时，楼面按卡分户，device 6 的红色竖条贯穿各层；左上是每个 decode step 的构成，底部是请求级指标与时间线。详细分析页保留关键路径瀑布。",
         href: "Design/execution-triage-workbench/index.html",
         preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["定界", "Isometric", "Qwen3-14B", "DSpark", "device_wall"],
+        tags: ["定界", "Isometric", "DSpark", "Serving", "16 NPU"],
         variants: [
           { label: "首页 · 三栋楼", href: "Design/execution-triage-workbench/index.html" },
           { label: "详细分析", href: "Design/execution-triage-workbench/analysis.html" }
