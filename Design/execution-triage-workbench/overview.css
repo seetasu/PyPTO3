@@ -215,17 +215,17 @@ body, .iso text { font-variant-numeric: tabular-nums; }
 .iso .rk-big.is-hot .rk-outline { stroke: var(--hot); }
 .iso .rk-big .rk-back-edge { stroke-width: 1.6; }
 .iso .rk-wall { pointer-events: none; }
-.iso .rk-wall-title { font-family: var(--font-sans); font-weight: 600; fill: #f5f5f5; }
+.iso .rk-wall-title { font-family: var(--font-sans); font-weight: 500; fill: #f5f5f5; }
 .iso .rk.is-hot .rk-wall-title { fill: var(--hot); }
 .iso .rk-wall-sub { font: 400 10px/1 var(--font-sans); fill: #bdbdbd; }
-.iso .rk-top { font-family: var(--font-sans); font-weight: 600; fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.75); stroke-width: 2px; pointer-events: none; }
+.iso .rk-top { font-family: var(--font-sans); font-weight: 500; fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.75); stroke-width: 2px; pointer-events: none; }
 .iso .rk.is-hot .rk-top { fill: var(--hot); }
 
 .iso .rk-axis { stroke-width: 1; stroke-dasharray: 3 3; }
 .iso .rk-tick { font: var(--svg-xs); }
 .iso .rk-tick.dim { fill: var(--foreground-disabled); }
 .iso .rk-tag rect { fill: #202020; stroke-width: 1; }
-.iso .rk-tag text { font: 600 10px/1 var(--font-sans); }
+.iso .rk-tag text { font: 500 10px/1 var(--font-sans); }
 
 /* 单 rank 的侧边标注 */
 .iso .rk-labels { pointer-events: none; }

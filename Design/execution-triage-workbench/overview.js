@@ -150,6 +150,15 @@
   /* ------------------------------------------------------------ 场景 */
   const svg = $('#iso');
 
+  /* 图上文字按屏幕像素定字号：写入 --u = viewBox 单位 / 屏幕像素（见 overview.css）。
+   * 夹在 0.6–1.15：特别宽时不缩得过小，窄屏时不把字撑出布局。 */
+  function syncTextScale() {
+    const w = svg.clientWidth; const h = svg.clientHeight;
+    if (!w || !h) return;
+    const s = Math.min(w / VB[2], h / VB[3]);
+    svg.style.setProperty('--u', Math.min(1.15, Math.max(0.6, 1 / s)).toFixed(3));
+  }
+
   function tagAt(g, x, y, num, label) {
     const t = el('g', { class: 'tag' }, g);
     el('rect', { class: 'tag-box', x, y: y - 15, width: 20, height: 20, rx: 3 }, t);
@@ -170,6 +179,7 @@
     layoutRows();
     svg.textContent = '';
     svg.setAttribute('viewBox', VB.join(' '));
+    syncTextScale();
     svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
     const selBand = state.sel === 'slow' || state.sel === 'fast' ? state.sel : null;
     const selBatch = D.batches.findIndex((b) => b.id === state.sel);
@@ -551,6 +561,7 @@
     layoutMain();
     svg.textContent = '';
     svg.setAttribute('viewBox', VB.join(' '));
+    syncTextScale();
     svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
     const selBand = state.sel === 'slow' || state.sel === 'fast' ? state.sel : null;
     headG = el('g', {}, svg);
