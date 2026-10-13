@@ -2027,7 +2027,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   let pypaGraphController = null;
-  let pypaGraphView = 'overview';
+  const pypaTaskIntroEnabled = document.documentElement.dataset.pypaIntro === 'task-map';
+  let pypaGraphView = pypaTaskIntroEnabled ? 'intro' : 'overview';
   let pypaGraphTransform = null;
   let pypaGraphRenderedView = null;
   let pypaGraphSize = null;
@@ -2429,17 +2430,55 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   /* 总览保留任务执行图；计算流程按语义计算、数据与状态依赖组织。 */
+  function renderPypaOperatorOverview() {
+    // paged_attention_pypto.py:17–29。物理页号由 block_table 在运行时给出。
+    const qHeads = 40, kvHeads = 8, qPerKv = qHeads / kvHeads;
+    const pageTokens = 128, pagesPerStack = 4, seqTokens = 3584, batch = 16, headDim = 128;
+    const pagesPerSeq = seqTokens / pageTokens, stacksPerSeq = pagesPerSeq / pagesPerStack;
+    const headRows = Array.from({ length: kvHeads }, (_, kv) => `
+      <div class="kf-pypa-graph__head-row">
+        <div class="kf-pypa-graph__head-set" aria-label="Q head ${kv * qPerKv} 到 ${kv * qPerKv + qPerKv - 1}">${Array.from({ length: qPerKv }, (_, i) => `<span>Q${String(kv * qPerKv + i).padStart(2, '0')}</span>`).join('')}</div>
+        <span class="kf-pypa-graph__head-link" aria-hidden="true">→</span><strong>KV${kv}</strong>
+      </div>`).join('');
+    const stackRows = Array.from({ length: stacksPerSeq }, (_, stack) => `
+      <div class="kf-pypa-graph__page-row"><strong>Stack ${stack}</strong><div class="kf-pypa-graph__page-set">${Array.from({ length: pagesPerStack }, (_, i) => `<span>p${String(stack * pagesPerStack + i).padStart(2, '0')}</span>`).join('')}</div></div>`).join('');
+    return `<div class="kf-pypa-graph__overview" aria-label="Qwen3-14B Paged Attention 算子数量关系">
+      <b>Qwen3-14B · Paged Attention</b>
+      <section aria-label="GQA Head 共享关系">
+        <h3>GQA Head 共享</h3><p><strong>${qHeads}</strong> Q heads = <strong>${kvHeads}</strong> KV heads × <strong>${qPerKv}</strong> Q / KV</p>
+        <div class="kf-pypa-graph__head-map">${headRows}</div>
+      </section>
+      <section aria-label="Paged KV Cache 地址关系">
+        <h3>Paged KV Cache 地址</h3>
+        <p><strong>${pageTokens}</strong> token / page × <strong>${pagesPerStack}</strong> page / stack = <strong>${pageTokens * pagesPerStack}</strong> token / stack</p>
+        <div class="kf-pypa-graph__page-map" aria-label="每条序列的 ${stacksPerSeq} 个 stack 和 ${pagesPerSeq} 个逻辑页">${stackRows}</div>
+        <p class="kf-pypa-graph__capacity">每条序列 ${seqTokens.toLocaleString('en-US')} token = ${pagesPerSeq} page = ${stacksPerSeq} stack；${batch} 条序列共 ${batch * pagesPerSeq} page 容量。按此容量，K / V 各 ${((batch * pagesPerSeq) * pageTokens).toLocaleString('en-US')} 行 × ${kvHeads * headDim} 列。</p>
+        <div class="kf-pypa-graph__address" aria-label="逻辑页到 K V Cache 地址的映射">
+          <span>逻辑页 p = stack × ${pagesPerStack} + page_in_stack</span>
+          <span>block_table[batch, p] → physical_page</span>
+          <span>row = cache_base + physical_page × ${pageTokens} + token_offset (0–${pageTokens - 1})</span>
+          <span>col = kv_head × ${headDim} + dim (0–${headDim - 1})；K / V 共用寻址规则</span>
+        </div>
+      </section>
+    </div>`;
+  }
+
   function renderSourceRegionPanel() {
     const host = $('#inspector');
     if (!host) return;
     pypaGraphController?.abort?.();
     pypaGraphController = null;
     host.classList.remove('is-op-inspector');
-    $('#inspectorTitle').textContent = '计算流程图';
+    const isIntro = pypaGraphView === 'intro';
+    $('#inspectorTitle').textContent = isIntro ? '简介' : '计算流程图';
     $('#inspectorMeta').textContent = PAGED_ATTENTION_PYPTO_FILE;
     host.innerHTML = `
-      <section class="kf-pypa-graph" aria-label="Paged Attention 计算流程">
-        <div class="kf-pypa-graph__viewport" id="pypaTaskViewport" tabindex="0" aria-label="任务计算图画布：拖拽平移、滚轮缩放，加减号缩放，0 适应画布"><div class="kf-pypa-graph__scene" id="pypaTaskScene"></div></div>
+      <section class="kf-pypa-graph${isIntro && pypaTaskIntroEnabled ? ' has-task-intro' : ''}" aria-label="${isIntro ? '简介' : 'Paged Attention 计算流程'}">
+        ${isIntro && pypaTaskIntroEnabled ? '<div class="kf-pa-intro-mount"></div>' : isIntro ? `<div class="kf-pypa-intro" aria-label="简介">
+          <span class="kf-eyebrow">INTRO</span>
+          <b>简介</b>
+          <p>占位内容：这里稍后补充 paged_attention_pypto.py 的算子简介（计算目标、输入 / 输出、关键配置）。</p>
+        </div>` : `<div class="kf-pypa-graph__viewport" id="pypaTaskViewport" tabindex="0" aria-label="任务计算图画布：拖拽平移、滚轮缩放，加减号缩放，0 适应画布"><div class="kf-pypa-graph__scene" id="pypaTaskScene"></div></div>
         <div class="kf-pypa-graph__ops" role="group" aria-label="画布操作">
           <div class="kf-pypa-graph__zoom">
             <button type="button" data-pypa-op="out" aria-label="缩小" title="缩小（-）">−</button>
@@ -2451,14 +2490,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           <button type="button" data-pypa-op="actual" title="按原始比例显示">1:1</button>
           <button type="button" data-pypa-op="reset" title="回到初始视图">复位</button>
         </div>
-        <div class="kf-pypa-graph__overview"><span class="kf-eyebrow">算子概述</span><b>Qwen3-14B · Paged Attention</b>${pypaGraphView === 'compute'
-          ? '<p>Q/K/V 平行准备；K/V 追加到分页缓存。Q 与 K Cache 形成 Scores，Softmax 生成 P，P 与 V Cache 形成 Context，最后归一化输出。</p><small>蓝色：计算操作 · 绿色：数据对象 · 分组框：算法语义区域</small>'
-          : '<p>24 个 MIX SPMD block 先完成 Q/K/V 准备，再以 3 个 transfer buffer 与 FFTS event 串起 AIC QK → AIV Softmax → AIC PV → AIV 输出。相邻 stack 可重叠执行。</p><small>7 个启动依赖 · 32 个 Phase-0 AIV lane · 最多 128 个 work item · PRE_LAUNCH=2</small>'}</div>
-        <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角"><button class="btn btn-ghost${pypaGraphView === 'overview' ? ' is-active' : ''}" type="button" data-pypa-view="overview" aria-pressed="${pypaGraphView === 'overview'}">总览</button><button class="btn btn-ghost${pypaGraphView === 'compute' ? ' is-active' : ''}" type="button" data-pypa-view="compute" aria-pressed="${pypaGraphView === 'compute'}">计算流程</button><button class="btn btn-ghost" type="button" disabled>Tensor Shape</button><button class="btn btn-ghost" type="button" disabled>精度</button><button class="btn btn-ghost" type="button" disabled>执行硬件</button><button class="btn btn-ghost" type="button" disabled>Buffer / Memory</button></div>
+        ${pypaTaskIntroEnabled ? '' : renderPypaOperatorOverview()}`}
+        <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角"><button class="btn btn-ghost${isIntro ? ' is-active' : ''}" type="button" data-pypa-view="intro" aria-pressed="${isIntro}">简介</button><button class="btn btn-ghost${pypaGraphView === 'overview' ? ' is-active' : ''}" type="button" data-pypa-view="overview" aria-pressed="${pypaGraphView === 'overview'}">计算图版本1</button><button class="btn btn-ghost${pypaGraphView === 'compute' ? ' is-active' : ''}" type="button" data-pypa-view="compute" aria-pressed="${pypaGraphView === 'compute'}">计算流程</button><button class="btn btn-ghost" type="button" disabled>Tensor Shape</button><button class="btn btn-ghost" type="button" disabled>精度</button><button class="btn btn-ghost" type="button" disabled>执行硬件</button><button class="btn btn-ghost" type="button" disabled>Buffer / Memory</button></div>
         ${pypaGraphView === 'compute' ? '<aside class="kf-pypa-graph__inspector" id="pypaNodeInspector" aria-label="Node Inspector" hidden></aside>' : ''}
         ${pypaGraphView === 'overview' ? '<footer class="kf-pypa-graph__status" id="pypaGraphStatus">拖拽平移 · 滚轮缩放 · 点击节点定位源码</footer>' : ''}
       </section>`;
-    renderPyptoTaskGraph();
+    if (!isIntro) renderPyptoTaskGraph();
+    else if (pypaTaskIntroEnabled) pypaGraphController = window.PtoPagedAttentionIntro.mount(host.querySelector('.kf-pa-intro-mount'));
   }
 
   /* ---- 可视化模式：源码地图右上角的按钮 -------------------------------------
@@ -2574,6 +2612,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
 
   // 离开该文件：把快照原样贴回去，等于这个文件从没动过分栏宽度
   function leavePagedAttentionPyptoLayout() {
+    if (pypaTaskIntroEnabled) { pypaGraphController?.abort?.(); pypaGraphController = null; }
     if (!pyptoPaneSnapshot) return;
     restoreMainSplitLayout(pyptoPaneSnapshot);
     pyptoPaneSnapshot = null;
@@ -2583,6 +2622,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   function setSourceRegionVisualize(on) {
     if (!pyptoPaneSnapshot) pyptoPaneSnapshot = captureMainSplitLayout();
     if (!on) {
+      if (pypaTaskIntroEnabled) { pypaGraphController?.abort?.(); pypaGraphController = null; }
       applyCodeFirstMainSplit(pyptoPaneSnapshot);
     } else {
       applyVisualizeMainSplit(pyptoPaneSnapshot);
@@ -4470,6 +4510,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   function renderIntentInspector() {
+    if (pypaTaskIntroEnabled && !isPagedAttentionPyptoFile(state.activeFile)) {
+      pypaGraphController?.abort?.();
+      pypaGraphController = null;
+    }
     // 非统一面板的文件仍走各自的渲染器：先摘掉四层骨架的布局类
     $('#inspector').classList.remove('is-op-inspector');
     matmulHardwareGraphInstance?.destroy?.();
