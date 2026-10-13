@@ -673,14 +673,15 @@
         subtitle: "Execution Triage · DSpark Serving",
         category: "内存与性能",
         status: "新增",
-        version: "04 / Flow",
+        version: "06 / Observe",
         updatedAt: "2026-10-12",
-        description: "DSpark Serving 单请求（DeepSeek-V4-Flash，16 NPU）的单步流转：Serving、Host、Device 三块 2.5D 板从上到下叠放，时间水平前进；红色折线是关键路径（上一步屏障 → device 6 bind → runner_run → 同步屏障），灰色箭头是调度下发与结果回收，虚框是与本步重叠的下一步准备。左上是每个 decode step 的构成，底部是请求级指标与时间线。",
-        href: "Design/execution-triage-workbench/index.html",
+        description: "从一轮 256 并发压测下钻到一个 decode step。总览页把定界与定位放进同一张图：上半四条服务曲线（在系统内的请求数 / 输出速率 / 输出间隔 P50 / KV cache），下半 16 个 rank 的热力带 + 计算·通信·等待构成 + 专家路由量，共用一条时间轴。一条十字光标同时读出两半，点波段标注则两半一起按时间段过滤、rank 构成随之重算。23.00 s 之后并发在降、吞吐却涨 8 倍；r6 承载高 33%、每步占 97%，其余卡都在等它。切到请求生命线可看 256 条请求各自的首 token 与收尾，底部可切 TTFT / 输出间隔 / TPOT / E2E 分布。点任一请求进入单请求页：Serving、Host、Device 三块板叠放，红色折线是关键路径（上一步屏障 → device 6 bind → runner_run → 同步屏障）。",
+        href: "Design/execution-triage-workbench/overview.html",
         preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["定界", "Critical Path", "2.5D", "DSpark", "16 NPU"],
+        tags: ["定界", "GBS256", "Critical Path", "16 Rank", "DSpark", "16 NPU"],
         variants: [
-          { label: "首页 · 三栋楼", href: "Design/execution-triage-workbench/index.html" },
+          { label: "压测总览 · 256 请求", href: "Design/execution-triage-workbench/overview.html" },
+          { label: "下钻 · 单请求单步流转", href: "Design/execution-triage-workbench/index.html" },
           { label: "V2 · GBS256 压测", href: "Design/execution-triage-workbench-v2/index.html" },
           { label: "详细分析", href: "Design/execution-triage-workbench/analysis.html" }
         ]

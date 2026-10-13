@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="DSpark Serving 256 请求压测：请求分布、输出波次与关键 KPI" />
+  <title>Execution Triage · 压测总览</title>
+  <link rel="icon" type="image/svg+xml" href="../../pto-studio-logo.svg" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="./home.css" />
+  <link rel="stylesheet" href="./overview.css" />
+</head>
+<body>
+  <div class="shell">
+    <!-- 场景：上板是 256 个请求的生命线，下板是输出波次 -->
+    <section class="scene" aria-label="压测总览场景">
+      <div class="scene-head">
+        <div class="eyebrow" id="eyebrow"></div>
+        <h1 class="layer-name" id="runName"></h1>
+        <div class="headline-sub" id="runSub"></div>
+        <button type="button" class="meta-toggle" id="metaToggle" aria-expanded="false" aria-controls="runMeta">
+          <span>运行配置</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+        <dl class="meta-card" id="runMeta" hidden></dl>
+      </div>
+
+      <div class="view-tabs" id="viewTabs" role="tablist" aria-label="视图"></div>
+
+      <div class="scene-tools">
+        <a class="tool" id="drillLink" href="./index.html" title="下钻：单请求执行定界" aria-label="下钻：单请求执行定界">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0 5-5m-5 5-5-5M4 20h16" /></svg>
+        </a>
+      </div>
+
+      <svg class="iso" id="iso" role="img" aria-label="服务曲线与请求生命线"></svg>
+
+      <div class="scene-foot">
+        <div class="dist" id="dist"></div>
+      </div>
+    </section>
+
+    <!-- 右侧：服务指标 -->
+    <section class="rail" aria-label="服务指标">
+      <div class="kpis" id="kpis"></div>
+    </section>
+  </div>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <script src="./overview-data.js"></script>
+  <script src="./overview.js"></script>
+</body>
+</html>

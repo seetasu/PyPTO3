@@ -127,7 +127,7 @@ h1, h2, p { margin: 0; }
 .iso .tag.is-on .tag-label { fill: var(--foreground); }
 .iso .tag { cursor: pointer; }
 .iso .tag:focus-visible { outline: none; }
-.iso .tag:focus-visible .tag-box { stroke: var(--foreground); stroke-width: 2; }
+.iso .tag:focus-visible .tag-box { stroke: var(--primary); stroke-width: 2; }
 
 .scene-foot {
   position: absolute; z-index: 3; left: 24px; right: 24px; bottom: 22px;

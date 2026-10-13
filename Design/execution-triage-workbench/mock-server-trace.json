@@ -1,0 +1,32 @@
+{
+  "notice": "SYNTHETIC MOCK DATA — not captured from the DSpark Serving server, profiler, or NPU.",
+  "purpose": "Illustrate what a server-side trace aligned to the GBS256 client timeline could look like around the observed output-interval change.",
+  "scenario": "One hypothetical explanation: a large host-side wait disappears near 23 s while device-step duration stays similar. This is an example only; it does not establish the real cause.",
+  "clock": {
+    "unit": "ms",
+    "origin": "synthetic client run origin; timestamps are placed on the same relative axis for illustration only",
+    "synchronized_with_server": false
+  },
+  "event_schema": {
+    "step_start": "server begins one decode iteration",
+    "scheduler_ready": "scheduler has selected the active request batch",
+    "worker_dispatch": "decode work is dispatched to the worker",
+    "device_start": "device execution begins",
+    "device_end": "device execution ends",
+    "step_end": "iteration completes and output becomes available"
+  },
+  "steps": [
+    { "id": "mock-028", "phase": "slow-example", "active_requests": 256, "start_ms": 20571.39, "scheduler_ready_ms": 20573.2, "worker_dispatch_ms": 20574.1, "device_start_ms": 21222.0, "device_end_ms": 21346.0, "end_ms": 21349.44, "client_wave_ms": 21349.44 },
+    { "id": "mock-029", "phase": "slow-example", "active_requests": 255, "start_ms": 21349.44, "scheduler_ready_ms": 21351.3, "worker_dispatch_ms": 21352.1, "device_start_ms": 22005.0, "device_end_ms": 22129.0, "end_ms": 22133.24, "client_wave_ms": 22133.24 },
+    { "id": "mock-030", "phase": "slow-example", "active_requests": 254, "start_ms": 22133.24, "scheduler_ready_ms": 22135.1, "worker_dispatch_ms": 22136.0, "device_start_ms": 22739.0, "device_end_ms": 22865.0, "end_ms": 22869.13, "client_wave_ms": 22869.13 },
+    { "id": "mock-031", "phase": "fast-example", "active_requests": 253, "start_ms": 22869.13, "scheduler_ready_ms": 22871.0, "worker_dispatch_ms": 22872.0, "device_start_ms": 22873.0, "device_end_ms": 22995.0, "end_ms": 22998.69, "client_wave_ms": 22998.69 },
+    { "id": "mock-032", "phase": "fast-example", "active_requests": 252, "start_ms": 22998.69, "scheduler_ready_ms": 23000.5, "worker_dispatch_ms": 23001.4, "device_start_ms": 23002.2, "device_end_ms": 23116.5, "end_ms": 23120.42, "client_wave_ms": 23120.42 },
+    { "id": "mock-033", "phase": "fast-example", "active_requests": 251, "start_ms": 23120.42, "scheduler_ready_ms": 23122.3, "worker_dispatch_ms": 23123.2, "device_start_ms": 23124.0, "device_end_ms": 23244.7, "end_ms": 23248.60, "client_wave_ms": 23248.60 },
+    { "id": "mock-034", "phase": "fast-example", "active_requests": 251, "start_ms": 23248.60, "scheduler_ready_ms": 23250.4, "worker_dispatch_ms": 23251.3, "device_start_ms": 23252.1, "device_end_ms": 23374.5, "end_ms": 23378.38, "client_wave_ms": 23378.38 }
+  ],
+  "interpretation": [
+    "In this mock, the slow examples spend about 650 ms between worker dispatch and device start; fast examples spend about 1 ms there.",
+    "Mock device duration remains about 120 ms in both phases, so this particular invented trace would point toward host-side waiting as the changed component.",
+    "These values and events are fabricated. Real attribution requires server timestamps and client timestamps aligned to a verified common clock."
+  ]
+}
