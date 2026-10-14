@@ -25,6 +25,8 @@ test('Paged Attention introduction exposes the documented model constants and de
     pageTokens: 128,
     pagesPerStack: 4,
     maxSeq: 3584,
+    preLaunch: 2,
+    transferSlots: 3,
   });
   assert.deepEqual(plain(model.defaultSeqLens), [
     1025, 512, 2048, 128, 1536, 3584, 3072, 256,

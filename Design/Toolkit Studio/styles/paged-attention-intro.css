@@ -184,3 +184,27 @@
 .kf-pa-intro-mount[data-level="detail"] .kf-pa-map__footer { align-items: flex-start; }
 .kf-pa-map__pipeline-detail { max-height: 180px; }
 .kf-pa-map__stack.is-stack-selected { fill: var(--state-selected); stroke: var(--primary); }
+
+/* Selection continuity uses the existing button, metadata and selected-state tokens. */
+.kf-pa-map__stage { cursor: pointer; }
+.kf-pa-map__stage rect { fill: transparent; }
+.kf-pa-map__stage.is-selected rect { fill: var(--state-selected); }
+.kf-pa-map__stage.is-selected text { fill: var(--primary); }
+.kf-pa-map__stage[aria-disabled="true"] { opacity: .4; cursor: default; }
+.kf-pa-map__stage:focus-visible rect { stroke: var(--focus-ring); }
+.kf-pa-map__operator { flex: none; padding: var(--space-2) 0; border-top: 1px solid var(--border-subtle); font: var(--type-mono); color: var(--foreground-secondary); }
+.kf-pa-map__current { color: var(--primary); margin: var(--space-1) 0; }
+.kf-pa-map__operator-prep { color: var(--foreground-muted); margin-bottom: var(--space-1); }
+.kf-pa-map__operator nav { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+.kf-pa-map__operator small { display: block; font: var(--type-micro); }
+.kf-pa-map [data-pa-stage][aria-pressed="true"] { color: var(--primary); background: var(--state-selected); }
+.kf-pa-execution-context { order: 1; flex: none; padding: var(--space-2) var(--space-4); color: var(--foreground-secondary); font: var(--type-mono); border-bottom: 1px solid var(--border-subtle); }
+.kf-pa-execution-context > div { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.kf-pa-execution-context b { color: var(--foreground); }
+.kf-pa-execution-context strong { color: var(--primary); }
+.kf-pa-execution-context small { display: block; margin-top: var(--space-1); color: var(--foreground-muted); font: var(--type-body-sm); }
+.kf-pypa-graph__node.is-context-muted { opacity: .6; }
+.kf-pypa-graph__node.is-context-muted:is(:hover, :focus-visible) { opacity: 1; }
+
+.kf-pa-intro-mount[data-level="detail"] .kf-pa-map__viewport { min-height: 260px; }
+.kf-pa-map__pipeline-detail { max-height: 100px; }

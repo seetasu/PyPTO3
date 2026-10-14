@@ -11,6 +11,7 @@ function functionSource(source, name) {
   const start = source.indexOf(`function ${name}(`);
   assert.notEqual(start, -1, `missing ${name}`);
   const boundaries = {
+    syncPypaOverlays: '  const PYPA_SCENE_WIDTH',
     pypaVisibleGraph: '  function renderPyptoTaskGraph()',
     renderPyptoTaskGraph: '  // 缩放读数：',
     syncPypaGraphZoom: '  let pypaSelectedNodeId = null;',
@@ -49,6 +50,11 @@ class Element {
   setPointerCapture() {}
   getBoundingClientRect() { return { left: 0, top: 0, width: this.clientWidth, height: this.clientHeight }; }
   closest() { return null; }
+  querySelectorAll(selector) {
+    const key = selector === '[data-pypa-node]' ? 'pypaNode' : null;
+    return key ? this.children.filter((child) => child.dataset[key]) : [];
+  }
+  querySelector() { return null; }
 }
 
 function setup() {
@@ -69,7 +75,7 @@ function setup() {
   };
   const window = {};
   const calls = [];
-  const context = vm.createContext({ window, document, console, AbortController, ResizeObserver: class { observe() {} disconnect() {} } });
+  const context = vm.createContext({ window, document, console, activeSemanticModel: () => window.PTO_PYPA_SEMANTIC_GRAPH, isMatmulFile: () => false, AbortController, ResizeObserver: class { observe() {} disconnect() {} } });
   for (const file of ['semantic-computation-presentation.js', 'paged-attention-pypto-source.js', 'paged-attention-semantic-graph.js', 'semantic-computation-layout.js', 'semantic-computation-graph.js']) {
     vm.runInContext(read(file), context, { filename: file });
   }
@@ -77,7 +83,7 @@ function setup() {
   window.focusSourceRegion = (focus) => calls.push(['focus', focus.line]);
   window.revealSourceRegionLine = (line) => calls.push(['reveal', line]);
   window.state = { sourceRegionFocus: null };
-  const picked = ['pypaVisibleGraph', 'renderPyptoTaskGraph', 'syncPypaGraphZoom', 'pypaSourceRanges', 'revealPypaSource', 'selectPypaGraphNode'];
+  const picked = ['syncPypaOverlays', 'pypaVisibleGraph', 'renderPyptoTaskGraph', 'syncPypaGraphZoom', 'pypaSourceRanges', 'revealPypaSource', 'selectPypaGraphNode'];
   const extracted = picked.map((name) => functionSource(demo, name)).join('\n');
   const bootstrap = `
     const $ = (selector) => elements[selector] || null;
@@ -89,6 +95,7 @@ function setup() {
     let pypaGraphSize = null;
     let pypaSelectedNodeId = null;
     const pypaExpandedStages = new Set();
+    const pypaOverlays = {shape:true, precision:true, memory:false, control:false};
     const PYPA_SCENE_WIDTH = 2260, PYPA_SCENE_HEIGHT = 1480;
     const pypaEscape = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const state = window.state;
@@ -171,7 +178,7 @@ test('selecting qk and score fills the inspector with their structure and source
     window.__test.selectPypaGraphNode(node);
     assert.equal(inspector.hidden, false);
     assert.match(inspector.innerHTML, new RegExp(node.title));
-    assert.match(inspector.innerHTML, /<dt>.*<\/dt><dd>.*<\/dd>/);
+    assert.match(inspector.innerHTML, /<dt(?: class="[^"]*")?>.*<\/dt><dd>.*<\/dd>/);
     assert.ok(rows.some((row) => row.classList.contains('is-pypa-source-evidence')));
   }
 });

@@ -1,0 +1,439 @@
+{
+  "nodeTests": {
+    "passed": 64,
+    "failed": 0
+  },
+  "browser": {
+    "passed": true,
+    "combinations": 16,
+    "keyboard": true,
+    "closePreservesTransform": true,
+    "states": [
+      {
+        "mask": 0,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ]
+          ],
+          "feedback": [],
+          "memory": 0,
+          "precision": 0,
+          "shape": 0,
+          "state": 4
+        }
+      },
+      {
+        "mask": 1,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ]
+          ],
+          "feedback": [],
+          "memory": 0,
+          "precision": 0,
+          "shape": 16,
+          "state": 4
+        }
+      },
+      {
+        "mask": 2,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ]
+          ],
+          "feedback": [],
+          "memory": 0,
+          "precision": 17,
+          "shape": 0,
+          "state": 4
+        }
+      },
+      {
+        "mask": 3,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ]
+          ],
+          "feedback": [],
+          "memory": 0,
+          "precision": 17,
+          "shape": 16,
+          "state": 4
+        }
+      },
+      {
+        "mask": 4,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ]
+          ],
+          "feedback": [],
+          "memory": 12,
+          "precision": 0,
+          "shape": 0,
+          "state": 4
+        }
+      },
+      {
+        "mask": 5,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ]
+          ],
+          "feedback": [],
+          "memory": 12,
+          "precision": 0,
+          "shape": 16,
+          "state": 4
+        }
+      },
+      {
+        "mask": 6,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ]
+          ],
+          "feedback": [],
+          "memory": 12,
+          "precision": 17,
+          "shape": 0,
+          "state": 4
+        }
+      },
+      {
+        "mask": 7,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ],
+            [
+              "none",
+              "0.65"
+            ]
+          ],
+          "feedback": [],
+          "memory": 12,
+          "precision": 17,
+          "shape": 16,
+          "state": 4
+        }
+      },
+      {
+        "mask": 8,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ]
+          ],
+          "feedback": [],
+          "memory": 0,
+          "precision": 0,
+          "shape": 0,
+          "state": 4
+        }
+      },
+      {
+        "mask": 9,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ]
+          ],
+          "feedback": [],
+          "memory": 0,
+          "precision": 0,
+          "shape": 16,
+          "state": 4
+        }
+      },
+      {
+        "mask": 10,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ]
+          ],
+          "feedback": [],
+          "memory": 0,
+          "precision": 17,
+          "shape": 0,
+          "state": 4
+        }
+      },
+      {
+        "mask": 11,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ]
+          ],
+          "feedback": [],
+          "memory": 0,
+          "precision": 17,
+          "shape": 16,
+          "state": 4
+        }
+      },
+      {
+        "mask": 12,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ]
+          ],
+          "feedback": [],
+          "memory": 12,
+          "precision": 0,
+          "shape": 0,
+          "state": 4
+        }
+      },
+      {
+        "mask": 13,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ]
+          ],
+          "feedback": [],
+          "memory": 12,
+          "precision": 0,
+          "shape": 16,
+          "state": 4
+        }
+      },
+      {
+        "mask": 14,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ]
+          ],
+          "feedback": [],
+          "memory": 12,
+          "precision": 17,
+          "shape": 0,
+          "state": 4
+        }
+      },
+      {
+        "mask": 15,
+        "nodeCount": 27,
+        "edgeCount": 30,
+        "fields": {
+          "control": [
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ],
+            [
+              "7px, 5px",
+              "1"
+            ]
+          ],
+          "feedback": [],
+          "memory": 12,
+          "precision": 17,
+          "shape": 16,
+          "state": 4
+        }
+      }
+    ]
+  },
+  "manualChecks": {
+    "feedbackNeutralWhenDisabled": true,
+    "sourceEvidenceRows": 5,
+    "longRowWidth": 370,
+    "inspectorBodyFont": "14px",
+    "narrowToolbarWrap": true,
+    "overview": true,
+    "intro": true
+  }
+}
