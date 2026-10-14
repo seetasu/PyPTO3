@@ -106,18 +106,17 @@
   const SELS = ['none', ...D.batches.map((b) => b.id), 'slow', 'fast'];
   const VIEWS = [{ k: 'main', label: '服务 · Rank' }, { k: 'rows', label: '请求生命线' }];
   // rank：选中的 rank，默认整个窗口最慢的那张；scrub：悬停到的那一步（不进 hash）
-  const state = { sel: 'none', dist: 'itl', view: 'main', rank: D.ranks.slowest, scrub: null };
+  const state = { sel: 'none', view: 'main', rank: D.ranks.slowest, scrub: null };
 
   function readHash() {
     const p = new URLSearchParams(location.hash.slice(1));
     if (SELS.includes(p.get('sel'))) state.sel = p.get('sel');
-    if (D.dists.some((x) => x.k === p.get('dist'))) state.dist = p.get('dist');
     if (VIEWS.some((v) => v.k === p.get('view'))) state.view = p.get('view');
     const r = Number(p.get('rank'));
     if (p.has('rank') && Number.isInteger(r) && r >= 0 && r < D.ranks.n) state.rank = r;
   }
   function writeHash() {
-    const h = `view=${state.view}&sel=${state.sel}&dist=${state.dist}&rank=${state.rank}`;
+    const h = `view=${state.view}&sel=${state.sel}&rank=${state.rank}`;
     if (location.hash.slice(1) !== h) history.replaceState(null, '', `#${h}`);
   }
   function select(id) {
@@ -125,7 +124,6 @@
     state.sel = state.sel === id ? 'none' : id;
     writeHash();
     renderScene();
-    renderDist();
     renderRail();
   }
 
@@ -718,16 +716,28 @@
     </div>
     <div class="qax"><span>${fmtMs(d.min)}</span><span>${fmtMs(d.max)}</span></div>`;
   }
-  // 迷你直方图：只给最该看的那一项（输出间隔的双峰）
+  // 迷你直方图：只给最该看的那一项（输出间隔的双峰）。
+  // 两个峰标在各自中位数的位置上，点峰即筛选对应波段，与主图的波段标注是同一个开关。
   function miniHist(key) {
     const d = D.dists.find((x) => x.k === key);
     const max = Math.max(...d.bins.map((b) => b.n));
     const hot = d.hot || null;
-    return `<div class="mhist">${d.bins.map((b) => {
+    const lo = d.bins[0].x0; const hi = d.bins[d.bins.length - 1].x1;
+    const peaks = key === 'itl' ? [
+      { id: 'fast', m: D.itlModes.fast, cls: '' },
+      { id: 'slow', m: D.itlModes.slow, cls: ' hot' },
+    ] : [];
+    return `<div class="mhist${peaks.length ? ' has-peaks' : ''}">${d.bins.map((b) => {
       const isHot = hot && b.x0 >= hot[0] && b.n > 0;
       return `<i class="${b.n === 0 ? 'zero' : isHot ? 'hot' : ''}" style="--h:${(b.n / max * 100).toFixed(1)}%"></i>`;
+    }).join('')}${peaks.map((p) => {
+      const x = (p.m.p50 - lo) / (hi - lo) * 100;
+      const tf = x < 20 ? 'translateX(-12%)' : x > 80 ? 'translateX(-88%)' : 'translateX(-50%)';
+      const band = D.bands.find((b) => b.id === p.id);
+      return `<button type="button" class="peak${p.cls}${state.sel === p.id ? ' is-on' : ''}" data-sel="${p.id}" aria-pressed="${state.sel === p.id}"
+        style="left:${x.toFixed(1)}%;transform:${tf}" title="只看${esc(band ? band.label : '')}"><b>${nf(p.m.n)}</b> 个 · ${fmtMs(p.m.p50)}</button>`;
     }).join('')}</div>
-    <div class="qax"><span>${fmtMs(d.bins[0].x0)}</span><span>${fmtMs(d.bins[d.bins.length - 1].x1)}</span></div>`;
+    <div class="qax"><span>${fmtMs(lo)}</span><span>${fmtMs(hi)}</span></div>`;
   }
   function renderRail() {
     $('#kpis').innerHTML = D.rail.map((g) => `
@@ -746,53 +756,7 @@
             <div class="ri-foot">${esc(it.foot)}</div>
           </div>`).join('')}
       </section>`).join('');
-  }
-
-  /* ------------------------------------------------------------ 底部：分布直方图
-   * 输出间隔这一张把两个峰直接标在柱子上方，点峰也能筛选对应波段。 */
-  function renderDist() {
-    const d = D.dists.find((x) => x.k === state.dist);
-    const max = Math.max(...d.bins.map((b) => b.n));
-    const hot = d.hot || null;
-    const lo = d.bins[0].x0; const hi = d.bins[d.bins.length - 1].x1;
-    const at = (v) => ((v - lo) / (hi - lo) * 100).toFixed(1);
-    const peaks = d.k === 'itl' ? [
-      { id: 'fast', m: D.itlModes.fast, cls: '' },
-      { id: 'slow', m: D.itlModes.slow, cls: ' hot' },
-    ] : [];
-    const wrap = $('#dist');
-    wrap.innerHTML = `
-      <div class="dist-head">
-        <div class="dist-tabs">${D.dists.map((x) => `<button type="button" data-dist="${x.k}" class="${x.k === d.k ? 'is-on' : ''}">${esc(x.label)}</button>`).join('')}</div>
-        <div class="dist-stats">
-          <span>P50 <b>${fmtMs(d.stats.p50)}</b></span>
-          <span>P90 <b>${fmtMs(d.stats.p90)}</b></span>
-          <span>P99 <b>${fmtMs(d.stats.p99)}</b></span>
-          <span>均值 <b>${fmtMs(d.stats.mean)}</b></span>
-          <span>样本 <b>${nf(d.stats.n)}</b></span>
-        </div>
-      </div>
-      <div class="dist-plot">
-        <div class="dist-y"><span>${nf(max)}</span><span>${nf(Math.round(max / 2))}</span><span>0</span></div>
-        <div class="dist-bars" role="img" aria-label="${esc(d.label)}分布">
-          ${d.bins.map((b) => {
-            const isHot = hot && b.x0 >= hot[0] && b.x1 <= hot[1] && b.n > 0;
-            const cls = b.n === 0 ? 'zero' : isHot ? 'hot' : '';
-            return `<i class="${cls}" style="--h:${(b.n / max * 100).toFixed(2)}%" data-tip="${esc(fmtMs(b.x0))} – ${esc(fmtMs(b.x1))} · ${nf(b.n)} 个"></i>`;
-          }).join('')}
-          ${peaks.map((p) => {
-            const x = Number(at(p.m.p50));
-            const tf = x < 12 ? 'translateX(-15%)' : x > 88 ? 'translateX(-85%)' : 'translateX(-50%)';
-            return `<button type="button" class="peak${p.cls}${state.sel === p.id ? ' is-on' : ''}" data-sel="${p.id}" style="left:${x}%;transform:${tf}"><b>${nf(p.m.n)}</b> 个 · ${fmtMs(p.m.p50)}</button>`;
-          }).join('')}
-        </div>
-      </div>
-      <div class="dist-axis"><span>${fmtMs(d.bins[0].x0)}</span><span>${fmtMs(d.bins[d.bins.length - 1].x1)}</span></div>`;
-    wrap.querySelectorAll('[data-dist]').forEach((b) => b.addEventListener('click', () => {
-      state.dist = b.dataset.dist; writeHash(); renderDist();
-    }));
-    wrap.querySelectorAll('.peak').forEach((b) => b.addEventListener('click', () => select(b.dataset.sel)));
-    wrap.querySelectorAll('.dist-bars i').forEach((b) => withTip(b, b.dataset.tip));
+    $('#kpis').querySelectorAll('.peak').forEach((b) => b.addEventListener('click', () => select(b.dataset.sel)));
   }
 
   /* ------------------------------------------------------------ init */
@@ -800,11 +764,10 @@
   renderHead();
   renderRail();
   renderViewTabs();
-  renderDist();
   renderScene();
   writeHash();
 
-  window.addEventListener('hashchange', () => { readHash(); renderDist(); renderRail(); renderScene(); });
+  window.addEventListener('hashchange', () => { readHash(); renderRail(); renderScene(); });
   let rt = null;
   window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderScene, 120); });
 })();

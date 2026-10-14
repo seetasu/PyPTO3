@@ -11,14 +11,17 @@
  * 画布再宽，10 / 11 / 12 px 的字也不会跟着放大，和 HTML 正文同一量级。
  * 字重以 400 为主，只有结论行与单 rank 数值用 500；层级靠颜色区分，不靠加粗。 */
 :root {
+  --ov-num: 400 12px/1.4 var(--font-sans);                     /* HTML 里的数字 */
+  --ov-num-lg: 400 20px/1.1 var(--font-sans);                  /* 右栏指标值，按档位改字号 */
+}
+/* 图上字号变量定义在 svg 自身上：var(--u) 在定义处取值，放在 :root 会读到默认的 1 */
+.iso {
   --u: 1;
   --svg-xs: 400 calc(10px * var(--u)) / 1 var(--font-sans);    /* 刻度、轴值、注释、图例 */
   --svg-sm: 400 calc(11px * var(--u)) / 1 var(--font-sans);    /* 标题、名称、标签 */
   --svg-md: 400 calc(12px * var(--u)) / 1 var(--font-sans);    /* 统计值、读数 */
   --svg-md-strong: 500 calc(12px * var(--u)) / 1 var(--font-sans);  /* 结论行 */
   --svg-lg: 500 calc(14px * var(--u)) / 1 var(--font-sans);    /* 单 rank 侧边数值 */
-  --ov-num: 400 12px/1.4 var(--font-sans);                     /* HTML 里的数字 */
-  --ov-num-lg: 400 20px/1.1 var(--font-sans);                  /* 右栏指标值，按档位改字号 */
 }
 body, .iso text { font-variant-numeric: tabular-nums; }
 .iso .tick-label { font: var(--svg-xs); }
@@ -131,7 +134,7 @@ body, .iso text { font-variant-numeric: tabular-nums; }
 .view-tabs button.is-on { background: rgba(255, 255, 255, 0.12); border-color: var(--border-strong); color: var(--foreground); }
 
 /* ------------------------------------------------------------ 主图 */
-.iso { top: 206px; height: calc(100% - 396px); }
+.iso { top: 206px; height: calc(100% - 230px); }   /* 底部分布已并入右栏，主图铺到底 */
 
 .iso .panel { fill: rgba(255, 255, 255, 0.035); stroke: rgba(255, 255, 255, 0.12); stroke-width: 1; }
 .iso .axis-base { stroke: rgba(255, 255, 255, 0.28); }
@@ -245,46 +248,22 @@ body, .iso text { font-variant-numeric: tabular-nums; }
 .iso .rk-bar.is-sel { fill: var(--foreground); }
 .iso .rk-bar.hot.is-sel { fill: var(--hot); }
 
-/* ------------------------------------------------------------ 底部：分布 */
-.dist { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
-.dist-head { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
-.dist-tabs { display: flex; gap: 2px; }
-.dist-tabs button {
-  padding: 4px 10px; border: 1px solid transparent; border-radius: 7px;
-  background: rgba(255, 255, 255, 0.04); font: var(--type-label); color: var(--foreground-muted);
-}
-.dist-tabs button:hover { color: var(--foreground); }
-.dist-tabs button.is-on { background: var(--hot); border-color: var(--hot); color: #fff; }
-.dist-stats { display: flex; flex-wrap: wrap; gap: 2px 20px; margin-left: auto; }
-.dist-stats span { font: var(--type-body-sm); color: var(--foreground-muted); }
-.dist-stats b { font: var(--ov-num); color: var(--foreground); }
-
-.dist-plot { display: flex; align-items: stretch; gap: 8px; padding-top: 32px; }  /* 顶部留给双峰标注 */
-.dist-y { display: flex; flex-direction: column; justify-content: space-between; width: 36px; text-align: right; font: var(--type-micro); color: var(--foreground-muted); }
-.dist-bars { position: relative; flex: 1; min-width: 0; display: flex; align-items: flex-end; gap: 1px; height: 64px; }
-.dist-bars i {
-  flex: 1; min-width: 0; height: var(--h); min-height: 1px; border-radius: 1px 1px 0 0;
-  background: rgba(255, 255, 255, 0.34); cursor: default;
-}
-.dist-bars i.hot { background: rgba(239, 75, 60, 0.6); }
-.dist-bars i.zero { background: rgba(255, 255, 255, 0.07); }
-.dist-bars i:hover { background: var(--foreground); }
-
-/* 双峰标注：钉在各自中位数的位置上 */
-.peak {
-  position: absolute; bottom: calc(100% + 6px); transform: translateX(-50%);
-  padding: 2px 7px; border-radius: 6px; white-space: nowrap;
+/* 输出间隔的双峰：钉在各自中位数的位置上，点峰即筛选对应波段（与主图波段标注同一个开关） */
+.mhist { position: relative; }
+.mhist.has-peaks { margin-top: 26px; }
+.mhist .peak {
+  position: absolute; bottom: calc(100% + 4px); transform: translateX(-50%);
+  padding: 1px 6px; border-radius: 6px; white-space: nowrap;
   border: 1px solid var(--border-default); background: #222;
   font: var(--type-micro); color: var(--foreground-muted);
 }
-.peak b { font: var(--ov-num); color: var(--foreground); }
-.peak.hot { border-color: rgba(239, 75, 60, 0.5); }
-.peak.hot b { color: var(--hot); }
-.peak:hover { border-color: var(--border-strong); color: var(--foreground); }
-.peak.is-on { border-color: var(--foreground); }
-.peak.hot.is-on { border-color: var(--hot); }
-
-.dist-axis { display: flex; justify-content: space-between; padding-left: 44px; font: var(--type-micro); color: var(--foreground-muted); }
+.mhist .peak b { font: var(--ov-num); color: var(--foreground); }
+.mhist .peak.hot { border-color: rgba(239, 75, 60, 0.5); }
+.mhist .peak.hot b { color: var(--hot); }
+.mhist .peak:hover { border-color: var(--border-strong); color: var(--foreground); }
+.mhist .peak.is-on { border-color: var(--foreground); background: rgba(255, 255, 255, 0.1); }
+.mhist .peak.hot.is-on { border-color: var(--hot); background: rgba(239, 75, 60, 0.16); }
+.mhist .peak:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 
 /* ------------------------------------------------------------ responsive */
 @media (max-width: 980px) {
@@ -298,7 +277,6 @@ body, .iso text { font-variant-numeric: tabular-nums; }
   .scene-head { max-width: none; }
   .view-tabs { position: static; margin: 14px 20px 0; }
   .iso { height: 190px; }
-  .dist { order: 3; flex-basis: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .meta-toggle svg { transition: none; }

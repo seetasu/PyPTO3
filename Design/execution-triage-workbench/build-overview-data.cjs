@@ -352,7 +352,8 @@ const data = {
       items: [
         {
           k: "itl", label: "输出间隔", v: Math.round(sItl.p50), u: "ms",
-          foot: `双峰 ${Math.round(stats(fastItl).p50)} ms ×${fastItl.length.toLocaleString("en-US")} / ${Math.round(stats(slowItl).p50)} ms ×${slowItl.length.toLocaleString("en-US")}`,
+          // 双峰在页面上画成可点的峰值标签，脚注只放分位、均值和样本数
+          foot: `P90 ${Math.round(sItl.p90)} ms · P99 ${Math.round(sItl.p99)} ms · 均值 ${Math.round(sItl.mean)} ms · ${sItl.n.toLocaleString("en-US")} 个`,
           hist: "itl",
         },
         { k: "batch", label: "平均批大小", v: batchMean, u: `/ ${R.max_concurrency}`, foot: `并发上限 ${R.max_concurrency} · 退出前满载`, bar: { val: batchMean, max: R.max_concurrency } },
@@ -369,8 +370,8 @@ const data = {
       p: 1,
       items: [
         { k: "req", label: "请求吞吐", v: r2(R.request_throughput), u: "req/s", foot: `输出 ${r1(R.output_throughput)} tok/s · 窗口 ${(R.duration).toFixed(2)} s`, spark: "rate" },
-        { k: "tpot", label: "TPOT", v: Math.round(sTpot.p50), u: "ms", foot: `P90 ${Math.round(sTpot.p90)} ms · P99 ${Math.round(sTpot.p99)} ms`, dist: { ...sTpot, unit: "ms" } },
-        { k: "ttft", label: "TTFT", v: r2(sTtft.p50 / 1000), u: "s", foot: `P90 ${r2(sTtft.p90 / 1000)} s · P99 ${r2(sTtft.p99 / 1000)} s`, dist: { ...sTtft, unit: "ms" } },
+        { k: "tpot", label: "TPOT", v: Math.round(sTpot.p50), u: "ms", foot: `P90 ${Math.round(sTpot.p90)} ms · P99 ${Math.round(sTpot.p99)} ms · 均值 ${Math.round(sTpot.mean)} ms`, dist: { ...sTpot, unit: "ms" } },
+        { k: "ttft", label: "TTFT", v: r2(sTtft.p50 / 1000), u: "s", foot: `P90 ${r2(sTtft.p90 / 1000)} s · P99 ${r2(sTtft.p99 / 1000)} s · 均值 ${r2(sTtft.mean / 1000)} s`, dist: { ...sTtft, unit: "ms" } },
       ],
     },
     {
