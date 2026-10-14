@@ -8,10 +8,10 @@
     regionSide: 28, regionTop: 55, regionBottom: 28,
     compositeSide: 22, compositeHeader: 62, compositeBottom: 24 };
   const fullId = (prefix, local) => prefix ? `${prefix}/${local}` : local;
-  const forward = (edge) => edge.route !== 'feedback';
+  const forward = (edge) => edge.type !== 'feedback';
 
   function nodeSize(node, child) {
-    const fallbackWidth = child ? 194 : node.semanticType === 'data' ? 170 : 188;
+    const fallbackWidth = child ? 194 : ['data', 'state'].includes(node.type) ? 170 : 188;
     return { w: node.w || fallbackWidth, h: node.h || (child ? 80 : 88) };
   }
 
@@ -43,8 +43,8 @@
   function layoutScope(graph, prefix, expanded, childScope) {
     const nodes = graph.nodes.map((node, index) => {
       const id = fullId(prefix, node.id);
-      const inner = node.subgraph && expanded.has(id)
-        ? layoutScope(node.subgraph, id, expanded, true) : null;
+      const inner = node.composite?.subgraph && expanded.has(id)
+        ? layoutScope(node.composite.subgraph, id, expanded, true) : null;
       const base = nodeSize(node, childScope);
       return { node, id, inner, index,
         boxW: inner ? Math.max(base.w, inner.width + BASE.compositeSide * 2) : base.w,
@@ -108,6 +108,7 @@
     const regions = (graph.groups || []).map((group) => {
       const members = group.members.map((id) => byId.get(id));
       return { ...group,
+        label: group.name,
         id: fullId(prefix, group.id),
         x: Math.min(...members.map((item) => item.x)) - BASE.regionSide,
         y: Math.min(...members.map((item) => item.y)) - BASE.regionTop,
@@ -135,48 +136,44 @@
       scope.regions.forEach((group) => groups.push({ ...group, x: offsetX + group.x, y: offsetY + group.y }));
       scope.nodes.forEach((item) => {
         const node = item.node;
-        const semanticType = node.semanticType || node.type;
-        const kind = semanticType === 'state' || semanticType === 'data' ? 'data' : 'operation';
         const id = item.id;
-        nodes.push({ ...node, id, parentId: scope.prefix || undefined,
+        nodes.push({ ...root.PTO_COMPUTATION_PRESENTATION.node(node, { id, parentId: scope.prefix || undefined }),
           x: offsetX + item.x, y: offsetY + item.y, w: item.boxW,
           h: item.inner ? 42 : item.boxH,
-          type: semanticType === 'composite' ? 'operation' : semanticType,
-          kind, badge: semanticType === 'state' ? 'STATE' : semanticType === 'data' ? 'DATA' : 'OPERATION',
-          childOperation: !!scope.prefix, expandable: !!node.subgraph,
+          childOperation: !!scope.prefix, expandable: !!node.composite?.subgraph,
           expandedGroup: !!item.inner, groupWidth: item.inner ? item.boxW : undefined,
           groupHeight: item.inner ? item.boxH : undefined,
-          sourceLine: node.sourceLine || Number(node.lines?.match(/\d+/)?.[0]),
         });
         if (item.inner) {
           opened.add(id);
           visit(item.inner, offsetX + item.x + BASE.compositeSide, offsetY + item.y + BASE.compositeHeader);
         }
       });
-      scope.graph.edges.forEach((edge) => rawEdges.push({ ...edge,
-        s: fullId(scope.prefix, edge.s), t: fullId(scope.prefix, edge.t),
-        internal: !!scope.prefix }));
+      scope.graph.edges.forEach((edge) => rawEdges.push(root.PTO_COMPUTATION_PRESENTATION.edge(edge, {
+        id: fullId(scope.prefix, edge.id), sourceId: fullId(scope.prefix, edge.s), targetId: fullId(scope.prefix, edge.t),
+        internal: !!scope.prefix })));
     };
     visit(hierarchy, 0, 0);
     const byId = new Map(nodes.map((node) => [node.id, node]));
     const endpoint = (id, port, side) => {
       let current = byId.get(id), name = port || 'default';
       while (current?.expandedGroup) {
-        const local = current.subgraph[side]?.[name];
-        if (!local) throw new Error(`${current.id}: missing ${side} port ${name}`);
-        current = byId.get(`${current.id}/${local}`);
-        name = 'default';
+        const mapping = current.composite.portMappings[side]?.[name];
+        if (!mapping) throw new Error(`${current.id}: missing ${side} port ${name}`);
+        current = byId.get(`${current.id}/${mapping.node}`);
+        name = mapping.port;
       }
-      return current?.id;
+      return { id: current?.id, port: name };
     };
-    const edges = rawEdges.map((edge) => ({ ...edge,
-      s: endpoint(edge.s, edge.sourcePort, 'outputs'),
-      t: endpoint(edge.t, edge.targetPort, 'inputs'),
-    }));
+    const edges = rawEdges.map((edge) => {
+      const source = endpoint(edge.s, edge.sourcePort, 'outputs'), target = endpoint(edge.t, edge.targetPort, 'inputs');
+      return { ...edge, semanticSource: edge.s, semanticTarget: edge.t,
+        s: source.id, t: target.id, sourcePort: source.port, targetPort: target.port };
+    });
     const right = Math.max(hierarchy.width, ...nodes.map((node) => node.x + node.w), ...groups.map((group) => group.x + group.w));
     const bottom = Math.max(hierarchy.height, ...nodes.map((node) => node.y + (node.groupHeight || node.h)), ...groups.map((group) => group.y + group.h));
     const geometry = routeEdges(nodes, edges, right);
-    return { ...model, nodes, edges, groups, opened, edgeRoutes: geometry,
+    return { ...model, semantic: model, nodes, edges, groups, opened, edgeRoutes: geometry,
       width: Math.max(right + 88, ...geometry.map((route) => route.maxX + 32)), height: bottom + 100 };
   }
 

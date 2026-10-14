@@ -1,0 +1,31 @@
+/* matmul.py 简介（TILED MATMUL）。
+   面板骨架直接复用 paged-attention-intro.css 的 kf-pa-map 组件（指标行 / 分块货架 /
+   画布 / 页脚工具条），这里只补 matmul 自己的 SVG 记号，保持同一套视觉语言。 */
+.kf-mm-map { overflow: hidden; }
+/* 分块货架按 M band 分组、每组 4 个 tile，铺成与 C 矩阵同构的 4×4 网格。 */
+.kf-mm-map .kf-mm-shelf-band { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.kf-mm-map .kf-pa-map__block { height: 46px; gap: 2px; }
+.kf-mm-map .kf-pa-map__block svg { width: 20px; height: 18px; }
+.kf-mm-map .kf-pa-map__viewport { min-height: 140px; }
+.kf-mm-map .kf-pa-map__context > [data-mm-action="focus"] { margin-left: auto; }
+
+/* SVG 记号 */
+.kf-mm-map .kf-mm-matrix-frame { fill: color-mix(in srgb, var(--surface-2) 62%, transparent); stroke: var(--border-default); }
+.kf-mm-map .kf-mm-gridline { stroke: var(--border-subtle); }
+.kf-mm-map .kf-mm-band-fill { fill: transparent; transition: fill 120ms ease; }
+.kf-mm-map .kf-mm-band.is-selected .kf-mm-band-fill { fill: color-mix(in srgb, var(--primary) 16%, transparent); }
+.kf-mm-map .kf-mm-tile { cursor: pointer; outline: none; }
+.kf-mm-map .kf-mm-tile-frame { fill: var(--surface-2); stroke: var(--border-subtle); transition: fill 120ms ease; }
+.kf-mm-map .kf-mm-tile:is(.is-selected, .is-hovered, :focus-visible) .kf-mm-tile-frame { fill: color-mix(in srgb, var(--primary) 16%, var(--surface-2)); stroke: var(--primary); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.kf-mm-map .kf-mm-tile:is(.is-selected, .is-hovered, :focus-visible) .kf-mm-svg-tile { fill: var(--foreground); }
+.kf-mm-map .kf-mm-flow { fill: none; stroke: var(--primary); stroke-width: 2; stroke-dasharray: 7 5; opacity: .8; }
+.kf-mm-map .kf-mm-klane rect { fill: color-mix(in srgb, var(--primary) 10%, var(--surface-2)); stroke: color-mix(in srgb, var(--primary) 40%, var(--border-default)); }
+.kf-mm-map .kf-mm-svg-title { fill: var(--foreground); font-weight: 650; font-size: calc(var(--pa-svg-label, 12px) * 1.3); }
+.kf-mm-map .kf-mm-svg-sub { fill: var(--foreground-secondary); font-size: calc(var(--pa-svg-label, 12px) * 1.02); }
+.kf-mm-map .kf-mm-svg-axis { fill: var(--foreground-muted); }
+.kf-mm-map .kf-mm-svg-tile { fill: var(--foreground-secondary); }
+
+@container (max-width: 720px) {
+  .kf-mm-map .kf-pa-map__block { height: 38px; }
+  .kf-mm-map .kf-pa-map__block svg { display: none; }
+}

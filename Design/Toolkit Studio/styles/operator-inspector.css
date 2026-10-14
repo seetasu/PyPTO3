@@ -897,6 +897,14 @@
 .kf-pypa-graph__inspector > div:not(.kf-pypa-graph__inspector-head) { display: flex; gap: 7px; font-size: 11px; color: var(--foreground-muted); }
 .kf-pypa-graph__inspector > small, .kf-pypa-graph__inspector > em { display: block; margin-top: 7px; color: var(--foreground-secondary); font-size: 11px; line-height: 1.4; }
 .kf-pypa-graph__inspector > em { font-style: normal; color: var(--foreground-muted); }
+.kf-pypa-graph__inspector { max-height: calc(100% - 32px); overflow-y: auto; scrollbar-width: thin; }
+.kf-pypa-graph__source-links { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-2); }
+.kf-pypa-graph__inspector-section { margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--border-subtle); }
+.kf-pypa-graph__inspector-section h3 { margin: 0 0 var(--space-2); color: var(--foreground); font: var(--type-label); }
+.kf-pypa-graph__inspector-section dl { display: grid; grid-template-columns: minmax(68px, auto) minmax(0, 1fr); gap: var(--space-2); margin: 0; font: var(--type-body-sm); }
+.kf-pypa-graph__inspector-section dt { color: var(--foreground-muted); overflow-wrap: anywhere; }
+.kf-pypa-graph__inspector-section dd { margin: 0; color: var(--foreground-secondary); overflow-wrap: anywhere; }
+#dslEditor .is-pypa-source-evidence { background: var(--state-selected); }
 /* 简介页签：目前只落占位，正文待补（见 demo-v2.js renderSourceRegionPanel）。 */
 .kf-pypa-intro { position: absolute; z-index: 2; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-6); text-align: center; }
 .kf-pypa-intro > b { color: var(--foreground); font: var(--type-title-3); }

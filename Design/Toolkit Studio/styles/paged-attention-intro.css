@@ -88,11 +88,69 @@
 .kf-pa-map__svg .kf-pa-map__frame-length { fill: var(--foreground-secondary); font-size: max(13px, calc(var(--pa-svg-label, 12px) * 1.15)); }
 .kf-pa-map__svg .kf-pa-map__neighbor-title { fill: var(--foreground-secondary); font-size: var(--pa-neighbor-title, 18px); }
 .kf-pa-map__svg .kf-pa-map__neighbor-length { fill: var(--foreground-muted); font-size: max(12px, calc(var(--pa-svg-label, 12px) * 0.95)); }
+/* 入场 morph 层：不挂场景变换的屏幕坐标共享元素，把被点的格子直接补间成任务卡。
+   字号在 JS 里按屏幕像素给，所以这里只兜住字体族与命中，避免被 .kf-pa-map__svg text 覆盖。 */
+.kf-pa-map__svg .kf-pa-map__morph-id,
+.kf-pa-map__svg .kf-pa-map__morph-title,
+.kf-pa-map__svg .kf-pa-map__morph-prefix { fill: var(--foreground); font-family: var(--font-mono); }
+/* 入场时卡片本体先让位给 morph 层：外框/标题/正文各自按进度接管，
+   避免 morph 的边线和卡片自己的边线在同一帧里各画一遍。
+   正文另由 JS 把展开组的裁剪收成跟外框同步长大的窗口——边框还没长到的地方，
+   Stack / Page 不会先漏出来（见 startMorph 里的 pa-frame-clip）。 */
+.kf-pa-map__scene.is-morphing .kf-pa-map__task-frame.is-expanded .kf-pa-map__task-boundary,
+.kf-pa-map__scene.is-morphing .kf-pa-map__task-frame.is-expanded .kf-pa-map__frame-title { opacity: var(--pa-morph-handoff, 0); }
+.kf-pa-map__scene.is-morphing .kf-pa-map__task-frame.is-expanded .kf-pa-map__frame-body { opacity: var(--pa-morph-body, 0); }
 .kf-pa-map__footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding-top: var(--space-2); flex: none; }
 .kf-pa-map__footer p { margin: 0 0 var(--space-1); color: var(--foreground-secondary); font: var(--type-body-sm); }
 .kf-pa-map__footer span { color: var(--foreground-muted); font: var(--type-micro); }
 .kf-pa-map__tools { display: flex; align-items: center; gap: var(--space-1); flex: none; }
 .kf-pa-map__tools output { min-width: 40px; text-align: center; font: var(--type-micro); color: var(--foreground-secondary); }
+/* Automatic assignment sweep. The same weight follows a Block's Tasks,
+   preserving the stride mapping rather than implying execution timings. */
+.kf-pa-map .kf-pa-map__block.is-playing {
+  color: color-mix(in srgb, var(--primary) calc(var(--pa-playback-strength) * 100%), var(--foreground-muted));
+  background: color-mix(in srgb, var(--primary) calc(var(--pa-playback-strength) * 16%), transparent);
+  transition: color 160ms linear, background-color 160ms linear;
+}
+.kf-pa-map__block.is-playing .kf-pa-map__block-face {
+  fill: var(--primary);
+  fill-opacity: calc(var(--pa-playback-strength) * .3);
+  transition: fill-opacity 160ms linear;
+}
+.kf-pa-map__task.is-playing .kf-pa-map__cell {
+  fill: color-mix(in srgb, var(--primary) calc(var(--pa-playback-strength) * 14%), var(--surface-2));
+  transition: fill 160ms linear;
+}
+.kf-pa-map__task.is-playing .kf-pa-map__q {
+  fill: var(--primary);
+  fill-opacity: calc(.035 + var(--pa-playback-strength) * .38);
+  transition: fill 160ms linear, fill-opacity 160ms linear;
+}
+.kf-pa-map__task.is-playing .kf-pa-map__task-id {
+  fill: color-mix(in srgb, var(--foreground) calc(var(--pa-playback-strength) * 45%), var(--foreground-muted));
+  transition: fill 160ms linear;
+}
+/* The current assignment has a crisp boundary; neighboring weights stay quiet. */
+.kf-pa-map .kf-pa-map__block.is-playback-current {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
+  outline: 1.5px solid var(--primary);
+  outline-offset: -1.5px;
+}
+.kf-pa-map__block.is-playback-current span { color: var(--foreground); font-weight: 700; }
+.kf-pa-map__block.is-playback-current svg { stroke-width: 1.8; }
+.kf-pa-map__block.is-playback-current .kf-pa-map__block-face { fill-opacity: .8; }
+.kf-pa-map__task.is-playback-current .kf-pa-map__cell {
+  fill: color-mix(in srgb, var(--primary) 30%, var(--surface-2));
+  stroke: var(--primary);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.kf-pa-map__task.is-playback-current .kf-pa-map__q { fill-opacity: .9; }
+.kf-pa-map__task.is-playback-current .kf-pa-map__task-id { fill: var(--foreground); font-weight: 700; }
+@media (prefers-reduced-motion: reduce) {
+  .kf-pa-map .is-playing, .kf-pa-map .is-playing :is(path, rect, text) { transition: none; }
+}
 @container (max-width: 720px) {
   .kf-pa-map .kf-pa-map__metrics-row b { font-size: 26px !important; }
   .kf-pa-map__metrics-row li { padding: 0 var(--space-2); }
