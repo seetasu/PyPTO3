@@ -34,6 +34,11 @@ function demoBindSplit(totalMs, stepIndex, dev) {
   const allocation = r2(total * allocationShare);
   return { allocation, transfer: r2(total - allocation) };
 }
+// Demo-only split of runner_run; shared by per-step and E2E views.
+function demoDeviceExecEstimate(rrMs, decodeIndex, dev) {
+  const modeledExec = 104 + ((decodeIndex * 7 + dev * 11) % 17) * 0.8;
+  return r2(Math.min(rrMs, modeledExec));
+}
 
 /* ------------------------------------------------------------ DSpark serving */
 let TRACE = null;
@@ -88,16 +93,52 @@ function dsparkFlows(run) {
   const worker = ev.filter((e) => e.pid === WORKER && /^WorkerProcess\.(prepare_decode|dispatch_decode|reclaim_decode|batch_prefill|execute_step)$/.test(e.name));
   const label = (s) => (s.id === 'Prefill' ? 'P' : s.id === 'Draft init' ? 'DI' : s.id);
 
+  /* Worker 进程是三个线程在并发跑：准备下一步 ∥ 下发 ∥ 回收上一步的输出。
+   * prepare 有 97% 的时间与 reclaim 重叠（53 次里 51 次完全落在 reclaim 内部），
+   * 所以必须按线程分行，压在一行里会相互覆盖。
+   * 行的身份取 tid，行名取 trace 的 thread_name，顺序按流水：准备 → 下发 → 回收。 */
+  const threadName = {};
+  trace.traceEvents
+    .filter((e) => e.ph === 'M' && e.name === 'thread_name' && e.pid === WORKER)
+    .forEach((e) => { threadName[e.tid] = e.args.name; });
+  const WORKER_ROLES = [
+    { key: 'prepare', label: '准备', re: /prepare_decode$/ },
+    { key: 'dispatch', label: '下发', re: /(dispatch_decode|execute_step|batch_prefill)$/ },
+    { key: 'reclaim', label: '回收', re: /reclaim_decode$/ },
+  ];
+  // 一个 tid 归一个行：按它跑得最多的那种调用定角色
+  const tidRole = {};
+  const tally = {};
+  worker.forEach((e) => {
+    const role = (WORKER_ROLES.find((r) => r.re.test(e.name)) || WORKER_ROLES[1]).key;
+    tally[e.tid] = tally[e.tid] || {};
+    tally[e.tid][role] = (tally[e.tid][role] || 0) + 1;
+  });
+  Object.keys(tally).forEach((tid) => {
+    tidRole[tid] = Object.entries(tally[tid]).sort((a, b) => b[1] - a[1])[0][0];
+  });
+  const workerRows = WORKER_ROLES
+    .filter((r) => Object.values(tidRole).includes(r.key))
+    .map((r) => {
+      const tid = Object.keys(tidRole).find((k) => tidRole[k] === r.key);
+      return { key: r.key, label: r.label, thread: threadName[tid] || `tid ${tid}` };
+    });
+
   const out = {};
   let prevEnd = http.ts;
   run.steps.forEach((s) => {
+    const stepIndex = s.decodeStep ? run.steps.indexOf(s) : -1;
     const spans = ev.filter((e) => e.pid === LANE && e.args && e.args.invocation === s.inv);
     const runs = spans.filter((e) => phase(e) === 'simpler_run').sort((a, b) => a.tid - b.tid);
     const lanes = runs.map((r) => {
       const own = spans.filter((e) => e.tid === r.tid);
       const get = (n) => own.find((e) => phase(e) === n);
       const b = get('bind'); const rr = get('runner_run');
-      return { dev: r.tid, start: r.ts, bindStart: b.ts, bindEnd: end(b), rrStart: rr.ts, end: end(r) };
+      const rrMs = rr.dur / 1000;
+      const lane = { dev: r.tid, start: r.ts, bindStart: b.ts, bindEnd: end(b), rrStart: rr.ts, end: end(r) };
+      if (stepIndex < 0) return lane;
+      const deviceExec = demoDeviceExecEstimate(rrMs, stepIndex, r.tid);
+      return { ...lane, deviceExec, waitEstimate: r2(Math.max(0, rrMs - deviceExec)) };
     });
     const minStart = Math.min(...lanes.map((l) => l.start));
     const maxEnd = Math.max(...lanes.map((l) => l.end));
@@ -113,7 +154,13 @@ function dsparkFlows(run) {
     const rel = (t) => r2((t - prevEnd) / 1000);
     const clip = (list, kindOf) => list.filter((e) => end(e) > lo && e.ts < hi).map((e) => {
       const a = Math.max(e.ts, lo); const b = Math.min(end(e), hi);
-      return { n: e.name.replace(/^(scheduler|WorkerProcess)\./, ''), s: rel(a), d: r2((b - a) / 1000), kind: kindOf(e) };
+      return {
+        n: e.name.replace(/^(scheduler|WorkerProcess)\./, ''),
+        s: rel(a),
+        d: r2((b - a) / 1000),
+        kind: kindOf(e),
+        ...(tidRole[e.tid] ? { t: tidRole[e.tid] } : {}),
+      };
     });
     out[label(s)] = {
       t0: rel(lo),
@@ -125,7 +172,11 @@ function dsparkFlows(run) {
       hostMs: r2(s.gapWorkerMs + s.hostMs),
       deviceMs: s.deviceMs,
       periodMs: s.periodMs,
-      lanes: lanes.map((l) => ({ dev: l.dev, start: rel(l.start), bindStart: rel(l.bindStart), bindEnd: rel(l.bindEnd), rrStart: rel(l.rrStart), end: rel(l.end) })),
+      lanes: lanes.map((l) => ({
+        dev: l.dev, start: rel(l.start), bindStart: rel(l.bindStart), bindEnd: rel(l.bindEnd),
+        rrStart: rel(l.rrStart), end: rel(l.end),
+        ...(l.deviceExec != null ? { deviceExec: l.deviceExec, waitEstimate: l.waitEstimate } : {}),
+      })),
       serving: clip(sched, (e) => (/wait_worker_output$/.test(e.name) ? 'wait' : e === queue || e === output ? 'own' : 'other')),
       worker: clip(worker, (e) => {
         if (/reclaim_decode$/.test(e.name)) return e === reclaim ? 'wait' : 'other';
@@ -141,7 +192,7 @@ function dsparkFlows(run) {
     };
     prevEnd = maxEnd;
   });
-  return out;
+  return { rows: workerRows, steps: out };
 }
 
 /* 瓶颈分解（按 pypto-serving#95 的口径）：
@@ -254,13 +305,18 @@ function dsparkE2E(run) {
   ev.filter((e) => e.pid === LANE).forEach((e) => { (byInv[e.args.invocation] = byInv[e.args.invocation] || []).push(e); });
   const label = (s) => (s.id === 'Prefill' ? 'P' : s.id === 'Draft init' ? 'DI' : s.id);
   const steps = run.steps.map((s) => {
+    const stepIndex = s.decodeStep ? run.steps.indexOf(s) : -1;
     const spans = byInv[s.inv];
     const devs = [...new Set(spans.map((e) => e.tid))].sort((a, b) => a - b);
     const lanes = devs.map((d) => {
       const own = spans.filter((e) => e.tid === d);
       const g = (n) => own.find((e) => phase(e) === n);
       const b = g('bind'); const rr = g('runner_run');
-      return { dev: d, b0: rel(b.ts), b1: rel(b.ts + b.dur), r0: rel(rr.ts), r1: rel(rr.ts + rr.dur) };
+      const rrMs = rr.dur / 1000;
+      const lane = { dev: d, b0: rel(b.ts), b1: rel(b.ts + b.dur), r0: rel(rr.ts), r1: rel(rr.ts + rr.dur) };
+      if (stepIndex < 0) return lane;
+      const deviceExec = demoDeviceExecEstimate(rrMs, stepIndex, d);
+      return { ...lane, deviceExec, waitEstimate: r2(Math.max(0, rrMs - deviceExec)) };
     });
     return {
       id: label(s),
@@ -306,9 +362,8 @@ function dsparkDistribution(run, decode) {
   // model with collected device_wall data when it becomes available.
   perStep.forEach((p, stepIndex) => {
     p.lanes = p.lanes.map((l) => {
-      const modeledExec = 104 + ((stepIndex * 7 + l.dev * 11) % 17) * 0.8;
-      const deviceExec = Math.min(l.rr, modeledExec);
-      return { ...l, deviceExec: r2(deviceExec), waitEstimate: r2(Math.max(0, l.rr - deviceExec)) };
+      const deviceExec = demoDeviceExecEstimate(l.rr, stepIndex, l.dev);
+      return { ...l, deviceExec, waitEstimate: r2(Math.max(0, l.rr - deviceExec)) };
     });
   });
   const nLane = perStep[0].lanes.length;
@@ -581,7 +636,7 @@ function dspark() {
     coldStart: { prefillMs: prefill.periodMs, draftMs: draft.periodMs },
     reference: { label: 'pypto-serving#95', url: 'https://github.com/hw-native-sys/pypto-serving/issues/95' },
     request: dsparkRequest(run),
-    flows: dsparkFlows(run),
+    ...(() => { const f = dsparkFlows(run); return { workerRows: f.rows, flows: f.steps }; })(),
     defaultStep: (() => {
       const d = run.steps.filter((x) => x.decodeStep);
       const med = perStep.p50Ms;

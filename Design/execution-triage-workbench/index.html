@@ -39,6 +39,13 @@
         </a>
       </div>
 
+      <div class="time-controls" role="group" aria-label="时间轴缩放">
+        <button type="button" id="timeZoomOut" aria-label="缩小时间轴" title="缩小时间轴">−</button>
+        <output id="timeZoomLevel" aria-live="polite">1×</output>
+        <button type="button" id="timeZoomIn" aria-label="放大时间轴" title="放大时间轴">＋</button>
+        <button type="button" id="timeZoomReset" aria-label="重置时间轴缩放" title="重置时间轴缩放">重置</button>
+      </div>
+
       <!-- 主导航：面包屑 + 54 个 step 的时间线 -->
       <div class="lane-nav">
         <div class="request" id="request"></div>
@@ -71,6 +78,8 @@
   <div class="tip" id="tip" role="tooltip" hidden></div>
 
   <script src="./home-data.js"></script>
+  <!-- 算子级下钻的数据：另一次采集（GBS256 压测包里的 profiler trace，单卡），见 README -->
+  <script src="./ops-data.js"></script>
   <script src="./home.js"></script>
 </body>
 </html>
