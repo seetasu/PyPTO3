@@ -54,7 +54,7 @@
     return rects;
   }
   // Kept in this page session; mounting/unmounting does not reset exploration.
-  const state = { stage: 'qk', taskView: 'pipeline', pipelineStep: 2, pipelineStack: null, seqLens: [...defaultSeqLens], block: null, task: null, level: 'matrix', view: null, matrixView: null, matrixSize: null, size: null };
+  const state = { stackDetailOpen: false, stage: 'qk', taskView: 'pipeline', pipelineStep: 2, pipelineStack: null, seqLens: [...defaultSeqLens], block: null, task: null, level: 'matrix', view: null, matrixView: null, matrixSize: null, size: null };
   // A single selection owner: the compute map reads/writes this same page-session state.
   const stageNodes = Object.freeze({ qk: 'qk', softmax: 'softmax', pv: 'pv', accumulate: 'context-acc' });
   const stageLabels = Object.freeze({ qk: 'QK', softmax: 'Softmax', pv: 'PV', accumulate: 'Accumulate' });
@@ -243,12 +243,12 @@
         + `<path class="kf-pa-map__pipeline-offset" d="M${x0 + 27} 188 v-12 h${dx * constants.preLaunch} v12"/>`
         + label('PRE_LAUNCH = 2', x0 + 30, 172)
         + label('Stack → Slot', 24, 346) + label('stackId % 3', 24, 380)
-        + data.stacks.map((stack) => mark(stack.id, x0 + stack.id * dx, 324, [step.produceStack, step.consumeStack, state.pipelineStack].includes(stack.id)) + `<text class="kf-pa-map__slot${[step.produceStack, step.consumeStack, state.pipelineStack].filter((id) => id !== null && id < data.stackCount).map((id) => data.stacks[id].slot).includes(stack.slot) ? ' is-active' : ''}" x="${x0 + stack.id * dx + 27}" y="380" text-anchor="middle">${stack.slot}</text>`).join('');
+        + data.stacks.map((stack) => mark(stack.id, x0 + stack.id * dx, 324, [step.produceStack, step.consumeStack, state.pipelineStack].includes(stack.id)) + `<text class="kf-pa-map__slot${stack.id === state.pipelineStack ? ' is-selected' : ''}${[step.produceStack, step.consumeStack, state.pipelineStack].filter((id) => id !== null && id < data.stackCount).map((id) => data.stacks[id].slot).includes(stack.slot) ? ' is-active' : ''}" x="${x0 + stack.id * dx + 27}" y="380" text-anchor="middle">${stack.slot}</text>`).join('');
     }
     function syncPipeline() {
       const detail = state.level === 'detail';
       query('[data-pa-controls]').hidden = !detail;
-      query('[data-pa-detail]').hidden = !detail;
+      query('[data-pa-detail]').hidden = !detail || !state.stackDetailOpen;
       query('[data-pa-operator]').hidden = !detail;
       if (!detail) return;
       const data = pipelineFor(state.seqLens[taskInfo(state.task).batch]);
@@ -257,28 +257,42 @@
       const step = data.steps[state.pipelineStep];
       if (state.pipelineStack === null) state.pipelineStack = ['qk', 'softmax'].includes(state.stage) ? step.produceStack : step.consumeStack;
       const c = context.selection;
-      query('[data-pa-operator]').innerHTML = `<span class="kf-eyebrow">WHERE IN OPERATOR</span>
-        <div class="kf-pa-map__current">Current: Task ${c.task} / ${c.stack === null ? '无活动 Stack' : 'Stack ' + c.stack} / ${stageLabels[c.stage]}</div>
-        <div class="kf-pa-map__operator-prep">Q/K/V Prep ↓ Cache Append ↓</div>
-        <nav aria-label="算子主计算链">${Object.entries(stageLabels).map(([stage, label]) => `<button class="btn btn-ghost btn-sm" type="button" data-pa-stage="${stage}" aria-pressed="${state.stage === stage}">${label}${state.stage === stage ? ` <small>▲ current · Stack ${c.stack ?? '—'}</small>` : ''}</button><span aria-hidden="true">→</span>`).join('')}<span>Output</span></nav>
-        <div><button class="btn btn-ghost btn-sm" type="button" data-pa-action="compute">Open full compute map ↗</button><button class="btn btn-ghost btn-sm" type="button" data-pa-action="source">View source ↗</button></div>`;
+      const stages = [
+        ['prep', 'QKV Prep', ''], ['cache', 'Cache Append', ''],
+        ['qk', 'QK', 'AIC'], ['softmax', 'Softmax', 'AIV'],
+        ['pv', 'PV', 'AIC'], ['accumulate', 'Acc', 'AIV'], ['output', 'Output', ''],
+      ];
+      const events = { qk: 'QK_READY', softmax: 'SOFTMAX_READY', pv: 'PV_READY' };
+      query('[data-pa-operator]').innerHTML = `<header class="kf-pa-map__operator-head"><span class="kf-eyebrow">WHERE IN OPERATOR</span><span class="kf-pa-map__operator-context">Task ${c.task}${c.stack === null ? '' : ` · Stack ${c.stack}`}</span><div class="kf-pa-map__operator-actions"><button class="btn btn-ghost btn-sm" type="button" data-pa-action="compute">Open full map ↗</button><button class="btn btn-ghost btn-sm" type="button" data-pa-action="source">View source ↗</button></div></header>
+        <div class="kf-pa-map__mini-scroll"><nav class="kf-pa-map__mini-map" aria-label="算子主计算链">${stages.map(([stage, label, hardware], index) => {
+          const selectable = Object.hasOwn(stageNodes, stage), selected = state.stage === stage;
+          const body = `<span>${label}</span>${hardware ? `<small>${hardware}</small>` : ''}`;
+          const node = `<div class="kf-pa-map__mini-stage">${selectable ? `<button class="btn btn-ghost kf-pa-map__mini-node" type="button" data-pa-stage="${stage}" aria-pressed="${selected}">${body}</button>` : `<div class="kf-pa-map__mini-node">${body}</div>`}<small class="kf-pa-map__mini-current" ${selected ? '' : 'hidden'}>CURRENT</small></div>`;
+          return node + (index < stages.length - 1 ? `<div class="kf-pa-map__mini-link${events[stage] ? ' has-event' : ''}" aria-label="${events[stage] || '计算依赖'}">${events[stage] ? `<span>${events[stage]}</span>` : ''}<i aria-hidden="true"></i></div>` : '');
+        }).join('')}</nav></div>`;
       host.querySelectorAll('[data-pa-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.paView === state.taskView)));
       query('[data-pa-steps]').hidden = state.taskView !== 'pipeline';
       query('[data-pa-steps]').innerHTML = `<span>Pipeline Step</span><button class="btn btn-ghost btn-sm" data-pa-step="${step.tick - 1}" aria-label="上一个 Pipeline Step" ${step.tick === 0 ? 'disabled' : ''}>‹</button>`
         + data.steps.map((item) => `<button class="btn btn-ghost btn-sm" data-pa-step="${item.tick}" aria-pressed="${item.tick === step.tick}">${item.tick}</button>`).join('')
         + `<button class="btn btn-ghost btn-sm" data-pa-step="${step.tick + 1}" aria-label="下一个 Pipeline Step" ${step.tick === data.stepCount - 1 ? 'disabled' : ''}>›</button>`;
-      const stack = data.stacks[state.pipelineStack ?? step.consumeStack ?? step.produceStack];
-      const name = (id) => id === null ? '—' : `Stack ${id}`;
-      query('[data-pa-detail]').innerHTML = `<div><b>Step ${step.tick}</b><span>Producer: ${name(step.produceStack)} · Consumer: ${name(step.consumeStack)}</span><span>${step.consumeStack === null ? '预取阶段 · Consumer 尚未开始。' : step.produceStack === null ? '排空阶段 · Consumer 完成剩余 Stack。' : 'Consumer 正在处理两步之前生产的 Stack。'}</span></div>
-        <p>Logical pipeline iteration · not hardware clock cycle</p>
-        ${state.pipelineStack !== null ? `<div><b>Stack ${stack.id}</b><span>Logical Pages: ${Array.from({ length: constants.pagesPerStack }, (_, i) => stack.pages[i] ? `P${stack.pages[i].id} ${stack.pages[i].validTokens}/128` : '—').join(' · ')}</span><span>Token range: ${stack.tokenStart}–${stack.tokenEnd}</span><span class="is-slot-active">Stack ${stack.id} → Slot ${stack.slot}</span><span>${stack.previousStack === null ? '首次使用此 Slot' : `Slot ${stack.slot} previously used by Stack ${stack.previousStack} · Step ${stack.previousStack + constants.preLaunch} 消费后，Step ${stack.id} 可复用`}</span></div>
-        <div class="kf-pa-map__hardware"><button class="btn btn-ghost btn-sm" data-pa-stage="qk" aria-pressed="${state.stage === 'qk'}">AIC · QK</button><span>→ QK_READY_EVENT →</span><button class="btn btn-ghost btn-sm" data-pa-stage="softmax" aria-pressed="${state.stage === 'softmax'}">AIV · Softmax</button><span>→ SOFTMAX_READY_EVENT →</span><button class="btn btn-ghost btn-sm" data-pa-stage="pv" aria-pressed="${state.stage === 'pv'}">AIC · PV</button><span>→ PV_READY_EVENT →</span><button class="btn btn-ghost btn-sm" data-pa-stage="accumulate" aria-pressed="${state.stage === 'accumulate'}">AIV · Accumulate</button></div>
-        <p>READY events 同步同一 Stack 的 score → probability → PV partial；Accumulate 重缩放并累加。3 slots = PRE_LAUNCH + 1，循环承载中间数据；全部 Stack 完成后 Final Normalize / Output。</p>` : '<p>PRE_LAUNCH = 2 · Producer 提前 2 个 Stack；3 个 transfer slots 循环复用。点击 Stack 查看 Pages、硬件阶段与 READY 同步。全部 Stack 完成后 Final Normalize / Output。</p>'}`;
+      const stack = data.stacks[state.pipelineStack];
+      query('[data-pa-detail]').hidden = !state.stackDetailOpen || !stack;
+      query('[data-pa-detail]').innerHTML = stack && state.stackDetailOpen ? `<header><b>STACK ${stack.id}</b><button class="btn btn-ghost btn-sm" type="button" data-pa-action="close-stack" aria-label="关闭 Stack 详情">×</button></header>
+        <div class="kf-pa-map__stack-data"><div class="kf-pa-map__stack-pages"><span>Pages</span><div>${Array.from({ length: constants.pagesPerStack }, (_, i) => {
+          const page = stack.pages[i];
+          return page ? `<div class="kf-pa-map__page-cell" title="Page ${page.id} · ${page.validTokens}/128 tokens" aria-label="Page ${page.id}，${page.validTokens}/128 有效 tokens"><i style="width:${page.validTokens / constants.pageTokens * 100}%"></i><b>P${page.id}</b></div>` : '<div class="kf-pa-map__page-cell is-empty" aria-label="无 Page">—</div>';
+        }).join('')}</div></div><div class="kf-pa-map__stack-tokens"><span>Tokens</span><div><b>${stack.tokenStart}</b><i aria-hidden="true"></i><b>${stack.tokenEnd}</b></div></div><div class="kf-pa-map__stack-slot"><span>Slot</span><div><b>${stack.slot}</b>${stack.previousStack === null ? '' : `<small>reused from S${stack.previousStack}</small>`}</div></div></div>` : '';
+    }
+    function selectStack(id) {
+      state.stackDetailOpen = !(state.pipelineStack === id && state.stackDetailOpen);
+      state.pipelineStack = id;
+      drawDetail(); paintView();
     }
     function selectStep(value) {
       const data = pipelineFor(state.seqLens[taskInfo(state.task).batch]);
       state.pipelineStep = Math.max(0, Math.min(value, data.stepCount - 1));
       state.pipelineStack = null;
+      state.stackDetailOpen = false;
       syncPipeline(); drawDetail(); paintView();
     }
     function paintDetailFrames(frames) {
@@ -364,7 +378,8 @@
       syncPipeline();
       query('[data-pa-batch]').textContent = `Batch ${t.batch}`;
       const tiling = currentTiling();
-      query('[data-pa-summary]').textContent = detail ? `${tiling.seqLen} tokens → ceil(${tiling.seqLen}/128) = ${tiling.pageCount} Pages → ceil(${tiling.pageCount}/4) = ${tiling.stackCount} Stacks · ${tiling.stackCount} + 2 = ${tiling.stackCount + constants.preLaunch} Steps` : '每格 1 个 Task · 5 条底纹 = 5 个 Q Head';
+      query('[data-pa-summary]').textContent = detail ? `${tiling.seqLen} tokens · ${tiling.pageCount} pages · ${tiling.stackCount} stacks · ${tiling.stackCount + constants.preLaunch} steps` : '每格 1 个 Task · 5 条底纹 = 5 个 Q Head';
+      query('[data-pa-summary]').title = detail ? `pages = ceil(${tiling.seqLen}/128)；stacks = ceil(${tiling.pageCount}/4)；steps = ${tiling.stackCount} + PRE_LAUNCH (${constants.preLaunch})` : '';
       query('[data-pa-hint]').textContent = detail ? '滚轮缩放 · 拖拽平移 · ← / → 切换 Step' : '场景配置 · 滚轮放大进入 Task · 按住左键拖动移动';
       paintPlayback();
     }
@@ -597,6 +612,7 @@
       }
       snapshotGhost(old);
       state.pipelineStack = null;
+      state.stackDetailOpen = false;
       state.task = id;
       state.block = taskInfo(id).block;
       state.level = 'detail';
@@ -671,6 +687,7 @@
       const fromFrames = neighborhood().map((r) => ({ ...r }));
       const fromView = { ...state.view };
       state.pipelineStack = null;
+      state.stackDetailOpen = false;
       state.task = id;
       state.block = taskInfo(id).block;
       const toFrames = taskNeighborhood(id, state.seqLens).map((r) => ({ ...r }));
@@ -729,7 +746,7 @@
     }
     function chooseTask(id) {
       stopPlayback();
-      if (state.task !== id) state.pipelineStack = null;
+      if (state.task !== id) { state.pipelineStack = null; state.stackDetailOpen = false; }
       state.task = id; state.block = taskInfo(id).block; syncSelection();
     }
     on(host, 'click', (event) => {
@@ -754,7 +771,7 @@
       const step = event.target.closest('[data-pa-step]');
       if (step) { selectStep(Number(step.dataset.paStep)); return; }
       const stack = event.target.closest('[data-pa-stack]');
-      if (stack) { state.pipelineStack = Number(stack.dataset.paStack); drawDetail(); paintView(); return; }
+      if (stack) { selectStack(Number(stack.dataset.paStack)); return; }
       const block = event.target.closest('[data-pa-block]');
       if (block) {
         if (state.level === 'detail') back();
@@ -771,6 +788,7 @@
         return;
       }
       const action = event.target.closest('[data-pa-action]')?.dataset.paAction;
+      if (action === 'close-stack') { state.stackDetailOpen = false; syncPipeline(); return; }
       if (action === 'enter') enterTask(state.task ?? 0);
       else if (action === 'back') back();
       else if (action === 'fit') fit();
@@ -848,7 +866,7 @@
       const stage = event.target.closest('[data-pa-stage]');
       if (stage && ['Enter', ' '].includes(event.key)) { event.preventDefault(); stage.dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
       if (state.level === 'detail' && event.target.closest('[data-pa-stack]') && ['Enter', ' '].includes(event.key)) {
-        event.preventDefault(); state.pipelineStack = Number(event.target.closest('[data-pa-stack]').dataset.paStack); drawDetail(); paintView();
+        event.preventDefault(); selectStack(Number(event.target.closest('[data-pa-stack]').dataset.paStack));
       } else if (state.level === 'detail' && state.taskView === 'pipeline' && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
         event.preventDefault(); selectStep(state.pipelineStep + (event.key === 'ArrowRight' ? 1 : -1));
       } else if (event.key === 'Enter') { event.preventDefault(); enterTask(id); }

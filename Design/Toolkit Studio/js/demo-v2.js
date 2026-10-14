@@ -2160,6 +2160,112 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return isMatmulFile(state.activeFile) ? window.PTO_MATMUL_SEMANTIC_GRAPH : window.PTO_PYPA_SEMANTIC_GRAPH;
   }
 
+  document.addEventListener('keydown', (event) => {
+    if (!event.target.closest('[data-pypa-minimap-svg]') || !['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return;
+    const viewport = $('#pypaTaskViewport'), view = pypaGraphTransform;
+    if (!viewport || !view || !pypaGraphController?.graph) return;
+    event.preventDefault();
+    const x = (viewport.clientWidth / 2 - view.tx) / view.scale + (event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0) * viewport.clientWidth / view.scale / 4;
+    const y = (viewport.clientHeight / 2 - view.ty) / view.scale + (event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0) * viewport.clientHeight / view.scale / 4;
+    pypaGraphController.panTo(x,y);
+    $('[data-pypa-minimap-svg]')?.focus({preventScroll:true});
+  });
+  const pypaJourney = { active: false, anchorId: null, direction: 'both', focusedNodeId: null, model: null, result: null };
+  let pypaMinimapMode = 'auto';
+  const pypaJourneyIndexes = new WeakMap();
+  function ensurePypaJourneyModel() {
+    const model = activeSemanticModel();
+    if (pypaJourney.model !== model) {
+      Object.assign(pypaJourney, { active: false, anchorId: null, focusedNodeId: null, result: null, model });
+    }
+    return model;
+  }
+  function pypaExplorerHtml() {
+    return `<div class="kf-pypa-graph__journey" data-pypa-journey hidden aria-label="Tensor Journey"></div>
+      <nav class="kf-pypa-graph__stage-nav" data-pypa-stages aria-label="计算阶段导航"></nav>
+      <aside class="kf-pypa-graph__minimap" data-pypa-minimap aria-label="计算图缩略导航"></aside>`;
+  }
+  function beginPypaJourney(id, direction = 'both') {
+    const model = ensurePypaJourneyModel(), api = window.PTO_COMPUTATION_JOURNEY;
+    if (!model || !api) return;
+    let index = pypaJourneyIndexes.get(model);
+    if (!index) { index = api.index(model); pypaJourneyIndexes.set(model, index); }
+    const result = api.trace(model, id, direction, index);
+    if (!result) return;
+    Object.assign(pypaJourney, { active: true, anchorId: id, direction, focusedNodeId: pypaSelectedNodeId, result });
+    syncPypaJourney();
+    const focused = pypaGraphController?.nodes?.find((node) => node.id === pypaSelectedNodeId);
+    if (focused) selectPypaGraphNode(focused);
+    $(`[data-pypa-journey-direction="${direction}"]`)?.focus({preventScroll:true});
+  }
+  function syncPypaJourney() {
+    const scene = $('#pypaTaskScene'), bar = $('[data-pypa-journey]');
+    if (!scene || !bar || !window.PTO_COMPUTATION_JOURNEY) return;
+    const graph = pypaGraphController?.graph;
+    if (!graph) return;
+    const active = pypaJourney.active && pypaJourney.model === activeSemanticModel();
+    bar.hidden = !active;
+    if (!active) bar.innerHTML = '';
+    bar.dataset.anchorId = active ? pypaJourney.anchorId : '';
+    bar.dataset.direction = pypaJourney.direction;
+    scene.dataset.journeyAnchor = active ? pypaJourney.anchorId : '';
+    scene.classList.toggle('has-journey', active);
+    const mapped = active ? window.PTO_COMPUTATION_JOURNEY.project(pypaJourney.result, graph) : null;
+    pypaGraphController.journeyProjection = mapped;
+    scene.querySelectorAll('[data-pypa-node], [data-pypa-group]').forEach((node) => {
+      const id = node.dataset.pypaNode || node.dataset.pypaGroup;
+      node.classList.toggle('is-journey-path', !!mapped?.nodeIds.has(id));
+      node.classList.toggle('is-journey-anchor', id === mapped?.anchorVisibleId);
+      node.classList.toggle('is-journey-other-input', !!mapped?.otherInputIds.has(id));
+      if (node.dataset.pypaNode) node.dataset.journeyRole = id === mapped?.anchorVisibleId ? 'anchor' : mapped?.nodeIds.has(id) ? 'path' : mapped?.otherInputIds.has(id) ? 'other-input' : 'outside';
+    });
+    scene.querySelectorAll('[data-pypa-edge], [data-pypa-edge-label]').forEach((edge) => {
+      const id = edge.dataset.pypaEdge || edge.dataset.pypaEdgeLabel;
+      edge.classList.toggle('is-journey-path', !!mapped?.edgeIds.has(id));
+      edge.classList.toggle('is-journey-feedback', !!(mapped?.edgeIds.has(id) && edge.dataset.edgeType === 'feedback'));
+    });
+    if (active) {
+      const anchor = pypaJourney.result.index.nodes.get(pypaJourney.anchorId).node;
+      const terminalNames = [...new Set(pypaJourney.result.terminals.map((id) => pypaJourney.result.index.nodes.get(id).node.name))];
+      bar.innerHTML = `<div><b>Tensor Journey / ${pypaEscape(anchor.name)}</b>${[['upstream','上游来源'],['downstream','下游影响'],['both','双向查看']].map(([key,label]) => `<button class="btn btn-ghost btn-sm" data-pypa-journey-direction="${key}" aria-pressed="${pypaJourney.direction === key}">${label}</button>`).join('')}<button class="btn btn-ghost btn-sm" data-pypa-journey-origin>返回起点</button><button class="btn btn-ghost btn-sm" data-pypa-journey-exit>退出追踪</button></div>
+        <small>静态依赖 · ${mapped.rows.length} 个可见对象 · ${pypaJourney.result.branches.length} 个分支 · ${pypaJourney.result.feedbackEdgeIds.size} 条跨迭代反馈 · 淡显虚线节点为其他输入${mapped.anchorCollapsed ? ' · 起点已折叠，标记在父 Composite' : ''} · ${pypaJourney.direction === 'upstream' ? '来源' : '终点'}：${pypaEscape(terminalNames.slice(0,3).join('、'))}${terminalNames.length > 3 ? '…' : ''}</small>
+        <details class="kf-pypa-graph__journey-list"><summary>路径对象（${mapped.rows.length}） · 分支独立列出</summary><div>${mapped.rows.map((row) => `<button class="btn btn-ghost" data-pypa-journey-node="${pypaEscape(row.id)}"><b>${pypaEscape(row.name)}</b><small>${pypaEscape(row.type.toUpperCase())} · ${pypaEscape(row.stage)}${row.branch ? ' · 分叉' : ''}${row.feedback ? ' · 跨迭代反馈' : ''}${row.terminal ? ' · 终点' : ''}${row.shape ? ' · ' + pypaEscape(row.shape) : ''}</small></button>`).join('')}</div></details>`;
+    }
+    syncPypaMinimap();
+  }
+  function syncPypaMinimap() {
+    const host = $('[data-pypa-minimap]'), stageNav = $('[data-pypa-stages]'), controller = pypaGraphController;
+    const viewport = $('#pypaTaskViewport');
+    if (!host || !stageNav || !controller?.graph || !pypaGraphTransform || !viewport || !window.PTO_COMPUTATION_JOURNEY) return;
+    const graph = controller.graph, map = window.PTO_COMPUTATION_JOURNEY.minimap(graph, pypaGraphTransform, { w: viewport.clientWidth, h: viewport.clientHeight }, 150, 180);
+    controller.minimap = map;
+    host.dataset.mode = pypaMinimapMode;
+    const shown = pypaMinimapMode === 'shown' || (pypaMinimapMode === 'auto' && viewport.clientWidth >= 520 && viewport.clientHeight >= 260);
+    host.hidden = !shown;
+    const inspector = $('#pypaNodeInspector');
+    const inspectorVisible = inspector && !inspector.hidden;
+    const docked = inspectorVisible && inspector.classList.contains('is-docked');
+    const useLeft = inspectorVisible && !docked && inspector.style.right !== 'auto';
+    host.style.left = useLeft ? 'var(--space-4)' : 'auto';
+    host.style.right = useLeft ? 'auto' : 'var(--space-4)';
+    host.style.top = docked && inspector.style.top === 'auto' ? `${viewport.offsetTop + 12}px` : 'auto';
+    host.style.bottom = docked && inspector.style.top === 'auto' ? 'auto' : useLeft ? '64px' : 'var(--space-4)';
+    stageNav.innerHTML = graph.groups.filter((group) => !group.id.includes('/')).map((group) => `<button class="btn btn-ghost btn-sm" data-pypa-stage="${pypaEscape(group.id)}">${pypaEscape(group.label)}</button>`).join('') + `<button class="btn btn-ghost btn-sm" data-pypa-minimap-toggle aria-pressed="${shown}">${shown ? '隐藏' : '显示'} Minimap</button>`;
+    const path = controller.journeyProjection?.nodeIds || new Set();
+    const rect = (box, attrs = '') => `<rect x="${box.x}" y="${box.y}" width="${Math.max(1,box.w)}" height="${Math.max(1,box.h)}" ${attrs}/>`;
+    host.innerHTML = `<span>Minimap</span><svg viewBox="0 0 150 180" data-pypa-minimap-svg role="button" tabindex="0" aria-label="计算图缩略导航，点击定位，方向键移动视口"><rect class="kf-pypa-graph__mini-boundary" x="${map.offsetX}" y="${map.offsetY}" width="${graph.width * map.scale}" height="${graph.height * map.scale}"/>${map.groups.map((box) => rect(box,'class="kf-pypa-graph__mini-group"')).join('')}${map.nodes.map((box) => rect(box,`class="kf-pypa-graph__mini-node${path.has(box.id) ? ' is-path' : ''}${box.id === pypaSelectedNodeId ? ' is-focused' : ''}${box.id === controller.journeyProjection?.anchorVisibleId ? ' is-anchor' : ''}"`)).join('')}${rect(map.viewport,'class="kf-pypa-graph__mini-viewport" data-pypa-mini-viewport')}</svg>`;
+  }
+  function focusPypaJourneyNode(id) {
+    const model = activeSemanticModel();
+    const index = pypaJourneyIndexes.get(model) || window.PTO_COMPUTATION_JOURNEY.index(model);
+    let visibleId = id;
+    const graph = pypaGraphController?.graph;
+    while (visibleId && !graph?.nodes.some((node) => node.id === visibleId)) visibleId = visibleId.includes('/') ? visibleId.slice(0,visibleId.lastIndexOf('/')) : '';
+    const node = graph?.nodes.find((node) => node.id === visibleId);
+    if (!node || !index.nodes.has(id)) return;
+    selectPypaGraphNode(node, {pan:true}); revealPypaSource(node);
+  }
+
   function pypaVisibleGraph() {
     if (pypaGraphView === 'overview') return window.PTO_PYPA_TASK_GRAPH;
     const model = activeSemanticModel();
@@ -2168,6 +2274,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   function renderPyptoTaskGraph() {
+    if (window.PTO_COMPUTATION_JOURNEY) ensurePypaJourneyModel();
     const graph = pypaVisibleGraph();
     const viewport = $('#pypaTaskViewport');
     const scene = $('#pypaTaskScene');
@@ -2309,7 +2416,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       scene.appendChild(button);
     });
     controller.nodes = placedNodes;
+    controller.graph = { ...graph, nodes: placedNodes };
     syncPypaOverlays();
+    if (window.PTO_COMPUTATION_JOURNEY) syncPypaJourney();
     // 计算图从入口向下阅读；Reset 回到入口，Fit 才显示整个长图。
     const defaultView = () => {
       if (isMatmulFile(state.activeFile)) {
@@ -2347,6 +2456,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       scene.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
       pypaGraphTransform = { scale, tx, ty };
       syncPypaGraphZoom();
+      if (window.PTO_COMPUTATION_JOURNEY) syncPypaMinimap();
     };
     // 以视口中心为锚点缩放：按钮和键盘都没有鼠标位置，绕中心最符合直觉。
     const zoomBy = (factor) => {
@@ -2394,6 +2504,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       ty = point.y - anchor.y * scale;
       apply();
     };
+    controller.panTo = (x, y) => {
+      tx = viewport.clientWidth / 2 - x * scale; ty = viewport.clientHeight / 2 - y * scale; apply();
+    };
+    controller.focusRegion = (group) => controller.panTo(group.x + group.w / 2, group.y + Math.min(group.h / 2, viewport.clientHeight / scale / 2));
     controller.focusNode = (node) => {
       controller.keepNodeAt(node, { x: viewport.clientWidth / 2, y: viewport.clientHeight / 2 });
     };
@@ -2423,7 +2537,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     }, { passive: false, signal: controller.signal });
     // 双击空白处 = 适应画布（双击节点留给选中/定位）
     viewport.addEventListener('dblclick', (event) => {
-      if (event.target.closest('[data-pypa-node]')) return;
+      if (event.target.closest('[data-pypa-node], #pypaNodeInspector, [data-pypa-minimap]')) return;
       controller.fit();
     }, { signal: controller.signal });
     viewport.addEventListener('keydown', (event) => {
@@ -2446,6 +2560,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         lastWidth = width;
         lastHeight = height;
         if (appeared) controller.reset();
+        else if (window.PTO_COMPUTATION_JOURNEY) syncPypaMinimap();
       });
       observer.observe(viewport);
       controller.signal.addEventListener('abort', () => observer.disconnect());
@@ -2497,6 +2612,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   function selectPypaGraphNode(node, { pan = false } = {}) {
     if (!node || pypaGraphView !== 'compute') return;
     pypaSelectedNodeId = node.id;
+    if (typeof pypaJourney !== 'undefined') pypaJourney.focusedNodeId = node.id;
     const context = isMatmulFile(state.activeFile) ? null : window.PtoPagedAttentionContext;
     const stage = Object.keys(context?.stageNodes || {}).find((key) => context.stageNodes[key] === node.id);
     if (stage) context.selectStage(stage);
@@ -2517,7 +2633,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         inspector.classList.toggle('is-docked', narrow);
         inspector.style.left = narrow || point.x > viewport.clientWidth / 2 ? 'var(--space-4)' : 'auto';
         inspector.style.right = narrow || point.x <= viewport.clientWidth / 2 ? 'var(--space-4)' : 'auto';
-        inspector.style.top = narrow && point.y < viewport.clientHeight / 2 ? 'auto' : '112px';
+        inspector.style.top = narrow && point.y < viewport.clientHeight / 2 ? 'auto' : `${viewport.offsetTop + 12}px`;
+        inspector.style.maxHeight = `${Math.max(100, narrow ? viewport.clientHeight * .45 : viewport.clientHeight - 24)}px`;
         inspector.style.bottom = narrow && point.y < viewport.clientHeight / 2 ? 'var(--space-4)' : 'auto';
       }
       $$('#dslEditor [data-paged-attention-line]').forEach((row) => {
@@ -2525,6 +2642,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         row.classList.toggle('is-pypa-source-evidence', ranges.some(([start, end]) => line >= start && line <= end));
       });
     }
+    if (window.PTO_COMPUTATION_JOURNEY) syncPypaJourney();
   }
 
   /* ---- Tensor Inspector -----------------------------------------------------
@@ -2591,6 +2709,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const parts = [
       `<div class="kf-pypa-graph__inspector-head"><span>NODE INSPECTOR · ${pypaEscape(node.badge)}</span><button type="button" data-pypa-inspector-close aria-label="关闭节点详情">×</button></div>`,
       `<strong class="kf-pypa-graph__inspector-title">${pypaEscape(node.title)}</strong>${detail.symbol ? `<code class="kf-pypa-graph__inspector-symbol">${pypaEscape(detail.symbol)}</code>` : ''}`,
+      `<nav class="kf-pypa-graph__journey-action"><button class="btn btn-ghost btn-sm" data-pypa-journey-start="${pypaEscape(node.id)}">${typeof pypaJourney !== 'undefined' && pypaJourney.active ? '从此节点重新追踪' : ['data','state'].includes(node.type) ? '追踪数据流' : '查看计算依赖'}</button></nav>`,
       `<p class="kf-pypa-graph__inspector-lead">${pypaEscape(node.detail.split(/[。；]/)[0])}。</p>`,
       `<nav class="kf-pypa-graph__source-links" aria-label="节点源码片段">${ranges.map(([start, end], index) => `<button class="btn btn-ghost btn-sm" type="button" data-pypa-source-node="${pypaEscape(node.id)}" data-pypa-source-range="${index}">源码 ${start}${start === end ? '' : '–' + end}</button>`).join('')}</nav>`,
     ];
@@ -2673,6 +2792,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   function renderSourceRegionPanel() {
     const host = $('#inspector');
     if (!host) return;
+    if (window.PTO_COMPUTATION_JOURNEY) ensurePypaJourneyModel();
     pypaGraphController?.abort?.();
     pypaGraphController = null;
     matmulIntroController?.abort?.();
@@ -2714,6 +2834,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         ${pypaTaskIntroEnabled ? '' : renderPypaOperatorOverview()}`}
         <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角"><button class="btn btn-ghost${isIntro ? ' is-active' : ''}" type="button" data-pypa-view="intro" aria-pressed="${isIntro}">任务分配</button><button class="btn btn-ghost${pypaGraphView === 'overview' ? ' is-active' : ''}" type="button" data-pypa-view="overview" aria-pressed="${pypaGraphView === 'overview'}">计算图版本1</button><button class="btn btn-ghost${pypaGraphView === 'compute' ? ' is-active' : ''}" type="button" data-pypa-view="compute" aria-pressed="${pypaGraphView === 'compute'}">计算流程</button></div>
         ${pypaGraphView === 'compute' ? '<header class="kf-pa-execution-context" id="pypaExecutionContext">' + pypaExecutionContextHtml() + '</header>' + pypaOverlayToolbarHtml() : ''}
+        ${pypaGraphView === 'compute' ? pypaExplorerHtml() : ''}
         ${pypaGraphView === 'compute' ? '<aside class="kf-pypa-graph__inspector" id="pypaNodeInspector" aria-label="Node Inspector" hidden></aside>' : ''}
         ${pypaGraphView === 'overview' ? '<footer class="kf-pypa-graph__status" id="pypaGraphStatus">拖拽平移 · 滚轮缩放 · 点击节点定位源码</footer>' : ''}
       </section>`;
@@ -2758,9 +2879,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           ? '<div class="kf-pa-intro-mount"></div>'
           : isGraph ? `<div class="kf-pypa-graph__viewport" id="pypaTaskViewport" tabindex="0" aria-label="Matmul 计算图：拖拽平移、滚轮缩放"><div class="kf-pypa-graph__scene" id="pypaTaskScene"></div></div>
           <div class="kf-pypa-graph__ops" role="group" aria-label="画布操作"><div class="kf-pypa-graph__zoom"><button type="button" data-pypa-op="out" aria-label="缩小">−</button><span id="pypaGraphZoom" class="kf-pypa-graph__readout">100%</span><button type="button" data-pypa-op="in" aria-label="放大">＋</button></div><button type="button" data-pypa-op="fit">适应</button><button type="button" data-pypa-op="actual">1:1</button><button type="button" data-pypa-op="reset">复位</button></div>`
-          : '<div class="kf-pypa-intro"><b>Tensor Shape</b><p>选择计算图中的数据节点，查看张量形状和切片关系。</p></div>'}
+          : '<div class="kf-pypa-intro kf-mm-shape-content"><b>Tensor Shape</b><p>选择计算图中的数据节点，查看张量形状和切片关系。</p></div>'}
         <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角">${views.map((item) => `<button class="btn btn-ghost${item.key === view ? ' is-active' : ''}" type="button" data-mm-view="${item.key}" aria-pressed="${item.key === view}">${item.label}</button>`).join('')}</div>
-        ${isGraph ? '<header class="kf-pa-execution-context"><span>C = A @ B · 4 × 4 输出分块 · 每块 64 × 64 · 完整 K = 256</span><small>展开 Tile 查看计算依赖；点击节点定位源码。</small></header>' + pypaOverlayToolbarHtml() + '<aside class="kf-pypa-graph__inspector" id="pypaNodeInspector" aria-label="节点详情" hidden></aside>' : ''}
+        ${isGraph ? '<header class="kf-pa-execution-context"><span>C = A @ B · 4 × 4 输出分块 · 每块 64 × 64 · 完整 K = 256</span><small>展开 Tile 查看计算依赖；点击节点定位源码。</small></header>' + pypaOverlayToolbarHtml() + pypaExplorerHtml() + '<aside class="kf-pypa-graph__inspector" id="pypaNodeInspector" aria-label="节点详情" hidden></aside>' : ''}
       </section>`;
     if (isGraph) renderPyptoTaskGraph();
     if (isIntro) matmulIntroController = window.PtoMatmulIntro?.mount(host.querySelector('.kf-pa-intro-mount'));
@@ -5438,6 +5559,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       const filePath = file.dataset.file;
       const isFolder = filePath.endsWith('/');
       if (!isFolder) {
+        if (state.activeFile !== filePath) Object.assign(pypaJourney, { active: false, anchorId: null, focusedNodeId: null, result: null, model: null });
         state.activeFile = filePath;
         if (filePath === RMSNORM_FILE) {
           state.rmsNormFunction = 'input';
@@ -5709,6 +5831,32 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       }
       return;
     }
+    const journeyStart = event.target.closest('[data-pypa-journey-start]');
+    if (journeyStart) { beginPypaJourney(journeyStart.dataset.pypaJourneyStart); return; }
+    const journeyDirection = event.target.closest('[data-pypa-journey-direction]');
+    if (journeyDirection) { beginPypaJourney(pypaJourney.anchorId, journeyDirection.dataset.pypaJourneyDirection); return; }
+    if (event.target.closest('[data-pypa-journey-exit]')) {
+      pypaJourney.active = false; syncPypaJourney();
+      const node = pypaGraphController?.nodes?.find((node) => node.id === pypaSelectedNodeId);
+      if (node && !$('#pypaNodeInspector')?.hidden) selectPypaGraphNode(node);
+      return;
+    }
+    if (event.target.closest('[data-pypa-journey-origin]')) { focusPypaJourneyNode(pypaJourney.anchorId); return; }
+    const journeyNode = event.target.closest('[data-pypa-journey-node]');
+    if (journeyNode) { focusPypaJourneyNode(journeyNode.dataset.pypaJourneyNode); return; }
+    const stage = event.target.closest('[data-pypa-stage]');
+    if (stage) { const group = pypaGraphController?.graph?.groups.find((group) => group.id === stage.dataset.pypaStage); if (group) pypaGraphController.focusRegion(group); return; }
+    if (event.target.closest('[data-pypa-minimap-toggle]')) {
+      const viewport = $('#pypaTaskViewport');
+      const shown = pypaMinimapMode === 'shown' || (pypaMinimapMode === 'auto' && viewport?.clientWidth >= 520 && viewport?.clientHeight >= 260);
+      pypaMinimapMode = shown ? 'hidden' : 'shown'; syncPypaMinimap(); return;
+    }
+    const mini = event.target.closest('[data-pypa-minimap-svg]');
+    if (mini && pypaGraphController?.minimap) {
+      const bounds = mini.getBoundingClientRect();
+      const point = window.PTO_COMPUTATION_JOURNEY.worldPoint(pypaGraphController.minimap, (event.clientX - bounds.left) / bounds.width * 150, (event.clientY - bounds.top) / bounds.height * 180);
+      pypaGraphController.panTo(point.x,point.y); return;
+    }
     const overlayButton = event.target.closest('[data-pypa-overlay]');
     if (overlayButton && pypaGraphView === 'compute') {
       const key = overlayButton.dataset.pypaOverlay;
@@ -5720,6 +5868,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (pypaViewButton && isPagedAttentionPyptoFile(state.activeFile)) {
       const nextView = pypaViewButton.dataset.pypaView;
       if (nextView !== pypaGraphView) {
+        pypaJourney.active = false;
         pypaGraphView = nextView;
         pypaGraphTransform = null;
         renderSourceRegionPanel();
@@ -5731,6 +5880,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (matmulViewButton && isMatmulFile(state.activeFile)) {
       const nextView = matmulViewButton.dataset.mmView;
       if (nextView !== state.matmulView) {
+        pypaJourney.active = false;
         state.matmulView = nextView;
         pypaGraphTransform = null;
         pypaSelectedNodeId = null;
@@ -5742,6 +5892,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (event.target.closest('[data-pypa-inspector-close]')) {
       const panel = $('#pypaNodeInspector');
       if (panel) panel.hidden = true;
+      if (window.PTO_COMPUTATION_JOURNEY) syncPypaMinimap();
       return;
     }
     const pypaSourceButton = event.target.closest('[data-pypa-source-range]');
