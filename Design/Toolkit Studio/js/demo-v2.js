@@ -2832,7 +2832,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           <button type="button" data-pypa-op="reset" title="回到初始视图">复位</button>
         </div>
         ${pypaTaskIntroEnabled ? '' : renderPypaOperatorOverview()}`}
-        <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角"><button class="btn btn-ghost${isIntro ? ' is-active' : ''}" type="button" data-pypa-view="intro" aria-pressed="${isIntro}">任务分配</button><button class="btn btn-ghost${pypaGraphView === 'overview' ? ' is-active' : ''}" type="button" data-pypa-view="overview" aria-pressed="${pypaGraphView === 'overview'}">计算图版本1</button><button class="btn btn-ghost${pypaGraphView === 'compute' ? ' is-active' : ''}" type="button" data-pypa-view="compute" aria-pressed="${pypaGraphView === 'compute'}">计算流程</button></div>
+        <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角"><button class="btn btn-ghost${isIntro ? ' is-active' : ''}" type="button" data-pypa-view="intro" aria-pressed="${isIntro}">任务分配</button><button class="btn btn-ghost${pypaGraphView === 'compute' ? ' is-active' : ''}" type="button" data-pypa-view="compute" aria-pressed="${pypaGraphView === 'compute'}">计算流程</button></div>
         ${pypaGraphView === 'compute' ? '<header class="kf-pa-execution-context" id="pypaExecutionContext">' + pypaExecutionContextHtml() + '</header>' + pypaOverlayToolbarHtml() : ''}
         ${pypaGraphView === 'compute' ? pypaExplorerHtml() : ''}
         ${pypaGraphView === 'compute' ? '<aside class="kf-pypa-graph__inspector" id="pypaNodeInspector" aria-label="Node Inspector" hidden></aside>' : ''}
