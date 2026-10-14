@@ -2266,7 +2266,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       button.style.width = `${node.w}px`;
       button.style.minHeight = `${node.h}px`;
       button.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${node.meta?.length ? '，' + node.meta.join('，') : ''}`);
-      button.innerHTML = `<span class="kf-pypa-graph__node-head">${pypaGraphView !== 'compute' && (node.expandedGroup || (node.childOperation && node.type === 'operation')) ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : `<small>${pypaEscape(node.sub)}</small>`}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
+      button.innerHTML = `<span class="kf-pypa-graph__node-head">${pypaGraphView !== 'compute' && (node.expandedGroup || (node.childOperation && node.type === 'operation')) ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : (pypaGraphView === 'compute' ? pypaComputeCardHtml(node) : `<small>${pypaEscape(node.sub)}</small>`)}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
       scene.appendChild(button);
     });
     // 计算图从入口向下阅读；Reset 回到入口，Fit 才显示整个长图。
@@ -2406,6 +2406,21 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     }
   }
 
+  /* ---- 计算流程的 DATA / STATE 卡片 -----------------------------------------
+     名称下面先给 Shape，再给 dtype · 粒度 · 内存。Shape 由 Presentation 从语义
+     数据投影得到：常量维度显示解析后的数值，运行时维度保留符号名，源码没声明的
+     只写「Shape 未声明」，不猜、也不从相邻节点继承。形状文本只在逗号后断行
+     （<wbr>），维名不会被拆开；卡片的显示高度仍落在布局预留的盒高内。 */
+  function pypaComputeCardHtml(node) {
+    if (!node.card) return `<small>${pypaEscape(node.sub)}</small>`;
+    /* 没有 Shape 的 DATA / STATE（含跨 Stack 状态）写明确文案，不留空、不显示 undefined。 */
+    const shape = node.card.shapeText
+      ? `<span class="kf-pypa-graph__node-shape"${node.card.shapeTitle ? ` title="${pypaEscape(node.card.shapeTitle)}"` : ''}>${pypaEscape(node.card.shapeText).replace(/,\s+/g, ',<wbr> ')}</span>`
+      : '<span class="kf-pypa-graph__node-shape is-undeclared">Shape 未声明</span>';
+    const meta = node.card.meta ? `<small class="kf-pypa-graph__node-meta-line">${pypaEscape(node.card.meta)}</small>` : '';
+    return shape + meta;
+  }
+
   // 缩放读数：图每次重建都会换一个 controller，所以读的时候现取
   function syncPypaGraphZoom() {
     const readout = $('#pypaGraphZoom');
@@ -2436,19 +2451,100 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const inspector = $('#pypaNodeInspector');
     if (inspector) {
       inspector.hidden = false;
-      const sections = window.PTO_COMPUTATION_PRESENTATION.inspector(node, {
-        model: window.PTO_PYPA_SEMANTIC_GRAPH, qualifiedId: node.id,
-      }).filter((section) => section.title !== '语义');
       const ranges = pypaSourceRanges(node);
-      inspector.innerHTML = `<div class="kf-pypa-graph__inspector-head"><span>NODE INSPECTOR · ${pypaEscape(node.badge)}</span><button type="button" data-pypa-inspector-close aria-label="关闭节点详情">×</button></div><strong>${pypaEscape(node.title)}</strong><p>${pypaEscape(node.detail)}</p>
-        <nav class="kf-pypa-graph__source-links" aria-label="节点源码片段">${ranges.map(([start, end], index) => `<button class="btn btn-ghost btn-sm" type="button" data-pypa-source-node="${pypaEscape(node.id)}" data-pypa-source-range="${index}">源码 ${start}${start === end ? '' : '–' + end}</button>`).join('')}</nav>
-        ${sections.map((section) => `<section class="kf-pypa-graph__inspector-section"><h3>${pypaEscape(section.title)}</h3><dl>${section.rows.map((row) => `<dt>${pypaEscape(row.label)}</dt><dd>${pypaEscape(row.value)}</dd>`).join('')}</dl></section>`).join('')}
-        <em>图中位置表达计算依赖，不代表设备执行时序。</em>`;
+      inspector.innerHTML = pypaInspectorHtml(node, ranges);
       $$('#dslEditor [data-paged-attention-line]').forEach((row) => {
         const line = Number(row.dataset.pagedAttentionLine);
         row.classList.toggle('is-pypa-source-evidence', ranges.some(([start, end]) => line >= start && line <= end));
       });
     }
+  }
+
+  /* ---- Tensor Inspector -----------------------------------------------------
+     分五段：名称与一句话解释 / Shape · Dtype · Memory / 有效区域示意 /
+     数据来源与关系 / 源码及来源依据；寻址表达式与完整 provenance 收进可展开的
+     高级详情。内容全部来自 PTO_COMPUTATION_PRESENTATION 的投影，这里只排版，
+     不在渲染函数里写死任何节点的 Shape。操作与 Composite 沿用既有投影，另外
+     叠加从子图依赖边推导出来的 Shape Transformation。 */
+  function pypaInspectorRows(rows) {
+    return rows.map((row) => `<dt>${pypaEscape(row.label)}</dt><dd><span${row.mono ? ' class="is-mono"' : ''}>${pypaEscape(row.value)}</span>${row.note ? `<em class="kf-pypa-graph__field-note">${pypaEscape(row.note)}</em>` : ''}</dd>`).join('');
+  }
+  function pypaInspectorSection(title, rows) {
+    return rows && rows.length ? `<section class="kf-pypa-graph__inspector-section"><h3>${pypaEscape(title)}</h3><dl>${pypaInspectorRows(rows)}</dl></section>` : '';
+  }
+  /* Allocated / Valid 的图形表达：按行给出条带，列只在不足整宽时画分割线。
+     有效与非有效用的是中性措辞——非有效区域不等于 Padding，也不默认为 0。 */
+  function pypaRegionHtml(region, node) {
+    const bands = Array.from({ length: region.rows }, (_, index) => `<i class="${index < region.validRows ? 'is-valid' : ''}"></i>`).join('');
+    const invalidRows = region.rows - region.validRows;
+    const split = region.validCols < region.cols ? `<span class="kf-pypa-graph__region-split" style="left:${(region.validCols / region.cols) * 100}%"></span>` : '';
+    return `<section class="kf-pypa-graph__inspector-section">
+        <h3>有效区域 · Allocated / Valid</h3>
+        <div class="kf-pypa-graph__region" role="img" aria-label="${pypaEscape(`${region.headline}；${region.rowLine}${region.colLine}`)}">
+          <div class="kf-pypa-graph__region-grid" style="--rows:${region.rows}">${bands}${split}</div>
+          <div class="kf-pypa-graph__region-legend">
+            <span><i class="is-valid"></i>${pypaEscape(region.legend.valid)}：${region.validRows} 行 × ${region.validCols} 列</span>
+            ${invalidRows ? `<span><i></i>${pypaEscape(region.legend.invalid)}：${invalidRows} 行 × ${region.cols} 列</span>` : ''}
+          </div>
+        </div>
+        <dl>${pypaInspectorRows([{ label: '行', value: region.rowLine }, { label: '列', value: region.colLine }])}</dl>
+        <p class="kf-pypa-graph__inspector-note">${pypaEscape(region.disclaimer)}</p>
+        <p class="kf-pypa-graph__inspector-note">${pypaEscape(node.detail)}</p>
+      </section>`;
+  }
+  /* Shape Transformation：输入卡片 × 输入卡片 → 操作 → 输出卡片。
+     形状、dtype、是否转置、收缩维全部由语义子图推导；源码没声明 dtype 的
+     操作数就写「源码未声明」，不从相邻节点或 Cast 推断。 */
+  function pypaTransformHtml(transform) {
+    const operand = (entry) => `<div class="kf-pypa-graph__transform-card">
+        <b>${pypaEscape(entry.name)}${entry.transposed ? '<i class="kf-pypa-graph__transform-mark">ᵀ</i>' : ''}</b>
+        <span class="kf-pypa-graph__transform-shape">${pypaEscape(entry.shape ? entry.shape.text : 'Shape 未声明')}</span>
+        <small>${pypaEscape(entry.dtype || 'dtype 源码未声明')}${entry.shape && entry.shape.symbol !== entry.shape.text ? ` · ${pypaEscape(entry.shape.symbol)}` : ''}</small>
+      </div>`;
+    const inputs = transform.operands.slice(0, 2);
+    const rows = [
+      ...(transform.rule ? transform.rule.steps.map((step, index) => ({ label: index === 0 ? '收缩维' : '结果维', value: step })) : []),
+      ...transform.notes,
+      ...(transform.boundary.length ? [{ label: 'Composite 边界', value: transform.boundary.map((item) => item.direction === 'in' ? `输入 ${item.label} ← ${item.peer}` : `输出 ${item.label} → ${item.peer}`).join('；') }] : []),
+    ];
+    return `<section class="kf-pypa-graph__inspector-section">
+        <h3>Shape Transformation · ${pypaEscape(transform.operation.name)}</h3>
+        <div class="kf-pypa-graph__transform">
+          <div class="kf-pypa-graph__transform-row">${operand(inputs[0])}<span class="kf-pypa-graph__transform-operator" aria-hidden="true">×</span>${inputs[1] ? operand(inputs[1]) : ''}</div>
+          <div class="kf-pypa-graph__transform-flow">${pypaEscape(transform.operation.name)}${transform.operation.api?.length ? `（${pypaEscape(transform.operation.api.join(' · '))}）` : ''}</div>
+          <div class="kf-pypa-graph__transform-row">${transform.results.map(operand).join('')}</div>
+        </div>
+        ${transform.transposeNote ? `<p class="kf-pypa-graph__inspector-note">${pypaEscape(transform.transposeNote)}</p>` : ''}
+        ${rows.length ? `<dl>${pypaInspectorRows(rows)}</dl>` : ''}
+      </section>`;
+  }
+  function pypaInspectorHtml(node, ranges) {
+    const model = window.PTO_PYPA_SEMANTIC_GRAPH;
+    const detail = window.PTO_COMPUTATION_PRESENTATION.tensorDetail(node, { model, qualifiedId: node.id });
+    const parts = [
+      `<div class="kf-pypa-graph__inspector-head"><span>NODE INSPECTOR · ${pypaEscape(node.badge)}</span><button type="button" data-pypa-inspector-close aria-label="关闭节点详情">×</button></div>`,
+      `<strong class="kf-pypa-graph__inspector-title">${pypaEscape(node.title)}</strong>${detail.symbol ? `<code class="kf-pypa-graph__inspector-symbol">${pypaEscape(detail.symbol)}</code>` : ''}`,
+      `<p class="kf-pypa-graph__inspector-lead">${pypaEscape(node.detail)}</p>`,
+      `<nav class="kf-pypa-graph__source-links" aria-label="节点源码片段">${ranges.map(([start, end], index) => `<button class="btn btn-ghost btn-sm" type="button" data-pypa-source-node="${pypaEscape(node.id)}" data-pypa-source-range="${index}">源码 ${start}${start === end ? '' : '–' + end}</button>`).join('')}</nav>`,
+    ];
+    if (detail.groups.length) {
+      parts.push(...detail.groups.map((group) => pypaInspectorSection(group.title, group.rows)));
+      if (detail.region) parts.push(pypaRegionHtml(detail.region, node));
+      else if (detail.regionNote) parts.push(`<section class="kf-pypa-graph__inspector-section"><h3>有效区域</h3><p class="kf-pypa-graph__inspector-note">${pypaEscape(detail.regionNote)}</p></section>`);
+      parts.push(pypaInspectorSection('源码及来源依据', detail.evidence.map((entry) => ({
+        label: `${entry.index}. ${entry.kind}`,
+        value: (entry.fields || []).join('、') || entry.origin,
+        note: entry.note || '',
+      }))));
+    } else {
+      if (detail.transformation) parts.push(pypaTransformHtml(detail.transformation));
+      parts.push(...window.PTO_COMPUTATION_PRESENTATION.inspector(node, { model, qualifiedId: node.id })
+        .filter((section) => section.title !== '语义')
+        .map((section) => pypaInspectorSection(section.title, section.rows)));
+    }
+    if (detail.advanced.length) parts.push(`<details class="kf-pypa-graph__inspector-advanced"><summary>高级详情 · 寻址与依据（${detail.advanced.length}）</summary><dl>${pypaInspectorRows(detail.advanced)}</dl></details>`);
+    parts.push('<em>图中位置表达计算依赖，不代表设备执行时序。</em>');
+    return parts.join('');
   }
 
   /* 总览保留任务执行图；计算流程按语义计算、数据与状态依赖组织。 */

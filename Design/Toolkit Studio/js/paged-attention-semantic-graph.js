@@ -48,8 +48,10 @@
       provenance: evidence(type, payload, notes, resolved), ports: ordinaryPorts(payload.entity), [type]: payload };
   }
   const D = (id, name, ranges, symbols, description, data, resolved, notes) => node(id, 'data', name, ranges, symbols, description, data, resolved, notes);
-  const O = (id, name, ranges, api, description, category, symbols = []) => node(id, 'operation', name, ranges, symbols, description,
-    { semantics: description, category, api });
+  /* 操作节点可以再挂一条「形状依据」（例如 Matmul 的转置操作数）：它只复述源码里
+     已经存在的调用与作用对象，不引入新的计算语义，也不参与节点 / 边的判定。 */
+  const O = (id, name, ranges, api, description, category, symbols = [], extra = {}, resolved = [], notes = {}) => node(id, 'operation', name, ranges, symbols, description,
+    { semantics: description, category, api, ...extra }, resolved, notes);
   const S = (id, name, ranges, symbols, description, state, resolved, notes) => node(id, 'state', name, ranges, symbols, description, state, resolved, notes);
   const E = (s, t, label, type = 'data', extra = {}) => ({ id: `${s}>${t}:${label}`, s, t, type,
     sourcePort: 'default', targetPort: 'default', label, ...extra });
@@ -153,7 +155,11 @@
           relations: [{ kind: 'slice', entity: 'cache.key', description: 'qk_k_page 是 Key Cache 中物理页 qk_ph 的 [BLOCK_SIZE, HEAD_DIM] 页切片，列 col = kv_head * HEAD_DIM。' }],
           addressing: { ...cacheAccess } },
         [], { fact: 'shape / symbol 取自第 290–295 行 pl.load 的 [BLOCK_SIZE, HEAD_DIM] 与 target_memory=pl.MemorySpace.Mat；页号 qk_ph 取自第 286–289 行的 block_table_2d 读取。' }),
-      O('matmul', 'QK Matmul', '296–300', ['pl.matmul', 'pl.tile.transpose_view'], 'Q Tile 与 K Page 转置相乘，显式输出 FP32。', 'matmul', ['qk_score_page']),
+      O('matmul', 'QK Matmul', '296–300', ['pl.matmul', 'pl.tile.transpose_view'], 'Q Tile 与 K Page 转置相乘，显式输出 FP32。', 'matmul', ['qk_score_page'],
+        { transposedInput: { node: 'k-page', api: 'pl.tile.transpose_view', line: 298,
+          note: '第 298 行把 K Page 经 pl.tile.transpose_view 作为 matmul 的第二个操作数，收缩维因此是 K Page 的 HEAD_DIM。' } },
+        ['transposedInput'],
+        { resolved: 'transposedInput：第 296–299 行的 pl.matmul(q_tile, pl.tile.transpose_view(qk_k_page), out_dtype=pl.FP32) 已包含这两次调用，这里只把「右操作数是 K Page 的转置视图」记下来，供 Shape 关系展示使用。' }),
       D('score', 'FP32 Scores', '296–305', ['qk_score_page', 'score_transfer'], '每 Page 的 FP32 Scores 写入 score_transfer 的当前 Stack 列区间；它是父图 Stack Scores 的切片，不是整个 Stack。',
         { role: 'intermediate', granularity: 'page', entity: 'attention.scores', symbol: 'qk_score_page', dtype: 'FP32',
           shape: { allocated: ['ROW_TILE', 'BLOCK_SIZE'] },
