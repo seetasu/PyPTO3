@@ -29,3 +29,12 @@
   .kf-mm-map .kf-pa-map__block { height: 38px; }
   .kf-mm-map .kf-pa-map__block svg { display: none; }
 }
+
+/* Keep the shape content in flow below the tab row. */
+.kf-pypa-graph.has-task-intro > .kf-mm-shape-content {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 1;
+  min-height: 0;
+}

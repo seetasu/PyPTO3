@@ -1202,3 +1202,43 @@
 .has-semantic-overlays .kf-pypa-graph__node.is-operation:not(.is-expanded-head) .kf-pypa-graph__node-head b { grid-column: 1 / -1; grid-row: 2; }
 .has-semantic-overlays .kf-pypa-graph__node.is-operation:not(.is-expanded-head) .kf-pypa-graph__node-expand { grid-column: 2; grid-row: 1; }
 .pto-ide-frame .kf-pypa-graph__inspector :is(p, dt, dd, summary) { font-size: 14px !important; line-height: 1.55; }
+
+/* Static Tensor Journey and navigation stay inside the existing ide-frame pane. */
+.kf-pypa-graph__journey, .kf-pypa-graph__stage-nav { order: 1; flex: none; padding: var(--space-1) var(--space-4); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.kf-pypa-graph__journey[hidden] { display: none; }
+.kf-pypa-graph__journey { position: relative; border-bottom: 1px solid var(--border-subtle); }
+.kf-pypa-graph__journey > div, .kf-pypa-graph__stage-nav { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); }
+.kf-pypa-graph__journey b { color: var(--foreground); }
+.kf-pypa-graph__journey > small { display: block; margin: var(--space-1) 0; color: var(--foreground-muted); line-height: 1.4; }
+.kf-pypa-graph__journey .btn[aria-pressed="true"] { color: var(--primary); background: var(--state-selected); }
+.kf-pypa-graph__journey-list > summary { cursor: pointer; padding-block: var(--space-1); }
+.kf-pypa-graph__journey-list > div { position: absolute; z-index: 8; left: var(--space-4); right: var(--space-4); max-height: 260px; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-2); background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+.kf-pypa-graph__journey-list .btn { display: flex; flex-direction: column; align-items: flex-start; width: 100%; min-width: 0; height: auto; text-align: left; white-space: normal; }
+.kf-pypa-graph__journey-list small { color: var(--foreground-muted); font-family: var(--font-mono); overflow-wrap: anywhere; }
+.kf-pypa-graph__stage-nav [data-pypa-minimap-toggle] { margin-left: auto; }
+.kf-pypa-graph__journey-action .btn { color: var(--primary); background: var(--state-selected); }
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__node:not(.is-journey-path) { opacity: .28; }
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__node.is-journey-other-input { opacity: .55; border-style: dashed; }
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__node.is-selected { opacity: 1; }
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__node.is-journey-anchor { outline: 3px solid var(--primary); outline-offset: 4px; }
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__edge:not(.is-journey-path),
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__edge-label:not(.is-journey-path) { opacity: .18; }
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__edge.is-journey-path { stroke: var(--primary); stroke-width: 3; opacity: 1; }
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__edge.is-journey-feedback { stroke: var(--accent); stroke-dasharray: 3 4 10 4; }
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__expanded-group:not(.is-journey-path) { opacity: .25; }
+.kf-pypa-graph__minimap { position: absolute; z-index: 4; right: var(--space-4); bottom: var(--space-4); width: 150px; padding: var(--space-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-2); color: var(--foreground-muted); font: var(--type-micro); }
+.kf-pypa-graph__minimap[hidden] { display: none; }
+.kf-pypa-graph__minimap > svg { display: block; width: 150px; height: 180px; cursor: crosshair; overflow: hidden; }
+.kf-pypa-graph__minimap > svg:focus-visible { outline: 1px solid var(--focus-ring); }
+.kf-pypa-graph__mini-boundary { fill: none; stroke: var(--border-subtle); stroke-width: .5; }
+.kf-pypa-graph__mini-group { fill: var(--surface-3); stroke: var(--border-default); stroke-width: .5; }
+.kf-pypa-graph__mini-node { fill: var(--foreground-muted); }
+.kf-pypa-graph__mini-node.is-path { fill: var(--primary); }
+.kf-pypa-graph__mini-node.is-focused { stroke: var(--foreground); stroke-width: 1.5; }
+.kf-pypa-graph__mini-node.is-anchor { fill: var(--primary); stroke: var(--primary); stroke-width: 2; }
+.kf-pypa-graph__mini-viewport { fill: var(--state-selected); fill-opacity: .35; stroke: var(--primary); stroke-width: 1; pointer-events: none; }
+@container (max-width: 520px) {
+  .kf-pypa-graph__minimap[data-mode="auto"] { display: none; }
+  .kf-pypa-graph__stage-nav { gap: 0; }
+}
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__node.is-journey-path { opacity: 1; }
