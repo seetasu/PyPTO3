@@ -196,7 +196,7 @@ function renderer() {
     return demo.slice(from, to);
   };
   const window = {};
-  const context = vm.createContext({ window, console });
+  const context = vm.createContext({ window, console, activeSemanticModel: () => window.PTO_PYPA_SEMANTIC_GRAPH });
   for (const name of MODULES) vm.runInContext(read(`${name}.js`), context, { filename: `${name}.js` });
   vm.runInContext([
     `const pypaEscape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));`,

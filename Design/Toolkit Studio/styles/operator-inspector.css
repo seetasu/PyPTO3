@@ -1139,3 +1139,66 @@
 .kf-pa-hw-fns code { color: var(--foreground-secondary); font-family: var(--font-mono); overflow-wrap: anywhere; }
 .kf-pa-hw-fns b { color: var(--primary); font-weight: 600; white-space: nowrap; }
 .kf-pa-hw-fns small { grid-column: 1 / -1; color: var(--foreground-muted); font-family: var(--font-mono); }
+
+/* Composable semantic overlays: properties never affect node geometry. */
+.kf-pypa-graph.has-semantic-overlays { display: flex; flex-direction: column; min-height: 0; container-type: inline-size; }
+.has-semantic-overlays .kf-pypa-graph__layers { position: static; order: 0; flex: none; max-width: none; justify-content: flex-start; padding: var(--space-2) var(--space-4); }
+.has-semantic-overlays .kf-pypa-graph__viewport { position: relative; inset: auto; order: 2; flex: 1; min-height: 0; }
+.kf-pypa-graph__overlays { order: 1; flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); padding: var(--space-1) var(--space-4) var(--space-2); border-bottom: 1px solid var(--border-subtle); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.kf-pypa-graph__overlays .btn { padding: var(--space-1) var(--space-2); min-height: 28px; }
+.kf-pypa-graph__overlays .btn > span { display: inline-block; width: 1em; }
+.kf-pypa-graph__overlays .btn[aria-pressed="true"] { color: var(--primary); background: var(--state-selected); }
+.kf-pypa-graph__overlays > small { color: var(--foreground-muted); margin-left: auto; }
+.kf-pypa-graph__control-legend { display: flex; flex-wrap: wrap; gap: var(--space-3); width: 100%; color: var(--foreground-muted); }
+.kf-pypa-graph__control-legend[hidden] { display: flex !important; visibility: hidden; }
+.kf-pypa-graph__control-legend > span:nth-child(2) { color: var(--warning); }
+.kf-pypa-graph__control-legend > span:nth-child(n+3) { color: var(--accent); }
+.has-semantic-overlays .kf-pypa-graph__node { height: 88px; box-sizing: border-box; overflow: hidden; }
+.has-semantic-overlays .kf-pypa-graph__node.is-expanded-head { height: 42px; }
+.has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head { flex-wrap: nowrap; }
+.has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head b { min-width: 0; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.has-semantic-overlays .kf-pypa-graph__node-head em { flex: none; }
+.has-semantic-overlays [data-pypa-card] { display: block; min-width: 0; overflow: hidden; }
+.has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-shape { max-height: 1.3em; white-space: nowrap; text-overflow: ellipsis; font-size: 18px; }
+.kf-pypa-graph__node-valid { display: block; color: var(--foreground-secondary); font: 12px/1.3 var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.has-semantic-overlays .kf-pypa-graph__node-meta-line { display: flex; align-items: center; gap: var(--space-1); min-width: 0; margin-top: 2px; font: 12px/1.3 var(--font-mono); overflow: hidden; }
+.kf-pypa-graph__node-meta-line > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kf-pypa-graph__memory { flex: none; color: var(--foreground-secondary); background: var(--surface-3); padding: 0 var(--space-1); border-radius: var(--radius-sm); }
+.kf-pypa-graph__core-operation { display: block; color: inherit; opacity: .75; font: var(--type-body-sm); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.has-semantic-overlays .kf-pypa-graph__detail-source { display: none; }
+[data-overlay-control="false"] .kf-pypa-graph__edge:is(.is-control,.is-state,.is-feedback) { stroke: var(--foreground-muted); stroke-dasharray: none; opacity: .65; }
+[data-overlay-control="false"] .kf-pypa-graph__arrow:is(.is-control,.is-state,.is-feedback) { fill: var(--foreground-muted); }
+[data-overlay-control="false"] [data-pypa-edge-label]:is([data-edge-type="control"],[data-edge-type="state"],[data-edge-type="feedback"]) { visibility: hidden; }
+[data-overlay-control="true"] .kf-pypa-graph__edge:is(.is-control,.is-state,.is-feedback) { stroke-width: 3; opacity: 1; }
+[data-overlay-control="true"] .kf-pypa-graph__edge.is-feedback { stroke-dasharray: 3 4 10 4; }
+.has-semantic-overlays .is-control-object .kf-pypa-graph__node-head em { color: var(--warning); }
+[data-density="compact"] .kf-pypa-graph__node-valid,
+[data-density="compact"] [data-overlay-field="memory"],
+[data-density="compact"] [data-overlay-field="granularity"] { display: none; }
+[data-density="compact"] [data-pypa-edge-label] { visibility: hidden; }
+[data-density="compact"][data-overlay-control="true"] [data-pypa-edge-label]:is([data-edge-type="control"],[data-edge-type="state"],[data-edge-type="feedback"]) { visibility: visible; }
+/* Long explanations span the Inspector, while short metrics retain key/value alignment. */
+.has-semantic-overlays .kf-pypa-graph__inspector { width: min(400px, calc(100% - 32px)); max-height: calc(100% - 128px); overscroll-behavior: contain; box-sizing: border-box; }
+.has-semantic-overlays .kf-pypa-graph__inspector.is-docked { width: auto; max-height: 45%; }
+.kf-pypa-graph__inspector dt.is-long { grid-column: 1 / -1; margin-top: var(--space-2); color: var(--foreground); font-weight: 600; }
+.kf-pypa-graph__inspector dt.is-long + dd { grid-column: 1 / -1; }
+.kf-pypa-graph__inspector dl { grid-template-columns: minmax(76px, 32%) minmax(0, 1fr); }
+.kf-pypa-graph__inspector-advanced p { line-height: 1.6; overflow-wrap: anywhere; }
+.kf-pypa-graph__inspector-advanced summary { font: var(--type-body-sm); padding-block: var(--space-1); }
+.kf-pypa-graph__inspector .kf-pypa-graph__transform-flow { display: block; font: var(--type-body-sm); }
+.kf-pypa-graph__inspector .kf-pypa-graph__transform-flow::before,
+.kf-pypa-graph__inspector .kf-pypa-graph__transform-flow::after { display: none; }
+@container (max-width: 440px) {
+  .kf-pypa-graph__overlays > small { width: 100%; margin-left: 0; }
+  .kf-pypa-graph__overlays { gap: var(--space-1); }
+}
+.has-semantic-overlays .kf-pypa-graph__node.is-computation:not(.is-expanded-head) { padding: 6px 10px; }
+.has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head b { line-height: 1.1; }
+.has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-shape { font-size: 16px; line-height: 1.2; }
+.has-semantic-overlays .kf-pypa-graph__node-valid,
+.has-semantic-overlays .kf-pypa-graph__node-meta-line { line-height: 1.2; }
+.has-semantic-overlays .kf-pypa-graph__node.is-operation:not(.is-expanded-head) .kf-pypa-graph__node-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--space-1); }
+.has-semantic-overlays .kf-pypa-graph__node.is-operation:not(.is-expanded-head) .kf-pypa-graph__node-head em { grid-column: 1; grid-row: 1; justify-self: start; }
+.has-semantic-overlays .kf-pypa-graph__node.is-operation:not(.is-expanded-head) .kf-pypa-graph__node-head b { grid-column: 1 / -1; grid-row: 2; }
+.has-semantic-overlays .kf-pypa-graph__node.is-operation:not(.is-expanded-head) .kf-pypa-graph__node-expand { grid-column: 2; grid-row: 1; }
+.pto-ide-frame .kf-pypa-graph__inspector :is(p, dt, dd, summary) { font-size: 14px !important; line-height: 1.55; }

@@ -88,6 +88,28 @@
     return { shapeText: line ? line.text : null, shapeSymbol: line ? line.symbol : null, shapeTitle: line ? line.title : '',
       meta, tensor: type === 'data', undeclared: !line };
   }
+  /* Overlay 属性只读现有语义节点与依赖；开关留在 UI，不参与布局。 */
+  function overlays(item, { model, qualifiedId } = {}) {
+    const semantic = item.semantic || item, payload = semantic[semantic.type] || {};
+    const view = axes(model, payload), shape = shapeLine(view);
+    const found = locate(model, qualifiedId || item.id || semantic.id);
+    const transform = transformation(item, { model, qualifiedId });
+    const resultNodes = found ? (found.graph.edges || []).filter((edge) => edge.s === found.node.id && edge.type === 'data')
+      .map((edge) => found.graph.nodes.find((node) => node.id === edge.t)).filter(Boolean) : [];
+    const outputs = transform ? transform.results.map((entry) => entry.dtype).filter(Boolean)
+      : resultNodes.filter((node) => node.type === 'data').map((node) => node.data.dtype).filter(Boolean);
+    const inputTypes = semantic.type === 'operation' && (payload.api || []).includes('pl.cast') && found
+      ? (found.graph.edges || []).filter((edge) => edge.t === found.node.id && edge.type === 'data').map((edge) => found.graph.nodes.find((node) => node.id === edge.s)?.data?.dtype).filter(Boolean) : [];
+    const precision = inputTypes.length && outputs.length ? `${[...new Set(inputTypes)].join('/')} → ${[...new Set(outputs)].join('/')}` : payload.dtype ? payload.dtype : ['operation', 'composite'].includes(semantic.type)
+      ? [...new Set(outputs)].map((dtype) => `输出 ${dtype}`).join(' · ') : '';
+    const incomingTypes = found ? (found.graph.edges || []).filter((edge) => edge.t === found.node.id || edge.s === found.node.id).map((edge) => edge.type) : [];
+    return { shape: shape?.text || null, shapeTitle: shape?.title || '',
+      valid: view?.valid && view.valid.text !== view.allocated?.text ? view.valid.text : null,
+      granularity: payload.granularity ? granularityLabel(payload.granularity) : '',
+      precision, memory: payload.storage?.space || '',
+      control: semantic.type === 'state' || payload.role === 'metadata' || (payload.relations || []).some((entry) => entry.kind === 'control') || incomingTypes.some((type) => ['control', 'state', 'feedback'].includes(type)),
+      evidence: (semantic.provenance || []).map((entry) => ({ kind: entry.kind, fields: [...entry.fields], note: entry.note || entry.origin })) };
+  }
   /* 二维有效区域：只在 Allocated 与 Valid 都取到数值、尺度一致时才可画。
      动态符号维度会被明确拒绝——不同尺度的两个范围画成比例图就是错的。 */
   function regionView(model, payload) {
@@ -156,7 +178,8 @@
       badge: type.toUpperCase(), title: semantic.name, sub, detail: semantic.description,
       api: Array.isArray(p.api) ? p.api.join(' · ') : '', lines: (semantic.source?.ranges || []).map(({ start, end }) => start === end ? String(start) : `${start}–${end}`).join('、'),
       sourceRanges: sourceRanges(semantic), sourceLine: sourceLine(semantic),
-      ...(stats ? { card: stats } : {}) };
+      ...(stats ? { card: stats } : {}),
+      overlay: overlays(semantic, { model: context.model, qualifiedId: id }) };
   }
   function edge(semantic, context = {}) {
     return { ...semantic, semantic, id: context.id || semantic.id,
@@ -385,5 +408,5 @@
 
   root.PTO_COMPUTATION_PRESENTATION = { node, edge, sourceRanges, sourceLine, formatSource, inspector,
     flatten, shapeAxes: axes, shapeLine, card, regionView, tensorDetail, transformation, matmulRule,
-    roleLabel, granularityLabel };
+    roleLabel, granularityLabel, overlays };
 })(typeof window === 'undefined' ? globalThis : window);
