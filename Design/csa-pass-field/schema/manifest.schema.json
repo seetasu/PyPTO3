@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "csa-pass-field.manifest.v1",
+  "type": "object",
+  "required": ["schemaVersion", "scenarioId", "passCount", "artifacts", "sourceRoots"],
+  "properties": {
+    "schemaVersion": { "const": "csa-pass-field.manifest.v1" },
+    "scenarioId": { "type": "string" },
+    "passCount": { "type": "integer", "minimum": 1 },
+    "artifacts": { "type": "object" },
+    "sourceRoots": { "type": "object" }
+  }
+}

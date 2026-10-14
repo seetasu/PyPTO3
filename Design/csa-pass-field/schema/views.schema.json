@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "csa-pass-field.views.v1",
+  "type": "object",
+  "required": ["schemaVersion", "scenarioId", "views"],
+  "properties": {
+    "schemaVersion": { "const": "csa-pass-field.views.v1" },
+    "views": { "type": "object", "required": ["front"] }
+  }
+}

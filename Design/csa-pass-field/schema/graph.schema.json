@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "csa-pass-field.graph.v1",
+  "type": "object",
+  "required": ["schemaVersion", "scenarioId", "nodes", "edges", "initialState"],
+  "properties": {
+    "schemaVersion": { "const": "csa-pass-field.graph.v1" },
+    "nodes": { "type": "array", "items": { "type": "object", "required": ["id", "semanticKind", "renderKind", "label"] } },
+    "edges": { "type": "array", "items": { "type": "object", "required": ["id", "semanticKind", "source", "target"] } },
+    "initialState": { "type": "object", "required": ["nodeIds", "edgeIds"] }
+  }
+}

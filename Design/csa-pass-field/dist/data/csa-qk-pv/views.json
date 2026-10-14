@@ -1,0 +1,342 @@
+{
+  "schemaVersion": "csa-pass-field.views.v1",
+  "scenarioId": "l3_decode_csa.qk_pv",
+  "views": {
+    "front": {
+      "viewport": {
+        "width": 1880,
+        "height": 960,
+        "padding": 0.08
+      },
+      "nodes": {
+        "region.iter": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 600,
+          "locked": false
+        },
+        "region.guard": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 500,
+          "locked": false
+        },
+        "region.runs": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 130,
+          "locked": false
+        },
+        "region.aic.iter": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 400,
+          "locked": false
+        },
+        "region.aic.guard": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "height": 300,
+          "locked": false
+        },
+        "region.aiv.iter": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 400,
+          "locked": false
+        },
+        "region.aiv.guard": {
+          "x": 0,
+          "y": 0,
+          "width": 1100,
+          "height": 300,
+          "locked": false
+        },
+        "gather.0": {
+          "x": 0,
+          "y": 0,
+          "width": 220,
+          "height": 48,
+          "locked": false
+        },
+        "gather.1": {
+          "x": 0,
+          "y": 0,
+          "width": 220,
+          "height": 48,
+          "locked": false
+        },
+        "gather.2": {
+          "x": 0,
+          "y": 0,
+          "width": 220,
+          "height": 48,
+          "locked": false
+        },
+        "gather.3": {
+          "x": 0,
+          "y": 0,
+          "width": 220,
+          "height": 48,
+          "locked": false
+        },
+        "gather.4": {
+          "x": 0,
+          "y": 0,
+          "width": 220,
+          "height": 48,
+          "locked": false
+        },
+        "control.qk": {
+          "x": 0,
+          "y": 0,
+          "width": 960,
+          "height": 270,
+          "locked": false
+        },
+        "scope.qk-pv": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 620,
+          "locked": false
+        },
+        "value.q": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 64,
+          "locked": false
+        },
+        "value.kv": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 64,
+          "locked": false
+        },
+        "op.qk": {
+          "x": 0,
+          "y": 0,
+          "width": 260,
+          "height": 48,
+          "locked": false
+        },
+        "value.scores": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 64,
+          "locked": false
+        },
+        "op.rowmax": {
+          "x": 0,
+          "y": 0,
+          "width": 140,
+          "height": 48,
+          "locked": false
+        },
+        "value.max": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 64,
+          "locked": false
+        },
+        "op.exp": {
+          "x": 0,
+          "y": 0,
+          "width": 140,
+          "height": 48,
+          "locked": false
+        },
+        "value.prob": {
+          "x": 0,
+          "y": 0,
+          "width": 180,
+          "height": 64,
+          "locked": false
+        },
+        "op.rowsum": {
+          "x": 0,
+          "y": 0,
+          "width": 140,
+          "height": 48,
+          "locked": false
+        },
+        "value.sum": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 64,
+          "locked": false
+        },
+        "op.pv": {
+          "x": 0,
+          "y": 0,
+          "width": 260,
+          "height": 48,
+          "locked": false
+        },
+        "value.out": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 64,
+          "locked": false
+        },
+        "kernel.aic": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 170,
+          "locked": false
+        },
+        "kernel.aiv": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 240,
+          "locked": false
+        },
+        "handoff.c2v-push": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 48,
+          "locked": false
+        },
+        "handoff.c2v-pop": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 48,
+          "locked": false
+        },
+        "handoff.v2c-push": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 48,
+          "locked": false
+        },
+        "handoff.v2c-pop": {
+          "x": 0,
+          "y": 0,
+          "width": 160,
+          "height": 48,
+          "locked": false
+        },
+        "memory.qk-pv": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 56,
+          "locked": false
+        },
+        "memory.pipe": {
+          "x": 0,
+          "y": 0,
+          "width": 290,
+          "height": 56,
+          "locked": false
+        },
+        "task.plan": {
+          "x": 0,
+          "y": 0,
+          "width": 260,
+          "height": 60,
+          "locked": false
+        },
+        "task.qk-pv": {
+          "x": 0,
+          "y": 0,
+          "width": 260,
+          "height": 60,
+          "locked": false
+        },
+        "isa.load": {
+          "x": 0,
+          "y": 0,
+          "width": 260,
+          "height": 60,
+          "locked": false
+        },
+        "isa.matmul": {
+          "x": 0,
+          "y": 0,
+          "width": 320,
+          "height": 60,
+          "locked": false
+        },
+        "isa.c2v": {
+          "x": 0,
+          "y": 0,
+          "width": 270,
+          "height": 60,
+          "locked": false
+        },
+        "isa.softmax": {
+          "x": 0,
+          "y": 0,
+          "width": 420,
+          "height": 60,
+          "locked": false
+        },
+        "isa.v2c": {
+          "x": 0,
+          "y": 0,
+          "width": 270,
+          "height": 60,
+          "locked": false
+        },
+        "isa.store": {
+          "x": 0,
+          "y": 0,
+          "width": 260,
+          "height": 60,
+          "locked": false
+        }
+      },
+      "layout": {
+        "engine": "dagre@0.8.5",
+        "reference": "https://github.com/kc-ml2/llvm-flow/blob/main/llvm-flow-frontend/src/components/modules/llvmcfg/BaseLayoutFlow.tsx",
+        "direction": "LR",
+        "rankSep": 48,
+        "nodeSep": 52,
+        "edgeSep": 18,
+        "containerMembers": {
+          "kernel.aic": [
+            "op.qk",
+            "handoff.c2v-push",
+            "handoff.v2c-pop",
+            "op.pv"
+          ],
+          "kernel.aiv": [
+            "handoff.c2v-pop",
+            "value.scores",
+            "op.rowmax",
+            "value.max",
+            "op.exp",
+            "value.prob",
+            "op.rowsum",
+            "value.sum",
+            "handoff.v2c-push"
+          ]
+        },
+        "externalSlots": {
+          "value.q": "aic",
+          "value.kv": "between",
+          "value.out": "aic"
+        }
+      },
+      "layoutPolicy": "Dagre computes leaf-node geometry from the active DAG; scope and kernel bounds are derived from explicit JSON membership; user drag overrides remain local until reset"
+    }
+  }
+}

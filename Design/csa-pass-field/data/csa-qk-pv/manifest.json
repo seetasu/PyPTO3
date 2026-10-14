@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "csa-pass-field.manifest.v1",
+  "scenarioId": "l3_decode_csa.qk_pv",
+  "title": "CSA qk_pv mixed Cube/Vector handoff",
+  "generatedAt": "2026-10-14T03:55:37.857Z",
+  "sourceRoots": {
+    "passDumps": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump",
+    "pto": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+    "cpp": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp"
+  },
+  "passCount": 51,
+  "artifacts": {
+    "graph": "graph.json",
+    "passes": "passes.json",
+    "isa": "isa.json",
+    "views": "views.json"
+  },
+  "evidenceSummary": {
+    "sourceChangedForQkPvFamily": 17,
+    "changedForProgram": 33,
+    "noOpForProgram": 18,
+    "isaStaticOccurrences": 57
+  }
+}
