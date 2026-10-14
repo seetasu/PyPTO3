@@ -43,6 +43,9 @@
   // Kept in this page session; mounting/unmounting does not reset exploration.
   const state = { seqLens: [...defaultSeqLens], block: null, task: null, level: 'matrix', view: null, matrixView: null, matrixSize: null, size: null };
   const grid = { x: 94, y: 106, dx: 62, dy: 34, w: 54, h: 28, width: 1096, height: 388 };
+  // Playback belongs to this page session. Selection stops it until reload,
+  // including when the inspector or its tabs are mounted again.
+  const playback = { stopped: false, block: 0 };
   let mounted = null;
 
   function mount(host) {
@@ -52,6 +55,7 @@
     const on = (element, type, listener, options = {}) => element.addEventListener(type, listener, { ...options, signal });
     const query = (selector) => host.querySelector(selector);
     const reducedMotion = global.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let playbackTimer = null;
     let hoverTask = null, drag = null, animation = null, transitionUntil = 0, panTimer = null, suppressClick = false;
     host.innerHTML = `<div class="kf-pa-map">
       <header class="kf-pa-map__metrics">
@@ -76,13 +80,18 @@
       <div class="kf-pa-map__context"><div class="kf-pa-map__breadcrumb"><button class="btn btn-ghost btn-sm" type="button" data-pa-action="back" hidden>← 返回矩阵</button><b data-pa-context>Batch × KV Head</b></div><button class="btn btn-ghost btn-sm" type="button" data-pa-action="enter">进入 Task 0 ↗</button><span class="kf-pa-map__detail-meta" data-pa-meta></span></div>
       <div class="kf-pa-map__config" hidden><label>场景配置 · <span data-pa-batch></span> seq_lens <input class="input" type="number" min="1" max="3584" step="1" aria-label="当前 Batch 的序列长度" data-pa-length></label><input type="range" min="1" max="3584" step="1" aria-label="调节当前 Batch 的序列长度" data-pa-range><span>tokens</span></div>
       <div class="kf-pa-map__viewport" tabindex="0" role="group" aria-label="任务矩阵画布，滚轮缩放，按住左键拖拽平移，方向键切换 Task，Escape 返回矩阵">
-        <svg class="kf-pa-map__svg" xmlns="http://www.w3.org/2000/svg" aria-label="Batch 与 KV Head 的任务关系"><g data-pa-scene></g></svg>
+        <svg class="kf-pa-map__svg" xmlns="http://www.w3.org/2000/svg" aria-label="Batch 与 KV Head 的任务关系"><g data-pa-ghost opacity="0" pointer-events="none"></g><g data-pa-morph-fill opacity="0" pointer-events="none"></g><g class="kf-pa-map__scene" data-pa-scene></g><g data-pa-morph opacity="0" pointer-events="none"></g></svg>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div>
       </div>
       <footer class="kf-pa-map__footer"><div><p data-pa-summary></p><span data-pa-hint>滚轮放大进入 Task · 拖拽平移</span></div><div class="kf-pa-map__tools" role="group" aria-label="简介画布操作"><button class="btn btn-ghost btn-sm" type="button" data-pa-action="out" aria-label="缩小简介">−</button><output data-pa-zoom>100%</output><button class="btn btn-ghost btn-sm" type="button" data-pa-action="in" aria-label="放大简介">＋</button><button class="btn btn-ghost btn-sm" type="button" data-pa-action="fit">适应</button></div></footer>
     </div>`;
     const viewport = query('.kf-pa-map__viewport');
     const scene = query('[data-pa-scene]');
+    const ghost = query('[data-pa-ghost]');
+    // 入场时的共享元素：morph-fill 是压在底板之下、场景之上的色块（盖住矩阵格子），
+    // morph 是浮在场景之上的边框与编号。拆成两层，卡片正文才不会被自己的底色挡住。
+    const morph = query('[data-pa-morph]');
+    const morphFill = query('[data-pa-morph-fill]');
     const tooltip = query('.kf-pa-map__tooltip');
     const currentTiling = () => partition(state.seqLens[taskInfo(state.task ?? 0).batch]);
     const neighborhood = () => taskNeighborhood(state.task ?? 0, state.seqLens);
@@ -158,12 +167,25 @@
     function frameExpandedMarkup(id, len) {
       const t = taskInfo(id);
       const tiling = partition(len);
-      return `<text class="kf-pa-map__frame-title" x="24" y="48">Task ${id}</text><text class="kf-pa-map__frame-meta" x="24" y="80">Batch ${t.batch} · KV ${t.kv} · Q${t.qStart}–Q${t.qEnd}</text>${sequenceGraphic(len, 24, 102, 552, 12)}<text class="kf-pa-map__frame-length" x="610" y="114">${len} tokens</text>
-        ${tiling.stacks.map((stack) => `<g transform="translate(24 ${140 + stack.id * 60})" data-pa-stack="${stack.id}" aria-label="Stack ${stack.id}，${stack.pages.length} Pages"><rect class="kf-pa-map__stack" width="792" height="52" rx="5"/><text class="kf-pa-map__stack-label" x="14" y="30">S${stack.id}</text>${Array.from({ length: 4 }, (_, i) => {
+      // 每个 stack 恰好吐一组 <g>；正文/Stack/Page 全部落在 frame-body 里，
+      // 这样裁剪窗口和透明度接管才能盖住整块正文（多一个 </g> 就会把后面的 Stack 甩到组外）。
+      const stacks = tiling.stacks.map((stack) => {
+        const pages = Array.from({ length: 4 }, (_, i) => {
           const page = stack.pages[i], x = 124 + i * 166;
           if (!page) return `<g aria-hidden="true"><rect class="kf-pa-map__unused" x="${x}" y="4" width="150" height="44" rx="3"/><text class="kf-pa-map__unused-label" x="${x + 75}" y="29">—</text></g>`;
           return `<g data-pa-page="${page.id}" aria-label="Logical Page ${page.id}，${page.validTokens}/128 有效 tokens"><title>Page ${page.id} · ${page.validTokens}/128 tokens</title><rect class="kf-pa-map__page" x="${x}" y="4" width="150" height="44" rx="3"/><text class="kf-pa-map__page-label" x="${x + 10}" y="25">P${page.id}</text><text class="kf-pa-map__page-value" text-anchor="end" x="${x + 140}" y="25">${page.validTokens}/128</text><rect class="kf-pa-map__page-track" x="${x + 10}" y="34" width="130" height="6" rx="1"/><rect class="kf-pa-map__page-fill${page.validTokens < 128 ? ' is-tail' : ''}" x="${x + 10}" y="34" width="${130 * page.validTokens / 128}" height="6" rx="1"/></g>`;
-        }).join('')}</g>`).join('')}`;
+        }).join('');
+        return `<g transform="translate(24 ${140 + stack.id * 60})" data-pa-stack="${stack.id}" aria-label="Stack ${stack.id}，${stack.pages.length} Pages"><rect class="kf-pa-map__stack" width="792" height="52" rx="5"/><text class="kf-pa-map__stack-label" x="14" y="30">S${stack.id}</text>${pages}</g>`;
+      }).join('');
+      return [
+        `<text class="kf-pa-map__frame-title" x="24" y="48">Task ${id}</text>`,
+        '<g class="kf-pa-map__frame-body">',
+        `<text class="kf-pa-map__frame-meta" x="24" y="80">Batch ${t.batch} · KV ${t.kv} · Q${t.qStart}–Q${t.qEnd}</text>`,
+        sequenceGraphic(len, 24, 102, 552, 12),
+        `<text class="kf-pa-map__frame-length" x="610" y="114">${len} tokens</text>`,
+        stacks,
+        '</g>',
+      ].join('');
     }
     function paintDetailFrames(frames) {
       const active = taskInfo(state.task ?? 0);
@@ -184,6 +206,39 @@
     }
     function drawDetail() {
       paintDetailFrames(neighborhood().map((r) => ({ id: r.id, x: r.x, y: r.y, w: r.w, h: r.h, opacity: 1 })));
+    }
+    function paintPlayback() {
+      const playing = !playback.stopped && state.level === 'matrix';
+      host.dataset.autoplay = playing ? 'playing' : 'stopped';
+      if (playing) host.dataset.playbackBlock = String(playback.block);
+      else delete host.dataset.playbackBlock;
+      const strengthFor = (block) => {
+        const distance = Math.abs(block - playback.block);
+        const wrappedDistance = Math.min(distance, constants.blocks - distance);
+        return wrappedDistance < 5 ? (5 - wrappedDistance) / 5 : 0;
+      };
+      host.querySelectorAll('[data-pa-block], [data-pa-task]').forEach((element) => {
+        const block = element.hasAttribute('data-pa-block')
+          ? Number(element.dataset.paBlock) : taskInfo(Number(element.dataset.paTask)).block;
+        element.classList.toggle('is-playing', playing);
+        element.classList.toggle('is-playback-current', playing && block === playback.block);
+        if (playing) element.style.setProperty('--pa-playback-strength', strengthFor(block));
+        else element.style.removeProperty('--pa-playback-strength');
+      });
+      const assignment = query('.kf-pa-map__assignment');
+      // Avoid announcing every automatic step as an accessibility live update.
+      assignment.setAttribute('aria-live', playing ? 'off' : 'polite');
+      if (playing) {
+        assignment.textContent = `Block ${playback.block} → ${tasksForBlock(playback.block).join(', ')} · stride ${constants.blocks}`;
+        query('[data-pa-hint]').textContent = '自动循环 · 点击元素停止 · 滚轮放大进入 Task';
+      }
+    }
+    function stopPlayback() {
+      if (playback.stopped) return;
+      playback.stopped = true;
+      clearInterval(playbackTimer);
+      playbackTimer = null;
+      syncSelection();
     }
     function syncSelection() {
       host.querySelectorAll('[data-pa-block]').forEach((button) => {
@@ -215,6 +270,7 @@
       const tiling = currentTiling();
       query('[data-pa-summary]').textContent = detail ? `${tiling.seqLen} tokens = ${tiling.pageCount} Pages · ${tiling.stackCount} Stacks` : '每格 1 个 Task · 5 条底纹 = 5 个 Q Head';
       query('[data-pa-hint]').textContent = detail ? '逻辑页分组 · 滚轮缩放 · 按住左键拖动移动 · 点击其它 Task 直接进入' : '场景配置 · 滚轮放大进入 Task · 按住左键拖动移动';
+      paintPlayback();
     }
     function render() {
       cancelLayoutTween();
@@ -230,9 +286,210 @@
     }
     const rememberSize = () => { state.size = { width: viewport.clientWidth, height: viewport.clientHeight }; };
     function fit() { animation?.cancel(); state.view = fitted(); rememberSize(); paintView(); }
+    /* ---- 入场动效：矩阵 → Task ------------------------------------------------
+       被点的格子不跟着底板一起消失：它被提到 morph 层（不带场景变换，纯屏幕坐标），
+       从「格子边框 + Task 编号」补间成「卡片外框 + 卡片标题」；底板整帧朝这个格子
+       收拢淡出，卡片一侧只淡入不位移，正文等外框落位后再淡进来。
+       几层共用一条时间轴，读起来就是「这个格子长成了这张任务卡」。 */
+    const viewTransform = (view) => `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+    const easeMorph = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const clamp01 = (value) => Math.max(0, Math.min(1, value));
+    const num = (value, fallback = 0) => (Number.isFinite(Number.parseFloat(value)) ? Number.parseFloat(value) : fallback);
+    // 以 anchor 为不动点收拢视图（k < 1 就是整块矩阵往被点的格子里缩）。
+    const shrinkView = (view, anchor, k) => ({ scale: view.scale * k,
+      x: anchor.x - (anchor.x - view.x) * k, y: anchor.y - (anchor.y - view.y) * k });
+    let enterTransit = null;
+    let morphTween = null, morphTask = null;
+    /* morph 不挂场景变换，两端都用屏幕坐标——t=0 对上矩阵里的格子，
+       t=1 与 scene 画出来的卡片外框/标题逐像素重合，所以拆层时看不出接缝。 */
+    function endMorph() {
+      if (morphTween) { cancelAnimationFrame(morphTween); morphTween = null; }
+      // 生长窗口借的是展开组自带的裁剪，收尾/中断都要把它还原成整张卡片。
+      if (morphTask !== null) {
+        const frame = scene.querySelector('.kf-pa-map__task-frame.is-expanded');
+        const boundary = frame?.querySelector('.kf-pa-map__task-boundary');
+        const rect = scene.querySelector(`#pa-frame-clip-${morphTask} rect`);
+        if (rect && boundary) {
+          rect.setAttribute('x', '0');
+          rect.setAttribute('y', '0');
+          rect.setAttribute('width', boundary.getAttribute('width'));
+          rect.setAttribute('height', boundary.getAttribute('height'));
+        }
+        morphTask = null;
+      }
+      scene.classList.remove('is-morphing');
+      scene.style.removeProperty('--pa-morph-handoff');
+      scene.style.removeProperty('--pa-morph-body');
+      for (const layer of [morph, morphFill]) {
+        layer.setAttribute('opacity', '0');
+        layer.innerHTML = '';
+      }
+    }
+    function snapshotGhost(view) {
+      // 必须在 render() 换掉 scene.innerHTML 之前调用
+      ghost.innerHTML = scene.innerHTML;
+      ghost.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.scale})`);
+      ghost.setAttribute('opacity', '1');
+    }
+    function endGhost() {
+      ghost.setAttribute('opacity', '0');
+      ghost.removeAttribute('transform');
+      ghost.innerHTML = '';
+    }
+    function cancelEnterTransit() {
+      if (enterTransit) {
+        enterTransit.scene?.cancel();
+        enterTransit.ghost?.cancel();
+        enterTransit = null;
+        endGhost();
+      }
+      endMorph();
+    }
+    // 被点格子在屏幕坐标下的样子：外框 + 编号，连填充/描边/字重一起照抄，交给 morph 层接力。
+    function cellMorphSource(id, r, view) {
+      const group = scene.querySelector(`[data-pa-task="${id}"]`);
+      const rectEl = group?.querySelector('.kf-pa-map__cell');
+      const idEl = group?.querySelector('.kf-pa-map__task-id');
+      const rectStyle = rectEl ? getComputedStyle(rectEl) : null;
+      const idStyle = idEl ? getComputedStyle(idEl) : null;
+      return {
+        rect: { x: view.x + r.x * view.scale, y: view.y + r.y * view.scale,
+          w: r.w * view.scale, h: r.h * view.scale, rx: num(rectEl?.getAttribute('rx')) * view.scale },
+        fill: rectStyle?.fill || 'none', stroke: rectStyle?.stroke || 'none',
+        strokeWidth: num(rectStyle?.strokeWidth),
+        label: { x: view.x + (r.x + num(idEl?.getAttribute('x'))) * view.scale,
+          y: view.y + (r.y + num(idEl?.getAttribute('y'))) * view.scale,
+          size: num(idStyle?.fontSize, 12) * view.scale, weight: num(idStyle?.fontWeight, 400) },
+        idFill: idStyle?.fill || 'currentColor',
+      };
+    }
+    // 卡片一侧的落点。详情视图会收起顶部指标行（画布随之变高），取景因此会重排，
+    // 所以每帧按当前 state.view 重算，而不是入场那一刻算死。
+    function cardMorphTarget(task) {
+      const view = state.view, a = activeRect();
+      const boundaryEl = scene.querySelector('.kf-pa-map__task-frame.is-expanded .kf-pa-map__task-boundary');
+      const titleEl = scene.querySelector('.kf-pa-map__task-frame.is-expanded .kf-pa-map__frame-title');
+      const boundaryStyle = boundaryEl ? getComputedStyle(boundaryEl) : null;
+      const target = {
+        view: { x: view.x, y: view.y, scale: view.scale }, origin: { x: a.x, y: a.y },
+        rect: { x: view.x + a.x * view.scale, y: view.y + a.y * view.scale, w: a.w * view.scale, h: a.h * view.scale,
+          rx: num(boundaryEl?.getAttribute('rx'), 10) * view.scale },
+        card: { fill: boundaryStyle?.fill || 'none', stroke: boundaryStyle?.stroke || 'none',
+          strokeWidth: num(boundaryStyle?.strokeWidth, 1.5),
+          titleFill: titleEl ? getComputedStyle(titleEl).fill : 'currentColor' },
+        label: { y: 0, size: 0, prefixX: 0 },
+      };
+      if (titleEl) {
+        // 真实标题就在 scene 里，量它比估它准：编号落位时正好嵌进 "Task " 之后。
+        target.label = { y: view.y + (a.y + num(titleEl.getAttribute('y'))) * view.scale,
+          size: num(getComputedStyle(titleEl).fontSize, 30) * view.scale,
+          prefixX: view.x + (a.x + num(titleEl.getAttribute('x'))) * view.scale };
+      }
+      return target;
+    }
+    /* 主时间轴：外框的变形/移位逐帧落到属性上；格子的外观在前 60% 交棒给卡片外观；
+       编号整串从左缘按同一比例伸缩，落位时嵌进真实标题；正文只在外框围出的窗口里露出来。 */
+    function startMorph(plan) {
+      const { id, source, target, duration } = plan;
+      const initial = target();
+      const panelTag = (cls, face) => `<rect class="kf-pa-map__morph-${cls}" fill="${face.fill}"/>`;
+      const edgeTag = (cls, face) => `<rect class="kf-pa-map__morph-${cls}" fill="none" stroke="${face.stroke}" stroke-width="${face.strokeWidth}" vector-effect="non-scaling-stroke"/>`;
+      morphFill.innerHTML = `${panelTag('panel-cell', source)}${panelTag('panel-card', initial.card)}`;
+      morph.innerHTML = `${edgeTag('edge-cell', source)}${edgeTag('edge-card', initial.card)}`
+        + '<text class="kf-pa-map__morph-id" text-anchor="middle"></text>'
+        + '<text class="kf-pa-map__morph-title" text-anchor="middle"></text>'
+        + '<text class="kf-pa-map__morph-prefix" text-anchor="start"></text>';
+      const panels = ['cell', 'card'].map((skin) => morphFill.querySelector(`.kf-pa-map__morph-panel-${skin}`));
+      const edges = ['cell', 'card'].map((skin) => morph.querySelector(`.kf-pa-map__morph-edge-${skin}`));
+      const fromId = morph.querySelector('.kf-pa-map__morph-id');
+      const toId = morph.querySelector('.kf-pa-map__morph-title');
+      const prefix = morph.querySelector('.kf-pa-map__morph-prefix');
+      fromId.textContent = String(id);
+      toId.textContent = String(id);
+      prefix.textContent = 'Task\u00A0';
+      fromId.style.fill = source.idFill;
+      fromId.style.fontWeight = String(source.label.weight);
+      for (const el of [toId, prefix]) { el.style.fill = initial.card.titleFill; el.style.fontWeight = '700'; }
+      morph.setAttribute('opacity', '1');
+      morphFill.setAttribute('opacity', '1');
+      morphTask = id;
+      // 量源字号下 "Task " 与编号各自的步进：整串共享一条左缘轨迹，前缀和编号永远首尾相接。
+      prefix.style.fontSize = `${source.label.size}px`;
+      fromId.style.fontSize = `${source.label.size}px`;
+      const prefixAdvance = prefix.getComputedTextLength();
+      const numberAdvance = fromId.getComputedTextLength();
+      const left0 = source.label.x - prefixAdvance - numberAdvance / 2;
+      const place = (el, rect) => {
+        el.setAttribute('x', rect.x.toFixed(2));
+        el.setAttribute('y', rect.y.toFixed(2));
+        el.setAttribute('width', Math.max(0, rect.w).toFixed(2));
+        el.setAttribute('height', Math.max(0, rect.h).toFixed(2));
+        el.setAttribute('rx', Math.max(0, rect.rx).toFixed(2));
+      };
+      const paint = (t) => {
+        const e = easeMorph(t), to = target();
+        const box = { x: lerp(source.rect.x, to.rect.x, e), y: lerp(source.rect.y, to.rect.y, e),
+          w: lerp(source.rect.w, to.rect.w, e), h: lerp(source.rect.h, to.rect.h, e),
+          rx: lerp(source.rect.rx, to.rect.rx, e) };
+        const skin = clamp01(e * 1.6);
+        [...panels, ...edges].forEach((el) => place(el, box));
+        // 格子的外观在前 60% 交棒给卡片外观，底色与描边都不会跳。
+        for (const [index, el] of panels.entries()) el.setAttribute('opacity', (index ? skin : 1 - skin).toFixed(3));
+        for (const [index, el] of edges.entries()) el.setAttribute('opacity', (index ? skin : 1 - skin).toFixed(3));
+        const size = lerp(source.label.size, to.label.size, e);
+        const grow = source.label.size > 0 ? size / source.label.size : 1;
+        const left = lerp(left0, to.label.prefixX, e), baseline = lerp(source.label.y, to.label.y, e);
+        const numberX = left + (prefixAdvance + numberAdvance / 2) * grow;
+        for (const el of [fromId, toId]) {
+          el.setAttribute('x', numberX.toFixed(2));
+          el.setAttribute('y', baseline.toFixed(2));
+          el.style.fontSize = `${Math.max(0, size).toFixed(2)}px`;
+        }
+        fromId.style.fontWeight = String(Math.round(lerp(source.label.weight, 700, e)));
+        fromId.setAttribute('opacity', (1 - skin).toFixed(3));
+        toId.setAttribute('opacity', skin.toFixed(3));
+        prefix.setAttribute('x', left.toFixed(2));
+        prefix.setAttribute('y', baseline.toFixed(2));
+        prefix.style.fontSize = `${Math.max(0, size).toFixed(2)}px`;
+        prefix.setAttribute('opacity', clamp01((t - 0.3) / 0.4).toFixed(3));
+        // 正文被裁进这个跟外框同步长大的窗口里——边框没到的地方不会先漏出 Stack / Page。
+        // 用的是展开组自带的 pa-frame-clip，和普通详情渲染共用一条裁剪，收尾时再还原。
+        const window_ = scene.querySelector(`#pa-frame-clip-${id} rect`);
+        if (window_) {
+          window_.setAttribute('x', ((box.x - to.view.x) / to.view.scale - to.origin.x).toFixed(2));
+          window_.setAttribute('y', ((box.y - to.view.y) / to.view.scale - to.origin.y).toFixed(2));
+          window_.setAttribute('width', (box.w / to.view.scale).toFixed(2));
+          window_.setAttribute('height', (box.h / to.view.scale).toFixed(2));
+        }
+        // 正文晚一点、缓一点淡进来：窗口还小的时候它几乎还是透明的，
+        // 裁剪边扫过字形也看不出来；等外框基本落位，正文正好到满。
+        scene.style.setProperty('--pa-morph-body', clamp01((t - 0.46) / 0.34).toFixed(3));
+        const handoff = clamp01((t - 0.86) / 0.14);
+        scene.style.setProperty('--pa-morph-handoff', handoff.toFixed(3));
+        morph.setAttribute('opacity', (1 - handoff).toFixed(3));
+        morphFill.setAttribute('opacity', (1 - handoff).toFixed(3));
+      };
+      scene.classList.add('is-morphing');
+      scene.style.setProperty('--pa-morph-handoff', '0');
+      scene.style.setProperty('--pa-morph-body', '0');
+      paint(0);
+      const started = performance.now();
+      const step = (now) => {
+        const t = Math.min(1, (now - started) / duration);
+        paint(t);
+        if (t < 1) { morphTween = requestAnimationFrame(step); return; }
+        endMorph();
+      };
+      morphTween = requestAnimationFrame(step);
+    }
     function enterTask(id) {
       if (state.level !== 'matrix') return;
-      const r = cellRect(id), old = state.view;
+      stopPlayback();
+      cancelLayoutTween();
+      cancelEnterTransit();
+      const duration = reducedMotion ? 0 : 460;
+      const r = cellRect(id), old = { ...state.view };
+      const source = duration ? cellMorphSource(id, r, old) : null;
       const origin = { x: old.x + (r.x + r.w / 2) * old.scale, y: old.y + (r.y + r.h / 2) * old.scale };
       // Restore to the last matrix view below the entry threshold.
       state.matrixView = { ...old };
@@ -242,6 +499,7 @@
         const ratio = maxReturn / state.matrixView.scale;
         state.matrixView = { scale: maxReturn, x: origin.x - (origin.x - old.x) * ratio, y: origin.y - (origin.y - old.y) * ratio };
       }
+      snapshotGhost(old);
       state.task = id;
       state.block = taskInfo(id).block;
       state.level = 'detail';
@@ -249,13 +507,43 @@
       state.view = fitted();
       rememberSize();
       paintView();
-      const smallScale = r.w * old.scale / extent().width;
-      animateFrom({ scale: smallScale, x: origin.x - extent().width * smallScale / 2, y: origin.y - extent().height * smallScale / 2 });
-      transitionUntil = performance.now() + 400;
       viewport.focus({ preventScroll: true });
+      if (!duration) { endGhost(); return; }
+      let cachedTarget = null, cacheKey = '';
+      const target = () => {
+        const view = state.view;
+        const key = `${state.task}|${view.x.toFixed(2)}|${view.y.toFixed(2)}|${view.scale.toFixed(4)}`;
+        if (cacheKey !== key) { cacheKey = key; cachedTarget = cardMorphTarget(state.task); }
+        return cachedTarget;
+      };
+      startMorph({ id, source, target, duration });
+      // 底板整帧往格子里收拢并快速淡出：格子已经交给 morph 层，剩下的只是退场的上下文。
+      // 关键帧必须一路排到 offset 1——缺尾的话，浏览器会在最后一帧之后把值插回元素自身的
+      // opacity，底板淡到 0 又会自己浮回来（grid ghosting）。
+      const ghostAnim = ghost.animate([
+        { transform: viewTransform(old), opacity: 1, offset: 0 },
+        { transform: viewTransform(shrinkView(old, origin, 0.94)), opacity: 0.32, offset: 0.18 },
+        { transform: viewTransform(shrinkView(old, origin, 0.86)), opacity: 0, offset: 0.38 },
+        { transform: viewTransform(shrinkView(old, origin, 0.78)), opacity: 0, offset: 1 },
+      ], { duration, easing: 'linear' });
+      // 卡片一侧只淡入、不自己位移：画面里只有 morph 一条运动线索，叠影就没有了。
+      const sceneAnim = scene.animate([
+        { opacity: 0, offset: 0 },
+        { opacity: 0, offset: 0.15 },
+        { opacity: 1, offset: 0.6 },
+        { opacity: 1, offset: 1 },
+      ], { duration, easing: 'linear' });
+      enterTransit = { scene: sceneAnim, ghost: ghostAnim };
+      ghostAnim.finished.then(() => {
+        if (enterTransit?.ghost !== ghostAnim) return;
+        enterTransit = null;
+        endGhost();
+      }).catch(() => {});
+      transitionUntil = performance.now() + duration + 80;
     }
     function back() {
       if (state.level !== 'detail') return;
+      cancelEnterTransit();
       state.level = 'matrix';
       render();
       if (state.matrixView && state.matrixSize) {
@@ -280,7 +568,9 @@
     const cancelLayoutTween = () => { if (layoutTween) { cancelAnimationFrame(layoutTween); layoutTween = null; } };
     function focusTask(id) {
       if (state.level !== 'detail' || id === state.task) return;
+      stopPlayback();
       cancelLayoutTween();
+      cancelEnterTransit();
       const fromFrames = neighborhood().map((r) => ({ ...r }));
       const fromView = { ...state.view };
       state.task = id;
@@ -340,11 +630,13 @@
       paintView();
     }
     function chooseTask(id) {
+      stopPlayback();
       state.task = id; state.block = taskInfo(id).block; syncSelection();
     }
     on(host, 'click', (event) => {
       // 按住左键拖动过画布 → 这次抬起不算点击，避免"拖完手一松就进到别的 Task"。
       if (suppressClick) { suppressClick = false; return; }
+      if (event.target.closest('button, input, [data-pa-task]')) stopPlayback();
       const block = event.target.closest('[data-pa-block]');
       if (block) {
         if (state.level === 'detail') back();
@@ -398,7 +690,8 @@
         if (!drag.moved) {
           if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) <= 4) return;
           drag.moved = true;
-          // 拖动优先于切换动效：把未播完的补间直接落到终态，避免两种位移打架。
+          // 拖动优先于切换动效：把未播完的补间/入场直接落到终态，避免几种位移打架。
+          cancelEnterTransit();
           if (layoutTween) { cancelLayoutTween(); state.view = fitted(); rememberSize(); drawDetail(); paintView(); }
           viewport.setPointerCapture(drag.pointerId);
           viewport.classList.add('is-dragging');
@@ -479,9 +772,19 @@
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(viewport);
+    if (!playback.stopped) {
+      playbackTimer = setInterval(() => {
+        if (signal.aborted || document.hidden || state.level !== 'matrix'
+          || viewport.clientWidth <= 1 || viewport.clientHeight <= 1) return;
+        playback.block = (playback.block + 1) % constants.blocks;
+        paintPlayback();
+      }, 400);
+    }
     const controller = { abort() {
       if (signal.aborted) return;
       cancelLayoutTween();
+      cancelEnterTransit();
+      clearInterval(playbackTimer);
       lifetime.abort(); observer.disconnect(); animation?.cancel();
       if (mounted === controller) mounted = null;
     }, zoomBy, fit, reset: fit, getScale: () => state.view?.scale, setScale: (scale) => zoomBy(scale / state.view.scale) };

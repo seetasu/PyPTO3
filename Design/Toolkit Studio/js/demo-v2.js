@@ -9,7 +9,7 @@
   ];
   const passes = ['Semantic Lowering', 'Layout Planning', 'Parallel Mapping', 'Memory Scheduling', 'ISA Emission'];
   const guards = ['Op legality', 'Dependencies', 'Manual scope', 'Liveness', 'Paged layout', 'Index width', 'ISA capacity', 'FP32 carry'];
-  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', hardwareFlowLine: 0, hardwareFlowPinned: false, productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionLayers: { precision: true, shape: false, hardware: false, dep: false, risk: true }, pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pagedAttentionAgentOpen: false, sourceRegionFocus: null, sourceRegionLine: null, pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
+  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionLayers: { precision: true, shape: false, hardware: false, dep: false, risk: true }, pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pagedAttentionAgentOpen: false, sourceRegionFocus: null, sourceRegionLine: null, matmulView: 'intro', pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
   const EXPLORER_STEP = 1;
   const WORKFLOW_STEPS = [0, 2, 3, 4];
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -36,19 +36,93 @@
     $$('[data-editor-panel]').forEach((panel) => { panel.hidden = panel.dataset.editorPanel !== tab; });
   }
 
-  const matmulSource = `@pl.jit.incore
-def mm(
-    a: pl.Tensor[[32, 32], pl.FP16],
-    b: pl.Tensor[[32, 32], pl.FP16],
-    out: pl.Out[pl.Tensor[[32, 32], pl.FP32]],
+  // 来自 hw-native-sys/pypto-lib 的 examples/beginner/matmul.py。
+  // 与 paged_attention_pypto.py 一样，在源码面板里做逐行语义切段。
+  const matmulSource = `# Copyright (c) PyPTO Contributors.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+"""Matmul — tiled matrix multiply with M/N blocking (no K tiling).
+
+    C[m, n] = A[m, k] @ B[k, n]
+
+M and N are tiled across core-groups via nested pl.parallel; K is consumed in
+a single matmul. FP32 in/out.
+"""
+import pypto.language as pl
+
+M = 256         # total rows of A / C
+N = 256         # total cols of B / C
+K = 256         # total cols of A / rows of B
+M_TILE = 64     # tile size along M dimension
+N_TILE = 64     # tile size along N dimension
+
+
+@pl.jit
+def matmul(
+    a: pl.Tensor[[M, K], pl.FP32],
+    b: pl.Tensor[[K, N], pl.FP32],
+    c: pl.Out[pl.Tensor[[M, N], pl.FP32]],
 ):
-    a_l1 = pl.load(a, [0, 0], [32, 32], target_memory=pl.Mem.Mat)
-    b_l1 = pl.load(b, [0, 0], [32, 32], target_memory=pl.Mem.Mat)
-    a_l0a = pl.move(a_l1, target_memory=pl.Mem.Left)
-    b_l0b = pl.move(b_l1, target_memory=pl.Mem.Right)
-    c_acc = pl.matmul(a_l0a, b_l0b)      # 落在 Acc
-    pl.store(c_acc, [0, 0], out)         # Acc -> DDR
-    return out`;
+    for mb in pl.parallel(0, M, M_TILE):
+        for nb in pl.parallel(0, N, N_TILE):
+            with pl.at(level=pl.Level.CORE_GROUP, name_hint="matmul_tile"):
+                tile_a = a[mb : mb + M_TILE, :]
+                tile_b = b[:, nb : nb + N_TILE]
+                c[mb : mb + M_TILE, nb : nb + N_TILE] = pl.matmul(tile_a, tile_b)
+    return c
+
+
+def build_tensor_specs(
+    m: int = M,
+    n: int = N,
+    k: int = K,
+):
+    import torch
+    from golden import TensorSpec
+
+    return [
+        TensorSpec("a", [m, k], torch.float32, init_value=torch.randn),
+        TensorSpec("b", [k, n], torch.float32, init_value=torch.randn),
+        TensorSpec("c", [m, n], torch.float32),
+    ]
+
+
+def golden_matmul(tensors):
+    tensors["c"][:] = tensors["a"] @ tensors["b"]
+
+
+if __name__ == "__main__":
+    import argparse
+    from golden import run
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--platform", type=str, default="a2a3",
+                        choices=["a2a3", "a2a3sim", "a5", "a5sim"])
+    parser.add_argument("-d", "--device", type=int, default=0)
+    parser.add_argument("--enable-chip-swimlane", type=int, nargs="?", const=1, default=0, choices=range(5))
+    args = parser.parse_args()
+
+    result = run(
+        fn=matmul,
+        specs=build_tensor_specs(),
+        golden_fn=golden_matmul,
+        config=dict(
+            platform=args.platform,
+            device_id=args.device,
+            enable_chip_swimlane=args.enable_chip_swimlane,
+        ),
+        rtol=1e-3,
+        atol=1e-3,
+    )
+    if not result.passed:
+        if result.error:
+            print(result.error)
+        raise SystemExit(1)`;
   const PTO3_TILE_LAB_FILE = 'pto3_tile_loop_lab.py';
   const pto3TileLabSource = `@pl.jit.incore
 def matmul_tiled(a, b, out, M, K, N):
@@ -71,50 +145,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         ss = pl.sum(x_tile * x_tile, axis=0)
         inv = pl.rsqrt(ss / H + 1e-6)
         pl.store(x_tile * inv * gamma[h0:h1], [h0], out)`;
-  const matmulHardwarePreset = {
-    id: 'matmul-aic-ddr',
-    name: 'Matmul AIC + DDR Memory Path',
-    rails: [{
-      key: 'DDR',
-      label: 'DDR',
-      tone: 'memory-shell',
-      grid: { rows: 24, cols: 4, cellSize: 12, gap: 4, shape: 'hex' },
-    }],
-    cores: [{
-      id: 'matmul-aic-core',
-      kind: 'aic',
-      title: 'AIC',
-      presetKey: 'aicDraftV1',
-    }],
-    routes: [
-      {
-        id: 'matmul-load-a',
-        label: 'load A / B',
-        tone: 'transport',
-        from: '[data-mem950-node="rail:DDR"]',
-        to: '#matmul-aic-core [data-aic-node="buffer:L1"]',
-        fromSide: 'right',
-        toSide: 'left',
-        style: 'lane-h-target',
-        labelDy: -18,
-      },
-      {
-        id: 'matmul-store-out',
-        label: 'store out',
-        tone: 'directReturn',
-        from: '#matmul-aic-core [data-aic-node="buffer:L0C"]',
-        to: '[data-mem950-node="rail:DDR"]',
-        fromSide: 'left',
-        toSide: 'right',
-        style: 'lane-h-source',
-        labelDy: 18,
-      },
-    ],
-    hoverTips: {
-      'rail:DDR': { title: 'DDR', body: '算子输入 A、B 的来源，以及 FP32 输出 out 的写回位置。' },
-      'core:AIC': { title: 'AIC', body: '完成 Mat、Left、Right、Acc 层级中的矩阵乘与累加。' },
-    },
-  };
   const rmsNormHardwarePreset = {
     id: 'rmsnorm-aiv-ddr',
     name: 'RMSNorm Ascend AIV Data Path',
@@ -162,22 +192,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       'vector:Vector': { title: 'Vector', body: '执行 cast、square、row_sum、sqrt、recip 与 expand_mul。' },
     },
   };
-  const matmulLineFlows = {
-    1: { label: 'JIT in-core：算子将在 AIC 内执行', selectors: ['#matmul-aic-core'] },
-    2: { label: 'mm 契约：DDR 张量进入 AIC 计算', selectors: ['[data-mem950-node="rail:DDR"]', '#matmul-aic-core'], routes: ['matmul-load-a'] },
-    3: { label: '输入 a：FP16 张量位于 DDR', selectors: ['[data-mem950-node="rail:DDR"]'] },
-    4: { label: '输入 b：FP16 张量位于 DDR', selectors: ['[data-mem950-node="rail:DDR"]'] },
-    5: { label: '输出 out：FP32 张量写回 DDR', selectors: ['[data-mem950-node="rail:DDR"]'] },
-    6: { label: '签名完成：建立 DDR ⇄ AIC 数据边界', selectors: ['[data-mem950-node="rail:DDR"]', '#matmul-aic-core'], routes: ['matmul-load-a', 'matmul-store-out'] },
-    7: { label: 'load a：DDR → L1（Mat）', routes: ['matmul-load-a'] },
-    8: { label: 'load b：DDR → L1（Mat）', routes: ['matmul-load-a'] },
-    9: { label: 'move a：L1 → L0A（Left）', selectors: ['#matmul-aic-core [data-aic-node="buffer:L1"]', '#matmul-aic-core [data-aic-node="buffer:L0A"]'] },
-    10: { label: 'move b：L1 → L0B（Right）', selectors: ['#matmul-aic-core [data-aic-node="buffer:L1"]', '#matmul-aic-core [data-aic-node="buffer:L0B"]'] },
-    11: { label: 'matmul：L0A + L0B → CUBE → L0C（Acc）', selectors: ['#matmul-aic-core [data-aic-node="buffer:L0A"]', '#matmul-aic-core [data-aic-node="buffer:L0B"]', '#matmul-aic-core [data-aic-node="cube:CUBE"]', '#matmul-aic-core [data-aic-node="buffer:L0C"]'] },
-    12: { label: 'store：L0C（Acc）→ DDR', routes: ['matmul-store-out'] },
-    13: { label: 'return out：结果驻留 DDR', selectors: ['[data-mem950-node="rail:DDR"]'] },
-  };
-  let matmulHardwareGraphInstance = null;
   let rmsNormHardwareGraphInstance = null;
   let attentionGraphController = null;
   let qwenDecodeGraphController = null;
@@ -440,11 +454,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       if (indentCh) code.style.setProperty('--kf-code-indent', `${indentCh}ch`);
       if (!isPasses && sourceIntentLines[lineNumber]) row.dataset.intentLine = sourceIntentLines[lineNumber];
       if (isPasses) { row.dataset.passesLine = String(lineNumber); row.tabIndex = 0; }
-      if (state.activeFile === 'matmul.py') {
-        row.dataset.hardwareLine = String(lineNumber);
-        row.tabIndex = 0;
-        row.title = matmulLineFlows[lineNumber]?.label || `第 ${lineNumber} 行硬件映射`;
-      }
       if (state.activeFile === PTO3_TILE_LAB_FILE) {
         const focus = lineNumber >= 14 ? 'rmsnorm' : 'matmul';
         row.dataset.pto3LabLine = String(lineNumber);
@@ -1311,6 +1320,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   // 只是段落表换成它自己的（详见 sourceRegionSpec）。
   const PAGED_ATTENTION_PYPTO_FILE = 'paged_attention_pypto.py';
   const isPagedAttentionPyptoFile = (file) => file === PAGED_ATTENTION_PYPTO_FILE;
+  // 第三个享受同一套待遇的文件：内容来自 hw-native-sys/pypto-lib 的
+  // examples/beginner/matmul.py。默认只看代码，点源码地图右上角的「可视化」
+  // 才展开右侧面板（见 setSourceRegionVisualize / renderMatmulIntroPanel）。
+  const MATMUL_FILE = 'matmul.py';
+  const isMatmulFile = (file) => file === MATMUL_FILE;
+  // 带「可视化」按钮、可展开右侧分析面板的文件集合。
+  const isSourceRegionVisualizeFile = (file) => isPagedAttentionPyptoFile(file) || isMatmulFile(file);
   const RMSNORM_FILE = 'examples/models/qwen3_jit/kernels/rmsnorm.py';
   const attentionFocusMeta = {
     position: { label: '位置索引', lines: '52–60', detail: '读取 seq_lens，定位当前 token，并保留 RoPE 行维度' },
@@ -1668,6 +1684,42 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       : lineNumber < 864 ? 'softmax'
       : 'out';
   }
+  /* ---- matmul.py 的语义切段 -------------------------------------------------
+     与 paged_attention_pypto.py 共用同一套机制（逐行标注 / 顶部源码地图 /
+     段首标签 / 行高亮 / 点击定位），只是段表换成它自己的。这个文件来自
+     hw-native-sys/pypto-lib 的 examples/beginner/matmul.py：M / N 双层
+     pl.parallel 分块 + 单次 matmul（不切分 K），后接 Torch golden 与
+     Host Runner。按「编译 / 执行阶段」而非函数切段，与 PA 保持一致。 */
+  const matmulFocusMeta = {
+    constants: { label: '编译期常量', lines: '18–22', detail: 'M / N / K 与 M_TILE / N_TILE 在编译期固化，决定分块网格' },
+    kernel: { label: 'JIT Kernel 契约', lines: '25–30', detail: '@pl.jit 入口：A、B 两张输入与 C（Out）三张 FP32 张量' },
+    tiling: { label: 'M/N 分块并行', lines: '31–37', detail: '双层 pl.parallel 把 M、N 切成 4×4 个 CORE_GROUP tile，K 不切分' },
+    specs: { label: 'TensorSpec 构造', lines: '40–52', detail: 'build_tensor_specs 声明 a、b、c 的形状、dtype 与随机初始化' },
+    golden: { label: 'Torch Golden', lines: '55–56', detail: 'golden_matmul 用 torch 矩阵乘作为数值参考' },
+    runner: { label: 'Host Runner 与验证', lines: '59–85', detail: 'argparse 选平台 / 设备，run() 执行并以 rtol / atol 1e-3 校验' },
+  };
+  // 行标签：段首之外，只在「能说清这一步在做什么」的行上补锚点。
+  const matmulSourceTags = {
+    18: { focus: 'constants', label: 'Shape 常量', tone: 'meta' },
+    25: { focus: 'kernel', label: 'JIT Kernel', tone: 'meta' },
+    31: { focus: 'tiling', label: 'M 分块', tone: 'cube' },
+    32: { focus: 'tiling', label: 'N 分块', tone: 'cube' },
+    33: { focus: 'tiling', label: 'CORE_GROUP', tone: 'flow' },
+    34: { focus: 'tiling', label: 'tile_a', tone: 'vector' },
+    35: { focus: 'tiling', label: 'tile_b', tone: 'vector' },
+    36: { focus: 'tiling', label: 'Matmul', tone: 'cube' },
+    40: { focus: 'specs', label: 'TensorSpec', tone: 'meta' },
+    55: { focus: 'golden', label: 'Golden', tone: 'meta' },
+    59: { focus: 'runner', label: 'Runner', tone: 'meta' },
+  };
+  function matmulFocusForLine(lineNumber) {
+    return lineNumber < 25 ? 'constants'
+      : lineNumber < 31 ? 'kernel'
+      : lineNumber < 38 ? 'tiling'
+      : lineNumber < 55 ? 'specs'
+      : lineNumber < 59 ? 'golden'
+      : 'runner';
+  }
   const pagedAttentionObjectDetails = {
     dynamic: { object: 'pl.dynamic · 运行时维度', code: 'B, H, D, block_size = pl.dynamic(...)', semantic: '声明编译时未知、运行时绑定的维度；让同一 Kernel 覆盖不同 Batch、Context 与分页大小。', io: [['输入', 'Tensor.dim / 调用点实参'], ['输出', '符号维度 B、H、D、M'], ['Shape · dtype · layout', '[B×H,D] · BF16 · row-major'], ['Memory space', 'Host metadata → GM Tensor view']], deps: '被 Builder、Paged KV 与 q_loop 共同消费；不产生数据依赖边。', sync: '不产生 sync；只在编译时形成 Shape guard。', pass: 'Semantic Lowering（已解析）→ Layout Planning（待确认动态 stride）', isa: '当前无法从源码确认具体 ISA；预计落入 scalar address / shape guard。', impact: '动态性减少重编译，但保守边界检查会增加少量标量开销。', evidence: 'source' },
     builder: { object: 'Program Builder · Init', code: 'program = pl.program(...)  ·  fa_work_build(...)', semantic: '创建程序上下文并预分配工作表；把 q_tile、head_dim、block_size 固化为 Tile 级契约。', io: [['输入', '动态 Shape + page table'], ['输出', 'fa_work_table、初始化 Task'], ['Shape · dtype · layout', '[B×M] · INT32 · contiguous；work state · FP32'], ['Memory space', 'GM 持久化工作表；Task metadata 在编排侧']], deps: '初始化完成后，QK / Softmax / PV / Online 才可消费工作表。', sync: '需要 init → compute 的一次前置 event，避免未初始化工作表被读取。', pass: 'Semantic Lowering → Parallel Mapping（初始化 Task 与 compute Task 分离）', isa: 'AICPU / orchestration 生成 init dispatch；具体指令待 ISA Emission。', impact: '一次性初始化成本换取持久化 workspace；影响 GM 占用与首 token 延迟。', evidence: 'infer' },
@@ -1869,6 +1921,34 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         },
       };
     }
+    if (isMatmulFile(file)) {
+      return {
+        key: 'matmul',
+        meta: matmulFocusMeta,
+        tags: matmulSourceTags,
+        focusForLine: matmulFocusForLine,
+        headerDetail: '许可证声明、模块 docstring 与 import',
+        // 与 paged_attention_pypto.py 同款：默认只看代码，源码地图右上角给一个
+        // 「可视化」按钮，点它才展开右侧面板（见 setSourceRegionVisualize）
+        visualize: true,
+        tagClass: (tag) => `kf-pa-source-tag t-${tag.tone}`,
+        tagTitle: (tag) => `${matmulFocusMeta[tag.focus].detail} · 点击定位该段`,
+        rowTitle: (focus) => `${matmulFocusMeta[focus]?.label || ''} · 点击定位该段`,
+        activeFocus: () => state.sourceRegionFocus,
+        setLine: (line) => { state.sourceRegionLine = line; },
+        restoreLine: () => state.sourceRegionLine,
+        onSelectRegion: (focus) => {
+          state.sourceRegionFocus = focus;
+          highlightSourceRegionRows(focus);
+        },
+        onSelectRow: (focus, line) => {
+          state.sourceRegionFocus = focus;
+          state.sourceRegionLine = line;
+          highlightSourceRegionRows(focus);
+          markSourceRegionTargetLine(line);
+        },
+      };
+    }
     return null;
   }
 
@@ -2027,6 +2107,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   let pypaGraphController = null;
+  // matmul.py 的右侧面板：只有「简介」是实装载的视图，其余页签留空占位。
+  let matmulIntroController = null;
+  const MATMUL_VIEWS = [
+    { key: 'intro', label: '简介', kicker: 'INTRO', aria: '简介' },
+    { key: 'graph', label: '计算图', kicker: 'COMPUTATION GRAPH', aria: 'Matmul 计算图（占位）' },
+    { key: 'shape', label: 'Tensor Shape', kicker: 'TENSOR SHAPE', aria: 'Matmul Tensor Shape（占位）' },
+  ];
   const pypaTaskIntroEnabled = document.documentElement.dataset.pypaIntro === 'task-map';
   let pypaGraphView = pypaTaskIntroEnabled ? 'intro' : 'overview';
   let pypaGraphTransform = null;
@@ -2040,90 +2127,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   })[char]);
 
   function pypaVisibleGraph() {
-    const source = window.PTO_PYPA_TASK_GRAPH;
-    if (!source || pypaGraphView === 'overview') return source;
-    // 计算语义数据只描述实体与依赖，坐标由通用布局器计算。
-    const sourceLines = { 'q-proj': 68, 'k-proj': 68, 'v-proj': 68, 'q-prep': 229, 'k-prep': 175,
-      'v-scale': 200, q: 248, k: 198, v: 210, aux: 68, 'cache-append': 195,
-      'k-cache': 195, 'v-cache': 210, qk: 296, scores: 301, 'scale-mask': 777,
-      softmax: 790, probability: 802, pv: 447, 'context-acc': 842,
-      context: 856, 'output-norm': 864, output: 869 };
-    const n = (id, type, title, sub, lines, api, detail, extra = {}) => ({
-      id, w: type === 'data' ? 170 : 188, h: 88, type, semanticType: extra.expandable ? 'composite' : type, kind: type,
-      badge: type === 'data' ? 'DATA' : 'OPERATION', title, sub, lines, api, detail,
-      sourceLine: sourceLines[id],
-      evidence: type === 'data' ? '源码数据对象'
-        : ['q-prep', 'k-prep', 'cache-append', 'scale-mask', 'output-norm'].includes(id)
-          ? '源码操作的语义归并' : '源码显式计算',
-      subgraph: window.PTO_PYPA_SEMANTIC_SUBGRAPHS?.[id],
-      ...extra,
-    });
-    const nodes = [
-      n('q-proj', 'data', 'Q Projection', 'q_proj', '68–94', 'q_proj', '外部投影结果，作为 Q 归一化输入。'),
-      n('k-proj', 'data', 'K Projection', 'k_proj', '68–94', 'k_proj', '外部投影结果，作为 K 归一化输入。'),
-      n('v-proj', 'data', 'V Projection', 'v_proj', '68–94', 'v_proj', '外部投影结果，经 inv_rms 缩放后写入 V Cache。'),
-      n('q-prep', 'operation', 'Q Norm → RoPE', 'RMSNorm + 旋转位置编码', '215–250', 'pl.row_sum · pl.recip · pl.concat', 'Q 乘 inv_rms、按 head 求 RMSNorm，再施加 RoPE；结果写入 q2d。', { expandable: true }),
-      n('k-prep', 'operation', 'K Norm → RoPE', 'RMSNorm + 旋转位置编码', '162–198', 'pl.row_sum · pl.recip · pl.concat', 'K 乘 inv_rms、按 head 求 RMSNorm，再施加 RoPE。', { expandable: true }),
-      n('v-scale', 'operation', 'V Scaling', 'V × inv_rms', '200–213', 'pl.mul · pl.cast', 'V 按 inv_rms 缩放并转 BF16。', { expandable: true }),
-      n('q', 'data', 'Q', 'BF16 · q2d', '247–250', 'q2d[...] = pl.cast(...)', 'Q 单独写入 q2d，后续加载为 QK 的 q_tile。'),
-      n('k', 'data', 'K', 'BF16 · k_rotated', '181–198', 'pl.cast(k_rotated)', '当前 token 的 K 将追加到 Key Cache。'),
-      n('v', 'data', 'V', 'BF16 · v_row_bf16', '200–213', 'pl.cast(pl.mul(...))', '当前 token 的 V 将追加到 Value Cache。'),
-      n('aux', 'data', 'Aux Inputs', 'seq_lens · block_table · slot_mapping', '68–94', 'pl.read · pl.tensor.read', 'seq_lens 确定位置与有效列，slot_mapping 指定 K/V 写入行，block_table 映射 K/V 读取的物理 page。'),
-      n('cache-append', 'operation', 'Cache Append', '仅 K/V 写入分页缓存', '194–198、210–213', 'key_cache_bsnd[...] · value_cache_bsnd[...]', 'slot_mapping 决定当前 token 的写入行；Q 不进入 KV Cache。', { expandable: true, sourceRanges: [[194, 198], [210, 213]] }),
-      n('k-cache', 'data', 'K Cache', 'paged K · BF16', '194–198', 'key_cache_bsnd', '包含历史与当前 token 的 K；QK 用 block_table_2d 读取物理 page。'),
-      n('v-cache', 'data', 'V Cache', 'paged V · BF16', '210–213', 'value_cache_bsnd', '包含历史与当前 token 的 V；PV 用 block_table_2d 读取物理 page。'),
-      n('qk', 'operation', 'QK Matmul', 'Q × K Cacheᵀ', '285–356', 'pl.load · pl.matmul', 'Q tile 与按 block_table 映射的 K page 相乘，逐 page 生成 FP32 Scores。', { expandable: true }),
-      n('scores', 'data', 'Scores', 'FP32 · per stack', '296–305', 'score_transfer', 'QK 生成的未缩放 score，按 page 写入当前 stack。'),
-      n('scale-mask', 'operation', 'Scaling + Mask', 'SCALE · valid_cols', '777–788', 'pl.tile.muls · pl.set_validshape · pl.fillpad', '先缩放 Scores，再按 seq_len 屏蔽末 stack 无效列。', { expandable: true }),
-      n('softmax', 'operation', 'Online Softmax', '跨 Stack 更新 m / l_sum', '745–823', 'pl.row_max · pl.exp · pl.row_sum', '按 stack 更新 running max 与归一化和，产生本 stack 的 BF16 probability。', { expandable: true }),
-      n('probability', 'data', 'Probability P', 'BF16 · per stack', '802–815', 'probability_transfer', 'Online Softmax 对当前 stack 生成的未除以全局 l_sum 的权重，用于 PV。'),
-      n('pv', 'operation', 'PV Matmul', 'P × V Cache', '369–718', 'pl.load · pl.matmul · pl.matmul_acc', 'BF16 probability 与按 block_table 读取的 V page 相乘并在 stack 内累积。', { expandable: true }),
-      n('context-acc', 'operation', 'Context Accumulate', '跨 Stack 重缩放并累积', '827–855', 'pl.row_expand_mul · pl.add', '旧 context 乘延迟的 rescale，再加当前 stack 的 PV partial。', { expandable: true }),
-      n('context', 'data', 'Context', 'FP32 · o + l_sum', '842–861', 'o · l_sum', '跨 stack 保留的输出累积量 o 与归一化和 l_sum。'),
-      n('output-norm', 'operation', 'Output Normalize', 'o / l_sum → BF16', '864–872', 'pl.recip · pl.row_expand_mul · pl.cast · pl.store', '所有 stack 结束后做最终归一化，转 BF16 并写回 out2d。', { expandable: true }),
-      n('output', 'data', 'Attention Output', 'BF16 · out2d', '869–872', 'pl.store(..., out2d)', '最终 Attention Output，按 batch、kv_head 和 GROUP 对应行写回。'),
-    ];
-    const ports = {
-      'q-proj>q-prep': { targetPort: 'Q' }, 'q-prep>q': { sourcePort: 'Q' },
-      'k-proj>k-prep': { targetPort: 'K' }, 'k-prep>k': { sourcePort: 'K' },
-      'v-proj>v-scale': { targetPort: 'V' }, 'v-scale>v': { sourcePort: 'V' },
-      'k>cache-append': { targetPort: 'K' }, 'v>cache-append': { targetPort: 'V' },
-      'aux>cache-append': { targetPort: 'slot' }, 'cache-append>k-cache': { sourcePort: 'K' },
-      'cache-append>v-cache': { sourcePort: 'V' }, 'aux>qk': { targetPort: 'block' },
-      'q>qk': { targetPort: 'Q' }, 'k-cache>qk': { targetPort: 'K' },
-      'qk>scores': { sourcePort: 'Scores' }, 'scores>scale-mask': { targetPort: 'Scores' },
-      'aux>scale-mask': { targetPort: 'seq' }, 'scale-mask>softmax': { sourcePort: 'Scores', targetPort: 'Scores' },
-      'softmax>probability': { sourcePort: 'P' }, 'softmax>context-acc': { sourcePort: 'state', targetPort: 'state' },
-      'softmax>context': { sourcePort: 'state' },
-      'probability>pv': { targetPort: 'P' }, 'v-cache>pv': { targetPort: 'V' },
-      'pv>context-acc': { sourcePort: 'partial', targetPort: 'partial' },
-      'context-acc>context': { sourcePort: 'Context' }, 'context>output-norm': { targetPort: 'Context' },
-      'output-norm>output': { sourcePort: 'Output' },
-    };
-    const e = (s, t, label, extra = {}) => ({ s, t, type: 'data', label, ...ports[`${s}>${t}`], ...extra });
-    const edges = [
-      e('q-proj','q-prep','Q Projection'), e('q-prep','q','Q'),
-      e('k-proj','k-prep','K Projection'), e('k-prep','k','K'),
-      e('v-proj','v-scale','V Projection'), e('v-scale','v','V'),
-      e('k','cache-append','K'), e('v','cache-append','V'),
-      e('aux','cache-append','slot_mapping'), e('aux','qk','block_table'), e('aux','scale-mask','seq_lens'),
-      e('cache-append','k-cache','K'), e('cache-append','v-cache','V'),
-      e('q','qk','Q'), e('k-cache','qk','K · block_table'),
-      e('qk','scores','Scores'), e('scores','scale-mask','Scores'),
-      e('scale-mask','softmax','scaled / masked Scores'), e('softmax','probability','P'),
-      e('probability','pv','P'), e('v-cache','pv','V · block_table'),
-      e('pv','context-acc','PV partial'), e('softmax','context-acc','rescale', { route: 'state', type: 'state' }),
-      e('softmax','context','l_sum', { route: 'state', type: 'state' }),
-      e('context-acc','context','Context'), e('context','output-norm','Context'), e('output-norm','output','BF16 Output'),
-    ];
-    return window.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize({ id: 'paged-attention', nodes, edges, groups: [
-      { id: 'qkv-preparation', semanticType: 'region', label: 'QKV Preparation',
-        members: ['q-proj', 'k-proj', 'v-proj', 'q-prep', 'k-prep', 'v-scale', 'q', 'k', 'v'] },
-      { id: 'paged-attention', semanticType: 'region', label: 'Paged Attention',
-        members: ['cache-append', 'k-cache', 'v-cache', 'qk', 'scores', 'scale-mask', 'softmax', 'probability', 'pv', 'context-acc'] },
-      { id: 'output', semanticType: 'region', label: 'Output',
-        members: ['context', 'output-norm', 'output'] },
-    ] }, pypaExpandedStages);
+    if (pypaGraphView === 'overview') return window.PTO_PYPA_TASK_GRAPH;
+    const model = window.PTO_PYPA_SEMANTIC_GRAPH;
+    if (!model) return window.PTO_PYPA_TASK_GRAPH;
+    return window.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(model, pypaExpandedStages);
   }
 
   function renderPyptoTaskGraph() {
@@ -2172,8 +2179,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       if (routed) {
         const line = document.createElementNS(svgNS, 'path');
         line.setAttribute('d', routed.path);
-        line.setAttribute('class', `kf-pypa-graph__edge is-${edge.route || edge.type}`);
-        line.setAttribute('marker-end', `url(#pypa-arrow-${edge.route || edge.type})`);
+        line.setAttribute('class', `kf-pypa-graph__edge is-${edge.type}`);
+        line.setAttribute('marker-end', `url(#pypa-arrow-${edge.type})`);
         svg.appendChild(line);
         if (edge.label) {
           const label = document.createElementNS(svgNS, 'text');
@@ -2259,7 +2266,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       button.style.width = `${node.w}px`;
       button.style.minHeight = `${node.h}px`;
       button.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${node.meta?.length ? '，' + node.meta.join('，') : ''}`);
-      button.innerHTML = `<span class="kf-pypa-graph__node-head">${node.expandedGroup || (node.childOperation && node.type === 'operation') ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : `<small>${pypaEscape(node.sub)}</small>`}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
+      button.innerHTML = `<span class="kf-pypa-graph__node-head">${pypaGraphView !== 'compute' && (node.expandedGroup || (node.childOperation && node.type === 'operation')) ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : `<small>${pypaEscape(node.sub)}</small>`}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
       scene.appendChild(button);
     });
     // 计算图从入口向下阅读；Reset 回到入口，Fit 才显示整个长图。
@@ -2409,12 +2416,17 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
 
   let pypaSelectedNodeId = null;
   function pypaSourceRanges(node) {
-    if (node.sourceRanges) return node.sourceRanges;
-    return String(node.lines || '').split('、').map((part) => {
-      const [start, end = start] = part.split('–').map(Number);
-      return [start, end];
-    }).filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end));
+    return window.PTO_COMPUTATION_PRESENTATION.sourceRanges(node);
   }
+  function revealPypaSource(node, rangeIndex = node.source?.primaryRange || 0) {
+    const line = pypaSourceRanges(node)[rangeIndex]?.[0];
+    if (!line) return;
+    const focus = pagedAttentionPyptoFocusForLine(line);
+    state.sourceRegionFocus = focus;
+    focusSourceRegion(focus);
+    revealSourceRegionLine(line);
+  }
+
   function selectPypaGraphNode(node, { pan = false } = {}) {
     if (!node || pypaGraphView !== 'compute') return;
     pypaSelectedNodeId = node.id;
@@ -2424,8 +2436,18 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const inspector = $('#pypaNodeInspector');
     if (inspector) {
       inspector.hidden = false;
-      const category = node.semanticType === 'state' ? '迭代状态' : node.semanticType === 'composite' ? '复合计算' : node.type === 'operation' ? '计算操作' : '数据对象';
-      inspector.innerHTML = `<div class="kf-pypa-graph__inspector-head"><span>NODE INSPECTOR</span><button type="button" data-pypa-inspector-close aria-label="关闭节点详情">×</button></div><strong>${pypaEscape(node.title)}</strong><p>${pypaEscape(node.detail)}</p><div><span>${category}</span><span>源码 ${pypaEscape(node.lines)}</span></div><small>关联 API · ${pypaEscape(node.api)}</small><em>${pypaEscape(node.evidence)}；图中位置表达计算依赖，不代表设备执行时序。</em>`;
+      const sections = window.PTO_COMPUTATION_PRESENTATION.inspector(node, {
+        model: window.PTO_PYPA_SEMANTIC_GRAPH, qualifiedId: node.id,
+      }).filter((section) => section.title !== '语义');
+      const ranges = pypaSourceRanges(node);
+      inspector.innerHTML = `<div class="kf-pypa-graph__inspector-head"><span>NODE INSPECTOR · ${pypaEscape(node.badge)}</span><button type="button" data-pypa-inspector-close aria-label="关闭节点详情">×</button></div><strong>${pypaEscape(node.title)}</strong><p>${pypaEscape(node.detail)}</p>
+        <nav class="kf-pypa-graph__source-links" aria-label="节点源码片段">${ranges.map(([start, end], index) => `<button class="btn btn-ghost btn-sm" type="button" data-pypa-source-node="${pypaEscape(node.id)}" data-pypa-source-range="${index}">源码 ${start}${start === end ? '' : '–' + end}</button>`).join('')}</nav>
+        ${sections.map((section) => `<section class="kf-pypa-graph__inspector-section"><h3>${pypaEscape(section.title)}</h3><dl>${section.rows.map((row) => `<dt>${pypaEscape(row.label)}</dt><dd>${pypaEscape(row.value)}</dd>`).join('')}</dl></section>`).join('')}
+        <em>图中位置表达计算依赖，不代表设备执行时序。</em>`;
+      $$('#dslEditor [data-paged-attention-line]').forEach((row) => {
+        const line = Number(row.dataset.pagedAttentionLine);
+        row.classList.toggle('is-pypa-source-evidence', ranges.some(([start, end]) => line >= start && line <= end));
+      });
     }
   }
 
@@ -2468,8 +2490,15 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (!host) return;
     pypaGraphController?.abort?.();
     pypaGraphController = null;
+    matmulIntroController?.abort?.();
+    matmulIntroController = null;
+    if (isMatmulFile(state.activeFile)) {
+      renderMatmulIntroPanel(host);
+      return;
+    }
     host.classList.remove('is-op-inspector');
     const isIntro = pypaGraphView === 'intro';
+    if (pypaGraphView !== 'compute') $$('#dslEditor .is-pypa-source-evidence').forEach((row) => row.classList.remove('is-pypa-source-evidence'));
     $('#inspectorTitle').textContent = isIntro ? '简介' : '计算流程图';
     $('#inspectorMeta').textContent = PAGED_ATTENTION_PYPTO_FILE;
     host.innerHTML = `
@@ -2491,12 +2520,39 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           <button type="button" data-pypa-op="reset" title="回到初始视图">复位</button>
         </div>
         ${pypaTaskIntroEnabled ? '' : renderPypaOperatorOverview()}`}
-        <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角"><button class="btn btn-ghost${isIntro ? ' is-active' : ''}" type="button" data-pypa-view="intro" aria-pressed="${isIntro}">简介</button><button class="btn btn-ghost${pypaGraphView === 'overview' ? ' is-active' : ''}" type="button" data-pypa-view="overview" aria-pressed="${pypaGraphView === 'overview'}">计算图版本1</button><button class="btn btn-ghost${pypaGraphView === 'compute' ? ' is-active' : ''}" type="button" data-pypa-view="compute" aria-pressed="${pypaGraphView === 'compute'}">计算流程</button><button class="btn btn-ghost" type="button" disabled>Tensor Shape</button><button class="btn btn-ghost" type="button" disabled>精度</button><button class="btn btn-ghost" type="button" disabled>执行硬件</button><button class="btn btn-ghost" type="button" disabled>Buffer / Memory</button></div>
+        <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角"><button class="btn btn-ghost${isIntro ? ' is-active' : ''}" type="button" data-pypa-view="intro" aria-pressed="${isIntro}">简介</button><button class="btn btn-ghost${pypaGraphView === 'overview' ? ' is-active' : ''}" type="button" data-pypa-view="overview" aria-pressed="${pypaGraphView === 'overview'}">计算图版本1</button><button class="btn btn-ghost${pypaGraphView === 'compute' ? ' is-active' : ''}" type="button" data-pypa-view="compute" aria-pressed="${pypaGraphView === 'compute'}">计算流程</button></div>
         ${pypaGraphView === 'compute' ? '<aside class="kf-pypa-graph__inspector" id="pypaNodeInspector" aria-label="Node Inspector" hidden></aside>' : ''}
         ${pypaGraphView === 'overview' ? '<footer class="kf-pypa-graph__status" id="pypaGraphStatus">拖拽平移 · 滚轮缩放 · 点击节点定位源码</footer>' : ''}
       </section>`;
     if (!isIntro) renderPyptoTaskGraph();
     else if (pypaTaskIntroEnabled) pypaGraphController = window.PtoPagedAttentionIntro.mount(host.querySelector('.kf-pa-intro-mount'));
+  }
+
+  /* ---- matmul.py 的右侧面板 -------------------------------------------------
+     与 paged_attention_pypto.py 同构：一排图层页签 + 一块内容区。区别是这里
+     只有「简介」接了实装（PtoMatmulIntro），其余页签按需求只占位、无内容。
+     页签用 has-task-intro 把整排提到面板顶部，与 PA 简介视图的排版一致。 */
+  function renderMatmulIntroPanel(host) {
+    host.classList.remove('is-op-inspector');
+    const views = MATMUL_VIEWS;
+    const view = views.some((item) => item.key === state.matmulView) ? state.matmulView : 'intro';
+    state.matmulView = view;
+    const active = views.find((item) => item.key === view) || views[0];
+    const isIntro = view === 'intro';
+    $('#inspectorTitle').textContent = active.label;
+    $('#inspectorMeta').textContent = MATMUL_FILE;
+    host.innerHTML = `
+      <section class="kf-pypa-graph has-task-intro" aria-label="matmul.py ${active.aria}">
+        ${isIntro
+          ? '<div class="kf-pa-intro-mount"></div>'
+          : `<div class="kf-pypa-intro" aria-label="${active.aria}">
+          <span class="kf-eyebrow">${active.kicker}</span>
+          <b>${active.label}</b>
+          <p>占位视图：本页暂未实现，后续将在这里补充 matmul.py 的${active.label}。</p>
+        </div>`}
+        <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角">${views.map((item) => `<button class="btn btn-ghost${item.key === view ? ' is-active' : ''}" type="button" data-mm-view="${item.key}" aria-pressed="${item.key === view}">${item.label}</button>`).join('')}</div>
+      </section>`;
+    if (isIntro) matmulIntroController = window.PtoMatmulIntro?.mount(host.querySelector('.kf-pa-intro-mount'));
   }
 
   /* ---- 可视化模式：源码地图右上角的按钮 -------------------------------------
@@ -2612,17 +2668,24 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
 
   // 离开该文件：把快照原样贴回去，等于这个文件从没动过分栏宽度
   function leavePagedAttentionPyptoLayout() {
-    if (pypaTaskIntroEnabled) { pypaGraphController?.abort?.(); pypaGraphController = null; }
+    releaseSourceRegionPanels();
     if (!pyptoPaneSnapshot) return;
     restoreMainSplitLayout(pyptoPaneSnapshot);
     pyptoPaneSnapshot = null;
     syncSourceRegionVisualizeButton();
   }
 
+  // 收起右侧分析面板（paged_attention_pypto 或 matmul）时释放其挂载的控制器
+  function releaseSourceRegionPanels() {
+    if (pypaTaskIntroEnabled) { pypaGraphController?.abort?.(); pypaGraphController = null; }
+    matmulIntroController?.abort?.();
+    matmulIntroController = null;
+  }
+
   function setSourceRegionVisualize(on) {
     if (!pyptoPaneSnapshot) pyptoPaneSnapshot = captureMainSplitLayout();
     if (!on) {
-      if (pypaTaskIntroEnabled) { pypaGraphController?.abort?.(); pypaGraphController = null; }
+      releaseSourceRegionPanels();
       applyCodeFirstMainSplit(pyptoPaneSnapshot);
     } else {
       applyVisualizeMainSplit(pyptoPaneSnapshot);
@@ -2630,7 +2693,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       if (!inspectorPaneDisplayable()) applyCodeFirstMainSplit(pyptoPaneSnapshot);
     }
     syncSourceRegionVisualizeButton();
-    if (isSourceRegionVisualizeOn() && isPagedAttentionPyptoFile(state.activeFile)) renderSourceRegionPanel();
+    if (isSourceRegionVisualizeOn() && isSourceRegionVisualizeFile(state.activeFile)) renderSourceRegionPanel();
   }
 
   // align: 'center'（默认，看上下文）| 'top'（把目标行顶到顶部往下一点）。
@@ -4514,10 +4577,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       pypaGraphController?.abort?.();
       pypaGraphController = null;
     }
+    if (!isMatmulFile(state.activeFile)) {
+      matmulIntroController?.abort?.();
+      matmulIntroController = null;
+    }
     // 非统一面板的文件仍走各自的渲染器：先摘掉四层骨架的布局类
     $('#inspector').classList.remove('is-op-inspector');
-    matmulHardwareGraphInstance?.destroy?.();
-    matmulHardwareGraphInstance = null;
     rmsNormHardwareGraphInstance?.destroy?.();
     rmsNormHardwareGraphInstance = null;
     attentionGraphController?.destroy?.();
@@ -4556,27 +4621,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       renderRmsNormInspector();
       return;
     }
-    if (state.activeFile === 'matmul.py') {
-      $('#inspectorTitle').textContent = '意图预览';
-      $('#inspectorMeta').textContent = 'matmul.py';
-      $('#inspector').innerHTML = `
-        <section class="kf-intent-hero"><span class="kf-eyebrow">CURRENT OPERATOR</span><b>mm</b><small>kernels/matmul.py · in-core matrix multiply</small></section>
-        <section class="kf-inspector-section kf-intent-detail"><header><h2>Shape</h2><span>32 × 32 · contracted</span></header><dl><div><dt>Input A</dt><dd>[32, 32] · FP16</dd></div><div><dt>Input B</dt><dd>[32, 32] · FP16</dd></div><div><dt>Output</dt><dd>[32, 32] · FP32</dd></div></dl></section>
-        <section class="kf-matmul-hardware" aria-labelledby="matmulHardwareTitle">
-          <header><b id="matmulHardwareTitle">内存路径</b><div class="kf-matmul-hardware__tools" data-no-pan><button type="button" data-matmul-fit aria-pressed="true">最佳视图</button><button type="button" data-matmul-actual aria-pressed="false">100%</button><span data-matmul-zoom-readout>—</span></div></header>
-          <div class="pto-memory-architecture-viewport kf-matmul-hardware__viewport" id="matmulHardwareViewport" data-pto-mem-arch-viewport>
-            <div class="pto-memory-architecture-sizer" id="matmulHardwareSizer" data-pto-mem-arch-sizer>
-              <div class="pto-memory-architecture-canvas" id="matmulHardwareGraph" data-pto-mem-arch-canvas></div>
-            </div>
-          </div>
-          <footer id="matmulFlowStatus"><span><i></i>悬停源码行查看数据流，点击可锁定</span></footer>
-        </section>
-         `;
-      renderMatmulHardwareGraph();
+    if (isMatmulFile(state.activeFile)) {
+      // matmul.py 走与 paged_attention_pypto.py 相同的「代码优先 + 可视化」面板
+      renderSourceRegionPanel();
       return;
     }
-    const active = intentPreview[state.intentTab] || intentPreview.shape;
-    const tabs = Object.entries(intentPreview).map(([key, item]) => `<button type="button" class="${key === state.intentTab ? 'is-active' : ''}" data-intent-tab="${key}">${item.label}</button>`).join('');
+    const active = intentPreview[state.intentTab] || intentPreview.shape;    const tabs = Object.entries(intentPreview).map(([key, item]) => `<button type="button" class="${key === state.intentTab ? 'is-active' : ''}" data-intent-tab="${key}">${item.label}</button>`).join('');
     const intentHero = '<section class="kf-intent-hero"><div class="kf-intent-title-row"><b>decode_layer</b><span class="kf-inference-badge">推理</span><span class="kf-megakernel-badge">megakernel</span></div></section>';
     $('#inspectorTitle').textContent = '意图预览';
     $('#inspectorMeta').textContent = 'decode_layer.py';
@@ -4712,113 +4762,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       const row = event.target.closest('[data-passes-line]');
       if (row) row.classList.remove('is-cg-hover');
     });
-  }
-
-  function renderMatmulHardwareGraph() {
-    const memoryPattern = window.PtoMemoryArchitecturePattern;
-    const canvas = $('#matmulHardwareGraph');
-    const viewport = $('#matmulHardwareViewport');
-    const sizer = $('#matmulHardwareSizer');
-    const host = $('.kf-matmul-hardware');
-    const fitButton = $('[data-matmul-fit]');
-    const actualButton = $('[data-matmul-actual]');
-    const readout = $('[data-matmul-zoom-readout]');
-    const flowStatus = $('#matmulFlowStatus');
-    if (!memoryPattern || !canvas || !viewport || !sizer) return;
-
-    memoryPattern.renderArchitecture(canvas, matmulHardwarePreset);
-    const routes = memoryPattern.createRouteOverlay(canvas, matmulHardwarePreset);
-    const hover = memoryPattern.attachHoverInteractions(canvas, matmulHardwarePreset, {
-      selector: '[data-mem950-node="rail:DDR"], #matmul-aic-core',
-    });
-    let viewMode = 'fit';
-    const syncViewMode = () => {
-      fitButton?.classList.toggle('is-active', viewMode === 'fit');
-      actualButton?.classList.toggle('is-active', viewMode === 'actual');
-      fitButton?.setAttribute('aria-pressed', String(viewMode === 'fit'));
-      actualButton?.setAttribute('aria-pressed', String(viewMode === 'actual'));
-    };
-    const zoom = memoryPattern.createZoomController({
-      root: $('#inspector'),
-      viewport,
-      sizer,
-      canvas,
-      defaultZoom: 0.25,
-      min: 0.16,
-      max: 1.2,
-      step: 0.08,
-      pan: true,
-      wheelZoom: false,
-      centerTarget: '.pto-mem950__layout',
-      readout,
-      onZoom: () => syncViewMode(),
-    });
-
-    const fit = () => {
-      const graph = canvas.querySelector('.pto-mem950');
-      if (!graph) return;
-      const widthScale = (viewport.clientWidth - 10) / Math.max(graph.scrollWidth, 1);
-      const heightScale = (viewport.clientHeight - 10) / Math.max(graph.scrollHeight, 1);
-      viewMode = 'fit';
-      zoom?.setZoom(Math.max(0.16, Math.min(1, widthScale, heightScale)));
-      zoom?.center();
-      routes?.render();
-      syncViewMode();
-    };
-    const actual = () => {
-      viewMode = 'actual';
-      zoom?.setZoom(1);
-      zoom?.center();
-      routes?.render();
-      syncViewMode();
-    };
-    const onWheel = (event) => {
-      event.preventDefault();
-      viewMode = 'custom';
-      const direction = event.deltaY > 0 ? -1 : 1;
-      const magnitude = Math.min(3, Math.max(1, Math.abs(event.deltaY) / 120));
-      zoom?.zoomAtPoint(zoom.getZoom() + 0.08 * direction * magnitude, event.clientX, event.clientY);
-      routes?.render();
-      syncViewMode();
-    };
-    const activateFlow = (lineNumber) => {
-      const flow = matmulLineFlows[lineNumber];
-      if (!flow) return;
-      memoryPattern.setPathFocus(canvas, matmulHardwarePreset, flow);
-      host?.classList.add('is-code-flowing');
-      $$('#dslEditor [data-hardware-line]').forEach((row) => row.classList.toggle('is-hardware-selected', Number(row.dataset.hardwareLine) === lineNumber));
-      if (flowStatus) flowStatus.innerHTML = `<span><i></i>第 ${lineNumber} 行 · ${flow.label}</span>`;
-      state.hardwareFlowLine = lineNumber;
-    };
-    const clearFlow = () => {
-      memoryPattern.clearPathFocus(canvas);
-      host?.classList.remove('is-code-flowing');
-      $$('#dslEditor [data-hardware-line]').forEach((row) => row.classList.remove('is-hardware-selected'));
-      if (flowStatus) flowStatus.innerHTML = '<span><i></i>悬停源码行查看数据流，点击可锁定</span>';
-      state.hardwareFlowLine = 0;
-    };
-    fitButton?.addEventListener('click', fit);
-    actualButton?.addEventListener('click', actual);
-    viewport.addEventListener('wheel', onWheel, { passive: false });
-    const fitObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (viewMode === 'fit') fit(); }) : null;
-    fitObserver?.observe(viewport);
-    requestAnimationFrame(fit);
-
-    matmulHardwareGraphInstance = {
-      activateFlow,
-      clearFlow,
-      fit,
-      actual,
-      destroy() {
-        fitButton?.removeEventListener('click', fit);
-        actualButton?.removeEventListener('click', actual);
-        viewport.removeEventListener('wheel', onWheel);
-        fitObserver?.disconnect();
-        routes?.destroy?.();
-        hover?.destroy?.();
-        zoom?.destroy?.();
-      },
-    };
   }
 
   function updateInspector() {
@@ -5316,9 +5259,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           state.pto3LabTab = 'loops';
           state.pto3LabFocus = 'matmul';
         }
-        if (isPagedAttentionPyptoFile(filePath)) {
+        if (isSourceRegionVisualizeFile(filePath)) {
           state.sourceRegionFocus = null;
           state.sourceRegionLine = null;
+          state.matmulView = 'intro';
           // 先不展示右侧面板：快照当前布局后切成"只看代码"。需要看分析时
           // 点源码地图上的「可视化」。
           enterPagedAttentionPyptoLayout();
@@ -5326,8 +5270,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           // 离开该文件时把进入前的分栏宽度原样贴回去
           leavePagedAttentionPyptoLayout();
         }
-        state.hardwareFlowLine = 0;
-        state.hardwareFlowPinned = false;
         renderSelectedSource(state.activeFile);
       }
       const openStep = file.dataset.openStep;
@@ -5567,9 +5509,25 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       }
       return;
     }
+    // matmul.py 右侧面板的图层页签：只有「简介」装了内容，其余是空占位。
+    const matmulViewButton = event.target.closest('[data-mm-view]');
+    if (matmulViewButton && isMatmulFile(state.activeFile)) {
+      const nextView = matmulViewButton.dataset.mmView;
+      if (nextView !== state.matmulView) {
+        state.matmulView = nextView;
+        renderSourceRegionPanel();
+      }
+      return;
+    }
     if (event.target.closest('[data-pypa-inspector-close]')) {
       const panel = $('#pypaNodeInspector');
       if (panel) panel.hidden = true;
+      return;
+    }
+    const pypaSourceButton = event.target.closest('[data-pypa-source-range]');
+    if (pypaSourceButton && isPagedAttentionPyptoFile(state.activeFile)) {
+      const node = pypaVisibleGraph()?.nodes.find((item) => item.id === pypaSourceButton.dataset.pypaSourceNode);
+      if (node) revealPypaSource(node, Number(pypaSourceButton.dataset.pypaSourceRange));
       return;
     }
     const pyptoNode = event.target.closest('[data-pypa-node]');
@@ -5586,12 +5544,14 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       }
       if (pypaGraphView === 'compute') selectPypaGraphNode(node);
       else $$('#pypaTaskScene [data-pypa-node]').forEach((item) => item.classList.toggle('is-selected', item.dataset.pypaNode === node.id));
-      const line = Number(node.sourceLine || node.lines?.match(/\d+/)?.[0]);
-      if (line) {
-        const focus = pagedAttentionPyptoFocusForLine(line);
-        state.sourceRegionFocus = focus;
-        focusSourceRegion(focus);
-        if (pypaGraphView === 'compute') revealSourceRegionLine(line);
+      if (pypaGraphView === 'compute') revealPypaSource(node);
+      else {
+        const line = Number(node.sourceLine || node.lines?.match(/\d+/)?.[0]);
+        if (line) {
+          const focus = pagedAttentionPyptoFocusForLine(line);
+          state.sourceRegionFocus = focus;
+          focusSourceRegion(focus);
+        }
       }
       const status = $('#pypaGraphStatus');
       if (status) status.textContent = `${node.title} · 源码 ${node.lines || '—'} · ${node.detail}`;
@@ -5747,15 +5707,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       renderIntentInspector();
       toast(`第 ${$('i', intentLine).textContent} 行 · ${intentPreview[state.intentTab].label} 意图`);
     }
-    const hardwareLine = event.target.closest('[data-hardware-line]');
-    if (hardwareLine) {
-      const lineNumber = Number(hardwareLine.dataset.hardwareLine);
-      const isSamePinnedLine = state.hardwareFlowPinned && state.hardwareFlowLine === lineNumber;
-      state.hardwareFlowPinned = !isSamePinnedLine;
-      if (isSamePinnedLine) matmulHardwareGraphInstance?.clearFlow?.();
-      else matmulHardwareGraphInstance?.activateFlow?.(lineNumber);
-      toast(isSamePinnedLine ? '已取消硬件路径锁定' : `已锁定第 ${lineNumber} 行硬件数据流`);
-    }
     if (event.target.closest('#baselinePicker')) toast('已打开可信基线选择器 · 当前 run_d9a1');
     if (event.target.closest('#copyRunToken')) { navigator.clipboard?.writeText(getRun().token); toast('运行链接已复制，可共享或跨 Run diff'); }
     if (event.target.closest('#runShare')) { navigator.clipboard?.writeText(getRun().token); toast('已生成可共享运行详情链接'); }
@@ -5797,31 +5748,6 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       state.pagedAttentionDetailOpen = false;
       renderIntentInspector();
     }
-  });
-  document.addEventListener('pointerover', (event) => {
-    const line = event.target.closest?.('[data-hardware-line]');
-    if (!line || line.contains(event.relatedTarget) || state.hardwareFlowPinned) return;
-    matmulHardwareGraphInstance?.activateFlow?.(Number(line.dataset.hardwareLine));
-  });
-  document.addEventListener('pointerout', (event) => {
-    const line = event.target.closest?.('[data-hardware-line]');
-    if (!line || line.contains(event.relatedTarget) || state.hardwareFlowPinned) return;
-    matmulHardwareGraphInstance?.clearFlow?.();
-  });
-  document.addEventListener('focusin', (event) => {
-    const line = event.target.closest?.('[data-hardware-line]');
-    if (!line || state.hardwareFlowPinned) return;
-    matmulHardwareGraphInstance?.activateFlow?.(Number(line.dataset.hardwareLine));
-  });
-  document.addEventListener('focusout', (event) => {
-    if (!event.target.closest?.('[data-hardware-line]') || state.hardwareFlowPinned) return;
-    matmulHardwareGraphInstance?.clearFlow?.();
-  });
-  document.addEventListener('keydown', (event) => {
-    const line = event.target.closest?.('[data-hardware-line]');
-    if (!line || (event.key !== 'Enter' && event.key !== ' ')) return;
-    event.preventDefault();
-    line.click();
   });
   $('#applyFix')?.addEventListener('click', applyDslFix);
   $$('[data-product-mode]').forEach((button) => button.addEventListener('click', () => {
