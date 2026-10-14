@@ -1,10 +1,11 @@
-/* Task assignment and logical tiling for paged_attention_pypto.py.
+/* Task assignment, logical tiling and software pipeline for paged_attention_pypto.py.
  * Source constants: 17–32; task / page / stack mapping: 261–269.
+ * Pipeline source: embedded paged-attention-pypto-source.js, PRE_LAUNCH loop and READY events.
  * Sequence lengths are editable scenario inputs, not captured runtime values.
  */
 (function (global) {
   'use strict';
-  const constants = Object.freeze({ batch: 16, kvHeads: 8, qPerKv: 5, blocks: 24, pageTokens: 128, pagesPerStack: 4, maxSeq: 3584 });
+  const constants = Object.freeze({ batch: 16, kvHeads: 8, qPerKv: 5, blocks: 24, pageTokens: 128, pagesPerStack: 4, maxSeq: 3584, preLaunch: 2, transferSlots: 3 });
   const defaultSeqLens = Object.freeze([1025, 512, 2048, 128, 1536, 3584, 3072, 256, 769, 1024, 2049, 640, 2560, 129, 1792, 3328]);
   function taskInfo(id) {
     const kv = id % constants.kvHeads;
@@ -24,10 +25,22 @@
       }),
     })) };
   }
+  function pipelineFor(seqLen) {
+    const tiling = partition(seqLen);
+    const stepCount = tiling.stackCount + constants.preLaunch;
+    return { ...tiling, stepCount,
+      steps: Array.from({ length: stepCount }, (_, tick) => ({ tick,
+        produceStack: tick < tiling.stackCount ? tick : null,
+        consumeStack: tick >= constants.preLaunch ? tick - constants.preLaunch : null })),
+      stacks: tiling.stacks.map((stack) => ({ ...stack, slot: stack.id % constants.transferSlots,
+        tokenStart: stack.id * constants.pagesPerStack * constants.pageTokens,
+        tokenEnd: Math.min(seqLen, (stack.id + 1) * constants.pagesPerStack * constants.pageTokens) - 1,
+        previousStack: stack.id >= constants.transferSlots ? stack.id - constants.transferSlots : null })) };
+  }
   // 详情视图只放当前 Task 与它的左右邻居（同一 KV head、相邻 Batch），不铺满整个矩阵。
-  function taskNeighborhood(id, seqLens) {
+  function taskNeighborhood(id, seqLens, taskView = state.taskView) {
     const active = taskInfo(id);
-    const height = Math.max(260, 164 + partition(seqLens[active.batch]).stackCount * 60);
+    const height = taskView === 'pipeline' ? 410 : Math.max(260, 164 + partition(seqLens[active.batch]).stackCount * 60);
     const gap = 24, sideWidth = 300, sideHeight = 200;
     const leftId = active.batch > 0 ? id - constants.kvHeads : null;
     const rightId = active.batch < constants.batch - 1 ? id + constants.kvHeads : null;
@@ -41,7 +54,7 @@
     return rects;
   }
   // Kept in this page session; mounting/unmounting does not reset exploration.
-  const state = { seqLens: [...defaultSeqLens], block: null, task: null, level: 'matrix', view: null, matrixView: null, matrixSize: null, size: null };
+  const state = { taskView: 'pipeline', pipelineStep: 2, pipelineStack: null, seqLens: [...defaultSeqLens], block: null, task: null, level: 'matrix', view: null, matrixView: null, matrixSize: null, size: null };
   const grid = { x: 94, y: 106, dx: 62, dy: 34, w: 54, h: 28, width: 1096, height: 388 };
   // Playback belongs to this page session. Selection stops it until reload,
   // including when the inspector or its tabs are mounted again.
@@ -79,10 +92,16 @@
       </section>
       <div class="kf-pa-map__context"><div class="kf-pa-map__breadcrumb"><button class="btn btn-ghost btn-sm" type="button" data-pa-action="back" hidden>← 返回矩阵</button><b data-pa-context>Batch × KV Head</b></div><button class="btn btn-ghost btn-sm" type="button" data-pa-action="enter">进入 Task 0 ↗</button><span class="kf-pa-map__detail-meta" data-pa-meta></span></div>
       <div class="kf-pa-map__config" hidden><label>场景配置 · <span data-pa-batch></span> seq_lens <input class="input" type="number" min="1" max="3584" step="1" aria-label="当前 Batch 的序列长度" data-pa-length></label><input type="range" min="1" max="3584" step="1" aria-label="调节当前 Batch 的序列长度" data-pa-range><span>tokens</span></div>
+      <div class="kf-pa-map__pipeline-controls" data-pa-controls hidden>
+        <div role="group" aria-label="Task 详情视图"><button class="btn btn-ghost btn-sm" data-pa-view="pipeline">Pipeline</button><button class="btn btn-ghost btn-sm" data-pa-view="pages">Pages</button></div>
+        <div data-pa-steps role="group" aria-label="Pipeline Step"></div>
+        <span>Logical pipeline · source-derived</span>
+      </div>
       <div class="kf-pa-map__viewport" tabindex="0" role="group" aria-label="任务矩阵画布，滚轮缩放，按住左键拖拽平移，方向键切换 Task，Escape 返回矩阵">
         <svg class="kf-pa-map__svg" xmlns="http://www.w3.org/2000/svg" aria-label="Batch 与 KV Head 的任务关系"><g data-pa-ghost opacity="0" pointer-events="none"></g><g data-pa-morph-fill opacity="0" pointer-events="none"></g><g class="kf-pa-map__scene" data-pa-scene></g><g data-pa-morph opacity="0" pointer-events="none"></g></svg>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div>
       </div>
+      <div class="kf-pa-map__pipeline-detail" data-pa-detail hidden aria-live="polite"></div>
       <footer class="kf-pa-map__footer"><div><p data-pa-summary></p><span data-pa-hint>滚轮放大进入 Task · 拖拽平移</span></div><div class="kf-pa-map__tools" role="group" aria-label="简介画布操作"><button class="btn btn-ghost btn-sm" type="button" data-pa-action="out" aria-label="缩小简介">−</button><output data-pa-zoom>100%</output><button class="btn btn-ghost btn-sm" type="button" data-pa-action="in" aria-label="放大简介">＋</button><button class="btn btn-ghost btn-sm" type="button" data-pa-action="fit">适应</button></div></footer>
     </div>`;
     const viewport = query('.kf-pa-map__viewport');
@@ -105,7 +124,8 @@
     };
     const fitted = () => {
       const box = extent();
-      const scale = Math.max(0.05, Math.min((viewport.clientWidth - 32) / box.width, (viewport.clientHeight - 24) / box.height, 1.2));
+      const fitBox = state.level === 'detail' ? { width: activeRect().w + 64, height: activeRect().h + 48 } : box;
+      const scale = Math.max(0.05, Math.min((viewport.clientWidth - 32) / fitBox.width, (viewport.clientHeight - 24) / fitBox.height, 1.2));
       const center = state.level === 'matrix' ? { x: box.width / 2, y: box.height / 2 }
         : { x: activeRect().x + activeRect().w / 2, y: activeRect().y + activeRect().h / 2 };
       return { scale, x: viewport.clientWidth / 2 - center.x * scale, y: viewport.clientHeight / 2 - center.y * scale };
@@ -175,7 +195,7 @@
           if (!page) return `<g aria-hidden="true"><rect class="kf-pa-map__unused" x="${x}" y="4" width="150" height="44" rx="3"/><text class="kf-pa-map__unused-label" x="${x + 75}" y="29">—</text></g>`;
           return `<g data-pa-page="${page.id}" aria-label="Logical Page ${page.id}，${page.validTokens}/128 有效 tokens"><title>Page ${page.id} · ${page.validTokens}/128 tokens</title><rect class="kf-pa-map__page" x="${x}" y="4" width="150" height="44" rx="3"/><text class="kf-pa-map__page-label" x="${x + 10}" y="25">P${page.id}</text><text class="kf-pa-map__page-value" text-anchor="end" x="${x + 140}" y="25">${page.validTokens}/128</text><rect class="kf-pa-map__page-track" x="${x + 10}" y="34" width="130" height="6" rx="1"/><rect class="kf-pa-map__page-fill${page.validTokens < 128 ? ' is-tail' : ''}" x="${x + 10}" y="34" width="${130 * page.validTokens / 128}" height="6" rx="1"/></g>`;
         }).join('');
-        return `<g transform="translate(24 ${140 + stack.id * 60})" data-pa-stack="${stack.id}" aria-label="Stack ${stack.id}，${stack.pages.length} Pages"><rect class="kf-pa-map__stack" width="792" height="52" rx="5"/><text class="kf-pa-map__stack-label" x="14" y="30">S${stack.id}</text>${pages}</g>`;
+        return `<g transform="translate(24 ${140 + stack.id * 60})" data-pa-stack="${stack.id}" role="button" tabindex="0" aria-label="Stack ${stack.id}，${stack.pages.length} Pages"><rect class="kf-pa-map__stack${stack.id === state.pipelineStack ? ' is-stack-selected' : ''}" width="792" height="52" rx="5"/><text class="kf-pa-map__stack-label" x="14" y="30">S${stack.id}</text>${pages}</g>`;
       }).join('');
       return [
         `<text class="kf-pa-map__frame-title" x="24" y="48">Task ${id}</text>`,
@@ -183,9 +203,50 @@
         `<text class="kf-pa-map__frame-meta" x="24" y="80">Batch ${t.batch} · KV ${t.kv} · Q${t.qStart}–Q${t.qEnd}</text>`,
         sequenceGraphic(len, 24, 102, 552, 12),
         `<text class="kf-pa-map__frame-length" x="610" y="114">${len} tokens</text>`,
-        stacks,
+        state.taskView === 'pipeline' ? pipelineMarkup(len) : stacks,
         '</g>',
       ].join('');
+    }
+    function pipelineMarkup(len) {
+      const data = pipelineFor(len), step = data.steps[Math.min(state.pipelineStep, data.stepCount - 1)];
+      const x0 = 230, dx = 62;
+      const label = (text, x, y) => `<text class="kf-pa-map__detail-label" x="${x}" y="${y}">${text}</text>`;
+      const mark = (stackId, x, y, active) => `<g class="kf-pa-map__pipeline-mark${active && stackId !== null ? ' is-active' : ''}${stackId === state.pipelineStack ? ' is-stack-selected' : ''}"${stackId !== null ? ` data-pa-stack="${stackId}" role="button" tabindex="0" aria-label="Stack ${stackId}"` : ''}><rect x="${x}" y="${y}" width="54" height="38" rx="3"/><text x="${x + 27}" y="${y + 24}" text-anchor="middle">${stackId === null ? '—' : 'S' + stackId}</text></g>`;
+      return label('Pipeline Step →', 24, 154) + label('PRODUCE', 24, 220) + label('QK → Softmax', 24, 244)
+        + label('CONSUME', 24, 282) + label('PV → Accumulate', 24, 306)
+        + data.steps.map((item) => `<g opacity="${item.tick === step.tick ? 1 : .4}">${label(item.tick, x0 + item.tick * dx + 23, 154)}${mark(item.produceStack, x0 + item.tick * dx, 208, item.tick === step.tick)}${mark(item.consumeStack, x0 + item.tick * dx, 270, item.tick === step.tick)}</g>`).join('')
+        + `<path class="kf-pa-map__pipeline-offset" d="M${x0 + 27} 188 v-12 h${dx * constants.preLaunch} v12"/>`
+        + label('PRE_LAUNCH = 2', x0 + 30, 172)
+        + label('Stack → Slot', 24, 346) + label('stackId % 3', 24, 380)
+        + data.stacks.map((stack) => mark(stack.id, x0 + stack.id * dx, 324, [step.produceStack, step.consumeStack, state.pipelineStack].includes(stack.id)) + `<text class="kf-pa-map__slot${[step.produceStack, step.consumeStack, state.pipelineStack].filter((id) => id !== null && id < data.stackCount).map((id) => data.stacks[id].slot).includes(stack.slot) ? ' is-active' : ''}" x="${x0 + stack.id * dx + 27}" y="380" text-anchor="middle">${stack.slot}</text>`).join('');
+    }
+    function syncPipeline() {
+      const detail = state.level === 'detail';
+      query('[data-pa-controls]').hidden = !detail;
+      query('[data-pa-detail]').hidden = !detail;
+      if (!detail) return;
+      const data = pipelineFor(state.seqLens[taskInfo(state.task).batch]);
+      state.pipelineStep = Math.max(0, Math.min(state.pipelineStep, data.stepCount - 1));
+      if (state.pipelineStack >= data.stackCount) state.pipelineStack = null;
+      const step = data.steps[state.pipelineStep];
+      host.querySelectorAll('[data-pa-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.paView === state.taskView)));
+      query('[data-pa-steps]').hidden = state.taskView !== 'pipeline';
+      query('[data-pa-steps]').innerHTML = `<span>Pipeline Step</span><button class="btn btn-ghost btn-sm" data-pa-step="${step.tick - 1}" aria-label="上一个 Pipeline Step" ${step.tick === 0 ? 'disabled' : ''}>‹</button>`
+        + data.steps.map((item) => `<button class="btn btn-ghost btn-sm" data-pa-step="${item.tick}" aria-pressed="${item.tick === step.tick}">${item.tick}</button>`).join('')
+        + `<button class="btn btn-ghost btn-sm" data-pa-step="${step.tick + 1}" aria-label="下一个 Pipeline Step" ${step.tick === data.stepCount - 1 ? 'disabled' : ''}>›</button>`;
+      const stack = data.stacks[state.pipelineStack ?? step.consumeStack ?? step.produceStack];
+      const name = (id) => id === null ? '—' : `Stack ${id}`;
+      query('[data-pa-detail]').innerHTML = `<div><b>Step ${step.tick}</b><span>Producer: ${name(step.produceStack)} · Consumer: ${name(step.consumeStack)}</span><span>${step.consumeStack === null ? '预取阶段 · Consumer 尚未开始。' : step.produceStack === null ? '排空阶段 · Consumer 完成剩余 Stack。' : 'Consumer 正在处理两步之前生产的 Stack。'}</span></div>
+        <p>Logical pipeline iteration · not hardware clock cycle</p>
+        ${state.pipelineStack !== null ? `<div><b>Stack ${stack.id}</b><span>Logical Pages: ${Array.from({ length: constants.pagesPerStack }, (_, i) => stack.pages[i] ? `P${stack.pages[i].id} ${stack.pages[i].validTokens}/128` : '—').join(' · ')}</span><span>Token range: ${stack.tokenStart}–${stack.tokenEnd}</span><span class="is-slot-active">Stack ${stack.id} → Slot ${stack.slot}</span><span>${stack.previousStack === null ? '首次使用此 Slot' : `Slot ${stack.slot} previously used by Stack ${stack.previousStack} · Step ${stack.previousStack + constants.preLaunch} 消费后，Step ${stack.id} 可复用`}</span></div>
+        <div class="kf-pa-map__hardware"><span>AIC · QK</span><span>→ QK_READY_EVENT →</span><span>AIV · Softmax</span><span>→ SOFTMAX_READY_EVENT →</span><span>AIC · PV</span><span>→ PV_READY_EVENT →</span><span>AIV · Accumulate</span></div>
+        <p>READY events 同步同一 Stack 的 score → probability → PV partial；Accumulate 重缩放并累加。3 slots = PRE_LAUNCH + 1，循环承载中间数据；全部 Stack 完成后 Final Normalize / Output。</p>` : '<p>PRE_LAUNCH = 2 · Producer 提前 2 个 Stack；3 个 transfer slots 循环复用。点击 Stack 查看 Pages、硬件阶段与 READY 同步。全部 Stack 完成后 Final Normalize / Output。</p>'}`;
+    }
+    function selectStep(value) {
+      const data = pipelineFor(state.seqLens[taskInfo(state.task).batch]);
+      state.pipelineStep = Math.max(0, Math.min(value, data.stepCount - 1));
+      state.pipelineStack = null;
+      syncPipeline(); drawDetail(); paintView();
     }
     function paintDetailFrames(frames) {
       const active = taskInfo(state.task ?? 0);
@@ -200,11 +261,12 @@
         // 完全透明的那一套必须 display:none——否则它照样参与包围盒，
         // 点击坐标会落到卡片外面（Playwright 之类按 bbox 中心点击就会点空）。
         const compactGroup = `<g pointer-events="none" opacity="${(1 - big).toFixed(3)}"${(1 - big) === 0 ? ' display="none"' : ''}>${frameCompactMarkup(f.id, f, active, len)}</g>`;
-        const expandedGroup = `<g pointer-events="none" clip-path="url(#pa-frame-clip-${f.id})" opacity="${big.toFixed(3)}"${big === 0 ? ' display="none"' : ''}>${frameExpandedMarkup(f.id, len)}</g>`;
+        const expandedGroup = `<g clip-path="url(#pa-frame-clip-${f.id})" opacity="${big.toFixed(3)}"${big === 0 ? ' display="none"' : ''}>${frameExpandedMarkup(f.id, len)}</g>`;
         return `<g class="kf-pa-map__task-frame${selected ? ' is-expanded' : ''}" data-pa-task="${f.id}" transform="translate(${f.x.toFixed(2)} ${f.y.toFixed(2)})" tabindex="${selected ? 0 : -1}" role="button" aria-label="${taskDescription(f.id)}" aria-pressed="${selected}" opacity="${opacity.toFixed(3)}"><rect class="kf-pa-map__task-boundary" width="${w}" height="${h}" rx="10"/>${compactGroup}${expandedGroup}</g>`;
       }).join('')}`;
     }
     function drawDetail() {
+      syncPipeline();
       paintDetailFrames(neighborhood().map((r) => ({ id: r.id, x: r.x, y: r.y, w: r.w, h: r.h, opacity: 1 })));
     }
     function paintPlayback() {
@@ -266,10 +328,11 @@
       query('[data-pa-context]').textContent = detail ? `Task ${t.id}` : 'Batch × KV Head';
       query('[data-pa-meta]').textContent = detail ? `Batch ${t.batch} · KV ${t.kv} · Q${t.qStart}–Q${t.qEnd} · Block ${t.block}` : '';
       query('.kf-pa-map__config').hidden = !detail;
+      syncPipeline();
       query('[data-pa-batch]').textContent = `Batch ${t.batch}`;
       const tiling = currentTiling();
-      query('[data-pa-summary]').textContent = detail ? `${tiling.seqLen} tokens = ${tiling.pageCount} Pages · ${tiling.stackCount} Stacks` : '每格 1 个 Task · 5 条底纹 = 5 个 Q Head';
-      query('[data-pa-hint]').textContent = detail ? '逻辑页分组 · 滚轮缩放 · 按住左键拖动移动 · 点击其它 Task 直接进入' : '场景配置 · 滚轮放大进入 Task · 按住左键拖动移动';
+      query('[data-pa-summary]').textContent = detail ? `${tiling.seqLen} tokens → ceil(${tiling.seqLen}/128) = ${tiling.pageCount} Pages → ceil(${tiling.pageCount}/4) = ${tiling.stackCount} Stacks · ${tiling.stackCount} + 2 = ${tiling.stackCount + constants.preLaunch} Steps` : '每格 1 个 Task · 5 条底纹 = 5 个 Q Head';
+      query('[data-pa-hint]').textContent = detail ? '滚轮缩放 · 拖拽平移 · ← / → 切换 Step' : '场景配置 · 滚轮放大进入 Task · 按住左键拖动移动';
       paintPlayback();
     }
     function render() {
@@ -500,6 +563,7 @@
         state.matrixView = { scale: maxReturn, x: origin.x - (origin.x - old.x) * ratio, y: origin.y - (origin.y - old.y) * ratio };
       }
       snapshotGhost(old);
+      state.pipelineStack = null;
       state.task = id;
       state.block = taskInfo(id).block;
       state.level = 'detail';
@@ -573,6 +637,7 @@
       cancelEnterTransit();
       const fromFrames = neighborhood().map((r) => ({ ...r }));
       const fromView = { ...state.view };
+      state.pipelineStack = null;
       state.task = id;
       state.block = taskInfo(id).block;
       const toFrames = taskNeighborhood(id, state.seqLens).map((r) => ({ ...r }));
@@ -637,6 +702,12 @@
       // 按住左键拖动过画布 → 这次抬起不算点击，避免"拖完手一松就进到别的 Task"。
       if (suppressClick) { suppressClick = false; return; }
       if (event.target.closest('button, input, [data-pa-task]')) stopPlayback();
+      const view = event.target.closest('[data-pa-view]');
+      if (view) { state.taskView = view.dataset.paView; drawDetail(); fit(); return; }
+      const step = event.target.closest('[data-pa-step]');
+      if (step) { selectStep(Number(step.dataset.paStep)); return; }
+      const stack = event.target.closest('[data-pa-stack]');
+      if (stack) { state.pipelineStack = Number(stack.dataset.paStack); drawDetail(); paintView(); return; }
       const block = event.target.closest('[data-pa-block]');
       if (block) {
         if (state.level === 'detail') back();
@@ -718,10 +789,20 @@
     on(viewport, 'pointercancel', endDrag);
     on(viewport, 'lostpointercapture', endDrag);
     on(viewport, 'pointerleave', () => { hoverTask = null; tooltip.hidden = true; syncSelection(); });
+    on(query('[data-pa-steps]'), 'keydown', (event) => {
+      if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault(); selectStep(state.pipelineStep + (event.key === 'ArrowRight' ? 1 : -1));
+        query(`[data-pa-step="${state.pipelineStep}"]`).focus({ preventScroll: true });
+      }
+    });
     on(viewport, 'keydown', (event) => {
       const cell = event.target.closest('[data-pa-task]');
       const id = cell ? Number(cell.dataset.paTask) : state.task ?? 0;
-      if (event.key === 'Enter') { event.preventDefault(); enterTask(id); }
+      if (state.level === 'detail' && event.target.closest('[data-pa-stack]') && ['Enter', ' '].includes(event.key)) {
+        event.preventDefault(); state.pipelineStack = Number(event.target.closest('[data-pa-stack]').dataset.paStack); drawDetail(); paintView();
+      } else if (state.level === 'detail' && state.taskView === 'pipeline' && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault(); selectStep(state.pipelineStep + (event.key === 'ArrowRight' ? 1 : -1));
+      } else if (event.key === 'Enter') { event.preventDefault(); enterTask(id); }
       else if (event.key === ' ' && cell) { event.preventDefault(); chooseTask(id); }
       else if (event.key === 'Escape') { event.preventDefault(); back(); }
       else if (event.key === '+' || event.key === '=') { event.preventDefault(); zoomBy(1.25, null, id); }
@@ -791,5 +872,5 @@
     mounted = controller;
     return controller;
   }
-  global.PtoPagedAttentionIntro = { mount, model: { constants, defaultSeqLens, taskInfo, tasksForBlock, partition } };
+  global.PtoPagedAttentionIntro = { mount, model: { constants, defaultSeqLens, taskInfo, tasksForBlock, partition, pipelineFor, taskNeighborhood } };
 })(window);
