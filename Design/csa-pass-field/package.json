@@ -1,0 +1,21 @@
+{
+  "name": "csa-pass-field",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data:build": "node scripts/build-csa-qk-pv.mjs && node scripts/build-context.mjs",
+    "data:validate": "node scripts/validate-data.mjs",
+    "dev": "vite",
+    "build": "npm run data:build && npm run data:validate && vite build && node scripts/copy-data.mjs && node scripts/inline-dist.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "5.0.4",
+    "dagre": "^0.8.5",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "reactflow": "11.4.2",
+    "vite": "6.4.2"
+  }
+}

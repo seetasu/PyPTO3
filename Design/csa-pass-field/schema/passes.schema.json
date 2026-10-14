@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "csa-pass-field.passes.v1",
+  "type": "object",
+  "required": ["schemaVersion", "scenarioId", "passes"],
+  "properties": {
+    "schemaVersion": { "const": "csa-pass-field.passes.v1" },
+    "passes": { "type": "array", "items": { "type": "object", "required": ["id", "index", "name", "phase", "changed", "delta"] } }
+  }
+}
