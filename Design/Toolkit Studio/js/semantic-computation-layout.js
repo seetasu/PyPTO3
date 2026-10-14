@@ -137,7 +137,8 @@
       scope.nodes.forEach((item) => {
         const node = item.node;
         const id = item.id;
-        nodes.push({ ...root.PTO_COMPUTATION_PRESENTATION.node(node, { id, parentId: scope.prefix || undefined }),
+        // 投影需要 model 才能解析常量与运行时维度；几何仍只由语义节点决定。
+        nodes.push({ ...root.PTO_COMPUTATION_PRESENTATION.node(node, { id, parentId: scope.prefix || undefined, model }),
           x: offsetX + item.x, y: offsetY + item.y, w: item.boxW,
           h: item.inner ? 42 : item.boxH,
           childOperation: !!scope.prefix, expandable: !!node.composite?.subgraph,
