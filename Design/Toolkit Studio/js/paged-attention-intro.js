@@ -54,7 +54,29 @@
     return rects;
   }
   // Kept in this page session; mounting/unmounting does not reset exploration.
-  const state = { taskView: 'pipeline', pipelineStep: 2, pipelineStack: null, seqLens: [...defaultSeqLens], block: null, task: null, level: 'matrix', view: null, matrixView: null, matrixSize: null, size: null };
+  const state = { stage: 'qk', taskView: 'pipeline', pipelineStep: 2, pipelineStack: null, seqLens: [...defaultSeqLens], block: null, task: null, level: 'matrix', view: null, matrixView: null, matrixSize: null, size: null };
+  // A single selection owner: the compute map reads/writes this same page-session state.
+  const stageNodes = Object.freeze({ qk: 'qk', softmax: 'softmax', pv: 'pv', accumulate: 'context-acc' });
+  const stageLabels = Object.freeze({ qk: 'QK', softmax: 'Softmax', pv: 'PV', accumulate: 'Accumulate' });
+  const context = {
+    stageNodes, stageLabels,
+    get selection() {
+      const task = state.task === null ? null : taskInfo(state.task);
+      return { block: state.block, task: state.task, batch: task?.batch ?? null, kvHead: task?.kv ?? null,
+        pipelineStep: state.pipelineStep, stack: state.pipelineStack, stage: state.stage };
+    },
+    selectStage(stage) {
+      if (!Object.hasOwn(stageNodes, stage)) return;
+      state.stage = stage;
+      if (state.task !== null && state.pipelineStack === null) {
+        const data = pipelineFor(state.seqLens[taskInfo(state.task).batch]);
+        const step = data.steps[Math.min(state.pipelineStep, data.stepCount - 1)];
+        state.pipelineStack = ['qk', 'softmax'].includes(stage) ? step.produceStack : step.consumeStack;
+      }
+      mounted?.refresh?.();
+    },
+  };
+  global.PtoPagedAttentionContext = context;
   const grid = { x: 94, y: 106, dx: 62, dy: 34, w: 54, h: 28, width: 1096, height: 388 };
   // Playback belongs to this page session. Selection stops it until reload,
   // including when the inspector or its tabs are mounted again.
@@ -102,6 +124,7 @@
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div>
       </div>
       <div class="kf-pa-map__pipeline-detail" data-pa-detail hidden aria-live="polite"></div>
+      <section class="kf-pa-map__operator" data-pa-operator hidden aria-label="Where in Operator"></section>
       <footer class="kf-pa-map__footer"><div><p data-pa-summary></p><span data-pa-hint>滚轮放大进入 Task · 拖拽平移</span></div><div class="kf-pa-map__tools" role="group" aria-label="简介画布操作"><button class="btn btn-ghost btn-sm" type="button" data-pa-action="out" aria-label="缩小简介">−</button><output data-pa-zoom>100%</output><button class="btn btn-ghost btn-sm" type="button" data-pa-action="in" aria-label="放大简介">＋</button><button class="btn btn-ghost btn-sm" type="button" data-pa-action="fit">适应</button></div></footer>
     </div>`;
     const viewport = query('.kf-pa-map__viewport');
@@ -212,8 +235,10 @@
       const x0 = 230, dx = 62;
       const label = (text, x, y) => `<text class="kf-pa-map__detail-label" x="${x}" y="${y}">${text}</text>`;
       const mark = (stackId, x, y, active) => `<g class="kf-pa-map__pipeline-mark${active && stackId !== null ? ' is-active' : ''}${stackId === state.pipelineStack ? ' is-stack-selected' : ''}"${stackId !== null ? ` data-pa-stack="${stackId}" role="button" tabindex="0" aria-label="Stack ${stackId}"` : ''}><rect x="${x}" y="${y}" width="54" height="38" rx="3"/><text x="${x + 27}" y="${y + 24}" text-anchor="middle">${stackId === null ? '—' : 'S' + stackId}</text></g>`;
-      return label('Pipeline Step →', 24, 154) + label('PRODUCE', 24, 220) + label('QK → Softmax', 24, 244)
-        + label('CONSUME', 24, 282) + label('PV → Accumulate', 24, 306)
+      const stageMark = (stage, x, y, stack) => `<g class="kf-pa-map__stage${state.stage === stage ? ' is-selected' : ''}" data-pa-stage="${stage}" data-pa-stage-stack="${stack ?? ''}" role="button" tabindex="${stack === null ? -1 : 0}" aria-disabled="${stack === null}" aria-pressed="${state.stage === stage}" aria-label="${stageLabels[stage]} · ${stack === null ? '当前 Step 无此阶段' : 'Stack ' + stack}"><rect x="${x - 4}" y="${y - 19}" width="${stage === 'accumulate' ? 100 : 76}" height="28" rx="3"/>${label(stageLabels[stage], x, y)}</g>`;
+      return label('Pipeline Step →', 24, 154) + label('PRODUCE', 24, 220)
+        + stageMark('qk', 24, 244, step.produceStack) + stageMark('softmax', 112, 244, step.produceStack)
+        + label('CONSUME', 24, 282) + stageMark('pv', 24, 306, step.consumeStack) + stageMark('accumulate', 112, 306, step.consumeStack)
         + data.steps.map((item) => `<g opacity="${item.tick === step.tick ? 1 : .4}">${label(item.tick, x0 + item.tick * dx + 23, 154)}${mark(item.produceStack, x0 + item.tick * dx, 208, item.tick === step.tick)}${mark(item.consumeStack, x0 + item.tick * dx, 270, item.tick === step.tick)}</g>`).join('')
         + `<path class="kf-pa-map__pipeline-offset" d="M${x0 + 27} 188 v-12 h${dx * constants.preLaunch} v12"/>`
         + label('PRE_LAUNCH = 2', x0 + 30, 172)
@@ -224,11 +249,19 @@
       const detail = state.level === 'detail';
       query('[data-pa-controls]').hidden = !detail;
       query('[data-pa-detail]').hidden = !detail;
+      query('[data-pa-operator]').hidden = !detail;
       if (!detail) return;
       const data = pipelineFor(state.seqLens[taskInfo(state.task).batch]);
       state.pipelineStep = Math.max(0, Math.min(state.pipelineStep, data.stepCount - 1));
       if (state.pipelineStack >= data.stackCount) state.pipelineStack = null;
       const step = data.steps[state.pipelineStep];
+      if (state.pipelineStack === null) state.pipelineStack = ['qk', 'softmax'].includes(state.stage) ? step.produceStack : step.consumeStack;
+      const c = context.selection;
+      query('[data-pa-operator]').innerHTML = `<span class="kf-eyebrow">WHERE IN OPERATOR</span>
+        <div class="kf-pa-map__current">Current: Task ${c.task} / ${c.stack === null ? '无活动 Stack' : 'Stack ' + c.stack} / ${stageLabels[c.stage]}</div>
+        <div class="kf-pa-map__operator-prep">Q/K/V Prep ↓ Cache Append ↓</div>
+        <nav aria-label="算子主计算链">${Object.entries(stageLabels).map(([stage, label]) => `<button class="btn btn-ghost btn-sm" type="button" data-pa-stage="${stage}" aria-pressed="${state.stage === stage}">${label}${state.stage === stage ? ` <small>▲ current · Stack ${c.stack ?? '—'}</small>` : ''}</button><span aria-hidden="true">→</span>`).join('')}<span>Output</span></nav>
+        <div><button class="btn btn-ghost btn-sm" type="button" data-pa-action="compute">Open full compute map ↗</button><button class="btn btn-ghost btn-sm" type="button" data-pa-action="source">View source ↗</button></div>`;
       host.querySelectorAll('[data-pa-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.paView === state.taskView)));
       query('[data-pa-steps]').hidden = state.taskView !== 'pipeline';
       query('[data-pa-steps]').innerHTML = `<span>Pipeline Step</span><button class="btn btn-ghost btn-sm" data-pa-step="${step.tick - 1}" aria-label="上一个 Pipeline Step" ${step.tick === 0 ? 'disabled' : ''}>‹</button>`
@@ -239,7 +272,7 @@
       query('[data-pa-detail]').innerHTML = `<div><b>Step ${step.tick}</b><span>Producer: ${name(step.produceStack)} · Consumer: ${name(step.consumeStack)}</span><span>${step.consumeStack === null ? '预取阶段 · Consumer 尚未开始。' : step.produceStack === null ? '排空阶段 · Consumer 完成剩余 Stack。' : 'Consumer 正在处理两步之前生产的 Stack。'}</span></div>
         <p>Logical pipeline iteration · not hardware clock cycle</p>
         ${state.pipelineStack !== null ? `<div><b>Stack ${stack.id}</b><span>Logical Pages: ${Array.from({ length: constants.pagesPerStack }, (_, i) => stack.pages[i] ? `P${stack.pages[i].id} ${stack.pages[i].validTokens}/128` : '—').join(' · ')}</span><span>Token range: ${stack.tokenStart}–${stack.tokenEnd}</span><span class="is-slot-active">Stack ${stack.id} → Slot ${stack.slot}</span><span>${stack.previousStack === null ? '首次使用此 Slot' : `Slot ${stack.slot} previously used by Stack ${stack.previousStack} · Step ${stack.previousStack + constants.preLaunch} 消费后，Step ${stack.id} 可复用`}</span></div>
-        <div class="kf-pa-map__hardware"><span>AIC · QK</span><span>→ QK_READY_EVENT →</span><span>AIV · Softmax</span><span>→ SOFTMAX_READY_EVENT →</span><span>AIC · PV</span><span>→ PV_READY_EVENT →</span><span>AIV · Accumulate</span></div>
+        <div class="kf-pa-map__hardware"><button class="btn btn-ghost btn-sm" data-pa-stage="qk" aria-pressed="${state.stage === 'qk'}">AIC · QK</button><span>→ QK_READY_EVENT →</span><button class="btn btn-ghost btn-sm" data-pa-stage="softmax" aria-pressed="${state.stage === 'softmax'}">AIV · Softmax</button><span>→ SOFTMAX_READY_EVENT →</span><button class="btn btn-ghost btn-sm" data-pa-stage="pv" aria-pressed="${state.stage === 'pv'}">AIC · PV</button><span>→ PV_READY_EVENT →</span><button class="btn btn-ghost btn-sm" data-pa-stage="accumulate" aria-pressed="${state.stage === 'accumulate'}">AIV · Accumulate</button></div>
         <p>READY events 同步同一 Stack 的 score → probability → PV partial；Accumulate 重缩放并累加。3 slots = PRE_LAUNCH + 1，循环承载中间数据；全部 Stack 完成后 Final Normalize / Output。</p>` : '<p>PRE_LAUNCH = 2 · Producer 提前 2 个 Stack；3 个 transfer slots 循环复用。点击 Stack 查看 Pages、硬件阶段与 READY 同步。全部 Stack 完成后 Final Normalize / Output。</p>'}`;
     }
     function selectStep(value) {
@@ -696,12 +729,26 @@
     }
     function chooseTask(id) {
       stopPlayback();
+      if (state.task !== id) state.pipelineStack = null;
       state.task = id; state.block = taskInfo(id).block; syncSelection();
     }
     on(host, 'click', (event) => {
       // 按住左键拖动过画布 → 这次抬起不算点击，避免"拖完手一松就进到别的 Task"。
       if (suppressClick) { suppressClick = false; return; }
       if (event.target.closest('button, input, [data-pa-task]')) stopPlayback();
+      const stage = event.target.closest('[data-pa-stage]');
+      if (stage) {
+        if (stage.getAttribute('aria-disabled') === 'true') return;
+        const frame = stage.closest('[data-pa-task]');
+        if (frame && Number(frame.dataset.paTask) !== state.task) focusTask(Number(frame.dataset.paTask));
+        if (stage.hasAttribute('data-pa-stage-stack')) state.pipelineStack = Number(stage.dataset.paStageStack);
+        context.selectStage(stage.dataset.paStage); return;
+      }
+      const handoff = event.target.closest('[data-pa-action]')?.dataset.paAction;
+      if (handoff === 'compute' || handoff === 'source') {
+        host.dispatchEvent(new CustomEvent('pto-pa-navigate', { bubbles: true, detail: { target: handoff, nodeId: stageNodes[state.stage] } }));
+        return;
+      }
       const view = event.target.closest('[data-pa-view]');
       if (view) { state.taskView = view.dataset.paView; drawDetail(); fit(); return; }
       const step = event.target.closest('[data-pa-step]');
@@ -735,14 +782,14 @@
       if (task) enterTask(Number(task.dataset.paTask));
       else fit();
     });
-    // 简介面板自身不滚动：滚轮一律不带动页面；落在画布上时用于缩放。
+    // 画布内滚轮用于缩放；详情及其入口区域保留正常滚动。
     // 移动画布改为按住左键拖拽（见 pointerdown 分支）。
     on(host, 'wheel', (event) => {
-      event.preventDefault();
       const rect = viewport.getBoundingClientRect();
       const inside = event.clientX >= rect.left && event.clientX <= rect.right
         && event.clientY >= rect.top && event.clientY <= rect.bottom;
       if (!inside) return;
+      event.preventDefault();
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1;
       const task = event.target.closest('[data-pa-task]');
       zoomBy(Math.exp(Math.max(-0.22, Math.min(0.22, -event.deltaY * unit * 0.003))), { x: event.clientX - rect.left, y: event.clientY - rect.top }, task ? Number(task.dataset.paTask) : null);
@@ -798,6 +845,8 @@
     on(viewport, 'keydown', (event) => {
       const cell = event.target.closest('[data-pa-task]');
       const id = cell ? Number(cell.dataset.paTask) : state.task ?? 0;
+      const stage = event.target.closest('[data-pa-stage]');
+      if (stage && ['Enter', ' '].includes(event.key)) { event.preventDefault(); stage.dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
       if (state.level === 'detail' && event.target.closest('[data-pa-stack]') && ['Enter', ' '].includes(event.key)) {
         event.preventDefault(); state.pipelineStack = Number(event.target.closest('[data-pa-stack]').dataset.paStack); drawDetail(); paintView();
       } else if (state.level === 'detail' && state.taskView === 'pipeline' && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
@@ -861,7 +910,7 @@
         paintPlayback();
       }, 400);
     }
-    const controller = { abort() {
+    const controller = { refresh() { if (state.level === 'detail') { drawDetail(); paintView(); } }, abort() {
       if (signal.aborted) return;
       cancelLayoutTween();
       cancelEnterTransit();

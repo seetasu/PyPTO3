@@ -2107,12 +2107,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
 
   let pypaGraphController = null;
-  // matmul.py 的右侧面板：只有「简介」是实装载的视图，其余页签留空占位。
+  // matmul.py 复用语义计算图画布与节点详情。
   let matmulIntroController = null;
+  let matmulPreviousPypaView = null;
   const MATMUL_VIEWS = [
     { key: 'intro', label: '简介', kicker: 'INTRO', aria: '简介' },
-    { key: 'graph', label: '计算图', kicker: 'COMPUTATION GRAPH', aria: 'Matmul 计算图（占位）' },
-    { key: 'shape', label: 'Tensor Shape', kicker: 'TENSOR SHAPE', aria: 'Matmul Tensor Shape（占位）' },
+    { key: 'graph', label: '计算图', kicker: 'COMPUTATION GRAPH', aria: 'Matmul 计算图' },
+    { key: 'shape', label: 'Tensor Shape', kicker: 'TENSOR SHAPE', aria: 'Matmul Tensor Shape' },
   ];
   const pypaTaskIntroEnabled = document.documentElement.dataset.pypaIntro === 'task-map';
   let pypaGraphView = pypaTaskIntroEnabled ? 'intro' : 'overview';
@@ -2155,9 +2156,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[char]);
 
+  function activeSemanticModel() {
+    return isMatmulFile(state.activeFile) ? window.PTO_MATMUL_SEMANTIC_GRAPH : window.PTO_PYPA_SEMANTIC_GRAPH;
+  }
+
   function pypaVisibleGraph() {
     if (pypaGraphView === 'overview') return window.PTO_PYPA_TASK_GRAPH;
-    const model = window.PTO_PYPA_SEMANTIC_GRAPH;
+    const model = activeSemanticModel();
     if (!model) return window.PTO_PYPA_TASK_GRAPH;
     return window.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(model, pypaExpandedStages);
   }
@@ -2307,6 +2312,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     syncPypaOverlays();
     // 计算图从入口向下阅读；Reset 回到入口，Fit 才显示整个长图。
     const defaultView = () => {
+      if (isMatmulFile(state.activeFile)) {
+        const scale = Math.min(0.9, (viewport.clientWidth - 48) / sceneWidth, (viewport.clientHeight - 48) / sceneHeight);
+        return { scale: Math.max(0.15, scale), tx: (viewport.clientWidth - sceneWidth * scale) / 2, ty: (viewport.clientHeight - sceneHeight * scale) / 2 };
+      }
       if (pypaGraphView === 'overview') {
         const fit = Math.min(0.65, (viewport.clientWidth - 32) / 1500, (viewport.clientHeight - 32) / 1040);
         return { scale: fit, tx: (viewport.clientWidth - 1500 * fit) / 2 - 450 * fit, ty: 250 };
@@ -2450,7 +2459,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
      （<wbr>），维名不会被拆开；卡片的显示高度仍落在布局预留的盒高内。 */
   function pypaComputeCardHtml(node) {
     const layers = typeof pypaOverlays === 'undefined' ? { shape: true, precision: true, memory: false, control: false } : pypaOverlays;
-    const fields = node.overlay || window.PTO_COMPUTATION_PRESENTATION.overlays(node, { model: window.PTO_PYPA_SEMANTIC_GRAPH, qualifiedId: node.id });
+    const fields = node.overlay || window.PTO_COMPUTATION_PRESENTATION.overlays(node, { model: activeSemanticModel(), qualifiedId: node.id });
     const shape = layers.shape && node.card ? fields.shape
       ? `<span class="kf-pypa-graph__node-shape" title="${pypaEscape(fields.shapeTitle)}">${pypaEscape(fields.shape).replace(/,\s+/g, ',<wbr> ')}</span>`
       : '<span class="kf-pypa-graph__node-shape is-undeclared">Shape 未声明</span>' : '';
@@ -2479,7 +2488,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   function revealPypaSource(node, rangeIndex = node.source?.primaryRange || 0) {
     const line = pypaSourceRanges(node)[rangeIndex]?.[0];
     if (!line) return;
-    const focus = pagedAttentionPyptoFocusForLine(line);
+    const focus = isMatmulFile(state.activeFile) ? matmulFocusForLine(line) : pagedAttentionPyptoFocusForLine(line);
     state.sourceRegionFocus = focus;
     focusSourceRegion(focus);
     revealSourceRegionLine(line);
@@ -2488,6 +2497,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   function selectPypaGraphNode(node, { pan = false } = {}) {
     if (!node || pypaGraphView !== 'compute') return;
     pypaSelectedNodeId = node.id;
+    const context = isMatmulFile(state.activeFile) ? null : window.PtoPagedAttentionContext;
+    const stage = Object.keys(context?.stageNodes || {}).find((key) => context.stageNodes[key] === node.id);
+    if (stage) context.selectStage(stage);
+    const contextBar = $('#pypaExecutionContext');
+    if (contextBar) contextBar.innerHTML = pypaExecutionContextHtml();
+    $$('#pypaTaskScene [data-pypa-node]').forEach((item) => item.classList.toggle('is-context-muted', context?.selection.task !== null && !!stage && item.dataset.pypaNode !== node.id));
     $$('#pypaTaskScene [data-pypa-node]').forEach((item) => item.classList.toggle('is-selected', item.dataset.pypaNode === pypaSelectedNodeId));
     $$('#pypaTaskScene [data-pypa-group]').forEach((item) => item.classList.toggle('is-selected', item.dataset.pypaGroup === pypaSelectedNodeId));
     if (pan) pypaGraphController?.focusNode?.(node);
@@ -2571,7 +2586,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       </section>`;
   }
   function pypaInspectorHtml(node, ranges) {
-    const model = window.PTO_PYPA_SEMANTIC_GRAPH;
+    const model = activeSemanticModel();
     const detail = window.PTO_COMPUTATION_PRESENTATION.tensorDetail(node, { model, qualifiedId: node.id });
     const parts = [
       `<div class="kf-pypa-graph__inspector-head"><span>NODE INSPECTOR · ${pypaEscape(node.badge)}</span><button type="button" data-pypa-inspector-close aria-label="关闭节点详情">×</button></div>`,
@@ -2634,6 +2649,27 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     </div>`;
   }
 
+  document.addEventListener('pto-pa-navigate', (event) => {
+    if (!isPagedAttentionPyptoFile(state.activeFile)) return;
+    const { target, nodeId } = event.detail;
+    if (target === 'source') {
+      const graph = window.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(window.PTO_PYPA_SEMANTIC_GRAPH, pypaExpandedStages);
+      const node = graph.nodes.find((item) => item.id === nodeId);
+      if (node) revealPypaSource(node);
+    } else if (target === 'compute') {
+      pypaGraphView = 'compute';
+      pypaGraphTransform = null;
+      renderSourceRegionPanel();
+    }
+  });
+
+  function pypaExecutionContextHtml() {
+    const context = window.PtoPagedAttentionContext;
+    const c = context?.selection;
+    if (!c || c.task === null) return '<span>OPERATOR COMPUTE MAP · 算子静态语义结构</span>';
+    return `<div><button class="btn btn-ghost btn-sm" type="button" data-pypa-view="intro">← Task Execution</button><b>Task ${c.task}</b><span>Batch ${c.batch} · KV ${c.kvHead}</span><span>Step ${c.pipelineStep}</span><span>Stack ${c.stack ?? '—'}</span><strong>Stage · ${context.stageLabels[c.stage]}</strong></div><small>算子静态语义结构 · 当前执行实例：Task ${c.task} / Stack ${c.stack ?? '—'}</small>`;
+  }
+
   function renderSourceRegionPanel() {
     const host = $('#inspector');
     if (!host) return;
@@ -2645,16 +2681,23 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       renderMatmulIntroPanel(host);
       return;
     }
+    if (matmulPreviousPypaView !== null) {
+      pypaGraphView = matmulPreviousPypaView;
+      matmulPreviousPypaView = null;
+      pypaGraphTransform = null;
+      pypaSelectedNodeId = null;
+      pypaExpandedStages.clear();
+    }
     host.classList.remove('is-op-inspector');
     const isIntro = pypaGraphView === 'intro';
     if (pypaGraphView !== 'compute') $$('#dslEditor .is-pypa-source-evidence').forEach((row) => row.classList.remove('is-pypa-source-evidence'));
-    $('#inspectorTitle').textContent = isIntro ? '简介' : '计算流程图';
+    $('#inspectorTitle').textContent = isIntro ? '任务分配' : '计算流程图';
     $('#inspectorMeta').textContent = PAGED_ATTENTION_PYPTO_FILE;
     host.innerHTML = `
-      <section class="kf-pypa-graph${pypaGraphView === 'compute' ? ' has-semantic-overlays' : ''}${isIntro && pypaTaskIntroEnabled ? ' has-task-intro' : ''}" aria-label="${isIntro ? '简介' : 'Paged Attention 计算流程'}">
-        ${isIntro && pypaTaskIntroEnabled ? '<div class="kf-pa-intro-mount"></div>' : isIntro ? `<div class="kf-pypa-intro" aria-label="简介">
+      <section class="kf-pypa-graph${pypaGraphView === 'compute' ? ' has-semantic-overlays' : ''}${isIntro && pypaTaskIntroEnabled ? ' has-task-intro' : ''}" aria-label="${isIntro ? '任务分配' : 'Paged Attention 计算流程'}">
+        ${isIntro && pypaTaskIntroEnabled ? '<div class="kf-pa-intro-mount"></div>' : isIntro ? `<div class="kf-pypa-intro" aria-label="任务分配">
           <span class="kf-eyebrow">INTRO</span>
-          <b>简介</b>
+          <b>任务分配</b>
           <p>占位内容：这里稍后补充 paged_attention_pypto.py 的算子简介（计算目标、输入 / 输出、关键配置）。</p>
         </div>` : `<div class="kf-pypa-graph__viewport" id="pypaTaskViewport" tabindex="0" aria-label="任务计算图画布：拖拽平移、滚轮缩放，加减号缩放，0 适应画布"><div class="kf-pypa-graph__scene" id="pypaTaskScene"></div></div>
         <div class="kf-pypa-graph__ops" role="group" aria-label="画布操作">
@@ -2669,18 +2712,27 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           <button type="button" data-pypa-op="reset" title="回到初始视图">复位</button>
         </div>
         ${pypaTaskIntroEnabled ? '' : renderPypaOperatorOverview()}`}
-        <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角"><button class="btn btn-ghost${isIntro ? ' is-active' : ''}" type="button" data-pypa-view="intro" aria-pressed="${isIntro}">简介</button><button class="btn btn-ghost${pypaGraphView === 'overview' ? ' is-active' : ''}" type="button" data-pypa-view="overview" aria-pressed="${pypaGraphView === 'overview'}">计算图版本1</button><button class="btn btn-ghost${pypaGraphView === 'compute' ? ' is-active' : ''}" type="button" data-pypa-view="compute" aria-pressed="${pypaGraphView === 'compute'}">计算流程</button></div>
-        ${pypaGraphView === 'compute' ? pypaOverlayToolbarHtml() : ''}
+        <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角"><button class="btn btn-ghost${isIntro ? ' is-active' : ''}" type="button" data-pypa-view="intro" aria-pressed="${isIntro}">任务分配</button><button class="btn btn-ghost${pypaGraphView === 'overview' ? ' is-active' : ''}" type="button" data-pypa-view="overview" aria-pressed="${pypaGraphView === 'overview'}">计算图版本1</button><button class="btn btn-ghost${pypaGraphView === 'compute' ? ' is-active' : ''}" type="button" data-pypa-view="compute" aria-pressed="${pypaGraphView === 'compute'}">计算流程</button></div>
+        ${pypaGraphView === 'compute' ? '<header class="kf-pa-execution-context" id="pypaExecutionContext">' + pypaExecutionContextHtml() + '</header>' + pypaOverlayToolbarHtml() : ''}
         ${pypaGraphView === 'compute' ? '<aside class="kf-pypa-graph__inspector" id="pypaNodeInspector" aria-label="Node Inspector" hidden></aside>' : ''}
         ${pypaGraphView === 'overview' ? '<footer class="kf-pypa-graph__status" id="pypaGraphStatus">拖拽平移 · 滚轮缩放 · 点击节点定位源码</footer>' : ''}
       </section>`;
-    if (!isIntro) renderPyptoTaskGraph();
+    if (!isIntro) {
+      renderPyptoTaskGraph();
+      if (pypaGraphView === 'compute') {
+        const context = window.PtoPagedAttentionContext;
+        const c = context?.selection;
+        const id = c?.task !== null ? context?.stageNodes[c?.stage] : pypaSelectedNodeId;
+        const node = pypaGraphController?.nodes?.find((item) => item.id === id);
+        if (node) selectPypaGraphNode(node, { pan: true });
+      }
+    }
     else if (pypaTaskIntroEnabled) pypaGraphController = window.PtoPagedAttentionIntro.mount(host.querySelector('.kf-pa-intro-mount'));
   }
 
   /* ---- matmul.py 的右侧面板 -------------------------------------------------
      与 paged_attention_pypto.py 同构：一排图层页签 + 一块内容区。区别是这里
-     只有「简介」接了实装（PtoMatmulIntro），其余页签按需求只占位、无内容。
+     简介由 PtoMatmulIntro 装载，计算图复用共享语义渲染器。
      页签用 has-task-intro 把整排提到面板顶部，与 PA 简介视图的排版一致。 */
   function renderMatmulIntroPanel(host) {
     host.classList.remove('is-op-inspector');
@@ -2689,19 +2741,28 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     state.matmulView = view;
     const active = views.find((item) => item.key === view) || views[0];
     const isIntro = view === 'intro';
+    const isGraph = view === 'graph';
+    if (matmulPreviousPypaView === null) {
+      matmulPreviousPypaView = pypaGraphView;
+      pypaGraphTransform = null;
+      pypaSelectedNodeId = null;
+      pypaExpandedStages.clear();
+    }
+    pypaGraphView = isGraph ? 'compute' : 'intro';
+    if (!isGraph) $$('#dslEditor .is-pypa-source-evidence').forEach((row) => row.classList.remove('is-pypa-source-evidence'));
     $('#inspectorTitle').textContent = active.label;
     $('#inspectorMeta').textContent = MATMUL_FILE;
     host.innerHTML = `
-      <section class="kf-pypa-graph has-task-intro" aria-label="matmul.py ${active.aria}">
+      <section class="kf-pypa-graph${isGraph ? ' has-semantic-overlays' : ' has-task-intro'}" aria-label="matmul.py ${active.aria}">
         ${isIntro
           ? '<div class="kf-pa-intro-mount"></div>'
-          : `<div class="kf-pypa-intro" aria-label="${active.aria}">
-          <span class="kf-eyebrow">${active.kicker}</span>
-          <b>${active.label}</b>
-          <p>占位视图：本页暂未实现，后续将在这里补充 matmul.py 的${active.label}。</p>
-        </div>`}
+          : isGraph ? `<div class="kf-pypa-graph__viewport" id="pypaTaskViewport" tabindex="0" aria-label="Matmul 计算图：拖拽平移、滚轮缩放"><div class="kf-pypa-graph__scene" id="pypaTaskScene"></div></div>
+          <div class="kf-pypa-graph__ops" role="group" aria-label="画布操作"><div class="kf-pypa-graph__zoom"><button type="button" data-pypa-op="out" aria-label="缩小">−</button><span id="pypaGraphZoom" class="kf-pypa-graph__readout">100%</span><button type="button" data-pypa-op="in" aria-label="放大">＋</button></div><button type="button" data-pypa-op="fit">适应</button><button type="button" data-pypa-op="actual">1:1</button><button type="button" data-pypa-op="reset">复位</button></div>`
+          : '<div class="kf-pypa-intro"><b>Tensor Shape</b><p>选择计算图中的数据节点，查看张量形状和切片关系。</p></div>'}
         <div class="kf-pypa-graph__layers" role="group" aria-label="图层视角">${views.map((item) => `<button class="btn btn-ghost${item.key === view ? ' is-active' : ''}" type="button" data-mm-view="${item.key}" aria-pressed="${item.key === view}">${item.label}</button>`).join('')}</div>
+        ${isGraph ? '<header class="kf-pa-execution-context"><span>C = A @ B · 4 × 4 输出分块 · 每块 64 × 64 · 完整 K = 256</span><small>展开 Tile 查看计算依赖；点击节点定位源码。</small></header>' + pypaOverlayToolbarHtml() + '<aside class="kf-pypa-graph__inspector" id="pypaNodeInspector" aria-label="节点详情" hidden></aside>' : ''}
       </section>`;
+    if (isGraph) renderPyptoTaskGraph();
     if (isIntro) matmulIntroController = window.PtoMatmulIntro?.mount(host.querySelector('.kf-pa-intro-mount'));
   }
 
@@ -5636,7 +5697,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     }
     // 计算流程图画布操作（缩放 / 适应 / 1:1 / 复位）
     const pypaOp = event.target.closest('[data-pypa-op]');
-    if (pypaOp && isPagedAttentionPyptoFile(state.activeFile)) {
+    if (pypaOp && (isPagedAttentionPyptoFile(state.activeFile) || isMatmulFile(state.activeFile))) {
       const controller = pypaGraphController;
       if (controller) {
         const op = pypaOp.dataset.pypaOp;
@@ -5665,12 +5726,15 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       }
       return;
     }
-    // matmul.py 右侧面板的图层页签：只有「简介」装了内容，其余是空占位。
+    // matmul.py 的图层页签切换。
     const matmulViewButton = event.target.closest('[data-mm-view]');
     if (matmulViewButton && isMatmulFile(state.activeFile)) {
       const nextView = matmulViewButton.dataset.mmView;
       if (nextView !== state.matmulView) {
         state.matmulView = nextView;
+        pypaGraphTransform = null;
+        pypaSelectedNodeId = null;
+        pypaExpandedStages.clear();
         renderSourceRegionPanel();
       }
       return;
@@ -5681,13 +5745,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       return;
     }
     const pypaSourceButton = event.target.closest('[data-pypa-source-range]');
-    if (pypaSourceButton && isPagedAttentionPyptoFile(state.activeFile)) {
+    if (pypaSourceButton && (isPagedAttentionPyptoFile(state.activeFile) || isMatmulFile(state.activeFile))) {
       const node = pypaVisibleGraph()?.nodes.find((item) => item.id === pypaSourceButton.dataset.pypaSourceNode);
       if (node) revealPypaSource(node, Number(pypaSourceButton.dataset.pypaSourceRange));
       return;
     }
     const pyptoNode = event.target.closest('[data-pypa-node]');
-    if (pyptoNode && isPagedAttentionPyptoFile(state.activeFile)) {
+    if (pyptoNode && (isPagedAttentionPyptoFile(state.activeFile) || isMatmulFile(state.activeFile))) {
       const node = pypaVisibleGraph()?.nodes.find((item) => item.id === pyptoNode.dataset.pypaNode);
       if (!node) return;
       if (node.expandable) {
