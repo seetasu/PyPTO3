@@ -159,3 +159,28 @@
   .kf-pa-map__footer { align-items: flex-end; }
   .kf-pa-map__assignment { font-size: 11px; }
 }
+/* Logical execution data within the existing Task frame and pane. */
+.kf-pa-map__pipeline-controls { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-2) 0; flex: none; }
+.kf-pa-map__pipeline-controls > span { color: var(--foreground-muted); font: var(--type-micro); }
+.kf-pa-map__pipeline-controls [data-pa-steps] { display: flex; align-items: center; gap: var(--space-1); font: var(--type-mono); }
+.kf-pa-map__pipeline-controls .btn[aria-pressed="true"] { color: var(--primary); background: var(--state-selected); }
+.kf-pa-map__pipeline-mark { cursor: pointer; outline: none; }
+.kf-pa-map__pipeline-mark rect { fill: var(--surface-3); stroke: var(--border-subtle); }
+.kf-pa-map__pipeline-mark text { fill: var(--foreground-secondary); }
+.kf-pa-map__pipeline-mark.is-active rect { fill: var(--state-selected); stroke: var(--primary); }
+.kf-pa-map__pipeline-mark:is(.is-active, .is-stack-selected) text { fill: var(--primary); }
+.kf-pa-map__pipeline-mark:is(.is-stack-selected, :focus-visible) rect { stroke: var(--primary); stroke-width: 2; }
+.kf-pa-map__pipeline-offset { fill: none; stroke: var(--primary); }
+.kf-pa-map__pipeline-detail { flex: none; max-height: 32%; overflow: auto; padding-top: var(--space-2); border-top: 1px solid var(--border-subtle); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.kf-pa-map__pipeline-detail > div { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); margin-bottom: var(--space-2); }
+.kf-pa-map__pipeline-detail b { color: var(--foreground); }
+.kf-pa-map__pipeline-detail p { margin: 0 0 var(--space-2); color: var(--foreground-muted); }
+.kf-pa-map__hardware, .kf-pa-map__pipeline-detail .is-slot-active { font-family: var(--font-mono); }
+.kf-pa-map__pipeline-detail .is-slot-active { color: var(--primary); }
+.kf-pa-map__slot { fill: var(--foreground-muted); }
+.kf-pa-map__slot.is-active { fill: var(--primary); }
+.kf-pa-intro-mount[data-level="detail"] .kf-pa-map { overflow-y: auto; }
+.kf-pa-intro-mount[data-level="detail"] .kf-pa-map__viewport { min-height: 320px; }
+.kf-pa-intro-mount[data-level="detail"] .kf-pa-map__footer { align-items: flex-start; }
+.kf-pa-map__pipeline-detail { max-height: 180px; }
+.kf-pa-map__stack.is-stack-selected { fill: var(--state-selected); stroke: var(--primary); }
