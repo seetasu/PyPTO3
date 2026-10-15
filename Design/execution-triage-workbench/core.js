@@ -236,6 +236,7 @@
       <tr><th scope="row"><b>来源</b></th><td>${esc(S.file)}</td></tr>
       <tr><th scope="row"><b>固定负载</b></th><td><code>${esc(S.workload)}</code></td></tr>
       <tr><th scope="row"><b>采集方式</b></th><td><code>${esc(S.capture)}</code></td></tr>
+      <tr><th scope="row"><b>分析口径</b></th><td>${esc(S.analysis)}</td></tr>
       <tr><th scope="row"><b>这份数据的边界</b></th><td>${esc(S.captureNote)}</td></tr>
       <tr><th scope="row"><b>导出格式</b></th><td>${esc(S.exporter)}（Worker View 下一核一行，${D.nAic} 个 AIC + ${D.nAiv} 个 AIV）</td></tr>
       <tr><th scope="row"><b>模型 / 阶段</b></th><td>${esc(S.model)} · ${esc(S.phase)}</td></tr>

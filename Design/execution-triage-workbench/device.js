@@ -300,6 +300,7 @@
       <tr><th scope="row"><b>来源</b></th><td>${esc(S.zip)} › ${esc(S.member)}</td></tr>
       <tr><th scope="row"><b>固定负载</b></th><td><code>${esc(S.workload)}</code>（压缩包名自带：GBS256 · 输入 256 / 输出 64）</td></tr>
       <tr><th scope="row"><b>采集方式</b></th><td>${esc(S.capture)}；${esc(S.captureNote)}</td></tr>
+      <tr><th scope="row"><b>分析口径</b></th><td>${esc(S.analysis)}</td></tr>
       <tr><th scope="row"><b>同一次采集的是</b></th><td>${esc(S.sameRunAs)}；<b>不是</b> ${esc(S.notSameRunAs)}</td></tr>
       <tr><th scope="row"><b>卡数</b></th><td>${esc(S.rank)}，所以没有 16 张卡的横向对比</td></tr>
       <tr><th scope="row"><b>画了哪些流</b></th><td>${esc(S.streamNote)}</td></tr>

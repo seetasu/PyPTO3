@@ -152,7 +152,9 @@ const out = {
      * 采集脚本是数据包里带的那个（collect_qwen3_profiles.py），仓库 skills 里没有对应流程。 */
     workload: `Qwen3-14B/TP1-fused-host/prefill_fwd x1/L2-swimlane-level${records.l2_swimlane_level}/${records.metadata.num_cores}core@${(records.metadata.clock_freq_hz / 1e6).toFixed(0)}MHz`,
     capture: 'collect_qwen3_profiles.py --mode swimlane（数据包自带的 TP=1 采集器，开 enable_l2_swimlane + enable_dep_gen）',
-    captureNote: 'pypto / pypto-serving 的 skills 里都没有 L2 swimlane 的采集流程，所以这一页只能引用这份导出；prompt 是采集脚本里那条固定的 chat 模板问句，不是压测负载，绝对时间只能当这台机器上的一次实例。',
+    captureNote: 'prompt 是采集脚本里那条固定的 chat 模板问句，不是压测负载；数据包 README 也写明这是某台机器上的一次真机采集，不能当跨机器基线。',
+    // 没有对应的 skill，但 PyPTO 文档里有这类数据的读法
+    analysis: 'pypto / pypto-serving 的 skills 里没有 L2 swimlane 流程，读法照 PyPTO 文档 docs/zh/user/performance/（00-swimlane 起：采集等级、dispatch→start 间隙、kernel 宽度、makespan 拆解）。本文件的 l2_swimlane_records.json / enable_l2_swimlane 是旧拼写，现名 chip_swimlane_records.json / enable_chip_swimlane，取值与语义不变。',
     decodeNote: '同目录的 decode.json 里 FuncId 全是 -1，任务映射不到算子名，所以这一页用 prefill',
     deps: `依赖来自每个任务的 fanin / fanout；deps.json 另有 ${deps.tasks.length} 个任务的张量形状与 ${deps.edges ? deps.edges.length : 0} 条边，本页没有用`,
   },
