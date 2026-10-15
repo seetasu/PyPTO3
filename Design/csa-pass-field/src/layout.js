@@ -6,7 +6,7 @@ const CORE_KINDS = new Set(['tensor', 'op', 'handoff']);
 
 function sizeOf(node, view) {
   if (node.renderKind === 'tensor') return tensorGeometry(node);
-  if (node.instances) return { width: 310, height: 86 };
+  if (node.instances) return { width: 310, height: 56 };
   if (node.renderKind === 'op') {
     const label = node.label.replace(/^tensor\.|^tile\./, 'tile.');
     const textWidth = [...label].reduce((width, char) => width + (/[ilI .·]/.test(char) ? 5 : /[MWQO]/.test(char) ? 13 : 9), 0);

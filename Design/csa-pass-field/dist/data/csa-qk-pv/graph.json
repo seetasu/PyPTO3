@@ -370,12 +370,12 @@
       "id": "memory.qk-pv",
       "semanticKind": "memref",
       "renderKind": "memory",
-      "label": "qk_pv buffers · 40 · 274 KiB",
+      "label": "qk_pv buffers · 分空间展开",
       "role": "pre-reuse local buffers",
       "attributes": {
-        "space": "Mat / Vec / Acc",
-        "buffers": 40,
-        "bytes": 280576
+        "space": "Mat / Left / Right / Acc / Vec",
+        "buffers": 53,
+        "bytes": 944128
       },
       "identity": {
         "lineageRoot": "memory.qk-pv",

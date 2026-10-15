@@ -1,5 +1,6 @@
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -45,3 +46,13 @@ await writeFile(indexPath, html, 'utf8');
 
 const { size } = await stat(indexPath);
 console.log(`inlined production page: dist/index.html (${Math.round(size / 1024)} KiB)`);
+
+const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');
+const sourceManifest = JSON.parse(await readFile(path.join(projectDir, 'data/csa-qk-pv/manifest.json'), 'utf8'));
+await writeFile(path.join(distDir, 'artifact-manifest.json'), JSON.stringify({
+  schemaVersion: 'csa-pass-field.artifact.v1',
+  runId: sourceManifest.buildIdentity.runId,
+  htmlSha256: sha256(html),
+  generatorSha256: sourceManifest.buildIdentity.generatorSha256,
+  inputHashes: sourceManifest.buildIdentity.inputHashes,
+}, null, 2) + '\n');

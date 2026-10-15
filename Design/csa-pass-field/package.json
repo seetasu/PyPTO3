@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "data:build": "node scripts/build-csa-qk-pv.mjs && node scripts/build-context.mjs",
+    "data:build": "node scripts/build-csa-qk-pv.mjs && node scripts/build-context.mjs && node scripts/build-memory.mjs",
     "data:validate": "node scripts/validate-data.mjs",
     "dev": "vite",
     "build": "npm run data:build && npm run data:validate && vite build && node scripts/copy-data.mjs && node scripts/inline-dist.mjs",

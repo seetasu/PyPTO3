@@ -1,18 +1,20 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { expandContextRanks } from './context-ranks';
 import ContextDiagram from './ContextDiagram';
 import contextData from '../data/csa-context.json';
 import './csa-context.css';
 
-export default function CsaContext({onClose}) {
+export default function CsaContext({onClose, ranksExpanded, onToggleRanks, onCompile, passIndex, activeRank}) {
   const [width,setWidth]=useState(640),[zoom,setZoom]=useState(1),[selected,setSelected]=useState(null);
   const [expanded,setExpanded]=useState(0),[offset,setOffset]=useState({x:0,y:0});
   const offsetRef=useRef({x:0,y:0});
   const moveTo=value=>{offsetRef.current=value;setOffset(value);};
   const graph=useMemo(()=>{
     const variant=contextData.variants[expanded];
-    return {...variant,...Object.fromEntries(['nodes','edges','clusters'].map(kind=>[kind,variant[kind].map(index=>contextData.pool[kind][index])]))};
-  },[expanded]);
+    const base = {...variant,...Object.fromEntries(['nodes','edges','clusters'].map(kind=>[kind,variant[kind].map(index=>contextData.pool[kind][index])]))};
+    return ranksExpanded ? expandContextRanks(base) : base;
+  },[expanded,ranksExpanded]);
   const toggle=id=>{setExpanded(mask=>mask^(1<<contextData.foldable.indexOf(id)));setSelected(null);};
   const panel=useRef(null),focus=useRef(null),drag=useRef(null),viewport=useRef(null),pan=useRef(null),zoomRef=useRef(1);
   useLayoutEffect(()=>{
@@ -22,7 +24,7 @@ export default function CsaContext({onClose}) {
     zoomRef.current=initialZoom;setZoom(initialZoom);
     moveTo({x:(el.clientWidth-graph.width*scale)/2,y:(el.clientHeight-graph.height*scale)/2});
     // Initial framing only: later interactions retain the user's camera.
-  },[]);
+  },[ranksExpanded]);
   const changeZoom=(value,point)=>{
     const el=viewport.current,previous=zoomRef.current,next=Math.max(.01,Math.min(3,value));
     if(!el||next===previous)return;
@@ -59,9 +61,10 @@ export default function CsaContext({onClose}) {
   };
   return <><div className="csa-context-dismiss" onClick={onClose}/><aside ref={panel} tabIndex={-1} className="csa-context" role="dialog" aria-label="CSA 原始计算图" style={{width}}>
     <header><h2 title="来源：CSA workbench。展示投影、压缩、检索和输出步骤；白框标出 qk_pv 对应的 QK、块统计与 PV。">CSA 原始计算图</h2>
-      <nav aria-label="计算图操作"><button title="定位 QK → 块统计 → PV 核心" onClick={locate}>qk_pv</button><button onClick={()=>changeZoom(zoomRef.current-.25)} aria-label="缩小计算图">−</button><span>{Math.round(zoom*100)}%</span><button onClick={()=>changeZoom(zoomRef.current+.25)} aria-label="放大计算图">+</button></nav>
+      <nav aria-label="计算图操作"><button aria-pressed={ranksExpanded} onClick={onToggleRanks}>{ranksExpanded?'收起 rank':'展开 rank'}</button><button title="定位 QK → 块统计 → PV 核心" onClick={locate}>qk_pv</button><button onClick={()=>changeZoom(zoomRef.current-.25)} aria-label="缩小计算图">−</button><span>{Math.round(zoom*100)}%</span><button onClick={()=>changeZoom(zoomRef.current+.25)} aria-label="放大计算图">+</button></nav>
       <button className="context-close" onClick={onClose} aria-label="关闭计算图">×</button>
     </header>
+    <p className="context-intro">{activeRank || '共享结构'} · qk_pv · Pass {String(passIndex).padStart(2,'0')} · 点击 QK / Softmax / PV 联动编译{ranksExpanded?' · 静态 rank 映射 Mock':''}</p>
     <div ref={viewport} className="context-scroll" aria-label="计算图画布，滚轮缩放，按住空白区域拖拽移动"
       onPointerDown={e=>{
         if(e.button!==0||e.target.closest('.context-node'))return;
@@ -71,7 +74,7 @@ export default function CsaContext({onClose}) {
       }}
       onPointerMove={e=>{if(!pan.current)return;const p=pan.current;moveTo({x:p.left+e.clientX-p.x,y:p.top+e.clientY-p.y});}}
       onPointerUp={endPan} onPointerCancel={endPan} onLostPointerCapture={()=>{pan.current=null;viewport.current?.classList.remove('is-panning');}}>
-      <div className="context-scene" style={{transform:`translate(${offset.x}px, ${offset.y}px)`}}><ContextDiagram graph={graph} width={Math.max(width-34,1000)*zoom} bounds={model.bounds} focusRef={focus} selected={selected} onSelect={n=>n.foldable?toggle(n.id):setSelected(n)} onToggle={toggle}/></div>
+      <div className="context-scene" style={{transform:`translate(${offset.x}px, ${offset.y}px)`}}><ContextDiagram graph={graph} width={Math.max(width-34,1000)*zoom} bounds={model.bounds} focusRef={focus} selected={selected} onSelect={n=>{if(n.foldable)toggle(n.sourceId||n.id);else {setSelected(n);if(n.focus)onCompile(n.rankId||null);}}} onToggle={id=>toggle(id.split('::').at(-1))}/></div>
     </div>
     {selected&&<footer><div><strong>{selected.label}</strong><p title={selected.detail}>{selected.detail}</p></div><button onClick={()=>setSelected(null)} aria-label="收起节点详情">×</button></footer>}
     <div className="context-resize" role="separator" tabIndex="0" aria-label="调整计算图宽度" aria-orientation="vertical" aria-valuenow={width} aria-valuemin="320" aria-valuemax={window.innerWidth-24} onPointerDown={e=>{drag.current={x:e.clientX,width};e.currentTarget.setPointerCapture(e.pointerId);}} onPointerMove={e=>{if(drag.current)setWidth(cap(drag.current.width+e.clientX-drag.current.x));}} onPointerUp={()=>drag.current=null} onPointerCancel={()=>drag.current=null} onKeyDown={e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();setWidth(w=>cap(w+(e.key==='ArrowRight'?32:-32)));}}}/>

@@ -99,3 +99,22 @@ for (const instruction of isa.instructions) {
 console.log(`validated ${graph.nodes.length} nodes, ${graph.edges.length} edges, ${passes.passes.length} Passes`);
 console.log(`qk_pv: ${passes.summary.sourceChangedForQkPvFamily} family-source changes / ${passes.summary.changedForProgram} program changes / ${passes.summary.noOpForProgram} no-op`);
 console.log(`replay hash: ${initialHash.slice(0, 12)}`);
+
+for (const index of [43, 45, 50]) {
+  const pass = passes.passes.find(p => p.index === index);
+  assert(pass.programSourceChanged && !pass.familySourceChanged, `Pass ${index} scope regression`);
+  assert(pass.contract.intent.includes("qk_pv family 保持不变"), `Pass ${index} misleading intent`);
+  assert(pass.programEvidence.before.text !== pass.programEvidence.after.text, `Pass ${index} missing program evidence`);
+}
+for (const index of [22, 40, 51]) assert(passes.passes.find(p => p.index === index).noOp, `Pass ${index} must remain no-op`);
+assert(passes.passes.find(p => p.index === 23).familySourceChanged, "split must change family");
+assert(manifest.deployment.ranks.length === 2, "run rank count");
+for (const rank of manifest.deployment.ranks) {
+  const raw = JSON.parse(fs.readFileSync(path.join(ROOT, rank.sourceRefs[0].file), "utf8"));
+  for (const type of ["aic", "aiv"]) assert(rank.cores[type] === raw.metadata.core_types.filter(t => t === type).length, "resource count mismatch");
+}
+const links = read("object-links.json");
+assert(links.links.length === graph.nodes.length, "every static object must declare matching status");
+assert(links.links.every(l => l.status === "unresolved" && !l.runtimeIds.length && l.reason), "unverified runtime identity");
+for (const [file, hash] of Object.entries(manifest.buildIdentity.inputHashes)) assert(crypto.createHash("sha256").update(fs.readFileSync(path.join(ROOT, file))).digest("hex") === hash, `input hash drift: ${file}`);
+console.log("Fix scope, resource, identity and provenance checks passed");

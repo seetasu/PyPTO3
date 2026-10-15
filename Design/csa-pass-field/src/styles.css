@@ -60,8 +60,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset:
 .condition-region .loop-range rect { stroke: #aaa; stroke-dasharray: 2 7; }
 .condition-region > header { color: #ccc; }
 .instruction-collection { width: 100%; height: 100%; position: relative; }
-.instruction-collection > .collection-toggle { width: 100%; height: 76px !important; min-height: 76px; max-height: 76px; flex: 0 0 76px; border: 0; cursor: pointer; text-align: left; }
-.collection-heading { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.instruction-collection > .collection-toggle { width: 100%; height: 56px !important; min-height: 56px; max-height: 56px; flex: 0 0 56px; padding: 10px 12px; border: 0; cursor: pointer; text-align: left; }
+.collection-heading { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .collection-heading small { font: 11px/1.2 var(--font-data); color: #233413; white-space: nowrap; }
 .collection-heading small { overflow: hidden; text-overflow: ellipsis; }
 .instruction-origin { position: absolute; left: 0; top: -32px; font: 13px/22px var(--font-data); color: #ddd; background: #131313; padding: 0 6px; white-space: nowrap; }
@@ -411,8 +411,11 @@ button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset:
 .pass-tick span, .noop-run span { font: 620 8px var(--font-data); }
 .pass-tick small { display: none; margin-top: 3px; max-width: 96px; font: 7px/1.15 var(--font-data); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pass-tick::after { content: none; position: absolute; left: 9px; right: 9px; bottom: 5px; height: 1px; background: #555; }
-.pass-tick.has-delta::after { content: ""; height: 2px; background: #bbb; }
-.pass-tick.is-noop { opacity: .44; }
+.pass-tick.scope-local::after { content: ""; height: 2px; background: #bbb; }
+.pass-tick.scope-global::after { content: ""; height: 0; border-top: 2px dashed #bbb; background: transparent; }
+.pass-tick.scope-none::after { content: ""; left: calc(50% - 2px); right: auto; width: 4px; height: 4px; border: 1px solid #999; border-radius: 50%; background: transparent; }
+.pass-tick { opacity: 1; }
+.pass-tick:focus-visible { outline: 1px solid #ddd; outline-offset: -2px; }
 .pass-tick:hover { background: rgba(255,255,255,.05); }
 .pass-tick.is-current { color: #111; background: #fff; box-shadow: none; text-shadow: none; opacity: 1; overflow: visible; }
 .pass-tick.is-current span { font-size: 9px; }
@@ -498,3 +501,68 @@ button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset:
   :root { --motion-fast: 0ms; --motion-layout: 0ms; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; }
 }
+
+/* Rank deployment projection shares the existing compile glyphs and semantic palette. */
+.rank-frame { width: 100%; height: 100%; border: 2px solid #666; border-radius: 24px; background: #151515; }
+.rank-frame.rank-selected { border-color: #ddd; }
+.rank-frame > header { display: flex; align-items: baseline; gap: 24px; padding: 24px 36px 16px; color: #bbb; }
+.rank-frame > header strong { color: #eee; font: 32px var(--font-data); }
+.rank-resources { display: flex; gap: 40px; margin: 0 36px; }
+.rank-resources > div { display: flex; align-items: center; gap: 16px; }
+.rank-resources b { color: #bbb; font: 14px var(--font-data); white-space: nowrap; }
+.core-inventory { display: grid; grid-template-columns: repeat(24, 7px); gap: 3px; }
+.core-inventory i { width: 7px; height: 9px; border: 1px solid #888; }
+.deployment-switch { position: absolute; z-index: 25; top: 30px; left: 50%; transform: translateX(-50%); display: flex; padding: 4px; border-radius: 99px; }
+.deployment-switch button { border: 0; border-radius: 99px; padding: 9px 18px; background: transparent; color: #bbb; cursor: pointer; }
+.deployment-switch button[aria-pressed="true"] { background: #eee; color: #111; }
+.deployment-note { position: absolute; bottom: 148px; left: 36px; color: #aaa; font-size: 11px; pointer-events: none; }
+@media (max-width: 1100px) { .deployment-switch { top: 108px; left: 18px; transform: none; } .deployment-note { left: 18px; max-width: 55vw; } }
+
+
+/* Reference glyphs: circular leading badge and separated communication contour. */
+.op-glyph, .handoff-glyph { padding-left:62px; padding-right:22px; }
+.op-glyph > strong, .handoff-glyph > strong { display:block; width:100%; text-align:left; overflow:hidden; text-overflow:ellipsis; }
+.op-glyph > .op-mark, .handoff-glyph > .handoff-mark { position:absolute; left:24px; right:auto; top:50%; transform:translateY(-50%); width:24px; height:24px; box-sizing:border-box; border-radius:50%; padding:4px; }
+.op-glyph{background:#6855df;border-color:#6855df}
+.op-glyph > .op-mark {background:#1600b8}
+.handoff-glyph {border:1.5px dashed #79DDB8;background:transparent}
+.handoff-glyph::before {inset:5px;background:#2DB794}
+.handoff-glyph > .handoff-mark {display:grid;place-items:center;background:#00752E;color:#8CFFFF}
+.handoff-mark svg{display:block;width:100%;height:100%}
+.palette-semantic .op-glyph > .op-mark,.palette-semantic .handoff-glyph > .handoff-mark{background:#000}
+.palette-semantic .handoff-glyph{border-color:#fff}
+.palette-semantic .handoff-glyph::before{background:#292929}
+.palette-semantic .handoff-glyph > .handoff-mark{color:#fff}
+
+/* Compact leading badge, with width supplied from the visible label. */
+.op-glyph,.handoff-glyph{padding-left:42px;padding-right:12px;justify-content:flex-start}
+.op-glyph > .op-mark,.handoff-glyph > .handoff-mark{left:10px}
+.op-glyph > strong,.handoff-glyph > strong{flex:0 0 auto;width:auto;text-align:left}
+
+/* Quiet canvas; details are independent content cards. */
+.kernel-glyph { border: 0; }
+.kernel-glyph header { border-bottom: 0; }
+.inspector.overlay-panel { background: transparent; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; filter: none; padding: 0 0 12px; }
+.inspector .inspector-header { border: 0; background: #161616; border-radius: 12px; margin-bottom: 10px; }
+.inspector section { margin: 0 0 10px; padding: 20px; border: 0; border-radius: 14px; background: #292929; }
+.inspector section > header span { letter-spacing: .03em; font-size: 11px; }
+.inspector .object-data { border: 0; padding-top: 10px; grid-template-columns: minmax(100px,auto) minmax(0,1fr); gap: 8px 14px; }
+.inspector h2 { overflow-wrap: anywhere; font-size: 18px; }
+.inspector details > summary { color: #b7b7b7; cursor: pointer; font-size: 12px; }
+.inspector details[open] > summary { margin-bottom: 14px; }
+.inspector .metric-grid > div { border: 0; background: #222; border-radius: 6px; }
+
+.inspector.overlay-panel::before,.inspector.overlay-panel::after { display:none; }
+.inspector .pass-card h2 { font-family: Arial, "PingFang SC", sans-serif; font-size: 16px; line-height:1.4; }
+
+.canvas-tooltip { position: fixed; z-index: 10000; max-width: 340px; padding: 12px 16px; border: 1px solid #666; border-radius: 6px; background: #222; color: #ddd; font: 12px/1.6 var(--font-data); box-shadow: 0 6px 24px #0008; white-space: pre-line; overflow-wrap: anywhere; pointer-events: none; }
+
+.object-icon.kind-op { display: grid; place-items: center; flex-shrink: 0; background: #1600b8; }
+.object-icon.kind-op img { width: 20px; height: 20px; display: block; }
+
+/* Highlighted relationships always paint above graph glyphs, including expanded instructions. */
+.react-flow__edges:has([data-edge-highlighted="true"]) { z-index: 1000 !important; }
+.react-flow__edge:has([data-edge-highlighted="true"]) { z-index: 1000 !important; }
+
+/* Screen-space dots remain legible when fitting the whole ISA graph. */
+.react-flow { background-image: radial-gradient(circle, rgba(255,255,255,.16) 1px, transparent 1px); background-size: 24px 24px; }
