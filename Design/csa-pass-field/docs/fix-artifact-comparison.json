@@ -1,0 +1,12 @@
+{
+  "candidate": {
+    "path": "/Users/yin/PyPTO3-main/Design/csa-pass-field/dist/index.html",
+    "sha256": "53a0d95775fb81168799558fc58f3c4702a6c37a31f762a3a6df043806f5d9c3"
+  },
+  "existingSnapshot": {
+    "path": "/Users/yin/AI_Infra/ai-infra-research/patterns/csa-pass-field/index.html",
+    "sha256": "4c4fc39142babb40ec8ca705833075d9d89ae2045f8cf64988b4b965d773f02e"
+  },
+  "sameArtifact": false,
+  "snapshotUpdated": false
+}

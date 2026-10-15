@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseDump, resetParserErrors, parserErrors } from '../../pass-transform-explorer/lib/pyir.mjs';
@@ -33,6 +34,15 @@ const node = (id, semanticKind, renderKind, label, role, attributes = {}, proven
 const edge = (id, semanticKind, source, target, sourcePort = 'out', targetPort = 'in', attributes = {}, provenance = 'curated', sourceRefs = []) => ({
   id, semanticKind, source, target, sourcePort, targetPort, attributes, provenance, sourceRefs,
 });
+
+// Keep source line numbers while embedding only changed lines and their immediate context.
+function changedExcerpt(text, other) {
+  const otherLines = new Set(other.split('\n'));
+  const lines = text.split('\n');
+  const selected = new Set();
+  lines.forEach((line, index) => { if (!otherLines.has(line)) for (let i = Math.max(0, index - 1); i <= Math.min(lines.length - 1, index + 1); i++) selected.add(i); });
+  return [...selected].sort((a,b) => a-b).map(i => `${i + 1}: ${lines[i]}`).join('\n') || '本侧没有独有行；参见另一侧的新增/删除内容。';
+}
 
 function readPassSnapshots() {
   const files = fs.readdirSync(PASS_DIR).filter((file) => /^\d+_.*\.py$/.test(file)).sort();
@@ -149,7 +159,7 @@ const allNodes = [
   node('handoff.c2v-pop', 'op', 'handoff', 'C2V · pop', 'Vector receives scores', { direction: 'AIC → AIV', slots: 2 }),
   node('handoff.v2c-push', 'op', 'handoff', 'V2C · push', 'Vector to Cube transfer', { direction: 'AIV → AIC', slots: 2 }),
   node('handoff.v2c-pop', 'op', 'handoff', 'V2C · pop', 'Cube receives probabilities', { direction: 'AIV → AIC', slots: 2 }),
-  node('memory.qk-pv', 'memref', 'memory', 'qk_pv buffers · 40 · 274 KiB', 'pre-reuse local buffers', { space: 'Mat / Vec / Acc', buffers: 40, bytes: 280576 }),
+  node('memory.qk-pv', 'memref', 'memory', 'qk_pv buffers · 分空间展开', 'pre-reuse local buffers', { space: 'Mat / Left / Right / Acc / Vec', buffers: 53, bytes: 944128 }),
   node('memory.pipe', 'memref', 'memory', 'GM pipe buffer · symbolic', 'cross-core pipeline backing', { space: 'GM', offset: null }),
   node('task.plan', 'scope', 'task', 'valid-qk-plan scope', 'prepares sparse QK plan', { target: 'CORE_GROUP', form: 'scope', dependencyOrder: 1 }, 'observed', [ref(`${PASS_DIR_REL}/00_frontend.py`, 1464)]),
   node('task.qk-pv', 'scope', 'task', 'qk_pv · SPMD scope', 'SPMD scope with task dependencies', { target: 'SPMD', form: 'scope', dependencyOrder: 2 }, 'observed', [ref(`${PASS_DIR_REL}/00_frontend.py`, 1510)]),
@@ -332,11 +342,11 @@ const GRAPH_DELTAS = {
     addEdge('binding.qk-memory'), addEdge('binding.softmax-memory'), addEdge('binding.pipe'),
   ],
   MemoryReuse: [
-    updateNode('memory.qk-pv', { label: 'qk_pv buffers · 40 · 274 KiB', attributes: { space: 'Mat / Vec / Acc', buffers: 40, bytes: 280576 } }, { label: 'qk_pv buffers · 15 · 49 KiB', attributes: { space: 'Mat / Vec / Acc', buffers: 15, bytes: 50176, reused: true } }),
+    updateNode('memory.qk-pv', { label: 'qk_pv buffers · 分空间展开', attributes: { space: 'Mat / Left / Right / Acc / Vec', buffers: 53, bytes: 944128 } }, { label: 'qk_pv buffers · 复用关系已更新', attributes: { space: 'Mat / Left / Right / Acc / Vec', buffers: 12, bytes: 361216, reused: true } }),
   ],
   AllocateMemoryAddr: [
-    updateNode('memory.qk-pv', { label: 'qk_pv buffers · 15 · 49 KiB' }, { label: 'qk_pv buffers · 15 · addressed' }),
-    updateNode('memory.pipe', { label: 'GM pipe buffer · symbolic', attributes: { space: 'GM', offset: null } }, { label: 'GM pipe buffer · offset assigned', attributes: { space: 'GM', offset: 'source-derived' } }),
+    updateNode('memory.qk-pv', { label: 'qk_pv buffers · 复用关系已更新' }, { label: 'qk_pv buffers · 空间内地址' }),
+    updateNode('memory.pipe', { label: 'GM pipe buffer · symbolic', attributes: { space: 'GM', offset: null } }, { label: 'GM pipe buffer · codegen workspace', attributes: { space: 'GM', offset: null } }),
   ],
 };
 
@@ -453,8 +463,8 @@ function buildPasses(snapshots) {
     const changed = programChanged;
     const contract = CONTRACTS[snapshot.name] || [
       '上一 Pass 输出满足当前 Pass 的触发条件',
-      changed ? 'qk_pv 源 IR 发生可观测改写' : 'qk_pv 在该 Pass 下保持不变',
-      changed ? '被替换的局部 IR 形态' : '无',
+      familyChanged ? 'qk_pv 源 IR 发生可观测改写' : programChanged ? '整份程序 IR 有变化；qk_pv family 保持不变' : '整份程序 IR 保持不变',
+      familyChanged ? '被替换的局部 IR 形态' : programChanged ? '完整程序中被替换的 IR 形态' : '无',
     ];
     return {
       id: `pass.${String(snapshot.index).padStart(2, '0')}.${snapshot.name}`,
@@ -474,8 +484,13 @@ function buildPasses(snapshots) {
           : programChanged
             ? '整份程序 IR 有变化；qk_pv family 与提炼 DAG 保持不变。'
             : '整份 Pass 快照前后逐行一致；该 Pass 是真实 no-op。',
+      observations: { programChanged, familyChanged },
+      programEvidence: !familyChanged && programChanged && snapshot.index > 10 ? {
+        before: { file: previous.fileRel, text: changedExcerpt(previous.sourceText, snapshot.sourceText) },
+        after: { file: snapshot.fileRel, text: changedExcerpt(snapshot.sourceText, previous.sourceText) },
+      } : null,
       contract: {
-        intent: contract[1],
+        intent: !familyChanged && programChanged && snapshot.index > 10 ? '整份程序 IR 有变化；qk_pv family 保持不变' : contract[1],
         precondition: contract[0],
         produces: !changed ? '整份 IR 快照保持不变' : !familyChanged && snapshot.index > 10 ? '变化在 qk_pv 场景之外；当前图保持不变' : contract[1],
         invalidates: changed ? contract[2] : '无',
@@ -513,19 +528,41 @@ const isa = {
   source: { pto: PTO_REL, cpp: CPP_REL },
   instructions,
 };
+
+const runId = '_jit_l3_decode_csa_20260903_010617';
+const runRoot = `Data/DeepseekV4/${runId}`;
+const rankRoot = path.join(ROOT, runRoot, 'dfx_outputs');
+const ranks = fs.readdirSync(rankRoot).filter(name => /^rank\d+$/.test(name)).sort().map(rankId => {
+  const file = `${runRoot}/dfx_outputs/${rankId}/d0/chip_swimlane_records.json`;
+  const { metadata, aicore_tasks } = JSON.parse(fs.readFileSync(path.join(ROOT, file), 'utf8'));
+  return { rankId, dispatchId: 'd0', cores: Object.fromEntries(['aic', 'aiv'].map(type => [type, metadata.core_types.filter(value => value === type).length])), recordCount: aicore_tasks.length, sourceRefs: [ref(file)] };
+});
+const hash = text => crypto.createHash('sha256').update(text).digest('hex');
+const inputHashes = Object.fromEntries([...snapshots.map(s => s.fileRel), PTO_REL, CPP_REL, ...ranks.flatMap(r => r.sourceRefs.map(s => s.file))].map(file => [file, hash(fs.readFileSync(path.join(ROOT, file)))]));
+const objectLinks = {
+  schemaVersion: 'csa-pass-field.object-links.v1', runId,
+  taskKey: ['runId', 'rankId', 'dispatchId', 'taskId'],
+  kernelInstanceKey: ['runId', 'rankId', 'dispatchId', 'taskId', 'funcId'],
+  blockKey: ['runId', 'rankId', 'dispatchId', 'taskId', 'funcId', 'coreId', 'recordId'],
+  taskIdEncoding: 'string',
+  links: allNodes.map(n => ({ staticObjectId: n.id, status: 'unresolved', runtimeIds: [], reason: '尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构', sourceRefs: n.sourceRefs })),
+};
+
 const manifest = {
   schemaVersion: 'csa-pass-field.manifest.v1',
   scenarioId: 'l3_decode_csa.qk_pv',
   title: 'CSA qk_pv mixed Cube/Vector handoff',
   generatedAt: new Date().toISOString(),
+  buildIdentity: { runId, inputHashes, generatorSha256: hash(fs.readFileSync(fileURLToPath(import.meta.url))) },
+  deployment: { view: 'shared-compile-structure', ranks },
   sourceRoots: { passDumps: PASS_DIR_REL, pto: PTO_REL, cpp: CPP_REL },
   passCount: passRows.length,
-  artifacts: { graph: 'graph.json', passes: 'passes.json', isa: 'isa.json', views: 'views.json' },
+  artifacts: { graph: 'graph.json', passes: 'passes.json', isa: 'isa.json', views: 'views.json', objectLinks: 'object-links.json' },
   evidenceSummary: { sourceChangedForQkPvFamily: passData.summary.sourceChangedForQkPvFamily, changedForProgram: passData.summary.changedForProgram, noOpForProgram: passData.summary.noOpForProgram, isaStaticOccurrences: instructions.reduce((sum, item) => sum + item.occurrenceCount, 0) },
 };
 
 fs.mkdirSync(OUT, { recursive: true });
-for (const [name, data] of Object.entries({ manifest, graph, passes: passData, isa, views })) {
+for (const [name, data] of Object.entries({ manifest, graph, passes: passData, isa, views, 'object-links': objectLinks })) {
   fs.writeFileSync(path.join(OUT, `${name}.json`), `${JSON.stringify(data, null, 2)}\n`, 'utf8');
 }
 

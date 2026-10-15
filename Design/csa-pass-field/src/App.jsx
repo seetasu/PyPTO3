@@ -5,9 +5,11 @@ import ReactFlow, {
   Panel,
   ReactFlowProvider,
   useReactFlow,
+  useNodesInitialized,
   getTransformForBounds,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import fxIcon from './vendor/fx.svg';
 import manifest from '../data/csa-qk-pv/manifest.json';
 import isa from '../data/csa-qk-pv/isa.json';
 import graph from '../data/csa-qk-pv/graph.json';
@@ -17,6 +19,8 @@ import { buildDomainState, groupPassesForRail, passes, toReactFlow } from './gra
 import { edgeTypes, GraphMarkers, nodeTypes, MemoryLegend, DiagramSettings } from './graph-components';
 import './styles.css';
 import CsaContext from './CsaContext';
+import { memoryProjection, MemoryDetails, memoryRows } from './MemoryField';
+import { deploymentMock } from './deployment-mock';
 import './vendor/liquid-glass-controls/liquid-glass.css';
 import './vendor/liquid-glass-controls/liquid-glass.js';
 
@@ -25,6 +29,8 @@ const phaseById = new Map(passes.phases.map((phase) => [phase.id, phase]));
 const collections = instructionCollections(isa.instructions);
 const allInstances = collections.flatMap(item => item.instances);
 const changedPasses = visualPassDiff(graph, passes.passes).filter(item => item.changed).map(item => item.index);
+const passScope = pass => pass.noOp ? 'none' : pass.familySourceChanged || pass.delta.length ? 'local' : 'global';
+const passScopeLabel = pass => ({ none: '无变化 · no-op', local: '局部变化 · qk_pv', global: '全局变化 · qk_pv 不变' })[passScope(pass)];
 const resultIndex = manifest.passCount + 1;
 const playbackSteps = [...changedPasses, resultIndex];
 const codegenDescription = '前面的 Pass 负责变换、降低和准备 IR；随后 PTOCodegen 将准备好的 IR 输出为 .pto 指令。';
@@ -45,7 +51,7 @@ function fitGraph(flow, duration = 320) {
 function initialUrlState() {
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   return {
-    passIndex: params.get('stage') === 'isa' || params.get('isa') === '1' ? resultIndex : clamp(Number(params.get('pass')) || 23, 1, manifest.passCount),
+    passIndex: params.get('stage') === 'isa' || params.get('isa') === '1' ? resultIndex : clamp(Number(params.get('pass')) || 35, 1, manifest.passCount),
     selectedId: params.get('node') || null,
     showIsa: params.get('isa') === '1',
   };
@@ -71,19 +77,22 @@ function CanvasTools({ onResetPositions }) {
   return <Panel position="bottom-right" className="canvas-tools" data-liquid-glass="control">
     <button type="button" className="zoom-trigger" aria-label="展开缩放控件"><Icon name="zoom" /></button>
     <div className="zoom-options">
-    <button type="button" onClick={() => flow.zoomOut({ duration: 160 })} aria-label="缩小视图" title="缩小">−</button>
+    <button type="button" onClick={() => flow.zoomOut({ duration: 160 })} aria-label="缩小视图" data-tooltip="缩小">−</button>
     <output data-liquid-readout aria-label="当前缩放">ZOOM</output>
-    <button type="button" onClick={() => flow.zoomIn({ duration: 160 })} aria-label="放大视图" title="放大">＋</button>
+    <button type="button" onClick={() => flow.zoomIn({ duration: 160 })} aria-label="放大视图" data-tooltip="放大">＋</button>
     <span className="tool-divider" />
-    <button type="button" onClick={() => fitGraph(flow)} aria-label="返回整体" title="返回整体"><Icon name="fit" /></button>
-    <button type="button" onClick={() => { onResetPositions(); requestAnimationFrame(() => fitGraph(flow)); }} aria-label="恢复自动布局" title="恢复自动布局"><Icon name="reset" /></button>
+    <button type="button" onClick={() => fitGraph(flow)} aria-label="返回整体" data-tooltip="返回整体"><Icon name="fit" /></button>
+    <button type="button" onClick={() => { onResetPositions(); requestAnimationFrame(() => fitGraph(flow)); }} aria-label="恢复自动布局" data-tooltip="恢复自动布局"><Icon name="reset" /></button>
     </div>
   </Panel>;
 }
 
 function GraphCanvas({ nodes, edges, showIsa, loadExpanded, onSelect, onHover, onMoveNode, onResetPositions }) {
   const flow = useReactFlow();
+  const initialized = useNodesInitialized();
   const fitted = useRef(false);
+  useEffect(()=>{if(initialized)requestAnimationFrame(()=>fitGraph(flow,0));},[nodes.length,initialized]);
+  useEffect(()=>{const onResize=()=>fitGraph(flow,0);window.addEventListener('resize',onResize);return ()=>window.removeEventListener('resize',onResize);},[flow]);
   const overviewViewport = useRef(null);
   useEffect(() => {
     if (loadExpanded && showIsa) {
@@ -103,10 +112,10 @@ function GraphCanvas({ nodes, edges, showIsa, loadExpanded, onSelect, onHover, o
     }
   }, [flow, loadExpanded, showIsa]);
   useEffect(() => {
-    if (fitted.current) return;
+    if (fitted.current || !initialized) return;
     fitted.current = true;
     requestAnimationFrame(() => fitGraph(flow, 0));
-  }, [flow]);
+  }, [flow, initialized]);
   useEffect(() => {
     if (!showIsa) return;
     const frame = requestAnimationFrame(() => fitGraph(flow, 360));
@@ -120,12 +129,11 @@ function GraphCanvas({ nodes, edges, showIsa, loadExpanded, onSelect, onHover, o
     edgeTypes={edgeTypes}
     minZoom={0.12}
     maxZoom={2.2}
-    fitView
     fitViewOptions={{ padding: 0.1 }}
     nodesConnectable={false}
     elementsSelectable
     proOptions={{ hideAttribution: true }}
-    onNodeClick={(_, node) => { if (!node.data.instances) onSelect(node.id); }}
+    onNodeClick={(_, node) => { if (node.type !== 'rankFrame' && !node.data.instances) onSelect(node.id); }}
     onNodeMouseEnter={(_, node) => onHover(node.id)}
     onNodeMouseLeave={() => onHover(null)}
     onNodeDragStop={(_, node) => onMoveNode(node.id, node.position)}
@@ -133,7 +141,7 @@ function GraphCanvas({ nodes, edges, showIsa, loadExpanded, onSelect, onHover, o
     defaultEdgeOptions={{ focusable: true }}
   >
     <GraphMarkers />
-    <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="#303030" />
+
     <CanvasTools onResetPositions={onResetPositions} />
   </ReactFlow>;
 }
@@ -163,7 +171,7 @@ function InfoPanel({ open, onClose, palette }) {
       <span><i className="key-line lowering" />跨阶段对应</span>
     </div>
     <p>Control 框包围受循环或条件控制的操作；标签给出迭代范围或判断条件，悬停可查看说明。实线括号标识循环边界，虚线描出作用范围。</p>
-    <p data-liquid-muted>Pass 顺序、变化状态、40→15 个 buffer、274→49 KiB 与 PTO 指令名来自本地编译产物。指令数量对应源码中的静态位置；展开指令集合可查看逐条指令、输入输出与源码。</p>
+    <p data-liquid-muted>Pass 顺序、变化状态、分函数、分空间的分配统计 与 PTO 指令名来自本地编译产物。指令数量对应源码中的静态位置；展开指令集合可查看逐条指令、输入输出与源码。</p>
     <a href="https://github.com/hw-native-sys/pto-isa" target="_blank" rel="noreferrer">PTO-ISA source repository ↗</a>
   </aside>;
 }
@@ -206,29 +214,29 @@ function PassRail({ currentIndex, onSelect, playing, onTogglePlay, onReset }) {
     <span className="current-pass-label" style={{ left: labelLeft }}>{currentIndex === resultIndex ? resultStage.name : passes.passes[currentIndex - 1].name}</span>
     <div className="rail-surface" data-liquid-glass="control" aria-hidden="true" />
     <button type="button" className="rail-play" onClick={onTogglePlay} aria-label={playing ? '暂停 Pass 播放' : '播放 Pass'} aria-pressed={playing}><Icon name={playing ? 'pause' : 'play'} /></button>
-    <button type="button" className="rail-play rail-reset" onClick={onReset} aria-label="重置播放，回到第一个 Pass" title="重置播放"><Icon name="reset" /></button>
+    <button type="button" className="rail-play rail-reset" onClick={onReset} aria-label="重置播放，回到第一个 Pass" data-tooltip="重置播放"><Icon name="reset" /></button>
     <div className="rail-window" ref={railRef}>
       <div className="rail-scroll">
         {groups.map((group) => <div className="phase-group" key={group.segmentKey}>
           <div className="phase-name"><span>{group.label}</span></div>
           <div className="phase-passes">
             {group.items.map((item) => item.type === 'noop-run'
-              ? <button key={item.key} type="button" className="noop-run" onClick={() => toggleRun(item.key)} title={item.passes.map((pass) => pass.name).join('\n')} aria-label={`展开 ${item.passes.length} 个 no-op Pass`}>
+              ? <button key={item.key} type="button" className="noop-run" onClick={() => toggleRun(item.key)} data-tooltip={item.passes.map((pass) => pass.name).join('\n')} aria-label={`展开 ${item.passes.length} 个 no-op Pass`}>
                   <span>{item.passes.length}×</span>
                 </button>
               : <button
                   key={item.pass.id}
                   type="button"
                   data-pass-index={item.pass.index}
-                  className={`pass-tick ${!changedPasses.includes(item.pass.index) ? 'is-noop' : ''} ${changedPasses.includes(item.pass.index) ? 'has-delta' : ''} ${currentIndex === item.pass.index ? 'is-current' : ''}`}
+                  className={`pass-tick scope-${passScope(item.pass)} ${currentIndex === item.pass.index ? 'is-current' : ''}`}
                   onClick={() => onSelect(item.pass.index)}
-                  title={`${String(item.pass.index).padStart(2, '0')} ${item.pass.name}\n${item.pass.summary}`}
-                  aria-label={`Pass ${item.pass.index} ${item.pass.name}`}
+                  data-tooltip={`${String(item.pass.index).padStart(2, '0')} ${item.pass.name}\n${passScopeLabel(item.pass)}\n${item.pass.summary}`}
+                  aria-label={`Pass ${item.pass.index} ${item.pass.name} · ${passScopeLabel(item.pass)}`}
                   aria-current={currentIndex === item.pass.index ? 'step' : undefined}
                 ><span>{String(item.pass.index).padStart(2, '0')}</span><small>{item.pass.name}</small></button>)}
           </div>
         </div>)}
-        <div className="phase-group"><div className="phase-name"><span>最终产物</span></div><div className="phase-passes"><button type="button" data-pass-index={resultIndex} className={`pass-tick ${currentIndex === resultIndex ? 'is-current' : ''}`} onClick={() => onSelect(resultIndex)} aria-label="查看最终 PTO-ISA 产物" title="PTOCodegen · 最终指令产物"><span>ISA</span></button></div></div>
+        <div className="phase-group"><div className="phase-name"><span>最终产物</span></div><div className="phase-passes"><button type="button" data-pass-index={resultIndex} className={`pass-tick ${currentIndex === resultIndex ? 'is-current' : ''}`} onClick={() => onSelect(resultIndex)} aria-label="查看最终 PTO-ISA 产物" data-tooltip="PTOCodegen · 最终指令产物"><span>ISA</span></button></div></div>
       </div>
     </div>
   </nav>;
@@ -252,26 +260,24 @@ function Inspector({ open, side, currentPass, selectedObject, objectActive, show
   const after = currentPass.metrics.after;
   const metricRows = [
     ['callables', 'Callable'], ['statements', '语句'], ['loops', 'Loop'], ['allocations', 'Alloc'], ['tasks', '内嵌 Task'],
-  ];
-  return <aside className={`inspector overlay-panel inspector-${side}`} data-liquid-glass="panel" role="dialog" aria-label="Pass 与对象检查器">
+  ].filter(([key]) => before[key] !== after[key]);
+  return <aside className={`inspector overlay-panel inspector-${side}`} role="dialog" aria-label="Pass 与对象检查器">
     <header className="inspector-header"><span>INSPECTOR</span><button type="button" onClick={onClose} aria-label="关闭检查器"><Icon name="close" /></button></header>
     <section className="pass-card">
       <div className="pass-index"><span>{showIsa ? 'ISA' : String(currentPass.index).padStart(2, '0')}</span><i>{showIsa ? '最终产物' : '/ 51'}</i></div>
       <span className="eyebrow">{phase?.label} · {currentPass.lens}</span>
       <h2>{currentPass.name}</h2>
       <p>{currentPass.summary}</p>
-      <div className={`impact-state impact-${currentPass.visualImpact}`}>
-        <i />{showIsa ? 'PTOCodegen · 指令产物' : currentPass.noOp ? 'qk_pv 源码与上一步一致' : currentPass.visualImpact === 'dag-delta' ? '当前 Pass 改写提炼 DAG' : '源 IR 改写，主干拓扑稳定'}
-      </div>
+
     </section>
 
     {selectedObject && <section className="object-block">
-      <header><span>SELECTED OBJECT</span><small>{selectedObject.semanticKind}</small></header>
-      <div className="object-title"><i className={`object-icon kind-${selectedObject.renderKind}`} /><div><h3>{selectedObject.label}</h3><span>{selectedObject.id}</span></div></div>
+      <header><span>所选对象</span><small>{selectedObject.semanticKind}</small></header>
+      <div className="object-title"><i className={`object-icon kind-${selectedObject.renderKind}`}>{selectedObject.renderKind === 'op' && <img src={fxIcon} alt="" aria-hidden="true" />}</i><div><h3>{selectedObject.label}</h3></div></div>
       {!objectActive && <div className="tombstone">已保留跨阶段选择；此处展示对象的登记信息。</div>}
       <p>{selectedObject.role}</p>
       {selectedObject.sourceText && <pre className="instruction-source">{selectedObject.sourceText}</pre>}
-      <dl className="object-data">{Object.entries(selectedObject.attributes || {}).slice(0, 7).flatMap(([key, value]) => [<dt key={`${key}-k`}>{key}</dt>, <dd key={`${key}-v`}>{Array.isArray(value) ? value.join(' × ') : String(value)}</dd>])}</dl>
+      <details><summary>对象属性</summary><dl className="object-data">{Object.entries(selectedObject.attributes || {}).slice(0, 7).flatMap(([key, value]) => [<dt key={`${key}-k`}>{key}</dt>, <dd key={`${key}-v`}>{Array.isArray(value) ? value.join(' × ') : String(value)}</dd>])}</dl></details>
       {selectedObject.sourceFacts && <details><summary>源码结构与属性</summary>
         {selectedObject.sourceFacts.loops?.length > 0 && <><p>源码包含 {selectedObject.sourceFacts.loops.length} 个静态循环结构；迭代范围见各循环标签。</p><ul>{selectedObject.sourceFacts.loops.map((loop, index) => <li key={index}><code>{loop.name} · {loop.bounds}</code>{loop.stage != null ? ` · pipeline stage ${loop.stage}` : ''}</li>)}</ul></>}
         <dl className="object-data">{Object.entries(selectedObject.sourceFacts).filter(([key]) => key !== 'loops').flatMap(([key, value]) => [<dt key={key}>{key}</dt>, <dd key={`${key}-value`}>{JSON.stringify(value)}</dd>])}</dl>
@@ -286,35 +292,72 @@ function Inspector({ open, side, currentPass, selectedObject, objectActive, show
     </section>}
 
     <section className="contract-block">
-      <header><span>PASS CONTRACT</span><small>source-backed / curated</small></header>
+      <details><summary>Pass 语义与验证</summary>
       <dl>
         <dt>Pass 意图</dt><dd>{currentPass.contract.intent}</dd>
         <dt>前置性质</dt><dd>{currentPass.contract.precondition}</dd>
         <dt>产生性质</dt><dd>{currentPass.contract.produces}</dd>
         <dt>失效性质</dt><dd>{currentPass.contract.invalidates}</dd>
         <dt>验证</dt><dd>{currentPass.contract.validation}</dd>
-      </dl>
+      </dl></details>
     </section>
 
-    <section className="metric-block">
-      <header><span>QK_PV SOURCE METRICS</span><small>before → after</small></header>
+    {metricRows.length > 0 && <section className="metric-block">
+      <header><span>发生变化的指标</span><small>before → after</small></header>
       <div className="metric-grid">{metricRows.map(([key, label]) => <div key={key}><span>{label}</span><strong>{before[key]}<i>→</i>{after[key]}</strong></div>)}</div>
-    </section>
+    </section>}
 
     <section className="evidence-block">
-      <header><span>SOURCE EVIDENCE</span><small>{currentPass.sourceRefs.length} refs</small></header>
+      <details><summary>源码与运行范围</summary>
       <SourceRefs refs={currentPass.sourceRefs} />
+      {!showIsa && currentPass.programEvidence && <details className="program-evidence"><summary>变化位于完整 CSA · 查看前后源码变化</summary><p>qk_pv family 保持不变。以下摘录两侧独有行及相邻上下文，保留原始行号；并非完整逐行 diff。</p>{Object.entries(currentPass.programEvidence).map(([side, source]) => <details key={side}><summary>{side === 'before' ? '之前' : '之后'} · {source.file.split('/').at(-1)}</summary><pre className="instruction-source">{source.text}</pre></details>)}</details>}
+      <details><summary>运行范围与版本</summary><p>当前查看共享编译结构；完整运行 {manifest.deployment.ranks.length} ranks。</p>{manifest.deployment.ranks.map(rank => <p key={rank.rankId}>{rank.rankId} / {rank.dispatchId} · 资源清单 AIC {rank.cores.aic} / AIV {rank.cores.aiv} · {rank.recordCount} 条执行记录</p>)}<p>资源清单不代表所选任务用核数；任务用核尚未关联。</p><code>{manifest.buildIdentity.runId}</code><p>生成器 {manifest.buildIdentity.generatorSha256.slice(0, 12)}</p></details>
+      </details>
       {!showIsa && <button className="isa-toggle" type="button" onClick={onJumpFinal}>查看最终 PTO-ISA 产物</button>}
       {showIsa && <div className="isa-summary"><b>{isa.instructions.reduce((sum, item) => sum + item.occurrenceCount, 0)}</b><span>selected static occurrences</span><small>{isa.source.pto}</small></div>}
     </section>
   </aside>;
 }
 
+function CanvasTooltip() {
+  const [tip, setTip] = useState(null);
+  useEffect(() => {
+    const show = (event) => {
+      const target = event.target.closest?.('[data-tooltip]') || event.target.querySelector?.('[data-tooltip]');
+      const text = target?.getAttribute('data-tooltip');
+      if (!text || text.trim() === target.textContent.trim()) { setTip(null); return; }
+      const rect = target.getBoundingClientRect();
+      setTip({ text, x: Math.max(12, Math.min(rect.left, window.innerWidth - 352)), y: Math.max(12, Math.min(rect.bottom + 10, window.innerHeight - 180)) });
+    };
+    const hide = () => setTip(null);
+    document.addEventListener('pointerover', show);
+    document.addEventListener('focusin', show);
+    document.addEventListener('pointerdown', hide);
+    document.addEventListener('focusout', hide);
+    document.addEventListener('pointerout', hide);
+    window.addEventListener('blur', hide);
+    return () => {
+      document.removeEventListener('pointerover', show);
+      document.removeEventListener('focusin', show);
+      document.removeEventListener('pointerdown', hide);
+      document.removeEventListener('focusout', hide);
+      document.removeEventListener('pointerout', hide);
+      window.removeEventListener('blur', hide);
+    };
+  }, []);
+  return tip && <div className="canvas-tooltip" role="tooltip" style={{left:tip.x,top:tip.y}}>{tip.text}</div>;
+}
+
 function App() {
   const initial = useMemo(initialUrlState, []);
   const [passIndex, setPassIndex] = useState(initial.passIndex);
+
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [contextOpen, setContextOpen] = useState(false);
+  const [contextOpen, setContextOpen] = useState(() => new URLSearchParams(location.hash.slice(1)).get('view') === 'deployment');
+  const [ranksExpanded, setRanksExpanded] = useState(() => new URLSearchParams(location.hash.slice(1)).get('view') === 'deployment' || new URLSearchParams(location.hash.slice(1)).get('ranks') === 'expanded');
+  const [deployment, setDeployment] = useState(false);
+  const [selectedRank, setSelectedRank] = useState(null);
+  const [deploymentSelection, setDeploymentSelection] = useState(null);
   const [palette, setPalette] = useState(() => new URLSearchParams(location.hash.slice(1)).get('palette') === 'semantic' ? 'semantic' : 'identity');
   const [layout, setLayout] = useState(() => new URLSearchParams(location.hash.slice(1)).get('layout') === 'vertical' ? 'vertical' : 'horizontal');
   const [playing, setPlaying] = useState(false);
@@ -329,7 +372,7 @@ function App() {
   const [hoverId, setHoverId] = useState(null);
   const showIsa = passIndex === resultIndex;
   const [infoOpen, setInfoOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(Boolean(initial.selectedId));
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [positionOverrides, setPositionOverrides] = useState({});
   const [loadExpanded, setLoadExpanded] = useState(false);
   const loadData = useMemo(() => ({
@@ -339,6 +382,8 @@ function App() {
   const currentPass = showIsa ? resultStage : passes.passes[passIndex - 1];
   const domain = useMemo(() => buildDomainState(passIndex), [passIndex]);
   const flow = useMemo(() => toReactFlow(domain, { currentPass, selectedId, hoverId, showIsa, positionOverrides, layout, loadExpanded, loadData }), [domain, currentPass, selectedId, hoverId, showIsa, positionOverrides, layout, loadExpanded, loadData]);
+  const displayFlow = useMemo(() => deployment ? deploymentMock(flow, manifest.deployment.ranks, selectedRank) : passIndex >= 33 ? memoryProjection(flow, passIndex, selectedId, layout, positionOverrides, hoverId) : flow, [flow, deployment, selectedRank, showIsa, passIndex, selectedId, layout, positionOverrides, hoverId]);
+  const selectedMemory = memoryRows(passIndex).find(row => `allocation.${row.id}` === selectedId);
   const selectedInstance = allInstances.find((item) => item.id === selectedId);
   const selectedObject = selectedInstance ? {
     id: selectedInstance.id, label: `${selectedInstance.label} · L${selectedInstance.line}`, semanticKind: 'instruction', renderKind: 'isa',
@@ -355,7 +400,7 @@ function App() {
 
   const selectNode = useCallback((id) => {
     setSelectedId(id);
-    if (id) { setInspectorOpen(true); setSettingsOpen(false); setInfoOpen(false); }
+    if (id) { setInspectorOpen(id.startsWith('allocation.')); setSettingsOpen(false); setInfoOpen(false); }
     else {
       setLoadExpanded(false);
       setInspectorOpen(false);
@@ -369,20 +414,22 @@ function App() {
     if (showIsa) params.set('stage', 'isa');
     params.set('palette', palette);
     params.set('layout', layout);
+    params.set('view', 'compile');
+    if(ranksExpanded)params.set('ranks','expanded');else params.delete('ranks');
     window.history.replaceState(null, '', `#${params}`);
-  }, [passIndex, selectedId, showIsa, palette, layout]);
+  }, [passIndex, selectedId, showIsa, palette, layout, deployment, ranksExpanded]);
 
   useEffect(() => {
     const onKey = (event) => {
       const target = event.target;
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) || target?.isContentEditable) return;
-      if (event.key === 'ArrowRight') { event.preventDefault(); selectPass(passIndex + 1); }
-      if (event.key === 'ArrowLeft') { event.preventDefault(); selectPass(passIndex - 1); }
+      if (!deployment && event.key === 'ArrowRight') { event.preventDefault(); selectPass(passIndex + 1); }
+      if (!deployment && event.key === 'ArrowLeft') { event.preventDefault(); selectPass(passIndex - 1); }
       if (event.key === 'Escape') { setInfoOpen(false); setInspectorOpen(false); setSettingsOpen(false); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [passIndex, selectPass]);
+  }, [passIndex, selectPass, deployment]);
 
   const jumpFinal = () => {
     setPassIndex(resultIndex);
@@ -397,13 +444,13 @@ function App() {
   return <DiagramSettings.Provider value={{palette, layout}}><main className={`app-shell palette-${palette} layout-${layout}`}>
     <section className="graph-stage" aria-label="CSA qk_pv Pass DAG">
       <ReactFlowProvider>
-        <GraphCanvas key={layout}
-          nodes={flow.nodes}
-          edges={flow.edges}
+        <GraphCanvas key={`${layout}-${deployment}-${passIndex >= 33 && !showIsa}`}
+          nodes={displayFlow.nodes}
+          edges={displayFlow.edges}
           showIsa={showIsa}
           loadExpanded={loadExpanded}
-          onSelect={selectNode}
-          onHover={setHoverId}
+          onSelect={id => { const [rank, staticId] = id?.split('::') || []; if(deployment)setSelectedRank(rank); setDeploymentSelection(deployment ? displayFlow.nodes.find(n => n.id === id)?.data || null : null); if (!deployment) selectNode(id); }}
+          onHover={id => setHoverId(deployment ? id?.split('::')[1] || null : id)}
           onMoveNode={(id, position) => setPositionOverrides((value) => ({ ...value, [id]: position }))}
           onResetPositions={() => setPositionOverrides({})}
         />
@@ -411,15 +458,17 @@ function App() {
 
       <header className="focus-heading">
         <span className="eyebrow">CSA PASS FIELD · QK_PV</span>
-        <div className="focus-title"><strong>{showIsa ? 'ISA' : String(currentPass.index).padStart(2, '0')}</strong><div><h1>{currentPass.name}</h1><p>{showIsa ? 'PTOCodegen · 代码生成' : `${phase?.label} · ${currentPass.lens}`}</p></div></div>
-        <div className="focus-state"><p>{currentPass.contract.intent}</p></div>
+        <div className="focus-title"><strong>{deployment ? '2R' : showIsa ? 'ISA' : String(currentPass.index).padStart(2, '0')}</strong><div><h1>{deployment ? 'CSA 双卡部署' : currentPass.name}</h1><p>{deployment ? '静态编排 · 独立于 Pass 进度' : showIsa ? 'PTOCodegen · 代码生成' : `${phase?.label} · ${currentPass.lens}`}</p></div></div>
+        <div className="focus-state"><p>{deployment ? '双 rank 运行配置 + CSA 源码通信关系' : currentPass.contract.intent}</p><p>{deployment ? `双卡部署 · Mock${selectedRank ? ` · ${selectedRank}` : ""}` : `${selectedRank ? selectedRank + ' / qk_pv · ' : ''}共享编译结构 · 完整运行 ${manifest.deployment.ranks.length} ranks`}</p></div>
       </header>
 
+
+      {deployment && <div className="deployment-note">虚线：跨 rank 静态通信 · 实线：阶段顺序 · Mock 不表示执行时间</div>}
       <div className="top-actions">
-        <button type="button" data-liquid-glass="icon" aria-label="CSA 原始计算图" title="CSA 原始计算图" aria-expanded={contextOpen} onClick={()=>{setContextOpen(v=>!v);setSettingsOpen(false);setInfoOpen(false);setInspectorOpen(false);}}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="8" y="2" width="8" height="5" rx="1"/><path d="M12 7v5M5 16v-4h14v4"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/></svg></button>
-        <button type="button" data-liquid-glass="icon" aria-label="页面设置" title="页面设置" aria-expanded={settingsOpen} onClick={() => {setSettingsOpen(v=>!v);setInfoOpen(false);setInspectorOpen(false);}}><Icon name="settings" /></button>
-        <button type="button" data-liquid-glass="icon" aria-expanded={infoOpen} onClick={() => { setInfoOpen((value) => !value); setInspectorOpen(false); setSettingsOpen(false); }} aria-label="图例与说明" title="图例与说明"><Icon name="info" /></button>
-        <button type="button" data-liquid-glass="icon" aria-expanded={inspectorOpen} onClick={() => { setInspectorOpen((value) => !value); setInfoOpen(false); setSettingsOpen(false); }} aria-label="Pass 详情" title="Pass 详情"><Icon name="detail" /></button>
+        <button type="button" data-liquid-glass="icon" aria-label="CSA 原始计算图" data-tooltip="CSA 原始计算图" aria-expanded={contextOpen} onClick={()=>{setContextOpen(v=>!v);setSettingsOpen(false);setInfoOpen(false);setInspectorOpen(false);}}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="8" y="2" width="8" height="5" rx="1"/><path d="M12 7v5M5 16v-4h14v4"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/></svg></button>
+        <button type="button" data-liquid-glass="icon" aria-label="页面设置" data-tooltip="页面设置" aria-expanded={settingsOpen} onClick={() => {setSettingsOpen(v=>!v);setInfoOpen(false);setInspectorOpen(false);}}><Icon name="settings" /></button>
+        <button type="button" data-liquid-glass="icon" aria-expanded={infoOpen} onClick={() => { setInfoOpen((value) => !value); setInspectorOpen(false); setSettingsOpen(false); }} aria-label="图例与说明" data-tooltip="图例与说明"><Icon name="info" /></button>
+        <button type="button" data-liquid-glass="icon" aria-expanded={inspectorOpen} onClick={() => { setInspectorOpen((value) => !value); setInfoOpen(false); setSettingsOpen(false); }} aria-label="Pass 详情" data-tooltip="Pass 详情"><Icon name="detail" /></button>
       </div>
 
       <div className="relation-key" aria-label="关系图例">
@@ -429,10 +478,12 @@ function App() {
       </div>
 
       <InfoPanel open={infoOpen} palette={palette} onClose={() => setInfoOpen(false)} />
-      {contextOpen && <CsaContext onClose={()=>setContextOpen(false)}/>}
+      {contextOpen && <CsaContext onClose={()=>setContextOpen(false)} ranksExpanded={ranksExpanded} onToggleRanks={()=>setRanksExpanded(v=>!v)} activeRank={selectedRank} passIndex={passIndex} onCompile={rank=>{setSelectedRank(rank);setPlaying(false);}}/>}
       {settingsOpen && <aside className="info-panel overlay-panel settings-panel" role="dialog" aria-label="页面设置"><header><span>页面设置</span><button onClick={()=>setSettingsOpen(false)} aria-label="关闭设置">×</button></header><h3>染色方案</h3><div className="settings-options">{[['identity','对象类别'],['semantic','语义角色']].map(([id,label])=><button key={id} aria-pressed={palette===id} onClick={()=>setPalette(id)}>{label}</button>)}</div><p>{palette==='identity'?'浅蓝 Tensor · 紫色计算 · 青绿通信 · 黄绿 Task / ISA · 蓝色存储 · 灰色控制':'Tensor 按激活绿／统计黄区分；ISA 继承计算紫／通信青绿／访存蓝；Task 与控制采用灰色。'}</p><h3>布局方向</h3><div className="settings-options">{[['horizontal','横向'],['vertical','纵向']].map(([id,label])=><button key={id} aria-pressed={layout===id} onClick={()=>{setPositionOverrides({});setLayout(id);}}>{label}</button>)}</div></aside>}
+      {deployment && deploymentSelection && <aside className="inspector overlay-panel inspector-right" role="dialog" aria-label="部署阶段"><header className="inspector-header"><span>{deploymentSelection.rankId}</span><button onClick={()=>setDeploymentSelection(null)} aria-label="关闭部署详情">×</button></header><h2>{deploymentSelection.label}</h2><p>{deploymentSelection.detail}</p><p>静态编排关系 Mock；未展开迭代、信号协议与动态任务，不作为执行 DAG。</p><p>decode_csa.py · L{deploymentSelection.line}</p>{deploymentSelection.stageId==='qkpv' && <button className="isa-toggle" onClick={()=>{setDeployment(false);setDeploymentSelection(null);setPassIndex(23);}}>查看 qk_pv 编译结构 · Pass 23</button>}</aside>}
+      {inspectorOpen && selectedMemory && <MemoryDetails row={selectedMemory} passIndex={passIndex} onClose={()=>setInspectorOpen(false)} />}
       <Inspector
-        open={inspectorOpen}
+        open={inspectorOpen && !deployment && !selectedMemory}
         side={inspectorSide}
         currentPass={currentPass}
         selectedObject={selectedObject}
@@ -441,13 +492,13 @@ function App() {
         onJumpFinal={jumpFinal}
         onClose={() => setInspectorOpen(false)}
       />
-      <PassRail currentIndex={passIndex} onReset={() => { setPlaying(false); selectPass(1); }} onSelect={(index) => { setPlaying(false); selectPass(index); }} playing={playing} onTogglePlay={() => {
+      {!deployment && <PassRail currentIndex={passIndex} onReset={() => { setPlaying(false); selectPass(1); }} onSelect={(index) => { setPlaying(false); selectPass(index); }} playing={playing} onTogglePlay={() => {
         if (!playing && !playbackSteps.includes(passIndex)) setPassIndex(playbackSteps.find(index => index > passIndex) || playbackSteps[0]);
         else if (!playing && passIndex === resultIndex) setPassIndex(playbackSteps[0]);
         setPlaying((value) => !value);
-      }} />
+      }} />}
     </section>
-  </main></DiagramSettings.Provider>;
+  <CanvasTooltip /></main></DiagramSettings.Provider>;
 }
 
 export default App;
