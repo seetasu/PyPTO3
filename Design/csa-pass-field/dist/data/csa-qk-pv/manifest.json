@@ -2,7 +2,7 @@
   "schemaVersion": "csa-pass-field.manifest.v1",
   "scenarioId": "l3_decode_csa.qk_pv",
   "title": "CSA qk_pv mixed Cube/Vector handoff",
-  "generatedAt": "2026-10-15T09:30:41.625Z",
+  "generatedAt": "2026-10-15T09:35:37.498Z",
   "buildIdentity": {
     "runId": "_jit_l3_decode_csa_20260903_010617",
     "inputHashes": {

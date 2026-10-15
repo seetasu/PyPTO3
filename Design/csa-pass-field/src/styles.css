@@ -564,5 +564,5 @@ button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset:
 .react-flow__edges:has([data-edge-highlighted="true"]) { z-index: 1000 !important; }
 .react-flow__edge:has([data-edge-highlighted="true"]) { z-index: 1000 !important; }
 
-/* Screen-space dots remain legible when fitting the whole ISA graph. */
-.react-flow { background-image: radial-gradient(circle, rgba(255,255,255,.16) 1px, transparent 1px); background-size: 24px 24px; }
+/* Keep the canvas background clear. */
+.react-flow { background-image: none; }
