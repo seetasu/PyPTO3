@@ -91,6 +91,8 @@ DSpark Serving（DeepSeek-V4-Flash w8a8，16 NPU）的性能定界 demo，从一
 
 ### 总览页口径
 
+- **采集口径写在右栏末尾**（「采集口径」一组，和单请求页「验证目标」下面那块是同一套结构）：固定负载串 `random/in256/out64/n256/concurrency256/rate-inf` 由 `result3.json` 自己的 `input_lens` / `output_lens` / `num_prompts` / `max_concurrency` / `request_rate` 拼出来，不写死；采集方式写 `vllm-bench-perf`（`repo/pypto-serving/.agents/skills`，即 `vllm bench serve --dataset-name random`）。顶部 eyebrow 的 `title` 上也挂了同样两行。
+- **这一页全是客户端观测**：TTFT、输出间隔、吞吐都在基准客户端这一侧算，服务端内部没有分解，16 rank 那半张图是按拓扑建模的（见下）。同一压缩包里还有设备详情页用的 profiler trace，本轮是否带插桩开销从 `result3.json` 本身判断不了，所以**对外报性能要用同一串负载在未插桩的运行里重跑**。
 - **时间原点**取最早的 `start_times`；`ttfts` / `itls` 都是秒，页面统一换成毫秒。全部 256 个请求在 37.5 ms 内提交完毕（`request_rate: inf`）。
 - **首 token 批次**：把 256 个首 token 时刻按间隔 200 ms 断开聚类，得到 4 批（1 / 102 / 123 / 30 个请求）。prefill 是分批做的，不是一个一个做的。
 - **输出波次**：把全部 14,240 个输出时刻按间隔 40 ms 断开聚类，得到 67 波，每波几乎都是全部在跑的请求一起吐出一段。以 400 ms 为界分成慢波段（29 波，间隔 P50 777 ms，覆盖窗口 82%）和快波段（38 波，间隔 P50 122 ms，覆盖 16%）。
@@ -187,7 +189,7 @@ DSpark Serving（DeepSeek-V4-Flash w8a8，16 NPU）的性能定界 demo，从一
   四个面板都是同一个结构：**一句结论 → 一份证据 → 折叠的口径**。查完没问题的那几层不展开——它们不是用户要处理的事，只用一行灰字记下“已排除 X · Y”，鼠标悬上去才给当时的数。分位数也不铺开成四列，表里只留**均值**和 **P50–P90** 一个区间，P50 / P90 / 最大的原值挂在行的 `title` 上。
 
   - **关键路径**（默认）
-    - *定界结论*：只列还需要往下走的那几条。本次是 **命中 · Host 的 bind / 分配 / H2D**（bind.args 105 ms/步，占步长 45%；16 条 lane 每步合计搬运 806 ms），和 **待分清 · Device 到达屏障的时间差**（runner_run ≤ 124 ms 是含等待的上界，拆开后 16 条 lane 的执行都在 110–111 ms，起点却分散 101 ms）。每条带一行“下一步”，命中项的那行是按钮，点它直接跳到 `设备分布 › lane 6`。Serving 调度与 Worker 下发只在底下留一行 `已排除`。
+    - *定界结论*：只列还需要往下走的那几条。本次是 **命中 · 每出一个 token，都要重新把权重搬上卡**（出一个 token 要等 233 ms，其中 105 ms / 45% 在把权重搬进显存；52 步累计 5.45 s，占端到端 43%；常驻后推算 ≈ 128 ms。卡片正文只说用户感知得到的量，`bind.args`、H2D 这类实现口径挂在卡片的悬停提示里），和 **待分清 · Device 到达屏障的时间差**（runner_run ≤ 124 ms 是含等待的上界，拆开后 16 条 lane 的执行都在 110–111 ms，起点却分散 101 ms）。每条带一行“下一步”，命中项的那行是按钮，点它直接跳到 `设备分布 › lane 6`。Serving 调度与 Worker 下发只在底下留一行 `已排除`。
     - *异常步*（`6/52 步超过 P90 265 ms`）：全程图上的标记在这里变成可点的清单，按超出量排序，每块写 `step · +超出量 · 多在哪一层`（`D01 +138 ms Worker 下发`、`D08 +54.2 ms Device`、`D52 +53.6 ms Device + bind.args`、`D11 +46.2 ms bind.args`、`D43 +44.3 ms Device`、`D26 +41.7 ms Device`），点一块直接下钻到那一步。卡片正文先写清**它只值 377 ms / E2E 的 3.0%，主线仍是 bind.args（累计 5.45 s）**——异常步用线框卡片而不是红底，就是为了不和「命中」项抢注意力。
       - 这是全程图与单步视图之间唯一的因果链接：没有它，用户没有理由点进任何一个 DXX。
       - 成因确实不止一种（Device 抖动 4 步、bind 抖动 1 步、流水未热 1 步），所以清单不能压成一句话。
@@ -228,6 +230,7 @@ DSpark Serving（DeepSeek-V4-Flash w8a8，16 NPU）的性能定界 demo，从一
 
 侧栏那块只是小结。**完整的算子级分析在这一页**，从 lane 专项第一行的入口进来（`device.html#lane=6&step=S37`），数据与口径和侧栏完全一致——同样是另一次采集、同样只有一张卡、时间同样不缩放，页面顶部第一段就写这件事。
 
+- **采集口径在页面底部「这份数据的口径」折叠里**，`来源` 下面新增两行：固定负载 `dsv4-flash-dspark-a3-dp4tp4ep16-gbs256-in256o64`（取自压缩包自己的名字，不另写死：GBS256 · 输入 256 / 输出 64），采集方式 `Ascend profiler 导出的 trace`。`repo/pypto-serving/.agents/skills` 里**没有**这份 trace 的采集流程，所以这一页只按导出原值读；同一串负载的端到端指标可以用 `vllm-bench-perf` 复测，但它给不出算子级分解。顶部出处那段的 `title` 上也挂了这两行。
 - **头部五个数**：采到的 step（66 · 6.16 s）、步长 P50 / P90、**等待占比 78.52%**（标红，它是这一页唯一的结论）、算子执行 P50、算子种类 125。
 - **① 66 个 decode step**：一根柱一步，柱高按步长，自下而上堆 `算子执行 / 等待同步 / 流上空档`。点任一根（或按 ← / →）切换下面三块。这张图直接给出“步长在变、但变的几乎都是等待”这件事。
 - **② 多流甘特**：
@@ -254,14 +257,17 @@ DSpark Serving（DeepSeek-V4-Flash w8a8，16 NPU）的性能定界 demo，从一
 | 与谁的关系 | 和 `index.html`（DSpark GBS1 STRACE）、`device.html`（DSpark GBS256 profiler trace）**既不同模型也不同采集**，三者不能对齐、不能相加 |
 | 规模 | 60 个核（20 AIC + 40 AIV）· 窗口 44.42 ms · 15,228 个核上任务 / 684 个 SPMD 任务 · 18 种算子 |
 | 时间 | 核上周期计数（50 MHz），trace 原值 |
+| 固定负载 | `Qwen3-14B/TP1-fused-host/prefill_fwd x1/L2-swimlane-level4/60core@50MHz`，核数 / 时钟 / 采集等级都取自 `l2_swimlane_records.json` 自己的 metadata |
+| 采集方式 | `collect_qwen3_profiles.py --mode swimlane`（数据包自带的 TP=1 采集器，开 `enable_l2_swimlane` + `enable_dep_gen`） |
 
+- **这份数据的边界**：`repo/pypto`、`repo/pypto-serving` 的 skills 里都**没有** L2 swimlane 的采集流程，所以这一页只能引用这份已有导出；prompt 是采集脚本里那条固定的 chat 模板问句，不是压测负载，绝对时间只能当这台机器上的一次实例，不是跨机器基线（数据包 `README.md` 也这么写）。固定负载、采集方式与这条边界都进了页面的口径折叠，出处那段的 `title` 上也挂了前两行。
 - **为什么用 prefill 不用 decode**：同目录 `decode.json` 的 `FuncId` 全是 `-1`，任务名只有 `task(r2t0)` 这样的 token，映射不到算子名；prefill 的 `FuncId` 有值，事件名本身就是 `gate_up_proj_spmd(r1t5)`，18 种算子都能认出来。这一条写在页面的口径折叠里。
 - **主图**：一行一个核，上面 20 个 AIC、下面 40 个 AIV，中间留一条缝。实色是 `kernel-duration-us`，紧跟着的红色一小截是 `local_setup_us`（下发开销）。滚轮缩放、拖动平移，`重置缩放` 回到全窗口；范围写进 hash（`#r=12.416,15.469`）。
 - **一眼能看出的事**：AIC 20 个核平均占用 **72.2%**（kernel 合计 641 ms），AIV 40 个核只有 **6.89%**（122 ms）——这次 prefill 的算力几乎全压在立方核上，向量核大部分时间空着。
 - **算子表**：18 种，按 kernel 合计排；给实例数、kernel、setup、用了几个核。`gate_up_proj` 一项就占 352 ms，而且它的 **setup 12.8 ms 比别的算子高一个量级**（其余都在 1 ms 上下），表里 setup 占比超 3% 的标红。
 - **任务依赖**：点泳道里任一任务，右下给它的 `fanin` / `fanout`（例如 `gate_up_proj (r3t284)` 上游 `post_rmsnorm (r3t276)`、下游 `silu (r3t285)`），可以顺着依赖一跳跳地走。SPMD 任务会同时落在 20–60 个核上，选中时整列一起亮。
 - **没用到的**：同目录 `deps.json` 还有 684 个任务的张量形状 / dtype / stride 与依赖边，`l2_swimlane_records.json` 有原始周期计数与 AICPU 调度阶段；这一页都没用。
-  - **优化队列**：P0 权重 / Cache 常驻、P1 lane 6 bind 偏慢、P1 Device 临界路径、P2 冷启动移出请求路径；每项的“当前”列都取自本次基线。下方是复测时要确认的四条验证目标，含“不以增加 D2H 为代价”“不覆盖本基线”。
+  - **优化队列**：P0 权重 / Cache 常驻、P1 lane 6 bind 偏慢、P1 Device 临界路径、P2 冷启动移出请求路径；每项的“当前”列都取自本次基线。下方是复测时要确认的五条验证目标，每条都写明用哪个 skill 验（`profile-dsv4-dspark-singlebatch-strace` 复测 bind 与 validate、`ais-bench-eval` 做精度回归、`vllm-bench-perf` 取未插桩的对外性能数、`create-issue` / `create-feature-request` 落回仓库），并在最后标出这份数据的固定负载串、采集 skill，以及“profiler 口径只供定界”的提醒。
   - **逐步构成**：54 行里两个指标名是一样的，所以**名字只在表头写一次**（例如 `lane N · bind.args / 关键 lane · 分配 + H2D`，逐步会变的那一截写成 `N`，具体值在每格的 `title` 上），行里只留会变的数和一条 16 格的分卡色带（Host 层越红越慢，lane 6 那一格几乎每行都是红的）。超 P90 的那几行**左缘一条红边、step 号标红**（悬停给 `超 P90 · 比中位多 54.2 ms · Device +48.9 ms`），所以在这张 54 行的表里也能直接找到异常步。标题后面跟这一层的口径（`Host · 每个 step　关键 lane 进入 runner_run 之前的时间`），色带每格的 `title` 也带上口径与卡号（`D47 · lane 6 · 进入 runner_run 前 105 ms · 本步最晚进入`）。点击任一格即在中间显示那一步，支持 ↑ / ↓ 切换。
 - **右上 ↗**：打开详细分析页。**右上 ↑**：返回压测总览。
 - **打开时不预选 step**：默认是全程视图，构成行给 52 步均值；时间线、泳道、「逐步构成」列表、以及右上角跳转详细分析的链接都不带任何一步，hash 里也没有 `step`。点时间线任一段、点全程图里的某一步、或点右栏「逐步构成」的卡片，才会选定一步并切到单步视图。从单步切回全程时，刚看过的那一步仍在图上标出，但构成行回到均值。

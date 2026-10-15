@@ -673,6 +673,9 @@
   function renderHead() {
     const H = D.headline;
     $('#eyebrow').textContent = `${RUN.id} · DSPARK SERVING`;
+    $('#eyebrow').title = `数据来源 result3.json${D.capture ? `
+固定负载 ${D.capture.workload}
+采集 ${D.capture.skill}（客户端口径，服务端内部没有分解）` : ''}`;
     $('#runName').innerHTML = `${H.value}<small>${esc(H.unit)}</small>`;
     $('#runSub').innerHTML = `<b>${esc(H.label)}</b> · ${esc(H.foot)}`;
     $('#runMeta').innerHTML = D.meta.map((m) => `<dt>${esc(m.k)}</dt><dd>${esc(m.v)}</dd>`).join('');
@@ -755,7 +758,14 @@
             ${it.spark ? sparkline(it.spark) : ''}
             <div class="ri-foot">${esc(it.foot)}</div>
           </div>`).join('')}
-      </section>`).join('');
+      </section>`).join('')
+      // 右栏末尾：这份数据的固定负载、采集 skill 与口径提醒（与单请求页同一块结构）
+      + (D.capture ? `
+      <section class="rail-group p2">
+        <h3>采集口径</h3>
+        <p class="capture">固定负载 <code>${esc(D.capture.workload)}</code><br>采集方式 <code>${esc(D.capture.skill)}</code>（pypto-serving/.agents/skills）</p>
+        <p class="caveat">${esc(D.capture.note)}</p>
+      </section>` : '');
     $('#kpis').querySelectorAll('.peak').forEach((b) => b.addEventListener('click', () => select(b.dataset.sel)));
   }
 

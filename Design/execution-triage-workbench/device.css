@@ -139,6 +139,12 @@ i.dv-seg.idle { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1
 .dv-gbar span { display: block; height: 100%; background: rgba(255, 255, 255, 0.4); }
 .dv-gv { font: var(--type-mono); font-size: 11px; color: var(--foreground-secondary); text-align: right; }
 
+/* ------------------------------------------------------------ 口径折叠
+ * 这张表只有两列，值列按 .ledger 的 24% 会把长句顶到表外，这里让它换行。 */
+.device-page .fold .ledger th[scope="row"] { width: 26%; }
+.device-page .fold .ledger td { width: 74%; white-space: normal; }
+.device-page .fold .ledger td code { overflow-wrap: anywhere; }
+
 @media (max-width: 1080px) {
   .dv-cols { grid-template-columns: 1fr; }
   .device-page { padding: 14px 12px 24px; }

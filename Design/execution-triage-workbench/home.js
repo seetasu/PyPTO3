@@ -880,7 +880,9 @@ ${tail}（点击下钻）`;
   function renderResult() {
     const q = RUN.request;
     $('#eyebrow').innerHTML = `${esc(RUN.title)} <span class="dim">· ${esc(RUN.sub)} · ${esc(RUN.deviceText)}</span>`;
-    $('#eyebrow').title = `${RUN.request.id} · 数据来源 ${RUN.source}`;
+    $('#eyebrow').title = `${RUN.request.id} · 数据来源 ${RUN.source}${RUN.capture ? `
+固定负载 ${RUN.capture.workload}
+采集 ${RUN.capture.skill}（profiler 口径，仅供定界）` : ''}`;
     $('#layerName').innerHTML = `${(q.e2eMs / 1000).toFixed(2)}<small>s</small>`;
     $('#layerName').setAttribute('aria-label', `端到端 ${fmtMs(q.e2eMs)}`);
     $('#layerMeta').innerHTML = `<span>E2E · ${q.outputs} 次输出 · ${q.stream ? '流式' : '非流式'} max_tokens ${q.maxTokens}</span>`;
@@ -1434,7 +1436,9 @@ ${tail}（点击下钻）`;
       </section>
       <section class="bd-sec">
         <h3>验证目标<span>同设备、同 prompt 复测</span></h3>
-        <ul class="checks">${RUN.checks.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>
+        <ul class="checks">${RUN.checks.map((c) => `<li><b>${esc(c.label)}</b>${esc(c.text)}</li>`).join('')}</ul>
+        ${RUN.capture ? `<p class="capture">固定负载 <code>${esc(RUN.capture.workload)}</code><br>采集方式 <code>${esc(RUN.capture.skill)}</code>（pypto-serving/.agents/skills）</p>
+        <p class="caveat">${esc(RUN.capture.note)}</p>` : ''}
         <a class="ref" href="${esc(RUN.reference.url)}" target="_blank" rel="noopener">口径参照 ${esc(RUN.reference.label)} ↗</a>
       </section>`;
   }

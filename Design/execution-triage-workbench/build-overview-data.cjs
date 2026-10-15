@@ -316,6 +316,14 @@ const sTpot = stats(tpot);
 const slowItl = itlAll.filter((v) => v > SLOW_GAP);
 const fastItl = itlAll.filter((v) => v <= SLOW_GAP);
 
+/* 采集口径：负载串直接取自 result3.json 自己的字段，不写死；
+ * 对应的 skill 是 pypto-serving 的 vllm-bench-perf（`vllm bench serve` 的 random 数据集）。 */
+const capture = {
+  skill: 'vllm-bench-perf',
+  workload: `random/in${R.input_lens[0]}/out${R.output_lens[0]}/n${R.num_prompts}/concurrency${R.max_concurrency}/rate-${R.request_rate}`,
+  note: `客户端口径：TTFT、输出间隔、吞吐都在基准客户端这一侧算（backend ${R.backend}），服务端内部没有分解，16 rank 那半张图是按拓扑建模的。同一压缩包里还有设备详情页用的 profiler trace，本轮是否带插桩开销从 result3.json 判断不了，对外报性能要用同一串负载在未插桩的运行里重跑。`,
+};
+
 const data = {
   generatedAt: new Date().toISOString(),
   run: {
@@ -413,6 +421,8 @@ const data = {
     { k: '窗口', v: `${(R.duration).toFixed(2)} s · ${R.date}` },
     { k: '来源', v: 'result3.json（benchmark_serving 客户端口径）' },
   ],
+  // 采集口径（固定负载 / 采集 skill / 提醒）放在右栏末尾，与单请求页同一块结构
+  capture,
   stats: { ttft: sTtft, tpot: sTpot, itl: sItl, e2e: sE2e },
   dists: [
     { k: 'ttft', label: 'TTFT', sub: '每请求 1 个样本', unit: 'ms', stats: sTtft, bins: hist(requests.map((q) => q.ttftMs), 400, 3600, 100) },

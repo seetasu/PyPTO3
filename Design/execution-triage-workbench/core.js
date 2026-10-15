@@ -67,6 +67,7 @@
     $('#prov').innerHTML = `<b>第三份数据，和前两页都不是一回事</b>：${esc(S.exporter)} 导出的 ${esc(S.model)} ${esc(S.phase)}；`
       + `${esc(S.notSame)}。时间是 ${esc(S.clock)}，<b>不能与前两页相加或对齐</b>。`
       + `它回答的是另一个问题：<b>一次调用在一张卡的 ${D.nCore} 个核上是怎么铺开的</b>。`;
+    $('#prov').title = `固定负载 ${S.workload}\n采集 ${S.capture}`;
     const kpi = (k, v, sub, hot) => `<div class="dv-kpi${hot ? ' is-hot' : ''}"><span>${esc(k)}</span><b>${esc(v)}</b>${sub ? `<i>${esc(sub)}</i>` : ''}</div>`;
     $('#kpis').innerHTML = kpi('核', `${D.nCore}`, `${D.nAic} AIC + ${D.nAiv} AIV`)
       + kpi('窗口', fmtMs(D.spanMs), `${D.nTask} 个 SPMD 任务`)
@@ -233,6 +234,9 @@
     $('#specMeta').textContent = `${S.model} · ${S.exporter}`;
     $('#specTable').innerHTML = `<tbody>
       <tr><th scope="row"><b>来源</b></th><td>${esc(S.file)}</td></tr>
+      <tr><th scope="row"><b>固定负载</b></th><td><code>${esc(S.workload)}</code></td></tr>
+      <tr><th scope="row"><b>采集方式</b></th><td><code>${esc(S.capture)}</code></td></tr>
+      <tr><th scope="row"><b>这份数据的边界</b></th><td>${esc(S.captureNote)}</td></tr>
       <tr><th scope="row"><b>导出格式</b></th><td>${esc(S.exporter)}（Worker View 下一核一行，${D.nAic} 个 AIC + ${D.nAiv} 个 AIV）</td></tr>
       <tr><th scope="row"><b>模型 / 阶段</b></th><td>${esc(S.model)} · ${esc(S.phase)}</td></tr>
       <tr><th scope="row"><b>与其它页的关系</b></th><td>${esc(S.notSame)}</td></tr>

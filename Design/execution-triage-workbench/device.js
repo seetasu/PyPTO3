@@ -74,6 +74,7 @@
     $('#prov').innerHTML = `<b>不是本请求的数据</b>：来自 ${esc(S.run)} 的 Ascend profiler trace，${esc(S.rank)}；`
       + `与单请求页的 dev ${state.dev} 既不同次采集也不同负载，时间是 trace 原值，<b>没有缩放</b>到 <code>runner_run</code> 的窗口。`
       + `这一页回答的是「一个 decode step 在一张卡上长什么样」。`;
+    $('#prov').title = `固定负载 ${S.workload}\n采集 ${S.capture}`;
     const waitMs = D.steps.reduce((a, s) => a + s.wait, 0);
     const kpi = (k, v, sub, hot) => `<div class="dv-kpi${hot ? ' is-hot' : ''}"><span>${esc(k)}</span><b>${esc(v)}</b>${sub ? `<i>${esc(sub)}</i>` : ''}</div>`;
     $('#kpis').innerHTML = kpi('采到的 step', String(D.nStep), `${fmtMs(D.steps.reduce((a, s) => a + s.ms, 0))} 合计`)
@@ -297,6 +298,8 @@
     $('#specMeta').textContent = S.stream;
     $('#specTable').innerHTML = `<tbody>
       <tr><th scope="row"><b>来源</b></th><td>${esc(S.zip)} › ${esc(S.member)}</td></tr>
+      <tr><th scope="row"><b>固定负载</b></th><td><code>${esc(S.workload)}</code>（压缩包名自带：GBS256 · 输入 256 / 输出 64）</td></tr>
+      <tr><th scope="row"><b>采集方式</b></th><td>${esc(S.capture)}；${esc(S.captureNote)}</td></tr>
       <tr><th scope="row"><b>同一次采集的是</b></th><td>${esc(S.sameRunAs)}；<b>不是</b> ${esc(S.notSameRunAs)}</td></tr>
       <tr><th scope="row"><b>卡数</b></th><td>${esc(S.rank)}，所以没有 16 张卡的横向对比</td></tr>
       <tr><th scope="row"><b>画了哪些流</b></th><td>${esc(S.streamNote)}</td></tr>

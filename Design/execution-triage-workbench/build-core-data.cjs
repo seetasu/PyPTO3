@@ -148,6 +148,11 @@ const out = {
     phase: 'prefill 的一次 L2 调用',
     notSame: '与 index.html（DSpark GBS1 STRACE）、device.html（DSpark GBS256 profiler trace）都不是同一个模型、不是同一次采集',
     clock: `核上周期计数（${(records.metadata.clock_freq_hz / 1e6).toFixed(0)} MHz），trace 原值`,
+    /* 采集口径：核数、时钟、采集等级都取自 l2_swimlane_records.json 自己的 metadata；
+     * 采集脚本是数据包里带的那个（collect_qwen3_profiles.py），仓库 skills 里没有对应流程。 */
+    workload: `Qwen3-14B/TP1-fused-host/prefill_fwd x1/L2-swimlane-level${records.l2_swimlane_level}/${records.metadata.num_cores}core@${(records.metadata.clock_freq_hz / 1e6).toFixed(0)}MHz`,
+    capture: 'collect_qwen3_profiles.py --mode swimlane（数据包自带的 TP=1 采集器，开 enable_l2_swimlane + enable_dep_gen）',
+    captureNote: 'pypto / pypto-serving 的 skills 里都没有 L2 swimlane 的采集流程，所以这一页只能引用这份导出；prompt 是采集脚本里那条固定的 chat 模板问句，不是压测负载，绝对时间只能当这台机器上的一次实例。',
     decodeNote: '同目录的 decode.json 里 FuncId 全是 -1，任务映射不到算子名，所以这一页用 prefill',
     deps: `依赖来自每个任务的 fanin / fanout；deps.json 另有 ${deps.tasks.length} 个任务的张量形状与 ${deps.edges ? deps.edges.length : 0} 条边，本页没有用`,
   },

@@ -478,10 +478,13 @@ function dsparkLaneFocus(run, decode, dist) {
     { label: 'bind.args 的内部拆分', text: '它是叶子 span，分配显存与 H2D 搬运没有分开计时' },
     { label: '每次搬运的字节数', text: `args 只有 ${fields.join(' / ')}，算不出等效带宽，区分不了“搬得多”还是“搬得慢”` },
     { label: 'lane → 物理卡 / NUMA / PCIe 拓扑', text: '无法判断是否与链路位置相关' },
+    // 采集约定来自 .agents/skills/profile-dsv4-dspark-singlebatch-strace：Device STRACE 会扰动计时，所以这次没开
+    { label: '设备侧的真实执行时间', text: '这次采集按 profile-dsv4-dspark-singlebatch-strace 的约定关闭了 Device STRACE（开着会扰动计时），Device wall 与 Effective 都不可得；页面上的“设备执行 / 等屏障”是推算，不能当实测' },
   ];
   const experiments = [
     { label: '换 lane ↔ 卡 映射重跑', text: '判定是“第 N 号位置”还是“这张卡”' },
     { label: '对比 prefill 与 decode 的参数清单', text: 'prefill 不慢而 decode 慢，差异就在两者绑定的参数集合里' },
+    { label: '和 GBS32 对齐基线对照', text: '用 profile-dsv4-aligned-gbs32-strace 跑 MTP k=1 的 32 batch，同一套 bind / runner_run / validate 口径，看 bind 偏斜是 DSpark 单请求特有还是通用' },
   ];
 
   return { ids, med, byLane, segments, stages, excluded, missing, experiments };
@@ -593,12 +596,20 @@ function dspark() {
     { pri: 'P1', title: 'Device 临界路径', now: `runner_run ≤ ${fmt(dev.mean)}`, action: '常驻后成为主瓶颈；对照设备执行与同步等待估计，检查 MoE 通信与 rank 均衡', expect: `执行估计 ${fmt(dist.lanes.find((l) => l.dev === dist.critLane).deviceExec)}/步` },
     { pri: 'P2', title: '冷启动移出请求路径', now: `Prefill + Draft init ${fmt(prefill.periodMs + draft.periodMs)}`, action: '固定 shape 的 buffer、arena、通信 domain 在启动时初始化', expect: '首次输出提前' },
   ];
+  // 验收项写成「验什么 + 用哪个 skill 验」：skill 取自 pypto-serving/.agents/skills，是真能跑的那几个
   const checks = [
-    '稳态 decode 的 bind.args 接近 0',
-    `validate · D2H 不高于基线 ${runtime.windows.find((w) => /validate/.test(w.label)).stat.mean.toFixed(2)} ms`,
-    'Cache 原地更新后输出与基线一致',
-    '优化后数据单独记录，不覆盖本基线',
+    { label: '稳态 decode 的 bind.args 接近 0', text: '用 profile-dsv4-dspark-singlebatch-strace 按同一固定负载复测，读 profile-summary 里的 bind' },
+    { label: `validate · D2H 不高于基线 ${runtime.windows.find((w) => /validate/.test(w.label)).stat.mean.toFixed(2)} ms`, text: '同一次复测里看 16 条 strace.host lane 的 validate' },
+    { label: 'Cache 原地更新后输出与基线一致', text: '精度回归用 ais-bench-eval 固定一个数据集跑前后两次' },
+    { label: '对外的性能数用未插桩的运行', text: 'profiler 开着时的步长只能当诊断口径，TTFT / TPOT / 吞吐用 vllm-bench-perf 另跑一遍' },
+    { label: '优化后数据单独记录，不覆盖本基线', text: '复测换一个 --artifact-dir 与 --run-id；要落到仓库用 create-issue / create-feature-request' },
   ];
+  // 采集口径：固定负载串直接取自 trace 自己的 metadata，和上面那个 skill 的 fixed workload 对得上
+  const capture = {
+    skill: 'profile-dsv4-dspark-singlebatch-strace',
+    workload: traceEvents().metadata.workload,
+    note: '本页的时间都来自开着 serving profiler 和 Host STRACE 的那次运行，属诊断口径；Device STRACE 按该 skill 的约定关闭，所以设备侧只有 runner_run 这个上界。',
+  };
   // P1：每个 decode step 的时间去哪了。用均值保证三层相加等于步长，另给 P50 / P90。
   const q = (xs, p) => { const a = xs.slice().sort((x, y) => x - y); return a[Math.min(a.length - 1, Math.floor(p * (a.length - 1)))]; };
   const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -637,6 +648,7 @@ function dspark() {
     questions,
     plan,
     checks,
+    capture,
     coldStart: { prefillMs: prefill.periodMs, draftMs: draft.periodMs },
     reference: { label: 'pypto-serving#95', url: 'https://github.com/hw-native-sys/pypto-serving/issues/95' },
     request: dsparkRequest(run),

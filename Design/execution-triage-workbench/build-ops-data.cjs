@@ -250,6 +250,10 @@ const stat = (xs) => {
       streamNote: `设备进程共 ${Object.keys(streams).length} 条流，这里只画主执行流；通信与 SQE 流不在其中`,
       clock: 'trace 原始时间，未缩放到 runner_run 窗口',
       profiler: '采集时 profiler 开着，绝对耗时偏大',
+      // 采集口径：负载串取自压缩包自己的名字，不另写死
+      workload: path.basename(ZIP, '.zip'),
+      capture: 'Ascend profiler 导出的 trace（与 result3.json 同一个压缩包）',
+      captureNote: 'pypto-serving 的 .agents/skills 里没有这份 trace 的采集流程，所以这一页只按导出原值读；同一串负载的端到端指标可以用 vllm-bench-perf 复测，但它给不出算子级分解。',
     },
     nStep: segs.length,
     period: stat(segs.map((s) => s.ms)),
