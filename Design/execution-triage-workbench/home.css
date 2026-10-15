@@ -512,6 +512,14 @@ button.vd-go:hover { color: var(--foreground); border-color: var(--foreground); 
 
 /* 算子级下钻：数据来自另一次采集，所以整块用虚线框圈起来，先给出处再给数 */
 .ops-sec { padding: 10px 10px 2px; border: 1px dashed var(--wire-dim); border-radius: 10px; }
+/* 去详情页：侧栏只放小结，完整的甘特与算子排行在 device.html */
+.ops-open {
+  display: block; margin: 2px 0 8px; padding: 6px 8px; border-radius: 7px;
+  border: 1px solid var(--wire-dim); background: var(--card-bg);
+  font: var(--type-body-sm); color: var(--foreground-secondary); text-decoration: none;
+}
+.ops-open:hover { border-color: var(--foreground-muted); color: var(--foreground); background: var(--card-bg-hover); }
+.ops-open:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .ops-prov { margin: 2px 0 8px; font: var(--type-micro); line-height: 1.6; color: var(--foreground-muted); }
 .ops-prov b { color: var(--foreground-secondary); }
 .ops-prov code { font: var(--type-mono); font-size: 10px; }

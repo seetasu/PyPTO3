@@ -1,0 +1,67 @@
+/* Core Swimlane · 复用 device.css 的壳与控件，这里只加核泳道自己的图元。
+ * 配色仍是灰阶 + 红：红留给“占用率/开销”这类结论，算子分组用明度区分。 */
+
+.core-page .dv-prov { max-width: 92ch; }
+.cr-cols { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.cr-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.cr-table-wrap { max-height: 420px; }
+
+/* ------------------------------------------------------------ 核泳道 */
+.cr-lanes { display: block; width: 100%; cursor: grab; }
+.cr-lanes.is-drag { cursor: grabbing; }
+.cr-rowbg { fill: rgba(255, 255, 255, 0.035); }
+.cr-rowbg.is-aiv { fill: rgba(255, 255, 255, 0.022); }
+.cr-rowname { font: var(--type-mono); font-size: 8px; fill: var(--foreground-disabled); }
+.cr-group-label { font: var(--type-micro); fill: var(--foreground-muted); }
+
+/* 任务：实色 = kernel，暗色一小截 = local_setup */
+.cr-task { shape-rendering: crispEdges; }
+.cr-task.g-attn { fill: rgba(255, 255, 255, 0.92); }
+.cr-task.g-proj { fill: rgba(255, 255, 255, 0.68); }
+.cr-task.g-mlp { fill: rgba(255, 255, 255, 0.5); }
+.cr-task.g-norm { fill: rgba(255, 255, 255, 0.34); }
+.cr-task.g-embed { fill: rgba(255, 255, 255, 0.24); }
+.cr-task.g-misc { fill: rgba(255, 255, 255, 0.16); }
+.cr-setup { fill: rgba(239, 75, 60, 0.55); shape-rendering: crispEdges; }
+.cr-tasks.is-focus .cr-task, .cr-tasks.is-focus .cr-setup { opacity: 0.16; }
+.cr-tasks.is-focus .cr-task.is-on { opacity: 1; }
+.cr-tasks.is-focus .cr-task.is-dep { opacity: 0.85; stroke: var(--sel); stroke-width: 0.5; }
+
+/* 图例里的方块 */
+i.cr-task, i.cr-setup { display: inline-block; width: 9px; height: 8px; margin-right: 4px; border-radius: 1px; vertical-align: -1px; }
+i.cr-task.g-attn { background: rgba(255, 255, 255, 0.92); }
+i.cr-task.g-proj { background: rgba(255, 255, 255, 0.68); }
+i.cr-task.g-mlp { background: rgba(255, 255, 255, 0.5); }
+i.cr-task.g-norm { background: rgba(255, 255, 255, 0.34); }
+i.cr-task.g-embed { background: rgba(255, 255, 255, 0.24); }
+i.cr-task.g-misc { background: rgba(255, 255, 255, 0.16); }
+i.cr-setup { background: rgba(239, 75, 60, 0.55); }
+
+/* ------------------------------------------------------------ 算子表里的条 */
+.cr-obar { display: block; height: 2px; margin-top: 3px; border-radius: 1px; background: rgba(255, 255, 255, 0.08); }
+.cr-obar span { display: block; height: 100%; border-radius: 1px; background: rgba(255, 255, 255, 0.45); }
+.dv-table td.is-warn { color: var(--hot); }
+
+/* ------------------------------------------------------------ 每核分布 */
+.cr-cores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 12px; }
+.cr-core { display: grid; grid-template-columns: 46px 1fr 52px; gap: 5px; align-items: center; }
+.cr-core.is-idle { opacity: 0.4; }
+.cr-cn { font: var(--type-mono); font-size: 9px; color: var(--foreground-disabled); }
+.cr-cbar { height: 6px; border-radius: 2px; background: rgba(255, 255, 255, 0.05); overflow: hidden; }
+.cr-cbar span { display: block; height: 100%; }
+.cr-cbar span.is-aic { background: rgba(255, 255, 255, 0.6); }
+.cr-cbar span.is-aiv { background: rgba(255, 255, 255, 0.3); }
+.cr-cv { font: var(--type-mono); font-size: 9px; color: var(--foreground-secondary); text-align: right; }
+
+/* ------------------------------------------------------------ 依赖 */
+.cr-dep { display: grid; grid-template-columns: 70px 1fr; gap: 6px; align-items: start; margin-top: 6px; }
+.cr-dep > span { font: var(--type-micro); color: var(--foreground-muted); padding-top: 3px; }
+.cr-dep > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.cr-dep .dv-chip { display: inline-flex; align-items: baseline; gap: 4px; }
+.cr-dep .dv-chip em { font: var(--type-mono); font-size: 9px; font-style: normal; color: var(--foreground-disabled); }
+.cr-none { font: var(--type-micro); font-style: normal; color: var(--foreground-disabled); }
+
+@media (max-width: 1080px) {
+  .cr-cols { grid-template-columns: 1fr; }
+  .cr-cores { grid-template-columns: 1fr; }
+}

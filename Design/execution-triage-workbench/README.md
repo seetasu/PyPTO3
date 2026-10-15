@@ -6,7 +6,9 @@ DSpark Serving（DeepSeek-V4-Flash w8a8，16 NPU）的性能定界 demo，从一
 |---|---|---|
 | `overview.html` · 压测总览 | 256 个请求的分布、输出波次与关键 KPI | GBS256 压测 `result3.json` |
 | `index.html` · 单请求定界 | 全程 / 单步两种泳道 + 关键路径、设备分布、优化队列 | GBS1 单请求 STRACE（lane 专项里的算子级下钻另取 GBS256 的 profiler trace，页面标明） |
-| `analysis.html` · 详细分析 | 关键路径三段条、Step 节奏、单步瀑布、层详情 | 同上 |
+| `device.html` · 设备详情 | 一张卡的算子级分析：66 步总览 + 多流甘特 + 算子排行 + 逐步趋势 | GBS256 压测包里的 Ascend profiler trace（单卡，另一次采集） |
+| `core.html` · 核级泳道 | 一张卡 60 个核（20 AIC + 40 AIV）的任务铺排、kernel / setup 拆分、任务依赖 | PyPTO L2 swimlane（**Qwen3 TP1 prefill**，第三份数据） |
+| `analysis.html` · 详细分析 | 关键路径三段条、Step 节奏、单步瀑布、层详情 | 同上（GBS1 STRACE） |
 
 两份数据是两次独立采集：
 
@@ -200,7 +202,7 @@ DSpark Serving（DeepSeek-V4-Flash w8a8，16 NPU）的性能定界 demo，从一
       - *慢在哪一段*：`bind.args` 105 ms（中位的 2.18×）对 `runner_run` 122 ms（16 条里**最短**），下挂两行估计值——设备执行 110 ms、等屏障 12.0 ms。Host 偏慢来自 trace，Device 的细分是估计。
       - *偏斜的形状*：按 bind 排序只画前 5 条加这一条，其余压成一行区间（lane 6 105 ms、第二名 59.2 ms、其余 11 条 31.0–53.7 ms → 单点离群）；下面是 lane 与当步中位的两条折线和四段倍数（2.46 / 2.12 / 2.21 / 2.42 → 结构性，不是逐渐劣化）。折线下给一行坐标：左右两端是起止 step（`D01` / `D52`），中间写明哪条是自己、哪条是中位，以及纵轴峰值。
       - *各阶段是不是同一条*：Prefill 是 lane 8，Draft init 与 52 个 decode 步才是 lane 6 → 偏斜跟 decode 这个 callable 绑定的参数有关，不是这条线程或这张卡永远最慢。
-      - *这一步在设备上跑了什么*（算子级，虚线框单独圈出）：GBS1 的 STRACE 到 `runner_run` 这个调用窗口为止，再往下没有算子。这一段改用**另一次采集**的 Ascend profiler trace 回答“一个 decode step 在一张卡上长什么样”，详见下面的「算子级下钻」。
+      - *这一步在设备上跑了什么*（算子级，虚线框单独圈出）：GBS1 的 STRACE 到 `runner_run` 这个调用窗口为止，再往下没有算子。这一段改用**另一次采集**的 Ascend profiler trace 回答“一个 decode step 在一张卡上长什么样”，详见下面的「算子级下钻」。侧栏只给小结与三步切换，**完整的分析在 `device.html`**，第一行就是去那里的入口。
       - *排查记录与盲区*（折叠）：已排除 / 这份 trace 答不了 / 需要做实验三张清单合在一起，明确区分“查过不是原因”“采不到”“需要重跑才能定论”。
 
 #### 算子级下钻（lane 专项里的虚线框）
@@ -221,6 +223,44 @@ DSpark Serving（DeepSeek-V4-Flash w8a8，16 NPU）的性能定界 demo，从一
 - **分组**只是给算子名归类（EP 通信 / MoE 专家 / 注意力 · KV / 矩阵乘 · 量化 / 采样 · 投机 / 访存 · 搬运 / 其他），表里仍然给 trace 里的**原始算子名**（`MoeDistributeDispatchV2`、`aclnnGroupedMatmulSwigluQuantWeightNZ_…`、`SparseAttnSharedkv`、`aclnnMatmul_MatMulCommon_MatMulV2`…）与 Task Type（`MIX_AIC` / `AI_VECTOR_CORE` / `AI_CPU` …）。
 - **这块为什么值得放进来**：单请求页一直在说“`runner_run` 是含等待的上界，执行与等待的拆分只能靠估计”。这份 profiler trace 用实测回答了同一个问题的另一侧——**66 步里平均 78.5% 的时间在等同步**，算子真正在算的只有个位数毫秒。两者口径不同、不能相加，但方向互相印证。
 - **颜色**：这一块全是灰阶，没有红色——红在本页只留给已定位的瓶颈；等待虽然占大头，但它是另一次采集的事实，不是本请求的告警。斜纹也没有用在这里（斜纹在本页表示“不是直接测到的量”，而这里的等待是实测的）。
+
+## 设备详情（`device.html`）
+
+侧栏那块只是小结。**完整的算子级分析在这一页**，从 lane 专项第一行的入口进来（`device.html#lane=6&step=S37`），数据与口径和侧栏完全一致——同样是另一次采集、同样只有一张卡、时间同样不缩放，页面顶部第一段就写这件事。
+
+- **头部五个数**：采到的 step（66 · 6.16 s）、步长 P50 / P90、**等待占比 78.52%**（标红，它是这一页唯一的结论）、算子执行 P50、算子种类 125。
+- **① 66 个 decode step**：一根柱一步，柱高按步长，自下而上堆 `算子执行 / 等待同步 / 流上空档`。点任一根（或按 ← / →）切换下面三块。这张图直接给出“步长在变、但变的几乎都是等待”这件事。
+- **② 多流甘特**：
+  - 第一行是**主执行流 46 的每个任务**，按语义分组着色，悬停给算子名 / Task Type / 起点 / 时长，**点一个任务只亮这个算子**；
+  - 下面七行是旁流——执行流 38 / 37、同步队列 142 / 143 / 182、通信 alltoallv / allgather，**只画忙碌区间，不画任务名**；
+  - 这组对照是这一页最有用的一张图：中位那一步主流等 73.9 ms，而**同一时间执行流 38 忙 81.6 ms**——主流在等的时候，活在别的流上，“设备空着”并不成立。
+  - 小于 4 µs 的任务不画（27,815 个，合计 41 ms，占忙时 0.7%），算子排行仍按**全部**任务统计，所以次数与合计是准的。
+- **③ 算子排行**：这一步的全部算子，可按合计耗时 / 次数 / 单次均值排序；每行给原始算子名、Task Type、次数、合计、占这一步的比例。点一行 = 在甘特上只亮它，并把右边换成它的逐步趋势。
+- **④ 逐步趋势**：默认画每一步的“算子执行合计”；选中算子后画**这个算子在 66 步里的每步合计**（例如 `MoeDistributeDispatchV2` 每步 3 次、平均 0.670 ms）。点柱子同样能切步。下面是这一步的分组构成。
+- 状态写在 hash 里（`#lane=6&step=S37&sort=ms&op=28`），可以直接分享到某一步的某个算子。
+- 这一页**不与左边那套估计值混算**：它回答“设备上到底跑了什么、等了多久”，而 `index.html` 的 `runner_run ≤ 124 ms`、`执行 110 ms / 等待 12 ms` 是另一次采集上的上界与推算，两者口径不同，不能相加。
+- 头部第二行是再往下一层的入口（`core.html`）——但那是**第三份数据**，见下。
+
+## 核级泳道（`core.html`）
+
+“传统的单卡 AIC-AIV 泳道”这类图，**GBS256 的 Ascend trace 做不到**：那份导出里单元类型只是任务上的一个 `Task Type` 标签，没有 `aic_time` / `aiv_time`，而且同一条流上的任务严格串行（实测相邻任务最大重叠 0.001 ms，纯属四舍五入），按单元拆成两行也不会有并发。
+
+能做到的是仓库里另一份数据：**PyPTO 自己的 L2 swimlane 导出**。
+
+| | |
+|---|---|
+| 来源 | `Data/pypto_qwen3_profiles/pypto_qwen3_profiles/tp1/swimlane/prefill.json`（39 MB） |
+| 模型 / 阶段 | **Qwen3 · TP1**，一次 **prefill** 的 L2 调用 |
+| 与谁的关系 | 和 `index.html`（DSpark GBS1 STRACE）、`device.html`（DSpark GBS256 profiler trace）**既不同模型也不同采集**，三者不能对齐、不能相加 |
+| 规模 | 60 个核（20 AIC + 40 AIV）· 窗口 44.42 ms · 15,228 个核上任务 / 684 个 SPMD 任务 · 18 种算子 |
+| 时间 | 核上周期计数（50 MHz），trace 原值 |
+
+- **为什么用 prefill 不用 decode**：同目录 `decode.json` 的 `FuncId` 全是 `-1`，任务名只有 `task(r2t0)` 这样的 token，映射不到算子名；prefill 的 `FuncId` 有值，事件名本身就是 `gate_up_proj_spmd(r1t5)`，18 种算子都能认出来。这一条写在页面的口径折叠里。
+- **主图**：一行一个核，上面 20 个 AIC、下面 40 个 AIV，中间留一条缝。实色是 `kernel-duration-us`，紧跟着的红色一小截是 `local_setup_us`（下发开销）。滚轮缩放、拖动平移，`重置缩放` 回到全窗口；范围写进 hash（`#r=12.416,15.469`）。
+- **一眼能看出的事**：AIC 20 个核平均占用 **72.2%**（kernel 合计 641 ms），AIV 40 个核只有 **6.89%**（122 ms）——这次 prefill 的算力几乎全压在立方核上，向量核大部分时间空着。
+- **算子表**：18 种，按 kernel 合计排；给实例数、kernel、setup、用了几个核。`gate_up_proj` 一项就占 352 ms，而且它的 **setup 12.8 ms 比别的算子高一个量级**（其余都在 1 ms 上下），表里 setup 占比超 3% 的标红。
+- **任务依赖**：点泳道里任一任务，右下给它的 `fanin` / `fanout`（例如 `gate_up_proj (r3t284)` 上游 `post_rmsnorm (r3t276)`、下游 `silu (r3t285)`），可以顺着依赖一跳跳地走。SPMD 任务会同时落在 20–60 个核上，选中时整列一起亮。
+- **没用到的**：同目录 `deps.json` 还有 684 个任务的张量形状 / dtype / stride 与依赖边，`l2_swimlane_records.json` 有原始周期计数与 AICPU 调度阶段；这一页都没用。
   - **优化队列**：P0 权重 / Cache 常驻、P1 lane 6 bind 偏慢、P1 Device 临界路径、P2 冷启动移出请求路径；每项的“当前”列都取自本次基线。下方是复测时要确认的四条验证目标，含“不以增加 D2H 为代价”“不覆盖本基线”。
   - **逐步构成**：54 行里两个指标名是一样的，所以**名字只在表头写一次**（例如 `lane N · bind.args / 关键 lane · 分配 + H2D`，逐步会变的那一截写成 `N`，具体值在每格的 `title` 上），行里只留会变的数和一条 16 格的分卡色带（Host 层越红越慢，lane 6 那一格几乎每行都是红的）。超 P90 的那几行**左缘一条红边、step 号标红**（悬停给 `超 P90 · 比中位多 54.2 ms · Device +48.9 ms`），所以在这张 54 行的表里也能直接找到异常步。标题后面跟这一层的口径（`Host · 每个 step　关键 lane 进入 runner_run 之前的时间`），色带每格的 `title` 也带上口径与卡号（`D47 · lane 6 · 进入 runner_run 前 105 ms · 本步最晚进入`）。点击任一格即在中间显示那一步，支持 ↑ / ↓ 切换。
 - **右上 ↗**：打开详细分析页。**右上 ↑**：返回压测总览。
@@ -268,9 +308,12 @@ DSpark Serving（DeepSeek-V4-Flash w8a8，16 NPU）的性能定界 demo，从一
 node Design/execution-triage-workbench/build-data.cjs          # data.js：详细分析页
 node Design/execution-triage-workbench/build-home-data.cjs     # home-data.js：单请求页（依赖 data.js）
 node Design/execution-triage-workbench/build-overview-data.cjs # overview-data.js：压测总览页
-node Design/execution-triage-workbench/build-ops-data.cjs      # ops-data.js：lane 专项里的算子级下钻
+node Design/execution-triage-workbench/build-ops-data.cjs      # ops-data.js + device-data.js：算子级下钻与设备详情页
+node Design/execution-triage-workbench/build-core-data.cjs     # core-data.js：核级泳道（Qwen3 TP1 prefill）
 ```
 
 前两个脚本只读取 `Data/serving-strace-swimlane(2).json`；第三个只从 GBS256 压缩包里取出 `result3.json`（直接读 ZIP 的中央目录，不整包解压）。
 
-第四个读同一个压缩包里那份 1.38 GB 的 profiler trace：**流式解压 + 正则扫原文**，只挑设备主执行流（`pid 2733163936 / tid 46`）的任务，不整包解压也不落盘，全程约 2 秒、内存峰值几十 MB。产物 `ops-data.js` 约 46 KB，只含三步的任务序列与算子汇总。
+第四个读同一个压缩包里那份 1.38 GB 的 profiler trace：**流式解压 + 正则扫原文**，只挑设备主执行流（`pid 2733163936 / tid 46`）的任务与 7 条旁流的忙碌区间，不整包解压也不落盘，全程约 3 秒、内存峰值几十 MB。产物两份：`ops-data.js` 约 46 KB（侧栏小结，三步）、`device-data.js` 约 650 KB（详情页，全部 66 步）。
+
+第五个读 PyPTO 的 L2 swimlane 导出（39 MB JSON），按 task token 把 SPMD 任务归并成组，产物 `core-data.js` 约 450 KB。脚本会自己用 `--max-old-space-size=4096` 重启一次（源文件解析后占几百 MB）。

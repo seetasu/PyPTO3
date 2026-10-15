@@ -1,0 +1,145 @@
+/* Device Detail · 沿用单请求页的底色、卡片与字号；只加这一页需要的几种图元。
+ * 配色仍然是灰阶 + 红：红只给“等待”这一个已定位的事实，其余算子分组用明度区分。 */
+
+.device-page {
+  min-height: 100vh;
+  padding: 20px 24px 32px;
+  background: var(--scene-bg, #0b0b0c);
+  color: var(--foreground);
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* ------------------------------------------------------------ 头部 */
+.dv-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 24px; }
+.dv-head-main { min-width: 320px; flex: 1 1 420px; }
+.dv-head .crumb { max-width: none; }
+.dv-head .crumb-up { text-decoration: none; }
+.dv-prov {
+  max-width: 76ch; margin-top: 6px; padding: 7px 10px;
+  border: 1px dashed var(--wire-dim); border-radius: 8px;
+  font: var(--type-micro); line-height: 1.65; color: var(--foreground-muted);
+}
+.dv-prov b { color: var(--foreground-secondary); }
+.dv-prov code { font: var(--type-mono); font-size: 10px; }
+.dv-kpis { display: flex; flex-wrap: wrap; gap: 4px 26px; }
+.dv-kpi { display: grid; grid-template-columns: auto auto; column-gap: 8px; align-items: baseline; }
+.dv-kpi span { font: var(--type-body-sm); color: var(--foreground-muted); }
+.dv-kpi b { font: 500 16px/1.2 var(--font-mono); color: var(--foreground); }
+.dv-kpi i { grid-column: 1 / 3; font: var(--type-micro); font-style: normal; color: var(--foreground-disabled); }
+.dv-kpi.is-hot b { color: var(--hot); }
+
+/* ------------------------------------------------------------ 区块 */
+.dv-main { display: flex; flex-direction: column; gap: 14px; }
+.dv-sec { padding: 12px 14px 10px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--card-bg); }
+.dv-sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; margin-bottom: 8px; }
+.dv-sec-head h2 { margin: 0; font: var(--type-title-3); color: var(--foreground); }
+.dv-h3 { margin: 14px 0 6px; font: var(--type-label); color: var(--foreground-secondary); }
+.dv-sub { font: var(--type-micro); font-weight: 400; color: var(--foreground-muted); }
+.dv-sub b { font: var(--type-mono); font-size: 11px; font-weight: 400; color: var(--foreground-secondary); }
+.dv-note { margin-top: 7px; font: var(--type-micro); line-height: 1.65; color: var(--foreground-muted); }
+.dv-note b { color: var(--foreground-secondary); font-weight: 500; }
+.dv-legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font: var(--type-micro); color: var(--foreground-muted); }
+.dv-legend i { display: inline-block; width: 9px; height: 8px; margin-right: 4px; border-radius: 1px; vertical-align: -1px; }
+.dv-cols { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+
+/* ------------------------------------------------------------ 图元 */
+.dv-steps { display: block; width: 100%; height: 150px; }
+.dv-gantt { display: block; width: 100%; height: auto; }
+.dv-trend { display: block; width: 100%; height: 120px; }
+.dv-grid { stroke: rgba(255, 255, 255, 0.1); stroke-width: 1; stroke-dasharray: 2 3; }
+.dv-axis { font: var(--type-mono); font-size: 9px; fill: var(--foreground-disabled); }
+.dv-hit { fill: transparent; }
+.dv-rowbg { fill: rgba(255, 255, 255, 0.035); }
+.dv-rowname { font: var(--type-micro); fill: var(--foreground-disabled); }
+.dv-rowname.is-main { fill: var(--foreground-secondary); }
+.dv-rowname.role-comm { fill: var(--foreground-muted); }
+
+/* 步长柱：自下而上 算子执行 / 等待 / 空档 */
+.dv-seg.calc { fill: rgba(255, 255, 255, 0.82); }
+.dv-seg.wait { fill: rgba(239, 75, 60, 0.42); }
+.dv-seg.idle { fill: rgba(255, 255, 255, 0.07); }
+.dv-bar { cursor: pointer; }
+.dv-bar:hover .dv-seg.calc, .dv-tbar:hover .dv-seg.calc { fill: #fff; }
+.dv-bar:hover .dv-seg.wait { fill: rgba(239, 75, 60, 0.62); }
+.dv-bar.is-sel .dv-seg.wait { fill: var(--hot); }
+.dv-bar.is-sel .dv-seg.calc, .dv-tbar.is-sel .dv-seg.calc { fill: #fff; }
+.dv-bar:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.dv-tbar { cursor: pointer; }
+.dv-tbar .dv-seg.calc { fill: rgba(255, 255, 255, 0.5); }
+.dv-tbar.is-sel .dv-seg.calc { fill: var(--sel); }
+
+/* 甘特：主执行流的任务按分组着色，旁流只画忙碌区间 */
+.dv-task { cursor: pointer; }
+.dv-task.g-wait { fill: rgba(239, 75, 60, 0.45); }
+.dv-task.g-ep { fill: rgba(255, 255, 255, 0.95); }
+.dv-task.g-moe { fill: rgba(255, 255, 255, 0.78); }
+.dv-task.g-attn { fill: rgba(255, 255, 255, 0.6); }
+.dv-task.g-mm { fill: rgba(255, 255, 255, 0.46); }
+.dv-task.g-sample { fill: rgba(255, 255, 255, 0.34); }
+.dv-task.g-mem { fill: rgba(255, 255, 255, 0.24); }
+.dv-task.g-misc { fill: rgba(255, 255, 255, 0.15); }
+.dv-task.g-marker { fill: rgba(255, 255, 255, 0.1); }
+.dv-main-row.is-focus .dv-task { opacity: 0.18; }
+.dv-main-row.is-focus .dv-task.is-on { opacity: 1; stroke: var(--sel); stroke-width: 0.6; }
+.dv-busy { fill: rgba(255, 255, 255, 0.3); }
+.dv-busy.role-sync { fill: rgba(239, 75, 60, 0.3); }
+.dv-busy.role-comm { fill: rgba(255, 255, 255, 0.5); }
+/* 图例里的方块复用同一套 class */
+i.dv-task { display: inline-block; width: 9px; height: 8px; margin-right: 4px; border-radius: 1px; vertical-align: -1px; }
+i.dv-task.g-wait { background: rgba(239, 75, 60, 0.45); }
+i.dv-task.g-ep { background: rgba(255, 255, 255, 0.95); }
+i.dv-task.g-moe { background: rgba(255, 255, 255, 0.78); }
+i.dv-task.g-attn { background: rgba(255, 255, 255, 0.6); }
+i.dv-task.g-mm { background: rgba(255, 255, 255, 0.46); }
+i.dv-task.g-sample { background: rgba(255, 255, 255, 0.34); }
+i.dv-task.g-mem { background: rgba(255, 255, 255, 0.24); }
+i.dv-task.g-misc { background: rgba(255, 255, 255, 0.15); }
+i.dv-task.g-marker { background: rgba(255, 255, 255, 0.1); }
+i.dv-seg.calc { background: rgba(255, 255, 255, 0.82); }
+i.dv-seg.wait { background: rgba(239, 75, 60, 0.42); }
+i.dv-seg.idle { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.dv-legend i.dv-seg { display: inline-block; width: 9px; height: 8px; margin-right: 4px; border-radius: 1px; vertical-align: -1px; }
+
+/* ------------------------------------------------------------ 算子排行 */
+.dv-sort { display: flex; gap: 4px; }
+.dv-chip {
+  padding: 2px 8px; border-radius: 6px; border: 1px solid var(--wire-dim); background: transparent;
+  font: var(--type-micro); color: var(--foreground-muted); cursor: pointer;
+}
+.dv-chip:hover { color: var(--foreground); border-color: var(--foreground-muted); }
+.dv-chip.is-on { background: var(--sel-soft); border-color: var(--sel); color: var(--foreground); }
+.dv-chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.dv-table-wrap { max-height: 340px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--surface-4) transparent; }
+.dv-table { width: 100%; border-collapse: collapse; }
+.dv-table thead th {
+  position: sticky; top: 0; z-index: 1; padding: 4px 6px; background: var(--card-bg);
+  border-bottom: 1px solid var(--border-subtle);
+  font: var(--type-micro); font-weight: 400; color: var(--foreground-disabled); text-align: right;
+}
+.dv-table thead th:first-child { text-align: left; }
+.dv-table tbody tr { cursor: pointer; }
+.dv-table tbody tr:hover { background: var(--card-bg-hover); }
+.dv-table tbody tr.is-on { background: var(--sel-soft); }
+.dv-table tbody tr:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.dv-table td, .dv-table th[scope="row"] { padding: 4px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); vertical-align: baseline; }
+.dv-table th[scope="row"] { text-align: left; font-weight: 400; max-width: 300px; }
+.dv-table th[scope="row"] b { font: var(--type-mono); font-size: 11px; font-weight: 400; color: var(--foreground); overflow-wrap: anywhere; }
+.dv-table th[scope="row"] em { display: block; font: var(--type-micro); font-style: normal; color: var(--foreground-disabled); }
+.dv-table td { font: var(--type-mono); font-size: 11px; color: var(--foreground-secondary); text-align: right; white-space: nowrap; }
+.dv-share { position: relative; min-width: 76px; }
+/* 条宽按当前排序项的相对大小；数值单独写在右边，所以条不用刻度 */
+.dv-share span { position: absolute; left: 6px; bottom: 3px; max-width: calc(100% - 12px); height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.45); }
+.dv-share em { font-style: normal; }
+
+/* ------------------------------------------------------------ 分组构成 */
+.dv-groups { display: flex; flex-direction: column; gap: 3px; }
+.dv-grow { display: grid; grid-template-columns: 94px 1fr 60px; gap: 6px; align-items: center; }
+.dv-gk { display: flex; align-items: center; gap: 5px; min-width: 0; font: var(--type-micro); color: var(--foreground-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dv-gbar { height: 7px; border-radius: 2px; background: rgba(255, 255, 255, 0.05); overflow: hidden; }
+.dv-gbar span { display: block; height: 100%; background: rgba(255, 255, 255, 0.4); }
+.dv-gv { font: var(--type-mono); font-size: 11px; color: var(--foreground-secondary); text-align: right; }
+
+@media (max-width: 1080px) {
+  .dv-cols { grid-template-columns: 1fr; }
+  .device-page { padding: 14px 12px 24px; }
+}

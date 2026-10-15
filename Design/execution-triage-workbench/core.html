@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="一张卡 60 个核（20 AIC + 40 AIV）的核级泳道：PyPTO L2 swimlane，算子名、kernel 与 setup 拆分、任务依赖" />
+  <title>Core Swimlane</title>
+  <link rel="icon" type="image/svg+xml" href="../../pto-studio-logo.svg" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="./home.css" />
+  <link rel="stylesheet" href="./device.css" />
+  <link rel="stylesheet" href="./core.css" />
+</head>
+<body class="device-page core-page">
+  <header class="dv-head">
+    <div class="dv-head-main">
+      <nav class="crumb" aria-label="返回">
+        <a class="crumb-up" href="./device.html#lane=6">‹ 设备详情</a>
+        <span class="crumb-sep" aria-hidden="true">›</span>
+        <b class="crumb-cur" id="title">核级泳道</b>
+      </nav>
+      <p class="dv-prov" id="prov"></p>
+    </div>
+    <div class="dv-kpis" id="kpis"></div>
+  </header>
+
+  <main class="dv-main">
+    <section class="dv-sec" aria-label="核级泳道">
+      <header class="dv-sec-head">
+        <h2 id="laneTitle"></h2>
+        <div class="cr-tools">
+          <div class="dv-legend" id="legend"></div>
+          <button type="button" class="dv-chip" id="zoomReset" disabled>重置缩放</button>
+        </div>
+      </header>
+      <svg class="cr-lanes" id="lanes" role="img" aria-label="60 个核上的任务"></svg>
+      <p class="dv-note" id="laneNote"></p>
+    </section>
+
+    <div class="cr-cols">
+      <section class="dv-sec" aria-label="算子排行">
+        <header class="dv-sec-head">
+          <h2>算子</h2>
+          <span class="dv-sub" id="opsSub"></span>
+        </header>
+        <div class="dv-table-wrap cr-table-wrap">
+          <table class="dv-table" id="opTable"></table>
+        </div>
+        <p class="dv-note" id="opNote"></p>
+      </section>
+
+      <section class="dv-sec" aria-label="选中项详情">
+        <header class="dv-sec-head">
+          <h2 id="detailTitle">核的忙闲</h2>
+          <span class="dv-sub" id="detailSub"></span>
+        </header>
+        <div class="cr-cores" id="coreList"></div>
+        <div id="taskBox"></div>
+      </section>
+    </div>
+
+    <section class="dv-sec" aria-label="数据口径">
+      <details class="fold">
+        <summary><span>这份数据的口径</span><i id="specMeta"></i></summary>
+        <div class="fold-body"><table class="ledger dim" id="specTable"></table></div>
+      </details>
+    </section>
+  </main>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <script src="./core-data.js"></script>
+  <script src="./core.js"></script>
+</body>
+</html>

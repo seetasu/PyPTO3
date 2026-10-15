@@ -1386,6 +1386,7 @@ ${tail}（点击下钻）`;
     return `
       <section class="bd-sec ops-sec">
         <h3>这一步在设备上跑了什么<span>算子级 · 另一次采集</span></h3>
+        <a class="ops-open" href="./device.html#lane=${dev}&step=${esc(s.id)}">打开这张卡的详细分析：${O.nStep} 步 · 多流甘特 · 算子排行 ↗</a>
         <p class="ops-prov">
           <b>不是本请求的数据</b>：来自 ${esc(O.source.run)} 的 Ascend profiler trace，${esc(O.source.rank)}；
           与 dev ${dev} 的 <code>runner_run</code> 既不同次采集也不同负载，时间按 trace 原值显示，<b>没有缩放</b>到这条 lane 的窗口。
