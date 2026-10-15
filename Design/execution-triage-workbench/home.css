@@ -258,6 +258,8 @@ h1, h2, p { margin: 0; }
 .iso .blk.bind.is-hit { fill: #3a3a3a; }
 .iso .blk.crit.is-hit { fill: #5c201a; stroke: var(--hot); }
 .iso .hit { fill: transparent; cursor: pointer; }
+/* 单步视图：每条 lane 的整行热区，让细线也好悬停；点击仍等同于点这条带 */
+.iso .lane-hit { fill: transparent; cursor: pointer; }
 .iso .hit:hover { fill: rgba(255, 255, 255, 0.05); }
 .iso .step-title { font: 500 13px/1 var(--font-sans); letter-spacing: 0.06em; fill: var(--foreground); }
 .iso .step-sub { font: var(--type-mono); fill: var(--foreground-secondary); }

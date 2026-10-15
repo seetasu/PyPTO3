@@ -494,13 +494,17 @@ function dsparkQuestions(run, runtime, dist) {
   const g = (k) => runtime.path.find((p) => p.key === k).stat.mean;
   const fmt = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(2)} s` : ms >= 100 ? `${Math.round(ms)} ms` : `${ms.toFixed(1)} ms`);
   const share = (ms) => `${Math.round((ms / runtime.period.mean) * 100)}%`;
+  // 结论先用用户能感知的量说话：一个 token 等多久、整次请求被它吃掉多少；
+  // bind.args / H2D 这些实现口径退到 tech 里，悬停可查，下面的关键路径表也仍然列着。
+  const e2eShare = Math.round((runtime.resident.e2eSaveMs / run.totals.e2eMs) * 100);
   return [
     {
-      topic: 'Host 的 bind / 分配 / H2D',
+      topic: '每出一个 token，都要重新把权重搬上卡',
       state: 'hit',
       hot: true,
-      a: `bind.args ${fmt(g('h2d'))}/步，占步长 ${share(g('h2d'))}；${dist.nLane} 条 lane 每步合计搬运 ${fmt(runtime.windows[0].stat.mean)}。`,
-      next: `偏斜集中在 lane ${dist.critLane}，先看它`,
+      a: `出一个 token 要等 ${fmt(runtime.period.mean)}，其中 ${fmt(g('h2d'))}（${share(g('h2d'))}）在把权重搬进显存，搬完设备才开始算；这次请求 ${runtime.n} 步累计 ${fmt(runtime.resident.e2eSaveMs)}，占端到端 ${fmt(run.totals.e2eMs)} 的 ${e2eShare}%。权重常驻后同样一步推算 ≈ ${fmt(runtime.resident.period.mean)}。`,
+      tech: `口径：关键 lane 的 bind.args（设备内存分配 + Host→Device 搬运）${fmt(g('h2d'))}/步，取 ${runtime.n} 个 decode step 的均值；${dist.nLane} 条 lane 每步合计 ${fmt(runtime.windows[0].stat.mean)}。常驻后的步长是推算值。`,
+      next: `最慢的是 ${dist.critLane} 号卡（lane ${dist.critLane}），先看它`,
       go: { tab: 'dist', lane: dist.critLane },
     },
     {

@@ -90,11 +90,12 @@
    * 平面泳道：x 只表示时间（ms，0 = 上一步结束），y 只表示层与 lane。
    * 三条带从上到下依次是 Serving / Host（Worker + 16 条 lane 的 bind）/ Device（16 条 lane 的 runner_run）。
    * 同一时刻在所有行上垂直对齐，所以一条竖线就能读出“此刻每一层在做什么”。 */
-  const PAD = { l: 64, r: 170, t: 52, b: 30 };
+  const PAD = { l: 64, r: 140, t: 52, b: 30 };
   let W = 1000;        // 时间轴长度：按容器比例逐次计算，让泳道左右撑满而不是居中留白
-  const ROW_H = 11;    // 每条 lane 的行高
-  const BAR = 9;       // lane 条高
-  const HEAD_H = 16;   // Serving / Worker 行高（贴合 11 的条高）
+  const ROW_H = 10;    // 每条 lane 的行距：条高之外留出空白，16 条才读得出是 16 条
+  const BAR = 4;       // lane 条高：一条线的粗细，lane 之间靠空白分开
+  const BAR_R = 1;     // 细条的圆角：再大就从线变成胶囊
+  const HEAD_H = 16;   // Serving / Worker 行高（比 lane 行距高一档，行名才站得住）
   const GAP = 32;      // 带间距（含每条带上方的带名行）
   const PAD_IN = 6;    // 带内上下留白
   const SUB_GAP = 8;   // Worker 行与 16 条 lane 之间
@@ -306,7 +307,7 @@
 
   function bar(g, x0, x1, yc, h, cls, tipText) {
     const w = Math.max(1.2, x1 - x0);
-    const n = el('rect', { class: `blk ${cls}`, x: x0, y: yc - h / 2, width: w, height: h, rx: 1.5 }, g);
+    const n = el('rect', { class: `blk ${cls}`, x: x0, y: yc - h / 2, width: w, height: h, rx: h >= 8 ? 1.5 : BAR_R }, g);
     if (tipText) withTip(n, tipText);
     return n;
   }
@@ -337,19 +338,19 @@
       return withTip(node, detail);
     };
     if (!hasSplit) {
-      return [attrs(bar(g, X(l.rrStart), X(l.end), y, BAR, `rr${classes}`, detail))];
+      return [attrs(bar(g, X(start), X(end), y, BAR, `rr${classes}`, detail))];
     }
     const execEnd = Math.min(end, start + l.deviceExec);
     // 先画一条低对比的完整窗口作为等待底，再覆盖实色执行段；避免每条 lane 的等待段都带虚线边框。
     const window = el('rect', {
       class: `blk rr-window${classes}`, x: X(start), y: y - BAR / 2,
-      width: Math.max(0.55, X(end) - X(start)), height: BAR, rx: 1.5,
+      width: Math.max(0.55, X(end) - X(start)), height: BAR, rx: BAR_R,
     }, g);
     attrs(window);
     if (execEnd - start <= 0.01) return [window];
     const exec = el('rect', {
       class: `blk rr-exec${classes}`, x: X(start), y: y - BAR / 2,
-      width: Math.max(0.55, X(execEnd) - X(start)), height: BAR, rx: 1.5,
+      width: Math.max(0.55, X(execEnd) - X(start)), height: BAR, rx: BAR_R,
     }, g);
     attrs(exec);
     return [window, exec];
@@ -466,6 +467,20 @@
     // 3) 时间参考线：本步时间原点；关键 lane 的起点由关键路径自身标出
     const guides = el('g', { class: 'guides' }, svg);
     vline(guides, X(0), L.serving.y - 6, L.device.y + L.device.h + 6, 'g-start');
+
+    // 3.5) 每条 lane 铺一层整行透明热区：条细成一条线之后，光标不必正好压在线上。
+    //      画在条之前，所以真压在条上时仍然是条自己的详情提示。
+    const glh = el('g', { class: 'lane-hits' }, svg);
+    f.lanes.forEach((l) => {
+      const rrStart = l.rrStart ?? l.r0;
+      const rrEnd = l.end ?? l.r1;
+      const tip = `lane ${l.dev}（dev ${l.dev}）· bind ${fmtMs(l.bindEnd - l.bindStart)} → 等待 ${fmtMs(Math.max(0, rrStart - l.bindEnd))} → runner_run ${fmtMs(rrEnd - rrStart)}`;
+      [['host', ROW.host(l.dev)], ['device', ROW.device(l.dev)]].forEach(([layer, y]) => {
+        const hit = el('rect', { class: 'lane-hit', x: PAD.l, y: y - ROW_H / 2, width: W, height: ROW_H }, glh);
+        hit.addEventListener('click', () => selectLayer(layer));
+        pairHover(withTip(hit, tip), l, ROW, X);
+      });
+    });
 
     // 4) Serving 带
     const gs = el('g', {}, svg);
@@ -1092,13 +1107,13 @@ ${tail}（点击下钻）`;
 
   /* ② 关键路径：只给还需要往下走的结论 + 可相加的五段；观察窗口折叠
    * 查完没问题的那几层不展开——它们不是用户要处理的事，只留一行作为查过的记录。 */
-  const Q_CHIP = { hit: '命中', open: '待分清' };
+  // 结论卡只说用户感知得到的量；实现口径（bind.args / H2D 等）挂在卡片的 title 上
+  const Q_CHIP = { hit: '命中' };
   function renderPathPanel() {
     const R = RUN.runtime;
-    const live = RUN.questions.filter((q) => q.state !== 'clear');
-    const clear = RUN.questions.filter((q) => q.state === 'clear');
+    const live = RUN.questions.filter((q) => q.state === 'hit');
     const items = live.map((q) => `
-        <li class="vd is-${q.state}">
+        <li class="vd is-${q.state}"${q.tech ? ` title="${esc(q.tech)}"` : ''}>
           <span class="vd-k">${Q_CHIP[q.state]}</span>
           <div class="vd-b">
             <b>${esc(q.topic)}${q.estimate ? '<em class="est-tag" title="含模型推算的拆分，不是实测值">估计</em>' : ''}</b>
@@ -1108,25 +1123,10 @@ ${tail}（点击下钻）`;
     : `<span class="vd-go is-static">${esc(q.next)}</span>`) : ''}
           </div>
         </li>`).join('');
-    // P90 筛查：全程图上的淡红列在这里变成可点的清单，明确它是复核提示而非故障判定
-    const slowItem = SLOW.n ? `
-        <li class="vd is-watch" id="slowList">
-          <span class="vd-k">P90 筛查</span>
-          <div class="vd-b">
-            <b>${SLOW.n}/${SLOW.of} 步高于 P90 ${fmtMs(RUN.perStep.p90Ms)}</b>
-            <p>这是分布筛查提示，不等同故障判定。筛查步合计比中位步长 ${fmtMs(SLOW.excess)}，占 E2E ${SLOW.sharePct.toFixed(1)}%；主线仍是 bind.args（累计 ${fmtMs(RUN.runtime.resident.e2eSaveMs)}）。可按分项线索逐步复核：</p>
-            <ul class="slow-list">${SLOW.items.map((a) => `
-              <li><button type="button" data-go-step="${esc(a.id)}" title="${esc(`${a.id} · ${fmtMs(a.period)} · 高于 P90 · 比中位步长 ${fmtMs(a.excess)} · 分项偏高：${a.detail}`)}">
-                <b>${esc(a.id)}</b><i>+${fmtMs(a.excess)}</i><span>${esc(a.tag)}</span>
-              </button></li>`).join('')}
-            </ul>
-          </div>
-        </li>` : '';
     $('#panel-path').innerHTML = `
       <section class="bd-sec">
-        <h3>定界结论<span>只看落在关键路径的那部分</span></h3>
-        <ul class="verdicts">${items}${slowItem}</ul>
-        ${clear.length ? `<p class="vd-clear" title="${esc(clear.map((q) => `${q.topic}：${q.a}`).join('\n'))}">已排除 ${clear.map((q) => esc(q.topic)).join(' · ')}</p>` : ''}
+        <h3>定界结论</h3>
+        <ul class="verdicts">${items}</ul>
       </section>
       <section class="bd-sec">
         <h3>关键路径<span>decode ${R.n} 步 · 五段相加 = 步长</span></h3>
