@@ -253,7 +253,9 @@ const stat = (xs) => {
       // 采集口径：负载串取自压缩包自己的名字，不另写死
       workload: path.basename(ZIP, '.zip'),
       capture: 'Ascend profiler 导出的 trace（与 result3.json 同一个压缩包）',
-      captureNote: 'pypto-serving 的 .agents/skills 里没有这份 trace 的采集流程，所以这一页只按导出原值读；同一串负载的端到端指标可以用 vllm-bench-perf 复测，但它给不出算子级分解。',
+      captureNote: 'pypto-serving 的 .agents/skills 里没有这份 Ascend 导出的采集与解析流程（它们吃的是自家 SA_PROFILE 的 Chrome trace 与 [STRACE] 日志），所以这一页按导出原值读。',
+      // 算子级分析本身是有 skill 口径的，只是作用在另一种 trace 上
+      analysis: 'qwen3-14b-online-perf-test §6–7 给的就是算子级口径：ph="X" 按事件名聚合，kernel 行取 args.device_wall_us（才是设备真实耗时，span dur 含 host 下发开销），并排除一次性启动 span。换到 pypto-serving 自己的 profiler 上复现这一页时按它来；端到端性能数另用 vllm-bench-perf。',
     },
     nStep: segs.length,
     period: stat(segs.map((s) => s.ms)),

@@ -10,6 +10,7 @@
 |---|---|---|---|---|
 | CP-01 | 融合多输出 scope 后一路输出大面积错误 | `InitMemref`、`MemoryReuse`、`LegalizePtoBufferReuse`、`AllocateMemoryAddr` | 融合前后 IR、tile 生命周期、UB 地址与别名 | [pypto#1723](https://github.com/hw-native-sys/pypto/issues/1723) |
 | CP-02 | `UP_DOWN` 切分下行归约结果错误 | `SplitVectorKernel` | split 前后 IR、sub-block 分片、partial sum 合并路径 | [pypto#1864](https://github.com/hw-native-sys/pypto/issues/1864) |
+| CP-03 | 泳道显示 Task 很多但核利用率极低，计算阶段拆分后性能进一步恶化 | 计算阶段的 pass 划分；根因是循环内原地 `pl.assemble` 引入 WAW 依赖链，不是编译器 IR pass | Worker 泳道、Task/Core 占用统计、依赖链、3-pass/4-pass 实验对比 | [pypto-lib#828](https://github.com/hw-native-sys/pypto-lib/issues/828) 索引的调优日志 §6、§8 |
 
 ---
 
@@ -124,6 +125,78 @@ y[i, :] = x[i, :] / sum_j(x[i, j])
 
 ---
 
+## CP-03：泳道揭示伪并行，阶段拆分实验定位 WAW 串行链
+
+- **真实来源**：[pypto-lib#828](https://github.com/hw-native-sys/pypto-lib/issues/828) 索引的 DeepSeek-V4 decode indexer compressor 调优日志 §6、§8；案例整理见[性能调优典型用户案例](../Insight/PyPTO性能调优典型用户案例_基于GitHub_20260923.md#案例-2用泳道图诊断伪并行deepseek-v4-decode-indexer-compressor)。
+- **案例类型**：真实性能调优实录，包含泳道观察、原因分析、阶段拆分实验、代码修改和复验。
+- **术语说明**：本案例中的 3-pass/4-pass 指 kernel 计算工作流的阶段划分，不是 PyPTO 编译器内部的 IR pass。根因定位依赖 Task 依赖链和阶段拆分实验，不应归因给某个编译器 pass。
+
+### 1. 问题描述与可视化呈现
+
+泳道中段呈现大量细碎 Task，但设备核利用率很低：MIDDLE 时间窗约 1500 µs，占 72%；AIC 忙碌比例约 1.9%，AIV 约 5.8%；每个 scope 有数百个 Task，却只分布在 1～6 个核上。这是“Task 数量很多，但实际并行度很低”的典型表现。
+
+建议工作台呈现：
+
+| 可视化区域 | 展示内容 |
+|---|---|
+| 全局泳道与时间窗 | 高亮 MIDDLE 区间及其占总耗时的比例；同步展示 AIC/AIV 各 Core 的忙碌和空闲时间。 |
+| Task 密度与分布 | 展示每个 scope 的 Task 数、覆盖 Core 数、Task 时长分布和 dispatch/start/finish；标出大量细碎 Task 集中在少数 Core 的区段。 |
+| 依赖关系 | 将跨 batch 的 WAW 边叠加到泳道或依赖图，展示前一轮写入如何阻挡后一轮，避免把表面上的并行循环误读为实际并行。 |
+| 关键路径 | 从末端 Task 反向显示被串行化的 batch 链，并区分计算时间与等待前驱的时间。 |
+| 阶段实验对比 | 对照原始实现、3-pass 和 4-pass：显示总耗时、scatter Task 的数量、覆盖 Core 数和阶段边界。 |
+
+### 2. 问题分析与阶段过程可视化
+
+泳道信号先排除了“计算本身太慢”的直觉：AIC/AIV 忙碌比例都很低。依赖分析随后发现，per-batch `pl.parallel` 循环体内对共享 GM 张量反复原地 `pl.assemble` 重新赋值，形成跨迭代 WAW 链；64 个 batch 被串行执行，同一循环体中的计算 scope 也被连带串行。
+
+调优者通过真机阶段拆分实验验证阶段边界：
+
+| 版本 | 阶段划分与观测 | 耗时 |
+|---|---|---:|
+| 3-pass | 计算不是主要瓶颈 | 1866 µs |
+| 4-pass | scatter 独立成一个 pass 后只剩 1 个核，表明 scatter 必须与 softmax 留在同一 pass | 2593 µs |
+
+建议工作台把“pass”对象作为**计算阶段图**呈现，而不是编译器 pass 时间轴：
+
+1. **阶段边界图**：显示每阶段包含的算子、Task 和数据依赖；支持对照 3-pass 与 4-pass。
+2. **阶段内外依赖**：显示 scatter、softmax 与后续阶段间的输入输出关系和同步边。
+3. **Task 归属与 Core 覆盖**：按阶段统计 Task 数、Core 数、忙碌比例和最长串行链。
+4. **WAW 依赖检查**：将共享张量的写入按 batch 排序，突出同一张量的前后写入依赖，以及它如何约束后续 Task。
+5. **实验结论卡**：记录“拆分后 scatter 单核执行、耗时上升”，并链接到具体阶段边界和泳道时间窗。
+
+这条证据链是：
+
+```text
+泳道碎片多、Core 利用率低
+  → 查看 Task 依赖而非仅看 Task 数
+  → 发现循环内共享 GM 张量的 WAW 链
+  → 通过 3-pass / 4-pass 真机实验验证阶段边界
+  → 调整 `pl.at` 与循环的嵌套关系
+```
+
+### 3. 解决方案与复验
+
+将 `pl.at` 从循环内部移到外层，让多个 batch 的 scatter 组织在同一个 scope 中，减少被依赖链切碎的 scope：
+
+```python
+with pl.at(level=pl.Level.CORE_GROUP, name_hint="state_scatter_paged"):
+    for o0 in pl.range(0, OUT_DIM, OUT_CHUNK):
+        ...
+```
+
+实录中的验证结果：
+
+- 耗时从 1815 µs 降至约 1025 µs，改善约 43%（两次复验分别为 1039.7 µs 和 1012.0 µs）。
+- scatter Task 数从 512 降至 128。
+- 占用 Core 数从 5 提升至 42。
+- uniform 与 hetero `start_pos` 两种输入的精度回归通过。
+
+### 面向产品的结论
+
+这是仓库中较完整的“泳道 Task 分布 → 依赖图 → 阶段拆分实验 → 修改 → 性能与精度复验”案例。它适合支撑性能诊断主线；但其 pass 是 kernel 计算阶段，不代表已定位到 PyPTO 编译器内部的某个 IR pass。
+
+---
+
 ## 统一的工作台交互建议
 
 两个案例适合复用同一条编译诊断流程：
@@ -139,3 +212,4 @@ y[i, :] = x[i, :] / sum_j(x[i, j])
 ```
 
 每个结论应带证据状态：`FACT` 表示 Issue 或产物直接支持；`待验证` 表示需要通过 pass dump、运行时中间值或复现实验进一步确认。Pass 可视化应同时支持 IR、tile、内存/分片信息和数值结果，帮助用户把编译器内部变化与最终错误连接起来。
+
