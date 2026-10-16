@@ -576,7 +576,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset:
 .pass-tick.scope-global::after,.pass-tick.scope-none::after{content:none}
 
 /* Callable selection shares the pass navigation surface. */
-.bottom-navigation{position:absolute;z-index:30;left:50%;bottom:40px;transform:translateX(-50%);width:min(1400px,calc(100% - 80px));display:flex;align-items:center;gap:16px}
+.bottom-navigation{position:absolute;z-index:30;left:50%;bottom:40px;transform:translateX(-50%);width:auto;display:flex;align-items:center;gap:16px}
 .bottom-navigation .pass-rail{position:relative;left:auto;right:auto;bottom:auto;transform:none;flex:1;min-width:0;width:auto}
 .callable-selector{position:relative;flex:0 1 auto;width:max-content;min-width:112px;max-width:min(280px,32vw);height:48px;z-index:5}
 .callable-selector-trigger{height:48px;width:100%;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 16px;border:0;border-radius:999px;box-sizing:border-box;background:transparent;color:#ddd;font:12px var(--font-data);cursor:pointer}
@@ -597,7 +597,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid #fff; outline-offset:
 .callable-selector-trigger>span:last-child{flex-shrink:0}
 
 /* Reserve the zoom toolbar footprint; navigation must never cover its controls. */
-.bottom-navigation{left:32px;right:300px;width:auto;max-width:1400px;margin:0 auto;transform:none}
+.bottom-navigation{left:32px;right:300px;width:auto;max-width:none;margin:0;transform:none}
 .canvas-tools{z-index:40!important}
 @media(max-width:1180px){.bottom-navigation{left:22px;right:96px;max-width:none}}
 @media(max-width:800px){.bottom-navigation{left:12px;right:84px}}
