@@ -2814,8 +2814,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
 
   document.addEventListener('pto-pa-navigate', (event) => {
     if (!isPagedAttentionPyptoFile(state.activeFile)) return;
-    const { target, nodeId } = event.detail;
-    if (target === 'source') {
+    const { target, nodeId, sourceLine } = event.detail;
+    if (target === 'source' && Number.isInteger(sourceLine)) {
+      revealPypaSource({ source: { ranges: [{ start: sourceLine, end: sourceLine }] } });
+    } else if (target === 'source') {
       const graph = window.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(window.PTO_PYPA_SEMANTIC_GRAPH, pypaExpandedStages);
       const node = graph.nodes.find((item) => item.id === nodeId);
       if (node) revealPypaSource(node);
@@ -2823,6 +2825,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       pypaGraphView = 'compute';
       pypaGraphTransform = null;
       renderSourceRegionPanel();
+      const node = pypaGraphController?.nodes?.find((item) => item.id === nodeId);
+      if (node) selectPypaGraphNode(node, { pan: true });
     }
   });
 

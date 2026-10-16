@@ -54,7 +54,7 @@
     return rects;
   }
   // Kept in this page session; mounting/unmounting does not reset exploration.
-  const state = { stackDetailOpen: false, stage: 'qk', taskView: 'pipeline', pipelineStep: 2, pipelineStack: null, seqLens: [...defaultSeqLens], block: null, task: null, level: 'matrix', view: null, matrixView: null, matrixSize: null, size: null };
+  const state = { dependencyOpen: false, stackDetailOpen: false, stage: 'qk', taskView: 'pipeline', pipelineStep: 2, pipelineStack: null, seqLens: [...defaultSeqLens], block: null, task: null, level: 'matrix', view: null, matrixView: null, matrixSize: null, size: null };
   // A single selection owner: the compute map reads/writes this same page-session state.
   const stageNodes = Object.freeze({ qk: 'qk', softmax: 'softmax', pv: 'pv', accumulate: 'context-acc' });
   const stageLabels = Object.freeze({ qk: 'QK', softmax: 'Softmax', pv: 'PV', accumulate: 'Accumulate' });
@@ -63,10 +63,20 @@
     get selection() {
       const task = state.task === null ? null : taskInfo(state.task);
       return { block: state.block, task: state.task, batch: task?.batch ?? null, kvHead: task?.kv ?? null,
-        pipelineStep: state.pipelineStep, stack: state.pipelineStack, stage: state.stage };
+        pipelineStep: state.pipelineStep, stack: state.pipelineStack, stage: state.stage,
+        seqLen: task ? state.seqLens[task.batch] : null };
+    },
+    selectInstance({ stack, stage }) {
+      if (state.task === null || !Object.hasOwn(stageNodes, stage)) return;
+      const data = pipelineFor(state.seqLens[taskInfo(state.task).batch]);
+      if (!Number.isInteger(stack) || stack < 0 || stack >= data.stackCount) return;
+      state.pipelineStack = stack; state.stage = stage;
+      state.pipelineStep = data.steps.find((step) => (['qk', 'softmax'].includes(stage) ? step.produceStack : step.consumeStack) === stack).tick;
+      mounted?.refresh?.();
     },
     selectStage(stage) {
       if (!Object.hasOwn(stageNodes, stage)) return;
+      if (state.dependencyOpen && state.pipelineStack !== null) { this.selectInstance({ stack: state.pipelineStack, stage }); return; }
       state.stage = stage;
       if (state.task !== null && state.pipelineStack === null) {
         const data = pipelineFor(state.seqLens[taskInfo(state.task).batch]);
@@ -90,7 +100,7 @@
     const on = (element, type, listener, options = {}) => element.addEventListener(type, listener, { ...options, signal });
     const query = (selector) => host.querySelector(selector);
     const reducedMotion = global.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let playbackTimer = null;
+    let playbackTimer = null, dependencyController = null;
     let hoverTask = null, drag = null, animation = null, transitionUntil = 0, panTimer = null, suppressClick = false;
     host.innerHTML = `<div class="kf-pa-map">
       <section class="kf-pa-map__shelf" aria-label="SPMD Block 分配">
@@ -106,12 +116,13 @@
       <div class="kf-pa-map__pipeline-controls" data-pa-controls hidden>
         <div role="group" aria-label="Task 详情视图"><button class="btn btn-ghost btn-sm" data-pa-view="pipeline">Pipeline</button><button class="btn btn-ghost btn-sm" data-pa-view="pages">Pages</button></div>
         <div data-pa-steps role="group" aria-label="Pipeline Step"></div>
-        <span>Logical pipeline · source-derived</span>
+        <button class="btn btn-ghost btn-sm" type="button" data-pa-action="dependencies">查看 Stack 依赖 ↗</button><span>Logical pipeline · source-derived</span>
       </div>
       <div class="kf-pa-map__viewport" tabindex="0" role="group" aria-label="任务矩阵画布，滚轮缩放，按住左键拖拽平移，方向键切换 Task，Escape 返回矩阵">
         <svg class="kf-pa-map__svg" xmlns="http://www.w3.org/2000/svg" aria-label="Batch 与 KV Head 的任务关系"><g data-pa-ghost opacity="0" pointer-events="none"></g><g data-pa-morph-fill opacity="0" pointer-events="none"></g><g class="kf-pa-map__scene" data-pa-scene></g><g data-pa-morph opacity="0" pointer-events="none"></g></svg>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div>
       </div>
+      <section data-pa-dependency hidden aria-label="当前 Task 的 Stack 依赖"></section>
       <div class="kf-pa-map__pipeline-detail" data-pa-detail hidden aria-live="polite"></div>
       <section class="kf-pa-map__operator" data-pa-operator hidden aria-label="Where in Operator"></section>
       <footer class="kf-pa-map__footer"><div><p data-pa-summary></p><span data-pa-hint>滚轮放大进入 Task · 拖拽平移</span></div><div class="kf-pa-map__tools" role="group" aria-label="简介画布操作"><button class="btn btn-ghost btn-sm" type="button" data-pa-action="out" aria-label="缩小简介">−</button><output data-pa-zoom>100%</output><button class="btn btn-ghost btn-sm" type="button" data-pa-action="in" aria-label="放大简介">＋</button><button class="btn btn-ghost btn-sm" type="button" data-pa-action="fit">适应</button></div></footer>
@@ -238,13 +249,26 @@
       const detail = state.level === 'detail';
       query('[data-pa-controls]').hidden = !detail;
       query('[data-pa-detail]').hidden = !detail || !state.stackDetailOpen;
-      query('[data-pa-operator]').hidden = !detail;
+      query('[data-pa-operator]').hidden = !detail || state.dependencyOpen;
+      const dependencies = detail && state.dependencyOpen;
+      host.dataset.stackDependency = String(dependencies);
+      query('[data-pa-dependency]').hidden = !dependencies;
+      viewport.hidden = dependencies;
+      query('.kf-pa-map__footer').hidden = dependencies;
+      query('[data-pa-action="dependencies"]').hidden = !detail || state.taskView !== 'pipeline' || dependencies;
       if (!detail) return;
       const data = pipelineFor(state.seqLens[taskInfo(state.task).batch]);
       state.pipelineStep = Math.max(0, Math.min(state.pipelineStep, data.stepCount - 1));
       if (state.pipelineStack >= data.stackCount) state.pipelineStack = null;
       const step = data.steps[state.pipelineStep];
       if (state.pipelineStack === null) state.pipelineStack = ['qk', 'softmax'].includes(state.stage) ? step.produceStack : step.consumeStack;
+      if (dependencies) {
+        const options = { context, pipeline: data, synchronizations: global.PTO_PYPA_SEMANTIC_GRAPH.synchronizations,
+          onClose() { state.dependencyOpen = false; syncPipeline(); },
+          onNavigate(target, line) { host.dispatchEvent(new CustomEvent('pto-pa-navigate', { bubbles: true, detail: { target, nodeId: stageNodes[state.stage], ...(line ? { sourceLine: line } : {}) } })); } };
+        if (!dependencyController) dependencyController = global.PtoPagedAttentionStackDependency.mount(query('[data-pa-dependency]'), options);
+        else dependencyController.update(data);
+      }
       const c = context.selection;
       const stages = [
         ['prep', 'QKV Prep', ''], ['cache', 'Cache Append', ''],
@@ -265,7 +289,7 @@
         + data.steps.map((item) => `<button class="btn btn-ghost btn-sm" data-pa-step="${item.tick}" aria-pressed="${item.tick === step.tick}">${item.tick}</button>`).join('')
         + `<button class="btn btn-ghost btn-sm" data-pa-step="${step.tick + 1}" aria-label="下一个 Pipeline Step" ${step.tick === data.stepCount - 1 ? 'disabled' : ''}>›</button>`;
       const stack = data.stacks[state.pipelineStack];
-      query('[data-pa-detail]').hidden = !state.stackDetailOpen || !stack;
+      query('[data-pa-detail]').hidden = dependencies || !state.stackDetailOpen || !stack;
       query('[data-pa-detail]').innerHTML = stack && state.stackDetailOpen ? `<header><b>STACK ${stack.id}</b><button class="btn btn-ghost btn-sm" type="button" data-pa-action="close-stack" aria-label="关闭 Stack 详情">×</button></header>
         <div class="kf-pa-map__stack-data"><div class="kf-pa-map__stack-pages"><span>Pages</span><div>${Array.from({ length: constants.pagesPerStack }, (_, i) => {
           const page = stack.pages[i];
@@ -600,6 +624,7 @@
         state.matrixView = { scale: maxReturn, x: origin.x - (origin.x - old.x) * ratio, y: origin.y - (origin.y - old.y) * ratio };
       }
       snapshotGhost(old);
+      state.dependencyOpen = false;
       state.pipelineStack = null;
       state.stackDetailOpen = false;
       state.task = id;
@@ -751,12 +776,13 @@
         context.selectStage(stage.dataset.paStage); return;
       }
       const handoff = event.target.closest('[data-pa-action]')?.dataset.paAction;
+      if (handoff === 'dependencies') { state.dependencyOpen = true; syncPipeline(); return; }
       if (handoff === 'compute' || handoff === 'source') {
         host.dispatchEvent(new CustomEvent('pto-pa-navigate', { bubbles: true, detail: { target: handoff, nodeId: stageNodes[state.stage] } }));
         return;
       }
       const view = event.target.closest('[data-pa-view]');
-      if (view) { state.taskView = view.dataset.paView; drawDetail(); fit(); return; }
+      if (view) { state.dependencyOpen = false; state.taskView = view.dataset.paView; drawDetail(); fit(); return; }
       const step = event.target.closest('[data-pa-step]');
       if (step) { selectStep(Number(step.dataset.paStep)); return; }
       const stack = event.target.closest('[data-pa-stack]');
@@ -878,8 +904,7 @@
       state.seqLens[taskInfo(state.task).batch] = value;
       animation?.cancel();
       drawDetail();
-      state.view = fitted();
-      rememberSize();
+      if (!state.dependencyOpen) { state.view = fitted(); rememberSize(); }
       query('[data-pa-length]').value = value;
       query('[data-pa-range]').value = value;
       syncSelection(); paintView(); return true;
@@ -921,6 +946,7 @@
       if (signal.aborted) return;
       cancelLayoutTween();
       cancelEnterTransit();
+      dependencyController?.abort();
       clearInterval(playbackTimer);
       lifetime.abort(); observer.disconnect(); animation?.cancel();
       if (mounted === controller) mounted = null;

@@ -313,3 +313,49 @@
 #pypaTaskScene[data-overlay-sync="false"] .kf-pypa-graph__sync-marker,
 #pypaTaskScene[data-overlay-sync="false"] .kf-pypa-graph__sync-path { display: none; }
 .kf-pypa-graph__arrow.is-sync { fill: var(--warning); }
+
+/* Stack × Compute Stage: task-local content, within the existing IDE pane. */
+.kf-pa-intro-mount[data-stack-dependency="true"] .kf-pa-map__shelf { display: none; }
+.kf-pa-intro-mount[data-stack-dependency="true"] .kf-pa-map__viewport { display: none; }
+.kf-pa-map [data-pa-dependency] { flex: 1 0 auto; min-width: 0; }
+.kf-pa-dependency { color: var(--foreground-secondary); font: var(--type-body-sm); }
+.kf-pa-dependency__header, .kf-pa-dependency__toolbar, .kf-pa-dependency__detail > header { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3); margin: var(--space-2) 0; }
+.kf-pa-dependency__header > span { color: var(--foreground-muted); font: var(--type-mono); }
+.kf-pa-dependency__toolbar label, .kf-pa-dependency__toolbar [role="group"] { display: flex; align-items: center; gap: var(--space-2); }
+.kf-pa-dependency__toolbar [role="group"] { margin-left: auto; }
+.kf-pa-dependency__legend { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-3) 0; font: var(--type-micro); }
+.kf-pa-dependency__legend small { color: var(--foreground-muted); }
+.kf-pa-dependency__viewport { overflow: auto; max-height: 560px; min-height: 280px; background: var(--surface-1); }
+.kf-pa-dependency__viewport svg { display: block; max-width: none; }
+.kf-pa-dependency svg text { fill: var(--foreground-secondary); font-family: var(--font-mono); font-size: 12px; }
+.kf-pa-dependency__column { fill: var(--foreground) !important; }
+.kf-pa-dependency__row > rect { fill: transparent; }
+.kf-pa-dependency__row.is-selected > rect { fill: var(--state-selected); fill-opacity: .35; }
+.kf-pa-dependency__node { cursor: pointer; }
+.kf-pa-dependency__node > rect { fill: var(--surface-3); stroke: transparent; }
+.kf-pa-dependency__node.is-current-tick > rect { stroke: var(--border-strong); }
+.kf-pa-dependency__node.is-selected > rect { fill: var(--state-selected); stroke: var(--primary); }
+.kf-pa-dependency__node:hover > rect { fill: var(--surface-4); }
+.kf-pa-dependency__node:focus-visible > rect { stroke: var(--primary); }
+.kf-pa-dependency__edge { cursor: pointer; opacity: .28; }
+.kf-pa-dependency__edge.is-related, .kf-pa-dependency__edge:hover, .kf-pa-dependency__edge:focus-visible { opacity: 1; }
+.kf-pa-dependency__edge.is-selected { opacity: 1; }
+.kf-pa-dependency .is-data { color: var(--foreground-secondary); }
+.kf-pa-dependency .is-sync { color: var(--warning); }
+.kf-pa-dependency .is-state { color: var(--primary); }
+.kf-pa-dependency .is-reuse { color: var(--accent); }
+.kf-pa-dependency__arrow { fill: currentColor; }
+.kf-pa-dependency__line { fill: none; stroke: currentColor; stroke-width: 1.6; }
+.kf-pa-dependency__edge.is-sync .kf-pa-dependency__line { stroke-dasharray: 5 4; }
+.kf-pa-dependency__edge.is-reuse .kf-pa-dependency__line { stroke-dasharray: 2 5; }
+.kf-pa-dependency__edge text { fill: currentColor; paint-order: stroke; stroke: var(--surface-1); stroke-width: 4px; stroke-linejoin: round; }
+.kf-pa-dependency__hit { fill: none; stroke: transparent; stroke-width: 16px; pointer-events: stroke; }
+.kf-pa-dependency__detail { padding: var(--space-3) 0; }
+.kf-pa-dependency__detail > header b { color: var(--foreground); }
+.kf-pa-dependency__detail p { line-height: 1.7; margin: var(--space-2) 0; }
+.kf-pa-dependency__detail nav { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.kf-pa-dependency__detail .btn { white-space: normal; height: auto; min-height: 28px; text-align: left; }
+.kf-pa-dependency__versions { font-family: var(--font-mono); color: var(--primary); overflow-wrap: anywhere; }
+.kf-pa-dependency__note { color: var(--foreground-muted); line-height: 1.6; }
+/* Task drill-down keeps its own context; the operator summary remains in Pipeline. */
+.kf-inspector:has([data-stack-dependency="true"]) .kf-pa-overall { display: none; }
