@@ -1,0 +1,810 @@
+{
+  "schemaVersion": "csa-pass-field.isa.v1",
+  "scenarioId": "l3_decode_csa.qk_pv",
+  "source": {
+    "pto": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+    "cpp": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp"
+  },
+  "instructions": [
+    {
+      "id": "isa.tload",
+      "mlirName": "pto.tload",
+      "apiName": "TLOAD",
+      "apiVerifiedInCpp": true,
+      "family": "memory",
+      "executionUnit": "mixed",
+      "occurrenceCount": 12,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 110,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 128,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 146,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 164,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 180,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 188,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 217,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 221,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 226,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 234,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 267,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 446,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 110,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%ori_kv_flat_inline2344__ssa_v1_pview : !pto.partition_tensor_view<?x512xbf16>) outs(%gather_row_view : !pto.tile_buf<loc=mat, dtype=bf16, rows=128, cols=512, v_row=?, v_col=512, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":254:29)"
+        },
+        {
+          "line": 128,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%91 : !pto.partition_tensor_view<?x512xbf16>) outs(%89 : !pto.tile_buf<loc=mat, dtype=bf16, rows=128, cols=512, v_row=?, v_col=512, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":254:29)"
+        },
+        {
+          "line": 146,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%106 : !pto.partition_tensor_view<?x512xbf16>) outs(%104 : !pto.tile_buf<loc=mat, dtype=bf16, rows=128, cols=512, v_row=?, v_col=512, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":254:29)"
+        },
+        {
+          "line": 164,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%121 : !pto.partition_tensor_view<?x512xbf16>) outs(%119 : !pto.tile_buf<loc=mat, dtype=bf16, rows=128, cols=512, v_row=?, v_col=512, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":254:29)"
+        },
+        {
+          "line": 180,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%134 : !pto.partition_tensor_view<?x512xbf16>) outs(%132 : !pto.tile_buf<loc=mat, dtype=bf16, rows=128, cols=512, v_row=?, v_col=512, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":254:29)"
+        },
+        {
+          "line": 188,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%138 : !pto.partition_tensor_view<?x512xbf16>) outs(%137 : !pto.tile_buf<loc=mat, dtype=bf16, rows=128, cols=512, v_row=?, v_col=512, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":261:25)"
+        },
+        {
+          "line": 217,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%cmp_kv_flat_inline2401__ssa_v0_pview : !pto.partition_tensor_view<1x512xbf16>) outs(%156 : !pto.tile_buf<loc=mat, dtype=bf16, rows=16, cols=512, v_row=1, v_col=512, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":272:29)"
+        },
+        {
+          "line": 221,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%159 : !pto.partition_tensor_view<1x512xbf16>) outs(%158 : !pto.tile_buf<loc=mat, dtype=bf16, rows=16, cols=512, v_row=1, v_col=512, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":274:29)"
+        },
+        {
+          "line": 226,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%161 : !pto.partition_tensor_view<1x512xbf16>) outs(%160 : !pto.tile_buf<loc=mat, dtype=bf16, rows=16, cols=512, v_row=1, v_col=512, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":276:25)"
+        },
+        {
+          "line": 234,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%q_flat_inline2355__ssa_v0_pview : !pto.partition_tensor_view<32x512xbf16>) outs(%qk_q_tile_inline2338__tile : !pto.tile_buf<loc=mat, dtype=bf16, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":284:21)"
+        },
+        {
+          "line": 267,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tload ins(%172 : !pto.partition_tensor_view<32x512xbf16>) outs(%12 : !pto.tile_buf<loc=mat, dtype=bf16, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":284:21)"
+        },
+        {
+          "line": 446,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tload ins(%sparse_bias_inline2381__rv_v2_pview : !pto.partition_tensor_view<1x128xf32>) outs(%qk_bias_row_inline2419__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":222:13)"
+        }
+      ],
+      "apiSourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp",
+          "evidence": "observed-api-name"
+        }
+      ]
+    },
+    {
+      "id": "isa.tstore",
+      "mlirName": "pto.tstore",
+      "apiName": "TSTORE",
+      "apiVerifiedInCpp": true,
+      "family": "memory",
+      "executionUnit": "mixed",
+      "occurrenceCount": 11,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 330,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 339,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 375,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 384,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 482,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 487,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 498,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 503,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 518,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 524,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 527,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 330,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tstore ins(%slice_view : !pto.tile_buf<loc=acc, dtype=f32, rows=16, cols=512, v_row=16, v_col=512, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) outs(%sparse_blk_oi_inline2398__iter_v1_pview : !pto.partition_tensor_view<16x512xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":304:25)"
+        },
+        {
+          "line": 339,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tstore ins(%191 : !pto.tile_buf<loc=acc, dtype=f32, rows=16, cols=512, v_row=16, v_col=512, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) outs(%sparse_blk_oi_inline2398__tile_pview : !pto.partition_tensor_view<16x512xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":304:25)"
+        },
+        {
+          "line": 375,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tstore ins(%204 : !pto.tile_buf<loc=acc, dtype=f32, rows=16, cols=512, v_row=16, v_col=512, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) outs(%207 : !pto.partition_tensor_view<16x512xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":304:25)"
+        },
+        {
+          "line": 384,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tstore ins(%212 : !pto.tile_buf<loc=acc, dtype=f32, rows=16, cols=512, v_row=16, v_col=512, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) outs(%215 : !pto.partition_tensor_view<16x512xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":304:25)"
+        },
+        {
+          "line": 482,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tstore ins(%slice_view : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=16, v_col=1, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%sparse_blk_mi_inline2404__iter_v3_pview : !pto.partition_tensor_view<16x1xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":302:25)"
+        },
+        {
+          "line": 487,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tstore ins(%50 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=16, v_col=1, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%sparse_blk_li_inline2405__iter_v3_pview : !pto.partition_tensor_view<16x1xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":303:25)"
+        },
+        {
+          "line": 498,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tstore ins(%59 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=16, v_col=1, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%sparse_blk_mi_inline2404__tile_pview : !pto.partition_tensor_view<16x1xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":302:25)"
+        },
+        {
+          "line": 503,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tstore ins(%62 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=16, v_col=1, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%sparse_blk_li_inline2405__tile_pview : !pto.partition_tensor_view<16x1xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":303:25)"
+        },
+        {
+          "line": 518,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tstore ins(%5 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%sparse_blk_mi_inline2404__iter_v1_pview : !pto.partition_tensor_view<16x1xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":311:25)"
+        },
+        {
+          "line": 524,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tstore ins(%6 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%sparse_blk_li_inline2405__iter_v1_pview : !pto.partition_tensor_view<16x1xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":312:25)"
+        },
+        {
+          "line": 527,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tstore ins(%qk_oi_zero_inline2318__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%sparse_blk_oi_inline2398__iter_v7_pview : !pto.partition_tensor_view<16x512xf32>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":313:21)"
+        }
+      ],
+      "apiSourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp",
+          "evidence": "observed-api-name"
+        }
+      ]
+    },
+    {
+      "id": "isa.tmatmul",
+      "mlirName": "pto.tmatmul",
+      "apiName": "TMATMUL",
+      "apiVerifiedInCpp": true,
+      "family": "matrix",
+      "executionUnit": "AIC",
+      "occurrenceCount": 8,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 250,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 256,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 283,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 289,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 310,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 316,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 355,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 361,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 250,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul ins(%qk_raw_inline2397__tile_l0_a, %qk_raw_inline2397__tile_l0_b : !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=128, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%qk_raw_inline2397__tile_l0_init : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":285:21)"
+        },
+        {
+          "line": 256,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul ins(%9, %10 : !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=128, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%qk_raw_inline2397__tile_l0_init : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":285:21)"
+        },
+        {
+          "line": 283,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul ins(%15, %16 : !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=128, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%14 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":285:21)"
+        },
+        {
+          "line": 289,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul ins(%17, %18 : !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=128, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%14 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":285:21)"
+        },
+        {
+          "line": 310,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul ins(%qk_oi_inline2335__tile_l0_a, %qk_oi_inline2335__tile_l0_b : !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=32, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=32, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%qk_oi_inline2335__tile_l0_init : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        },
+        {
+          "line": 316,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul ins(%21, %22 : !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=32, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=32, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%qk_oi_inline2335__tile_l0_init : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        },
+        {
+          "line": 355,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul ins(%26, %27 : !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=32, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=32, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%25 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        },
+        {
+          "line": 361,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul ins(%28, %29 : !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=32, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=32, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%25 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        }
+      ],
+      "apiSourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp",
+          "evidence": "observed-api-name"
+        }
+      ]
+    },
+    {
+      "id": "isa.tmatmul-acc",
+      "mlirName": "pto.tmatmul.acc",
+      "apiName": "TMATMUL",
+      "apiVerifiedInCpp": true,
+      "family": "matrix",
+      "executionUnit": "AIC",
+      "occurrenceCount": 8,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 252,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 258,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 285,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 291,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 312,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 318,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 357,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 363,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 252,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul.acc ins(%qk_raw_inline2397__tile_l0_init, %qk_raw_inline2397__tile_l0_a, %qk_raw_inline2397__tile_l0_b : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>, !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=128, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%qk_raw_inline2397__tile_l0_init : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":285:21)"
+        },
+        {
+          "line": 258,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul.acc ins(%qk_raw_inline2397__tile_l0_init, %9, %10 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>, !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=128, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%qk_raw_inline2397__tile_l0_init : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":285:21)"
+        },
+        {
+          "line": 285,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul.acc ins(%14, %15, %16 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>, !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=128, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%14 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":285:21)"
+        },
+        {
+          "line": 291,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul.acc ins(%14, %17, %18 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>, !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=128, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%14 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":285:21)"
+        },
+        {
+          "line": 312,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul.acc ins(%qk_oi_inline2335__tile_l0_init, %qk_oi_inline2335__tile_l0_a, %qk_oi_inline2335__tile_l0_b : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>, !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=32, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=32, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%qk_oi_inline2335__tile_l0_init : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        },
+        {
+          "line": 318,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul.acc ins(%qk_oi_inline2335__tile_l0_init, %21, %22 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>, !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=32, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=32, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%qk_oi_inline2335__tile_l0_init : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        },
+        {
+          "line": 357,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul.acc ins(%25, %26, %27 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>, !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=32, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=32, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%25 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        },
+        {
+          "line": 363,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tmatmul.acc ins(%25, %28, %29 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>, !pto.tile_buf<loc=left, dtype=bf16, rows=32, cols=32, v_row=?, v_col=?, blayout=row_major, slayout=row_major, fractal=512, pad=0>, !pto.tile_buf<loc=right, dtype=bf16, rows=32, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=col_major, fractal=512, pad=0>) outs(%25 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=512, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        }
+      ],
+      "apiSourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp",
+          "evidence": "observed-api-name"
+        }
+      ]
+    },
+    {
+      "id": "isa.texp",
+      "mlirName": "pto.texp",
+      "apiName": "TEXP",
+      "apiVerifiedInCpp": true,
+      "family": "vector",
+      "executionUnit": "AIV",
+      "occurrenceCount": 2,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 466,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 564,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 466,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.texp ins(%t__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%qk_exp_inline2324__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":293:21)"
+        },
+        {
+          "line": 564,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.texp ins(%12 : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%13 : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":293:21)"
+        }
+      ],
+      "apiSourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp",
+          "evidence": "observed-api-name"
+        }
+      ]
+    },
+    {
+      "id": "isa.trowmax",
+      "mlirName": "pto.trowmax",
+      "apiName": "TROWMAX",
+      "apiVerifiedInCpp": true,
+      "family": "vector",
+      "executionUnit": "AIV",
+      "occurrenceCount": 2,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 462,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 560,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 462,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.trowmax ins(%qk_scores_inline2325__tile, %tmp_tile : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%qk_mi_inline2360__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":290:21)"
+        },
+        {
+          "line": 560,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.trowmax ins(%9, %10 : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%11 : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":290:21)"
+        }
+      ],
+      "apiSourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp",
+          "evidence": "observed-api-name"
+        }
+      ]
+    },
+    {
+      "id": "isa.trowsum",
+      "mlirName": "pto.trowsum",
+      "apiName": "TROWSUM",
+      "apiVerifiedInCpp": true,
+      "family": "vector",
+      "executionUnit": "AIV",
+      "occurrenceCount": 2,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 469,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 567,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 469,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.trowsum ins(%qk_exp_inline2324__tile, %0 : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%qk_li_inline2323__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":294:21)"
+        },
+        {
+          "line": 567,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.trowsum ins(%13, %14 : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%15 : !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":294:21)"
+        }
+      ],
+      "apiSourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp",
+          "evidence": "observed-api-name"
+        }
+      ]
+    },
+    {
+      "id": "isa.tpush_to_aiv",
+      "mlirName": "pto.tpush_to_aiv",
+      "apiName": null,
+      "apiVerifiedInCpp": false,
+      "family": "cross-core",
+      "executionUnit": "AIC",
+      "occurrenceCount": 2,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 261,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 294,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 261,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tpush_to_aiv(%qk_raw_inline2397__tile_l0_init : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) {split = 0} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":286:21)"
+        },
+        {
+          "line": 294,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tpush_to_aiv(%14 : !pto.tile_buf<loc=acc, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=1024, pad=0>) {split = 0} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":286:21)"
+        }
+      ],
+      "apiSourceRefs": []
+    },
+    {
+      "id": "isa.tpush_to_aic",
+      "mlirName": "pto.tpush_to_aic",
+      "apiName": null,
+      "apiVerifiedInCpp": false,
+      "family": "cross-core",
+      "executionUnit": "AIV",
+      "occurrenceCount": 2,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 472,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 570,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 472,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tpush_to_aic(%qk_exp_bf16_inline2322__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) {split = 0} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        },
+        {
+          "line": 570,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tpush_to_aic(%16 : !pto.tile_buf<loc=vec, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) {split = 0} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        }
+      ],
+      "apiSourceRefs": []
+    },
+    {
+      "id": "isa.tpop_from_aiv",
+      "mlirName": "pto.tpop_from_aiv",
+      "apiName": null,
+      "apiVerifiedInCpp": false,
+      "family": "cross-core",
+      "executionUnit": "AIC",
+      "occurrenceCount": 2,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 296,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 341,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 296,
+          "kernel": "qk_pv_aic",
+          "text": "%qk_oi_inline2335__tile_l0_lmat = pto.tpop_from_aiv {split = 0} -> !pto.tile_buf<loc=mat, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=512, pad=0> loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        },
+        {
+          "line": 341,
+          "kernel": "qk_pv_aic",
+          "text": "%194 = pto.tpop_from_aiv {split = 0} -> !pto.tile_buf<loc=mat, dtype=bf16, rows=32, cols=128, v_row=?, v_col=?, blayout=col_major, slayout=row_major, fractal=512, pad=0> loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        }
+      ],
+      "apiSourceRefs": []
+    },
+    {
+      "id": "isa.tpop_from_aic",
+      "mlirName": "pto.tpop_from_aic",
+      "apiName": null,
+      "apiVerifiedInCpp": false,
+      "family": "cross-core",
+      "executionUnit": "AIV",
+      "occurrenceCount": 2,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 454,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 552,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 454,
+          "kernel": "qk_pv_aiv",
+          "text": "%qk_raw_inline2397__tile_Vec = pto.tpop_from_aic {split = 0} -> !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0> loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":286:21)"
+        },
+        {
+          "line": 552,
+          "kernel": "qk_pv_aiv",
+          "text": "%90 = pto.tpop_from_aic(%c0_index, %c0_index) {split = 0} -> !pto.tile_buf<loc=vec, dtype=f32, rows=32, cols=128, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0> loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":286:21)"
+        }
+      ],
+      "apiSourceRefs": []
+    },
+    {
+      "id": "isa.tfree_from_aiv",
+      "mlirName": "pto.tfree_from_aiv",
+      "apiName": null,
+      "apiVerifiedInCpp": false,
+      "family": "cross-core",
+      "executionUnit": "AIC",
+      "occurrenceCount": 2,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 321,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 366,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 321,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tfree_from_aiv {split = 0} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        },
+        {
+          "line": 366,
+          "kernel": "qk_pv_aic",
+          "text": "pto.tfree_from_aiv {split = 0} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":296:21)"
+        }
+      ],
+      "apiSourceRefs": []
+    },
+    {
+      "id": "isa.tfree_from_aic",
+      "mlirName": "pto.tfree_from_aic",
+      "apiName": null,
+      "apiVerifiedInCpp": false,
+      "family": "cross-core",
+      "executionUnit": "AIV",
+      "occurrenceCount": 2,
+      "countMeaning": "static source occurrence in qk_pv.pto; not runtime execution count",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 457,
+          "evidence": "observed"
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "line": 555,
+          "evidence": "observed"
+        }
+      ],
+      "occurrences": [
+        {
+          "line": 457,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tfree_from_aic {split = 0} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":286:21)"
+        },
+        {
+          "line": 555,
+          "kernel": "qk_pv_aiv",
+          "text": "pto.tfree_from_aic {split = 0} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_sparse_attn_csa.py\":286:21)"
+        }
+      ],
+      "apiSourceRefs": []
+    }
+  ]
+}
