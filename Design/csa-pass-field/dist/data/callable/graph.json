@@ -1,0 +1,924 @@
+{
+  "nodes": [
+    {
+      "id": "kernel.main",
+      "label": "csa_merge_pack_publish_spmd",
+      "semanticKind": "kernel",
+      "renderKind": "kernel",
+      "attributes": {
+        "target": "SPMD",
+        "objectKind": "Scope",
+        "detail": "scope → callable"
+      },
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1710
+        }
+      ],
+      "role": "合并、归一化、RoPE、打包与发布",
+      "sourceFacts": {
+        "loops": [
+          {
+            "line": 1712,
+            "target": "pack_work",
+            "iterator": "pl.range(worker, pack_work_count, 48)"
+          },
+          {
+            "line": 1759,
+            "target": "peer_tp",
+            "iterator": "pl.range(2)"
+          },
+          {
+            "line": 1720,
+            "target": "m_dt",
+            "iterator": "pl.range(8)"
+          },
+          {
+            "line": 1755,
+            "target": "group_slot",
+            "iterator": "pl.unroll(2)"
+          },
+          {
+            "line": 1727,
+            "target": "m_sb",
+            "iterator": "pl.pipeline(1, 5, stage=2)"
+          },
+          {
+            "line": 1750,
+            "target": "n_hi",
+            "iterator": "pl.unroll(16)"
+          }
+        ],
+        "conditions": [
+          {
+            "line": 1760,
+            "test": "peer_tp != pl.cast(tp_rank, pl.INDEX)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "task.main",
+      "label": "csa_merge_pack_publish_spmd",
+      "semanticKind": "task",
+      "renderKind": "task",
+      "attributes": {
+        "target": "AIV",
+        "workers": 48,
+        "dependencies": "qk_tid, attn_rope_tid",
+        "form": "SPMD scope"
+      },
+      "sourceRefs": [],
+      "role": "deps=[qk_tid, attn_rope_tid]；48 workers"
+    },
+    {
+      "id": "op.merge",
+      "label": "分块合并",
+      "semanticKind": "compute_region",
+      "renderKind": "op",
+      "attributes": {
+        "domain": "Tensor",
+        "operations": 17,
+        "statements": 11
+      },
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1724
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1725
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1726
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1729
+        }
+      ],
+      "role": "重标定 α/β，合并 mᵢ、ℓᵢ、Oᵢ",
+      "regionOperations": [
+        {
+          "value": "m_mi",
+          "expression": "pl.tensor.slice(sparse_blk_mi, [16, 1], [m_blk_base, 0])",
+          "operations": [
+            "pl.tensor.slice"
+          ],
+          "line": 1724,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "sparse_blk_mi",
+            "m_blk_base",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_li",
+          "expression": "pl.tensor.slice(sparse_blk_li, [16, 1], [m_blk_base, 0])",
+          "operations": [
+            "pl.tensor.slice"
+          ],
+          "line": 1725,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "sparse_blk_li",
+            "m_blk_base",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_oi",
+          "expression": "pl.tensor.slice(sparse_blk_oi, [16, 512], [m_blk_base, 0])",
+          "operations": [
+            "pl.tensor.slice"
+          ],
+          "line": 1726,
+          "annotation": "pl.Tensor[[16, 512], pl.FP32]",
+          "reads": [
+            "sparse_blk_oi",
+            "m_blk_base",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_cur_mi",
+          "expression": "pl.tensor.slice(sparse_blk_mi, [16, 1], [m_row, 0])",
+          "operations": [
+            "pl.tensor.slice"
+          ],
+          "line": 1729,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "sparse_blk_mi",
+            "m_row",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_cur_li",
+          "expression": "pl.tensor.slice(sparse_blk_li, [16, 1], [m_row, 0])",
+          "operations": [
+            "pl.tensor.slice"
+          ],
+          "line": 1730,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "sparse_blk_li",
+            "m_row",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_cur_oi",
+          "expression": "pl.tensor.slice(sparse_blk_oi, [16, 512], [m_row, 0])",
+          "operations": [
+            "pl.tensor.slice"
+          ],
+          "line": 1731,
+          "annotation": "pl.Tensor[[16, 512], pl.FP32]",
+          "reads": [
+            "sparse_blk_oi",
+            "m_row",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_mi_new",
+          "expression": "pl.tensor.maximum(m_mi, m_cur_mi)",
+          "operations": [
+            "pl.tensor.maximum"
+          ],
+          "line": 1732,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "m_mi",
+            "m_cur_mi",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_alpha",
+          "expression": "pl.tensor.exp(pl.tensor.sub(m_mi, m_mi_new))",
+          "operations": [
+            "pl.tensor.exp",
+            "pl.tensor.sub"
+          ],
+          "line": 1733,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "m_mi",
+            "m_mi_new",
+            "pl",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_beta",
+          "expression": "pl.tensor.exp(pl.tensor.sub(m_cur_mi, m_mi_new))",
+          "operations": [
+            "pl.tensor.exp",
+            "pl.tensor.sub"
+          ],
+          "line": 1734,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "m_cur_mi",
+            "m_mi_new",
+            "pl",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_li",
+          "expression": "pl.tensor.add(pl.tensor.mul(m_alpha, m_li), pl.tensor.mul(m_beta, m_cur_li))",
+          "operations": [
+            "pl.tensor.add",
+            "pl.tensor.mul",
+            "pl.tensor.mul"
+          ],
+          "line": 1735,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "m_alpha",
+            "m_li",
+            "m_beta",
+            "m_cur_li",
+            "pl",
+            "pl",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_oi",
+          "expression": "pl.tensor.add(pl.tensor.row_expand_mul(m_oi, m_alpha), pl.tensor.row_expand_mul(m_cur_oi, m_beta))",
+          "operations": [
+            "pl.tensor.add",
+            "pl.tensor.row_expand_mul",
+            "pl.tensor.row_expand_mul"
+          ],
+          "line": 1736,
+          "annotation": "pl.Tensor[[16, 512], pl.FP32]",
+          "reads": [
+            "m_oi",
+            "m_alpha",
+            "m_cur_oi",
+            "m_beta",
+            "pl",
+            "pl",
+            "pl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "op.normalize",
+      "label": "归一化",
+      "semanticKind": "compute_region",
+      "renderKind": "op",
+      "attributes": {
+        "domain": "Tensor",
+        "operations": 10,
+        "statements": 5
+      },
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1738
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1739
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1740
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1741
+        }
+      ],
+      "role": "加入 attention sink，除以归一化分母",
+      "regionOperations": [
+        {
+          "value": "n_sink_bias",
+          "expression": "pl.tensor.reshape(pl.tensor.slice(attn_sink, [16], [m_h0]), [16, 1])",
+          "operations": [
+            "pl.tensor.reshape",
+            "pl.tensor.slice"
+          ],
+          "line": 1738,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "attn_sink",
+            "pl",
+            "m_h0",
+            "pl"
+          ]
+        },
+        {
+          "value": "n_sink_tile",
+          "expression": "pl.tensor.add(pl.tensor.sub(m_mi, m_mi), n_sink_bias)",
+          "operations": [
+            "pl.tensor.add",
+            "pl.tensor.sub"
+          ],
+          "line": 1739,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "n_sink_bias",
+            "m_mi",
+            "m_mi",
+            "pl",
+            "pl"
+          ]
+        },
+        {
+          "value": "n_denom",
+          "expression": "pl.tensor.add(m_li, pl.tensor.exp(pl.tensor.sub(n_sink_tile, m_mi)))",
+          "operations": [
+            "pl.tensor.add",
+            "pl.tensor.exp",
+            "pl.tensor.sub"
+          ],
+          "line": 1740,
+          "annotation": "pl.Tensor[[16, 1], pl.FP32]",
+          "reads": [
+            "m_li",
+            "pl",
+            "n_sink_tile",
+            "m_mi",
+            "pl",
+            "pl"
+          ]
+        },
+        {
+          "value": "n_full",
+          "expression": "pl.tensor.slice(pl.tensor.row_expand_div(m_oi, n_denom), [16, 512], [0, 0])",
+          "operations": [
+            "pl.tensor.slice",
+            "pl.tensor.row_expand_div"
+          ],
+          "line": 1741,
+          "annotation": "pl.Tensor[[16, 512], pl.FP32]",
+          "reads": [
+            "m_oi",
+            "n_denom",
+            "pl",
+            "pl"
+          ]
+        },
+        {
+          "value": "n_bf16",
+          "expression": "pl.tensor.cast(n_full, target_type=pl.BF16, mode='rint')",
+          "operations": [
+            "pl.tensor.cast"
+          ],
+          "line": 1742,
+          "annotation": "pl.Tensor[[16, 512], pl.BF16]",
+          "reads": [
+            "n_full",
+            "pl",
+            "pl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "op.rope",
+      "label": "RoPE",
+      "semanticKind": "compute_region",
+      "renderKind": "op",
+      "attributes": {
+        "domain": "Tensor",
+        "operations": 9,
+        "statements": 6
+      },
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1743
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1744
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1745
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1746
+        }
+      ],
+      "role": "尾部 64 维 gather、旋转与 concat",
+      "regionOperations": [
+        {
+          "value": "m_rope",
+          "expression": "pl.tensor.slice(n_full, [16, 64], [0, 448])",
+          "operations": [
+            "pl.tensor.slice"
+          ],
+          "line": 1743,
+          "annotation": "pl.Tensor[[16, 64], pl.FP32]",
+          "reads": [
+            "n_full",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_cos_il",
+          "expression": "pl.tensor.slice(rope_cos_il, [1, 64], [m_t, 0])",
+          "operations": [
+            "pl.tensor.slice"
+          ],
+          "line": 1744,
+          "annotation": "pl.Tensor[[1, 64], pl.FP32]",
+          "reads": [
+            "rope_cos_il",
+            "m_t",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_sin_signed",
+          "expression": "pl.tensor.slice(rope_sin_signed, [1, 64], [m_t, 0])",
+          "operations": [
+            "pl.tensor.slice"
+          ],
+          "line": 1745,
+          "annotation": "pl.Tensor[[1, 64], pl.FP32]",
+          "reads": [
+            "rope_sin_signed",
+            "m_t",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_swapped",
+          "expression": "pl.tensor.gather(m_rope, pl.tensor.slice(rope_swap_idx, [16, 64], [0, 0]), dim=-1)",
+          "operations": [
+            "pl.tensor.gather",
+            "pl.tensor.slice"
+          ],
+          "line": 1746,
+          "annotation": "pl.Tensor[[16, 64], pl.FP32]",
+          "reads": [
+            "m_rope",
+            "rope_swap_idx",
+            "pl",
+            "pl"
+          ]
+        },
+        {
+          "value": "m_rot",
+          "expression": "pl.tensor.add(pl.tensor.col_expand_mul(m_rope, m_cos_il), pl.tensor.col_expand_mul(m_swapped, m_sin_signed))",
+          "operations": [
+            "pl.tensor.add",
+            "pl.tensor.col_expand_mul",
+            "pl.tensor.col_expand_mul"
+          ],
+          "line": 1747,
+          "annotation": "pl.Tensor[[16, 64], pl.FP32]",
+          "reads": [
+            "m_rope",
+            "m_cos_il",
+            "m_swapped",
+            "m_sin_signed",
+            "pl",
+            "pl",
+            "pl"
+          ]
+        },
+        {
+          "value": "n_rope_bf16",
+          "expression": "pl.tensor.cast(m_rot, target_type=pl.BF16, mode='rint')",
+          "operations": [
+            "pl.tensor.cast"
+          ],
+          "line": 1748,
+          "annotation": "pl.Tensor[[16, 64], pl.BF16]",
+          "reads": [
+            "m_rot",
+            "pl",
+            "pl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "op.pack",
+      "label": "Pack",
+      "semanticKind": "compute_region",
+      "renderKind": "op",
+      "attributes": {
+        "domain": "Tensor",
+        "operations": 4,
+        "statements": 2
+      },
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1749
+        },
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1754
+        }
+      ],
+      "role": "按 head/group 地址将结果写入 attention_grouped",
+      "regionOperations": [
+        {
+          "value": "n_full_bf16",
+          "expression": "pl.tensor.concat(pl.tensor.slice(n_bf16, [16, 448], [0, 0]), n_rope_bf16)",
+          "operations": [
+            "pl.tensor.concat",
+            "pl.tensor.slice"
+          ],
+          "line": 1749,
+          "annotation": "pl.Tensor[[16, 512], pl.BF16]",
+          "reads": [
+            "n_rope_bf16",
+            "n_bf16",
+            "pl",
+            "pl"
+          ]
+        },
+        {
+          "value": "attention_grouped",
+          "expression": "pl.tensor.assemble(attention_grouped, pl.tensor.slice(n_full_bf16, [1, 512], [n_hi, 0]), [source_row, source_col])",
+          "operations": [
+            "pl.tensor.assemble",
+            "pl.tensor.slice"
+          ],
+          "line": 1754,
+          "annotation": "pl.Tensor[[2048, 4096], pl.BF16]",
+          "reads": [
+            "attention_grouped",
+            "n_full_bf16",
+            "source_row",
+            "source_col",
+            "pl",
+            "n_hi",
+            "pl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "handoff.publish",
+      "label": "TPUT",
+      "semanticKind": "communication",
+      "renderKind": "handoff",
+      "attributes": {
+        "domain": "Tensor",
+        "operations": 1,
+        "statements": 1
+      },
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1758
+        }
+      ],
+      "role": "向 attention_window 的目标 rank 发布数据",
+      "regionOperations": [
+        {
+          "value": "",
+          "expression": "pld.tensor.put(attention_window, pl.cast(group_base, pl.INDEX) + destination_rank, attention_grouped, [target_row, 0], [source_row, 0], [8, 4096], atomic=pl.AtomicType.None_, chunk_rows=8, chunk_cols=4096)",
+          "operations": [
+            "pld.tensor.put"
+          ],
+          "line": 1758,
+          "annotation": null,
+          "reads": [
+            "attention_window",
+            "attention_grouped",
+            "destination_rank",
+            "target_row",
+            "source_row",
+            "pld",
+            "group_base",
+            "pl",
+            "pl",
+            "pl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "handoff.notify",
+      "label": "Notify",
+      "semanticKind": "communication",
+      "renderKind": "handoff",
+      "attributes": {
+        "domain": "Tensor",
+        "operations": 1,
+        "statements": 1
+      },
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1761
+        }
+      ],
+      "role": "条件满足后更新 attention_signal",
+      "regionOperations": [
+        {
+          "value": "",
+          "expression": "pld.system.notify(attention_signal, pl.cast(group_base, pl.INDEX) + peer_tp, [tp_rank, 0], pl.const(1, pl.INT32), op=0)",
+          "operations": [
+            "pld.system.notify"
+          ],
+          "line": 1761,
+          "annotation": null,
+          "reads": [
+            "attention_signal",
+            "peer_tp",
+            "tp_rank",
+            "pld",
+            "group_base",
+            "pl",
+            "pl",
+            "pl",
+            "pl"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "value.mi",
+      "label": "mᵢ",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "attributes": {
+        "shape": [
+          "t_blk",
+          1
+        ],
+        "dtype": "FP32"
+      },
+      "sourceRefs": [],
+      "role": "callable 输入"
+    },
+    {
+      "id": "value.li",
+      "label": "ℓᵢ",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "attributes": {
+        "shape": [
+          "t_blk",
+          1
+        ],
+        "dtype": "FP32"
+      },
+      "sourceRefs": [],
+      "role": "callable 输入"
+    },
+    {
+      "id": "value.oi",
+      "label": "Oᵢ",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "attributes": {
+        "shape": [
+          "t_blk",
+          512
+        ],
+        "dtype": "FP32"
+      },
+      "sourceRefs": [],
+      "role": "callable 输入"
+    },
+    {
+      "id": "value.sink",
+      "label": "attn_sink",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "attributes": {
+        "shape": [
+          64
+        ],
+        "dtype": "FP32"
+      },
+      "sourceRefs": [],
+      "role": "callable 输入"
+    },
+    {
+      "id": "value.cos",
+      "label": "cos / sin",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "attributes": {
+        "shape": [
+          256,
+          64
+        ],
+        "dtype": "FP32"
+      },
+      "sourceRefs": [],
+      "role": "callable 输入"
+    },
+    {
+      "id": "value.swap",
+      "label": "swap_idx",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "attributes": {
+        "shape": [
+          16,
+          64
+        ],
+        "dtype": "INT32"
+      },
+      "sourceRefs": [],
+      "role": "callable 输入"
+    },
+    {
+      "id": "value.grouped",
+      "label": "attention_grouped",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "attributes": {
+        "shape": [
+          2048,
+          4096
+        ],
+        "dtype": "BF16"
+      },
+      "sourceRefs": [],
+      "role": "callable 输出 / InOut"
+    },
+    {
+      "id": "value.window",
+      "label": "attention_window",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "attributes": {
+        "shape": [
+          2048,
+          4096
+        ],
+        "dtype": "BF16"
+      },
+      "sourceRefs": [],
+      "role": "callable 输出 / InOut"
+    },
+    {
+      "id": "value.signal",
+      "label": "attention_signal",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "attributes": {
+        "shape": [
+          2,
+          1
+        ],
+        "dtype": "INT32"
+      },
+      "sourceRefs": [],
+      "role": "callable 输出 / InOut"
+    }
+  ],
+  "edges": [
+    {
+      "id": "op.merge->op.normalize",
+      "source": "op.merge",
+      "target": "op.normalize",
+      "semanticKind": "data"
+    },
+    {
+      "id": "op.normalize->op.rope",
+      "source": "op.normalize",
+      "target": "op.rope",
+      "semanticKind": "data"
+    },
+    {
+      "id": "op.rope->op.pack",
+      "source": "op.rope",
+      "target": "op.pack",
+      "semanticKind": "data"
+    },
+    {
+      "id": "op.pack->handoff.publish",
+      "source": "op.pack",
+      "target": "handoff.publish",
+      "semanticKind": "data"
+    },
+    {
+      "id": "handoff.publish->handoff.notify",
+      "source": "handoff.publish",
+      "target": "handoff.notify",
+      "semanticKind": "control"
+    },
+    {
+      "id": "task.main->kernel.main",
+      "source": "task.main",
+      "target": "kernel.main",
+      "semanticKind": "lowering"
+    },
+    {
+      "id": "value.mi->op.merge",
+      "source": "value.mi",
+      "target": "op.merge",
+      "semanticKind": "data"
+    },
+    {
+      "id": "value.li->op.merge",
+      "source": "value.li",
+      "target": "op.merge",
+      "semanticKind": "data"
+    },
+    {
+      "id": "value.oi->op.merge",
+      "source": "value.oi",
+      "target": "op.merge",
+      "semanticKind": "data"
+    },
+    {
+      "id": "value.sink->op.normalize",
+      "source": "value.sink",
+      "target": "op.normalize",
+      "semanticKind": "data"
+    },
+    {
+      "id": "value.cos->op.rope",
+      "source": "value.cos",
+      "target": "op.rope",
+      "semanticKind": "data"
+    },
+    {
+      "id": "value.swap->op.rope",
+      "source": "value.swap",
+      "target": "op.rope",
+      "semanticKind": "data"
+    },
+    {
+      "id": "op.pack->value.grouped",
+      "source": "op.pack",
+      "target": "value.grouped",
+      "semanticKind": "data"
+    },
+    {
+      "id": "handoff.publish->value.window",
+      "source": "handoff.publish",
+      "target": "value.window",
+      "semanticKind": "data"
+    },
+    {
+      "id": "handoff.notify->value.signal",
+      "source": "handoff.notify",
+      "target": "value.signal",
+      "semanticKind": "data"
+    }
+  ],
+  "initialState": {
+    "nodeIds": [
+      "kernel.main",
+      "task.main",
+      "op.merge",
+      "op.normalize",
+      "op.rope",
+      "op.pack",
+      "handoff.publish",
+      "handoff.notify",
+      "value.mi",
+      "value.li",
+      "value.oi",
+      "value.sink",
+      "value.cos",
+      "value.swap",
+      "value.grouped",
+      "value.window",
+      "value.signal"
+    ],
+    "edgeIds": [
+      "op.merge->op.normalize",
+      "op.normalize->op.rope",
+      "op.rope->op.pack",
+      "op.pack->handoff.publish",
+      "handoff.publish->handoff.notify",
+      "task.main->kernel.main",
+      "value.mi->op.merge",
+      "value.li->op.merge",
+      "value.oi->op.merge",
+      "value.sink->op.normalize",
+      "value.cos->op.rope",
+      "value.swap->op.rope",
+      "op.pack->value.grouped",
+      "handoff.publish->value.window",
+      "handoff.notify->value.signal"
+    ]
+  },
+  "projections": {
+    "isa": {
+      "availableAfterPass": 51
+    }
+  }
+}

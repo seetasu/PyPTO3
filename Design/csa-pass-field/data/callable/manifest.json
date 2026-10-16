@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "csa-pass-field.manifest.v1",
+  "scenarioId": "l3_decode_csa.csa_merge_pack_publish",
+  "title": "csa_merge_pack_publish",
+  "generatedAt": "2026-10-15T09:35:37.498Z",
+  "buildIdentity": {
+    "runId": "_jit_l3_decode_csa_20260903_010617",
+    "generatorSha256": "1b25ba6ac0287ba8922659ecf959ca5db8f981a49e8787eeebdeca9d95b5c393",
+    "inputHashes": {
+      "selectedSnapshots": "d8b8e751d5c2fb463891786143463a42a4346924aeac118aca718b528d6fc382"
+    }
+  },
+  "deployment": {
+    "view": "shared-compile-structure",
+    "ranks": []
+  },
+  "sourceRoots": {
+    "passDumps": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump",
+    "pto": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+    "cpp": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp"
+  },
+  "passCount": 51,
+  "artifacts": {
+    "graph": "graph.json",
+    "passes": "passes.json",
+    "isa": "isa.json",
+    "views": "views.json",
+    "objectLinks": "object-links.json"
+  },
+  "evidenceSummary": {
+    "sourceChangedForQkPvFamily": 17,
+    "changedForProgram": 33,
+    "noOpForProgram": 18,
+    "isaStaticOccurrences": 57
+  }
+}

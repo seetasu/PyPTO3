@@ -1,0 +1,50 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Callable Explorer 通用化规则</title><style>:root{color-scheme:dark;font-family:Arial,"PingFang SC",sans-serif;background:#151515;color:#ddd}body{margin:0}main{max-width:920px;margin:auto;padding:40px 28px 80px}nav{display:flex;gap:24px;margin-bottom:32px;font-size:13px}a{color:#9ac7ed;text-underline-offset:4px}h1{font-size:30px;line-height:1.4;color:#fff}h2{font-size:21px;margin-top:36px;color:#eee}p,li{font-size:15px;line-height:1.9}li{margin:8px 0}code{font:13px ui-monospace,monospace;color:#c7d8e5}pre{padding:20px;border-radius:10px;background:#242424;overflow:auto;line-height:1.7}.table-scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.7}th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #383838}th{color:#fff;background:#222}strong{color:#fff}@media(max-width:600px){main{padding:24px 18px}h1{font-size:25px}}</style></head><body><main><nav><a href="../index.html">返回 Callable Explorer</a><a href="./callable-explorer-rules.md" download>下载 Markdown</a></nav><h1>Callable Explorer 通用化规则</h1>
+<p>日期：2026-10-16。适用于本副本及后续通用工具实现。依据：本 session 从 qk_pv 切换至 csa_merge_pack_publish 的实现、纠正与源码核查。本文是仓库协作规则，不是对当前能力已经完成的声明。</p>
+<h2>1. 目标与输入边界</h2>
+<p>开发者提供真实编译产物，选择 callable，查看其逐 Pass 的计算、控制、通信与内存演变。第一阶段支持本地既有 passes_dump Python IR 快照包；PTO/ISA 和运行记录为可选补充。只有一份源码时只能展示该静态结构，不得补造历史 Pass。Pass 数量、顺序与阶段从输入发现，不固定为 51。</p>
+<p>上传输入仅作语法解析，不执行 Python。缺文件、缺阶段、解析失败、未支持节点、无法确定的关联必须成为诊断数据；不能默认为空图或无变化。不同编译器版本应有输入适配层。原始文件只读，派生数据与其分开保存，并记录文件摘要和来源位置。</p>
+<h2>2. 数据架构</h2>
+<p>流程：输入清单 → callable 发现 → 每阶段语义模型 → 跨阶段对象对应 → 语义差异 → 主图投影 → React Flow。</p>
+<p>语义模型至少包括：</p>
+<div class="table-scroll"><table><thead><tr><th>对象</th><th>必须保留的信息</th></tr></thead><tbody>
+<tr><td>Callable/Scope</td><td>签名、装饰器、目标核、父作用域、包装和派生关系</td></tr>
+<tr><td>操作实例</td><td>opcode、属性、输入输出、顺序、控制归属、来源</td></tr>
+<tr><td>Value</td><td>类型、形状、定义、使用、视图及别名关系</td></tr>
+<tr><td>控制</td><td>循环、条件、迭代参数、yield、同步与顺序</td></tr>
+<tr><td>通信</td><td>put/notify/wait/fence、CommCtx、通信对象及关联</td></tr>
+<tr><td>内存</td><td>空间、allocation、尺寸、offset、MemRef view、复用绑定</td></tr>
+<tr><td>对象对应</td><td>保留、替换、拆分、合并、出现与消失及置信度</td></tr>
+<tr><td>解析状态</td><td>完整、部分支持、缺失、歧义与诊断依据</td></tr>
+</tbody></table></div>
+<p>解析器不得按业务阶段名分类才识别操作；未知 opcode 也要保留。缺少专用 renderer 时使用既有通用图元并提供原始属性。不能因白名单遗漏 pl.system.fence 就判为主图未变化。</p>
+<p>名称前缀只用于提出 callable 家族候选，不能证明 lineage。匹配必须优先使用编译器 ID、显式 name_hint、调用关系、签名和结构证据。重名及 _0 等兄弟函数保留身份和歧义，不能直接并成一个核心函数。</p>
+<h2>3. 主图与聚合</h2>
+<p>保持既有 React Flow、图元、语义色、字体和交互。换 callable 不得修改页面组件来适配固定列数或固定业务阶段。</p>
+<p>核框由源码执行归属生成。单 AIV 不补空 AIC；混合核按真实拆分结构表达。不要把纯访存或同步 callable 强行解释为向量算术。Task、Callable 和 Kernel 不是同一对象。</p>
+<p>相同 opcode 的分类统计不能代替操作实例图。可以聚合，但必须保留实例成员、输入输出、顺序、跨组边和展开映射。源码行号只用于追溯，不能单独承担稳定 ID 或 ISA 对应。</p>
+<p>已批准的图元外观应保持不变。计算 capsule 按文字收紧、icon 靠左并保留底托。默认线弱化，hover/选择/播放相关连线置顶。Inspector 使用独立信息卡，来源与方法详情按需展开；不以重复说明挤占主体。</p>
+<h2>4. 变化、导航与播放</h2>
+<p>严格区分四层：完整程序源码变化、目标家族源码变化、语义模型变化、当前主图可见变化。</p>
+<p><strong>仅主图有可见变化的 Pass 加下划线并进入 Pass 播放。</strong> 导航与播放使用同一份可见变化集合。SSA 改名、来源行号移动、源码等价改写、Inspector 字段变化不能单独触发下划线。未变化的 Pass 可以手动查看。</p>
+<p>可见投影必须覆盖操作、控制、执行归属、通信上下文、同步、空间、分配、复用和地址等当前展示语义。解析不完整时只能标记覆盖缺口，不能反推真实 no-op。应保留完整语义差异，使未来新增投影不需要重新推断源码。</p>
+<p>P45 CommCtx 与 P50 两个 fence 是防回归样本；P46 等价地址表达式改写是不可误标的样本。最终 ISA 作为产物视图，不能伪称额外执行的 Pass。</p>
+<h2>5. 内存表达与独立播放</h2>
+<p>计算、存储、绑定在同一画布。默认看清共享存储，大小、地址和相关值在选择后展开。</p>
+<p>allocation、MemRef view 和地址区间分别建模；base allocation 可能包含多个子视图。每个地址必须带所属 callable、核及空间，不能跨独立地址空间求一个全局容量。动态尺寸未知不能写成零容量。分配字节总和不能称作峰值占用或性能收益。</p>
+<p>网格是中性正方形纹理；没有硬件容量依据时不得赋予单格固定容量。选中范围内的格子填充及 border 同为 #0077FF，不叠加蓝色矩形框。地址实体化前按分配身份展示，实体化后使用有效 offset/size。</p>
+<p>最终交互以本 session 后续修订为准：<strong>UB 使用独立控件，Pass 播放不等待内存逐块播放。</strong> 控件在加高后的标题行右侧；播放/暂停、进度、重置均占固定槽位，名称及位数变化不移动按钮。每块约 200ms，暂停保留进度，切换 Pass 停止并重置；两种播放互斥。网格、可点击块和边端点的偏移共同更新。</p>
+<p>播放每块时，通过真实绑定值找到生产及消费 op，同步高亮并显示置顶绑定边。复用后可能对应多个 op，不能只亮整个业务区域。静态分配顺序播放不代表运行时间、真实分配事件或生命周期回放。</p>
+<h2>6. 验证和完成标准</h2>
+<p>每次新增 callable，至少验证：早期 scope 发现、包装/派生候选、核归属、控制结构、全 opcode 清单、内存空间、动态尺寸、后期同步及通信上下文。</p>
+<p>必须同时包含不同结构的样本：单 AIV、含 AIC 的计算、访存、等待/同步、复杂循环，以及现有两个回归样本。同一 run 的多样本不能证明跨模型或跨版本兼容，后续需补不同编译运行的样本。</p>
+<p>测试分为：原始源码→模型覆盖；模型差异→可见投影；导航与播放一致；内存绑定及逐块联动；布局与浏览器交互。数据测试、几何测试和构建不替代浏览器验证。只有实际打开并检查默认、hover、选择、展开、播放/暂停及横纵布局后，才能声明视觉验收。</p>
+<p>新样本接入原则：只增加输入数据与可选业务注释，不新增业务名称分支、不改 renderer、不用硬编码源码行范围归属。未达到这点，须称为样本适配，而非通用工具。</p>
+<h2>7. 实施顺序与当前缺口</h2>
+<ol>
+<li>把两个现有样本转换到统一语义协议，移除六业务区域、固定位置和按源码行号推断的依赖。</li>
+<li>完成操作实例与 CFG/作用域、别名/视图、核拆分、跨阶段对应；保留所有未支持结构的诊断。</li>
+<li>让主图、Inspector、变化导航、ISA 与内存播放消费同一协议；布局根据对象尺寸和关系生成。</li>
+<li>用第三及更多 callable 做只换数据的接入验收，再做上传清单、选择器和缺失/错误界面。</li>
+</ol>
+<p>当前 probe 是静态语法调查器，scene builder 仍针对 merge 样本配置，既有 opcode 聚合不等于完整 CFG；运行记录与 ISA 精确对应尚未实现。此次其他 callable 验证是源码/数据审计，不宣称这些样本已经接入 UI。</p>
+<p>验证结果见 <a href="cross-callable-validation.html">跨 callable 验证</a>，原始机器结果见 <a href="validation/cross-callable-audit.json">JSON</a>。</p></main></body></html>

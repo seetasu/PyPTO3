@@ -81,6 +81,7 @@ function HandoffNodeBase({ data, ports = true }) {
 function ScopeNodeBase({ data }) {
   return <div className={`glyph scope-glyph ${data.touched ? 'is-touched' : ''}`}>
     <header>{!data.attributes?.hideScopeLabel && <span>{data.attributes?.level || 'IR'} SCOPE</span>}<strong>{data.label}</strong></header>
+    {data.bounds && <small className="control-bounds">{data.bounds}</small>}
     <StateMark data={data} />
   </div>;
 }
@@ -88,7 +89,7 @@ function ScopeNodeBase({ data }) {
 function KernelNodeBase({ data }) {
   return <div className={`glyph kernel-glyph ${data.selected ? 'is-selected' : ''} ${data.touched ? 'is-touched' : ''}`}>
     <Ports target={Position.Top} source={Position.Bottom} memory={false} />
-    <header><strong>{data.label}</strong><em>目标 {data.attributes?.target} · Kernel</em></header>
+    <header><strong>{data.label}</strong><em>目标 {data.attributes?.target} · {data.attributes?.objectKind || 'Kernel'}</em></header>
     <small>{data.attributes?.detail}</small>
     <StateMark data={data} />
   </div>;
@@ -135,7 +136,12 @@ function ContextNode({ data }) {
 function MemoryNodeBase({ data }) {
   if(data.spaceContainer){
    const w=data.gridWidth,h=data.gridHeight,step=12,side=9,cols=Math.floor(w/step),rows=Math.floor(h/step);
-   return <div className="memory-space"><header>{data.label}</header><svg className="memory-base-grid" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">{Array.from({length:cols*rows},(_,i)=><rect key={i} x={i%cols*step+1} y={Math.floor(i/cols)*step+1} width={side} height={side} rx="1.5" fill={(data.highlights||[]).some(r=>i%cols*step+1<r.x+r.width&&i%cols*step+1+side>r.x&&Math.floor(i/cols)*step+1<r.y+r.height&&Math.floor(i/cols)*step+1+side>r.y)?'#0077FF':'none'} stroke={(data.highlights||[]).some(r=>i%cols*step+1<r.x+r.width&&i%cols*step+1+side>r.x&&Math.floor(i/cols)*step+1<r.y+r.height&&Math.floor(i/cols)*step+1+side>r.y)?'#0077FF':'#545454'} strokeWidth="1"/>)}</svg></div>;
+   return <div className="memory-space"><header style={{height:data.gridTop===64?40:24}}>{data.label}{data.playback&&<span className="memory-playback nodrag nopan" onPointerDown={event=>event.stopPropagation()} onDoubleClick={event=>event.stopPropagation()} onClick={event=>event.stopPropagation()}>
+     <span className="memory-playback-label">{data.playback.label||''}</span>
+     <button type="button" aria-label={data.playback.playing?'暂停内存分配':'播放内存分配'} aria-pressed={data.playback.playing} onClick={event=>{event.stopPropagation();data.playback.toggle();}}><svg viewBox="0 0 24 24" aria-hidden="true">{data.playback.playing?<path d="M7 5H10V19H7ZM14 5H17V19H14Z" fill="currentColor"/>:<path d="M7 4L21 12L7 20Z" fill="currentColor"/>}</svg></button>
+     <span className="memory-playback-progress">{data.playback.step+1}/{data.playback.total}</span>
+     <button type="button" aria-label="重置内存分配" onClick={event=>{event.stopPropagation();data.playback.reset();}}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7A8 8 0 1 1 4 13M7 3V8H12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+    </span>}</header><svg className="memory-base-grid" style={{top:data.gridTop||36}} width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">{Array.from({length:cols*rows},(_,i)=><rect key={i} x={i%cols*step+1} y={Math.floor(i/cols)*step+1} width={side} height={side} rx="1.5" fill={(data.highlights||[]).some(r=>i%cols*step+1<r.x+r.width&&i%cols*step+1+side>r.x&&Math.floor(i/cols)*step+1<r.y+r.height&&Math.floor(i/cols)*step+1+side>r.y)?'#0077FF':'none'} stroke={(data.highlights||[]).some(r=>i%cols*step+1<r.x+r.width&&i%cols*step+1+side>r.x&&Math.floor(i/cols)*step+1<r.y+r.height&&Math.floor(i/cols)*step+1+side>r.y)?'#0077FF':'#545454'} strokeWidth="1"/>)}</svg></div>;
   }
   if(data.compactBlock){
    return <div className={`memory-block ${data.shared?'is-shared':''} ${data.touched?'is-active':''} ${data.selected?'is-selected':''}`} data-tooltip={data.description}>
@@ -220,7 +226,7 @@ export function GraphMarkers() {
 
 function EdgeBase({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, kind }) {
   const [hovered, setHovered] = useState(false);
-  const emphasized = data?.instructionLink ? data.hoverFocused : hovered || data?.focused;
+  const emphasized = (data?.instructionLink || data?.hoverOnly) ? data.hoverFocused : hovered || data?.focused;
   const labelX = (sourceX + targetX) / 2;
   const labelY = (sourceY + targetY) / 2;
   const verticalSource = sourcePosition === Position.Top || sourcePosition === Position.Bottom;
@@ -242,7 +248,7 @@ function EdgeBase({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
     <BaseEdge id={id} path={path} markerEnd={`url(#csa-edge-${kind})`} style={{
       stroke: kind === 'memory' ? emphasized ? '#0077FF' : data?.compact ? '#687c91' : '#353535' : kind === 'control' ? '#b8b8b8' : '#ccc',
       strokeWidth: kind === 'memory' ? (emphasized ? 2.5 : 1.2) : kind === 'control' ? 2 : emphasized ? 2 : 1.3,
-      opacity: data?.instructionLink ? emphasized ? 1 : 0 : emphasized ? 1 : kind === 'memory' ? .18 : .10,
+      opacity: (data?.instructionLink || data?.hoverOnly) ? emphasized ? 1 : 0 : emphasized ? 1 : kind === 'memory' ? .18 : .10,
       strokeLinejoin: 'round',
       strokeDasharray: kind === 'control' ? '10 6' : kind === 'lowering' ? '3 7' : kind === 'lineage' ? '2 7' : undefined,
     }} />

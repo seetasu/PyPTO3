@@ -1,14 +1,21 @@
 {
-  "name": "csa-pass-field",
+  "name": "csa-callable-explorer",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "data:build": "node scripts/build-csa-qk-pv.mjs && node scripts/build-context.mjs && node scripts/build-memory.mjs",
-    "data:validate": "node scripts/validate-data.mjs",
+    "data:build": "npm run analyze:merge && python3 scripts/build-callable.py",
+    "data:validate": "node scripts/validate-callable.mjs",
     "dev": "vite",
     "build": "npm run data:build && npm run data:validate && vite build && node scripts/copy-data.mjs && node scripts/inline-dist.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "probe:callable": "python3 scripts/probe-callable.py",
+    "analyze:merge": "python3 scripts/probe-callable.py --run ../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617 --callable csa_merge_pack_publish --output data/callable-probe",
+    "test:callable": "node scripts/validate-callable.mjs && node scripts/callable-flow.test.mjs",
+    "test:samples": "node scripts/sample-selector.test.mjs",
+    "docs:build": "node scripts/build-docs.mjs",
+    "predev": "npm run docs:build",
+    "prebuild": "npm run docs:build"
   },
   "dependencies": {
     "@vitejs/plugin-react": "5.0.4",

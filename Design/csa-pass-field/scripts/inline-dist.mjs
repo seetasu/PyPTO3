@@ -48,7 +48,7 @@ const { size } = await stat(indexPath);
 console.log(`inlined production page: dist/index.html (${Math.round(size / 1024)} KiB)`);
 
 const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');
-const sourceManifest = JSON.parse(await readFile(path.join(projectDir, 'data/csa-qk-pv/manifest.json'), 'utf8'));
+const sourceManifest = JSON.parse(await readFile(path.join(projectDir, 'data/callable/manifest.json'), 'utf8'));
 await writeFile(path.join(distDir, 'artifact-manifest.json'), JSON.stringify({
   schemaVersion: 'csa-pass-field.artifact.v1',
   runId: sourceManifest.buildIdentity.runId,
