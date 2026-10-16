@@ -243,5 +243,23 @@
     return routes;
   }
 
-  root.PTO_COMPUTATION_LAYOUT = { layout, routeEdges };
+  // Project static synchronization metadata after layout; never rank it as data flow.
+  function synchronizationBridges(graph) {
+    const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+    const right = Math.max(...graph.nodes.map((node) => node.x + (node.groupWidth || node.w)));
+    const resolve = (end) => byId.get(end.anchor) || byId.get(end.boundary || end.node);
+    return (graph.synchronizations || []).map((event) => {
+      const producer = resolve(event.producer), consumer = resolve(event.consumer);
+      if (!producer || !consumer) throw new Error(`${event.name}: unresolved synchronization boundary`);
+      const sx = producer.x + producer.w / 2, sy = producer.y + producer.h;
+      const tx = consumer.x + consumer.w / 2, ty = consumer.y;
+      const lane = right + 24 + event.eventId * 12;
+      return { event, producer: producer.id, consumer: consumer.id,
+        x: producer.x + producer.w + 24, y: sy + 22, w: 254, h: 48,
+        path: `M ${sx} ${sy} V ${sy + 12} H ${lane} V ${ty - 20} H ${tx} V ${ty}`,
+        maxX: Math.max(lane, producer.x + producer.w + 278) };
+    });
+  }
+
+  root.PTO_COMPUTATION_LAYOUT = { layout, routeEdges, synchronizationBridges };
 })(typeof window === 'undefined' ? globalThis : window);

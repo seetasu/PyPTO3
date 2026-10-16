@@ -406,7 +406,28 @@
     });
   }
 
+  function synchronization(event, model) {
+    const stage = (end) => model.nodes.find((node) => node.id === end.node)?.name || end.node;
+    return {
+      title: `${event.name} · Event ${event.eventId}`,
+      direction: `${event.producer.coreType} → ${event.consumer.coreType}`,
+      rows: [
+        { label: '同步类型', value: 'Cross-core Synchronization' },
+        { label: 'Producer', value: `${stage(event.producer)} / ${event.producer.coreType}` },
+        { label: 'Set Pipe', value: event.producer.pipe },
+        { label: 'Consumer', value: `${stage(event.consumer)} / ${event.consumer.coreType}` },
+        { label: 'Wait Pipe', value: event.consumer.pipe },
+        { label: 'Transfer Buffer', value: `${event.buffer} · GM`, mono: true },
+        { label: 'Data', value: `${event.dtype} · ${flatten(model).find((entry) => entry.id === event.tensor)?.node.name || event.tensor}` },
+        { label: 'ffts_mode', value: `set: ${event.producer.fftsMode}；wait: 源码未传入` },
+      ],
+      sources: [['set', event.producer], ['wait', event.consumer]].flatMap(([action, end]) =>
+        end.source.ranges.map((range, index) => ({ action, index, range, source: end.source,
+          label: `sync_${action} · ${end.source.file}:${range.start}–${range.end}` }))),
+    };
+  }
+
   root.PTO_COMPUTATION_PRESENTATION = { node, edge, sourceRanges, sourceLine, formatSource, inspector,
     flatten, shapeAxes: axes, shapeLine, card, regionView, tensorDetail, transformation, matmulRule,
-    roleLabel, granularityLabel, overlays };
+    roleLabel, granularityLabel, overlays, synchronization };
 })(typeof window === 'undefined' ? globalThis : window);
