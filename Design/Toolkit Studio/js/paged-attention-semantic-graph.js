@@ -391,7 +391,7 @@
       explanation: 'QK 将当前 Stack 各 Page 的 FP32 Scores 写入 GM score_transfer 后 set。Softmax 的 AIV 在加载 Scores 前 wait，随后才进行 Scaling、Mask 和 Online Softmax，避免读取尚未就绪的数据。' },
     { id: 'softmax-ready', eventId: 1, name: 'SOFTMAX_READY', tensor: 'probability', buffer: 'probability_transfer', dtype: 'BF16',
       producer: endpoint('softmax', 'softmax/probability', 'AIV', 'MTE3', '817–822', { fftsMode: 2 }),
-      consumer: endpoint('pv', 'pv/probability', 'AIC', 'MTE2', '430–434、522–526、576–580、662–666'),
+      consumer: endpoint('pv', 'pv/probability', 'AIC', 'MTE2', '430–434、522–526、576–580、662–666', { waitPageCounts: [4, 1, 2, 3] }),
       explanation: 'Softmax 将当前 Stack 的 BF16 概率权重写入 GM probability_transfer 后 set。PV 的 AIC 在加载概率 Tile 前 wait。四处 wait 属于 Stack 有效页数的不同条件分支，不是同一 Stack 连续等待四次；权重尚未除以最终 l_sum。' },
     { id: 'pv-ready', eventId: 2, name: 'PV_READY', tensor: 'pv/partial', buffer: 'pv_transfer', dtype: 'FP32',
       producer: endpoint('pv', 'pv/partial', 'AIC', 'FIX', '719–724', { fftsMode: 2 }),
