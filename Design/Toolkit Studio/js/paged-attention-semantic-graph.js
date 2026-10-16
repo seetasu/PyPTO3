@@ -380,6 +380,24 @@
     region('paged-attention', 'Paged Attention', ['cache-append', 'k-cache', 'v-cache', 'qk', 'scores', 'scale-mask', 'softmax', 'probability', 'pv', 'context-acc']),
     region('output-region', 'Output', ['context', 'output-norm', 'output']),
   ] };
+  // Execution constraints are orthogonal to the mathematical graph and Journey edges.
+  // QK's load/wait boundary precedes Scaling + Mask, even though Softmax is the consumer stage.
+  const endpoint = (node, anchor, coreType, pipe, ranges, extra = {}) =>
+    ({ node, anchor, coreType, pipe, source: source(ranges), ...extra });
+  model.synchronizations = [
+    { id: 'qk-ready', eventId: 0, name: 'QK_READY', tensor: 'scores', buffer: 'score_transfer', dtype: 'FP32',
+      producer: endpoint('qk', 'qk/score', 'AIC', 'FIX', '357–362', { fftsMode: 2 }),
+      consumer: endpoint('softmax', 'scale-mask/scale', 'AIV', 'MTE2', '765–769', { boundary: 'scale-mask' }),
+      explanation: 'QK 将当前 Stack 各 Page 的 FP32 Scores 写入 GM score_transfer 后 set。Softmax 的 AIV 在加载 Scores 前 wait，随后才进行 Scaling、Mask 和 Online Softmax，避免读取尚未就绪的数据。' },
+    { id: 'softmax-ready', eventId: 1, name: 'SOFTMAX_READY', tensor: 'probability', buffer: 'probability_transfer', dtype: 'BF16',
+      producer: endpoint('softmax', 'softmax/probability', 'AIV', 'MTE3', '817–822', { fftsMode: 2 }),
+      consumer: endpoint('pv', 'pv/probability', 'AIC', 'MTE2', '430–434、522–526、576–580、662–666'),
+      explanation: 'Softmax 将当前 Stack 的 BF16 概率权重写入 GM probability_transfer 后 set。PV 的 AIC 在加载概率 Tile 前 wait。四处 wait 属于 Stack 有效页数的不同条件分支，不是同一 Stack 连续等待四次；权重尚未除以最终 l_sum。' },
+    { id: 'pv-ready', eventId: 2, name: 'PV_READY', tensor: 'pv/partial', buffer: 'pv_transfer', dtype: 'FP32',
+      producer: endpoint('pv', 'pv/partial', 'AIC', 'FIX', '719–724', { fftsMode: 2 }),
+      consumer: endpoint('context-acc', 'context-acc/partial', 'AIV', 'MTE2', '830–834'),
+      explanation: 'PV 将当前 Stack 的 FP32 partial 写入 GM pv_transfer 后 set。Context Accumulate 的 AIV 在加载 partial 前 wait，再将它加入经过延迟 rescale 的旧 Context，避免读取未完成的 PV 结果。' },
+  ];
   root.PTO_PYPA_SEMANTIC_GRAPH = model;
   root.PTO_PYPA_SEMANTIC_SUBGRAPHS = Object.fromEntries(Object.entries(subgraphs).map(([id, bundle]) => [id, bundle.graph]));
 })(typeof window === 'undefined' ? globalThis : window);

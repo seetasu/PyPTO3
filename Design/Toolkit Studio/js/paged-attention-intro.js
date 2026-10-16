@@ -93,19 +93,8 @@
     let playbackTimer = null;
     let hoverTask = null, drag = null, animation = null, transitionUntil = 0, panTimer = null, suppressClick = false;
     host.innerHTML = `<div class="kf-pa-map">
-      <header class="kf-pa-map__metrics">
-        <span class="kf-eyebrow">TASK ASSIGNMENT</span>
-        <ul class="kf-pa-map__metrics-row">${[
-          [constants.batch, 'Batch'],
-          [constants.kvHeads, 'KV Heads'],
-          [constants.qPerKv, 'Q / KV'],
-          [constants.blocks, 'SPMD Blocks'],
-          [constants.pageTokens, 'Tokens / Page'],
-          [constants.pagesPerStack, 'Pages / Stack'],
-        ].map(([value, label]) => `<li><b>${value.toLocaleString('en-US')}</b><span>${label}</span></li>`).join('')}</ul>
-      </header>
       <section class="kf-pa-map__shelf" aria-label="SPMD Block 分配">
-        <div class="kf-pa-map__shelf-label"><b>SPMD Blocks <span>${constants.blocks}</span></b><span>点击查看分配 · stride ${constants.blocks}</span></div>
+        <div class="kf-pa-map__shelf-label"><b>Block 分配</b><span>点击查看分配 · stride ${constants.blocks}</span></div>
         <div class="kf-pa-map__blocks">${Array.from({ length: 3 }, (_, group) => `<div class="kf-pa-map__block-group">${Array.from({ length: 8 }, (_, i) => {
           const id = group * 8 + i;
           return `<button class="btn btn-ghost kf-pa-map__block" type="button" data-pa-block="${id}" aria-label="SPMD Block ${id}" aria-pressed="false" title="Block ${id} · ${tasksForBlock(id).length} Tasks"><svg viewBox="0 0 28 24" aria-hidden="true"><path d="M4 13 14 18 24 13M4 18 14 23 24 18"/><path class="kf-pa-map__block-face" d="m4 7 10-5 10 5-10 5Z"/></svg><span>${String(id).padStart(2, '0')}</span></button>`;

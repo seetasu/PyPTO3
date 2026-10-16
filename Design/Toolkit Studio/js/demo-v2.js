@@ -2121,7 +2121,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   let pypaGraphRenderedView = null;
   let pypaGraphSize = null;
   const pypaExpandedStages = new Set();
-  const pypaOverlays = { shape: true, precision: true, memory: false, control: false };
+  const pypaOverlays = { shape: true, precision: true, memory: false, control: false, sync: true };
   const PYPA_OVERLAYS = [
     ['shape', 'Shape', '显示 Allocated、局部 Valid Shape 和数据粒度；动态维度保留符号'],
     ['precision', '精度', '显示语义模型中有依据的 Dtype 与操作输出精度，不补全缺失类型'],
@@ -2129,7 +2129,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     ['control', '状态 / 控制', '强调 control、state、feedback 语义关系；不表示运行时 hazard 或时序'],
   ];
   function pypaOverlayToolbarHtml() {
-    return `<div class="kf-pypa-graph__overlays" role="group" aria-label="信息叠加"><span>信息叠加</span>${PYPA_OVERLAYS.map(([key, label, hint]) => `<button class="btn btn-ghost btn-sm" type="button" data-pypa-overlay="${key}" aria-pressed="${pypaOverlays[key]}" title="${pypaEscape(hint)}">${label}<span aria-hidden="true">${pypaOverlays[key] ? ' ✓' : ''}</span></button>`).join('')}<small>源码声明 / 静态推导</small><div class="kf-pypa-graph__control-legend" data-pypa-control-legend ${pypaOverlays.control ? '' : 'hidden'}><span>— 数据流</span><span>┄ 控制</span><span>┄ 状态</span><span>↶ 反馈</span></div></div>`;
+    return `<div class="kf-pypa-graph__overlays" role="group" aria-label="信息叠加"><span>信息叠加</span>${[...PYPA_OVERLAYS, ...(activeSemanticModel()?.synchronizations?.length ? [['sync', '同步', '显示源码静态声明的跨核 READY Event；不表示运行耗时']] : [])].map(([key, label, hint]) => `<button class="btn btn-ghost btn-sm" type="button" data-pypa-overlay="${key}" aria-pressed="${pypaOverlays[key]}" title="${pypaEscape(hint)}">${label}<span aria-hidden="true">${pypaOverlays[key] ? ' ✓' : ''}</span></button>`).join('')}<small>源码声明 / 静态推导</small>${activeSemanticModel()?.synchronizations?.length ? '<span class="kf-pypa-graph__sync-legend">┄ READY 同步 · 实线传递数据</span>' : ''}<div class="kf-pypa-graph__control-legend" data-pypa-control-legend ${pypaOverlays.control ? '' : 'hidden'}><span>— 数据流</span><span>┄ 控制</span><span>┄ 状态</span><span>↶ 反馈</span></div></div>`;
   }
   function syncPypaOverlays() {
     const scene = $('#pypaTaskScene');
@@ -2286,7 +2286,8 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       ...node,
       y: pypaGraphView === 'overview' ? node.y + (node.y >= 600 ? 70 : 0) + (node.y >= 760 ? 60 : 0) : node.y,
     }));
-    const sceneWidth = graph.width || PYPA_SCENE_WIDTH;
+    const syncBridges = pypaGraphView === 'compute' ? window.PTO_COMPUTATION_LAYOUT.synchronizationBridges(graph) : [];
+    const sceneWidth = Math.max(graph.width || PYPA_SCENE_WIDTH, ...syncBridges.map((bridge) => bridge.maxX + 32));
     const sceneHeight = graph.height || PYPA_SCENE_HEIGHT;
     scene.style.width = `${sceneWidth}px`;
     scene.style.height = `${sceneHeight}px`;
@@ -2396,7 +2397,26 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       box.style.cssText = `left:${node.x - 3}px;top:${node.y - 8}px;width:${node.groupWidth + 6}px;height:${node.groupHeight}px`;
       scene.appendChild(box);
     });
+    syncBridges.forEach((bridge) => {
+      const line = document.createElementNS(svgNS, 'path');
+      line.setAttribute('d', bridge.path);
+      line.setAttribute('class', 'kf-pypa-graph__sync-path');
+      line.setAttribute('marker-end', 'url(#pypa-arrow-sync)');
+      line.dataset.pypaSyncPath = bridge.event.id;
+      svg.appendChild(line);
+    });
     scene.appendChild(svg);
+    syncBridges.forEach((bridge) => {
+      const event = bridge.event;
+      const marker = document.createElement('button');
+      marker.type = 'button';
+      marker.className = 'btn btn-ghost kf-pypa-graph__sync-marker';
+      marker.dataset.pypaSync = event.id;
+      marker.style.cssText = `left:${bridge.x}px;top:${bridge.y}px;width:${bridge.w}px;height:${bridge.h}px`;
+      marker.innerHTML = `<b>${pypaEscape(event.name)} · #${event.eventId}</b><small>${event.producer.coreType} SET · ${event.producer.pipe} → ${event.consumer.coreType} WAIT · ${event.consumer.pipe}</small>`;
+      marker.title = `${event.buffer} · ${event.dtype} · 点击查看同步与源码依据`;
+      scene.appendChild(marker);
+    });
     placedNodes.forEach((node) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -2412,7 +2432,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       button.style.width = `${node.w}px`;
       button.style.minHeight = `${node.h}px`;
       button.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${node.meta?.length ? '，' + node.meta.join('，') : ''}`);
-      button.innerHTML = `<span class="kf-pypa-graph__node-head">${pypaGraphView !== 'compute' && (node.expandedGroup || (node.childOperation && node.type === 'operation')) ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : (pypaGraphView === 'compute' ? pypaComputeCardHtml(node) : `<small>${pypaEscape(node.sub)}</small>`)}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
+      button.innerHTML = `<span class="kf-pypa-graph__node-head">${pypaGraphView !== 'compute' && (node.expandedGroup || (node.childOperation && node.type === 'operation')) ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : (pypaGraphView === 'compute' ? pypaComputeCardHtml(node) : `<small>${pypaEscape(node.sub)}</small>`)}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
       scene.appendChild(button);
     });
     controller.nodes = placedNodes;
@@ -2514,7 +2534,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     apply();
     let last = null;
     viewport.addEventListener('pointerdown', (event) => {
-      if (event.target.closest('[data-pypa-node], [data-pypa-op], #pypaNodeInspector')) return;
+      if (event.target.closest('[data-pypa-node], [data-pypa-sync], [data-pypa-op], #pypaNodeInspector')) return;
       last = { x: event.clientX, y: event.clientY };
       viewport.setPointerCapture(event.pointerId);
     }, { signal: controller.signal });
@@ -2537,7 +2557,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     }, { passive: false, signal: controller.signal });
     // 双击空白处 = 适应画布（双击节点留给选中/定位）
     viewport.addEventListener('dblclick', (event) => {
-      if (event.target.closest('[data-pypa-node], #pypaNodeInspector, [data-pypa-minimap]')) return;
+      if (event.target.closest('[data-pypa-node], [data-pypa-sync], #pypaNodeInspector, [data-pypa-minimap]')) return;
       controller.fit();
     }, { signal: controller.signal });
     viewport.addEventListener('keydown', (event) => {
@@ -2611,6 +2631,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
 
   function selectPypaGraphNode(node, { pan = false } = {}) {
     if (!node || pypaGraphView !== 'compute') return;
+    $$('#pypaTaskScene [data-pypa-sync]').forEach((marker) => marker.setAttribute('aria-pressed', 'false'));
     pypaSelectedNodeId = node.id;
     if (typeof pypaJourney !== 'undefined') pypaJourney.focusedNodeId = node.id;
     const context = isMatmulFile(state.activeFile) ? null : window.PtoPagedAttentionContext;
@@ -2703,6 +2724,29 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         <details class="kf-pypa-graph__inspector-advanced"><summary>计算细节 · Shape 推导与粒度</summary>${transform.transposeNote ? `<p>${pypaEscape(transform.transposeNote)}</p>` : ''}${rows.length ? `<dl>${pypaInspectorRows(rows)}</dl>` : ''}</details>
       </section>`;
   }
+  function selectPypaSynchronization(event) {
+    const inspector = $('#pypaNodeInspector');
+    if (!inspector) return;
+    const detail = window.PTO_COMPUTATION_PRESENTATION.synchronization(event, activeSemanticModel());
+    pypaSelectedNodeId = null;
+    $$('#pypaTaskScene [data-pypa-node], #pypaTaskScene [data-pypa-group]').forEach((element) => element.classList.remove('is-selected'));
+    inspector.classList.toggle('is-docked', $('#pypaTaskViewport').clientWidth < 760);
+    inspector.hidden = false;
+    inspector.style.left = 'auto'; inspector.style.right = 'var(--space-4)';
+    inspector.style.top = `${$('#pypaTaskViewport').offsetTop + 12}px`;
+    inspector.style.bottom = 'auto';
+    inspector.style.maxHeight = `${Math.max(100, $('#pypaTaskViewport').clientHeight - 24)}px`;
+    inspector.innerHTML = `<div class="kf-pypa-graph__inspector-head"><span>SYNCHRONIZATION · ${detail.direction}</span><button type="button" data-pypa-inspector-close aria-label="关闭同步详情">×</button></div>
+      <strong class="kf-pypa-graph__inspector-title">${pypaEscape(detail.title)}</strong>
+      ${pypaInspectorSection('Producer–Consumer 约束', detail.rows)}
+      <section class="kf-pypa-graph__inspector-section"><h3>为什么需要同步？</h3><p>${pypaEscape(event.explanation)}</p></section>
+      <section class="kf-pypa-graph__inspector-section"><h3>源码依据</h3><nav class="kf-pypa-graph__source-links">${detail.sources.map((entry) => `<button class="btn btn-ghost btn-sm" type="button" data-pypa-sync-source="${event.id}" data-sync-end="${entry.action === 'set' ? 'producer' : 'consumer'}" data-sync-range="${entry.index}">${pypaEscape(entry.label)}</button>`).join('')}</nav></section>
+      <em>源码静态声明的执行约束；不表示实际等待耗时或设备执行时序。</em>`;
+    $$('#pypaTaskScene [data-pypa-sync]').forEach((marker) => marker.setAttribute('aria-pressed', String(marker.dataset.pypaSync === event.id)));
+    const ranges = detail.sources.map((entry) => entry.range);
+    $$('#dslEditor [data-paged-attention-line]').forEach((row) => row.classList.toggle('is-pypa-source-evidence', ranges.some((range) => Number(row.dataset.pagedAttentionLine) >= range.start && Number(row.dataset.pagedAttentionLine) <= range.end)));
+  }
+
   function pypaInspectorHtml(node, ranges) {
     const model = activeSemanticModel();
     const detail = window.PTO_COMPUTATION_PRESENTATION.tensorDetail(node, { model, qualifiedId: node.id });
@@ -2789,6 +2833,20 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return `<div><button class="btn btn-ghost btn-sm" type="button" data-pypa-view="intro">← Task Execution</button><b>Task ${c.task}</b><span>Batch ${c.batch} · KV ${c.kvHead}</span><span>Step ${c.pipelineStep}</span><span>Stack ${c.stack ?? '—'}</span><strong>Stage · ${context.stageLabels[c.stage]}</strong></div><small>算子静态语义结构 · 当前执行实例：Task ${c.task} / Stack ${c.stack ?? '—'}</small>`;
   }
 
+  function pypaCandidateSummaryHtml() {
+    const constants = window.PTO_PYPA_SEMANTIC_GRAPH.constants;
+    const value = (key) => constants[key].value;
+    const parameters = [
+      ['算法', 'Online Softmax', '按 Stack 增量处理'],
+      ['Q Tile', `${value('ROW_TILE')} × ${value('HEAD_DIM')}`, 'Rows × Head Dim'],
+      ['KV Page', `${value('BLOCK_SIZE')} × ${value('STACK_PAGES')}`, 'Tokens/Page × Pages/Stack'],
+      ['KV Head', value('NUM_KV_HEADS'), ''], ['Batch', value('BATCH'), ''],
+      ['Q Head', value('NUM_HEADS'), ''], ['SPMD Blocks', value('ATTN_SPMD_BLOCKS'), ''],
+    ];
+    return `<section class="kf-pa-overall" aria-label="Overall Parameter"><span class="kf-eyebrow">OVERALL PARAMETER</span>
+      <dl class="kf-pa-overall__parameters">${parameters.map(([label, data, detail]) => `<div><dt>${label}</dt><dd>${data}</dd>${detail ? `<small>${detail}</small>` : ''}</div>`).join('')}</dl></section>`;
+  }
+
   function renderSourceRegionPanel() {
     const host = $('#inspector');
     if (!host) return;
@@ -2814,6 +2872,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     $('#inspectorTitle').textContent = isIntro ? '任务分配' : '计算流程图';
     $('#inspectorMeta').textContent = PAGED_ATTENTION_PYPTO_FILE;
     host.innerHTML = `
+      ${pypaTaskIntroEnabled ? pypaCandidateSummaryHtml() : ''}
       <section class="kf-pypa-graph${pypaGraphView === 'compute' ? ' has-semantic-overlays' : ''}${isIntro && pypaTaskIntroEnabled ? ' has-task-intro' : ''}" aria-label="${isIntro ? '任务分配' : 'Paged Attention 计算流程'}">
         ${isIntro && pypaTaskIntroEnabled ? '<div class="kf-pa-intro-mount"></div>' : isIntro ? `<div class="kf-pypa-intro" aria-label="任务分配">
           <span class="kf-eyebrow">INTRO</span>
@@ -2849,6 +2908,11 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       }
     }
     else if (pypaTaskIntroEnabled) pypaGraphController = window.PtoPagedAttentionIntro.mount(host.querySelector('.kf-pa-intro-mount'));
+    host.querySelector('[data-pa-candidate-evidence]')?.addEventListener('click', () => {
+      const graph = window.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(window.PTO_PYPA_SEMANTIC_GRAPH, new Set([...pypaExpandedStages, 'qk']));
+      const node = graph.nodes.find((item) => item.id === 'qk/q-tile');
+      if (node) revealPypaSource(node);
+    });
   }
 
   /* ---- matmul.py 的右侧面板 -------------------------------------------------
@@ -5857,6 +5921,18 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       const point = window.PTO_COMPUTATION_JOURNEY.worldPoint(pypaGraphController.minimap, (event.clientX - bounds.left) / bounds.width * 150, (event.clientY - bounds.top) / bounds.height * 180);
       pypaGraphController.panTo(point.x,point.y); return;
     }
+    const syncSource = event.target.closest('[data-pypa-sync-source]');
+    if (syncSource) {
+      const sync = activeSemanticModel()?.synchronizations?.find((item) => item.id === syncSource.dataset.pypaSyncSource);
+      if (sync) revealPypaSource({ source: sync[syncSource.dataset.syncEnd].source }, Number(syncSource.dataset.syncRange));
+      return;
+    }
+    const syncMarker = event.target.closest('[data-pypa-sync]');
+    if (syncMarker) {
+      const sync = activeSemanticModel()?.synchronizations?.find((item) => item.id === syncMarker.dataset.pypaSync);
+      if (sync) selectPypaSynchronization(sync);
+      return;
+    }
     const overlayButton = event.target.closest('[data-pypa-overlay]');
     if (overlayButton && pypaGraphView === 'compute') {
       const key = overlayButton.dataset.pypaOverlay;
@@ -5905,7 +5981,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (pyptoNode && (isPagedAttentionPyptoFile(state.activeFile) || isMatmulFile(state.activeFile))) {
       const node = pypaVisibleGraph()?.nodes.find((item) => item.id === pyptoNode.dataset.pypaNode);
       if (!node) return;
-      if (node.expandable) {
+      // 「计算流程」的卡片是宽卡片，整块可点会很容易误触展开 / 收起：这里只在点中
+      // 卡片右上角的 +/− 时切换展开态，点卡片其它位置只做选中与源码定位。
+      // 键盘激活走 Enter / Space，其合成 click 的 detail 为 0，仍然保留展开能力。
+      const expandToggle = event.target.closest('[data-pypa-expand-toggle]');
+      const wantsToggle = pypaGraphView !== 'compute' || Boolean(expandToggle) || event.detail === 0;
+      if (node.expandable && wantsToggle) {
         const screenAnchor = pypaGraphController?.screenPoint?.(node);
         if (pypaExpandedStages.has(node.id)) pypaExpandedStages.delete(node.id);
         else pypaExpandedStages.add(node.id);
