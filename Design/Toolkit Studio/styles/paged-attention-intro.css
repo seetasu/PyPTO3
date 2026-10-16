@@ -234,3 +234,82 @@
 }
 
 .kf-pa-map__slot.is-selected { fill: var(--primary); font-weight: 700; text-decoration: underline; }
+
+/* Operator brief: identity and implementation on the left, review evidence on the right. */
+.kf-inspector:has(> .kf-pa-candidate) { overflow-y: auto; }
+.kf-inspector:has(> .kf-pa-candidate) > .kf-pypa-graph.has-task-intro { height: max(680px, 75vh); flex: none; }
+.kf-pa-candidate { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr); gap: var(--space-6); margin: 0 var(--space-5) var(--space-5); padding: var(--space-5) 0 var(--space-6); border-bottom: 1px solid var(--border-subtle); color: var(--foreground); }
+.kf-pa-candidate__overview { min-width: 0; }
+.kf-pa-candidate__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.kf-pa-candidate__eyebrow { color: var(--foreground-muted); font: var(--type-micro); letter-spacing: .1em; }
+.kf-pa-candidate__status { padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm); background: var(--surface-3); color: var(--foreground-secondary); font: var(--type-micro); }
+.pto-ide-frame .kf-pa-candidate h2 { margin: var(--space-3) 0 var(--space-2); font-family: var(--font-sans); font-size: 24px !important; line-height: 1.2; font-weight: 600; letter-spacing: -.025em; }
+.kf-pa-candidate .kf-pa-candidate__origin { margin: 0; color: var(--foreground-muted); font: var(--type-body-sm); }
+.kf-pa-candidate__origin > span { margin: 0 var(--space-1); }
+.kf-pa-candidate__algorithm { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); margin: var(--space-6) 0 var(--space-5); }
+.kf-pa-candidate__algorithm > span { color: var(--foreground-muted); font: var(--type-micro); letter-spacing: .06em; }
+.pto-ide-frame .kf-pa-candidate__algorithm > strong { color: var(--foreground); font-size: 15px !important; font-weight: 500; }
+.kf-pa-candidate__algorithm > small { color: var(--foreground-muted); font: var(--type-body-sm); }
+.kf-pa-candidate__strategies { display: grid; grid-template-columns: .9fr 1.35fr 1fr; gap: var(--space-4); }
+.kf-pa-candidate__strategies > div { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); min-width: 0; }
+.kf-pa-candidate__strategies > div > span { color: var(--foreground-muted); font: var(--type-micro); letter-spacing: .06em; }
+.pto-ide-frame .kf-pa-candidate__strategies strong { color: var(--foreground); font-family: var(--font-mono); font-size: 20px !important; line-height: 1.2; font-weight: 400; white-space: nowrap; }
+.pto-ide-frame .kf-pa-candidate__strategies em { color: var(--foreground-muted); font-size: 13px !important; font-style: normal; font-weight: 400; }
+.kf-pa-candidate__strategies small { color: var(--foreground-secondary); font: var(--type-micro); }
+.kf-pa-candidate__review { min-width: 0; padding: var(--space-4) var(--space-5); background: var(--surface-2); border-radius: var(--radius-md); }
+.kf-pa-candidate__review > .kf-pa-candidate__eyebrow { display: flex; justify-content: space-between; }
+.kf-pa-candidate .kf-pa-candidate__review h3 { margin: var(--space-3) 0 var(--space-4); color: var(--foreground); font: var(--type-label); font-weight: 500; }
+.kf-pa-candidate__row-count { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.pto-ide-frame .kf-pa-candidate__row-count > strong { color: var(--primary); font: 400 28px/1 var(--font-mono); font-size: 28px !important; }
+.pto-ide-frame .kf-pa-candidate__row-count > strong > span { color: var(--foreground-muted); font-size: 16px !important; }
+.kf-pa-candidate__row-count > span { color: var(--foreground-muted); font: var(--type-micro); }
+.kf-pa-candidate__row-strip { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px; height: 22px; margin: var(--space-3) 0; }
+.kf-pa-candidate__row-strip i { background: var(--surface-4); border-radius: 2px; }
+.kf-pa-candidate__row-strip i.is-valid { background: var(--primary); }
+.kf-pa-candidate .kf-pa-candidate__review > p { margin: 0; color: var(--foreground-secondary); font: var(--type-body-sm); line-height: 1.65; }
+.kf-pa-candidate__review footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-1); margin-top: var(--space-3); color: var(--foreground-muted); font: var(--type-micro); }
+.kf-pa-candidate__review footer > button { margin-left: auto; }
+@media (max-width: 1100px) {
+  .kf-pa-candidate { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+}
+
+/* Operator parameters shared by both tabs. */
+.kf-pa-overall { flex: none; padding: var(--space-4); color: var(--foreground); border-bottom: 1px solid var(--border-subtle); }
+.kf-pa-overall__parameters { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--space-4); margin: var(--space-3) 0 0; }
+.kf-pa-overall__parameters > div { min-width: 0; }
+.kf-pa-overall__parameters dt { color: var(--foreground-muted); font: var(--type-micro); }
+.kf-pa-overall__parameters dd { margin: var(--space-2) 0; font: var(--type-label); }
+.kf-pa-overall__parameters small { color: var(--foreground-secondary); font: var(--type-micro); }
+.kf-inspector:has(> .kf-pa-overall) { display: flex; flex-direction: column; overflow-y: auto; }
+.kf-inspector:has(> .kf-pa-overall) > .kf-pypa-graph { flex: 1; min-height: 420px; }
+
+/* Static cross-core constraints: independent of data, state and Journey edges. */
+.kf-pypa-graph__sync-path {
+  fill: none;
+  stroke: var(--warning);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 5;
+  opacity: .65;
+  pointer-events: none;
+}
+.kf-pypa-graph__sync-marker.btn {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  color: var(--warning);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  line-height: 1.25;
+}
+.kf-pypa-graph__sync-marker small { font-size: 11px; color: var(--foreground-secondary); }
+.kf-pypa-graph__sync-marker[aria-pressed="true"] { background: var(--tone-warning-strong); }
+.kf-pypa-graph__sync-legend { color: var(--warning); font-size: 11px; }
+#pypaTaskScene[data-overlay-sync="false"] .kf-pypa-graph__sync-marker,
+#pypaTaskScene[data-overlay-sync="false"] .kf-pypa-graph__sync-path { display: none; }
+.kf-pypa-graph__arrow.is-sync { fill: var(--warning); }
