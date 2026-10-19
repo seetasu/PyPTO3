@@ -8,13 +8,18 @@
 
 ## 0. 口径说明（先读）
 
-**计数单位不可直接比较。** 四家统计粒度不同：
+**必须区分两种口径，混用会得出相反结论。**
 
-- Triton 数的是 `add_stages()` 注册的各 stage 内去重后的 `add_*` pass 调用名；
-- TileLang-Ascend 与 PTOAS 数的是 transform 源文件数；
-- PyPTO 数的是 `Default` 策略里的流水线条目。
+| 口径 | 含义 | 适合回答 |
+| ---- | ---- | -------- |
+| **A. 默认流水线调用序列** | 编译一次实际跑过的 pass 条目数（同一个 pass 可重复出现） | "默认编译一个算子经过多少步" |
+| **B. 注册的 pass 定义数** | 框架里一共定义了多少个可用 pass（TableGen `def` 或 pass 工厂） | "这个编译器的工具箱有多大" |
 
-因此下表的数字**只用于看量级与可见性，不能用来论证"谁的优化更强"**。一个 46 行的 pass 文件和一个 46 个 pass 的 stage 不是一个意思。
+两者差距很大：Triton 口径 A 约 81、口径 B 为 56；PTOAS 口径 B 为 83，但其口径 A 随 `--pto-level` 组装而变。**源文件数是第三种口径，既不等于 A 也不等于 B**（一个文件可注册多个 pass，也可能只含 analysis），本文不再用它作为主指标。
+
+因此下表的数字**只用于看量级与可见性，不能用来论证"谁的优化更强"**。
+
+> **勘误（2026-10-19 复核）**：本文初版把 PyPTO 记为 42、PTOAS 记为"31 个命名 pass + 70 以上源文件"，两处均不准确。前者因去重命令吞掉了重复出现的 `simplify`、并漏掉被 `lambda` 包裹的 `auto_derive_task_dependencies`；后者只统计了 `lib/PTO/Transforms/Passes/` 一个目录的源文件，漏掉 VMI / VPTO / 融合等全部系列。已按下表更正。
 
 **另一个前提**：Triton-Ascend 的 pass（`TritonToLinalg` / `TritonToHIVM`）未并入本文。它复用上游 `make_ttir` 之后走 Linalg / HIVM 另一条链，与上游 NVIDIA 后端不是同一组 pass；并入会使"Triton"一列语义混淆。
 
@@ -22,12 +27,17 @@
 
 ## 1. 规模与中间态可见性
 
-| 框架 | pass 数 | 计数依据 | 中间态可见性 |
-| ---- | ------- | -------- | ------------ |
-| **Triton**（NVIDIA 后端） | ≈81 | ttir 8 + ttgir 46 + llir 27 | **最高**：缓存目录里直接存有 `.ttir` / `.ttgir` / `.llir` / `.ptx` / `.cubin` / `.json`；`MLIR_ENABLE_DUMP` 可 dump 每个 pass 前的 IR |
-| **TileLang-Ascend**（`ascendc_pto`） | 51 | `src/transform/*.cc`，其中 `ascend_*` 17 个 | 高：全部开源，pass 有名有文件 |
-| **PyPTO**（+ PTOAS） | 42 + 70 以上 | `Default` 策略 42 条；PTOAS 侧 `Passes/` 31 个命名 pass、`Lowering/` 11 个，另有 `InsertSync/`、`TileFusion/`、`VPTO*/` 等 67 个源文件 | 高：48 篇 pass 文档、逐 pass IR 快照、IRProperty 逐 pass 校验、printer↔parser roundtrip |
-| **cuTile**（`NVIDIA/cuda-tile`） | **4** | `include/cuda_tile/Dialect/CudaTile/Transforms/Passes.td` 的全部内容 | 低：tile 级优化在闭源 `tileiras` 内，外部只能看到 Tile IR 字节码 |
+| 框架 | 口径 A<br>流水线条目 | 口径 B<br>注册 pass 数 | 中间态可见性 |
+| ---- | ------------------- | --------------------- | ------------ |
+| **Triton**（NVIDIA 后端） | **≈81**<br><small>ttir 8 + ttgir 46 + llir 27，去重后</small> | **56**<br><small>Triton 6 + TritonGPU 23 + TritonNvidiaGPU 20 + Conversion 2 + NVGPUToLLVM 5</small> | **最高**：缓存目录里直接存有 `.ttir` / `.ttgir` / `.llir` / `.ptx` / `.cubin` / `.json`；`MLIR_ENABLE_DUMP` 可 dump 每个 pass 前的 IR |
+| **TileLang-Ascend**（`ascendc_pto`） | 未逐一核实顺序 | **51 个 transform 源文件**<br><small>其中 `ascend_*` 17 个；该仓用 C++ 注册而非单一 TableGen 清单，故此格为源文件口径</small> | 高：全部开源，pass 有名有文件 |
+| **PyPTO** | **44**<br><small>`Default` 策略：前缀 7 + Tensor 5 + Tile/PTO 32；其中 `simplify` 出现两次，故不同 pass 为 43</small> | 43 个 pass 工厂 | 高：48 个 pass 文档文件（逐 pass 文档 01–42 共 42 篇）、逐 pass IR 快照、IRProperty 逐 pass 校验、printer↔parser roundtrip |
+| **PTOAS**（PyPTO 的汇编层） | 随 `--pto-level` 组装 | **83**<br><small>`include/PTO/Transforms/Passes.td` 的 `def` 计数</small> | 高：开源，pass 有 TableGen 定义 |
+| **cuTile**（`NVIDIA/cuda-tile`） | 未公开 | **4**<br><small>`Dialect/CudaTile/Transforms/Passes.td` 的全部内容</small> | 低：tile 级优化在闭源 `tileiras` 内，外部只能看到 Tile IR 字节码 |
+
+**【推断】由此得出一个与初版相反的结论**：按口径 B，**PyPTO 生态（43 + 83 = 126）是四家里 pass 定义最多的**，而非初版暗示的"比 Triton 少"。但这个"多"一半来自 PTOAS——即一半的工具箱不在 pypto 仓内（见结论三）。
+
+**另一处修正**：`DebugTileOptimization` 策略 = 前缀 7 + Tile/PTO 32 = **39 条**，跳过 Tensor 段 5 条。
 
 ---
 
@@ -62,8 +72,9 @@
 | 子类 | 绑定的硬件资源 |
 | ---- | -------------- |
 | **III-a 空间** | 布局与编码、内存空间归属、物理地址、buffer 复用 |
-| **III-b 时间** | 软件流水、异步搬运、延迟标注、指令调度、多缓冲 |
+| **III-b 时间** | 软件流水、异步搬运、延迟标注、多缓冲 |
 | **III-c 并行单元** | warp / 核的特化与分工、tile 切分、矩阵单元映射、向量宽度 |
+| **III-d 融合与指令调度** | 算子 / 循环融合的边界，以及最终指令序的排布 |
 
 ### 2.3 四家的重心分布
 
@@ -73,7 +84,8 @@
 | ---- | ---- | ---- |
 | **Triton** | **III 硬件映射** | 约一半 pass 在 III，且 `tmem_*`、`mbarrier`、`warp_specialize` 等 Hopper / Blackwell 专属项直接 pass 化；V 类里独有 sanitizer |
 | **TileLang-Ascend** | **III + IV** | `ascend_*` 17 个几乎全落在这两类，其中向量化相关 9 个为四家最重 |
-| **PyPTO** | **V 组织与交付** | 编排 11 + 分布式 4；III 相对偏薄，IV 整体外包给 PTOAS |
+| **PyPTO**（仅 pypto 仓） | **V 组织与交付** | 编排 11 + 分布式 4；III 相对偏薄，**III-d 与 IV 整体外包给 PTOAS** |
+| **PTOAS**（PyPTO 的汇编层） | **III + IV** | 83 个注册 pass 里，融合与调度 12 个、VMI 布局 12 个、同步与校验一整套；是 PyPTO 生态真正的硬件映射层 |
 | **cuTile** | 公开部分只有 **I** | II / III / IV 全在闭源 `tileiras` 内 |
 
 **三条由此得出的判断**：
@@ -170,6 +182,25 @@
 - **跨核资源绑定**
   - TileLang-Ascend：`cross_core_pipeline`、`ascend_pto_save_buffer_shape`
   - PyPTO：`skew_cross_core_pipeline`
+
+#### III-d 融合与指令调度
+
+| 职责 | Triton | TileLang-Ascend | PyPTO（+ PTOAS） | cuTile |
+| ---- | ------ | --------------- | ---------------- | ------ |
+| 算子 / 循环融合 | 无独立子系统（靠 `combine` 等局部改写） | 自己（`TileFusion/` 目录） | **PTOAS 侧完整子系统（10）** | `FuseFMA`（仅 FMA 级） |
+| 指令调度 | 自己（2） | 无显式调度器 | **PTOAS 侧（2）** | 闭源 |
+
+- **算子 / 循环融合**
+  - PTOAS：`PreFusionAnalysis`、`PrintPreFusionAnalysis`、`FusionPlan`、`PTOFusionRegionGen`、`PTOLowLevelLoopFusion`、`PTOFusionPredicateElision`、`PTOFusionLoadStoreElision`、`PTOVexpdifFusion`、`PTOUnrollAfterLoopFusion`、`PTOFlattenFusionRegion`，另有 `VPTOStatefulStreamFusion`、`VPTOCombineReductions`
+  - TileLang-Ascend：`TileFusion/` 目录（源码在 PTOAS 之外独立实现）
+  - Triton：无独立融合子系统；`combine`、`combine_tensor_select_and_if`、`fuse_nested_loops` 属局部改写
+  - cuTile：`FuseFMA` 仅做乘加融合
+- **指令调度**
+  - Triton：`schedule_loops`、`reorder_instructions`
+  - PTOAS：`OpScheduling`、`VPTOScheduler`
+  - PyPTO 自身：无（调度权在 PTOAS）
+
+> 【推断】这一子类是初版遗漏的。它的分布很特别：**融合与指令调度在 PyPTO 生态里完全由 PTOAS 承担，pypto 仓内一个都没有**——与第 IV 类（同步插入）同样外包。两者相加意味着"排布指令序 + 保证执行正确"这两件最接近硬件的事都不在 pypto 仓里。
 
 ### 3.4 第 IV 类 · 正确性保障
 
@@ -313,7 +344,7 @@ outline_hierarchy_scopes · outline_incore_scopes · outline_cluster_scopes
 convert_tensor_to_tile_ops · optimize_orch_tensors
 ```
 
-**Tile / PTO 段（30）**
+**Tile / PTO 段（32）**
 
 ```
 lower_composite_ops · flatten_tile_nd_to_2d · auto_tile_matmul_l0
@@ -330,26 +361,91 @@ lower_host_tensor_collectives · materialize_dist_tensor_ctx · simplify
 materialize_runtime_scopes · classify_iter_arg_carry
 ```
 
-**PTOAS 侧 · `Passes/`（31）**
+### 4.4 PTOAS（PyPTO 的汇编层）
+
+`include/PTO/Transforms/Passes.td` 注册的 **83 个 pass**，按 TableGen 中的声明顺序（大致即流水线顺序）：
+
+**同步与基础降级**
 
 ```
-InferPTOLayout · InferPTOMemScope · LoweringSyncToPipe · OptMemPlanForPipeline
-PTOAnalyzeSIMTPersistentFragment · PTOAssignDefaultFrontendPipeIdPass
-PTOConvertSCFToCFWithLoopHintsPass · PTOInferValidatePipeInitPass
-PTOInjectBarrierAllSync · PTOMaterializeImplicitTmp
-PTOMaterializeSIMTPersistentFragment · PTOMaterializeTileOpSections
-PTONarrowVPTOLoopCounters · PTONormalizeUncoveredTileSections
-PTOOutlineSIMTSections · PTOPlanMemoryModern · PTOPrintAddressAnalysis
-PTOPromotePersistentFragmentLoopsPass · PTORemoveRedundantBarrier
-PTOResolveBufferSelect · PTOResolveReservedBuffersPass · PTOUnrollLoopsPass
-PTOVPTOPtrBoundary · PTOValidatePhysicalSectionBoundaries · PTOValidateVMIIR
-PTOValidateVPTOIR · PTOVerifyTFreePass · PTOWrapFunctionsInSectionsPass
-SIMTPersistentFragmentAnalysis · SlotAffineAnalysis · SubviewSlotAnalysis
+PTOInsertSync · PTOInjectBarrierAllSync · PTOBufidSync · PTOLowerGenericOps
+InferPTOLayout · PTOA5NormalizeTMov · PTORemoveIdentityTMov · InferPTOMemScope
+PTORematerializeFixpipeVectorQuant · PTOMaterializeImplicitTmp · PlanMemory
+PTOLoweringSyncToPipe
 ```
 
-**PTOAS 侧 · 其他子系统**：`InsertSync/`（12 个源文件）、`Lowering/`（11）、`TileFusion/`、`VMI/`、`VMIToVPTO/`、`VPTO/`、`VPTOScheduler/`、`BufidSync/`、`PTOToEmitC/`
+**融合与调度**
 
-### 4.4 cuTile · CUDA Tile IR
+```
+PreFusionAnalysis · PrintPreFusionAnalysis · FusionPlan · OpScheduling
+PTOMarkLastUse · PTOFusionRegionGen
+```
+
+**Section 与流水 id**
+
+```
+PTOWrapFunctionsInSections · PTONormalizeUncoveredTileSections
+PTOValidatePhysicalSectionBoundaries · PTOMaterializeTileOpSections
+VPTOSplitCVModule · VPTONormalizeContainer · PTOLowerFrontendPipeOps
+PTOAssignDefaultFrontendPipeId · PTOInferValidatePipeInit
+PTOResolveReservedBuffers
+```
+
+**Tile op 展开与规范化**
+
+```
+InsertTemplateAttributes · ExpandTileOp · FoldTileBufIntrinsics
+PTOCanonicalizeIR · PTOArithRangeOptimize · LowerPTOToUBufOps
+PTOInlineLibCall · PTOInlineBackendHelpers · PTOVerifyTFree
+PTOResolveBufferSelect
+```
+
+**循环与 SIMT 片段**
+
+```
+PTOUnrollLoops · PTOUnrollSIMTFor · PTOConvertSCFToCFWithLoopHints
+PTOPromotePersistentFragmentLoops · PTONarrowVPTOLoopCounters
+PTOAnalyzeSIMTPersistentFragment · PTOMaterializeSIMTPersistentFragment
+PTOOutlineSIMTSections · PTOInferVPTOVecScope
+```
+
+**校验**
+
+```
+PTOValidateVPTOIR · PTOValidateVMIIR · PTOValidateVMILayoutIR
+PTOValidateVPTOEmissionIR
+```
+
+**VMI 层（布局赋值与下降，12）**
+
+```
+VMIPreAssignmentCombine · VMILayoutAssignment
+VMILayoutRematerializeWeakProducers · VMIMaskGranularityAssignment
+VMILayoutFold · VMILayoutRematerialize · VMILayoutSinkMaterialization
+VMILegalizeArithSelect · VMINormalizeSignlessIntToUnsigned
+VMILowerUnifiedToLegacy · VMIExpandImplicitEnsureLayouts · VMIToVPTO
+```
+
+**VPTO 层（调度与指令级优化）**
+
+```
+VPTOStatefulStreamFusion · PTOExpandSoftLib · VPTOScheduler
+VPTOExpandWrapperOps · VPTOSoftPostUpdate · VPTOGuardedLICM
+PTOPrintAddressAnalysis · PTOVPTOPtrBoundary · VPTOPtrNormalize
+VPTOPtrCastCleanup · VPTOOptimizeVcvt · VPTOOptimizeCtrlState
+VPTOCombineReductions · VPTOMaskSimplify
+```
+
+**低层融合**
+
+```
+PTOLowLevelLoopFusion · PTOFusionPredicateElision · PTOFusionLoadStoreElision
+PTOVexpdifFusion · PTOUnrollAfterLoopFusion · PTOFlattenFusionRegion
+```
+
+**对应源码目录**：`lib/PTO/Transforms/` 下 `Passes/`（31 个源文件）、`Lowering/`（11）、`InsertSync/`（12）、`TileFusion/`、`VMI/`、`VMIToVPTO/`、`VPTO/`、`VPTOScheduler/`、`BufidSync/`、`PTOToEmitC/`。源文件数与 pass 数不是一一对应——`PTOInsertSync` 一个 pass 由 `InsertSync/` 的 12 个文件实现，反之一个文件也可能注册多个 pass。
+
+### 4.5 cuTile · CUDA Tile IR
 
 **公开 pass（全部 4 个）**
 
@@ -376,9 +472,9 @@ SIMTPersistentFragmentAnalysis · SlotAffineAnalysis · SubviewSlotAnalysis
 【事实·外】ttgir + llir 中可数出 `tmem_*` 六个、`mbarrier` 相关三个、`warp_specialize` 四个，外加 `tma_lowering`、`cluster_barrier_mbar_allocator`。
 【推断】这是其 pass 总数最高的直接原因，代价是后端与具体架构强耦合——每代新硬件都要新增一批 III 类 pass。
 
-**结论三｜第 IV 类（正确性保障）的归属，四家各不相同，而 PyPTO 是唯一外包的。**
-【事实】Triton 与 TileLang 各用 8 个 pass 自己做；cuTile 在闭源编译器内做；PyPTO 自身不做，整体外包给 PTOAS 的 `InsertSync/` 子系统。
-【推断】结合结论五，这一类是**唯一不能被 autotune 替代**的能力——搜索能找到更快的配置，但不能帮你插对同步。把它放在另一个仓里意味着最不可替代的一段不在自己手上，跨仓版本必须对齐（当前由 `toolchain/versions.env` 钉 ptoas 版本、`runtime/pto_isa.pin` 钉 ISA 版本）。
+**结论三｜PyPTO 把三件最贴硬件的事整体外包给了 PTOAS：同步插入、算子融合、指令调度。**
+【事实】第 IV 类同步插入：Triton 与 TileLang 各用 8 个 pass 自己做，cuTile 在闭源编译器内做，**PyPTO 自身一个都没有**，由 PTOAS 的 `PTOInsertSync`（`InsertSync/` 12 个源文件实现）承担。第 III-d 类同理：融合 10 个、调度 2 个，全部在 PTOAS，pypto 仓内为零。
+【推断】这一类是**唯一不能被 autotune 替代**的能力——搜索能找到更快的配置，但不能帮你插对同步。按口径 B，PyPTO 生态 126 个 pass 里 83 个在 PTOAS，**三分之二的工具箱不在 pypto 仓内**，跨仓版本必须对齐（当前由 `toolchain/versions.env` 钉 ptoas 版本、`runtime/pto_isa.pin` 钉 ISA 版本）。这既是分工优势，也是单仓能力评估时最容易被高估或低估的地方。
 
 **结论四｜第 V 类里有两个职责只有 PyPTO 有。**
 【事实·内】任务图编排 5 个 + 函数边界 6 个、分布式通信 4 个，其余三家对应行全空。
@@ -420,6 +516,9 @@ sed -n '/def make_ttgir/,/def make_llir/p' third_party/nvidia/backend/compiler.p
 4. **PyPTO 与 PTOAS 的 pass 数存在重叠语义**：内存规划可按 `memory_planner` 在两边切换，计数不应简单相加（见 3.3 节注）。
 5. **TileLang-Ascend 的 51 个文件中部分为 analysis 而非 transform**，未逐个区分。
 6. **第 2 节的五类归属含判断成分**。少数 pass 跨类（如 `legalize_safe_memory_access` 兼具 IV / V 属性、`multi_version_buffer_rewriter` 兼具 III-a / III-b 属性），归类时取其主要职责，重新统计时可能出现 ±1 的差异。
+7. **TileLang-Ascend 与 PTOAS 的口径仍不对齐**。前者为源文件数（51），后者为 TableGen 注册数（83）；TileLang 用 C++ 直接注册、无单一 `.td` 清单，因此无法给出与 PTOAS 同口径的数字。若要严格对齐，需逐个源文件统计其注册的 pass 数。
+8. **PTOAS 的 83 个 pass 中哪些进入默认流水线未核实**。`--pto-level=level1/2/3` 组装的 pass 序列不同（level3 跳过 `PlanMemory`），因此其口径 A 数字本文留空。
+9. **Triton 的 56 只统计了 NVIDIA 相关的五个 `.td`**，未含 AMD、CPU 等后端，也未含 `Conversion/` 下其余目录。
 
 ---
 
