@@ -18,10 +18,12 @@
 - **9 × 6 内容矩阵与现状盘点**（第 3–5 节）：逐格标注已有 / 部分 / 缺失。
 - **7 项优先内容清单**（第 8 节）与**边界**（第 9 节）。
 
+> **九域的逐域展开**（事实、承载、失败模式、缺口）见配套文档 [PyPTO_Hardware-Native九域详解_20261019.md](PyPTO_Hardware-Native九域详解_20261019.md)。本文第 3 节是它的索引。
+
 **三条最值得先看的判断**：
 
 1. **PyPTO 已经把硬件事实「写进了编译器」，但没有把它「交给开发者」。** `BackendHandler` 已在 Python 侧暴露 26 个方法——L0A/L0B/L0C/Bias/Mat 容量、GM 访问粒度、L2 cache line、推荐最内维、分形对齐、Die/Cluster/Core 拓扑，以及 7 条代际行为开关；但 `pypto/__init__.py` 不导出 `backend`，全部 `docs/` 中检索不到任何一个容量 getter 的名字。**这是成本最低、收益最直接的一格。**
-2. **九个硬件事实域里，只有「访存粒度」一域有硬件性能提示。** 全仓库唯一的 PerfHint 码仍是 `PH001`。其余八域做错了只会「慢」，而编译器一声不吭。
+2. **性能提示的覆盖与风险严重错配。** 全仓库共 11 个 PerfHint 码（`PH001` + 8 条 `PH-AT-*` + `PH-MR-001` + `PH-DSA-001`），但它们集中在域 1、3、4、6——这四域做错的后果主要是「慢」或「编译器放弃优化」；而做错会**静默错或挂死**的域 2、5、9，提示数为零。
 3. **现有 Hardware-Native 内容在 Tile / InCore / Kernel 三层最厚，在「整网」一层最薄。** 而模型开发者恰好站在整网层——这是「模型开发」相对「算子开发」的结构性缺口，不是文档数量问题。
 
 ---
@@ -90,10 +92,10 @@
 
 | # | 域 | 关键昇腾事实（已核实数值） | PyPTO 中的表达 | 做错 |
 | - | -- | -------------------------- | -------------- | ---- |
-| 1 | **存储层级与容量** | L0A/L0B 各 64 KiB；L0C 910B 128 KiB / 950 256 KiB；Mat(L1) 512 KiB；另有 Bias、ScalarLocal | `MemorySpace`（`DDR/Vec/Mat/Left/Right/Acc/Bias/ScalarLocal`）、`target_memory`、`pl.create_l1` | 错（放不下）→ 慢（复用不当） |
+| 1 | **存储层级与容量** | L0A/L0B 各 64 KiB；L0C 910B 128 KiB / 950 256 KiB；Mat(L1) 512 KiB；核内数据 cache line 64 B | `MemorySpace` 共 **10 个值**（`DDR/Vec/Mat/Left/Right/Acc/Bias/ScalarLocal/LeftScale/RightScale`，后两个为 A5 的 MX scale 空间）、`target_memory`、`pl.create_l1` | 错（放不下）→ 静默损坏（复用别名） |
 | 2 | **计算单元与分工** | Cluster = 1 Cube + 2 Vector；Die / Cluster / Core 三级拓扑 | `aic`/`aiv` 作用域、`ExpandMixedKernel`、`SplitVectorKernel` | 错（切分不合法）+ 慢 |
 | 3 | **布局与分形** | Cube 要 NZ/ZN fractal、16 对齐；`fractalABSize` 在 PTOAS 侧硬编码 512（PTOAS#57） | `TileLayout`（`row_major/col_major/none_box`）、`blayout/slayout/fractal/stride/valid_shape/pad`、`ResolveBackendOpLayouts` | 错（校验失败）→ 慢（隐式布局转换） |
-| 4 | **访存粒度与带宽** | GM 粒度 910B 512 B / 950 128 B；L2 cache line 均 512 B | `PH001`、`tile.load/store` 最内维 | **慢**（唯一有提示的一域） |
+| 4 | **访存粒度与带宽** | GM 粒度 910B 512 B / 950 128 B；L2 cache line 均 512 B | `PH001`、`tile.load/store` 最内维、`pl.set_cache_policy(..., CachePolicy.BYPASS)` | **慢**（提示最成熟的一域） |
 | 5 | **跨核通道与同步** | 每对等核心每方向 8 个硬件 flag，每 Cluster 共 32；ring 单向 8 槽、双向每向 4 槽；A2/A3 ring 在 GM、A5 在消费者片上 SRAM | `tpush/tpop`、`pl.cross_core_slot`、`system.syncall`（hard/soft）、`InjectGMPipeBuffer` | **错或 hang**（#828：identity tmov 在 A5 挂死） |
 | 6 | **时间与流水** | `PipeType` = MTE1/MTE2/MTE3/M/V/S；搬运-计算 overlap 决定峰值 | `pl.pipeline(stage=N)`、`LowerPipelineLoops`、`SkewCrossCorePipeline`、L0 指令级 trace | 慢（深度不足）→ 错（跨 stage 误复用） |
 | 7 | **数值与精度** | `cast` 饱和模式在 A2/A3 为硬件原生；950 的 `INT32→FP16` 需经 FP32 多跳；MX/FP4 仅 950 | `pl.cast(saturation_mode=)`、`LegalizeTileCast`、`InsertMxScaleAddr`、`precision/` 两篇 | 错（精度不对齐） |
@@ -146,12 +148,12 @@
 
 | 域 | E 可表达 | Q 可查询 | C 可校验 | A 可归因 | O 可观测 | R 可复用 |
 | -- | :------: | :------: | :------: | :------: | :------: | :------: |
-| 1 存储层级与容量 | ✓ | **△** | △ | ✓ | ✓ | ✓ |
-| 2 计算单元与分工 | ✓ | **△** | ✗ | ✓ | ✓ | ✓ |
+| 1 存储层级与容量 | ✓ | **△** | ✓ | ✓ | △ | ✓ |
+| 2 计算单元与分工 | ✓ | △ | △ | ✓ | ✓ | ✓ |
 | 3 布局与分形 | ✓ | **△** | △ | ✓ | △ | △ |
-| 4 访存粒度 | — | **△** | ✓ | ✓ | ✓ | △ |
+| 4 访存粒度 | ✓ | **△** | ✓ | ✓ | ✓ | △ |
 | 5 跨核同步 | ✓ | **△** | ✗ | ✓ | ✓ | ✓ |
-| 6 时间与流水 | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ |
+| 6 时间与流水 | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ |
 | 7 数值与精度 | ✓ | △ | △ | ✓ | △ | ✓ |
 | 8 任务与运行时 | ✓ | △ | ✗ | ✓ | ✓ | △ |
 | 9 多卡与通信 | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ |
@@ -179,11 +181,17 @@
 
 **【推断】** 规格**已经是数据了**，只是这份数据只流向编译器，不流向开发者。开发者今天要知道 L0C 容量，只能去读 `Insight/` 的整理表或 Ascend C 文档——那是第二份、会过期的规格。既有分析担心的「双源不一致」风险，其实可以**通过开放已有单源来消除**，而不是新建一份档案。
 
-#### 结论三：C 列是「做错会错」的域里最空的一列
+#### 结论三：C 列不空，但它长错了地方
 
-**【事实】** 在 `repo/pypto/src` 与 `include` 中检索 `PH0\d\d`，唯一命中仍是 `PH001`（`TileInnermostDimGranularity`）。**【事实】** hw-native-sys/pypto#1305 仍 open：`PH001` 的 span 指向流水线后的 IR 文本位置（`<string>:line:col`），而非用户 DSL 源位置。
+**【事实】** 性能提示有两套发出路径，共 11 个码：`DiagnosticCheckRegistry` 注册的 `PH001`，以及 pass 直接发出的 8 条 `PH-AT-*`（`auto_tile_matmul_l0_pass.cpp`）、`PH-MR-001`（`memory_reuse_pass.cpp`）、`PH-DSA-001`（`allocate_memory_addr_pass.cpp`）。注册表里另有 5 条 `Warning` 级检查，其中 `ScalarWriteLineShared` 是硬件相关的（64 B cache line 争用）。
 
-**【推断】** 域 2、5、6、8、9 做错的后果是「错 / hang / 慢」，但编译期一句提示都没有。这不是「再加几条 hint」的问题——**C 列能做多深，取决于 Q 列是否开放（阈值从哪来）与 #1305 是否解决（结论落到哪一行）**。三者是一条链。
+**【事实】** 这 11 个码落在域 1（9 条）、域 3（1 条）、域 4（1 条）、域 6（1 条）；**域 2、5、7、8、9 为零**。
+
+**【推断】** 覆盖与风险错配：有提示的四域，做错的后果主要是「慢」或「编译器放弃优化」；没提示的五域里，域 2 / 5 / 9 做错的后果是**静默错或挂死**（两条 AIV lane 重复 notify → 对端计数翻倍 → 抢跑读到传输途中的数据，且单 rank 复现不了）。
+
+**【推断】** 更可操作的一点是 **11 条里有 9 条属于同一个类别**：`PH-AT-*` 与 `PH-DSA-001` 说的不是「你写得慢」，而是「编译器本来要替你优化，但放弃了，原因是 X」——消息几乎都以 `— left untouched` 结尾。这类**归因型提示**横跨 C 与 A 两列，且比凭空新增建议型提示更容易做对，因为编译器放弃的那个分支本来就知道原因，只是今天大多数分支选择了静默返回。**C 列的扩展应当从这里开始**，而不是从「再加几条性能建议」开始。
+
+**【事实】** 共同的制约仍在：hw-native-sys/pypto#1305 仍 open，`PH001` 的 span 指向流水线后的 IR 文本位置（`<string>:line:col`），而非用户 DSL 源位置。**C 列能做多深，取决于 Q 列是否开放（阈值从哪来）与 #1305 是否解决（结论落到哪一行）。**
 
 ---
 
@@ -238,7 +246,7 @@
 | :--: | ---- | ---- | ------ | ---- |
 | 1 | **把平台档案开放成用户一等公民** | Q | 全部 9 | 规格已是数据（`BackendHandler` 26 方法），只差导出 + 一页用户文档；是 C 与 R 的前置 |
 | 2 | **源码映射：IR 位置 ↔ 用户 DSL 行** | A/C 基础设施 | 全部 9 | #1305 仍 open；不做则所有校验结论停在「IR 某处」 |
-| 3 | **按域补 PerfHint，先补「错」后补「慢」** | C | 1/2/3/5 优先 | 占 Issue 标题 28% 的四域今天零提示；域 5 的失败是 hang，域 1 是静默损坏 |
+| 3 | **把编译器「放弃优化」的静默分支改为归因型提示** | C+A | 2/5/8/9 优先 | 11 条现有 hint 里 9 条已是这个形态且可行；域 2/5/9 今天零提示而失败是静默错或 hang |
 | 4 | **整网片上预算对象** | Q+C+A | 1/3/6/8 | L5 作用域在用户侧为空，模型开发者无入口（第 6 节） |
 | 5 | **buffer 生命周期与别名可视化** | O | 1 | `MemoryReuse` 的失败是静默数据损坏且三次回归（#673→#1310→#1352），读 IR 文本发现不了 |
 | 6 | **代际差异按域版本化** | 横切 | 全部 9 | feature-matrix 只有 6 行特性级；7 条 `requires_*` 零文档 |
@@ -246,7 +254,7 @@
 
 **【建议】** 1 与 2 并行启动：第 1 项是纯暴露工作，不依赖任何 IR 改造；第 2 项涉及跨层 IR 元数据改造、周期长，应尽早开始并准备工具侧自建映射的兜底。3–7 在这两项之上展开。
 
-**【建议】不建议先做的**：通用 autotune / 搜索类能力。按既有统计，当前痛点分布是正确性（layout 33 + 内存复用 31 + 同步 15 = 79 条）压倒性高于性能（1 条 hint）。更重要的是：**搜索能找到更快的配置（域 1/3/6 的事），但不能帮你插对同步（域 5）**——正确性保障是唯一不能被 autotune 替代的一类。
+**【建议】不建议先做的**：通用 autotune / 搜索类能力。按既有统计，当前痛点分布是正确性（layout 33 + 内存复用 31 + 同步 15 = 79 条 Issue 标题）压倒性高于性能。更重要的是：**搜索能找到更快的配置（域 1/3/6 的事，而这三域恰好已经有 11 条提示中的 11 条），但不能帮你插对同步（域 5，零提示）**——正确性保障是唯一不能被 autotune 替代的一类。现有提示的分布本身就说明方向：工具已经在它最容易做的地方做满了，缺的是它最难做、也最值钱的那几域。
 
 ---
 
@@ -292,6 +300,10 @@
 - `docs/zh/reference/pto-isa/`：3 篇（cluster architecture、tpush_tpop、buffer management）。
 - `repo/.github/profile/README.md`：组织 Hardware-Native 定义。
 
+### 配套与既有分析
+
+- [PyPTO_Hardware-Native九域详解_20261019.md](PyPTO_Hardware-Native九域详解_20261019.md)：九域逐域展开（硬件事实数值、六形态承载、失败模式、缺口），并列出本文已修正的两处事实。
+
 ### 本仓库既有分析（本文在其基础上补 J3 / 承载形态维度）
 
 - [Product_Planning/PyPTO3.0_昇腾亲和产品方向分析.md](PyPTO3.0_昇腾亲和产品方向分析.md)：阶段轴 × 泄漏点轴、8 个泄漏点统计、六个抓手、剂量原则。
@@ -308,8 +320,8 @@ grep -rln "get_l0a_capacity_bytes\|get_gm_access_granularity" repo/pypto/docs
 ```
 
 ```bash
-# C 列缺口：唯一的 PerfHint 码
-grep -rn "PH00" repo/pypto/src repo/pypto/include | grep -o "PH0[0-9][0-9]" | sort -u
+# C 列盘点：全部 perf hint 码（注意必须匹配 PH-XX-NNN，只搜 PH00 会漏掉 10 条）
+grep -rhno "PH[-A-Z0-9]\{3,12\}" repo/pypto/src repo/pypto/include | sed 's/.*://' | sort -u
 ```
 
 ```bash
