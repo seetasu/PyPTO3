@@ -230,7 +230,7 @@ DSpark Serving（DeepSeek-V4-Flash w8a8，16 NPU）的性能定界 demo，从一
 
 侧栏那块只是小结。**完整的算子级分析在这一页**，从 lane 专项第一行的入口进来（`device.html#lane=6&step=S37`），数据与口径和侧栏完全一致——同样是另一次采集、同样只有一张卡、时间同样不缩放，页面顶部第一段就写这件事。
 
-- **采集口径在页面底部「这份数据的口径」折叠里**，`来源` 下面新增两行：固定负载 `dsv4-flash-dspark-a3-dp4tp4ep16-gbs256-in256o64`（取自压缩包自己的名字，不另写死：GBS256 · 输入 256 / 输出 64），采集方式 `Ascend profiler 导出的 trace`。`repo/pypto-serving/.agents/skills` 里**没有**这份 trace 的采集流程，所以这一页只按导出原值读；同一串负载的端到端指标可以用 `vllm-bench-perf` 复测，但它给不出算子级分解。顶部出处那段的 `title` 上也挂了这两行。
+- **采集口径在页面底部「这份数据的口径」折叠里**，`来源` 下面新增两行：固定负载 `dsv4-flash-dspark-a3-dp4tp4ep16-gbs256-in256o64`（取自压缩包自己的名字，不另写死：GBS256 · 输入 256 / 输出 64），采集方式 `Ascend profiler 导出的 trace`，再加一行**分析口径**。`repo/pypto-serving/.agents/skills` 里没有的是**这份 Ascend 导出的采集与解析流程**（那些 skill 吃的是自家 SA_PROFILE 的 Chrome trace 与 `[STRACE]` 日志），不是没有算子级分析能力：`qwen3-14b-online-perf-test` §6–7 就给了算子级口径——`ph="X"` 按事件名聚合、kernel 行取 `args.device_wall_us`（span `dur` 含 host 下发开销，不是设备真实耗时）、排除一次性启动 span。要在 pypto-serving 自己的 profiler 上复现这一页就按它来；端到端性能数另用 `vllm-bench-perf`。顶部出处那段的 `title` 上也挂了固定负载与采集方式两行。
 - **头部五个数**：采到的 step（66 · 6.16 s）、步长 P50 / P90、**等待占比 78.52%**（标红，它是这一页唯一的结论）、算子执行 P50、算子种类 125。
 - **① 66 个 decode step**：一根柱一步，柱高按步长，自下而上堆 `算子执行 / 等待同步 / 流上空档`。点任一根（或按 ← / →）切换下面三块。这张图直接给出“步长在变、但变的几乎都是等待”这件事。
 - **② 多流甘特**：
@@ -259,8 +259,10 @@ DSpark Serving（DeepSeek-V4-Flash w8a8，16 NPU）的性能定界 demo，从一
 | 时间 | 核上周期计数（50 MHz），trace 原值 |
 | 固定负载 | `Qwen3-14B/TP1-fused-host/prefill_fwd x1/L2-swimlane-level4/60core@50MHz`，核数 / 时钟 / 采集等级都取自 `l2_swimlane_records.json` 自己的 metadata |
 | 采集方式 | `collect_qwen3_profiles.py --mode swimlane`（数据包自带的 TP=1 采集器，开 `enable_l2_swimlane` + `enable_dep_gen`） |
+| 分析口径 | `repo/pypto` 的 `docs/zh/user/performance/`（`00-swimlane` 起：采集等级、`dispatch → start` 间隙、kernel 宽度、makespan 拆解）——skills 里没有 L2 swimlane 流程，但读法在文档里 |
 
-- **这份数据的边界**：`repo/pypto`、`repo/pypto-serving` 的 skills 里都**没有** L2 swimlane 的采集流程，所以这一页只能引用这份已有导出；prompt 是采集脚本里那条固定的 chat 模板问句，不是压测负载，绝对时间只能当这台机器上的一次实例，不是跨机器基线（数据包 `README.md` 也这么写）。固定负载、采集方式与这条边界都进了页面的口径折叠，出处那段的 `title` 上也挂了前两行。
+- **新旧拼写**：本文件的 `l2_swimlane_records.json` / `enable_l2_swimlane` 是旧名，Simpler 的 Worker/Chip/Core 命名迁移后现名 `chip_swimlane_records.json` / `enable_chip_swimlane`，取值与语义不变（`repo/pypto/docs/zh/dev/03-runtime-dfx.md`「已弃用别名」）。所以上面那份性能文档讲的就是这类数据。
+- **这份数据的边界**：prompt 是采集脚本里那条固定的 chat 模板问句，不是压测负载；数据包 `README.md` 写明这是某台机器上的一次真机采集，不能当跨机器基线。固定负载、采集方式、分析口径与这条边界都进了页面的口径折叠，出处那段的 `title` 上也挂了前两行。
 - **为什么用 prefill 不用 decode**：同目录 `decode.json` 的 `FuncId` 全是 `-1`，任务名只有 `task(r2t0)` 这样的 token，映射不到算子名；prefill 的 `FuncId` 有值，事件名本身就是 `gate_up_proj_spmd(r1t5)`，18 种算子都能认出来。这一条写在页面的口径折叠里。
 - **主图**：一行一个核，上面 20 个 AIC、下面 40 个 AIV，中间留一条缝。实色是 `kernel-duration-us`，紧跟着的红色一小截是 `local_setup_us`（下发开销）。滚轮缩放、拖动平移，`重置缩放` 回到全窗口；范围写进 hash（`#r=12.416,15.469`）。
 - **一眼能看出的事**：AIC 20 个核平均占用 **72.2%**（kernel 合计 641 ms），AIV 40 个核只有 **6.89%**（122 ms）——这次 prefill 的算力几乎全压在立方核上，向量核大部分时间空着。
