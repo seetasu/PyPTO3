@@ -251,8 +251,11 @@
 
     .kf-em-empty { padding: 26px 12px; color: var(--kf-em-dim); font-size: var(--kf-type-2xs); text-align: center; }
   </style>
+  <link rel="stylesheet" href="./styles/visualization2.css" />
+  <link rel="stylesheet" href="./styles/visualization2-pipeline.css" />
+  <link rel="stylesheet" href="./styles/visualization2-graph.css" />
 </head>
-<body>
+<body data-visualization2-enabled>
   <section class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="PyPTO Studio 可信 Kernel 工作台">
     <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
       <div class="pto-ide-frame__topbar-left">
@@ -1377,5 +1380,9 @@
       upgrade(document.getElementById('runFan'));
     })();
   </script>
+  <script src="./js/visualization2-phase0.js"></script>
+  <script src="./js/visualization2-pipeline.js"></script>
+  <script src="./js/visualization2-graph.js"></script>
+  <script src="./js/visualization2.js"></script>
 </body>
 </html>

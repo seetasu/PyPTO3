@@ -1,0 +1,25 @@
+/* Canvas chrome is local; node/edge/group appearance comes from the original graph CSS. */
+.viz2-graph { display: flex; flex-direction: column; }
+.viz2-graph-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.viz2-graph-stage { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.viz2-graph-viewport { position: relative; inset: auto; flex: 1; min-height: 0; min-width: 0; overflow: hidden; touch-action: none; }
+.viz2-graph-scene { user-select: none; }
+.viz2-graph-footer { display: flex; flex: none; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-5); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.viz2-graph .kf-pypa-graph__node.is-viz2-related { box-shadow: 0 0 0 2px var(--focus-ring); }
+.viz2-graph .kf-pypa-graph__edge.is-viz2-related { opacity: 1; stroke-width: 3; }
+.viz2-graph .kf-pa-map__tooltip { max-width: min(360px, calc(100% - 16px)); }
+.viz2-graph-inspector { flex: 0 0 300px; min-width: 0; margin: var(--space-2) var(--space-3) var(--space-3) 0; }
+.viz2-graph-inspector .pto-ide-frame__pane-header { justify-content: space-between; }
+.viz2-graph-inspector .pto-ide-frame__pane-header b { min-width: 0; font: var(--type-title-3); }
+.viz2-graph-inspector .pto-ide-frame__pane-body { padding: var(--space-3) var(--space-4); overflow: auto; font: var(--type-body); }
+.viz2-graph-inspector section { padding-block: var(--space-3); border-top: 1px solid var(--border-subtle); }
+.viz2-graph-inspector section:first-child { border-top: 0; padding-top: 0; }
+.viz2-graph-inspector h3 { margin: 0 0 var(--space-2); font: var(--type-title-3); }
+.viz2-graph-inspector dl { margin: 0; overflow-wrap: anywhere; }
+.viz2-graph-inspector dt { color: var(--foreground-muted); font: var(--type-body-sm); margin-top: var(--space-2); }
+.viz2-graph-inspector dd { margin: var(--space-1) 0 var(--space-3); color: var(--foreground-secondary); }
+.viz2-graph-inspector summary { cursor: pointer; color: var(--foreground-secondary); }
+@media (max-width: 900px) {
+  .viz2-graph-body { position: relative; }
+  .viz2-graph-inspector { position: absolute; right: 0; top: 0; bottom: 0; width: min(300px, 80%); z-index: 5; }
+}
