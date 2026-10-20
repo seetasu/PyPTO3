@@ -1,4 +1,5 @@
 import React from 'react';
+import {cleanControl, controlScopes, scopeForLine, layoutControl} from './control-layout.js';
 import snapshots from '../data/callable/snapshots.json';
 import {tensorGeometry} from './tensor-glyph.js';
 import {instructionCollections} from './instruction-collections.js';
@@ -7,12 +8,14 @@ import './memory-field.css';
 
 export const snapshotAt=index=>snapshots[Math.min(51,Math.max(0,index))];
 export const memoryRows=index=>snapshotAt(index).rows;
-const compactWidth=label=>{const context=document.createElement('canvas').getContext('2d');context.font='600 16px Arial, "PingFang SC", sans-serif';return Math.ceil(context.measureText(label).width+62);};
+const compactWidth=(label,handoff=false)=>{const context=document.createElement('canvas').getContext('2d');context.font=handoff?'620 14px "SFMono-Regular", Consolas, "Liberation Mono", monospace':'600 16px Arial, "PingFang SC", sans-serif';return Math.ceil(context.measureText(label.replace(/ · slot.*$/, '')).width+62);};
+const isHandoff=opcode=>opcode.startsWith('pld.')||opcode==='pl.system.fence';
 const stageIds=['op.merge','op.normalize','op.rope','op.pack','handoff.publish','handoff.notify'];
 const rectPort=(node,side)=>({x:node.position.x+(side==='left'?0:side==='right'?node.style.width:node.style.width/2),y:node.position.y+(side==='top'?0:side==='bottom'?node.style.height:node.style.height/2)});
 
 // Navigation and playback share one comparison of default, visible graph semantics.
 // Source locations, SSA names, selection and inspector-only metadata are excluded.
+const semanticControls=tree=>(tree||[]).map(c=>[c.kind,cleanControl(c.target||''),cleanControl(c.iterator||c.test||''),semanticControls(c.body),semanticControls(c.otherwise)]);
 export function visibleSnapshotSignature(snapshot){
  return JSON.stringify({
   nodes:snapshot.nodes.map(n=>{
@@ -28,6 +31,7 @@ export function visibleSnapshotSignature(snapshot){
    (loop.target.match(/[A-Za-z_]\w*/)?.[0]||'').replace(/_inline.*$|__.*$/,''),
    loop.iterator.replace(/_inline\d+__\w+_v\d+/g,'').replace(/__\w+_v\d+/g,'').split(', init_values=')[0].replace(/^pl\./,'')
   ]),
+  controlTree:semanticControls(snapshot.nodes.find(n=>n.id==='kernel.main')?.sourceFacts?.controlTree),
   edges:snapshot.edges.map(e=>[e.source,e.target,e.semanticKind]),
   allocations:snapshot.rows.map(r=>[r.id,r.offset,r.size])
  });
@@ -39,12 +43,14 @@ export function callableFlow(state,{currentPass,selectedId,hoverId,showIsa,posit
  const collections=showIsa?instructionCollections(isa.instructions):[];
  const chosenInstruction=collections.find(c=>c.id===selectedId||c.instances.some(i=>i.id===selectedId));
  const expanded=state.nodes.find(n=>n.id===loadData.expandedRegion);
+ const scopes=controlScopes(snapshot.nodes.find(n=>n.id==='kernel.main')?.sourceFacts?.controlTree);
  const buckets=[];
  for(const owner of state.nodes.filter(n=>n.regionOperations)){
   const grouped=new Map();
   for(const statement of owner.regionOperations)for(const opcode of statement.operations){
-   if(!grouped.has(opcode))grouped.set(opcode,{id:'bucket.'+owner.id+'.'+opcode,owner:owner.id,opcode,statements:[],count:0});
-   const bucket=grouped.get(opcode);bucket.count++;if(!bucket.statements.includes(statement))bucket.statements.push(statement);
+   const scope=scopeForLine(scopes,statement.line),key=opcode+'@'+(scope||'root');
+   if(!grouped.has(key))grouped.set(key,{id:'bucket.'+owner.id+'.'+opcode+(scope?'.'+scope:''),owner:owner.id,opcode,scope,statements:[],count:0});
+   const bucket=grouped.get(key);bucket.count++;if(!bucket.statements.includes(statement))bucket.statements.push(statement);
   }
   buckets.push(...grouped.values());
  }
@@ -54,7 +60,8 @@ export function callableFlow(state,{currentPass,selectedId,hoverId,showIsa,posit
  const selectedValues=selectedBucket?new Set(selectedBucket.statements.map(s=>s.value)):null;
  const maxBucketRows=Math.max(...stageIds.map(id=>buckets.filter(b=>b.owner===id).length));
  const controls=snapshot.nodes.find(n=>n.id==='kernel.main')?.sourceFacts?.loops||[];
- const bodyBottom=400+maxBucketRows*78;
+ const controlLayout=layoutControl(scopes,buckets,buckets.map(b=>compactWidth(b.opcode.replace(/^pld?\./,'')+' ×'+b.count,isHandoff(b.opcode))),layout==='vertical');
+ const bodyBottom=scopes.length?controlLayout.bottom+40:400+maxBucketRows*78;
  const verticalRows=stageIds.map(id=>Math.ceil(buckets.filter(b=>b.owner===id).length/3));
  const verticalOffsets=[];let verticalCursor=240;
  verticalRows.forEach(rows=>{verticalOffsets.push(verticalCursor);verticalCursor+=140+rows*78;});
@@ -77,13 +84,21 @@ export function callableFlow(state,{currentPass,selectedId,hoverId,showIsa,posit
  }
  const contexts=state.nodes.filter(n=>n.id.startsWith('context.'));
  contexts.forEach((n,i)=>positions[n.id]=layout==='vertical'?[650+i*330,verticalCursor-30]:[1390+i*310,bodyBottom-10]);
+ if(scopes.length){
+  const vertical=layout==='vertical',left=vertical?-160:120,right=160+controlLayout.width+40;
+  positions['kernel.main']=[left,130];
+  positions['task.main']=[(left+right)/2-180,20];
+  stageIds.forEach((id,i)=>positions[id]=vertical?[-120,350+i*120]:[160+i*controlLayout.width/6,240]);
+  ['mi','li','oi','sink','cos','swap'].forEach((key,i)=>positions['value.'+key]=[left-310,350+i*120]);
+  ['grouped','window','signal'].forEach((key,i)=>positions['value.'+key]=[right+60,350+i*180]);
+ }
  const nodes=state.nodes.map(n=>{
   let size=n.renderKind==='kernel'?{width:layout==='vertical'?1200:1960,height:layout==='vertical'?verticalCursor+220:bodyBottom+260}:n.renderKind==='task'?{width:360,height:54}:n.renderKind==='tensor'?tensorGeometry(n):n.id.startsWith('context.')?{width:285,height:68}:{width:150,height:48};
   if(['op','handoff'].includes(n.renderKind)){
    const context=document.createElement('canvas').getContext('2d');context.font='600 16px Arial, "PingFang SC", sans-serif';size.width=Math.ceil(context.measureText(n.label).width+58);
   }
   const label=n.regionOperations?n.label+' · '+n.attributes.domain:n.label;
-  if(n.regionOperations)size.width=compactWidth(label);
+  if(n.regionOperations||['op','handoff'].includes(n.renderKind))size.width=compactWidth(label,n.renderKind==='handoff');
   return {id:n.id,type:n.renderKind,position:{x:positions[n.id][0],y:positions[n.id][1]},style:{width:size.width,height:size.height,zIndex:n.renderKind==='kernel'?0:3},data:{...n,label,selected:n.id===selectedId,touched:currentPass.affectedObjectIds?.includes(n.id),involvement:[]},selectable:true,draggable:n.renderKind!=='kernel'};
  });
  const edges=state.edges.map(e=>({...e,type:e.semanticKind,data:{...e,focused:[e.source,e.target].includes(hoverId||selectedId)},zIndex:[e.source,e.target].includes(hoverId||selectedId)?1000:2}));
@@ -92,32 +107,64 @@ export function callableFlow(state,{currentPass,selectedId,hoverId,showIsa,posit
   const owner=nodes.find(n=>n.id===ownerId),list=buckets.filter(b=>b.owner===ownerId);
   list.forEach((bucket,i)=>{
    const label=bucket.opcode.replace(/^pld?\./,'')+' ×'+bucket.count;
-   const position=layout==='vertical'?{x:550+i%3*300,y:owner.position.y+90+Math.floor(i/3)*78}:{x:owner.position.x,y:350+i*78};
-   nodes.push({id:bucket.id,type:bucket.opcode.startsWith('pld.')||bucket.opcode==='pl.system.fence'?'handoff':'op',position,style:{width:compactWidth(label),height:48,zIndex:3},data:{id:bucket.id,label,owner:ownerId,renderKind:'op',semanticKind:'operator_group',role:bucket.count+' 处静态算子 · '+owner.data.label,attributes:{opcode:bucket.opcode,count:bucket.count,operations:bucket.count},regionOperations:bucket.statements,sourceRefs:bucket.statements.slice(0,4).map(item=>({...owner.data.sourceRefs[0],line:item.line})),selected:bucket.id===selectedId,touched:currentPass.affectedObjectIds?.includes(ownerId),involvement:[]}});
+   const position=scopes.length?controlLayout.positions.get(bucket.id):layout==='vertical'?{x:550+i%3*300,y:owner.position.y+90+Math.floor(i/3)*78}:{x:owner.position.x,y:350+i*78};
+   nodes.push({id:bucket.id,type:isHandoff(bucket.opcode)?'handoff':'op',position,style:{width:compactWidth(label,isHandoff(bucket.opcode)),height:48,zIndex:3},data:{id:bucket.id,label,owner:ownerId,renderKind:'op',semanticKind:'operator_group',role:bucket.count+' 处静态算子 · '+owner.data.label,attributes:{opcode:bucket.opcode,count:bucket.count,operations:bucket.count},regionOperations:bucket.statements,sourceRefs:bucket.statements.slice(0,4).map(item=>({...owner.data.sourceRefs[0],line:item.line})),selected:bucket.id===selectedId,touched:currentPass.affectedObjectIds?.includes(ownerId),involvement:[]}});
   });
  }
- controls.forEach((loop,i)=>{
-  const name=(loop.target.match(/[A-Za-z_]\w*/)?.[0]||String(i)).replace(/_inline.*$|__.*$/,'');
-  const form=loop.iterator.match(/pl\.(\w+)/)?.[1]||'for';
-  const id='control.'+name+'.'+i;
-  nodes.push({id,type:'scope',position:layout==='vertical'?{x:320+i%3*350,y:80+Math.floor(i/3)*76}:{x:140+i*310,y:125},style:{width:280,height:68,zIndex:2},data:{id,label:form+' · '+name,bounds:loop.iterator.replace(/_inline\d+__\w+_v\d+/g,'').replace(/__\w+_v\d+/g,'').split(', init_values=')[0].replace(/^pl\./,''),semanticKind:'loop',renderKind:'scope',attributes:{level:'CONTROL',iterator:loop.iterator},sourceText:loop.iterator,role:loop.target,sourceRefs:[{file:snapshot.file,line:loop.line}]}});
- });
+ for(const frame of controlLayout.frames){
+  const iterator=frame.iterator||'';
+  const loopName=cleanControl((frame.target?.match(/[A-Za-z_]\w*/)?.[0])||'');
+  const call=iterator.includes(', init_values=')?iterator.split(', init_values=')[0].replace(/^pl\./,'')+')':iterator.replace(/^pl\./,'');
+  const label=frame.kind==='condition'?'if '+cleanControl(frame.test):frame.kind==='else'?'else':loopName+' · '+cleanControl(call);
+  nodes.push({id:frame.id,type:'loop',position:frame.position,style:{width:frame.width,height:frame.height,zIndex:1},draggable:false,data:{id:frame.id,label,semanticKind:frame.kind,renderKind:'loop',attributes:{controlKind:frame.kind==='loop'?'loop':'condition'},sourceText:frame.iterator||frame.test||'else',sourceRefs:[{file:snapshot.file,line:frame.line}]}});
+ }
+ if(scopes.length){
+  const kernel=nodes.find(n=>n.id==='kernel.main');
+  kernel.style.width=160+controlLayout.width+40-kernel.position.x;
+  kernel.style.height=bodyBottom-kernel.position.y+60;
+  contexts.forEach((n,i)=>{const node=nodes.find(item=>item.id===n.id);if(node)node.position={x:160+i*330,y:bodyBottom};});
+ }
  const fence=buckets.find(b=>b.opcode==='pl.system.fence');
  if(fence){
   const put=buckets.find(b=>b.owner===fence.owner&&['pld.tile.put','pld.tensor.put'].includes(b.opcode));
   for(const [source,target] of [[put?.id,fence.id],[fence.id,'handoff.notify']])if(source)edges.push({id:'ordering.'+source+'.'+target,source,target,type:'control',data:{hoverOnly:true,hoverFocused:[source,target].includes(hoverId||selectedId)},zIndex:1000});
  }
- const latestValue=new Map();
+ // Side-effecting communication has no SSA result: preserve source ordering explicitly.
+ const notifications=buckets.filter(b=>/^pld\.system\.notify$/.test(b.opcode));
+ for(const notify of notifications){
+  const first=Math.min(...notify.statements.map(s=>s.line));
+  const predecessors=buckets.filter(b=>['pld.tile.put','pld.tensor.put','pl.system.fence'].includes(b.opcode)&&b.statements.some(s=>s.line<first));
+  const last=predecessors.sort((a,b)=>Math.max(...b.statements.map(s=>s.line))-Math.max(...a.statements.map(s=>s.line)))[0];
+  if(last)edges.push({id:'side-effect.'+last.id+'.'+notify.id,source:last.id,target:notify.id,type:'control',data:{hoverOnly:true,hoverFocused:[last.id,notify.id].includes(hoverId||selectedId),role:'源码控制顺序'},zIndex:1000});
+  edges.push({id:'signal-write.'+notify.id,source:notify.id,target:'value.signal',type:'data',data:{hoverOnly:true,hoverFocused:[notify.id,'value.signal'].includes(hoverId||selectedId),role:'更新 attention_signal'},zIndex:1000});
+ }
+ // Resolve from source facts globally, rather than resetting provenance at region/loop boundaries.
+ const sourceNode=name=>{
+  const inputs=[[/^sparse_blk_mi(?:_|$)/,'value.mi'],[/^sparse_blk_li(?:_|$)/,'value.li'],[/^sparse_blk_oi(?:_|$)/,'value.oi'],[/^attn_sink(?:_|$)/,'value.sink'],[/^rope_(?:cos|sin)(?:_|$)/,'value.cos'],[/^rope_swap_idx(?:_|$)/,'value.swap'],[/^attention_grouped(?:_|$)/,'value.grouped'],[/^attention_window(?:_|$)/,'value.window'],[/^attention_signal(?:_|$)/,'value.signal']];
+  return inputs.find(([pattern])=>pattern.test(name))?.[1]||(nodes.some(n=>n.id==='context.'+name)?'context.'+name:null);
+ };
+ const statementBuckets=new Map();
+ for(const bucket of buckets)for(const statement of bucket.statements){
+  if(bucket.opcode===statement.operations[0])statementBuckets.set(statement.line,bucket.id);
+ }
  for(const ownerId of stageIds){
   const region=state.nodes.find(n=>n.id===ownerId);
-  for(const statement of [...region.regionOperations].sort((a,b)=>a.line-b.line)){
-   const target='bucket.'+ownerId+'.'+statement.operations[0];
-   for(const read of statement.reads||[]){const source=latestValue.get(read);if(source&&source!==target)edges.push({id:'dependency.'+source+'.'+target+'.'+read,source,target,type:'data',data:{hoverOnly:true,hoverFocused:[source,target].includes(hoverId||selectedId)},zIndex:1000});}
-   if(statement.value)latestValue.set(statement.value,target);
+  for(const statement of region.regionOperations){
+   const target=statementBuckets.get(statement.line);if(!target)continue;
+   for(const nested of statement.nestedDependencies||[]){
+    const source=buckets.find(b=>b.opcode===nested.sourceOpcode&&b.statements.includes(statement))?.id;
+    const consumer=buckets.find(b=>b.opcode===nested.targetOpcode&&b.statements.includes(statement))?.id;
+    if(source&&consumer&&source!==consumer)edges.push({id:'nested.'+source+'.'+consumer,source,target:consumer,type:'data',data:{hoverOnly:true,hoverFocused:[source,consumer].includes(hoverId||selectedId),role:'嵌套表达式'},zIndex:1000});
+   }
+   for(const dependency of statement.dependencies||[]){
+    const source=dependency.producerLine!=null?statementBuckets.get(dependency.producerLine):sourceNode(dependency.value);
+    if(!source||source===target)continue;
+    edges.push({id:'dependency.'+source+'.'+target+'.'+dependency.kind,source,target,type:'data',data:{hoverOnly:true,hoverFocused:[source,target].includes(hoverId||selectedId),loopCarried:dependency.kind==='loop-carried',role:dependency.kind,value:dependency.value},zIndex:1000});
+   }
   }
  }
  if(rows.length){
-  const x=layout==='vertical'?420:150,y=layout==='vertical'?verticalCursor+50:bodyBottom+90,width=layout==='vertical'?1000:1810,height=160,gridWidth=width-32,gridHeight=80;
+  const x=scopes.length?160:layout==='vertical'?420:150,y=scopes.length?bodyBottom+(contexts.length?110:20):layout==='vertical'?verticalCursor+50:bodyBottom+90,width=scopes.length?controlLayout.width:layout==='vertical'?1000:1810,height=160,gridWidth=width-32,gridHeight=80;
   const highlights=[];
   nodes.push({id:'space.Vec',type:'memory',selectable:false,draggable:false,position:{x,y},style:{width,height,zIndex:0},data:{spaceContainer:true,gridTop:64,label:'UB · '+rows.length+' 分配',playback:loadData.memoryPlayback,gridWidth,gridHeight,highlights}});
   const extent=Math.max(...rows.map(r=>(r.offset||0)+r.size));
@@ -141,7 +188,7 @@ export function callableFlow(state,{currentPass,selectedId,hoverId,showIsa,posit
    }
   });
  }
- let detailBottom=layout==='vertical'?verticalCursor+240:bodyBottom+270;
+ let detailBottom=scopes.length?bodyBottom+270:layout==='vertical'?verticalCursor+240:bodyBottom+270;
  if(expanded){
   const operations=expanded.regionOperations||[],lookupValue=new Map();
   const detailNodes=[];
@@ -186,6 +233,12 @@ export function callableFlow(state,{currentPass,selectedId,hoverId,showIsa,posit
  }
  for(const n of nodes){
   if(positionOverrides[n.id])n.position=positionOverrides[n.id];
+ }
+ if(scopes.length){
+  const kernel=nodes.find(n=>n.id==='kernel.main');
+  const internal=nodes.filter(n=>n.type==='loop'||n.id.startsWith('bucket.')||stageIds.includes(n.id)||n.id.startsWith('context.')||n.id==='space.Vec');
+  kernel.style.width=Math.max(...internal.map(n=>n.position.x+n.style.width))-kernel.position.x+40;
+  kernel.style.height=Math.max(...internal.map(n=>n.position.y+n.style.height))-kernel.position.y+60;
  }
  const lookup=new Map(nodes.map(n=>[n.id,n]));
  for(const e of edges){

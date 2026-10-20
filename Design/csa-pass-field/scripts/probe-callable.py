@@ -20,6 +20,27 @@ def numeric(node):
     return None
 
 
+def control_tree(root):
+    def visit(statements):
+        result = []
+        for statement in statements:
+            if isinstance(statement, (ast.For, ast.If)):
+                item = {'line': statement.lineno, 'endLine': statement.end_lineno,
+                        'kind': 'loop' if isinstance(statement, ast.For) else 'condition'}
+                if isinstance(statement, ast.For):
+                    item.update(target=ast.unparse(statement.target), iterator=ast.unparse(statement.iter))
+                else:
+                    item['test'] = ast.unparse(statement.test)
+                item['body'] = visit(statement.body)
+                item['elseLine'] = statement.orelse[0].lineno if statement.orelse else None
+                item['otherwise'] = visit(statement.orelse)
+                result.append(item)
+            else:
+                result.extend(visit(getattr(statement, 'body', [])))
+        return result
+    return visit(root.body)
+
+
 def inspect(run, callable_name, output):
     snapshots = []
     previous = None
@@ -55,7 +76,7 @@ def inspect(run, callable_name, output):
                     if isinstance(ref, ast.Call) and dotted(ref.func) == 'pl.MemRef':
                         bindings.append({'value': ast.unparse(statement.target), 'buffer': ast.unparse(ref.args[0]), 'offset': numeric(ref.args[1]), 'bytes': numeric(ref.args[2]), 'line': statement.lineno, 'expression': ast.unparse(statement.value)})
             reserves = [{'name': next((ast.unparse(k.value) for k in c.keywords if k.arg == 'name'), None), 'bytes': next((numeric(k.value) for k in c.keywords if k.arg == 'size'), None), 'line': c.lineno} for c in calls if dotted(c.func).endswith('.reserve_buffer')]
-            sections.append({'name': getattr(n, 'name', 'scope:' + callable_name + '_spmd'), 'kind': type(n).__name__, 'line': n.lineno, 'endLine': n.end_lineno, 'parameters': [{'name': a.arg, 'annotation': ast.unparse(a.annotation) if a.annotation else None} for a in n.args.args] if isinstance(n, ast.FunctionDef) else [], 'decorators': [ast.unparse(d) for d in n.decorator_list] if isinstance(n, ast.FunctionDef) else [], 'operations': dict(sorted(Counter(dotted(c.func) for c in calls if dotted(c.func)).items())), 'loops': [{'line': c.lineno, 'target': ast.unparse(c.target), 'iterator': ast.unparse(c.iter)} for c in ast.walk(n) if isinstance(c, ast.For)], 'conditions': [{'line': c.lineno, 'test': ast.unparse(c.test)} for c in ast.walk(n) if isinstance(c, ast.If)], 'allocations': allocs, 'bindings': bindings, 'reserves': reserves})
+            sections.append({'name': getattr(n, 'name', 'scope:' + callable_name + '_spmd'), 'kind': type(n).__name__, 'line': n.lineno, 'endLine': n.end_lineno, 'parameters': [{'name': a.arg, 'annotation': ast.unparse(a.annotation) if a.annotation else None} for a in n.args.args] if isinstance(n, ast.FunctionDef) else [], 'decorators': [ast.unparse(d) for d in n.decorator_list] if isinstance(n, ast.FunctionDef) else [], 'operations': dict(sorted(Counter(dotted(c.func) for c in calls if dotted(c.func)).items())), 'controlTree': control_tree(n), 'loops': [{'line': c.lineno, 'target': ast.unparse(c.target), 'iterator': ast.unparse(c.iter)} for c in ast.walk(n) if isinstance(c, ast.For)], 'conditions': [{'line': c.lineno, 'test': ast.unparse(c.test)} for c in ast.walk(n) if isinstance(c, ast.If)], 'allocations': allocs, 'bindings': bindings, 'reserves': reserves})
         row = {'index': int(file.name[:2]), 'name': file.stem[3:].removeprefix('after_'), 'file': str(file.relative_to(run)), 'sections': sections, 'sourceSha256': hashlib.sha256(text.encode()).hexdigest(), 'familyChanged': previous is not None and text != previous, 'programChanged': previous_program is not None and source != previous_program, 'sourceLines': sum(len(c.splitlines()) for c in chunks), 'allocationCount': sum(len(s['allocations']) for s in sections), 'allocationBytes': sum(a['bytes'] or 0 for s in sections for a in s['allocations'])}
         (output / 'snapshots' / file.name).write_text(text + '\n')
         snapshots.append(row)

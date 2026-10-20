@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import textwrap
+from source_dependencies import dependency_facts
 
 HERE = Path(__file__).resolve().parents[1]
 ROOT = HERE.parents[1]
@@ -22,6 +23,7 @@ def dotted(n):
 
 def region(name, expression=''):
     if 'notify' in expression: return 'notify'
+    if re.search(r'pl\.(?:tile|tensor)\.row_expand_div',expression): return 'normalize'
     if name.startswith('tput_stage'): return 'publish'
     if name.startswith('gather_'): return 'rope'
     if re.search(r'pld\.(?:tile|tensor)\.put',expression): return 'publish'
@@ -57,7 +59,17 @@ for source in PROBE['snapshots']:
         if group and name: value_regions[name]=group
         calls=[dotted(c.func) for c in ast.walk(expr) if isinstance(c,ast.Call)]
         operations=[c for c in calls if c.startswith(('pl.tensor.','pl.tile.','pld.tile.','pld.tensor.','pld.system.','pl.system.')) and c not in ['pl.tile.alloc','pl.tile.get_block_idx','pl.tile.reserve_buffer']]
-        statements.append(dict(value=name,expression=expression,operations=operations,line=statement.lineno,annotation=ast.unparse(statement.annotation) if isinstance(statement,ast.AnnAssign) else None,reads=[n.id for n in ast.walk(expr) if isinstance(n,ast.Name)],region=group))
+        nested=[]
+        visible=lambda c: isinstance(c,ast.Call) and dotted(c.func) in operations
+        for call in ast.walk(expr):
+            if not visible(call):continue
+            def children(n):
+                for child in ast.iter_child_nodes(n):
+                    if visible(child):yield child
+                    else:yield from children(child)
+            for child in children(call):nested.append({'sourceOpcode':dotted(child.func),'targetOpcode':dotted(call.func)})
+        statements.append(dict(nestedDependencies=nested,value=name,expression=expression,operations=operations,line=statement.lineno,annotation=ast.unparse(statement.annotation) if isinstance(statement,ast.AnnAssign) else None,reads=[n.id for n in ast.walk(expr) if isinstance(n,ast.Name)],region=group))
+    dependency_facts(fn, statements)
     defined={s['value'] for s in statements if s['value']}
     for iteration in range(30):
         changed=False
@@ -86,7 +98,7 @@ for source in PROBE['snapshots']:
     nodes=[node('kernel.main','csa_merge_pack_publish' if index>=9 else 'csa_merge_pack_publish_spmd', 'kernel',role='合并、归一化、RoPE、打包与发布')]
     nodes[0]['attributes']={'target':'AIV' if index>=23 else 'InCore' if index>=9 else 'SPMD','objectKind':'Kernel' if index>=23 else 'Callable' if index>=9 else 'Scope','detail':'AIV · merge → pack → publish' if index>=23 else 'scope → callable'}
     nodes[0]['sourceRefs']=refs
-    nodes[0]['sourceFacts']={'loops':sections[0]['loops'],'conditions':sections[0]['conditions']}
+    nodes[0]['sourceFacts']={'loops':sections[0]['loops'],'conditions':sections[0]['conditions'],'controlTree':sections[0]['controlTree']}
     nodes.append(node('task.main','csa_merge_pack_publish_spmd','task',role='deps=[qk_tid, attn_rope_tid]；48 workers'))
     nodes[-1]['attributes']={'target':'AIV','workers':48,'dependencies':'qk_tid, attn_rope_tid','form':'spmd_submit' if index>=10 else 'SPMD scope'}
     edges=[]

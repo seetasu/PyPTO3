@@ -55,6 +55,80 @@
             "line": 1760,
             "test": "peer_tp != pl.cast(tp_rank, pl.INDEX)"
           }
+        ],
+        "controlTree": [
+          {
+            "line": 1712,
+            "endLine": 1758,
+            "kind": "loop",
+            "target": "pack_work",
+            "iterator": "pl.range(worker, pack_work_count, 48)",
+            "body": [
+              {
+                "line": 1720,
+                "endLine": 1754,
+                "kind": "loop",
+                "target": "m_dt",
+                "iterator": "pl.range(8)",
+                "body": [
+                  {
+                    "line": 1727,
+                    "endLine": 1737,
+                    "kind": "loop",
+                    "target": "m_sb",
+                    "iterator": "pl.pipeline(1, 5, stage=2)",
+                    "body": [],
+                    "elseLine": null,
+                    "otherwise": []
+                  },
+                  {
+                    "line": 1750,
+                    "endLine": 1754,
+                    "kind": "loop",
+                    "target": "n_hi",
+                    "iterator": "pl.unroll(16)",
+                    "body": [],
+                    "elseLine": null,
+                    "otherwise": []
+                  }
+                ],
+                "elseLine": null,
+                "otherwise": []
+              },
+              {
+                "line": 1755,
+                "endLine": 1758,
+                "kind": "loop",
+                "target": "group_slot",
+                "iterator": "pl.unroll(2)",
+                "body": [],
+                "elseLine": null,
+                "otherwise": []
+              }
+            ],
+            "elseLine": null,
+            "otherwise": []
+          },
+          {
+            "line": 1759,
+            "endLine": 1761,
+            "kind": "loop",
+            "target": "peer_tp",
+            "iterator": "pl.range(2)",
+            "body": [
+              {
+                "line": 1760,
+                "endLine": 1761,
+                "kind": "condition",
+                "test": "peer_tp != pl.cast(tp_rank, pl.INDEX)",
+                "body": [],
+                "elseLine": null,
+                "otherwise": []
+              }
+            ],
+            "elseLine": null,
+            "otherwise": []
+          }
         ]
       }
     },
@@ -103,6 +177,7 @@
       "role": "重标定 α/β，合并 mᵢ、ℓᵢ、Oᵢ",
       "regionOperations": [
         {
+          "nestedDependencies": [],
           "value": "m_mi",
           "expression": "pl.tensor.slice(sparse_blk_mi, [16, 1], [m_blk_base, 0])",
           "operations": [
@@ -114,9 +189,32 @@
             "sparse_blk_mi",
             "m_blk_base",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": null,
+              "value": "m_dt",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "sparse_blk_mi",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [],
           "value": "m_li",
           "expression": "pl.tensor.slice(sparse_blk_li, [16, 1], [m_blk_base, 0])",
           "operations": [
@@ -128,9 +226,32 @@
             "sparse_blk_li",
             "m_blk_base",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": null,
+              "value": "m_dt",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "sparse_blk_li",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [],
           "value": "m_oi",
           "expression": "pl.tensor.slice(sparse_blk_oi, [16, 512], [m_blk_base, 0])",
           "operations": [
@@ -142,9 +263,32 @@
             "sparse_blk_oi",
             "m_blk_base",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": null,
+              "value": "m_dt",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "sparse_blk_oi",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [],
           "value": "m_cur_mi",
           "expression": "pl.tensor.slice(sparse_blk_mi, [16, 1], [m_row, 0])",
           "operations": [
@@ -156,9 +300,37 @@
             "sparse_blk_mi",
             "m_row",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": null,
+              "value": "m_dt",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "m_sb",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "sparse_blk_mi",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [],
           "value": "m_cur_li",
           "expression": "pl.tensor.slice(sparse_blk_li, [16, 1], [m_row, 0])",
           "operations": [
@@ -170,9 +342,37 @@
             "sparse_blk_li",
             "m_row",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": null,
+              "value": "m_dt",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "m_sb",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "sparse_blk_li",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [],
           "value": "m_cur_oi",
           "expression": "pl.tensor.slice(sparse_blk_oi, [16, 512], [m_row, 0])",
           "operations": [
@@ -184,9 +384,37 @@
             "sparse_blk_oi",
             "m_row",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": null,
+              "value": "m_dt",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "m_sb",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "sparse_blk_oi",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [],
           "value": "m_mi_new",
           "expression": "pl.tensor.maximum(m_mi, m_cur_mi)",
           "operations": [
@@ -198,9 +426,32 @@
             "m_mi",
             "m_cur_mi",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1724,
+              "value": "m_mi",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1729,
+              "value": "m_cur_mi",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.sub",
+              "targetOpcode": "pl.tensor.exp"
+            }
+          ],
           "value": "m_alpha",
           "expression": "pl.tensor.exp(pl.tensor.sub(m_mi, m_mi_new))",
           "operations": [
@@ -214,9 +465,32 @@
             "m_mi_new",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1724,
+              "value": "m_mi",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1732,
+              "value": "m_mi_new",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.sub",
+              "targetOpcode": "pl.tensor.exp"
+            }
+          ],
           "value": "m_beta",
           "expression": "pl.tensor.exp(pl.tensor.sub(m_cur_mi, m_mi_new))",
           "operations": [
@@ -230,9 +504,36 @@
             "m_mi_new",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1729,
+              "value": "m_cur_mi",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1732,
+              "value": "m_mi_new",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.mul",
+              "targetOpcode": "pl.tensor.add"
+            },
+            {
+              "sourceOpcode": "pl.tensor.mul",
+              "targetOpcode": "pl.tensor.add"
+            }
+          ],
           "value": "m_li",
           "expression": "pl.tensor.add(pl.tensor.mul(m_alpha, m_li), pl.tensor.mul(m_beta, m_cur_li))",
           "operations": [
@@ -250,9 +551,46 @@
             "pl",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1725,
+              "value": "m_li",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1730,
+              "value": "m_cur_li",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1733,
+              "value": "m_alpha",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1734,
+              "value": "m_beta",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.row_expand_mul",
+              "targetOpcode": "pl.tensor.add"
+            },
+            {
+              "sourceOpcode": "pl.tensor.row_expand_mul",
+              "targetOpcode": "pl.tensor.add"
+            }
+          ],
           "value": "m_oi",
           "expression": "pl.tensor.add(pl.tensor.row_expand_mul(m_oi, m_alpha), pl.tensor.row_expand_mul(m_cur_oi, m_beta))",
           "operations": [
@@ -270,6 +608,33 @@
             "pl",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1726,
+              "value": "m_oi",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1731,
+              "value": "m_cur_oi",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1733,
+              "value": "m_alpha",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1734,
+              "value": "m_beta",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         }
       ]
@@ -305,6 +670,12 @@
       "role": "加入 attention sink，除以归一化分母",
       "regionOperations": [
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.slice",
+              "targetOpcode": "pl.tensor.reshape"
+            }
+          ],
           "value": "n_sink_bias",
           "expression": "pl.tensor.reshape(pl.tensor.slice(attn_sink, [16], [m_h0]), [16, 1])",
           "operations": [
@@ -318,9 +689,32 @@
             "pl",
             "m_h0",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": null,
+              "value": "attn_sink",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.sub",
+              "targetOpcode": "pl.tensor.add"
+            }
+          ],
           "value": "n_sink_tile",
           "expression": "pl.tensor.add(pl.tensor.sub(m_mi, m_mi), n_sink_bias)",
           "operations": [
@@ -335,9 +729,36 @@
             "m_mi",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1732,
+              "value": "m_mi_new",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1738,
+              "value": "n_sink_bias",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.exp",
+              "targetOpcode": "pl.tensor.add"
+            },
+            {
+              "sourceOpcode": "pl.tensor.sub",
+              "targetOpcode": "pl.tensor.exp"
+            }
+          ],
           "value": "n_denom",
           "expression": "pl.tensor.add(m_li, pl.tensor.exp(pl.tensor.sub(n_sink_tile, m_mi)))",
           "operations": [
@@ -354,9 +775,37 @@
             "m_mi",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1732,
+              "value": "m_mi_new",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1735,
+              "value": "m_li",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1739,
+              "value": "n_sink_tile",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.row_expand_div",
+              "targetOpcode": "pl.tensor.slice"
+            }
+          ],
           "value": "n_full",
           "expression": "pl.tensor.slice(pl.tensor.row_expand_div(m_oi, n_denom), [16, 512], [0, 0])",
           "operations": [
@@ -370,9 +819,27 @@
             "n_denom",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1736,
+              "value": "m_oi",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1740,
+              "value": "n_denom",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [],
           "value": "n_bf16",
           "expression": "pl.tensor.cast(n_full, target_type=pl.BF16, mode='rint')",
           "operations": [
@@ -384,6 +851,18 @@
             "n_full",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1741,
+              "value": "n_full",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         }
       ]
@@ -419,6 +898,7 @@
       "role": "尾部 64 维 gather、旋转与 concat",
       "regionOperations": [
         {
+          "nestedDependencies": [],
           "value": "m_rope",
           "expression": "pl.tensor.slice(n_full, [16, 64], [0, 448])",
           "operations": [
@@ -429,9 +909,22 @@
           "reads": [
             "n_full",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1741,
+              "value": "n_full",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [],
           "value": "m_cos_il",
           "expression": "pl.tensor.slice(rope_cos_il, [1, 64], [m_t, 0])",
           "operations": [
@@ -443,9 +936,32 @@
             "rope_cos_il",
             "m_t",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": null,
+              "value": "m_dt",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "rope_cos_il",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [],
           "value": "m_sin_signed",
           "expression": "pl.tensor.slice(rope_sin_signed, [1, 64], [m_t, 0])",
           "operations": [
@@ -457,9 +973,37 @@
             "rope_sin_signed",
             "m_t",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": null,
+              "value": "m_dt",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "rope_sin_signed",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.slice",
+              "targetOpcode": "pl.tensor.gather"
+            }
+          ],
           "value": "m_swapped",
           "expression": "pl.tensor.gather(m_rope, pl.tensor.slice(rope_swap_idx, [16, 64], [0, 0]), dim=-1)",
           "operations": [
@@ -473,9 +1017,36 @@
             "rope_swap_idx",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1743,
+              "value": "m_rope",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "rope_swap_idx",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.col_expand_mul",
+              "targetOpcode": "pl.tensor.add"
+            },
+            {
+              "sourceOpcode": "pl.tensor.col_expand_mul",
+              "targetOpcode": "pl.tensor.add"
+            }
+          ],
           "value": "m_rot",
           "expression": "pl.tensor.add(pl.tensor.col_expand_mul(m_rope, m_cos_il), pl.tensor.col_expand_mul(m_swapped, m_sin_signed))",
           "operations": [
@@ -493,9 +1064,37 @@
             "pl",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1743,
+              "value": "m_rope",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1744,
+              "value": "m_cos_il",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1745,
+              "value": "m_sin_signed",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1746,
+              "value": "m_swapped",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [],
           "value": "n_rope_bf16",
           "expression": "pl.tensor.cast(m_rot, target_type=pl.BF16, mode='rint')",
           "operations": [
@@ -507,6 +1106,18 @@
             "m_rot",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1747,
+              "value": "m_rot",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         }
       ]
@@ -534,6 +1145,12 @@
       "role": "按 head/group 地址将结果写入 attention_grouped",
       "regionOperations": [
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.slice",
+              "targetOpcode": "pl.tensor.concat"
+            }
+          ],
           "value": "n_full_bf16",
           "expression": "pl.tensor.concat(pl.tensor.slice(n_bf16, [16, 448], [0, 0]), n_rope_bf16)",
           "operations": [
@@ -547,9 +1164,32 @@
             "n_bf16",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1742,
+              "value": "n_bf16",
+              "kind": "data"
+            },
+            {
+              "producerLine": 1748,
+              "value": "n_rope_bf16",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         },
         {
+          "nestedDependencies": [
+            {
+              "sourceOpcode": "pl.tensor.slice",
+              "targetOpcode": "pl.tensor.assemble"
+            }
+          ],
           "value": "attention_grouped",
           "expression": "pl.tensor.assemble(attention_grouped, pl.tensor.slice(n_full_bf16, [1, 512], [n_hi, 0]), [source_row, source_col])",
           "operations": [
@@ -566,6 +1206,38 @@
             "pl",
             "n_hi",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1749,
+              "value": "n_full_bf16",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "attention_grouped",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "m_dt",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "n_hi",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            }
           ]
         }
       ]
@@ -589,6 +1261,7 @@
       "role": "向 attention_window 的目标 rank 发布数据",
       "regionOperations": [
         {
+          "nestedDependencies": [],
           "value": "",
           "expression": "pld.tensor.put(attention_window, pl.cast(group_base, pl.INDEX) + destination_rank, attention_grouped, [target_row, 0], [source_row, 0], [8, 4096], atomic=pl.AtomicType.None_, chunk_rows=8, chunk_cols=4096)",
           "operations": [
@@ -607,6 +1280,48 @@
             "pl",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": 1754,
+              "value": "attention_grouped",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "attention_window",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "group_base",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "group_slot",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pack_work",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pld",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "tp_rank",
+              "kind": "data"
+            }
           ]
         }
       ]
@@ -630,6 +1345,7 @@
       "role": "条件满足后更新 attention_signal",
       "regionOperations": [
         {
+          "nestedDependencies": [],
           "value": "",
           "expression": "pld.system.notify(attention_signal, pl.cast(group_base, pl.INDEX) + peer_tp, [tp_rank, 0], pl.const(1, pl.INT32), op=0)",
           "operations": [
@@ -647,6 +1363,38 @@
             "pl",
             "pl",
             "pl"
+          ],
+          "dependencies": [
+            {
+              "producerLine": null,
+              "value": "attention_signal",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "group_base",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "peer_tp",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pl",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "pld",
+              "kind": "data"
+            },
+            {
+              "producerLine": null,
+              "value": "tp_rank",
+              "kind": "data"
+            }
           ]
         }
       ]
