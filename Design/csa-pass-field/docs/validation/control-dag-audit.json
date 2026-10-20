@@ -1,0 +1,418 @@
+[
+  {
+    "pass": 0,
+    "operators": 26,
+    "dependencyEdges": 49,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 1,
+    "operators": 26,
+    "dependencyEdges": 49,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 2,
+    "operators": 25,
+    "dependencyEdges": 49,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 3,
+    "operators": 25,
+    "dependencyEdges": 49,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 4,
+    "operators": 25,
+    "dependencyEdges": 46,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 5,
+    "operators": 25,
+    "dependencyEdges": 46,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 6,
+    "operators": 25,
+    "dependencyEdges": 46,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 7,
+    "operators": 26,
+    "dependencyEdges": 49,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 8,
+    "operators": 26,
+    "dependencyEdges": 49,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 9,
+    "operators": 26,
+    "dependencyEdges": 49,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 10,
+    "operators": 26,
+    "dependencyEdges": 49,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 11,
+    "operators": 33,
+    "dependencyEdges": 56,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 12,
+    "operators": 33,
+    "dependencyEdges": 56,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 13,
+    "operators": 33,
+    "dependencyEdges": 56,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 14,
+    "operators": 33,
+    "dependencyEdges": 56,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 15,
+    "operators": 33,
+    "dependencyEdges": 56,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 16,
+    "operators": 33,
+    "dependencyEdges": 56,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 17,
+    "operators": 33,
+    "dependencyEdges": 56,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 18,
+    "operators": 34,
+    "dependencyEdges": 57,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 19,
+    "operators": 34,
+    "dependencyEdges": 57,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 20,
+    "operators": 34,
+    "dependencyEdges": 57,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 21,
+    "operators": 36,
+    "dependencyEdges": 64,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 22,
+    "operators": 36,
+    "dependencyEdges": 64,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 23,
+    "operators": 36,
+    "dependencyEdges": 64,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 24,
+    "operators": 36,
+    "dependencyEdges": 64,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 25,
+    "operators": 36,
+    "dependencyEdges": 64,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 26,
+    "operators": 36,
+    "dependencyEdges": 64,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 27,
+    "operators": 36,
+    "dependencyEdges": 64,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 28,
+    "operators": 36,
+    "dependencyEdges": 64,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 29,
+    "operators": 36,
+    "dependencyEdges": 64,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 30,
+    "operators": 36,
+    "dependencyEdges": 65,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 31,
+    "operators": 36,
+    "dependencyEdges": 65,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 32,
+    "operators": 36,
+    "dependencyEdges": 65,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 33,
+    "operators": 36,
+    "dependencyEdges": 65,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 34,
+    "operators": 36,
+    "dependencyEdges": 65,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 35,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 36,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 37,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 38,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 39,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 40,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 41,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 42,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 43,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 44,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 45,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 46,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 47,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 48,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 49,
+    "operators": 37,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 50,
+    "operators": 38,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  },
+  {
+    "pass": 51,
+    "operators": 38,
+    "dependencyEdges": 66,
+    "loopCarriedEdges": 0,
+    "isolated": [],
+    "unprojectedProducerLines": []
+  }
+]
