@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paged Attention 编译产物分析 · PyPTO3</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --panel:#ffffff; --ink:#1a1d23; --ink2:#4b525e; --ink3:#8a919e;
+    --line:#e3e6ec; --line2:#eef0f4;
+    --blue:#2563eb; --blue-l:#eef3ff;
+    --green:#15803d; --green-l:#eefaf0;
+    --amber:#b45309; --amber-l:#fff7e8;
+    --red:#b91c1c; --red-l:#fef0f0;
+    --violet:#6d28d9; --violet-l:#f4f0ff;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 28px 80px}
+  header{background:linear-gradient(135deg,#111827,#1f2937 60%,#0f172a);color:#fff;padding:38px 0 32px;margin-bottom:28px}
+  header .wrap{padding-bottom:0}
+  .kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#93a4bd;font-weight:600}
+  h1{margin:8px 0 6px;font-size:27px;font-weight:650;letter-spacing:-.02em}
+  .sub{color:#a8b6cc;font-size:13.5px;font-family:var(--mono);word-break:break-all}
+  .hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:24px}
+  .hero{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.11);border-radius:9px;padding:11px 14px}
+  .hero .k{font-size:11px;color:#8fa1bb;letter-spacing:.06em;text-transform:uppercase}
+  .hero .v{font-size:16px;font-weight:600;margin-top:3px;font-family:var(--mono)}
+  h2{font-size:17.5px;font-weight:650;margin:38px 0 4px;padding-top:10px;letter-spacing:-.01em}
+  h2 .num{display:inline-block;min-width:26px;color:var(--ink3);font-family:var(--mono);font-size:14px;font-weight:500}
+  h3{font-size:14px;font-weight:650;margin:22px 0 8px;color:var(--ink2)}
+  .lead{color:var(--ink2);font-size:13.5px;margin:0 0 14px;padding-left:26px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:18px 20px;margin:14px 0}
+  .card.tight{padding:14px 16px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:860px){.grid2,.grid3{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;font-size:12.8px}
+  th{ text-align:left;font-weight:600;color:var(--ink3);font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+      padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:6px 9px;border-bottom:1px solid var(--line2);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#fafbfd}
+  code,.mono{font-family:var(--mono);font-size:12.2px}
+  code{background:#f1f3f7;border:1px solid var(--line2);border-radius:4px;padding:1px 5px;color:#374151}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:1.5px 8px;border-radius:20px;white-space:nowrap}
+  .p-blue{background:var(--blue-l);color:var(--blue)}
+  .p-green{background:var(--green-l);color:var(--green)}
+  .p-amber{background:var(--amber-l);color:var(--amber)}
+  .p-red{background:var(--red-l);color:var(--red)}
+  .p-violet{background:var(--violet-l);color:var(--violet)}
+  .p-gray{background:#f2f4f7;color:#5b6472}
+  .noop{color:#b3bac6}
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:6px 0}
+  .node{background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12.2px;line-height:1.35}
+  .node b{display:block;font-size:12.5px}
+  .node span{color:var(--ink3);font-size:11px;font-family:var(--mono)}
+  .node.hi{border-color:#bfd3ff;background:var(--blue-l)}
+  .node.gen{border-color:#d8c9ff;background:var(--violet-l)}
+  .node.out{border-color:#bfe6c9;background:var(--green-l)}
+  .arrow{color:#c3cad6;font-size:16px;font-weight:700}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .stat .k{font-size:11px;color:var(--ink3);letter-spacing:.05em;text-transform:uppercase;font-weight:600}
+  .stat .v{font-size:21px;font-weight:650;font-family:var(--mono);letter-spacing:-.02em;margin-top:2px}
+  .stat .d{font-size:11.5px;color:var(--ink3);margin-top:1px}
+  ul{margin:6px 0 6px 0;padding-left:20px}
+  li{margin:4px 0}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:12.8px}
+  .kv .k{color:var(--ink3);white-space:nowrap}
+  .note{background:var(--amber-l);border-left:3px solid #f0b429;padding:10px 14px;border-radius:0 8px 8px 0;font-size:13px;margin:12px 0}
+  .note.bad{background:var(--red-l);border-left-color:#e05252}
+  .note.ok{background:var(--green-l);border-left-color:#4caf72}
+  .note b{font-weight:650}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--ink2);margin-top:8px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  .bar{height:9px;border-radius:3px;background:#eceff4;overflow:hidden;min-width:52px}
+  .bar>i{display:block;height:100%;border-radius:3px}
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);color:var(--ink3);font-size:11.5px}
+  .src{color:var(--ink3);font-size:11.5px;font-family:var(--mono)}
+  details summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--ink2);padding:4px 0}
+  details[open] summary{margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="kicker">PyPTO3 · 编译产物分析</div>
+    <h1>Paged Attention（Qwen3-14B）编译产物剖析</h1>
+    <div class="sub">paged attention 编译产物 马金 20261015_232459_qw2ym_86</div>
+    <div class="hero-grid">
+      <div class="hero"><div class="k">目标平台</div><div class="v">a2a3 · 910B</div></div>
+      <div class="hero"><div class="k">产物总量</div><div class="v">9.6 MB</div></div>
+      <div class="hero"><div class="k">文件数</div><div class="v">81</div></div>
+      <div class="hero"><div class="k">Pass 阶段</div><div class="v">60</div></div>
+      <div class="hero"><div class="k">核配置</div><div class="v">24AIC+48AIV</div></div>
+      <div class="hero"><div class="k">端到端耗时</div><div class="v">177.2 µs</div></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<h2><span class="num">01</span>结论速览</h2>
+<p class="lead">这是一份 <b>PyPTO 端到端编译产物快照</b>（不是性能 profile 报告）：从 Python 前端 IR 一路降到 PTO MLIR、C++ kernel、incore 二进制与编排 <code>.so</code>，并附带一次 DFX swimlane 采集。</p>
+<div class="card">
+  <ul>
+    <li><b>产物身份</b>：Qwen3-14B 的 paged attention 融合算子，源码 <span class="src">/data/m00956180/.../models/qwen3_14b/paged_attention_pypto.py</span>，JIT 编译，<code>supported_execution_modes = ["program"]</code>。算子把 <b>Q/K RMSNorm + RoPE + KV cache 写入 + 分页注意力</b>四件事融进一个 24-block SPMD kernel。</li>
+    <li><b>Pass 管线高度稀疏</b>：60 个 stage 中只有 <b>21 个真正改动了 IR</b>，其余 39 个是 no-op（含 13 个完全逐字节相同的阶段）。IR 规模从 519 行涨到 1885 行，有 3 个"暴增点"。</li>
+    <li><b>性能瓶颈不在算力</b>：端到端 177.2 µs 中，真正在 72 个核上跑的只有 <b>≈53 µs</b>（AIC 均值 35.2 µs / AIV 均值 36.1 µs），前置调度+准备占了 <b>≈119.5 µs（67%）</b>。当前有效算力利用率约 30%。</li>
+    <li><b>核心可优化点</b>：① 24 block 只摊了 16 个 task，8 个 block 空转；② 编排里插了 7 个 dummy phase-fence barrier，把调度拖到 119 µs 才开跑；③ 33 处 256B 内维 tile 搬运未达 512B L2 cache line。</li>
+  </ul>
+</div>
+
+<h2><span class="num">02</span>目录清单：产物链路七段式</h2>
+<p class="lead">每个子目录对应编译链路的一个环节，完整保留了中间表示，可逐级回溯。</p>
+
+<div class="card">
+  <div class="flow">
+    <div class="node hi"><b>前端 Python</b><span>passes_dump/00_frontend.py</span></div>
+    <div class="arrow">→</div>
+    <div class="node hi"><b>Pass 管线 ×59</b><span>passes_dump/01..59</span></div>
+    <div class="arrow">→</div>
+    <div class="node gen"><b>PTO MLIR</b><span>ptoas/attn_swpipe.pto</span></div>
+    <div class="arrow">→</div>
+    <div class="node gen"><b>PTO C++</b><span>ptoas/attn_swpipe.cpp</span></div>
+    <div class="arrow">→</div>
+    <div class="node out"><b>Kernel C++</b><span>kernels/aic|aiv/*.cpp</span></div>
+    <div class="arrow">→</div>
+    <div class="node out"><b>Incore .bin + .o</b><span>cache/ · kernels/</span></div>
+  </div>
+  <div class="flow" style="margin-top:12px">
+    <div class="node hi"><b>Orchestration</b><span>orchestration/*.cpp → .so</span></div>
+    <div class="arrow">+</div>
+    <div class="node"><b>编译元数据</b><span>compiled_meta.json · kernel_config.py</span></div>
+    <div class="arrow">+</div>
+    <div class="node out"><b>DFX 采集</b><span>dfx_outputs/ · report/</span></div>
+    <div class="arrow">+</div>
+    <div class="node"><b>回放脚本</b><span>debug/run.py</span></div>
+  </div>
+</div>
+
+<table>
+  <thead><tr><th>目录 / 文件</th><th>体积</th><th>内容</th><th>在链路中的角色</th></tr></thead>
+  <tbody>
+    <tr><td><code>passes_dump/</code></td><td>6.7 MB</td><td>60 个 Python IR 快照（519→1885 行）</td><td>编译器每一趟 pass 后的完整 IR，可 diff 定位每个变换</td></tr>
+    <tr><td><code>ptoas/attn_swpipe.pto</code></td><td>289 KB<br><span class="src">1084 行</span></td><td>PTO 方言 MLIR，<code>pto.target_arch="a2a3"</code></td><td>tile 级 IR，含 <code>loc(...)</code> 源码行号映射</td></tr>
+    <tr><td><code>ptoas/attn_swpipe.cpp</code></td><td>243 KB<br><span class="src">4863 行</span></td><td>ptoas 直出 C++（<code>AICORE</code> 宏）</td><td>未加包装的裸 kernel，保留 <code>set_ffts_base_addr</code></td></tr>
+    <tr><td><code>kernels/aic|aiv/*.cpp</code></td><td>各 252 KB<br><span class="src">5013 / 5016 行</span></td><td>带 <code>__global__</code> 入口的 kernel 包装（两个文件仅差 1 行注释 + 3 行）</td><td>加入 <code>__aicore__/__gm__</code> 兼容层、<code>tensor.h</code>/<code>intrinsic.h</code>，去掉 <code>set_ffts_base_addr</code>，新增 args 解包</td></tr>
+    <tr><td><code>kernels/*/*.o</code></td><td>253 KB / 713 KB</td><td>AIC / AIV 目标文件</td><td>AIV 体积是 AIC 的 2.8×（向量展开更重）</td></tr>
+    <tr><td><code>cache/*_a2a3.bin</code></td><td>4.7 KB / 11.9 KB</td><td>incore 二进制</td><td>真正的核上可执行载荷</td></tr>
+    <tr><td><code>cache/binary_context.json</code></td><td>834 B</td><td>5 个产物的 SHA256 + ISA/runtime 版本</td><td>增量编译的失效判据</td></tr>
+    <tr><td><code>orchestration/*.cpp</code></td><td>8.6 KB<br><span class="src">161 行</span></td><td>AICPU 编排函数</td><td>张量切分、scratch 分配、task 提交与依赖</td></tr>
+    <tr><td><code>orchestration/*.so</code></td><td>758 KB</td><td>编译后的编排动态库</td><td>设备侧调度入口</td></tr>
+    <tr><td><code>compiled_meta.json</code></td><td>2.5 KB</td><td>15 个入参签名（shape/dtype/direction）</td><td>回放时构造输入的唯一依据</td></tr>
+    <tr><td><code>kernel_config.py</code></td><td>1.3 KB</td><td>runtime / orchestration / 2 个 kernel 的注册表</td><td>告诉 runtime 加载哪些 .cpp、用哪个核类型</td></tr>
+    <tr><td><code>dfx_outputs/</code></td><td>236 KB</td><td>swimlane 时间线 + 任务依赖图 + 名字映射</td><td>本次唯一一次真实运行的时序数据</td></tr>
+    <tr><td><code>report/perf_hints.log</code></td><td>16 KB</td><td>33 条 PH001 提示</td><td>编译期静态性能诊断</td></tr>
+    <tr><td><code>debug/run.py</code></td><td>8 KB</td><td>自动生成的回放脚本</td><td>可直接 <code>python debug/run.py --swimlane</code> 复现</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="num">03</span>算子身份：15 个入参背后的数据流</h2>
+<p class="lead">对比 <code>compiled_meta.json</code> 与前端 IR，可以还原出这个融合算子的真实数据流。</p>
+
+<div class="grid2">
+  <div class="card tight">
+    <h3 style="margin-top:0">外部张量（<code>compiled_meta.json</code>）</h3>
+    <table>
+      <thead><tr><th>参数</th><th>shape</th><th>dtype</th><th>方向</th></tr></thead>
+      <tbody>
+        <tr><td>key_cache</td><td>[10368, 1024]</td><td>bf16</td><td>InOut</td></tr>
+        <tr><td>value_cache</td><td>[10368, 1024]</td><td>bf16</td><td>InOut</td></tr>
+        <tr><td>block_table</td><td>[64]</td><td>int32</td><td>In</td></tr>
+        <tr><td>seq_lens</td><td>[2]</td><td>int32</td><td>In</td></tr>
+        <tr><td>inv_rms_states</td><td>[2, 1]</td><td>fp32</td><td>In</td></tr>
+        <tr><td>slot_mapping</td><td>[2]</td><td>int32</td><td>In</td></tr>
+        <tr><td>rope_cos / rope_sin</td><td>[4096, 128] ×2</td><td>fp32</td><td>In</td></tr>
+        <tr><td>q_proj</td><td>[2, 5120]</td><td>fp32</td><td>In</td></tr>
+        <tr><td>k_proj / v_proj</td><td>[2, 1024] ×2</td><td>fp32</td><td>In</td></tr>
+        <tr><td>q_norm_w / k_norm_w</td><td>[1, 128] ×2</td><td>fp32</td><td>In</td></tr>
+        <tr><td>layer_cache_base_token_rows</td><td>标量</td><td>index</td><td>In</td></tr>
+        <tr><td>out</td><td>[2, 40, 128]</td><td>bf16</td><td>Out</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card tight">
+    <h3 style="margin-top:0">内部 scratch（编排里 <code>alloc_tensors</code>）</h3>
+    <table>
+      <thead><tr><th>缓冲区</th><th>shape</th><th>dtype</th><th>字节</th></tr></thead>
+      <tbody>
+        <tr><td>score_transfer</td><td>[1152, 512]</td><td>fp32</td><td>2.25 MB</td></tr>
+        <tr><td>probability_transfer</td><td>[1152, 512]</td><td>bf16</td><td>1.125 MB</td></tr>
+        <tr><td>pv_transfer</td><td>[1152, 128]</td><td>fp32</td><td>0.563 MB</td></tr>
+        <tr><td>q_tnd_flat</td><td>[80, 128]</td><td>bf16</td><td>20 KB</td></tr>
+        <tr><td>ffts_workspace</td><td>[256]</td><td>int64</td><td>2 KB</td></tr>
+        <tr><td colspan="3" style="text-align:right;color:var(--ink3)">合计</td><td><b>≈ 3.94 MB</b></td></tr>
+      </tbody>
+    </table>
+    <div class="kv" style="margin-top:12px">
+      <div class="k">active_batch</div><div><code>seq_lens.dim(0)</code> = 2</div>
+      <div class="k">num_tasks</div><div><code>active_batch × 8</code> = <b>16</b>（2 batch × 8 kv_head）</div>
+      <div class="k">SPMD block_num</div><div><b>24</b>（MixedKernels = {1×AIC, 2×AIV}）</div>
+      <div class="k">KV cache 实占</div><div>10368×1024×2 B ×2 = <b>42.5 MB</b></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <b>三个可复用的观察</b>：
+  ① <code>key_cache</code> 的 <code>reshape([10368,1024]) → [10368,1024]</code> 是<b>恒等 reshape</b>（<code>cache_token_rows = 10368×1024/1024 = 10368</code>），管线里专门有 <code>FoldNoOpReshape</code> 处理这类模式——但它只在 pass 42 出现，此处 reshape 是靠前端常量折叠消掉的。
+  ② 三个 <code>*_transfer</code> 缓冲是 <b>AIC↔AIV 的跨核交换区</b>（矩阵核出 score，向量核算 softmax，再回矩阵算 PV），这正是 mixed-kernel 融合的代价：3.94 MB 全局内存往返。
+  ③ <code>layer_cache_base_token_rows</code> 作为标量被传了 <b>两次</b>（<code>add_scalar</code> 出现 4 次，其中它是 arg20 和 arg22/<code>cache_base</code>），前端里 <code>cache_base = layer_cache_base_token_rows</code> 是独立 SSA 值，ConstantProp 没合并它。
+</div>
+
+<h2><span class="num">04</span>Pass 管线：60 趟里只有 21 趟真正干活</h2>
+<p class="lead">逐个 stage 做内容哈希比对，可以精确区分"真变换"与"空跑"。这对判断编译耗时归属很关键。</p>
+
+<div class="grid3">
+  <div class="stat"><div class="k">总 stage</div><div class="v">60</div><div class="d">frontend + 59 趟 pass</div></div>
+  <div class="stat"><div class="k">真正改 IR</div><div class="v" style="color:var(--green)">21</div><div class="d">35% 命中率</div></div>
+  <div class="stat"><div class="k">No-op</div><div class="v" style="color:var(--red)">39</div><div class="d">其中 13 趟逐字节相同</div></div>
+</div>
+
+<div class="card" style="padding:16px 20px 10px">
+  <h3 style="margin-top:0">IR 规模演进（行数）</h3>
+  <svg viewBox="0 0 1080 260" width="100%" height="260" role="img" aria-label="IR 行数随 pass 演进曲线">
+    <g font-family="ui-monospace,monospace" font-size="10" fill="#8a919e">
+      <line x1="46" y1="20" x2="46" y2="212" stroke="#e3e6ec"/>
+      <line x1="46" y1="212" x2="1060" y2="212" stroke="#c9cfd9"/>
+      <text x="10" y="25">2000</text><text x="10" y="86">1500</text><text x="10" y="147">1000</text><text x="10" y="216">500</text>
+      <line x1="46" y1="20" x2="1060" y2="20" stroke="#eef0f4"/>
+      <line x1="46" y1="84" x2="1060" y2="84" stroke="#eef0f4"/>
+      <line x1="46" y1="148" x2="1060" y2="148" stroke="#eef0f4"/>
+    </g>
+    <!-- y = 212 - (v-400)/1600*192 ; x = 46 + i*16.9 -->
+    <polyline fill="none" stroke="#2563eb" stroke-width="2"
+      points="46.0,197.6 62.9,200.5 79.8,200.5 96.7,200.5 113.6,182.2 130.5,182.2 147.4,182.2 164.3,179.7 181.2,179.7 198.1,179.7 215.0,173.0 231.9,166.8 248.8,165.6 265.7,165.6 282.6,165.6 299.5,165.6 316.4,165.6 333.3,165.4 350.2,165.4 367.1,165.4 384.0,165.4 400.9,164.6 417.8,164.6 434.7,156.4 451.6,156.4 468.5,145.0 485.4,145.0 502.3,145.0 519.2,145.0 536.1,145.0 553.0,145.0 569.9,145.0 586.8,123.5 603.7,123.5 620.6,123.5 637.5,25.9 654.4,25.9 671.3,25.9 688.2,46.6 705.1,46.6 722.0,46.8 738.9,46.8 755.8,46.8 772.7,46.8 789.6,46.8 806.5,46.8 823.4,33.8 840.3,33.8 857.2,33.8 874.1,33.8 891.0,33.8 907.9,33.8 924.8,33.8 941.7,33.8 958.6,33.8 975.5,33.7 992.4,33.7 1009.3,33.7 1026.2,33.7 1043.1,33.7"/>
+    <g fill="#2563eb">
+      <circle cx="637.5" cy="25.9" r="4"/><circle cx="586.8" cy="123.5" r="4"/><circle cx="688.2" cy="46.6" r="4"/><circle cx="823.4" cy="33.8" r="4"/><circle cx="468.5" cy="145.0" r="4"/>
+    </g>
+    <g font-family="ui-monospace,monospace" font-size="10.5" fill="#4b525e">
+      <text x="612" y="18">InitMemRef +813</text>
+      <text x="536" y="118">LowerPipelineLoops +180</text>
+      <text x="676" y="60">MemoryReuse −174</text>
+      <text x="806" y="48">DeriveCallDirections +108</text>
+      <text x="396" y="140">ExpandMixedKernel +95</text>
+    </g>
+    <g font-family="ui-monospace,monospace" font-size="10" fill="#8a919e">
+      <text x="42" y="230">00</text><text x="580" y="230">32</text><text x="637" y="230">35</text><text x="1040" y="230">59</text>
+    </g>
+  </svg>
+  <div class="legend">
+    <span><i style="background:#2563eb"></i>IR 行数</span>
+    <span>横轴 = pass 序号（00 frontend → 59 LowerTileToBuffer）</span>
+  </div>
+</div>
+
+<h3>真变换的 21 个 stage</h3>
+<table>
+  <thead><tr><th>#</th><th>Pass</th><th>行数变化</th><th>做了什么（结合 IR 实测）</th></tr></thead>
+  <tbody>
+    <tr><td>01</td><td>InlineFunctions</td><td class="noop">497 (−23)</td><td>把 <code>@pl.function(Inline)</code> 的 <code>paged_attention_pypto_swpipe</code> 内联进 orchestration，前端 IR 从"1 个内联体"变成"1 个可优化的扁平函数"</td></tr>
+    <tr><td>04</td><td>ConvertToSSA</td><td class="noop">649 (+152)</td><td>插入 <code>__ssa_v0</code> / <code>__ssa_v0_1</code> 版本号后缀，消除重名赋值（<code>key_cache_bsnd</code> 等被重复赋值/拼装的变量全部 SSA 化）</td></tr>
+    <tr><td>05</td><td>Simplify</td><td class="noop">649 (±0)</td><td>同尺寸但内容变了——典型的算术化简/常量折叠（无增删行）</td></tr>
+    <tr><td>07</td><td>FlattenCallExpr</td><td class="noop">670 (+21)</td><td>嵌套调用表达式展平，为后续 outline 做准备</td></tr>
+    <tr><td>10</td><td>OutlineIncoreScopes</td><td class="noop">726 (+56)</td><td>把 SPMD body outline 成 <code>attn_swpipe_*_incore</code> 函数</td></tr>
+    <tr><td>11</td><td>OutlineClusterScopes</td><td class="noop">778 (+52)</td><td>进一步切出 AIC/AIV cluster 作用域</td></tr>
+    <tr><td>12</td><td>ConvertTensorToTileOps</td><td class="noop">788 (+10)</td><td><b>关键一跳</b>：<code>pl.tensor.*</code> → <code>pl.tile.*</code>，从"张量语义"进入"tile/片上内存语义"</td></tr>
+    <tr><td>15</td><td>FlattenTileNdTo2D</td><td class="noop">788 (±0)</td><td>ND tile 降为 2D（<code>[8,128]</code>、<code>[16,128]</code> 这类 tile 统一成 2D）</td></tr>
+    <tr><td>17</td><td>BlockMxScaleTensorViews</td><td class="noop">790 (+2)</td><td>标记 <code>mx_tensor_views_blocked=True</code></td></tr>
+    <tr><td>20</td><td>CanonicalizeTileSlice</td><td class="noop">790 (±0)</td><td>规范 <code>tensor.slice</code> → <code>tile.slice</code> 的 offset/size 表示</td></tr>
+    <tr><td>21</td><td>InferTileMemorySpace</td><td class="noop">796 (+6)</td><td>推断每个 tile 的目标内存空间 → 决定用 <code>pl.Mem.Mat</code> 还是 <code>pl.Mem.Vec</code></td></tr>
+    <tr><td>23</td><td>ResolveBackendOpLayouts</td><td class="noop">864 (+68)</td><td><b>关键一跳</b>：确定 backendlayout（<code>blayout=col_major</code>, <code>slayout=row_major</code>, <code>fractal=512</code>, <code>pad=0</code>）</td></tr>
+    <tr><td>24</td><td>LowerAutoVectorSplit</td><td class="noop">864 (±0)</td><td>自动向量切分降级</td></tr>
+    <tr><td>25</td><td>ExpandMixedKernel</td><td class="noop">958 (+95)</td><td><b>关键一跳</b>：把混合核展开为独立的 AIC / AIV 两个函数体，并插入跨核同步</td></tr>
+    <tr><td>32</td><td>LowerPipelineLoops</td><td class="noop">1138 (+180)</td><td><b>关键一跳</b>：<code>pl.pipeline(4, stage=2)</code> 展开成显式双缓冲循环 + <code>pto.sync.set/sync.wait</code>（MTE2/MTE3/FIX 流水线）</td></tr>
+    <tr><td>33</td><td>CanonicalizeIOOrder</td><td class="noop">1138 (±0)</td><td>统一 I/O 参数顺序</td></tr>
+    <tr><td>35</td><td>InitMemRef</td><td class="noop">1951 (+813)</td><td><b>最大一跳</b>：为每个张量/标量注入 <code>MemRef("mem_ddr_N", offset, size)</code>，IR 里开始出现显式的 DDR 槽位编号</td></tr>
+    <tr><td>36</td><td>SelectBufferIRFunctions</td><td class="noop">1951 (±0)</td><td>选择 Buffer IR 变体</td></tr>
+    <tr><td>37</td><td>MaterializeSemanticAliases</td><td class="noop">1951 (±0)</td><td>语义别名落地</td></tr>
+    <tr><td>38</td><td>MemoryReuse</td><td class="noop">1777 (−174)</td><td><b>唯一大幅瘦身的 pass</b>：合并 tile buffer 生命周期，删掉 174 行冗余分配</td></tr>
+    <tr><td>40</td><td>AllocateMemoryAddr</td><td class="noop">1776 (−1)</td><td>给每个 <code>alloc_tile</code> 打上具体字节地址（<code>addr = %c0_i64 / %c4096_i64 / ...</code>）</td></tr>
+    <tr><td>46</td><td>DeriveCallDirections</td><td class="noop">1884 (+108)</td><td>推导每个实参方向，写出 <code>arg_directions=[adir.input, adir.inout, adir.scalar, ...]</code></td></tr>
+    <tr><td>53</td><td>Simplify</td><td class="noop">1884 (±0)</td><td>二次化简</td></tr>
+    <tr><td>55</td><td>MaterializeRuntimeScopes</td><td class="noop">1885 (+1)</td><td>落地 runtime scope 标记</td></tr>
+  </tbody>
+</table>
+
+<div class="note bad">
+  <b>值得注意：整条管线里有 8 个"重武器" pass 在本算子上完全空跑</b>——
+  <code>UnrollLoops</code>、<code>CtrlFlowTransform</code>、<code>NormalizeStmtStructure</code>、<code>OutlineHierarchyScopes</code>、<code>OutlineGraphScopes</code>、<code>OptimizeOrchTensors</code>、<code>LowerCompositeOps</code>、<code>InjectGMPipeBuffer</code>、<code>SplitVectorKernel</code>、<code>StampTfreeSplit</code>、<code>SkewCrossCorePipeline</code>、<code>LowerPipelineToSlots</code>，以及<b>全部通信类 pass 空跑了一整片</b>（<code>LowerL2TensorCollectives</code> → <code>LowerHostTensorCollectives</code> 连续 7 个 no-op + <code>SynthesizeAllReduceSignals</code>、<code>MaterializeCommDomainScopes</code>、<code>InsertCommFence</code>），因为这是单卡、无集合通信的 kernel。
+</div>
+
+<h3>最终 IR 的五个函数层级（<code>59_after_LowerTileToBuffer.py</code>）</h3>
+<table>
+  <thead><tr><th>行号</th><th>函数</th><th>类型 / 层级</th><th>作用</th></tr></thead>
+  <tbody>
+    <tr><td>10</td><td><code>attn_swpipe_aic</code></td><td><span class="pill p-blue">AIC / AIC</span></td><td>矩阵核：QK<sup>T</sup> matmul、PV matmul（68 个 <code>alloc_tile</code>）</td></tr>
+    <tr><td>555</td><td><code>attn_swpipe_aiv</code></td><td><span class="pill p-violet">AIV / AIV</span></td><td>向量核：RMSNorm、RoPE、softmax、exp、KV cache 写入（212 个 <code>alloc_tile</code>）</td></tr>
+    <tr><td>1525</td><td><code>attn_swpipe</code></td><td><span class="pill p-amber">Group / CORE_GROUP</span></td><td>混合核封装：依次 <code>call</code> AIC 与 AIV，声明 23 个实参的 <code>arg_directions</code></td></tr>
+    <tr><td>1666</td><td><code>attn_swpipe_spmd</code></td><td><span class="pill p-gray">Spmd</span></td><td>SPMD 启动壳，被 <code>pl.spmd_submit</code> 调用，<code>block_num=24</code></td></tr>
+    <tr><td>1755</td><td><code>paged_attention_pypto_dynamic</code></td><td><span class="pill p-green">Orchestration / CHIP</span></td><td>芯片级编排（最终落到 <code>orchestration/*.cpp</code> 的 161 行）</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="num">05</span>片上内存与资源占用</h2>
+<p class="lead">从 PTO MLIR 里的 <code>alloc_tile addr=</code> + tile shape 反推每个核的片上内存峰值。</p>
+
+<div class="grid2">
+  <div class="card tight">
+    <h3 style="margin-top:0">AIC（Cube 核）</h3>
+    <table>
+      <thead><tr><th>内存空间</th><th>峰值</th><th>910B 容量</th><th>占用</th></tr></thead>
+      <tbody>
+        <tr><td><code>mat</code>（L1）</td><td class="mono">208,896 B<br>204.0 KB</td><td>512 KB</td><td><div class="bar"><i style="width:40%;background:#2563eb"></i></div>40%</td></tr>
+        <tr><td><code>left</code>（L0A）</td><td class="mono">8,192 B<br>8.0 KB</td><td>64 KB</td><td><div class="bar"><i style="width:12.5%;background:#6d28d9"></i></div>12.5%</td></tr>
+        <tr><td><code>right</code>（L0B）</td><td class="mono">65,536 B<br>64.0 KB</td><td>64 KB</td><td><div class="bar"><i style="width:100%;background:#b91c1c"></i></div>100%</td></tr>
+        <tr><td><code>acc</code>（L0C）</td><td class="mono">8,192 B<br>8.0 KB</td><td>128 KB</td><td><div class="bar"><i style="width:6%;background:#15803d"></i></div>6%</td></tr>
+      </tbody>
+    </table>
+    <div class="src" style="margin-top:8px">68 个 <code>alloc_tile</code>；dtype 分布：bf16 × mat/left/right + fp32 × acc</div>
+  </div>
+  <div class="card tight">
+    <h3 style="margin-top:0">AIV（Vector 核）</h3>
+    <table>
+      <thead><tr><th>内存空间</th><th>峰值</th><th>910B 容量</th><th>占用</th></tr></thead>
+      <tbody>
+        <tr><td><code>vec</code>（UB）</td><td class="mono">96,320 B<br>94.1 KB</td><td>192 KB</td><td><div class="bar"><i style="width:49%;background:#2563eb"></i></div>49%</td></tr>
+      </tbody>
+    </table>
+    <div class="src" style="margin-top:8px">212 个 <code>alloc_tile</code>（是 AIC 的 3.1×）；主要 dtype：fp32 × vec（531 处类型引用）</div>
+    <div class="note ok" style="margin-top:12px;font-size:12.5px">
+      AIV 的 212 次 <code>alloc_tile</code> 里绝大多数被 <code>MemoryReuse</code>（pass 38）折叠到了 94 KB 的 UB 复用区间内——这是 pass 38 唯一大幅瘦身效果的来源。
+    </div>
+  </div>
+</div>
+
+<h2><span class="num">06</span>编排与任务图：10 个 task 里 7 个是空壳</h2>
+<p class="lead">设备侧一共提交 10 个 task，其中只有 1 个是真计算。</p>
+
+<div class="card">
+  <table>
+    <thead><tr><th>submit 序</th><th>task_id</th><th>kernel_ids</th><th>类型</th><th>block_num</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>#0 – #1</td><td>4294967296/297</td><td>—</td><td><span class="pill p-gray">alloc</span></td><td>1</td><td>申请 4 个 scratch（3.94 MB）+ <code>q_tnd_flat</code></td></tr>
+      <tr><td>#2 – #8</td><td>…298 → …304</td><td>[-1,-1,-1]</td><td><span class="pill p-amber">dummy ×7</span></td><td>1</td><td><b>7 个纯依赖 dummy</b>：<code>phase_fence_barrier_0..6</code>，对应 <code>q_proj/k_proj/v_proj/rms/attn_out_seed/mlp_out_seed/scratch_ready</code> 七个前驱 task_id 的占位</td></tr>
+      <tr><td>#9</td><td>…305</td><td>[0, 1, 1]</td><td><span class="pill p-green">MixedKernels</span></td><td><b>24</b></td><td>真正的注意力 kernel：24 个 AIC + 48 个 AIV，<code>require_sync_start=true</code>、<code>allow_early_resolve=true</code>，依赖上面 7 个 dummy</td></tr>
+    </tbody>
+  </table>
+  <div class="note" style="margin-bottom:0">
+    <b>这是本次产物最值得追的一个设计点。</b>编排代码里那张"相位栅栏"图（<code>q_proj / k_proj / v_proj / rms / attn_out_seed / mlp_out_seed / scratch_ready</code>）说明这个 <code>dynamic</code> 版本<strong>本是为流水线化大模型推理准备的</strong>——它期望上游有 7 个投影/RMS 相关 task 先跑完。但在当前这份独立编译产物里，这 7 个前驱全部退化成 dummy，于是 <code>rt_submit_dummy_task</code> 白占了 7 次调度往返，并让主 kernel 的依赖解析被拖到很晚（见下一节 119.5 µs 才开跑）。
+  </div>
+</div>
+
+<h3>数据流转（AIC ↔ AIV 交换）</h3>
+<div class="card tight">
+  <div class="flow" style="font-size:12px">
+    <div class="node hi"><b>AIV</b><span>RMSNorm + RoPE</span></div>
+    <div class="arrow">→</div>
+    <div class="node" style="background:var(--green-l);border-color:#bfe6c9"><b>写 q2d / key_cache / value_cache</b><span>GM</span></div>
+    <div class="arrow">→</div>
+    <div class="node hi"><b>AIC</b><span>QKᵀ matmul</span></div>
+    <div class="arrow">→</div>
+    <div class="node" style="background:var(--amber-l);border-color:#f0d9a8"><b>score_transfer</b><span>[1152,512] fp32 · 2.25MB</span></div>
+    <div class="arrow">→</div>
+    <div class="node hi"><b>AIV</b><span>mask / softmax / exp</span></div>
+    <div class="arrow">→</div>
+    <div class="node" style="background:var(--amber-l);border-color:#f0d9a8"><b>probability_transfer</b><span>[1152,512] bf16 · 1.13MB</span></div>
+    <div class="arrow">→</div>
+    <div class="node hi"><b>AIC</b><span>×V matmul</span></div>
+    <div class="arrow">→</div>
+    <div class="node" style="background:var(--amber-l);border-color:#f0d9a8"><b>pv_transfer</b><span>[1152,128] fp32 · 0.56MB</span></div>
+    <div class="arrow">→</div>
+    <div class="node out"><b>AIV</b><span>归一化 → out</span></div>
+  </div>
+  <div class="src" style="margin-top:10px">PTO IR 中的同步原语：<code>pto.sync.set &lt;PIPE_FIX&gt;</code>（ffts_mode=2）、<code>pto.sync.wait &lt;PIPE_MTE2&gt;</code>、<code>pto.set_ffts</code>、<code>pto.syncall(core_type=mix)</code>、<code>pto.cmo.cacheinvalid</code>、<code>pto.fence.barrier_all</code></div>
+</div>
+
+<h2><span class="num">07</span>DFX 实测时间线：67% 的时间没在算</h2>
+<p class="lead">来自 <code>dfx_outputs/merged_swimlane_20261015_232514.json</code>（swimlane level 4，836 个事件，4 个视图）。</p>
+
+<div class="grid3">
+  <div class="stat"><div class="k">端到端 span</div><div class="v">177.2 µs</div><div class="d">ts 0 → 177.2</div></div>
+  <div class="stat"><div class="k">核上实际执行</div><div class="v" style="color:var(--green)">52.98 µs</div><div class="d">119.46 → 172.44</div></div>
+  <div class="stat"><div class="k">调度/准备开销</div><div class="v" style="color:var(--red)">≈119.5 µs</div><div class="d">占端到端 67.4%</div></div>
+</div>
+
+<div class="card" style="padding:18px 20px 6px">
+  <h3 style="margin-top:0">设备侧甘特分解</h3>
+  <svg viewBox="0 0 1080 250" width="100%" height="250" role="img" aria-label="DFX 时间线甘特图">
+    <!-- 时间轴: 0..177.2us 映射到 x=150..1040 -->
+    <g font-family="ui-monospace,monospace" font-size="10" fill="#8a919e">
+      <text x="20" y="44" text-anchor="start" font-size="11.5" fill="#4b525e">AICPU Orchestrator</text>
+      <text x="20" y="86" text-anchor="start" font-size="11.5" fill="#4b525e">AICPU Scheduler</text>
+      <text x="20" y="132" text-anchor="start" font-size="11.5" fill="#4b525e">72 核执行</text>
+      <text x="20" y="178" text-anchor="start" font-size="11.5" fill="#4b525e">Worker View</text>
+    </g>
+    <!-- axis -->
+    <g>
+      <line x1="150" y1="200" x2="1040" y2="200" stroke="#c9cfd9"/>
+      <g font-family="ui-monospace,monospace" font-size="9.5" fill="#8a919e">
+        <text x="146" y="216">0</text><text x="271" y="216">25</text><text x="397" y="216">50</text><text x="523" y="216">75</text><text x="648" y="216">100</text><text x="774" y="216">125</text><text x="899" y="216">150</text><text x="1010" y="216">175 µs</text>
+      </g>
+      <g stroke="#eef0f4">
+        <line x1="275" y1="24" x2="275" y2="196"/><line x1="401" y1="24" x2="401" y2="196"/>
+        <line x1="527" y1="24" x2="527" y2="196"/><line x1="652" y1="24" x2="652" y2="196"/>
+        <line x1="778" y1="24" x2="778" y2="196"/><line x1="903" y1="24" x2="903" y2="196"/>
+        <line x1="1029" y1="24" x2="1029" y2="196"/>
+      </g>
+    </g>
+    <!-- scale: x = 150 + t*5.0226 -->
+    <!-- Orchestrator 0..46.04 -->
+    <rect x="150" y="32" width="231" height="18" rx="3" fill="#2563eb"/>
+    <text x="188" y="45" font-family="ui-monospace,monospace" font-size="10" fill="#fff">submit ×10  (alloc×2 + dummy×7 + 真 kernel×1)  0→46.0µs</text>
+    <!-- gap 46.04..79.16 -->
+    <rect x="381" y="32" width="166" height="18" rx="3" fill="#e6eaf0"/>
+    <text x="392" y="45" font-family="ui-monospace,monospace" font-size="10" fill="#8a919e">空档 46.0→79.2</text>
+    <!-- Scheduler 79.16..177.2 -->
+    <rect x="548" y="74" width="26" height="18" rx="3" fill="#6d28d9"/>
+    <text x="579" y="87" font-family="ui-monospace,monospace" font-size="9.5" fill="#4b525e">dummy×7  5.2µs</text>
+    <rect x="644" y="74" width="116" height="18" rx="3" fill="#b45309"/>
+    <text x="651" y="87" font-family="ui-monospace,monospace" font-size="9.5" fill="#fff">drain 98.3→121.4</text>
+    <rect x="760" y="74" width="63" height="18" rx="3" fill="#15803d"/>
+    <text x="827" y="87" font-family="ui-monospace,monospace" font-size="9.5" fill="#4b525e">dispatch / complete 121.4→133.9</text>
+    <rect x="885" y="74" width="155" height="18" rx="3" fill="#e6eaf0"/>
+    <text x="893" y="87" font-family="ui-monospace,monospace" font-size="9.5" fill="#8a919e">收尾 → 177.2</text>
+    <!-- cores: 119.46..172.44 -->
+    <rect x="750" y="106" width="266" height="52" rx="3" fill="#2563eb" opacity="0.92"/>
+    <text x="762" y="130" font-family="ui-monospace,monospace" font-size="11" fill="#fff">attention kernel 119.46 → 172.44  (52.98 µs)</text>
+    <text x="762" y="148" font-family="ui-monospace,monospace" font-size="10" fill="#dbe6ff">AIC: mean 35.2 / max 51.8 µs    AIV: mean 36.1 / max 52.8 µs</text>
+    <!-- Worker 0..157.04 -->
+    <rect x="150" y="166" width="231" height="18" rx="3" fill="#15803d"/>
+    <text x="157" y="179" font-family="ui-monospace,monospace" font-size="9.5" fill="#fff">alloc / submit 视图  0→46.0</text>
+    <rect x="548" y="166" width="240" height="18" rx="3" fill="#6d28d9" opacity="0.55"/>
+    <text x="555" y="179" font-family="ui-monospace,monospace" font-size="9.5" fill="#fff">dummy 任务镜像  79.2→157.0</text>
+    <!-- marker: 核开始 -->
+    <line x1="750" y1="24" x2="750" y2="196" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="700" y="20" font-family="ui-monospace,monospace" font-size="10" fill="#b91c1c">核首次开跑 t=119.46µs</text>
+  </svg>
+</div>
+
+<table>
+  <thead><tr><th>阶段</th><th>起止 (µs)</th><th>时长</th><th>占比</th><th>观测细节</th></tr></thead>
+  <tbody>
+    <tr><td>AICPU Orchestrator 提交</td><td>0.00 → 46.04</td><td>46.0 µs</td><td>26.0%</td><td>10 次 submit；<code>submit(r1t0)</code> 与 <code>alloc(r1t0)</code> 各 9.5 µs，<code>submit(r1t2)</code> 10.6 µs</td></tr>
+    <tr><td>空档</td><td>46.04 → 79.16</td><td>33.1 µs</td><td>18.7%</td><td>无 trace 事件覆盖，疑为 runtime 初始化/首个 task 下发前的等待</td></tr>
+    <tr><td>dummy 任务执行</td><td>79.16 → 84.0</td><td>≈5.0 µs</td><td>2.8%</td><td><code>dummy(7)</code> 5.22 µs；其余 7 个 dummy 各 0.02 µs</td></tr>
+    <tr><td>Scheduler drain / drain_prepare</td><td>98.32 → 121.42</td><td>≈23.1 µs</td><td>13.0%</td><td><code>drain(8)</code> 22.9 µs ×3、<code>drain_prepare(24)</code> 12.4 µs ×3——<b>调度器侧最大单项开销</b></td></tr>
+    <tr><td>核执行（关键路径）</td><td>119.46 → 172.44</td><td>52.98 µs</td><td>29.9%</td><td>24 AIC + 48 AIV 全部参与；<code>require_sync_start=true</code> 导致 119.46→120.68 有 1.2 µs 对齐差</td></tr>
+    <tr><td>complete 收尾</td><td>172.44 → 177.20</td><td>4.8 µs</td><td>2.7%</td><td><code>complete(24)</code> 15.2 µs 但与其他阶段重叠</td></tr>
+  </tbody>
+</table>
+
+<div class="note bad">
+  <b>实测结论：</b>这是一次典型的"<b>kernel 很快、框架很慢</b>"的采集。53 µs 的核上时间被 119.5 µs 的前置开销包住，端到端利用率约 <b>29.9%</b>。若把 7 个 dummy barrier 去掉、并把 <code>drain</code> 与 dispatch 重叠，理论上可把端到端压到 70–80 µs 量级。需要注意：本次采集包含冷启动（首次加载 <code>.so</code>、首次触碰 3.94 MB scratch），稳态复跑（<code>--no-recompile</code>）应当明显更低——建议补一次热态采集做对比。
+</div>
+
+<h2><span class="num">08</span>编译期性能提示（PH001）</h2>
+<p class="lead"><code>report/perf_hints.log</code> 共 33 条，全部是同一类：内维粒度不足。</p>
+
+<div class="grid3">
+  <div class="stat"><div class="k">提示总数</div><div class="v">33</div><div class="d">全部 PH001（同一规则）</div></div>
+  <div class="stat"><div class="k">tile.load : tile.store</div><div class="v">29 : 4</div><div class="d">以搬运为主</div></div>
+  <div class="stat"><div class="k">Mat : Vec 目标</div><div class="v">25 : 8</div><div class="d">矩阵核占多数</div></div>
+</div>
+
+<div class="card">
+  <div class="kv">
+    <div class="k">规则</div><div><code>TileInnermostDimGranularity</code></div>
+    <div class="k">实测值</div><div><b>256 B</b> 内维（<code>tile fp32[64]</code> 或 <code>tile bfloat16[128]</code>）</div>
+    <div class="k">建议值</div><div><b>≥ 512 B</b>（a2a3 的 L2 cache line 宽度）</div>
+    <div class="k">命中源码</div><div class="src">paged_attention_pypto.py : 156,157,158,159,195,210,248,270,290,311,328,345,386,397,408,419,435,452,469,486,511,527,554,565,581,598,629,640,651,667,684,701,869</div>
+  </div>
+</div>
+
+<h3>按搬运形态分组</h3>
+<table>
+  <thead><tr><th>形态</th><th>源码行</th><th>说明</th></tr></thead>
+  <tbody>
+    <tr><td><code>fp32[64]</code> → Vec<br>256 B × 1 行</td><td>156–159</td><td>RoPE 的 <code>cos_lo/hi</code>、<code>sin_lo/hi</code> 四个 <code>[1,64]</code> slice——内维只有 64 个 fp32</td></tr>
+    <tr><td><code>bf16[128]</code> → Vec<br>256 B × 1 行</td><td>195, 210</td><td>KV cache 单行写入（<code>tile.store</code>）</td></tr>
+    <tr><td><code>bf16[128]</code> → Vec<br>1280 B × 5 行</td><td>248, 435, 452, 469, 486, 527, 565, 581, 598, 667, 684, 701</td><td><b>命中最多的一类（12 处）</b>：q_tile 的 <code>[16,128] valid_shape=[5,128]</code>，5 行有效但每行仍只搬 256 B</td></tr>
+    <tr><td><code>bf16[128]</code> → Mat<br>32768 B × 128 行</td><td>270, 290, 311, 328, 345, 386, 397, 408, 419, 511, 554, 629, 640, 651</td><td><b>绝对数据量最大的一类（14 处）</b>：K/V page 加载 <code>[128,128]</code>，单次 32 KB，但因为内维 128×2 B = 256 B 未对齐 L2 line，每行会被拆成 2 个 cache line 访问</td></tr>
+    <tr><td><code>bf16[128]</code> → Vec<br>256 B × 1 行</td><td>869</td><td>最终输出 <code>tile.store</code> 到 <code>out</code></td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <b>可以做但需要权衡的优化：</b>把 K/V page 的 tile 内维从 128 提到 256（bf16 → 512 B）可以让每次 <code>tile.load</code> 对齐 L2 line。但注意 <code>head_dim = 128</code> 是模型结构决定的，抬内维意味着要在 GM 上做跨 head 的连续读——本算子的 <code>key_cache</code> 布局是 <code>[token, kv_head×128]</code>，同一个 token 的相邻 head 在内存里是连续的，所以 <b>一次 load 覆盖 2 个 kv_head 是可行的</b>，代价是 <code>score_transfer</code> 的写偏移要重算。
+</div>
+
+<h2><span class="num">09</span>横向一致性核对</h2>
+<p class="lead">用多个产物互相验证，确认没有链路断裂。</p>
+<table>
+  <thead><tr><th>校验项</th><th>来源 A</th><th>来源 B</th><th>结果</th></tr></thead>
+  <tbody>
+    <tr><td>实参数量</td><td><code>compiled_meta.json</code>: 15 个 params</td><td><code>orchestration/*.cpp</code>: <code>expected_arg_count = 15</code></td><td><span class="pill p-green">一致</span></td></tr>
+    <tr><td>Kernel 函数名</td><td><code>kernel_config.py</code>: <code>attn_swpipe_aic/aiv</code></td><td><code>name_map__*.json</code>: <code>{0: aic, 1: aiv}</code></td><td><span class="pill p-green">一致</span></td></tr>
+    <tr><td>SPMD block 数</td><td><code>orchestration</code>: <code>set_block_num(24)</code></td><td><code>deps.json</code>: <code>block_num=24</code></td><td><span class="pill p-green">一致</span></td></tr>
+    <tr><td>硬件核数</td><td><code>chip_swimlane</code>: <code>num_cores = 72</code></td><td>24 AIC × 1 + 24 × 2 AIV = <b>72</b></td><td><span class="pill p-green">一致</span></td></tr>
+    <tr><td>AIC/AIV 源文件</td><td>两文件 md5 不同</td><td>diff 仅 4 处：注释行 + <code>get_sub_block_id</code> 3 行 + 调用名</td><td><span class="pill p-green">同源，预期差异</span></td></tr>
+    <tr><td>张量形状</td><td><code>debs.json</code> idx1: <code>[10368,1024] bf16</code></td><td><code>compiled_meta</code> key_cache: <code>[10368,1024] bf16</code></td><td><span class="pill p-green">一致</span></td></tr>
+    <tr><td>deps.json 任务数</td><td>8 个 task 记录</td><td>orch 里 7 dummy + 1 real = 8</td><td><span class="pill p-green">一致</span></td></tr>
+    <tr><td>orchestrator phases</td><td>10 条 submit 记录（含 #0/#1 setup）</td><td>deps.json 只记 8 条（跳过 setup 两个）</td><td><span class="pill p-amber">需注意口径差</span></td></tr>
+  </tbody>
+</table>
+
+<h2><span class="num">10</span>可优化点与后续动作</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>优先级</th><th>问题</th><th>证据</th><th>建议动作</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="pill p-red">P0</span></td>
+        <td>7 个 dummy phase-fence barrier 白占调度</td>
+        <td>编排第 65–98 行；<code>deps.json</code> 中 7 条 <code>kernel_ids=[-1,-1,-1]</code>；<code>dummy(7)</code> 耗时 5.2 µs</td>
+        <td>本算子独立编译时这 7 个前驱不存在，应让 <code>ExpandManualPhaseFence</code> 在无真实前驱时直接消除 barrier（当前 pass 是 no-op）</td>
+      </tr>
+      <tr>
+        <td><span class="pill p-red">P0</span></td>
+        <td>24 block 只摊 16 个 task，8 个 block 空转</td>
+        <td><code>num_tasks = active_batch × 8 = 16</code>；<code>for task in range(core, num_tasks, 24)</code> → core 16–23 无迭代</td>
+        <td>block_num 改 16，或把 task 粒度从 1 kv_head 拆成 2 个半 head，让 24 block 满载</td>
+      </tr>
+      <tr>
+        <td><span class="pill p-amber">P1</span></td>
+        <td>Scheduler drain 占 23 µs</td>
+        <td><code>drain(8)</code> 22.9 µs ×3、<code>drain_prepare(24)</code> 12.4 µs ×3，发生在核开跑之前</td>
+        <td>检查 drain 与 dispatch 能否流水重叠；或减少一次性的 3.94 MB scratch 首触（提前预热/复用 workspace）</td>
+      </tr>
+      <tr>
+        <td><span class="pill p-amber">P1</span></td>
+        <td>33 处 256 B 内维搬运未达 L2 line</td>
+        <td><code>perf_hints.log</code> PH001 ×33，其中 K/V page load 14 处每次 32 KB</td>
+        <td>K/V load 内维抬到 256（bf16→512B），利用相邻 kv_head 内存连续；RoPE 的 cos/sin 合并成 <code>[1,128]</code> 一次 load</td>
+      </tr>
+      <tr>
+        <td><span class="pill p-amber">P1</span></td>
+        <td>L0B 打满 100%、L0C 只用 6%，负载极不均衡</td>
+        <td>右矩阵 64 KB / 64 KB；累加器 8 KB / 128 KB</td>
+        <td>考虑一次 matmul 覆盖更多 KV page（提高 L0C 复用），把右矩阵分块加载</td>
+      </tr>
+      <tr>
+        <td><span class="pill p-blue">P2</span></td>
+        <td>39 个 pass 空跑，编译时延可能被浪费</td>
+        <td>逐 stage 哈希对比；通信类 pass 连续 7 个 no-op</td>
+        <td>按函数属性（是否含集合通信、是否 mixed kernel）做 pass 管线裁剪，跳过无命中分支</td>
+      </tr>
+      <tr>
+        <td><span class="pill p-blue">P2</span></td>
+        <td>标量 <code>layer_cache_base_token_rows</code> 被重复传递</td>
+        <td>orchestration 中 <code>add_scalar</code> 4 次，其中它是 arg20 与 arg22/<code>cache_base</code></td>
+        <td>在 <code>DeriveCallDirections</code> 前后补一个常量标量去重，可省 1 个 args 槽位</td>
+      </tr>
+      <tr>
+        <td><span class="pill p-blue">P2</span></td>
+        <td>缺少 golden 校验</td>
+        <td><code>debug/run.py</code> 中 <code>_user_compare</code> 是空实现（<code>return # TODO</code>），且无 <code>golden.py</code></td>
+        <td>补 <code>golden.py</code> 或在 <code>_user_compare</code> 里写断言，否则无法判断这次产物数值正确性</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="note ok">
+  <b>关于本文档的复现方式：</b>所有数字均可从产物复算。
+  ① Pass 差异：对 <code>passes_dump/*.py</code> 逐个求 md5 比对；
+  ② 内存峰值：正则提取 <code>ptoas/*.pto</code> 的 <code>pto.alloc_tile addr=%cN_i64</code> 与 tile shape 相乘取 max；
+  ③ 时间线：解析 <code>dfx_outputs/merged_swimlane_*.json</code> 中 <code>ph=="X"</code> 的事件按 pid 聚合；
+  ④ 核占用：<code>dfx_outputs/chip_swimlane_records.json</code> 的 <code>aicore_tasks</code>（72 条 = 24 AIC + 48 AIV）。
+</div>
+
+<footer>
+  分析对象：<span class="src">/Users/songchenfei/Documents/pypto项目/PyPTO3/Data/paged attention 编译产物 马金 20261015_232459_qw2ym_86</span><br>
+  产物生成时间 2026-10-15 23:24:59 · swimlane 采集 2026-10-15 23:25:14 · 分析生成 2026-10-16
+</footer>
+
+</div>
+</body>
+</html>

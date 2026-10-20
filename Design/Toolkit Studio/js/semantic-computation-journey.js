@@ -85,7 +85,7 @@
       }
     }
     for (const edge of visible.edges) {
-      if (result.edgeIds.has(edge.id)) edgeIds.add(edge.id);
+      if ((edge.sourceEdgeIds || [edge.id]).some((id) => result.edgeIds.has(id))) edgeIds.add(edge.id);
       else if (FLOW.has(edge.type) && nodeIds.has(edge.t) && !nodeIds.has(edge.s)) otherInputIds.add(edge.s);
     }
     // Other operand branches stay separate from the anchor's influence path.

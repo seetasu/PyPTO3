@@ -1,0 +1,5 @@
+Original incore_profile.py manifest_export.csv status remains failed because the generated compatibility declaration duplicated a symbol in the packaged PTO ISA header at the build step.
+The generated standalone files launch.cpp and attn_swpipe_msprof_kernel.cpp were corrected only by removing that duplicate declaration; the PTOAS kernel body was not altered.
+The generated standalone case then built successfully and was collected by the repository script's own msprof op simulator command on task-submit device 15.
+Raw successful msprof output: funcs/attn_swpipe/collect/out/OPPROF_20261016035052_VMLWAAXWMNZVNZVI/
+Read cases/ptoas/attn_swpipe_msprof/WORKLOAD.txt before interpreting the simulated trace. This replay used synthetic inputs and is not the physical 512,513-token invocation.

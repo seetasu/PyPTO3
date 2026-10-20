@@ -128,7 +128,7 @@
     return { graph, prefix, nodes, regions, width, height: bottom };
   }
 
-  function layout(model, expandedIds = new Set()) {
+  function layout(model, expandedIds = new Set(), options = {}) {
     const expanded = new Set(expandedIds);
     const hierarchy = layoutScope(model, '', expanded, false);
     const nodes = [], groups = [], rawEdges = [], opened = new Set();
@@ -173,12 +173,54 @@
     });
     const right = Math.max(hierarchy.width, ...nodes.map((node) => node.x + node.w), ...groups.map((group) => group.x + group.w));
     const bottom = Math.max(hierarchy.height, ...nodes.map((node) => node.y + (node.groupHeight || node.h)), ...groups.map((group) => group.y + group.h));
-    const geometry = routeEdges(nodes, edges, right);
+    const geometry = routeEdges(nodes, edges, right, options);
     return { ...model, semantic: model, nodes, edges, groups, opened, edgeRoutes: geometry,
       width: Math.max(right + 88, ...geometry.map((route) => route.maxX + 32)), height: bottom + 100 };
   }
 
-  function routeEdges(nodes, edges, rightBound) {
+  /* 正交折线的圆角拐点，与 pto-design-system/patterns/model-graphviz 的
+     roundedRoutePath 同构：每个拐点用二次贝塞尔过渡，半径统一 12px
+     （pattern.js edgeCornerRadius 默认值），过长段自动退让到半段。 */
+  const EDGE_CORNER_RADIUS = 12;
+  function roundedPath(points, radius) {
+    const clean = points.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+    if (clean.length < 2) return '';
+    const limit = Math.max(0, radius);
+    const parts = [`M ${clean[0].x} ${clean[0].y}`];
+    if (clean.length === 2 || !limit) {
+      clean.slice(1).forEach((point) => parts.push(`L ${point.x} ${point.y}`));
+      return parts.join(' ');
+    }
+    const along = (from, to, distance) => {
+      const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy);
+      if (!length) return { ...from };
+      const ratio = Math.min(1, Math.max(0, distance / length));
+      return { x: from.x + dx * ratio, y: from.y + dy * ratio };
+    };
+    for (let index = 1; index < clean.length - 1; index += 1) {
+      const previous = clean[index - 1], corner = clean[index], next = clean[index + 1];
+      const size = Math.min(limit, Math.hypot(corner.x - previous.x, corner.y - previous.y) / 2,
+        Math.hypot(next.x - corner.x, next.y - corner.y) / 2);
+      if (size <= 0.5) { parts.push(`L ${corner.x} ${corner.y}`); continue; }
+      const before = along(corner, previous, size), after = along(corner, next, size);
+      parts.push(`L ${before.x} ${before.y}`);
+      parts.push(`Q ${corner.x} ${corner.y} ${after.x} ${after.y}`);
+    }
+    const last = clean[clean.length - 1];
+    parts.push(`L ${last.x} ${last.y}`);
+    return parts.join(' ');
+  }
+
+  /* 边标签按仓库 edge-tag 的规格占位：12px 字号，CJK 12px/字、其余 6.8px/字，
+     左右各 6px 内边距，高度 18px。渲染层直接用这个宽度画底板，不再二次估算。 */
+  const EDGE_TAG_HEIGHT = 18;
+  const labelWidth = (text) => [...String(text)]
+    .reduce((sum, char) => sum + (/[\u2e80-\u9fff\uff00-\uffef]/.test(char) ? 12 : 6.8), 0) + 12;
+
+  function routeEdges(nodes, edges, rightBound, options = {}) {
+    /* 圆角拐点与带底板标签只在显式开启时生效（matmul 走 model-graphviz 契约），
+       其余图保持原有的直角折线与无底板标签读法。 */
+    const corner = options.modelGraphviz ? EDGE_CORNER_RADIUS : 0;
     const byId = new Map(nodes.map((node) => [node.id, node]));
     const incoming = new Map(nodes.map((node) => [node.id, []]));
     const outgoing = new Map(nodes.map((node) => [node.id, []]));
@@ -203,42 +245,67 @@
         const x1 = left ? source.x : source.x + source.w;
         const x2 = left ? target.x : target.x + target.w;
         const y1 = source.y + source.h / 2, y2 = target.y + target.h / 2;
-        return { path: `M ${x1} ${y1} H ${lane} V ${y2} H ${x2}`,
-          labelX: lane + (left ? -8 : 8), labelY: (y1 + y2) / 2,
+        return { path: roundedPath([{ x: x1, y: y1 }, { x: lane, y: y1 }, { x: lane, y: y2 }, { x: x2, y: y2 }], corner),
+          labelX: lane + (left ? 10 : -10), labelY: (y1 + y2) / 2, labelAnchor: left ? 'start' : 'end',
           labelAxis: 'y', labelMin: Math.min(y1, y2), labelMax: Math.max(y1, y2), maxX: Math.max(lane, x1, x2) };
       }
-      if (ty - sy > 190) {
+      // Contracted DATA paths may pass directly through the now-empty card space.
+      // Keep the side lane when a retained operation still occupies that corridor.
+      const blocked = !edge.sourceEdgeIds || nodes.some((node) => node.id !== edge.s && node.id !== edge.t && !node.expandedGroup
+        && node.y < ty && node.y + node.h > sy
+        && node.x < Math.max(sx, tx) + 12 && node.x + node.w > Math.min(sx, tx) - 12);
+      if (ty - sy > 190 && blocked) {
         const leftBound = Math.min(...nodes.map((node) => node.x));
         const useLeft = (source.x + target.x) / 2 < rightBound / 2;
         const lane = useLeft ? Math.max(22, leftBound - 42 - sideLane * 14) : rightBound + 42 + sideLane * 14;
         sideLane = (sideLane + 1) % 4;
-        return { path: `M ${sx} ${sy} V ${sy + 28} H ${lane} V ${ty - 28} H ${tx} V ${ty}`,
-          labelX: lane + (useLeft ? -8 : 8), labelY: (sy + ty) / 2,
+        return { path: roundedPath([{ x: sx, y: sy }, { x: sx, y: sy + 28 }, { x: lane, y: sy + 28 },
+          { x: lane, y: ty - 28 }, { x: tx, y: ty - 28 }, { x: tx, y: ty }], corner),
+          labelX: lane + (useLeft ? 10 : -10), labelY: (sy + ty) / 2, labelAnchor: useLeft ? 'start' : 'end',
           labelAxis: 'y', labelMin: sy + 28, labelMax: ty - 28, maxX: Math.max(lane, sx, tx) };
       }
       const middle = (sy + ty) / 2;
-      return { path: `M ${sx} ${sy} V ${middle} H ${tx} V ${ty}`,
-        labelX: Math.abs(sx - tx) > 38 ? (sx + tx) / 2 : tx + 12,
-        labelY: middle - 7, labelAxis: Math.abs(sx - tx) > 38 ? 'x' : 'y',
-        labelMin: Math.abs(sx - tx) > 38 ? Math.min(sx, tx) : sy,
-        labelMax: Math.abs(sx - tx) > 38 ? Math.max(sx, tx) : ty,
+      /* 水平段落上方的标签按中间对齐；两侧太窄时改成从目标节点右侧起排，避免压住竖线。 */
+      const inline = Math.abs(sx - tx) > 38;
+      return { path: roundedPath([{ x: sx, y: sy }, { x: sx, y: middle }, { x: tx, y: middle }, { x: tx, y: ty }], corner),
+        labelX: inline ? (sx + tx) / 2 : tx + 12,
+        /* 标签底板是不透明的：压在线段正中即为仓库的 edge-tag 读法。 */
+        labelY: inline ? (corner ? middle : middle - 7) : middle - 7, labelAnchor: inline ? 'middle' : 'start', labelAxis: inline ? 'x' : 'y',
+        labelMin: inline ? Math.min(sx, tx) : sy,
+        labelMax: inline ? Math.max(sx, tx) : ty,
         maxX: Math.max(sx, tx) };
     });
     const placed = [];
+    /* 展开的父容器也是一道边界：跨层标签压在外框上比压在线段上更难读，
+       所以容器外框也参与避让；完全落在某个容器内的标签不受该容器约束。 */
+    const frames = nodes.filter((node) => node.expandedGroup)
+      .map((node) => ({ x: node.x - 3, y: node.y - 8, w: node.groupWidth + 6, h: node.groupHeight }));
+    const contains = (box, frame) => box.x >= frame.x && box.x + box.w <= frame.x + frame.w &&
+      box.y >= frame.y && box.y + box.h <= frame.y + frame.h;
+    const crossesFrame = (box) => frames.some((frame) => !contains(box, frame) &&
+      box.x < frame.x + frame.w && box.x + box.w > frame.x && box.y < frame.y + frame.h && box.y + box.h > frame.y);
     routes.forEach((route, index) => {
       if (!edges[index].label) return;
-      const width = edges[index].label.length * 7.2 + 8;
-      const candidates = [0, 22, -22, 44, -44, 66, -66];
-      for (const shift of candidates) {
-        const x = route.labelX + (route.labelAxis === 'x' ? shift : 0);
-        const y = route.labelY + (route.labelAxis === 'y' ? shift : 0);
-        if ((route.labelAxis === 'x' ? x : y) < route.labelMin || (route.labelAxis === 'x' ? x : y) > route.labelMax) continue;
-        const box = { x: x - width / 2, y: y - 14, w: width, h: 19 };
+      const width = labelWidth(edges[index].label);
+      route.labelW = width;
+      route.labelH = EDGE_TAG_HEIGHT;
+      const anchor = route.labelAnchor || 'middle';
+      /* 侧边车道上的标签沿垂直方向排，所以避让要先纵向让开容器、再横向让开车道；
+         水平标签则沿垂直方向挪。盒子左边按锚点折算，避免 start/end 时错当成居中。 */
+      const boxLeft = (x) => anchor === 'middle' ? x - width / 2 : anchor === 'end' ? x - width : x;
+      const candidates = route.labelAxis === 'x'
+        ? [[0, 0], [0, 22], [0, -22], [0, 44], [0, -44], [0, 66], [0, -66]]
+        : [[0, 0], [0, -42], [0, 42], [0, -88], [0, 88], [18, 0], [-18, 0]];
+      for (const [dx, dy] of candidates) {
+        const x = route.labelX + dx;
+        const y = route.labelY + dy;
+        const box = { x: boxLeft(x), y: y - EDGE_TAG_HEIGHT / 2, w: width, h: EDGE_TAG_HEIGHT };
         const intersects = (other) => box.x < other.x + other.w && box.x + box.w > other.x && box.y < other.y + other.h && box.y + box.h > other.y;
         if (placed.some(intersects) || nodes.filter((node) => !node.expandedGroup).some(intersects)) continue;
+        if (crossesFrame(box)) continue;
         route.labelX = x; route.labelY = y; placed.push(box); return;
       }
-      placed.push({ x: route.labelX - width / 2, y: route.labelY - 14, w: width, h: 19 });
+      placed.push({ x: boxLeft(route.labelX), y: route.labelY - EDGE_TAG_HEIGHT / 2, w: width, h: EDGE_TAG_HEIGHT });
     });
     return routes;
   }
@@ -256,7 +323,8 @@
       const lane = right + 24 + event.eventId * 12;
       return { event, producer: producer.id, consumer: consumer.id,
         x: producer.x + producer.w + 24, y: sy + 22, w: 254, h: 48,
-        path: `M ${sx} ${sy} V ${sy + 12} H ${lane} V ${ty - 20} H ${tx} V ${ty}`,
+        path: roundedPath([{ x: sx, y: sy }, { x: sx, y: sy + 12 }, { x: lane, y: sy + 12 },
+          { x: lane, y: ty - 20 }, { x: tx, y: ty - 20 }, { x: tx, y: ty }], 0),
         maxX: Math.max(lane, producer.x + producer.w + 278) };
     });
   }

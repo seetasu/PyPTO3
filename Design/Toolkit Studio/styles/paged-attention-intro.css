@@ -39,7 +39,7 @@
 .kf-pa-map__detail-meta { color: var(--foreground-secondary); font: var(--type-micro); }
 .kf-pa-map__config { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-2) 0; color: var(--foreground-secondary); font: var(--type-body-sm); }
 .kf-pa-map__config label { display: inline-flex; align-items: center; gap: var(--space-2); }
-.kf-pa-map__config input[type="number"] { width: 82px; height: 30px; font: var(--type-mono); background: var(--input-bg); color: var(--foreground); border: 1px solid var(--input-border); border-radius: var(--input-radius); padding: 0 var(--space-2); }
+.kf-pa-map__config input[type="number"], .kf-pa-execution-input input[type="number"] { width: 82px; height: 30px; font: var(--type-mono); background: var(--input-bg); color: var(--foreground); border: 1px solid var(--input-border); border-radius: var(--input-radius); padding: 0 var(--space-2); }
 .kf-pa-map__config input[type="range"] { flex: 1; min-width: 100px; max-width: 240px; accent-color: var(--primary); }
 .kf-pa-map__viewport { flex: 1; min-height: 180px; position: relative; overflow: hidden; cursor: grab; touch-action: none; }
 .kf-pa-map__viewport.is-dragging { cursor: grabbing; }
@@ -314,48 +314,105 @@
 #pypaTaskScene[data-overlay-sync="false"] .kf-pypa-graph__sync-path { display: none; }
 .kf-pypa-graph__arrow.is-sync { fill: var(--warning); }
 
-/* Stack × Compute Stage: task-local content, within the existing IDE pane. */
-.kf-pa-intro-mount[data-stack-dependency="true"] .kf-pa-map__shelf { display: none; }
-.kf-pa-intro-mount[data-stack-dependency="true"] .kf-pa-map__viewport { display: none; }
-.kf-pa-map [data-pa-dependency] { flex: 1 0 auto; min-width: 0; }
-.kf-pa-dependency { color: var(--foreground-secondary); font: var(--type-body-sm); }
-.kf-pa-dependency__header, .kf-pa-dependency__toolbar, .kf-pa-dependency__detail > header { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3); margin: var(--space-2) 0; }
-.kf-pa-dependency__header > span { color: var(--foreground-muted); font: var(--type-mono); }
-.kf-pa-dependency__toolbar label, .kf-pa-dependency__toolbar [role="group"] { display: flex; align-items: center; gap: var(--space-2); }
-.kf-pa-dependency__toolbar [role="group"] { margin-left: auto; }
-.kf-pa-dependency__legend { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-3) 0; font: var(--type-micro); }
-.kf-pa-dependency__legend small { color: var(--foreground-muted); }
-.kf-pa-dependency__viewport { overflow: auto; max-height: 560px; min-height: 280px; background: var(--surface-1); }
-.kf-pa-dependency__viewport svg { display: block; max-width: none; }
-.kf-pa-dependency svg text { fill: var(--foreground-secondary); font-family: var(--font-mono); font-size: 12px; }
-.kf-pa-dependency__column { fill: var(--foreground) !important; }
-.kf-pa-dependency__row > rect { fill: transparent; }
-.kf-pa-dependency__row.is-selected > rect { fill: var(--state-selected); fill-opacity: .35; }
-.kf-pa-dependency__node { cursor: pointer; }
-.kf-pa-dependency__node > rect { fill: var(--surface-3); stroke: transparent; }
-.kf-pa-dependency__node.is-current-tick > rect { stroke: var(--border-strong); }
-.kf-pa-dependency__node.is-selected > rect { fill: var(--state-selected); stroke: var(--primary); }
-.kf-pa-dependency__node:hover > rect { fill: var(--surface-4); }
-.kf-pa-dependency__node:focus-visible > rect { stroke: var(--primary); }
-.kf-pa-dependency__edge { cursor: pointer; opacity: .28; }
-.kf-pa-dependency__edge.is-related, .kf-pa-dependency__edge:hover, .kf-pa-dependency__edge:focus-visible { opacity: 1; }
-.kf-pa-dependency__edge.is-selected { opacity: 1; }
-.kf-pa-dependency .is-data { color: var(--foreground-secondary); }
-.kf-pa-dependency .is-sync { color: var(--warning); }
-.kf-pa-dependency .is-state { color: var(--primary); }
-.kf-pa-dependency .is-reuse { color: var(--accent); }
-.kf-pa-dependency__arrow { fill: currentColor; }
-.kf-pa-dependency__line { fill: none; stroke: currentColor; stroke-width: 1.6; }
-.kf-pa-dependency__edge.is-sync .kf-pa-dependency__line { stroke-dasharray: 5 4; }
-.kf-pa-dependency__edge.is-reuse .kf-pa-dependency__line { stroke-dasharray: 2 5; }
-.kf-pa-dependency__edge text { fill: currentColor; paint-order: stroke; stroke: var(--surface-1); stroke-width: 4px; stroke-linejoin: round; }
-.kf-pa-dependency__hit { fill: none; stroke: transparent; stroke-width: 16px; pointer-events: stroke; }
-.kf-pa-dependency__detail { padding: var(--space-3) 0; }
-.kf-pa-dependency__detail > header b { color: var(--foreground); }
-.kf-pa-dependency__detail p { line-height: 1.7; margin: var(--space-2) 0; }
-.kf-pa-dependency__detail nav { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.kf-pa-dependency__detail .btn { white-space: normal; height: auto; min-height: 28px; text-align: left; }
-.kf-pa-dependency__versions { font-family: var(--font-mono); color: var(--primary); overflow-wrap: anywhere; }
-.kf-pa-dependency__note { color: var(--foreground-muted); line-height: 1.6; }
-/* Task drill-down keeps its own context; the operator summary remains in Pipeline. */
-.kf-inspector:has([data-stack-dependency="true"]) .kf-pa-overall { display: none; }
+/* Pipeline analysis annotates the existing Produce/Consume timeline. */
+.kf-pa-map [data-pa-analysis] { flex: none; min-width: 0; }
+.kf-pa-analysis { padding: var(--space-3) 0; color: var(--foreground-secondary); font: var(--type-body-sm); }
+.kf-pa-analysis > header, .kf-pa-analysis__explanation > header { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2) var(--space-3); }
+.kf-pa-analysis > header > span { font: var(--type-mono); color: var(--foreground-muted); }
+.kf-pa-analysis [aria-pressed="true"] { background: var(--state-selected); color: var(--primary); }
+.kf-pa-analysis__relations { display: flex; gap: var(--space-2); overflow-x: auto; padding: var(--space-3) 0; }
+.kf-pa-analysis__relations .btn { flex: none; }
+.kf-pa-analysis__explanation { padding: var(--space-2) 0; }
+.kf-pa-analysis__explanation b { color: var(--foreground); }
+.kf-pa-analysis__explanation dl { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: var(--space-2) var(--space-3); line-height: 1.7; }
+.kf-pa-analysis__explanation dt { color: var(--foreground-muted); }
+.kf-pa-analysis__explanation dd { margin: 0; text-align: left; }
+.kf-pa-analysis__explanation nav { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.kf-pa-analysis__explanation p { line-height: 1.7; }
+.kf-pa-analysis__explanation .btn { white-space: normal; height: auto; min-height: 28px; text-align: left; }
+.kf-pa-analysis__versions { font-family: var(--font-mono); color: var(--primary); overflow-wrap: anywhere; }
+.kf-pa-analysis__note { color: var(--foreground-muted); line-height: 1.6; }
+.kf-pa-map__pipeline-mark.is-analysis-muted { opacity: .28; }
+.kf-pa-map__pipeline-mark.is-analysis-related > rect { stroke: var(--primary); }
+.kf-pa-analysis-edge { cursor: pointer; color: var(--primary); }
+.kf-pa-analysis-edge.is-sync { color: var(--warning); }
+.kf-pa-analysis-edge.is-reuse { color: var(--accent); }
+.kf-pa-analysis-edge__line { fill: none; stroke: currentColor; stroke-width: 1.8; }
+.kf-pa-analysis-edge.is-sync .kf-pa-analysis-edge__line { stroke-dasharray: 5 4; }
+.kf-pa-analysis-edge.is-reuse .kf-pa-analysis-edge__line { stroke-dasharray: 2 5; }
+.kf-pa-analysis-edge marker path { fill: currentColor; }
+.kf-pa-analysis-edge__hit { fill: none; stroke: transparent; stroke-width: 14px; pointer-events: stroke; }
+.kf-pa-analysis-edge text { fill: currentColor; font: var(--type-mono); font-size: var(--pa-svg-label, 12px); paint-order: stroke; stroke: var(--surface-1); stroke-width: 4px; stroke-linejoin: round; }
+.kf-pa-analysis-edge:focus-visible { outline: none; filter: brightness(1.3); }
+
+/* Task execution is a data projection on existing cards, not graph topology. */
+.kf-pypa-graph__execution-count {
+  color: var(--foreground);
+  font: var(--type-mono);
+  white-space: nowrap;
+}
+.has-semantic-overlays .has-execution-badge .kf-pypa-graph__execution-count {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-5);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--primary) 18%, var(--surface-3));
+  font-size: 11px !important;
+  line-height: 1.5;
+}
+.has-semantic-overlays .has-execution-badge .kf-pypa-graph__node-head em {
+  padding-inline: calc(var(--space-1) / 2);
+  font-size: 11px !important;
+}
+.has-semantic-overlays .has-execution-badge .kf-pypa-graph__node-head b {
+  padding-right: calc(var(--space-6) + var(--space-1));
+  box-sizing: border-box;
+}
+.has-semantic-overlays .has-execution-badge .kf-pypa-graph__node-expand {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.has-semantic-overlays .has-execution-title .kf-pypa-graph__node-head b {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  overflow: visible;
+}
+.has-semantic-overlays .has-execution-title.is-detail-node .kf-pypa-graph__node-head b {
+  justify-content: center;
+  font-size: 14px !important;
+}
+.has-semantic-overlays .has-execution-title .kf-pypa-graph__execution-count {
+  flex: none;
+  font: var(--type-mono);
+  font-size: 12px !important;
+  font-weight: 600;
+}
+.has-execution-title.is-operation:not(.is-expanded-head) .kf-pypa-graph__execution-count {
+  color: inherit;
+}
+.kf-pypa-graph__execution-stack {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+}
+.kf-pypa-graph__execution-layer {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--primary) 48%, var(--foreground-muted));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface-3));
+  transform-origin: left center;
+  transform: translate(var(--execution-offset), 0) rotate(var(--execution-rotate, 0deg));
+}
+.kf-pypa-graph__execution-stack.is-context-muted { opacity: .6; }
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__execution-stack:not(.is-journey-path):not(.is-selected) {
+  opacity: .28;
+}
+.kf-pypa-graph__scene.has-journey .kf-pypa-graph__execution-stack:is(.is-journey-path, .is-selected) { opacity: 1; }
+.kf-pa-execution-input { display: inline-flex; align-items: center; gap: var(--space-2); }
+.kf-pa-execution-input .input { width: 7em; min-width: 0; }

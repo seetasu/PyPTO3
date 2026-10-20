@@ -1,0 +1,10 @@
+repo_root=/data/m00956180/runtime/pypto-lib-hw-native-sys
+build_dir=/data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8
+source_count=1
+cann_set_env=/usr/local/Ascend/cann-9.0.0/set_env.sh
+soc_version=Ascend910B1
+generate_testcase=/data/m00956180/runtime/pypto-lib-hw-native-sys/.claude/skills/incore-profiling/gen_profiling_case.py
+dynamic_dim=256
+pto_isa_root=/data/m00956180/runtime/pypto-lib-hw-native-sys/.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa
+sources:
+/data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/ptoas/attn_swpipe.cpp
