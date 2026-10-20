@@ -2085,6 +2085,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
           <em aria-hidden="true">${SOURCE_REGION_BAR_STATE.open ? '收起' : '全部'}</em>
         </button>
         ${spec.visualize ? `<button type="button" class="kf-source-region__visualize" data-source-region-visualize aria-pressed="${isSourceRegionVisualizeOn()}" title="展开右侧面板并收起资源管理器"><i aria-hidden="true">◫</i><span>可视化</span></button>` : ''}
+        ${spec.key === 'pagedAttentionPypto' && document.body.hasAttribute('data-visualization2-enabled') ? '<button type="button" class="btn btn-sm" data-visualization2-open aria-controls="visualization2">可视化2</button>' : ''}
       </div>
       <div class="kf-source-region__list"${SOURCE_REGION_BAR_STATE.open ? '' : ' hidden'}>
         ${entries.map(([key, item], order) => `<button type="button" class="${key === active ? 'is-active' : ''}" data-source-region="${key}"><span>${String(order + 1).padStart(2, '0')}</span><b>${item.label}</b><i>${item.lines}</i><small>${item.detail}</small></button>`).join('')}
@@ -2382,22 +2383,18 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     return pypaOverlays.data !== false ? graph : window.PtoComputationVisibility.withoutData(graph, options);
   }
 
-  function renderPyptoTaskGraph() {
-    if (window.PTO_COMPUTATION_JOURNEY) ensurePypaJourneyModel();
-    const graph = pypaVisibleGraph();
-    const viewport = $('#pypaTaskViewport');
-    const scene = $('#pypaTaskScene');
-    if (!graph || !viewport || !scene) return;
-    pypaGraphController?.abort?.();
-    const controller = new AbortController();
-    pypaGraphController = controller;
+  // Shared scene renderer. The original pane and visualization2 consume the same
+  // node markup, edge routing, grouping and semantic colors. View chrome stays local.
+  function renderPypaGraphScene(scene, graph, options = {}) {
+    const { view = 'compute', selectedNodeId = null, expandedStages = new Set(),
+      modelGraphviz = false, markerPrefix = 'pypa', cardHtml = pypaComputeCardHtml } = options;
     const placedNodes = graph.nodes.map((node) => ({
-      ...node,
-      y: pypaGraphView === 'overview' ? node.y + (node.y >= 600 ? 70 : 0) + (node.y >= 760 ? 60 : 0) : node.y,
+      ...node, expandable: options.allowExpand === false ? false : node.expandable,
+      y: view === 'overview' ? node.y + (node.y >= 600 ? 70 : 0) + (node.y >= 760 ? 60 : 0) : node.y,
     }));
-    const syncBridges = pypaGraphView === 'compute' ? window.PTO_COMPUTATION_LAYOUT.synchronizationBridges(graph) : [];
-    const sceneWidth = Math.max(graph.width || PYPA_SCENE_WIDTH, ...syncBridges.map((bridge) => bridge.maxX + 32));
-    const sceneHeight = graph.height || PYPA_SCENE_HEIGHT;
+    const syncBridges = view === 'compute' && options.synchronizations !== false ? window.PTO_COMPUTATION_LAYOUT.synchronizationBridges(graph) : [];
+    const sceneWidth = Math.max(graph.width || options.fallbackWidth || 2260, ...syncBridges.map((bridge) => bridge.maxX + 32));
+    const sceneHeight = graph.height || options.fallbackHeight || 1480;
     scene.style.width = `${sceneWidth}px`;
     scene.style.height = `${sceneHeight}px`;
     const byId = new Map(placedNodes.map((node) => [node.id, node]));
@@ -2411,10 +2408,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const defs = document.createElementNS(svgNS, 'defs');
     /* 数据依赖用开口箭头（compiler-objects 的关系约定），没有闭合三角的实心填充；
        其余关系沿用闭合箭头以保持既有读法。 */
-    const openArrow = isMatmulFile(state.activeFile);
+    const openArrow = modelGraphviz;
     ['dep', 'data', 'sync', 'loop', 'state', 'detail', 'computation', 'control', 'feedback'].forEach((type) => {
       const marker = document.createElementNS(svgNS, 'marker');
-      marker.setAttribute('id', `pypa-arrow-${type}`);
+      marker.setAttribute('id', `${markerPrefix}-arrow-${type}`);
       marker.setAttribute('viewBox', '0 0 10 10');
       marker.setAttribute('refX', openArrow ? '8' : '9'); marker.setAttribute('refY', '5');
       marker.setAttribute('markerWidth', '7'); marker.setAttribute('markerHeight', '7');
@@ -2435,20 +2432,20 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       const source = byId.get(edge.s);
       const target = byId.get(edge.t);
       if (!source || !target) return;
-      const routed = pypaGraphView === 'compute' ? graph.edgeRoutes?.[index] : null;
+      const routed = view === 'compute' ? graph.edgeRoutes?.[index] : null;
       if (routed) {
         const line = document.createElementNS(svgNS, 'path');
         line.setAttribute('d', routed.path);
         line.dataset.pypaEdge = edge.id; line.dataset.edgeType = edge.type;
         line.setAttribute('class', `kf-pypa-graph__edge is-${edge.type}`);
-        line.setAttribute('marker-end', `url(#pypa-arrow-${edge.type})`);
+        line.setAttribute('marker-end', `url(#${markerPrefix}-arrow-${edge.type})`);
         svg.appendChild(line);
         if (edge.label) {
           const label = document.createElementNS(svgNS, 'text');
           label.setAttribute('class', 'kf-pypa-graph__edge-label');
           label.dataset.pypaEdgeLabel = edge.id; label.dataset.edgeType = edge.type;
           label.textContent = edge.label;
-          if (isMatmulFile(state.activeFile)) {
+          if (modelGraphviz) {
             /* 标签按仓库 edge-tag 的规格落成「底板 + 文本」：不透明底板压在线段上，
                宽度由布局侧的 labelW 给出，文本 12px / 800，颜色取 foreground-secondary。 */
             const width = routed.labelW || Math.max(56, edge.label.length * 7.2 + 12);
@@ -2510,9 +2507,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       line.setAttribute('d', path);
       line.dataset.pypaEdge = edge.id; line.dataset.edgeType = edge.type;
       line.setAttribute('class', `kf-pypa-graph__edge is-${edge.route || edge.type || 'dep'}`);
-      line.setAttribute('marker-end', `url(#pypa-arrow-${edge.route || edge.type || 'dep'})`);
+      line.setAttribute('marker-end', `url(#${markerPrefix}-arrow-${edge.route || edge.type || 'dep'})`);
       svg.appendChild(line);
-      if (pypaGraphView === 'compute' && edge.label) {
+      if (view === 'compute' && edge.label) {
         const label = document.createElementNS(svgNS, 'text');
         const labelX = edge.route === 'feedback' ? Math.max(sx, tx) + 28 : (sx + tx) / 2;
         const labelY = (sy + ty) / 2 - 7;
@@ -2534,7 +2531,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     });
     placedNodes.filter((node) => node.expandedGroup).forEach((node) => {
       const box = document.createElement('div');
-      box.className = `kf-pypa-graph__expanded-group${node.id === pypaSelectedNodeId ? ' is-selected' : ''}`;
+      box.className = `kf-pypa-graph__expanded-group${node.id === selectedNodeId ? ' is-selected' : ''}`;
       box.dataset.pypaGroup = node.id;
       box.style.cssText = `left:${node.x - 3}px;top:${node.y - 8}px;width:${node.groupWidth + 6}px;height:${node.groupHeight}px`;
       scene.appendChild(box);
@@ -2543,7 +2540,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       const line = document.createElementNS(svgNS, 'path');
       line.setAttribute('d', bridge.path);
       line.setAttribute('class', 'kf-pypa-graph__sync-path');
-      line.setAttribute('marker-end', 'url(#pypa-arrow-sync)');
+      line.setAttribute('marker-end', `url(#${markerPrefix}-arrow-sync)`);
       line.dataset.pypaSyncPath = bridge.event.id;
       svg.appendChild(line);
     });
@@ -2562,7 +2559,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     placedNodes.forEach((node) => {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = `kf-pypa-graph__node is-${node.kind}${pypaGraphView === 'compute' ? ' is-computation' : ''}${node.expandedGroup ? ' is-expanded-head' : ''}${node.childOperation ? ' is-detail-node' : ''}${node.id === pypaSelectedNodeId ? ' is-selected' : ''}`;
+      button.className = `kf-pypa-graph__node is-${node.kind}${view === 'compute' ? ' is-computation' : ''}${node.expandedGroup ? ' is-expanded-head' : ''}${node.childOperation ? ' is-detail-node' : ''}${node.id === selectedNodeId ? ' is-selected' : ''}`;
       button.dataset.pypaNode = node.id;
       if (node.sem) button.dataset.sem = node.sem;
       /* model-graphviz 按 kind 决定外形：tensor 圆角矩形、op 胶囊、折叠的 composite 走 module。 */
@@ -2570,26 +2567,47 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       button.title = node.title;
       if (node.expandable) {
         button.dataset.pypaExpand = node.id;
-        button.setAttribute('aria-expanded', String(pypaExpandedStages.has(node.id)));
+        button.setAttribute('aria-expanded', String(expandedStages.has(node.id)));
       }
       button.style.left = `${node.x}px`;
       button.style.top = `${node.y}px`;
       button.style.width = `${node.w}px`;
       button.style.minHeight = `${node.h}px`;
       button.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${node.meta?.length ? '，' + node.meta.join('，') : ''}`);
-      if (isMatmulFile(state.activeFile)) {
+      if (modelGraphviz) {
         /* 节点密度按 model-graphviz 还原：op / tensor 只有一行居中标签，
            不再画 badge、Shape、Valid、粒度/精度/内存；这些仍在 title、
            aria-label 与右侧 Inspector 里，图面只留可读的名字。 */
         const expandToggle = node.expandable
-          ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : '';
+          ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${expandedStages.has(node.id) ? '−' : '+'}</span>` : '';
         const kindLine = node.type === 'composite' && !node.expandedGroup
           ? '<span class="kf-pypa-graph__node-kind">Composite</span>' : '';
         button.innerHTML = `<span class="kf-pypa-graph__node-label">${pypaEscape(node.title)}</span>${kindLine}${expandToggle}`;
       } else {
-        button.innerHTML = `<span class="kf-pypa-graph__node-head">${pypaGraphView !== 'compute' && (node.expandedGroup || (node.childOperation && node.type === 'operation')) ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${pypaExpandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : (pypaGraphView === 'compute' ? pypaComputeCardHtml(node) : `<small>${pypaEscape(node.sub)}</small>`)}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
+        button.innerHTML = `<span class="kf-pypa-graph__node-head">${view !== 'compute' && (node.expandedGroup || (node.childOperation && node.type === 'operation')) ? '' : `<em>${pypaEscape(node.badge)}</em>`}<b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${expandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>${node.expandedGroup ? '' : (view === 'compute' ? cardHtml(node) : `<small>${pypaEscape(node.sub)}</small>`)}${node.childOperation ? `<span class="kf-pypa-graph__detail-source">源码 ${pypaEscape(node.lines)}</span>` : ''}${node.meta?.length ? `<span class="kf-pypa-graph__node-meta">${node.meta.map((item) => `<i>${pypaEscape(item)}</i>`).join('')}</span>` : ''}`;
       }
       scene.appendChild(button);
+    });
+    return { placedNodes, sceneWidth, sceneHeight };
+  }
+  window.PtoStudioComputationGraph = Object.freeze({
+    renderScene: renderPypaGraphScene,
+    cardHtml: (node, model, layers) => pypaComputeCardHtml(node, { model, layers }),
+  });
+
+  function renderPyptoTaskGraph() {
+    if (window.PTO_COMPUTATION_JOURNEY) ensurePypaJourneyModel();
+    const graph = pypaVisibleGraph();
+    const viewport = $('#pypaTaskViewport');
+    const scene = $('#pypaTaskScene');
+    if (!graph || !viewport || !scene) return;
+    pypaGraphController?.abort?.();
+    const controller = new AbortController();
+    pypaGraphController = controller;
+    const { placedNodes, sceneWidth, sceneHeight } = renderPypaGraphScene(scene, graph, {
+      view: pypaGraphView, selectedNodeId: pypaSelectedNodeId, expandedStages: pypaExpandedStages,
+      modelGraphviz: isMatmulFile(state.activeFile), cardHtml: pypaComputeCardHtml,
+      fallbackWidth: PYPA_SCENE_WIDTH, fallbackHeight: PYPA_SCENE_HEIGHT,
     });
     controller.nodes = placedNodes;
     controller.graph = { ...graph, nodes: placedNodes };
@@ -2753,9 +2771,9 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
      数据投影得到：常量维度显示解析后的数值，运行时维度保留符号名，源码没声明的
      只写「Shape 未声明」，不猜、也不从相邻节点继承。形状文本只在逗号后断行
      （<wbr>），维名不会被拆开；卡片的显示高度仍落在布局预留的盒高内。 */
-  function pypaComputeCardHtml(node) {
-    const layers = typeof pypaOverlays === 'undefined' ? { shape: true, precision: true, memory: false, control: false } : pypaOverlays;
-    const fields = node.overlay || window.PTO_COMPUTATION_PRESENTATION.overlays(node, { model: activeSemanticModel(), qualifiedId: node.id });
+  function pypaComputeCardHtml(node, options = {}) {
+    const layers = options.layers || (typeof pypaOverlays === 'undefined' ? { shape: true, precision: true, memory: false, control: false } : pypaOverlays);
+    const fields = node.overlay || window.PTO_COMPUTATION_PRESENTATION.overlays(node, { model: options.model || activeSemanticModel(), qualifiedId: node.id });
     const shape = layers.shape && node.card ? fields.shape
       ? `<span class="kf-pypa-graph__node-shape" title="${pypaEscape(fields.shapeTitle)}">${pypaEscape(fields.shape).replace(/,\s+/g, ',<wbr> ')}</span>`
       : '<span class="kf-pypa-graph__node-shape is-undeclared">Shape 未声明</span>' : '';
