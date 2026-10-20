@@ -228,9 +228,9 @@
     visit(model, 'graph');
     return model;
   }
-  function materialize(model, expandedIds) {
+  function materialize(model, expandedIds, options) {
     validate(model);
-    return root.PTO_COMPUTATION_LAYOUT.layout(model, expandedIds);
+    return root.PTO_COMPUTATION_LAYOUT.layout(model, expandedIds, options);
   }
   root.PTO_SEMANTIC_COMPUTATION_GRAPH = { schemaVersion, validate, materialize };
 })(typeof window === 'undefined' ? globalThis : window);

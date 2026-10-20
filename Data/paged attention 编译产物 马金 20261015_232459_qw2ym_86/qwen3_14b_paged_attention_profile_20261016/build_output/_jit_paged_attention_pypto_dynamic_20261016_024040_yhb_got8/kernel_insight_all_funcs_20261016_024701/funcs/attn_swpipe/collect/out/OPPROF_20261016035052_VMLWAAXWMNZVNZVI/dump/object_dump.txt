@@ -1,0 +1,2 @@
+/data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701/funcs/attn_swpipe/collect/out/OPPROF_20261016035052_VMLWAAXWMNZVNZVI/device0/attn_swpipe_mix_aic/0/dump
+attn_swpipe_mix_aic

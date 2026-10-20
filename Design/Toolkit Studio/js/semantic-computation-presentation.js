@@ -173,7 +173,12 @@
       [p.category, p.api?.[0]].filter(Boolean).slice(0, 2).join(' · ');
     const id = context.id || semantic.id;
     const stats = context.model ? card(semantic, context.model) : null;
-    return { ...semantic, semantic, id, parentId: context.parentId,
+    /* 语义色键：数据/状态按 role 归入中性 IO 层，操作/复合按 category 分层。
+       键名沿用 model-graphviz 的 sem:* 约定，取值留空时退回操作层的默认色。 */
+    const sem = type === 'data' || type === 'state'
+      ? `io:${p.role || type}`
+      : `op:${p.category || type}`;
+    return { ...semantic, semantic, id, parentId: context.parentId, sem,
       semanticType: type, type, kind: type === 'data' || type === 'state' ? 'data' : 'operation',
       badge: type.toUpperCase(), title: semantic.name, sub, detail: semantic.description,
       api: Array.isArray(p.api) ? p.api.join(' · ') : '', lines: (semantic.source?.ranges || []).map(({ start, end }) => start === end ? String(start) : `${start}–${end}`).join('、'),

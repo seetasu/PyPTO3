@@ -1,0 +1,156 @@
+{
+  "schema": 2,
+  "supported_execution_modes": [
+    "program"
+  ],
+  "params": [
+    {
+      "name": "key_cache",
+      "direction": "InOut",
+      "shape": [
+        10368,
+        1024
+      ],
+      "dtype": "bfloat16",
+      "layout": "ND"
+    },
+    {
+      "name": "value_cache",
+      "direction": "InOut",
+      "shape": [
+        10368,
+        1024
+      ],
+      "dtype": "bfloat16",
+      "layout": "ND"
+    },
+    {
+      "name": "block_table",
+      "direction": "In",
+      "shape": [
+        64
+      ],
+      "dtype": "int32",
+      "layout": "ND"
+    },
+    {
+      "name": "seq_lens",
+      "direction": "In",
+      "shape": [
+        2
+      ],
+      "dtype": "int32",
+      "layout": "ND"
+    },
+    {
+      "name": "inv_rms_states",
+      "direction": "In",
+      "shape": [
+        2,
+        1
+      ],
+      "dtype": "fp32",
+      "layout": "ND"
+    },
+    {
+      "name": "slot_mapping",
+      "direction": "In",
+      "shape": [
+        2
+      ],
+      "dtype": "int32",
+      "layout": "ND"
+    },
+    {
+      "name": "rope_cos",
+      "direction": "In",
+      "shape": [
+        4096,
+        128
+      ],
+      "dtype": "fp32",
+      "layout": "ND"
+    },
+    {
+      "name": "rope_sin",
+      "direction": "In",
+      "shape": [
+        4096,
+        128
+      ],
+      "dtype": "fp32",
+      "layout": "ND"
+    },
+    {
+      "name": "q_proj",
+      "direction": "In",
+      "shape": [
+        2,
+        5120
+      ],
+      "dtype": "fp32",
+      "layout": "ND"
+    },
+    {
+      "name": "k_proj",
+      "direction": "In",
+      "shape": [
+        2,
+        1024
+      ],
+      "dtype": "fp32",
+      "layout": "ND"
+    },
+    {
+      "name": "v_proj",
+      "direction": "In",
+      "shape": [
+        2,
+        1024
+      ],
+      "dtype": "fp32",
+      "layout": "ND"
+    },
+    {
+      "name": "q_norm_w",
+      "direction": "In",
+      "shape": [
+        1,
+        128
+      ],
+      "dtype": "fp32",
+      "layout": "ND"
+    },
+    {
+      "name": "k_norm_w",
+      "direction": "In",
+      "shape": [
+        1,
+        128
+      ],
+      "dtype": "fp32",
+      "layout": "ND"
+    },
+    {
+      "name": "layer_cache_base_token_rows",
+      "direction": "In",
+      "shape": null,
+      "dtype": "index",
+      "layout": null
+    },
+    {
+      "name": "out",
+      "direction": "Out",
+      "shape": [
+        2,
+        40,
+        128
+      ],
+      "dtype": "bfloat16",
+      "layout": "ND"
+    }
+  ],
+  "num_return_types": 1,
+  "platform": "a2a3",
+  "backend_type": "Ascend910B"
+}

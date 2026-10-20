@@ -817,6 +817,17 @@
 .kf-pypa-graph__arrow.is-control { fill: var(--warning); }
 .kf-pypa-graph__arrow.is-feedback { fill: var(--accent); }
 .kf-pypa-graph__arrow.is-detail { fill: var(--foreground); }
+/* 开口箭头：只描边不填充。关系类型仍由 is-<type> 取色。 */
+.kf-pypa-graph__arrow.is-open { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.kf-pypa-graph__arrow.is-open.is-dep { fill: none; stroke: var(--foreground-muted); }
+.kf-pypa-graph__arrow.is-open.is-data { fill: none; stroke: var(--success); }
+.kf-pypa-graph__arrow.is-open.is-sync { fill: none; stroke: var(--warning); }
+.kf-pypa-graph__arrow.is-open.is-loop { fill: none; stroke: var(--accent); }
+.kf-pypa-graph__arrow.is-open.is-state { fill: none; stroke: var(--accent); }
+.kf-pypa-graph__arrow.is-open.is-computation { fill: none; stroke: var(--foreground-secondary); }
+.kf-pypa-graph__arrow.is-open.is-control { fill: none; stroke: var(--warning); }
+.kf-pypa-graph__arrow.is-open.is-feedback { fill: none; stroke: var(--accent); }
+.kf-pypa-graph__arrow.is-open.is-detail { fill: none; stroke: var(--foreground); }
 .kf-pypa-graph__group { position: absolute; z-index: 0; box-sizing: border-box; border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border-subtle)); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--primary) 3%, transparent); pointer-events: none; }
 .kf-pypa-graph__group > span { position: absolute; top: 12px; left: 16px; color: var(--foreground-muted); font: 700 14px var(--font-sans); letter-spacing: .04em; }
 .kf-pypa-graph__node { position: absolute; z-index: 2; display: block; padding: 12px 14px; text-align: left; color: var(--foreground); background: var(--surface-2); border: 1px solid var(--border-default); border-radius: var(--radius-lg); cursor: pointer; }

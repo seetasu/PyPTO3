@@ -1,0 +1,27 @@
+$ cmake --build /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701/builds/attn_swpipe --target attn_swpipe_msprof_sim
+[1/5] Building CXX object CMakeFiles/attn_swpipe_msprof_sim.dir/main.cpp.o
+[2/5] Building CXX object CMakeFiles/attn_swpipe_msprof_kernel.dir/launch.cpp.o
+FAILED: [code=1] CMakeFiles/attn_swpipe_msprof_kernel.dir/launch.cpp.o 
+/usr/local/Ascend/cann-9.0.0/bin/bisheng -Dattn_swpipe_msprof_kernel_EXPORTS -I/data/m00956180/runtime/pypto-lib-hw-native-sys/.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include -I/data/m00956180/runtime/pypto-lib-hw-native-sys/.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/tests/common -I/usr/local/Ascend/cann-9.0.0/include -I/usr/local/Ascend/driver/kernel/inc -I/usr/local/Ascend/cann-9.0.0/pkg_inc -I/usr/local/Ascend/cann-9.0.0/pkg_inc/profiling -I/usr/local/Ascend/cann-9.0.0/pkg_inc/runtime/runtime -fPIC -D_FORTIFY_SOURCE=2 -O2 -std=c++17 -Wno-macro-redefined -Wno-ignored-attributes -fstack-protector-strong -fPIC -xcce -fenable-matrix --cce-aicore-enable-tl -Xhost-start -Xhost-end -mllvm -cce-aicore-stack-size=0x8000 -mllvm -cce-aicore-function-stack-size=0x8000 -mllvm -cce-aicore-record-overflow=true -mllvm -cce-aicore-addr-transform -mllvm -cce-aicore-dcci-insert-for-scalar=false --cce-aicore-arch=dav-c220 -DREGISTER_BASE -std=gnu++17 -MD -MT CMakeFiles/attn_swpipe_msprof_kernel.dir/launch.cpp.o -MF CMakeFiles/attn_swpipe_msprof_kernel.dir/launch.cpp.o.d -o CMakeFiles/attn_swpipe_msprof_kernel.dir/launch.cpp.o -c /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701/cases/ptoas/attn_swpipe_msprof/launch.cpp
+bisheng: warning: argument unused during compilation: '--cce-aicore-enable-tl' [-Wunused-command-line-argument]
+/data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701/cases/ptoas/attn_swpipe_msprof/launch.cpp:27:8: error: redefinition of 'MrgSortExecutedNumList'
+struct MrgSortExecutedNumList {
+       ^
+/data/m00956180/runtime/pypto-lib-hw-native-sys/.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/common/type.hpp:448:8: note: previous definition is here
+struct MrgSortExecutedNumList {
+       ^
+1 error generated.
+[3/5] Building CXX object CMakeFiles/attn_swpipe_msprof_kernel.dir/attn_swpipe_msprof_kernel.cpp.o
+FAILED: [code=1] CMakeFiles/attn_swpipe_msprof_kernel.dir/attn_swpipe_msprof_kernel.cpp.o 
+/usr/local/Ascend/cann-9.0.0/bin/bisheng -Dattn_swpipe_msprof_kernel_EXPORTS -I/data/m00956180/runtime/pypto-lib-hw-native-sys/.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include -I/data/m00956180/runtime/pypto-lib-hw-native-sys/.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/tests/common -I/usr/local/Ascend/cann-9.0.0/include -I/usr/local/Ascend/driver/kernel/inc -I/usr/local/Ascend/cann-9.0.0/pkg_inc -I/usr/local/Ascend/cann-9.0.0/pkg_inc/profiling -I/usr/local/Ascend/cann-9.0.0/pkg_inc/runtime/runtime -fPIC -D_FORTIFY_SOURCE=2 -O2 -std=c++17 -Wno-macro-redefined -Wno-ignored-attributes -fstack-protector-strong -fPIC -xcce -fenable-matrix --cce-aicore-enable-tl -Xhost-start -Xhost-end -mllvm -cce-aicore-stack-size=0x8000 -mllvm -cce-aicore-function-stack-size=0x8000 -mllvm -cce-aicore-record-overflow=true -mllvm -cce-aicore-addr-transform -mllvm -cce-aicore-dcci-insert-for-scalar=false --cce-aicore-arch=dav-c220 -DREGISTER_BASE -std=gnu++17 -MD -MT CMakeFiles/attn_swpipe_msprof_kernel.dir/attn_swpipe_msprof_kernel.cpp.o -MF CMakeFiles/attn_swpipe_msprof_kernel.dir/attn_swpipe_msprof_kernel.cpp.o.d -o CMakeFiles/attn_swpipe_msprof_kernel.dir/attn_swpipe_msprof_kernel.cpp.o -c /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701/cases/ptoas/attn_swpipe_msprof/attn_swpipe_msprof_kernel.cpp
+bisheng: warning: argument unused during compilation: '--cce-aicore-enable-tl' [-Wunused-command-line-argument]
+/data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701/cases/ptoas/attn_swpipe_msprof/attn_swpipe_msprof_kernel.cpp:27:8: error: redefinition of 'MrgSortExecutedNumList'
+struct MrgSortExecutedNumList {
+       ^
+/data/m00956180/runtime/pypto-lib-hw-native-sys/.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/common/type.hpp:448:8: note: previous definition is here
+struct MrgSortExecutedNumList {
+       ^
+1 error generated.
+ninja: build stopped: subcommand failed.
+
+[exit 1]

@@ -1,0 +1,10 @@
+# ninja log v7
+1	1251	1792144021727191322	CMakeFiles/attn_swpipe_msprof_sim.dir/main.cpp.o	4eafee11e69ad235
+2	1521	1792144178288699932	CMakeFiles/attn_swpipe_msprof_kernel.dir/launch.cpp.o	645b1deccd55b352
+2	3452	1792144178288699932	CMakeFiles/attn_swpipe_msprof_kernel.dir/attn_swpipe_msprof_kernel.cpp.o	a703be4c162f5263
+3452	3512	1792144181740733196	libattn_swpipe_msprof_kernel.so	4834ca4541d631b2
+3512	3632	1792144181800733774	attn_swpipe_msprof_sim	81aaa1e6c8ed897a
+1	1062	1792144954024174837	CMakeFiles/attn_swpipe_msprof_sim.dir/main.cpp.o	4eafee11e69ad235
+1062	1179	1792144955088185089	attn_swpipe_msprof_sim	81aaa1e6c8ed897a
+6	1036	1792147530276999334	CMakeFiles/attn_swpipe_msprof_sim.dir/main.cpp.o	4eafee11e69ad235
+1036	1180	1792147531309009279	attn_swpipe_msprof_sim	81aaa1e6c8ed897a
