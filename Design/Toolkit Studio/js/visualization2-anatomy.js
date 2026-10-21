@@ -29,10 +29,10 @@
     return {stacks,slots,pages:stacks.flatMap(index=>task.stacks[index].pages),
       shared:task.stacks.filter(stack=>slots.includes(stack.slot)).map(stack=>stack.index)};
   }
-  function mount(host,{model,onTask,onFocus,onCamera,onInspector}){
+  function mount(host,{model,onTask,onFocus,onCamera,onInspector,onExit}){
     const esc=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     host.classList.add('viz2-anatomy');
-    host.innerHTML=`<div class="viz2-anatomy-taskbar"><span>同一 Block</span><div role="group" aria-label="切换 Block 内 Task" data-anatomy-tasks></div><span data-anatomy-context></span></div>
+    host.innerHTML=`<div class="viz2-anatomy-taskbar"><span>同一 Block · 持续缩小返回 Block 间</span><div role="group" aria-label="切换 Block 内 Task" data-anatomy-tasks></div><span data-anatomy-context></span></div>
       <div class="viz2-anatomy-body"><div class="viz2-anatomy-stage"><div class="viz2-anatomy-viewport" role="group" tabindex="0" aria-label="Task 数据结构画布，滚轮缩放，拖拽平移"><svg class="viz2-anatomy-svg" aria-label="Q Tile、Stack 内逻辑 Pages 与 Transfer Slots 的映射"><g data-anatomy-scene></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
       <footer class="viz2-anatomy-footer"><span>有效数据 <i class="viz2-anatomy-key"></i>未用容量 <i class="viz2-anatomy-key is-capacity"></i><small>静态数据映射</small></span><div class="kf-pa-map__tools"><button type="button" class="btn btn-ghost btn-sm" data-anatomy-zoom="0.8" aria-label="缩小数据结构">−</button><output data-anatomy-scale></output><button type="button" class="btn btn-ghost btn-sm" data-anatomy-zoom="1.25" aria-label="放大数据结构">＋</button><button type="button" class="btn btn-ghost btn-sm" data-anatomy-fit>Fit to View</button></div></footer></div>
       <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="Task 数据详情" hidden><header class="pto-ide-frame__pane-header"><b data-anatomy-title></b><button type="button" class="btn btn-ghost btn-sm" data-anatomy-close aria-label="关闭数据详情">×</button></header><div class="pto-ide-frame__pane-body" data-anatomy-detail></div></aside></div>`;
@@ -126,7 +126,10 @@
       if(changed){tooltip.hidden=true;draw();}paintFocus();paintInspector(inspectorOpen);paint();
     }
     function zoom(factor,point={x:viewport.clientWidth/2,y:viewport.clientHeight/2}){
-      if(!camera)return;const scale=Math.max(.15,Math.min(4,camera.scale*factor)),ratio=scale/camera.scale;
+      if(!camera)return;const previousScale=camera.scale,scale=Math.max(.15,Math.min(4,previousScale*factor)),ratio=scale/previousScale;
+      const exitScale=Math.max(.15,fitted().scale*.55);
+      // Exit from the currently painted Task, just like the Block 间 button.
+      if(factor<1&&previousScale>exitScale&&scale<=exitScale){onExit();return;}
       onCamera(task.id,{scale,x:point.x-(point.x-camera.x)*ratio,y:point.y-(point.y-camera.y)*ratio});
     }
     host.addEventListener('click',event=>{

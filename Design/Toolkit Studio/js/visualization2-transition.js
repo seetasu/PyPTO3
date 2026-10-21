@@ -21,7 +21,7 @@
     return {blocks:pipeline.blocks.filter(b=>blocks.has(b.id)).map(b=>({source:blocks.get(b.id),target:b})),
       tasks:pipeline.tasks.filter(t=>batches.has(t.batch)).map(t=>({source:batches.get(t.batch),target:t}))};
   }
-  function create({root,getPipeline}){
+  function create({root,getPipeline,getGraph}){
     let job=null,serial=0;
     const media=global.matchMedia('(prefers-reduced-motion: reduce)');
     const originRect=()=>{
@@ -42,18 +42,22 @@
     }
     function mask(view,value){
       if(view==='pipeline')getPipeline()?.setTransitionMasked(value);
+      else if(view==='graph')root.classList.toggle('viz2-morph-graph',value);
       else root.classList.toggle('viz2-morph-assignment',value);
     }
     function cancel(){
       if(!job)return;
-      cancelAnimationFrame(job.frame);job.overlay?.remove();job.hold?.remove();
+      cancelAnimationFrame(job.frame);job.animations?.forEach(animation=>animation.cancel());job.overlay?.remove();job.hold?.remove();
       mask(job.to,false);root.classList.remove('viz2-morph-preparing');delete root.dataset.morphDestination;job=null;
     }
     function prepare(state,to){
       cancel();
-      if(!state.open||state.activeTab===to||media.matches||state.views.assignment.subview==='block'||state.views.pipeline.subview==='block'||state.views.assignment.phase!=='attention')return null;
+      if(!state.open||state.activeTab===to||media.matches||state.views.assignment.subview==='block'||state.views.pipeline.subview==='block'||state.views.graph.subview==='block')return null;
       const from=state.activeTab;
-      if(!((from==='assignment'&&to==='pipeline')||(from==='pipeline'&&to==='assignment')))return null;
+      const assignmentPipeline=(from==='assignment'&&to==='pipeline')||(from==='pipeline'&&to==='assignment');
+      const pipelineGraph=from==='pipeline'&&to==='graph';
+      if(!assignmentPipeline&&!pipelineGraph)return null;
+      if(assignmentPipeline&&state.views.assignment.phase!=='attention')return null;
       const source=from==='assignment'?assignmentSnapshot():getPipeline()?.getTransitionSnapshot();
       if(!source)return null;
       job={id:++serial,from,to,source,selection:state.selection,frame:0,phase:'preparing'};
@@ -76,8 +80,44 @@
       // Two frames settle first-entry camera and Inspector-dependent width, including ResizeObserver.
       current.frame=requestAnimationFrame(()=>{current.frame=requestAnimationFrame(()=>start(current));});
     }
+    function startPipelineGraph(current){
+      const target=getGraph()?.getBlockTransitionSnapshot();
+      if(!target?.blocks.length){cancel();return;}
+      const origin=originRect(),style=getComputedStyle(root),color=name=>style.getPropertyValue(name).trim();
+      const sources=new Map(current.source.blocks.map(block=>[block.id,block]));
+      const visible=block=>block.rect.y+block.rect.height>current.source.clip.y&&block.rect.y<current.source.clip.y+current.source.clip.height;
+      const mapping=target.blocks.filter(block=>sources.has(block.id)&&visible(sources.get(block.id))).map(block=>({source:sources.get(block.id),target:block}));
+      const overlay=el('svg',{class:'viz2-transition-overlay',width:origin.width,height:origin.height,'aria-hidden':'true','data-direction':'pipeline-graph'},root);
+      current.overlay=overlay;
+      const items=mapping.map(pair=>{
+        const selected=pair.source.id===current.selection?.block;
+        const group=el('g',{'data-morph-block':pair.source.id,'data-morph-stage':pair.target.stage||''},overlay);
+        const box=el('rect',{rx:4,fill:selected?color('--state-selected'):color('--surface-3'),stroke:selected?color('--primary'):color('--border-subtle')},group);
+        const label=el('text',{'text-anchor':'middle','dominant-baseline':'central',fill:selected?color('--foreground'):color('--foreground-secondary'),'font-family':color('--font-mono'),'font-size':12},group);
+        label.textContent=String(pair.source.id).padStart(2,'0');return {...pair,box,label};
+      });
+      mask('graph',true);root.classList.remove('viz2-morph-preparing');
+      const destination=root.querySelector('#viz2-graph');
+      current.animations=[current.hold.animate([{opacity:1},{opacity:0}],{duration:420,fill:'both',easing:'ease-in-out'}),
+        destination.animate([{opacity:0},{opacity:1}],{duration:700,fill:'both',easing:'ease-in-out'})];
+      current.phase='animating';const started=performance.now(),duration=760;
+      function frame(now){
+        if(job!==current)return;
+        const progress=Math.min(1,(now-started)/duration),p=ease(progress);
+        items.forEach(item=>{
+          const r=lerp(item.source.rect,item.target.rect,p);
+          for(const key of ['x','y','width','height'])item.box.setAttribute(key,key==='x'?r.x-origin.left:key==='y'?r.y-origin.top:r[key]);
+          item.label.setAttribute('x',r.x-origin.left+r.width/2);
+          item.label.setAttribute('y',r.y-origin.top+r.height/2);
+          item.box.style.opacity=item.label.style.opacity=String(1-Math.max(0,(progress-.82)/.18));
+        });
+        if(progress<1)current.frame=requestAnimationFrame(frame);else cancel();
+      }
+      frame(started);
+    }
     function start(current){
       if(job!==current)return;
+      if(current.from==='pipeline'&&current.to==='graph'){startPipelineGraph(current);return;}
       const target=current.to==='assignment'?assignmentSnapshot():getPipeline()?.getTransitionSnapshot();
       if(!target){cancel();return;}
       const forward=current.to==='pipeline', assignment=forward?current.source:target, pipeline=forward?target:current.source;
@@ -151,7 +191,7 @@
       frame(started);
     }
     global.addEventListener('resize',cancel);media.addEventListener('change',cancel);
-    root.addEventListener('scroll',()=>{if(job?.phase==='animating')cancel();},true);
+    root.addEventListener('scroll',event=>{if(job?.phase==='animating'&&!job.hold?.contains(event.target))cancel();},true);
     return {prepare,play,cancel,get active(){return !!job;},get animating(){return job?.phase==='animating';}};
   }
   global.PtoVisualization2Transition=Object.freeze({create,pairs});

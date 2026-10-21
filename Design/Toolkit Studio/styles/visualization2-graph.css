@@ -1,5 +1,5 @@
 /* Canvas chrome is local; node/edge/group appearance comes from the original graph CSS. */
-.viz2-graph { display: flex; flex-direction: column; }
+#viz2-graph, .viz2-graph { display: flex; flex-direction: column; }
 .viz2-graph-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .viz2-graph-stage { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .viz2-graph-viewport { position: relative; inset: auto; flex: 1; min-height: 0; min-width: 0; overflow: hidden; touch-action: none; }
@@ -37,6 +37,14 @@
 .viz2-graph-stage-title b { font: var(--type-title-3); color: var(--foreground-secondary); }
 .viz2-graph-stage-title span { font: var(--type-mono); color: var(--primary); }
 .viz2-graph-stage-title small { grid-column: 1 / -1; font: var(--type-body-sm); color: var(--foreground-muted); }
+.viz2-graph-block-rail { position: absolute; left: 0; top: 0; width: 148px; padding: var(--space-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-2); box-shadow: var(--shadow-md); pointer-events: auto; }
+.viz2-graph-block-rail__title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-2); color: var(--foreground-secondary); font: var(--type-label); }
+.viz2-graph-block-rail__title small { color: var(--foreground-muted); font: var(--type-mono); }
+.viz2-graph-block-rail__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.viz2-graph-block-rail__grid button { min-width: 0; height: 28px; padding: 0; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--surface-3); color: var(--foreground-secondary); font: var(--type-mono); cursor: pointer; }
+.viz2-graph-block-rail__grid button:hover { border-color: var(--primary); color: var(--foreground); }
+.viz2-graph-block-rail__grid button.is-selected { border-color: var(--primary); background: var(--state-selected); color: var(--foreground); }
+.viz2-graph-block-rail__grid button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
 .viz2-graph-label-guides .viz2-graph-stage-guide { stroke-dasharray: 3 4; }
 
@@ -47,3 +55,8 @@
 
 .viz2-graph-node-title {display:inline-flex;align-items:center;gap:var(--space-1);}
 .viz2-graph-node-title > button {min-height:20px;padding:0 var(--space-1);}
+
+/* Static execution is a decoration of shared cards, never a geometry change. */
+.viz2-graph-scene[data-execution-weight] .kf-pypa-graph__node {transition:filter .25s;}
+.viz2-graph-scene[data-execution-weight="true"] .kf-pypa-graph__node {filter:brightness(calc(1 + var(--execution-weight,0) * .25));}
+@media(prefers-reduced-motion:reduce){.viz2-graph-scene[data-execution-weight] .kf-pypa-graph__node {transition:none;}}

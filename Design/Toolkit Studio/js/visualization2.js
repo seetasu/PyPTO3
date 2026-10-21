@@ -12,11 +12,14 @@
     return {
       getState: snapshot,
       dispatch(action) {
+        // A wheel gesture emits several events after crossing the semantic-zoom
+        // threshold. Those follow-up camera updates must not cancel the morph.
+        if(action.type==='view'&&action.id==='assignment'&&semanticZoom?.animating)return;
         if(['tab','close','select','pipeline-intra-task','pipeline-intra-focus'].includes(action.type)||(action.type==='view'&&pipelineZoom?.animating))pipelineZoom?.cancel();
         if(['tab','close','select','graph-intra-focus','graph-intra-task'].includes(action.type)||(action.type==='view'&&graphZoomJob?.running))cancelGraphZoom();
         if(action.type==='tab')semanticZoom?.cancel();
         const transition = action.type === 'tab' ? tabTransition?.prepare(state,action.id) : null;
-        if (['tab','close','phase','select','anatomy-focus','anatomy-task'].includes(action.type) || (action.type==='view' && semanticZoom?.animating)) semanticZoom?.cancel();
+        if (['tab','close','phase','select','anatomy-focus','anatomy-task'].includes(action.type)) semanticZoom?.cancel();
         if (['close','phase','select'].includes(action.type) || (action.type === 'view' && tabTransition?.animating)) tabTransition?.cancel();
         if (action.type === 'open') state = { ...state, open: true, activeTab: 'assignment',views:{...state.views,assignment:{...state.views.assignment,subview:null}} };
         else if (action.type === 'close') state = { ...state, open: false };
@@ -104,12 +107,12 @@
       <span class="pto-ide-frame__pane-meta">paged_attention_pypto.py</span>
     </header>
     <div class="viz2-content">
-      <div class="pto-ide-frame__tabstrip viz2-tabs"><div class="tab-control" role="tablist" aria-label="可视化视图">${tabs.map(id => `<button type="button" class="tab-control-item" role="tab" id="viz2-tab-${id}" aria-controls="viz2-${id}" data-viz2-tab="${id}">${id[0].toUpperCase()+id.slice(1)}</button>`).join('')}</div></div>
+      <div class="pto-ide-frame__tabstrip viz2-tabs"><div class="tab-control" role="tablist" aria-label="可视化视图">${tabs.map(id => `<button type="button" class="tab-control-item" role="tab" id="viz2-tab-${id}" aria-controls="viz2-${id}" data-viz2-tab="${id}"><span class="viz2-tab-icon viz2-tab-icon--${id}" aria-hidden="true"></span>${id[0].toUpperCase()+id.slice(1)}</button>`).join('')}</div></div>
       ${tabs.map(id => `<section class="viz2-canvas" id="viz2-${id}" role="tabpanel" aria-labelledby="viz2-tab-${id}" tabindex="0" hidden></section>`).join('')}
     </div>`;
     document.querySelector('#ideWorkarea').append(root);
     const host = root.querySelector('#viz2-assignment');
-    host.innerHTML = `<div class="viz2-phase-toolbar viz2-assignment-hud"><div data-viz2-phases class="segmented-control segmented-control-muted" role="group" aria-label="Assignment 阶段"><button class="btn btn-sm" type="button" data-viz2-phase="phase0" aria-pressed="false" aria-controls="viz2-phase0">Phase0</button><button class="btn btn-sm is-selected" type="button" data-viz2-phase="attention" aria-pressed="true" aria-controls="viz2-attention">Attention+Output</button></div><div class="segmented-control segmented-control-muted" role="group" aria-label="Assignment 范围"><button class="btn btn-sm is-selected" data-viz2-scope="inter" aria-pressed="true">Block 间</button><button class="btn btn-sm" data-viz2-scope="intra" aria-pressed="false" disabled>Block 内</button></div><nav aria-label="当前对象" data-viz2-breadcrumb></nav><button class="btn btn-ghost btn-sm" data-viz2-matrix-back hidden>← 返回矩阵</button></div>
+    host.innerHTML = `<div class="viz2-phase-toolbar viz2-assignment-hud"><div data-viz2-phases class="segmented-control segmented-control-muted" role="group" aria-label="Assignment 阶段"><button class="btn btn-sm" type="button" data-viz2-phase="phase0" aria-pressed="false" aria-controls="viz2-phase0">Phase0</button><button class="btn btn-sm is-selected" type="button" data-viz2-phase="attention" aria-pressed="true" aria-controls="viz2-attention">Attention+Output</button></div><div class="segmented-control segmented-control-muted" role="group" aria-label="Assignment 范围"><button class="btn btn-sm is-selected" data-viz2-scope="inter" aria-label="Block 间" title="Block 间" aria-pressed="true"><span class="viz2-block-scope-icon viz2-block-scope-icon--inter" aria-hidden="true"></span></button><button class="btn btn-sm" data-viz2-scope="intra" aria-label="Block 内" title="Block 内" aria-pressed="false" disabled><span class="viz2-block-scope-icon" aria-hidden="true"></span></button></div><nav aria-label="当前对象" data-viz2-breadcrumb></nav><button class="btn btn-ghost btn-sm" data-viz2-matrix-back hidden>← 返回矩阵</button></div>
       <div class="viz2-phase-surface" id="viz2-anatomy" aria-label="Block 内 Task 数据结构" hidden></div>
       <div class="viz2-phase-surface" id="viz2-phase0" aria-label="Phase0 工作分配" hidden></div>
       <div class="viz2-phase-surface" id="viz2-attention" aria-label="Attention+Output 工作分配"><div class="kf-pa-map">      <section class="kf-pa-map__shelf" aria-label="SPMD Block 分配">
@@ -126,7 +129,7 @@
         <svg class="kf-pa-map__svg" xmlns="http://www.w3.org/2000/svg" aria-label="Batch 与 KV Head 的任务关系"><g class="kf-pa-map__scene"></g></svg>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div>
       </div>
-      <footer class="kf-pa-map__footer"><div><p data-viz2-selection aria-live="polite">每格 1 个 Task · 5 条底纹 = 5 个 Q Head</p><span>滚轮缩放 · 拖拽平移 · 方向键选择 Task</span></div>
+      <footer class="kf-pa-map__footer"><div><p data-viz2-selection aria-live="polite">每格 1 个 Task · 5 条底纹 = 5 个 Q Head</p><span>指向 Task 持续放大进入内部 · 拖拽平移 · 方向键选择</span></div>
       <div class="kf-pa-map__tools" role="group" aria-label="矩阵画布操作"><button class="btn btn-ghost btn-sm" data-viz2-zoom="0.8" aria-label="缩小矩阵">−</button><output data-viz2-scale>100%</output><button class="btn btn-ghost btn-sm" data-viz2-zoom="1.25" aria-label="放大矩阵">＋</button><button class="btn btn-ghost btn-sm" data-viz2-fit>适应</button></div></footer></div></div>`;
     viewport = host.querySelector('.kf-pa-map__viewport'); scene = host.querySelector('.kf-pa-map__scene'); tooltip = host.querySelector('#viz2-attention [role="tooltip"]');
     drawMatrix();
@@ -141,8 +144,8 @@
       onSelect: selection => store.dispatch({type:'select',selection}),
       onCamera: camera => store.dispatch({type:'view',id:'assignment',patch:{phase0Camera:camera}}),
     });
-    root.querySelector('#viz2-pipeline').innerHTML=`<div class="viz2-phase-toolbar viz2-assignment-hud"><div class="segmented-control segmented-control-muted" role="group" aria-label="Pipeline 范围"><button class="btn btn-sm" data-pipeline-scope="inter" aria-pressed="true">Block 间</button><button class="btn btn-sm" data-pipeline-scope="intra" aria-pressed="false" disabled>Block 内</button></div><nav aria-label="Pipeline 当前对象" data-pipeline-breadcrumb>Pipeline</nav><button class="btn btn-ghost btn-sm" data-pipeline-back hidden>← 返回 Block 间</button></div><div class="viz2-phase-surface" id="viz2-pipeline-inter"></div><div class="viz2-phase-surface" id="viz2-pipeline-intra" hidden></div>`;
-    root.querySelector('#viz2-graph').innerHTML=`<div class="viz2-phase-toolbar viz2-assignment-hud"><div class="segmented-control segmented-control-muted" role="group" aria-label="Graph 范围"><button class="btn btn-sm" data-graph-scope="inter">Block 间</button><button class="btn btn-sm" data-graph-scope="intra">Block 内</button></div><nav data-graph-breadcrumb aria-label="Graph 当前对象">Graph</nav><button class="btn btn-ghost btn-sm" data-graph-back hidden>← 返回 Block 间</button></div><div class="viz2-phase-surface" id="viz2-graph-inter"></div><div class="viz2-phase-surface" id="viz2-graph-intra" hidden></div>`;
+    root.querySelector('#viz2-pipeline').innerHTML=`<div class="viz2-phase-toolbar viz2-assignment-hud"><div class="segmented-control segmented-control-muted" role="group" aria-label="Pipeline 范围"><button class="btn btn-sm is-selected" data-pipeline-scope="inter" aria-label="Block 间" title="Block 间" aria-pressed="true"><span class="viz2-block-scope-icon viz2-block-scope-icon--inter" aria-hidden="true"></span></button><button class="btn btn-sm" data-pipeline-scope="intra" aria-label="Block 内" title="Block 内" aria-pressed="false" disabled><span class="viz2-block-scope-icon" aria-hidden="true"></span></button></div><nav aria-label="Pipeline 当前对象" data-pipeline-breadcrumb>Pipeline</nav><button class="btn btn-ghost btn-sm" data-pipeline-back hidden>← 返回 Block 间</button></div><div class="viz2-phase-surface" id="viz2-pipeline-inter"></div><div class="viz2-phase-surface" id="viz2-pipeline-intra" hidden></div>`;
+    root.querySelector('#viz2-graph').innerHTML=`<div class="viz2-phase-toolbar viz2-assignment-hud"><div class="segmented-control segmented-control-muted" role="group" aria-label="Graph 范围"><button class="btn btn-sm is-selected" data-graph-scope="inter" aria-label="Block 间" title="Block 间" aria-pressed="true"><span class="viz2-block-scope-icon viz2-block-scope-icon--inter" aria-hidden="true"></span></button><button class="btn btn-sm" data-graph-scope="intra" aria-label="Block 内" title="Block 内" aria-pressed="false"><span class="viz2-block-scope-icon" aria-hidden="true"></span></button></div><nav data-graph-breadcrumb aria-label="Graph 当前对象">Graph</nav><button class="btn btn-ghost btn-sm" data-graph-back hidden>← 返回 Block 间</button></div><div class="viz2-phase-surface" id="viz2-graph-inter"></div><div class="viz2-phase-surface" id="viz2-graph-intra" hidden></div>`;
     root.addEventListener('click', event => {
       if (event.target.closest('[data-viz2-back]')) { close(); return; }
       const tab = event.target.closest('[data-viz2-tab]');
@@ -173,7 +176,9 @@
     viewport.addEventListener('wheel', event => {
       event.preventDefault(); const r = viewport.getBoundingClientRect();
       const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? r.height : 1;
-      zoomBy(Math.exp(Math.max(-.22, Math.min(.22, -event.deltaY * unit * .003))), {x:event.clientX-r.left,y:event.clientY-r.top});
+      const factor=Math.exp(Math.max(-.22, Math.min(.22, -event.deltaY * unit * .003)));
+      const task=event.target.closest('[data-pa-task]');
+      zoomBy(factor, {x:event.clientX-r.left,y:event.clientY-r.top}, task?Number(task.dataset.paTask):null);
     }, {passive:false});
     viewport.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
@@ -218,7 +223,7 @@
       }
       lastSize={width,height};
     }).observe(viewport);
-    tabTransition = window.PtoVisualization2Transition.create({root,getPipeline:()=>pipelineController});
+    tabTransition = window.PtoVisualization2Transition.create({root,getPipeline:()=>pipelineController,getGraph:()=>graphController});
     store.subscribe(render);
   }
     function sequenceGraphic(len, x, y, width, height = 8) {
@@ -286,14 +291,20 @@
     job.animations.push(job.hold.animate([{transform:'translate(0,0) scale(1,1)',opacity:1},{transform:`translate(${target.left-from.left}px,${target.top-from.top}px) scale(${target.width/from.width},${target.height/from.height})`,opacity:0}],{duration:720,easing:'cubic-bezier(.2,.8,.2,1)',fill:'both'}));
     const start=performance.now();function frame(now){if(job!==graphZoomJob)return;const p=Math.min(1,(now-start)/720),t=1-(1-p)**3;for(const [key,a,b] of [['x',from.left-o.left,target.left-o.left],['y',from.top-o.top,target.top-o.top],['width',from.width,target.width],['height',from.height,target.height]])rect.setAttribute(key,a+(b-a)*t);rect.setAttribute('opacity',Math.sin(Math.PI*p));if(p<1)requestAnimationFrame(frame);else cancelGraphZoom();}frame(start);
   }));}
-  function enterGraphIntra(previous){const s=store.getState();if(s.views.graph.subview==='block')return;graphOuterSnapshot=previous||{camera:s.views.graph.camera,nodeId:s.views.graph.nodeId,inspectorOpen:s.views.graph.inspectorOpen};const job=graphZoomPrepare(true);store.dispatch({type:'graph-intra-enter',id:s.selection?.task??85});graphZoomPlay(job);}
+  function enterGraphIntra(previous,taskId){const s=store.getState();if(s.views.graph.subview==='block')return;const id=taskId??s.selection?.task??85;if(!graphIntraModel.tasks[id])return;graphOuterSnapshot=previous||{camera:s.views.graph.camera,nodeId:s.views.graph.nodeId,inspectorOpen:s.views.graph.inspectorOpen};const job=graphZoomPrepare(true);store.dispatch({type:'graph-intra-enter',id});graphZoomPlay(job);}
   function exitGraphIntra(){if(store.getState().views.graph.subview!=='block')return;const job=graphZoomPrepare(false);store.dispatch({type:'graph-intra-exit'});graphZoomPlay(job);}
   addEventListener('resize',cancelGraphZoom);matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change',cancelGraphZoom);
   function selectTask(id) { const t=taskInfo(id); store.dispatch({type:'select',selection:{kind:'task',task:id,block:t.block,batch:t.batch,kvHead:t.kv}}); }
   function fitted() { const scale=Math.max(.05,Math.min((viewport.clientWidth-32)/grid.width,(viewport.clientHeight-24)/grid.height,1.2)); return {scale,x:(viewport.clientWidth-grid.width*scale)/2,y:(viewport.clientHeight-grid.height*scale)/2}; }
   function fit() { if (viewport.clientWidth && viewport.clientHeight) store.dispatch({type:'view',id:'assignment',patch:{camera:fitted()}}); }
-  function zoomBy(factor, point={x:viewport.clientWidth/2,y:viewport.clientHeight/2}) {
+  function zoomBy(factor, point={x:viewport.clientWidth/2,y:viewport.clientHeight/2}, pointedTask=null) {
     const old=store.getState().views.assignment.camera || fitted(), scale=Math.max(.05,Math.min(8,old.scale*factor)), ratio=scale/old.scale;
+    if(factor>1&&old.scale<2.8&&scale>=2.8&&store.getState().views.assignment.phase==='attention'){
+      const id=pointedTask??store.getState().selection?.task;
+      // The threshold is only a trigger. Enter from the currently painted matrix,
+      // exactly as the scope button and double-click do, without an extra camera step.
+      if(Number.isInteger(id)){enterAnatomy(id);return;}
+    }
     store.dispatch({type:'view',id:'assignment',patch:{camera:{scale,x:point.x-(point.x-old.x)*ratio,y:point.y-(point.y-old.y)*ratio}}});
   }
   function paintSelection() {
@@ -352,7 +363,8 @@
     root.querySelectorAll('[data-graph-scope]').forEach(b=>{const yes=(b.dataset.graphScope==='intra')===gi;b.classList.toggle('is-selected',yes);b.setAttribute('aria-pressed',String(yes));});
     root.querySelector('[data-graph-breadcrumb]').textContent=state.selection?.task!=null?`Graph / Block ${state.selection.block} / Task ${state.selection.task}${gi&&state.selection.subobject?` / ${state.selection.subobject.node||state.selection.subobject.stage||state.selection.subobject.kind} ${state.selection.subobject.index??''}`:''}`:'Graph';
     if(state.activeTab==='graph'&&!graphController)graphController=window.PtoVisualization2Graph.mount(root.querySelector('#viz2-graph-inter'),{
-      execution:{blocks:constants.blocks,taskCount:seqLens.length*constants.kvHeads,phase0Model,seqLens},onSelect:selection=>store.dispatch({type:'select',selection}),onView:patch=>store.dispatch({type:'view',id:'graph',patch}),onEnter:enterGraphIntra});
+      execution:{blocks:constants.blocks,taskCount:seqLens.length*constants.kvHeads,phase0Model,seqLens},onSelect:selection=>store.dispatch({type:'select',selection}),onView:patch=>store.dispatch({type:'view',id:'graph',patch}),onEnter:enterGraphIntra,
+      onBlockEnter:block=>{const selected=store.getState().selection;const first=graphIntraModel.tasks.find(task=>task.block===block);if(first)enterGraphIntra(null,selected?.kind==='task'&&selected.block===block?selected.task:first.id);}});
     graphController?.update(state.selection,gv,{active:state.activeTab==='graph'&&!gi,enter:action.type==='tab'&&state.activeTab==='graph'&&!gi,restore:action.type==='graph-intra-exit'});
     if(state.activeTab==='graph'&&gi&&!graphIntraController)graphIntraController=window.PtoVisualization2GraphIntra.mount(root.querySelector('#viz2-graph-intra'),{model:graphIntraModel,onTask:id=>store.dispatch({type:'graph-intra-task',id}),onFocus:focus=>store.dispatch({type:'graph-intra-focus',focus}),onView:patch=>store.dispatch({type:'view',id:'graph',patch})});
     graphIntraController?.update(gv.intraTask,state.selection?.subobject,gv,{active:state.activeTab==='graph'&&gi});
@@ -373,6 +385,7 @@
       root.querySelector('#viz2-phase0').hidden=true;root.querySelector('#viz2-attention').hidden=true;
       if(!anatomyController)anatomyController=window.PtoVisualization2Anatomy.mount(root.querySelector('#viz2-anatomy'),{model:anatomyModel,
         onTask:id=>store.dispatch({type:'anatomy-task',id}),onFocus:focus=>store.dispatch({type:'anatomy-focus',focus}),
+        onExit:exitAnatomy,
         onCamera:(id,camera)=>store.dispatch({type:'view',id:'assignment',patch:{anatomyCameras:{...store.getState().views.assignment.anatomyCameras,[id]:camera}}}),
         onInspector:open=>store.dispatch({type:'view',id:'assignment',patch:{anatomyInspectorOpen:open}})});
       anatomyController.update(assignment.anatomyTask,assignment.anatomyFocus?.[assignment.anatomyTask]||null,assignment.anatomyCameras?.[assignment.anatomyTask]||null,{active:true,inspectorOpen:assignment.anatomyInspectorOpen});return;

@@ -9,7 +9,7 @@
   ];
   const passes = ['Semantic Lowering', 'Layout Planning', 'Parallel Mapping', 'Memory Scheduling', 'ISA Emission'];
   const guards = ['Op legality', 'Dependencies', 'Manual scope', 'Liveness', 'Paged layout', 'Index width', 'ISA capacity', 'FP32 carry'];
-  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'decode_layer.py', productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionLayers: { precision: true, shape: false, hardware: false, dep: false, risk: true }, pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pagedAttentionAgentOpen: false, sourceRegionFocus: null, sourceRegionLine: null, matmulView: 'intro', pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
+  const state = { step: 0, workflowStep: 0, activityView: 'explorer', editorTab: 'source', activeFile: 'paged_attention_pypto.py', productMode: 'ide', selectedRecipe: 'decode_layer', fixed: false, compiled: false, verified: false, soloFollow: true, soloRunning: false, soloPaused: false, soloComplete: false, soloStep: -1, soloTool: 'context', currentRun: 'run_8f2c', runActionTab: 'cmd', selectedEvidence: 'tensor', intentTab: 'shape', intentGraphNode: null, passesGraphMode: 'single', rmsNormFunction: 'input', rmsNormTab: 'overview', rmsNormFlowStep: 'load', rmsNormPlan: {}, attentionTab: 'overview', attentionFocus: 'position', qwenDecodeTab: 'overview', qwenDecodeFocus: 'scope1', pagedAttentionFocus: 'paging', pagedAttentionLayers: { precision: true, shape: false, hardware: false, dep: false, risk: true }, pagedAttentionExpandedNode: null, pagedAttentionNode: 'orch', pagedAttentionTask: 'qk', pagedAttentionDep: 'sij', pagedAttentionPipeKernel: 'qk', pagedAttentionLine: null, pagedAttentionDetailOpen: false, pagedAttentionAgentOpen: false, sourceRegionFocus: null, sourceRegionLine: null, matmulView: 'intro', pto3LabTab: 'loops', pto3LabFocus: 'matmul', opTab: 'overview', opDrawer: null, opMode: 'read', sourceCache: {} };
   const EXPLORER_STEP = 1;
   const WORKFLOW_STEPS = [0, 2, 3, 4];
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -5759,9 +5759,10 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   renderOracles();
   renderBlockingIrGraph();
   renderGraph();
-  renderFullSource();
+  renderSelectedSource(state.activeFile);
   goTo(1);
   setProductMode('ide');
+  enterPagedAttentionPyptoLayout();
 
   $$('[data-activity-view]').forEach((button) => button.addEventListener('click', (event) => {
     const isExplorer = button.dataset.activityView === 'explorer';
@@ -5770,7 +5771,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (returningToExplorer && !explorerHidden) event.stopImmediatePropagation();
     setActivityView(button.dataset.activityView);
   }, true));
-  $('[data-file="decode_layer.py"]')?.classList.add('is-selected');
+  $('[data-file="paged_attention_pypto.py"]')?.classList.add('is-selected');
 
   document.addEventListener('click', (event) => {
     if (!event.target.closest('#envControl') && !event.target.closest('#envFingerprintPanel')) setEnvironmentPanel(false);

@@ -1,25 +1,6 @@
-/* In-core compute topology inside the existing Canvas/HUD shell. */
-.viz2-compute .compute-node rect {fill:var(--surface-3);stroke:var(--foreground-muted);stroke-width:1;vector-effect:non-scaling-stroke;transition:fill .3s,fill-opacity .3s,stroke .3s;}
-.viz2-compute .compute-node.tensor rect {fill:var(--surface-4);stroke-dasharray:3 2;}
-.viz2-compute .compute-node.state rect {fill:var(--surface-2);stroke:var(--accent);}
-.viz2-compute .compute-node.is-selected rect {stroke:var(--foreground);stroke-width:2;}
-.viz2-compute .compute-node.is-related rect {stroke:var(--primary);}
-.viz2-compute .compute-edge {fill:none;stroke:var(--foreground-secondary);opacity:.45;vector-effect:non-scaling-stroke;pointer-events:stroke;cursor:pointer;transition:stroke-width .3s,opacity .3s;}
-.viz2-compute .compute-edge.state {stroke:var(--accent);stroke-dasharray:6 4;}
-.viz2-compute .compute-edge.event {stroke:var(--warning);stroke-dasharray:2 4;}
-.viz2-compute .compute-edge.is-related {opacity:1;stroke:var(--primary);}
-.viz2-compute .compute-event rect,.viz2-compute .compute-expanded rect {fill:var(--surface-3);}
-.viz2-compute .compute-event text {fill:var(--warning);font-size:11px;}
-.viz2-compute .compute-expanded text {font-size:12px;}
-.viz2-compute .compute-count {opacity:0;font-size:var(--anatomy-font,12px);transition:opacity .3s;}
-.viz2-compute[data-mode="weight"] .compute-count {opacity:1;}
-.viz2-compute[data-mode="weight"] .compute-node.operation rect {fill:var(--primary);fill-opacity:var(--weight);}
-.viz2-compute .compute-loop {fill:var(--foreground-muted);font-size:12px;}
-.viz2-compute [data-compute-node],.viz2-compute [data-compute-edge] {cursor:pointer;}
-.viz2-compute [data-compute-code] {white-space:pre;overflow:auto;font:var(--type-mono);max-height:340px;}
+/* Task controls only. Cards, groups, edges and camera use visualization2-graph. */
+.viz2-compute {display:flex;flex-direction:column;min-height:0;}
+.viz2-compute-canvas {display:flex;flex:1;flex-direction:column;min-height:0;min-width:0;}
 .viz2-compute select {background:var(--surface-3);color:var(--foreground);border:0;font:inherit;max-width:220px;}
-.viz2-compute [data-compute-stacks] {display:flex;gap:var(--space-1);}
-.viz2-compute .viz2-anatomy-footer>span {font-size:var(--font-size-xs);}
-@media(prefers-reduced-motion:reduce){.viz2-compute *{transition:none!important;}}
-#viz2-graph {display:flex;flex-direction:column;}
-.viz2-compute .compute-loop-group rect {fill:none;stroke:var(--foreground-muted);stroke-dasharray:3 5;opacity:.25;vector-effect:non-scaling-stroke;}
+.viz2-compute [data-compute-stacks],.viz2-compute [data-compute-pages] {display:flex;gap:var(--space-1);flex-wrap:wrap;}
+.viz2-compute [data-compute-code] {white-space:pre;overflow:auto;font:var(--type-mono);max-height:340px;}
