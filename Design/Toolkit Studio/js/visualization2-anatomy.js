@@ -120,8 +120,8 @@
     function update(id,nextFocus,nextCamera,{active:visible,inspectorOpen=false}={}){
       const entering=visible&&!active;
       active=visible;if(!active){tooltip.hidden=true;return;}const next=model.tasks[id];if(!next)return;
-      const changed=task?.id!==id;task=next;focus=nextFocus;camera=entering?null:nextCamera;
-      // Re-entry fits the current viewport; object focus remains independent.
+      const changed=task?.id!==id;task=next;focus=nextFocus;camera=nextCamera;
+      // Each Task retains its own camera across Block-local tab switches.
       if(entering)lastSize=null;
       if(changed){tooltip.hidden=true;draw();}paintFocus();paintInspector(inspectorOpen);paint();
     }

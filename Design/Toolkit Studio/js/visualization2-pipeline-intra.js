@@ -121,8 +121,15 @@
     viewport.addEventListener('pointerdown',event=>{if(event.button===0){suppress=false;drag={id:event.pointerId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};}});
     viewport.addEventListener('pointermove',event=>{if(drag){if(!drag.moved&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<=4)return;drag.moved=true;viewport.setPointerCapture(drag.id);tooltip.hidden=true;onCamera(task.id,{...camera,x:camera.x+event.clientX-drag.x,y:camera.y+event.clientY-drag.y});drag.x=event.clientX;drag.y=event.clientY;return;}const el=event.target.closest('[data-intra-kind]');if(!el){tooltip.hidden=true;paintFocus();return;}const f=objectFocus(el),d=describe(f);paintFocus(f);tooltip.innerHTML=`<b>${esc(d.title)}</b><br>${d.facts.filter(([key])=>['Slot ID','阶段','Buffer','Producer / Consumer','READY Event','前后复用 Stack','前次 Stack / 后次 Stack','复用端点','活跃阶段','开始条件','Normalize','Store'].includes(key)).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join('<br>')}<br>静态逻辑映射 · 非 runtime 实测占用`;tooltip.hidden=false;const r=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+16,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+18,r.height-tooltip.offsetHeight-8))}px`;});
     const end=()=>{suppress=!!drag?.moved;drag=null;};['pointerup','pointercancel','lostpointercapture'].forEach(type=>viewport.addEventListener(type,end));viewport.addEventListener('pointerleave',()=>{tooltip.hidden=true;paintFocus();});
-    new ResizeObserver(()=>{if(active&&task){camera=fitted();onCamera(task.id,camera);paint();}}).observe(viewport);
-    return {update(id,nextFocus,nextCamera,options={}){const entering=options.active&&!active;active=!!options.active;if(!active){tooltip.hidden=true;return;}if(task?.id!==id){task=model.tasks[id];draw();}focus=nextFocus;inspectorOpen=options.inspectorOpen;camera=entering?null:nextCamera;inspect();paint();},hideTooltip(){tooltip.hidden=true;},
+    let lastSize=null;
+    new ResizeObserver(()=>{if(!active||!task||!viewport.clientWidth||!viewport.clientHeight)return;
+      const size={width:viewport.clientWidth,height:viewport.clientHeight};
+      if(camera&&lastSize&&(size.width!==lastSize.width||size.height!==lastSize.height))
+        onCamera(task.id,{...camera,x:camera.x+(size.width-lastSize.width)/2,y:camera.y+(size.height-lastSize.height)/2});
+      else paint();
+      lastSize=size;
+    }).observe(viewport);
+    return {update(id,nextFocus,nextCamera,options={}){active=!!options.active;if(!active){tooltip.hidden=true;return;}if(task?.id!==id){task=model.tasks[id];draw();}focus=nextFocus;inspectorOpen=options.inspectorOpen;camera=nextCamera;inspect();paint();},hideTooltip(){tooltip.hidden=true;},
       getTransitionSnapshot(){if(!active||!task)return null;const r=el=>{const b=el.getBoundingClientRect();return {x:b.left,y:b.top,width:b.width,height:b.height};};return {task:task.id,model:task,frame:r(scene.querySelector('[data-intra-frame]')),title:r(scene.querySelector('.viz2-intra-heading')),output:r(scene.querySelector('[data-intra-output]')),stacks:task.stacks.map(s=>({index:s.index,rect:r(scene.querySelector(`[data-intra-operation="${s.index}:qk"]`))}))};},
       setTransitionMasked(value){host.classList.toggle('viz2-intra-masked',value);}};
   }

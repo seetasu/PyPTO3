@@ -21,8 +21,9 @@
     return {blocks:pipeline.blocks.filter(b=>blocks.has(b.id)).map(b=>({source:blocks.get(b.id),target:b})),
       tasks:pipeline.tasks.filter(t=>batches.has(t.batch)).map(t=>({source:batches.get(t.batch),target:t}))};
   }
-  function create({root,getPipeline,getGraph}){
+  function create({root,getPipeline,getGraph,getIntraTask}){
     let job=null,serial=0;
+    const intra=global.PtoVisualization2IntraMorph.create({root,getTask:getIntraTask});
     const media=global.matchMedia('(prefers-reduced-motion: reduce)');
     const originRect=()=>{
       const bounds=root.getBoundingClientRect();
@@ -46,13 +47,15 @@
       else root.classList.toggle('viz2-morph-assignment',value);
     }
     function cancel(){
+      intra.cancel();
       if(!job)return;
       cancelAnimationFrame(job.frame);job.animations?.forEach(animation=>animation.cancel());job.overlay?.remove();job.hold?.remove();
       mask(job.to,false);root.classList.remove('viz2-morph-preparing');delete root.dataset.morphDestination;job=null;
     }
     function prepare(state,to){
       cancel();
-      if(!state.open||state.activeTab===to||media.matches||state.views.assignment.subview==='block'||state.views.pipeline.subview==='block'||state.views.graph.subview==='block')return null;
+      if(state.views[state.activeTab]?.subview==='block')return intra.prepare(state,to);
+      if(!state.open||state.activeTab===to||media.matches)return null;
       const from=state.activeTab;
       const assignmentPipeline=(from==='assignment'&&to==='pipeline')||(from==='pipeline'&&to==='assignment');
       const pipelineGraph=from==='pipeline'&&to==='graph';
@@ -76,6 +79,7 @@
       return job;
     }
     function play(current){
+      if(current?.phase&&current.source?.objects){intra.play(current);return;}
       if(!current||job!==current)return;
       // Two frames settle first-entry camera and Inspector-dependent width, including ResizeObserver.
       current.frame=requestAnimationFrame(()=>{current.frame=requestAnimationFrame(()=>start(current));});
@@ -192,7 +196,7 @@
     }
     global.addEventListener('resize',cancel);media.addEventListener('change',cancel);
     root.addEventListener('scroll',event=>{if(job?.phase==='animating'&&!job.hold?.contains(event.target))cancel();},true);
-    return {prepare,play,cancel,get active(){return !!job;},get animating(){return job?.phase==='animating';}};
+    return {prepare,play,cancel,get active(){return !!job||intra.active;},get animating(){return job?.phase==='animating'||intra.animating;}};
   }
   global.PtoVisualization2Transition=Object.freeze({create,pairs});
 })(window);

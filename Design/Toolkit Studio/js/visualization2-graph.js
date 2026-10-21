@@ -90,7 +90,7 @@
       const data=layers.execution?(adapter?.executionData?adapter.executionData(graph):global.PtoPagedAttentionExecution?.derive(model,global.PtoPagedAttentionIntro?.model,scenario)):null;
       global.PtoStudioComputationGraph.applyExecution(scene,nodes,graph,data);
       adapter?.decorate?.(scene,nodes,graph,data);
-      nodeLabels.forEach(({node,label})=>{const entry=data?.nodes[node.id];label.querySelector('[data-viz2-graph-name]').textContent=node.title+(adapter&&entry?' ×'+entry.count:(node.expandedGroup||node.childOperation)&&entry?' '+entry.label:'');});
+      nodeLabels.forEach(({node,label})=>{const entry=data?.nodes[node.id];label.querySelector('[data-viz2-graph-name]').textContent=node.title+(adapter&&entry&&adapter.showExecutionCount?.(node)!==false?' ×'+entry.count:(node.expandedGroup||node.childOperation)&&entry?' '+entry.label:'');});
     }
 
     function paintLabels(){
@@ -208,11 +208,13 @@
       scene.querySelectorAll('[data-pypa-node]').forEach(el=>{
         const selected=el.dataset.pypaNode===focus.nodeId,related=focus.related.includes(el.dataset.pypaNode);
         el.classList.toggle('is-selected',selected);el.classList.toggle('is-viz2-related',related&&!selected);el.setAttribute('aria-pressed',String(selected));
+        if(adapter){const role=focus.nodeRoles?.[el.dataset.pypaNode];if(role)el.dataset.stateRole=role;else delete el.dataset.stateRole;}
       });
       scene.querySelectorAll('[data-pypa-edge]').forEach(el=>{
         const edge=graph.edges.find(edge=>edge.id===el.dataset.pypaEdge);
         el.classList.toggle('is-viz2-related',!!edge&&(focus.edgeId===edge.id||focus.related.includes(edge.s)&&focus.related.includes(edge.t)));
         if(adapter)el.style.pointerEvents='stroke';
+        if(adapter){const role=focus.edgeRoles?.[el.dataset.pypaEdge];if(role)el.dataset.stateRole=role;else delete el.dataset.stateRole;}
       });
     }
     function update(nextSelection,nextView,options={}) {
@@ -248,7 +250,7 @@
       const context=selection?.kind==='task'?`Task ${selection.task} · Batch ${selection.batch} · KV Head ${selection.kvHead}`:selection?.block!=null?`Block ${String(selection.block).padStart(2,'0')}${selection.kind==='lane'?` · AIV Lane ${selection.lane}`:''}`:'完整计算图';
       host.querySelector('[data-viz2-graph-context]').textContent=adapter?.context?.() || context;
       if(!active||!viewport.clientWidth||!viewport.clientHeight)return;
-      if(first||(entering&&adapter)){first=false;pendingFocus=false;fit();return;}
+      if(first||(entering&&adapter&&!camera)){first=false;pendingFocus=false;fit();return;}
       if(!camera){fit();return;}
       if(pendingFocus){pendingFocus=false;if(!adapter&&focus.related.length){focusRelated(focus);return;}}
       paintCamera();

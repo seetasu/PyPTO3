@@ -29,10 +29,14 @@
           const target=state.views[action.id];
           const inner=state.views[state.activeTab].subview==='block'&&state.selection?.kind==='task';
           const task=state.selection?.task;
+          const focus=inner?window.PtoVisualization2IntraMorph.mapFocus(state.activeTab,action.id,state.selection.subobject,anatomyModel.tasks[task]):state.selection?.subobject;
           if(action.id==='graph'&&inner&&target.subview!=='block')
             graphOuterSnapshot={camera:target.camera,nodeId:target.nodeId,inspectorOpen:target.inspectorOpen};
-          const context=inner?(action.id==='assignment'?{phase:'attention',anatomyTask:task}:{intraTask:task}):{};
-          state={...state,activeTab:action.id,views:{...state.views,[action.id]:{...target,...context,subview:inner?'block':null}}};
+          const context=inner?(action.id==='assignment'?{phase:'attention',anatomyTask:task,
+            anatomyFocus:{...target.anatomyFocus,[task]:focus},anatomyInspectorOpen:target.anatomyInspectorOpen??!!focus}:
+            action.id==='pipeline'?{intraTask:task,intraFocus:{...target.intraFocus,[task]:focus},intraInspectorOpen:target.intraInspectorOpen??!!focus}:
+            {intraTask:task,intraFocus:focus,intraInspectorOpen:target.intraInspectorOpen??!!focus}):{};
+          state={...state,activeTab:action.id,selection:inner?{...state.selection,subobject:focus}:state.selection,views:{...state.views,[action.id]:{...target,...context,subview:inner?'block':null}}};
         }
         else if (action.type === 'phase' && ['phase0', 'attention'].includes(action.id)) state = { ...state, views: { ...state.views, assignment: { ...state.views.assignment, phase: action.id } } };
         else if (action.type === 'anatomy-enter' || action.type === 'anatomy-task') {
@@ -223,7 +227,7 @@
       }
       lastSize={width,height};
     }).observe(viewport);
-    tabTransition = window.PtoVisualization2Transition.create({root,getPipeline:()=>pipelineController,getGraph:()=>graphController});
+    tabTransition = window.PtoVisualization2Transition.create({root,getPipeline:()=>pipelineController,getGraph:()=>graphController,getIntraTask:id=>anatomyModel?.tasks[id]});
     store.subscribe(render);
   }
     function sequenceGraphic(len, x, y, width, height = 8) {
