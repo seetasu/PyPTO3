@@ -10,6 +10,7 @@
     const tasks = Array.from({ length: seqLens.length * kvHeads }, (_, id) => {
       const batch = Math.floor(id / kvHeads), kvHead = id % kvHeads, seqLen = seqLens[batch];
       return { id, block: id % blocks, batch, kvHead, seqLen,
+        segments: global.PtoVisualization2TaskEncoding.segments(seqLen, stackTokens, pageTokens),
         pages: Math.ceil(seqLen / pageTokens), stacks: Math.ceil(seqLen / stackTokens),
         output: { taskId: id, normalize: true, dtype: 'BF16', store: true } };
     });
@@ -23,11 +24,11 @@
     return { blocks, kvHeads, stackTokens, pageTokens, pagesPerStack, tasks, lanes };
   }
 
-  function mount(host, { model, onSelect, onCamera }) {
+  function mount(host, { model, onSelect, onCamera, onEnter }) {
     const pattern = global.PtoSwimlaneTaskPattern;
     const colormap = pattern.createTaskColormap();
-    // Semantic data colors come from the shared swimlane palette.
-    const colors = { attention: colormap.colorForTask({ label: 'matmul' }),
+    // Token capacity uses the same blue as Assignment; operation caps retain the shared palette.
+    const colors = { attention: getComputedStyle(host).getPropertyValue('--primary').trim(),
       output: colormap.colorForTask({ label: 'vec_reduce' }), phase0: colormap.colorForTask({ label: 'vec_layernorm' }) };
     host.classList.add('viz2-pipeline');
     host.innerHTML = `<div class="viz2-pipeline-body">
@@ -49,7 +50,7 @@
     targets.innerHTML = model.lanes.map(lane => `<button class="viz2-pipeline-target" type="button" data-bem-block="${lane.block}" aria-label="Pipeline Block ${String(lane.block).padStart(2,'0')}，${lane.tasks.length} Tasks" aria-pressed="false"></button>
       ${lane.tasks.map(task => `<button class="viz2-pipeline-target" type="button" data-bem-task="${task.id}" aria-label="${taskDescription(task)}，末尾 Output Normalize 和 BF16 Store" aria-pressed="false"></button>`).join('')}`).join('');
     let selection = null, camera = null, layout = null, drag = null, suppressClick = false, hover = null, active = false;
-    let selectionKey = '', focusOnNextPaint = false;
+    let selectionKey = '', focusOnNextPaint = false, transitionMasked = false, semanticTaskMask = null, doubleCandidate = null;
     const tooltip = document.createElement('div');
     tooltip.className = 'pto-swimlane-task-tooltip viz2-pipeline-tooltip'; tooltip.setAttribute('role','tooltip');
     const tooltipController = pattern.initHoverTooltip({ root: viewport, targets: '[data-bem-task], [data-bem-block]',
@@ -60,6 +61,7 @@
         : `<b>Block ${String(item.block).padStart(2,'0')}</b><span>Phase0 ${item.phase0Groups ? `${item.phase0Groups} 组预处理` : '无有效预处理'} · 参与 SYNCALL</span><span>Task ${item.tasks.map(task=>task.id).join(' → ')}</span>` });
 
     function measure() {
+      host.style.setProperty('--viz2-pipeline-footer-height', `${host.querySelector('.viz2-pipeline-footer').offsetHeight}px`);
       const width = viewport.clientWidth, height = Math.max(viewport.clientHeight, 480);
       const header = 40, row = (height - header - 8) / model.blocks;
       const labelX = 12, phaseX = 72, phaseW = 98, syncX = 198, taskX = 232, outputW = 28, gap = 8;
@@ -121,7 +123,7 @@
         const y=layout.header+lane.block*layout.row, related=lane.block===selection?.block;
         if(related){ctx.fillStyle=color('--state-selected');ctx.fillRect(0,y,layout.width,layout.row);}
         ctx.strokeStyle=divider;ctx.beginPath();ctx.moveTo(0,y+layout.row);ctx.lineTo(layout.width,y+layout.row);ctx.stroke();
-        ctx.fillStyle=related?fg:secondary;ctx.font=`12px ${mono}`;ctx.fillText(String(lane.block).padStart(2,'0'),layout.labelX+8,y+layout.row/2);
+        ctx.fillStyle=related?fg:secondary;ctx.font=`12px ${mono}`;if (!transitionMasked) ctx.fillText(String(lane.block).padStart(2,'0'),layout.labelX+8,y+layout.row/2);
         // Equal-size AIV strips encode work ownership, not Phase0 execution time.
         lane.phase0Lanes.forEach((aiv,index)=>{
           const y0=y+3+index*(layout.row-6)/lane.phase0Lanes.length, h=(layout.row-8)/lane.phase0Lanes.length;
@@ -136,12 +138,14 @@
       ctx.save();ctx.beginPath();ctx.rect(layout.taskX,layout.header,Math.max(0,layout.width-layout.taskX),layout.height-layout.header);ctx.clip();
       positions().forEach(rect=>{
         const task=rect.task, selected=selection?.kind==='task'&&selection.task===task.id, related=selection?.block===task.block;
-        pattern.drawTaskBar(ctx,{task:{label:String(task.id)},x:rect.x,y:rect.y,width:rect.width,height:rect.height,baseColor:colors.attention,isSelected:selected,isRelated:related,isEmphasized:hover===task.id,fontFamily:mono});
+        if (!transitionMasked && semanticTaskMask !== task.id) global.PtoVisualization2TaskEncoding.draw(ctx,{task,...rect,
+          colors:{track:color('--surface-4'),fill:color('--primary'),page:color('--surface-2'),text:fg,label:color('--surface-2')},
+          selected,related,hovered:hover===task.id,fontFamily:mono});
         // One Output cap belongs to this Task. No synthesized IN/OUT timing segments.
-        pattern.drawTaskBar(ctx,{task:{label:'N↓'},x:rect.outputX,y:rect.y,width:rect.outputWidth,height:rect.height,baseColor:colors.output,isSelected:selected,isRelated:related,fontFamily:mono});
+        if(semanticTaskMask !== task.id) pattern.drawTaskBar(ctx,{task:{label:'N↓'},x:rect.outputX,y:rect.y,width:rect.outputWidth,height:rect.height,baseColor:colors.output,isSelected:selected,isRelated:related,fontFamily:mono});
         const button=targets.querySelector(`[data-bem-task="${task.id}"]`), left=Math.max(layout.taskX,rect.x), right=Math.min(layout.width,rect.outputX+rect.outputWidth);
         button.hidden=right<=left;place(button,left,rect.y,Math.max(0,right-left),rect.height);button.setAttribute('aria-pressed',String(selected));
-        button.dataset.stackCount=task.stacks;button.dataset.attentionWidth=String(rect.width);button.dataset.outputX=String(rect.outputX);button.dataset.attentionX=String(rect.x);
+        button.dataset.batch=task.batch;button.dataset.seqLen=task.seqLen;button.dataset.pageCount=task.pages;button.dataset.stackCount=task.stacks;button.dataset.attentionWidth=String(rect.width);button.dataset.outputX=String(rect.outputX);button.dataset.attentionX=String(rect.x);
       });
       ctx.restore();
       host.querySelector('[data-bem-scale]').textContent=`${Math.round(camera.scale*100)}%`;
@@ -173,9 +177,10 @@
       const zoomButton=event.target.closest('[data-bem-zoom]');if(zoomButton){zoom(Number(zoomButton.dataset.bemZoom));return;}
       if(suppressClick){suppressClick=false;return;}
       const task=event.target.closest('[data-bem-task], [data-bem-select]');
-      if(task){selectTask(Number(task.dataset.bemTask??task.dataset.bemSelect));return;}
+      if(task){const id=Number(task.dataset.bemTask??task.dataset.bemSelect);if(event.detail===1)doubleCandidate={id,time:event.timeStamp};selectTask(id);return;}
       const block=event.target.closest('[data-bem-block]');if(block)onSelect({kind:'block',block:Number(block.dataset.bemBlock),task:null});
     });
+    viewport.addEventListener('dblclick',event=>{const target=event.target.closest('[data-bem-task]');if(target){pattern.hideTooltip(tooltip);onEnter?.(doubleCandidate&&event.timeStamp-doubleCandidate.time<650?doubleCandidate.id:Number(target.dataset.bemTask));doubleCandidate=null;}});
     viewport.addEventListener('wheel',event=>{event.preventDefault();const r=viewport.getBoundingClientRect(),unit=event.deltaMode===1?16:event.deltaMode===2?r.height:1;pattern.hideTooltip(tooltip);zoom(Math.exp(Math.max(-.22,Math.min(.22,-event.deltaY*unit*.003))),event.clientX-r.left);},{passive:false});
     viewport.addEventListener('pointerdown',event=>{if(event.button!==0)return;suppressClick=false;drag={id:event.pointerId,x:event.clientX,startX:event.clientX,startY:event.clientY,moved:false};});
     viewport.addEventListener('pointermove',event=>{
@@ -194,7 +199,15 @@
       }else{const block=Math.max(0,Math.min(model.blocks-1,(selection?.block??0)+(event.key==='ArrowUp'?-1:event.key==='ArrowDown'?1:0)));if(event.key==='ArrowRight'&&model.lanes[block].tasks.length)selectTask(model.lanes[block].tasks[0].id);else onSelect({kind:'block',block,task:null});}
     });
     new ResizeObserver(()=>{if(active){focusOnNextPaint=true;paint();}}).observe(viewport);
-    return {update,hideTooltip:()=>pattern.hideTooltip(tooltip),model,destroy:()=>tooltipController.destroy()};
+    function getTransitionSnapshot() {
+      if (!layout || !active) return null;
+      const r=canvas.getBoundingClientRect(), v=viewport.getBoundingClientRect();
+      const rect=(x,y,width,height)=>({x:r.left+x,y:r.top+y,width,height});
+      return {clip:{x:v.left+layout.taskX,y:v.top+layout.header,width:Math.max(0,v.width-layout.taskX),height:Math.max(0,v.height-layout.header)},
+        blocks:model.lanes.map(lane=>({id:lane.block,rect:rect(layout.labelX,layout.header+lane.block*layout.row,30,layout.row)})),
+        tasks:positions().map(p=>({id:p.task.id,batch:p.task.batch,task:p.task,rect:rect(p.x,p.y,p.width,p.height),output:rect(p.outputX,p.y,p.outputWidth,p.height)}))};
+    }
+    return {update,getTransitionSnapshot,setSemanticTaskMask(id){semanticTaskMask=id;paint();},setTransitionMasked(value){transitionMasked=value;paint();},hideTooltip:()=>pattern.hideTooltip(tooltip),model,destroy:()=>tooltipController.destroy()};
   }
   global.PtoVisualization2Pipeline=Object.freeze({createModel,mount});
 })(window);
