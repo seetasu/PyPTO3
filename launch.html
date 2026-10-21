@@ -849,11 +849,24 @@
         updatedAt: "2026-10-20",
         description: "同一份 pass dump、同一个 callable，两种观测方式：01 逐 pass 查看分配池的形成、合并与地址布局；02 是工具形态的内存线——覆盖全部 8 个内存 pass，顶部是可判好坏的 KPI（Vec 占用率 87.6%／余量 22.8 KiB、静态总量 −68.3%、槽位 53→12、碎片 0%、前 3 槽占 79.4%），主画布是 140 个 tile 的槽位归属矩阵，可下钻到单个 tile 的逐 pass 状态。",
         href: "Design/memory-pass-replay/index.html",
+        preview: "Design/assets/launch-previews/memory-object-replay.jpg",
         tags: ["MemoryReuse", "Pass Dump", "MemRef", "Address Allocation"],
         variants: [
           { label: "01 Callable", href: "Design/memory-pass-replay/index.html" },
           { label: "02 Object", href: "Design/memory-object-replay/index.html" }
         ]
+      },
+      {
+        title: "Callable Memory Observatory",
+        subtitle: "Cross-callable Overview · Single-callable Detail",
+        category: "内存与性能",
+        status: "可体验",
+        version: "01 Callable 之间 · 02 单个 Callable",
+        updatedAt: "2026-10-21",
+        description: "基于真实 PyPTO pass dump，先横向比较 116 个 callable 在四个内存快照中的静态分配，再下钻查看含片上 tile.alloc 的单个 callable、槽位复用与最终地址布局。",
+        href: "Design/callable-memory-observatory/index.html",
+        preview: "Design/assets/launch-previews/callable-memory-observatory.svg",
+        tags: ["Callable", "MemoryReuse", "Pass Dump", "Address Allocation"]
       },
       {
         title: "Pass Lane · 数据形态线",
@@ -864,6 +877,7 @@
         updatedAt: "2026-10-20",
         description: "把 pass 当刻度、把 tile 当主角：跨 10 个 pass 聚合看 callable 的 tile 构成如何从 64 涨到 138，并按身份可追踪性开放逐对象形态时间线。配套 lane / Subject / LaneEvent 的 schema。",
         href: "Design/pass-lane-model/index.html",
+        preview: "Design/assets/launch-previews/pass-lane-model.jpg",
         tags: ["Lane Model", "Pass Dump", "Tile Shape", "Schema"]
       },
       {

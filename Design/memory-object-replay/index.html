@@ -30,6 +30,7 @@
     .bar .path{color:var(--muted);font:10.5px var(--mono)}
     .sp{flex:1}
     .sel{height:25px;padding:0 7px;border:1px solid var(--line);border-radius:5px;background:#0c0e12;color:#d7dde7;font:10px var(--mono);max-width:46vw}
+    .layer-nav{padding:4px 7px;border:1px solid #36445f;border-radius:5px;background:#151c2a;color:#b9c9f5;text-decoration:none;font:9px var(--mono);white-space:nowrap}.layer-nav:hover{border-color:#6d82ae;color:#e0e8ff}.layer-current{color:#a7b9e9;font:9px var(--mono);white-space:nowrap}
     .budget{color:var(--muted);font:10px var(--mono);white-space:nowrap}
 
     main{padding:12px 14px 26px;display:flex;flex-direction:column;gap:12px}
@@ -94,7 +95,7 @@
 <body>
   <div class="app">
     <header class="bar">
-      <div class="mark">P</div><b>Memory Lane</b>
+      <div class="mark">P</div><b>Memory Lane</b><a id="callable-layer-link" class="layer-nav" href="../memory-pass-replay/index.html">← 01 Callable</a><span class="layer-current">/ 02 Object</span>
       <span class="path" id="run">—</span>
       <select id="pick" class="sel" aria-label="选择观测 tile"></select>
       <span class="sp"></span>
@@ -175,7 +176,8 @@
       // get reused by unrelated temporaries across snapshots, so they are a poor default.
       const moves = (n) => new Set(tile(n).perStage.filter(Boolean).map((x) => x.base).filter(Boolean)).size > 1;
       const named = (n) => !/^t__tile_\d+$/.test(n);
-      me = order.find((n) => named(n) && moves(n)) || order.find(moves) || order[0];
+      const requestedTile = new URLSearchParams(location.search).get('tile');
+      me = order.includes(requestedTile) ? requestedTile : order.find((n) => named(n) && moves(n)) || order.find(moves) || order[0];
       $('pick').innerHTML = order.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
       $('pick').value = me;
       $('pick').addEventListener('change', (e) => { me = e.target.value; render(); });
@@ -203,7 +205,7 @@
           <div class="k-s">最大 ${esc(k.largestSlot.base)} ${pct(k.largestSlot.share)}</div></div>`;
     }
 
-    function render() { renderLane(); renderAddr(); renderDetail(); }
+    function render() { renderLane(); renderAddr(); renderDetail(); $('callable-layer-link').href = `../memory-pass-replay/index.html?tile=${encodeURIComponent(me || '')}`; }
 
     const ROW = 2.7, GGAP = 3.5, TOP = 50, GUT = 112, CW = 104, CGAP = 10;
     function renderLane() {

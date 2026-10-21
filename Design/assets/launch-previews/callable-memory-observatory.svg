@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" fill="none">
+  <rect width="960" height="540" rx="18" fill="#0b0d11"/>
+  <rect x="0.5" y="0.5" width="959" height="539" rx="17.5" stroke="#2b303a"/>
+  <rect x="0" y="0" width="960" height="44" rx="18" fill="#111318"/>
+  <path d="M0 43.5H960" stroke="#252a33"/>
+  <rect x="18" y="12" width="21" height="21" rx="6" fill="#171d2b" stroke="#536791"/>
+  <path d="M25 27V18h7v9" stroke="#9db2fb" stroke-width="1.5"/>
+  <text x="49" y="27" fill="#e9edf3" font-family="Arial,sans-serif" font-size="13" font-weight="700">PyPTO</text>
+  <text x="100" y="27" fill="#707989" font-family="monospace" font-size="10">/ callable memory observatory</text>
+  <rect x="824" y="12" width="118" height="21" rx="10.5" fill="#122219" stroke="#315340"/>
+  <circle cx="837" cy="22.5" r="3" fill="#92d7a8"/>
+  <text x="847" y="26" fill="#a6dfb4" font-family="Arial,sans-serif" font-size="9">REAL PASS DUMPS</text>
+  <text x="40" y="79" fill="#829cff" font-family="monospace" font-size="10" letter-spacing="1.3">MEMORY OBSERVER · 01 CROSS-CALLABLE / 02 SINGLE CALLABLE</text>
+  <text x="40" y="111" fill="#edf0f5" font-family="Arial,sans-serif" font-size="22" font-weight="700">Callable 内存观测</text>
+  <text x="40" y="133" fill="#929aa8" font-family="Arial,sans-serif" font-size="11">先横向比较各 callable，再进入单个 callable 回放内存规划过程。</text>
+  <rect x="40" y="151" width="211" height="61" rx="8" fill="#111318" stroke="#2b303a"/>
+  <rect x="260" y="151" width="211" height="61" rx="8" fill="#111318" stroke="#2b303a"/>
+  <rect x="480" y="151" width="211" height="61" rx="8" fill="#111318" stroke="#2b303a"/>
+  <rect x="700" y="151" width="220" height="61" rx="8" fill="#111318" stroke="#2b303a"/>
+  <g font-family="Arial,sans-serif" font-size="9" fill="#626b79"><text x="53" y="171">PASS DUMP 中的 CALLABLE</text><text x="273" y="171">含片上分配</text><text x="493" y="171">分配槽合计</text><text x="713" y="171">MemoryReuse 后静态容量</text></g>
+  <g font-family="monospace" font-size="17" font-weight="700" fill="#e0e7f1"><text x="53" y="197">116</text><text x="273" y="197">57</text><text x="493" y="197">1,709 → 370</text><text x="713" y="197">5.31 MiB</text></g>
+  <rect x="40" y="228" width="880" height="278" rx="9" fill="#111318" stroke="#2b303a"/>
+  <text x="57" y="253" fill="#edf0f5" font-family="Arial,sans-serif" font-size="11" font-weight="700">Callable 间静态容量对照</text>
+  <text x="799" y="253" fill="#626b79" font-family="monospace" font-size="9">PASS 35 · MEMORY REUSE</text>
+  <path d="M57 266H903" stroke="#252a33"/>
+  <g font-family="monospace" font-size="9" fill="#aeb8c7">
+    <text x="58" y="293">tp_o_a</text><text x="58" y="328">tp_o_b</text><text x="58" y="363">idx_qr_proj_matmul</text><text x="58" y="398">kv_score_proj</text><text x="58" y="433">qproj_matmul</text>
+    <text x="58" y="477" fill="#829cff">csa_merge_pack_publish</text>
+  </g>
+  <g fill="#0b0d11" stroke="#272d37">
+    <rect x="238" y="282" width="500" height="12" rx="4"/><rect x="238" y="317" width="500" height="12" rx="4"/><rect x="238" y="352" width="500" height="12" rx="4"/><rect x="238" y="387" width="500" height="12" rx="4"/><rect x="238" y="422" width="500" height="12" rx="4"/><rect x="238" y="466" width="500" height="12" rx="4"/>
+  </g>
+  <g fill="#7188cc">
+    <rect x="239" y="283" width="201" height="10" rx="3"/><rect x="239" y="318" width="201" height="10" rx="3"/><rect x="239" y="353" width="178" height="10" rx="3"/><rect x="239" y="388" width="165" height="10" rx="3"/><rect x="239" y="423" width="148" height="10" rx="3"/>
+  </g>
+  <rect x="239" y="467" width="72" height="10" rx="3" fill="#3d8d83"/>
+  <g font-family="monospace" font-size="9" text-anchor="end" fill="#8994a5"><text x="891" y="292">448 KiB</text><text x="891" y="327">448 KiB</text><text x="891" y="362">396 KiB</text><text x="891" y="397">392 KiB</text><text x="891" y="432">352 KiB</text><text x="891" y="476" fill="#9bd7c8">161 KiB · 12 slots</text></g>
+  <text x="57" y="495" fill="#626b79" font-family="Arial,sans-serif" font-size="8">选择 callable 可下钻查看四个 Pass 快照、内存空间分组、地址布局与 Tile IR。</text>
+</svg>
