@@ -17,9 +17,9 @@
   const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
   function pairs(assignment,pipeline){
     const blocks=new Map(assignment.blocks.map(b=>[b.id,b]));
-    const batches=new Map(assignment.batches.map(b=>[b.batch,b]));
+    const tasks=new Map(assignment.tasks.map(t=>[t.id,t]));
     return {blocks:pipeline.blocks.filter(b=>blocks.has(b.id)).map(b=>({source:blocks.get(b.id),target:b})),
-      tasks:pipeline.tasks.filter(t=>batches.has(t.batch)).map(t=>({source:batches.get(t.batch),target:t}))};
+      tasks:pipeline.tasks.filter(t=>tasks.has(t.id)).map(t=>({source:tasks.get(t.id),target:t}))};
   }
   function create({root,getPipeline,getGraph,getIntraTask}){
     let job=null,serial=0;
@@ -33,12 +33,16 @@
     function assignmentSnapshot(){
       const host=root.querySelector('#viz2-attention'), viewport=host.querySelector('.kf-pa-map__viewport');
       return {clip:rect(viewport.getBoundingClientRect()),
-        blocks:[...host.querySelectorAll('[data-pa-block]')].map(button=>({id:Number(button.dataset.paBlock),rect:rect(button.getBoundingClientRect()),
-          icon:paintedClone(button.querySelector('svg')),iconRect:rect(button.querySelector('svg').getBoundingClientRect()),
-          labelRect:rect(button.querySelector('span').getBoundingClientRect())})),
-        batches:[...host.querySelectorAll('[data-pa-column]')].map(column=>{
-          const sequence=column.querySelector('.kf-pa-map__sequence');
-          return {batch:Number(column.dataset.paColumn),rect:rect(sequence.getBoundingClientRect()),clone:sequence.cloneNode(true),segments:[...sequence.querySelectorAll('.kf-pa-map__seq-track')].map(track=>rect(track.getBoundingClientRect()))};
+        blocks:[...host.querySelectorAll('[data-pa-block]')].map(button=>{
+          const frame=button.querySelector('.viz2-am-block-frame'),label=button.querySelector('.viz2-am-block-label');
+          const icon=document.createElementNS(NS,'svg');icon.setAttribute('viewBox','0 0 1 1');
+          return {id:Number(button.dataset.paBlock),rect:rect(frame.getBoundingClientRect()),icon,
+            iconRect:rect(frame.getBoundingClientRect()),labelRect:rect(label.getBoundingClientRect())};
+        }),
+        tasks:[...host.querySelectorAll('[data-pa-task]')].map(task=>{
+          const frame=task.querySelector('.kf-pa-map__cell'),r=rect(frame.getBoundingClientRect());
+          return {id:Number(task.dataset.paTask),rect:r,clone:task.cloneNode(true),
+            segments:Array.from({length:7},(_,i)=>({x:r.x+i*r.width/7,y:r.y,width:r.width/7,height:r.height}))};
         })};
     }
     function mask(view,value){
