@@ -378,3 +378,24 @@ console.log(`stages=${stages.length} subjects=${subjects.length} events=${events
 console.log("by kind :", byKind);
 console.log("by stage:", byStage);
 console.log(`written  : ${OUT}`);
+
+// Inline the payload into the page as well. A relative fetch fails under file:// and under the
+// data: URL the desktop file preview uses, so the page carries its own copy and opens from disk.
+// The .json file stays the source of truth; both are rewritten together by this script.
+const PAGE = join(HERE, "../index.html");
+const TAG = '<script type="application/json" id="lane-data">';
+const TAG_END = "</scr" + "ipt>";
+function embed(json) {
+  const page = readFileSync(PAGE, "utf8");
+  const a = page.indexOf(TAG);
+  if (a < 0) throw new Error(`${TAG} not found in ${PAGE}`);
+  const b = page.indexOf(TAG_END, a);
+  if (b < 0) throw new Error(`unterminated data tag in ${PAGE}`);
+  // Minified: the page only needs it parseable, and a one-line payload keeps the HTML diff
+  // readable. '<' only occurs inside JSON strings, so escaping it keeps the JSON valid and stops
+  // a '</script' in the data from ending the tag early.
+  const inline = JSON.stringify(JSON.parse(json)).replace(/</g, "\\u003c");
+  writeFileSync(PAGE, page.slice(0, a + TAG.length) + inline + page.slice(b), "utf8");
+}
+embed(readFileSync(OUT, "utf8"));
+console.log(`inlined : ${PAGE}`);

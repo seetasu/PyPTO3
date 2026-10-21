@@ -5,7 +5,7 @@
 - 入口：`index.html`；已加入仓库 `launch.html`。
 - 对象模型：`schema/`（四个 JSON Schema + 六条线的定义数据）。
 - 本页实现的是六条线中的**数据形态线**；内存线见 [`../memory-pass-replay`](../memory-pass-replay)。
-- 通过本地 HTTP 服务打开页面（`fetch` 在 `file://` 下被浏览器拒绝）。仓库已有 `.claude/launch.json` 的 `design-static` 配置。
+- 直接双击打开即可：数据已内联进 `index.html`，不依赖 `fetch`。想走 HTTP 服务也行，仓库已有 `.claude/launch.json` 的 `design-static` 配置。
 
 ## 对象模型
 
@@ -37,6 +37,8 @@ node Design/pass-lane-model/scripts/build_shape_lane.mjs
 从 `Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/` 的 10 个快照（pass 11–32）抽取 callable `csa_merge_pack_publish` 的全部 `pl.Tile` 声明，产出 `data/shape-lane.json`。
 
 脚本用 node 写（`memory-pass-replay` 的同类脚本用 Python `ast`）：这里改为括号匹配的文本解析，不依赖 Python 环境。
+
+构建脚本写两份：`data/shape-lane.json`（源数据，可被其它工具复用）和 `index.html` 里 `<script type="application/json" id="lane-data">` 的内联副本。两份由同一条命令同时刷新，不要手改其中一份。内联是因为相对 `fetch` 在 `file://` 和桌面端文件预览用的 `data:` URL 下都会失败。
 
 ## 这条线上实际看到了什么
 

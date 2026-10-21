@@ -11,7 +11,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 RUN = ROOT / "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump"
 OUT = Path(__file__).resolve().parents[1] / "data/memory-flow.json"
-CALLABLE = "csa_merge_pack_publish"
+CALLABLES = [
+    ("csa_merge_pack_publish", "AIV"),
+    ("tp_o_a", "AIC"),
+]
 PASS_FILES = [
     (33, "InitMemRef", "33_after_InitMemRef.py"),
     (34, "MaterializeSemanticAliases", "34_after_MaterializeSemanticAliases.py"),
@@ -28,19 +31,19 @@ def get_int(node: ast.AST | None) -> int | None:
     return None
 
 
-def callable_node(tree: ast.Module) -> ast.FunctionDef:
+def callable_node(tree: ast.Module, callable_name: str) -> ast.FunctionDef:
     return next(
         node
         for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == CALLABLE
+        if isinstance(node, ast.FunctionDef) and node.name == callable_name
     )
 
 
-def extract_stage(number: int, pass_name: str, filename: str) -> dict:
+def extract_stage(number: int, pass_name: str, filename: str, callable_name: str) -> dict:
     path = RUN / filename
     source = path.read_text(encoding="utf-8")
     lines = source.splitlines()
-    function = callable_node(ast.parse(source))
+    function = callable_node(ast.parse(source), callable_name)
     function_lines = lines[function.lineno - 1 : function.end_lineno]
 
     allocations = []
@@ -133,24 +136,23 @@ def extract_stage(number: int, pass_name: str, filename: str) -> dict:
     }
 
 
-stages = [extract_stage(*entry) for entry in PASS_FILES]
-init_tiles = {item["name"]: item for item in stages[0]["tiles"]}
-alias_tiles = {item["name"]: item for item in stages[1]["tiles"]}
-semantic_changes = [
-    {"name": name, "before": init_tiles[name], "after": alias_tiles[name]}
-    for name in init_tiles.keys() & alias_tiles.keys()
-    if any(
-        init_tiles[name][field] != alias_tiles[name][field]
-        for field in ("base", "offset", "bytes")
-    )
-]
-before = {item["name"]: item for item in stages[1]["tiles"]}
-after_reuse = {item["name"]: item for item in stages[2]["tiles"]}
-after_addr = {item["name"]: item for item in stages[3]["tiles"]}
-reuse_pair_names = ["m_oi_inline1220__tile", "n_full_inline1211__tile"]
-reuse_pair = []
-for name in reuse_pair_names:
-    reuse_pair.append(
+def build_callable(callable_name: str, function_type: str) -> dict:
+    stages = [extract_stage(*entry, callable_name) for entry in PASS_FILES]
+    init_tiles = {item["name"]: item for item in stages[0]["tiles"]}
+    alias_tiles = {item["name"]: item for item in stages[1]["tiles"]}
+    semantic_changes = [
+        {"name": name, "before": init_tiles[name], "after": alias_tiles[name]}
+        for name in init_tiles.keys() & alias_tiles.keys()
+        if any(
+            init_tiles[name][field] != alias_tiles[name][field]
+            for field in ("base", "offset", "bytes")
+        )
+    ]
+    before = {item["name"]: item for item in stages[1]["tiles"]}
+    after_reuse = {item["name"]: item for item in stages[2]["tiles"]}
+    after_addr = {item["name"]: item for item in stages[3]["tiles"]}
+    reuse_pair_names = ["m_oi_inline1220__tile", "n_full_inline1211__tile"] if function_type == "AIV" else []
+    reuse_pair = [
         {
             "name": name,
             "stageValues": [
@@ -161,41 +163,55 @@ for name in reuse_pair_names:
             "afterReuse": after_reuse.get(name),
             "afterAddress": after_addr.get(name),
         }
-    )
+        for name in reuse_pair_names
+    ]
 
-for allocation in stages[3]["allocations"]:
-    matching = [tile for tile in stages[3]["tiles"] if tile["base"] == allocation["base"]]
-    starts = [tile["offset"] for tile in matching if tile["offset"] is not None]
-    allocation["offset"] = min(starts) if starts else 0
+    for allocation in stages[3]["allocations"]:
+        matching = [tile for tile in stages[3]["tiles"] if tile["base"] == allocation["base"]]
+        starts = [tile["offset"] for tile in matching if tile["offset"] is not None]
+        allocation["offset"] = min(starts) if starts else 0
 
+    high_water_by_space = {}
+    for allocation in stages[3]["allocations"]:
+        end = (allocation["offset"] or 0) + (allocation["bytes"] or 0)
+        high_water_by_space[allocation["space"]] = max(
+            high_water_by_space.get(allocation["space"], 0), end
+        )
+    address_space = " · ".join(high_water_by_space) or "无片上空间"
+
+    return {
+        "run": "_jit_l3_decode_csa_20260903_010617",
+        "callable": callable_name,
+        "functionType": function_type,
+        "sourceDirectory": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump",
+        "addressSpace": address_space,
+        "reusePair": reuse_pair,
+        "semanticChanges": semantic_changes,
+        "stages": stages,
+        "metrics": {
+            "beforeReuseCount": stages[1]["allocationCount"],
+            "afterReuseCount": stages[2]["allocationCount"],
+            "beforeReuseBytes": stages[1]["allocationBytes"],
+            "afterReuseBytes": stages[2]["allocationBytes"],
+            "finalHighWater": max(high_water_by_space.values(), default=0),
+            "finalHighWaterBySpace": high_water_by_space,
+        },
+        "notes": [
+            "Pass dump 中的源码行号用于定位静态 IR，不是设备 cycle。",
+            "生命周期用名称的最后一次静态读取近似；函数含循环和流水 lowering，不能代替运行时并发时序。",
+            "分配字节数是该 callable 的 tile.alloc 静态总量，不代表性能提升比例。",
+        ],
+    }
+
+
+examples = [build_callable(name, kind) for name, kind in CALLABLES]
 data = {
-    "run": "_jit_l3_decode_csa_20260903_010617",
-    "callable": CALLABLE,
-    "functionType": "AIV",
-    "sourceDirectory": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump",
-    "addressSpace": "Vec",
-    "reusePair": reuse_pair,
-    "semanticChanges": semantic_changes,
-    "stages": stages,
-    "metrics": {
-        "beforeReuseCount": stages[1]["allocationCount"],
-        "afterReuseCount": stages[2]["allocationCount"],
-        "beforeReuseBytes": stages[1]["allocationBytes"],
-        "afterReuseBytes": stages[2]["allocationBytes"],
-        "finalHighWater": max(
-            (item["offset"] or 0) + (item["bytes"] or 0)
-            for item in stages[3]["allocations"]
-        ),
-    },
-    "notes": [
-        "Pass dump 中的源码行号用于定位静态 IR，不是设备 cycle。",
-        "生命周期用名称的最后一次静态读取近似；函数含循环和流水 lowering，不能代替运行时并发时序。",
-        "分配字节数是该 callable 的 tile.alloc 静态总量，不代表性能提升比例。",
-    ],
+    "defaultCallable": CALLABLES[0][0],
+    "callables": examples,
 }
 
 OUT.parent.mkdir(parents=True, exist_ok=True)
 OUT.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 print(f"Wrote {OUT.relative_to(ROOT)}")
-print("allocations:", [(stage["pass"], stage["allocationCount"], stage["allocationBytes"]) for stage in stages])
-print("reuse pair:", [(item["name"], item["before"]["base"], item["afterReuse"]["base"], item["afterAddress"]["offset"]) for item in reuse_pair])
+for example in examples:
+    print(example["callable"], example["functionType"], "allocations:", [(stage["pass"], stage["allocationCount"], stage["allocationBytes"]) for stage in example["stages"]])
