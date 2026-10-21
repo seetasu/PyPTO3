@@ -104,4 +104,4 @@
 .viz2.viz2-morph-preparing[data-morph-destination="graph"] #viz2-graph { visibility: hidden; }
 .viz2.viz2-morph-graph #viz2-graph-inter [data-viz2-graph-block] { visibility: hidden; }
 .viz2.viz2-morph-assignment #viz2-attention [data-pa-block],
-.viz2.viz2-morph-assignment #viz2-attention .kf-pa-map__sequence { visibility: hidden; }
+.viz2.viz2-morph-assignment #viz2-attention [data-pa-task] { visibility: hidden; }
