@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pass Lane · 数据形态线 · PyPTO</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css" />
+  <style>
+    /* Categorical palette validated with dataviz/scripts/validate_palette.js --mode dark:
+       lightness band, chroma floor, CVD separation, normal-vision floor, contrast all PASS.
+       Fixed order, never cycled; the tail folds into the neutral "其他" slot. */
+    :root{
+      color-scheme:dark;
+      --page:#0b0d11;--panel:#111318;--panel2:#171a20;--line:#2b303a;--soft:#222630;
+      --text:#edf0f5;--muted:#929aa8;--faint:#626b79;
+      --c1:#4f7ef7;--c2:#17a8b4;--c3:#c0861a;--c4:#d6457a;--c5:#9a5ff2;--c-rest:#4a515e;
+      --blue:#829cff;--green:#92d7a8;--amber:#e5b66b;
+      --mono:"Cascadia Code","SFMono-Regular",Consolas,monospace;
+      --sans:Inter,"PingFang SC","Microsoft YaHei",sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-width:320px;min-height:100%;background:var(--page);color:var(--text);font-family:var(--sans)}
+    body{font-size:13px}
+    button,input{font:inherit;color:inherit}
+    /* The implicit grid column is max-content-sized, so a wide child would stretch the whole
+       page and create a horizontal scrollbar. Pin it to the viewport. */
+    .app{min-height:100vh;display:grid;grid-template-rows:44px 1fr 24px;grid-template-columns:minmax(0,1fr)}
+    .topbar{display:flex;align-items:center;gap:10px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--soft)}
+    .brand-mark{width:22px;height:22px;border:1px solid #596274;border-radius:6px;display:grid;place-items:center;color:var(--blue);font:700 12px var(--mono)}
+    .brand{font-weight:650}.sep{color:#454b56}
+    .context{color:var(--muted);font:11px var(--mono)}.spacer{flex:1}
+    .badge{border:1px solid #315340;background:#122219;color:#a6dfb4;border-radius:999px;padding:4px 8px;font-size:10px}
+    .badge:before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--green)}
+    main{width:min(1240px,100%);margin:auto;padding:26px 25px 38px}
+    .heading{display:flex;align-items:flex-end;gap:18px;margin-bottom:16px}
+    .eyebrow{color:var(--blue);font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+    h1{margin:5px 0;font-size:22px;letter-spacing:-.02em}
+    .subtitle{color:var(--muted);font-size:12px;line-height:1.6;max-width:72ch}
+
+    .lanes{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+    .lane-chip{display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:#b9c2cf;font-size:11px;text-decoration:none}
+    .lane-chip.active{border-color:#5b73a8;background:#1a2231;color:#cdd8ff}
+    .lane-chip.todo{opacity:.52}
+    .lane-chip i{font:9px var(--mono);color:var(--faint);font-style:normal}
+    .lane-chip.active i{color:#8fa4e8}
+
+    .card{overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:11px;box-shadow:0 16px 50px #0003}
+    .card-head{display:flex;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid var(--soft)}
+    .card-icon{width:36px;height:36px;display:grid;place-items:center;border:1px solid #3c4d72;border-radius:9px;background:#171d2b;color:#aebfff;font:700 11px var(--mono)}
+    .card-kicker{color:var(--faint);font:9px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+    .card-name{margin-top:4px;font:600 14px var(--mono);overflow-wrap:anywhere}
+    .card-meta{margin-left:auto;color:var(--muted);font-size:10px;text-align:right;line-height:1.7}
+
+    section.block{padding:17px 18px 18px;border-bottom:1px solid var(--soft)}
+    .block-title{display:flex;align-items:baseline;gap:9px;margin-bottom:4px}
+    .block-title strong{font-size:12px}
+    .block-title span{color:var(--faint);font:9px var(--mono)}
+    .block-note{margin:0 0 14px;color:var(--muted);font-size:10.5px;line-height:1.6;max-width:84ch}
+
+    /* ---- aggregate composition chart ---- */
+    .chart{display:grid;grid-template-columns:40px minmax(0,1fr);gap:9px}
+    .yaxis{position:relative;height:232px;color:var(--faint);font:8px var(--mono)}
+    .yaxis b{position:absolute;right:0;transform:translateY(-50%);font-weight:400}
+    .plot{position:relative;min-width:0}
+    .gridlines{position:absolute;inset:0 0 28px 0;pointer-events:none}
+    .gridlines div{position:absolute;left:0;right:0;border-top:1px solid #1d212a}
+    .cols{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:7px;align-items:end;height:204px}
+    .col{position:relative;display:flex;flex-direction:column;justify-content:flex-end;min-width:0;height:100%;background:none;border:0;padding:0;cursor:pointer}
+    .col:focus-visible{outline:2px solid #6f86c8;outline-offset:3px;border-radius:4px}
+    .stack{display:flex;flex-direction:column-reverse;gap:2px;border-radius:4px 4px 0 0;overflow:hidden}
+    .seg{min-height:2px}
+    .col .cap{margin-bottom:5px;color:#d7dde7;font:10px var(--mono);text-align:center}
+    .col .cap em{color:var(--green);font-style:normal;font-size:9px}
+    .col.sel .stack{box-shadow:0 0 0 2px #0b0d11,0 0 0 3px #6f86c8}
+    .xaxis{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:7px;margin-top:8px}
+    .xtick{min-width:0;text-align:center;color:var(--faint);font:8px var(--mono);line-height:1.4;overflow-wrap:anywhere}
+    .xtick b{display:block;color:#9aa3b1;font-weight:400}
+    .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:14px;color:#b4bcc9;font:9px var(--mono)}
+    .legend span{display:inline-flex;align-items:center;gap:6px}
+    .legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+    .tip{position:absolute;z-index:5;min-width:160px;padding:9px 10px;border:1px solid #39414f;border-radius:7px;background:#0d1016f2;box-shadow:0 10px 30px #0008;color:#dbe2ec;font:9px/1.7 var(--mono);pointer-events:none}
+    .tip b{color:#fff;font-size:10px}
+    .tip u{display:block;margin:5px 0 4px;border-top:1px solid #2a313d;text-decoration:none}
+    .tip row{display:flex;gap:8px}.tip row em{flex:1;font-style:normal}
+
+    /* ---- identity bar ---- */
+    .idbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(156px,1fr));gap:8px}
+    .stat{padding:10px;border:1px solid var(--soft);border-radius:6px;background:#13161c}
+    .stat-label{color:var(--faint);font-size:9px}
+    .stat-value{margin-top:5px;color:#e0e6ef;font:600 13px var(--mono)}
+    .stat-sub{margin-top:3px;color:var(--faint);font:8px var(--mono)}
+    .warnbox{margin-top:12px;padding:10px 12px;border:1px solid #4a3a22;border-radius:6px;background:#1a1510;color:#d9c6a4;font-size:10px;line-height:1.65}
+    .warnbox b{color:#e8cf9f}
+
+    /* ---- drill-down ---- */
+    .drill{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:330px}
+    .list-pane{min-width:0;border-right:1px solid var(--soft);background:#0f1116}
+    .list-head{display:flex;align-items:center;gap:8px;padding:12px 14px}
+    .list-head strong{font-size:10.5px}.list-head span{color:var(--faint);font-size:9px}
+    .search{display:block;width:calc(100% - 28px);height:27px;margin:0 14px 10px;padding:0 8px;border:1px solid var(--line);border-radius:5px;outline:none;background:#0c0e12;color:#dce1e9;font:9px var(--mono)}
+    .search:focus{border-color:#677da9}
+    .slist{max-height:420px;overflow:auto;padding:0 8px 10px}
+    .srow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;width:100%;padding:6px 7px;border:1px solid transparent;border-radius:5px;background:none;text-align:left;cursor:pointer}
+    .srow:hover{background:#171a20}
+    .srow.sel{background:#17211f;border-color:#3b675f}
+    .srow-name{overflow:hidden;color:#c5cedb;font:9px var(--mono);text-overflow:ellipsis;white-space:nowrap}
+    .srow.sel .srow-name{color:#a6e0d1}
+    .conf{padding:2px 5px;border-radius:3px;font:7px var(--mono);white-space:nowrap}
+    .conf.exact{border:1px solid #2f5a43;background:#122018;color:#9ad2ad}
+    .conf.name-match{border:1px solid #4a4326;background:#1a1710;color:#d4c08a}
+    .conf.heuristic{border:1px solid #5a3030;background:#1e1212;color:#df9a9a}
+    .detail{min-width:0;padding:15px 17px}
+    .dhead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+    .dhead strong{font:600 12px var(--mono);overflow-wrap:anywhere}
+    .dhead span{color:var(--faint);font:9px var(--mono)}
+    .tl{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;margin:14px 0 0}
+    .tl-cell{min-width:0;padding:8px 7px;border:1px solid #2a2f39;border-radius:6px;background:#13161c}
+    .tl-cell.absent{border-style:dashed;opacity:.5}
+    .tl-cell.changed{border-color:#5a6d9c;background:#171d29}
+    .tl-stage{color:var(--blue);font:8px var(--mono)}
+    .tl-pass{margin-top:2px;color:var(--faint);font:7px var(--mono);overflow-wrap:anywhere;line-height:1.3}
+    .tl-shape{margin-top:7px;color:#dde3ed;font:9px var(--mono);overflow-wrap:anywhere}
+    .tl-meta{margin-top:3px;color:var(--faint);font:7px var(--mono)}
+    .tl-ev{margin-top:6px;color:#aebfff;font:7px var(--mono);line-height:1.4}
+    .code-label{margin-top:16px;color:var(--faint);font:8px var(--mono);letter-spacing:.09em;text-transform:uppercase}
+    pre.code{max-height:150px;overflow:auto;margin:7px 0 0;padding:10px;border:1px solid var(--soft);border-radius:5px;background:#0b0d11;color:#cbd5e1;font:8.5px/1.65 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+    .empty{display:grid;min-height:200px;place-items:center;padding:24px;color:var(--muted);font-size:11px;text-align:center;line-height:1.7}
+
+    .footnote{padding:12px 18px;border-top:1px solid var(--soft);color:var(--faint);font-size:9px;line-height:1.75}
+    .footnote ol{margin:5px 0 0;padding-left:18px}
+    .statusbar{display:flex;align-items:center;gap:12px;padding:0 10px;overflow:hidden;background:#14171d;border-top:1px solid var(--soft);color:#7d8795;font:9px var(--mono)}
+    .statusbar #status{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .statusbar .ok,.statusbar>span:last-child{white-space:nowrap}
+    .ok{color:#91d6a6}
+
+    @media(max-width:980px){main{padding:20px 14px 30px}.drill{grid-template-columns:1fr}.list-pane{border-right:0;border-bottom:1px solid var(--soft)}.slist{max-height:230px}}
+    @media(max-width:680px){
+      .topbar{gap:7px;padding:0 10px}.context{display:none}
+      main{padding:14px 9px 22px}.heading{display:block}.heading h1{font-size:19px}
+      .chart{grid-template-columns:30px minmax(0,1fr);gap:6px}
+      .cols{height:170px}.yaxis{height:198px}
+      .col .cap{font-size:8px}.xtick{font-size:7px}
+      .tl{grid-auto-flow:row;grid-auto-columns:auto}
+      section.block{padding:13px 11px 14px}
+    }
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition-duration:.01ms!important}}
+  </style>
+</head>
+<body data-palette="#4f7ef7,#17a8b4,#c0861a,#d6457a,#9a5ff2">
+  <div class="app">
+    <header class="topbar">
+      <div class="brand-mark">P</div><span class="brand">PyPTO</span><span class="sep">/</span>
+      <span class="context">compiler · pass lane model · shape lane</span>
+      <span class="spacer"></span><span class="badge">REAL PASS DUMPS</span>
+    </header>
+
+    <main>
+      <div class="heading">
+        <div>
+          <div class="eyebrow">Lane 2 / 6 · 跨 pass 看一类对象</div>
+          <h1>数据形态线</h1>
+          <div class="subtitle">
+            观测对象不是 pass，而是 tile。横轴的 10 个 pass 只是刻度，纵向看的是整个 callable 的 tile 构成怎么变。
+            主视图是聚合分布（不依赖逐对象身份，始终成立）；逐对象时间线只对身份可靠的 tile 开放。
+          </div>
+        </div>
+      </div>
+
+      <nav class="lanes" aria-label="六条关注线">
+        <a class="lane-chip" href="../memory-pass-replay/index.html"><i>1</i> 内存 · 已有 demo</a>
+        <span class="lane-chip active"><i>2</i> 数据形态 · 本页</span>
+        <span class="lane-chip todo"><i>3</i> 算子形态 · 未实现</span>
+        <span class="lane-chip todo"><i>4</i> 并行结构 · 未实现</span>
+        <span class="lane-chip todo"><i>5</i> 时序 · 未实现</span>
+        <span class="lane-chip todo"><i>6</i> 依赖 · 未实现</span>
+      </nav>
+
+      <section class="card" aria-label="数据形态线">
+        <header class="card-head">
+          <div class="card-icon">TL</div>
+          <div>
+            <div class="card-kicker">唯一观测范围 · AIV · DeepSeek V4 / l3_decode_csa</div>
+            <div id="callable" class="card-name">—</div>
+          </div>
+          <div id="window-meta" class="card-meta"></div>
+        </header>
+
+        <section class="block">
+          <div class="block-title"><strong>tile 构成随 pass 的变化</strong><span id="chart-sub"></span></div>
+          <p class="block-note">
+            柱高是该快照内 callable 的 tile 定义数，分段按形状归类（前 5 种单独着色，其余归入「其他」）。
+            这是聚合口径，与分配槽数不是一回事——两者在内存线上会差一个数量级。
+          </p>
+          <div class="chart">
+            <div id="yaxis" class="yaxis"></div>
+            <div class="plot">
+              <div id="gridlines" class="gridlines"></div>
+              <div id="cols" class="cols" role="list"></div>
+              <div id="xaxis" class="xaxis"></div>
+            </div>
+          </div>
+          <div id="legend" class="legend"></div>
+        </section>
+
+        <section class="block">
+          <div class="block-title"><strong>身份可追踪性</strong><span>决定哪些 tile 能看时间线</span></div>
+          <p class="block-note">
+            跨快照判断「还是同一个 tile 吗」要靠名字。带语义前缀的名字稳定；<code>t__tile_N</code> 这类计数器名会被不同临时量复用。
+            dtype 是类型标注的一部分、不可变，因此同名不同 dtype 一定是重名。
+          </p>
+          <div id="idbar" class="idbar"></div>
+          <div id="warnbox" class="warnbox" hidden></div>
+        </section>
+
+        <section class="block" style="border-bottom:0;padding:0">
+          <div class="drill">
+            <div class="list-pane">
+              <div class="list-head"><strong>tile 清单</strong><span id="list-count"></span></div>
+              <input id="search" class="search" type="search" placeholder="筛选 tile 名" aria-label="筛选 tile" />
+              <div id="slist" class="slist" role="list"></div>
+            </div>
+            <div class="detail">
+              <div id="dhead" class="dhead"></div>
+              <div id="tl" class="tl"></div>
+              <div id="code-wrap" hidden>
+                <div class="code-label">最后一个快照中的 IR 定义</div>
+                <pre id="code" class="code"></pre>
+              </div>
+              <div id="detail-empty" class="empty">从左侧选一个 tile，查看它在 10 个快照里的形态变化。</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="footnote">
+          <strong>口径与限制</strong>
+          <ol id="caveats"></ol>
+        </div>
+      </section>
+    </main>
+
+    <footer class="statusbar">
+      <span class="ok">● Lane bundle loaded</span><span id="status">—</span>
+      <span class="spacer"></span><span>Shape lane · Static IR evidence</span><span>PyPTO · Lane model</span>
+    </footer>
+  </div>
+
+  <script>
+  (() => {
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const COLORS = ['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)'];
+    const REST = 'var(--c-rest)';
+    let D = null, topShapes = [], selStage = null, selSubject = null, filter = '';
+
+    fetch('./data/shape-lane.json')
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((d) => { D = d; boot(); })
+      .catch((e) => { document.querySelector('main').innerHTML =
+        `<section class="card"><div style="padding:24px;line-height:1.8">数据加载失败：${esc(e.message)}。<br/>请通过本地 HTTP 服务打开本页（<code>fetch</code> 在 file:// 下被浏览器拒绝）。</div></section>`; });
+
+    function boot() {
+      const m = D.manifest;
+      $('callable').textContent = m.callable;
+      $('window-meta').innerHTML = `Run · ${esc(m.run.replace(/^_jit_/, ''))}<br/>` +
+        `${m.stages.length} 个快照 · pass ${m.stages[0].index}–${m.stages[m.stages.length - 1].index}`;
+      $('chart-sub').textContent = `${m.counts.subjects} 个 tile · ${m.counts.events} 个事件`;
+      $('status').textContent = `${m.scenarioId}`;
+      $('caveats').innerHTML = m.caveats.map((c) => `<li>${esc(c)}</li>`).join('');
+
+      // Fixed shape order: by final-snapshot frequency; the tail folds into one neutral slot.
+      const last = D.aggregates[D.aggregates.length - 1].shape;
+      topShapes = Object.keys(last).slice(0, 5);
+
+      renderChart(); renderIdentity(); renderList(); renderDetail();
+    }
+
+    const bucketsFor = (agg) => {
+      const rest = Object.entries(agg.shape).filter(([s]) => !topShapes.includes(s))
+        .reduce((a, [, n]) => a + n, 0);
+      const list = topShapes.map((s, i) => ({ label: s, n: agg.shape[s] || 0, color: COLORS[i] }));
+      if (rest) list.push({ label: '其他', n: rest, color: REST });
+      return list.filter((b) => b.n > 0);
+    };
+
+    function renderChart() {
+      const aggs = D.aggregates;
+      const max = Math.max(...aggs.map((a) => a.tileCount));
+      const top = Math.ceil(max / 20) * 20;
+
+      $('yaxis').innerHTML = [0, 0.25, 0.5, 0.75, 1]
+        .map((f) => `<b style="top:${(1 - f) * 204}px">${Math.round(top * f)}</b>`).join('');
+      $('gridlines').innerHTML = [0, 0.25, 0.5, 0.75, 1]
+        .map((f) => `<div style="top:${(1 - f) * 204}px"></div>`).join('');
+
+      $('cols').innerHTML = aggs.map((a, i) => {
+        const prev = i ? aggs[i - 1].tileCount : null;
+        const delta = prev === null ? '' : a.tileCount - prev;
+        const h = (a.tileCount / top) * 204;
+        const segs = bucketsFor(a).map((b) =>
+          `<div class="seg" style="height:${(b.n / a.tileCount) * h}px;background:${b.color}"></div>`).join('');
+        return `<button class="col${selStage === a.stage ? ' sel' : ''}" role="listitem"
+                  data-stage="${a.stage}" aria-label="pass ${a.stage} ${esc(a.pass)}，${a.tileCount} 个 tile">
+                  <div class="cap">${a.tileCount}${delta ? ` <em>+${delta}</em>` : ''}</div>
+                  <div class="stack" style="height:${h}px">${segs}</div>
+                </button>`;
+      }).join('');
+
+      $('xaxis').innerHTML = aggs.map((a) =>
+        `<div class="xtick"><b>${a.stage}</b>${esc(a.pass.replace(/([a-z])([A-Z])/g, '$1​$2'))}</div>`).join('');
+
+      $('legend').innerHTML = bucketsFor(aggs[aggs.length - 1])
+        .map((b) => `<span><i style="background:${b.color}"></i>${esc(b.label)}</span>`).join('');
+
+      $('cols').querySelectorAll('.col').forEach((el) => {
+        el.addEventListener('click', () => { selStage = Number(el.dataset.stage); renderChart(); renderDetail(); });
+        el.addEventListener('mouseenter', (ev) => showTip(ev, Number(el.dataset.stage)));
+        el.addEventListener('mouseleave', hideTip);
+        el.addEventListener('focus', (ev) => showTip(ev, Number(el.dataset.stage)));
+        el.addEventListener('blur', hideTip);
+      });
+    }
+
+    let tipEl = null;
+    function showTip(ev, stage) {
+      const a = D.aggregates.find((x) => x.stage === stage);
+      const evs = D.events.filter((e) => e.stage === stage);
+      const kinds = {};
+      evs.forEach((e) => { kinds[e.kind] = (kinds[e.kind] || 0) + 1; });
+      hideTip();
+      tipEl = document.createElement('div');
+      tipEl.className = 'tip';
+      tipEl.innerHTML = `<b>${stage} · ${esc(a.pass)}</b><u></u>` +
+        `<row><em>tile 定义</em>${a.tileCount}</row>` +
+        `<row><em>形状种类</em>${Object.keys(a.shape).length}</row>` +
+        `<row><em>dtype</em>${esc(Object.entries(a.dtype).map(([k, v]) => `${k}×${v}`).join(' '))}</row>` +
+        (Object.keys(kinds).length ? `<u></u>` + Object.entries(kinds)
+          .map(([k, v]) => `<row><em>${esc(k)}</em>${v}</row>`).join('') : '');
+      document.body.appendChild(tipEl);
+      const r = ev.currentTarget.getBoundingClientRect();
+      const t = tipEl.getBoundingClientRect();
+      tipEl.style.left = `${Math.min(window.scrollX + r.left, window.scrollX + window.innerWidth - t.width - 10)}px`;
+      tipEl.style.top = `${window.scrollY + r.top - t.height - 8}px`;
+    }
+    const hideTip = () => { if (tipEl) { tipEl.remove(); tipEl = null; } };
+
+    function renderIdentity() {
+      const c = D.manifest.counts;
+      const byConf = c.byConfidence || {};
+      const labels = { exact: '可追踪（语义名）', 'name-match': '计数器名', heuristic: '已确认重名' };
+      const notes = {
+        exact: '时间线开放',
+        'name-match': '仅建 / 删事件',
+        heuristic: '同名不同 dtype',
+      };
+      $('idbar').innerHTML = Object.entries(labels).map(([k, label]) =>
+        `<div class="stat"><div class="stat-label">${label}</div>
+          <div class="stat-value">${byConf[k] || 0}</div>
+          <div class="stat-sub">${notes[k]}</div></div>`).join('') +
+        `<div class="stat"><div class="stat-label">事件总数</div><div class="stat-value">${c.events}</div>
+          <div class="stat-sub">created ${D.events.filter((e) => e.kind === 'created').length} · removed ${D.events.filter((e) => e.kind === 'removed').length}</div></div>`;
+
+      const un = c.unresolvedChanges || {};
+      const total = Object.values(un).reduce((a, b) => a + b, 0);
+      if (total) {
+        $('warnbox').hidden = false;
+        $('warnbox').innerHTML = `<b>有 ${total} 处属性变化被判定为不可信，未计入事件。</b>` +
+          `它们都落在计数器名的 tile 上（${Object.entries(un).map(([k, v]) => `${k} ${v}`).join('、')}）。` +
+          `从 dump 文本无法区分「这个 tile 变了」和「这个名字被另一个 tile 占用了」——` +
+          `要让时间线覆盖全部 tile，dump 需要带 Span，或改用进程内 instrument。`;
+      }
+    }
+
+    function renderList() {
+      const rows = D.subjects
+        .filter((s) => !filter || s.label.toLowerCase().includes(filter))
+        .sort((a, b) => {
+          const rank = { exact: 0, 'name-match': 1, heuristic: 2 };
+          const d = rank[a.identity.identityConfidence] - rank[b.identity.identityConfidence];
+          return d || a.label.localeCompare(b.label);
+        });
+      $('list-count').textContent = `${rows.length} / ${D.subjects.length}`;
+      $('slist').innerHTML = rows.length ? rows.map((s) =>
+        `<button class="srow${selSubject === s.id ? ' sel' : ''}" role="listitem" data-id="${esc(s.id)}">
+          <span class="srow-name" title="${esc(s.label)}">${esc(s.label)}</span>
+          <span class="conf ${s.identity.identityConfidence}">${s.identity.identityConfidence}</span>
+        </button>`).join('') : '<div class="empty">没有匹配的 tile。</div>';
+      $('slist').querySelectorAll('.srow').forEach((el) =>
+        el.addEventListener('click', () => { selSubject = el.dataset.id; renderList(); renderDetail(); }));
+    }
+
+    function renderDetail() {
+      const s = D.subjects.find((x) => x.id === selSubject);
+      if (!s) {
+        $('dhead').innerHTML = ''; $('tl').innerHTML = '';
+        $('code-wrap').hidden = true; $('detail-empty').hidden = false;
+        return;
+      }
+      $('detail-empty').hidden = true;
+      const evs = D.events.filter((e) => e.subjectId === s.id);
+      $('dhead').innerHTML = `<strong>${esc(s.label)}</strong>
+        <span class="conf ${s.identity.identityConfidence}">${s.identity.identityConfidence}</span>
+        <span>${esc(s.current.dtype)} · ${esc(s.current.shape)} · 存在于 pass ${s.lifespan.from}–${s.lifespan.to}</span>`;
+
+      // Render the value held at each stage, never the final value.
+      $('tl').innerHTML = D.manifest.stages.map((st, i) => {
+        const v = (s.stageValues || [])[i];
+        const prev = (s.stageValues || [])[i - 1];
+        const here = evs.filter((e) => e.stage === st.index);
+        const changed = Boolean(v && prev && (v.shape !== prev.shape || v.dtype !== prev.dtype || v.space !== prev.space));
+        const isSel = selStage === st.index;
+        return `<div class="tl-cell${v ? '' : ' absent'}${changed ? ' changed' : ''}"
+                 style="${isSel ? 'box-shadow:0 0 0 2px #6f86c8' : ''}">
+          <div class="tl-stage">${st.index}</div>
+          <div class="tl-pass">${esc(st.pass)}</div>
+          <div class="tl-shape">${v ? esc(v.shape) : '—'}</div>
+          <div class="tl-meta">${v ? `${esc(v.dtype)}${v.space ? ` · ${esc(v.space)}` : ''}` : '不存在'}</div>
+          ${here.map((e) => `<div class="tl-ev">${esc(e.kind)}</div>`).join('')}
+        </div>`;
+      }).join('');
+
+      $('code-wrap').hidden = false;
+      $('code').textContent = s.current.code || '—';
+    }
+
+    $('search').addEventListener('input', (e) => { filter = e.target.value.trim().toLowerCase(); renderList(); });
+    window.addEventListener('scroll', hideTip, { passive: true });
+  })();
+  </script>
+</body>
+</html>

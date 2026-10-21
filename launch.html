@@ -704,25 +704,13 @@
         title: "算子调优控制台",
         subtitle: "Tuning Console · 多版本探索",
         category: "内存与性能",
-        status: "新增",
-        version: "01 / Console",
+        status: "4 个版本",
+        version: "V1 · V2 · V3 · V4",
         updatedAt: "2026-09-24",
-        description: "以一次真实上板执行（DeepSeek V4 decode_csa，双 rank、72 核、4038 个任务块）为对象，把调优闭环做成可操作界面：端到端分 rank 对账、L2 泳道与关键路径、单核 kernel/setup/hand-off 三口径拆解、片上预算试算、230 条编译提示按源码点归位，并用实验台账强制每轮只验证一个假设。",
+        description: "以一次真实上板执行（DeepSeek V4 decode_csa，双 rank、72 核、4038 个任务块）为对象，集中体验调优闭环的多个版本：端到端分 rank 对账、L2 泳道与关键路径、单核拆解、片上预算试算、编译提示与实验台账。",
         href: "Design/operator-tuning-console/index.html",
         preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["Chip Swimlane", "Critical Path", "MemoryReuse", "Tile Budget", "实验台账"]
-      },
-      {
-        title: "算子调优控制台 V2",
-        subtitle: "Tuning Console · Investigations",
-        category: "内存与性能",
-        status: "新增",
-        version: "02 / AI Flow",
-        updatedAt: "2026-09-24",
-        description: "保留原始五层证据、Pass 轨迹和实验台账，并将入口重构为真实开发任务流：以 Investigation 管理基线、假设、证据和单变量实验；层级视图只在需要查证时打开。",
-        href: "Design/operator-tuning-console-v2/index.html",
-        preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["L2 Scheduling", "Ready Queue", "Core Swimlane", "PMU", "40-Layer"],
+        tags: ["Chip Swimlane", "Critical Path", "MemoryReuse", "Tile Budget", "实验台账"],
         variants: [
           { label: "V1", href: "Design/operator-tuning-console/index.html" },
           { label: "V2", href: "Design/operator-tuning-console-v2/index.html" },
@@ -854,14 +842,29 @@
       },
       {
         title: "Memory Pass Replay",
-        subtitle: "Callable-level Memory Pipeline Evidence",
+        subtitle: "Memory Pipeline Evidence · 两种观测主体",
+        category: "内存与性能",
+        status: "2 个版本",
+        version: "01 Callable · 02 Object",
+        updatedAt: "2026-10-20",
+        description: "同一份 pass dump、同一个 callable，两种观测方式：01 逐 pass 查看分配池的形成、合并与地址布局；02 是工具形态的内存线——覆盖全部 8 个内存 pass，顶部是可判好坏的 KPI（Vec 占用率 87.6%／余量 22.8 KiB、静态总量 −68.3%、槽位 53→12、碎片 0%、前 3 槽占 79.4%），主画布是 140 个 tile 的槽位归属矩阵，可下钻到单个 tile 的逐 pass 状态。",
+        href: "Design/memory-pass-replay/index.html",
+        tags: ["MemoryReuse", "Pass Dump", "MemRef", "Address Allocation"],
+        variants: [
+          { label: "01 Callable", href: "Design/memory-pass-replay/index.html" },
+          { label: "02 Object", href: "Design/memory-object-replay/index.html" }
+        ]
+      },
+      {
+        title: "Pass Lane · 数据形态线",
+        subtitle: "Cross-pass Lane Model",
         category: "内存与性能",
         status: "可体验",
-        version: "01 / Pass Replay",
-        updatedAt: "2026-10-16",
-        description: "使用真实 PyPTO pass dump 回放单个 callable 的 InitMemRef、语义别名、MemoryReuse 与地址分配过程，联动查看静态分配规模、生命周期线索和 Vec 地址区间。",
-        href: "Design/memory-pass-replay/index.html",
-        tags: ["MemoryReuse", "Pass Dump", "MemRef", "Address Allocation"]
+        version: "Lane 2 / 6",
+        updatedAt: "2026-10-20",
+        description: "把 pass 当刻度、把 tile 当主角：跨 10 个 pass 聚合看 callable 的 tile 构成如何从 64 涨到 138，并按身份可追踪性开放逐对象形态时间线。配套 lane / Subject / LaneEvent 的 schema。",
+        href: "Design/pass-lane-model/index.html",
+        tags: ["Lane Model", "Pass Dump", "Tile Shape", "Schema"]
       },
       {
         title: "Memory Inspector",
@@ -1036,9 +1039,6 @@
         description: "直接解析 passes_dump 的 52 / 42 份 IR 快照：Pass 时间线按改动量排序，代码 Diff 精确到 token，五种结构图（调用、控制流、数据流、任务 DAG、内存）做前后对照，并用实测增量说明每个 Pass 究竟做了什么优化。",
         href: "Design/pass-transform-explorer/demo.html",
         preview: "Design/assets/launch-previews/pass-atlas.png",
-        variants: [
-          { label: "在线 Demo（单文件）", href: "Design/pass-transform-explorer/demo.html" },
-        ],
         tags: ["Pass Diff", "IR Graph", "MemoryReuse", "Task DAG", "passes_dump"]
       },
       {

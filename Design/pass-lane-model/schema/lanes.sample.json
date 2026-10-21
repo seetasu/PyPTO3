@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "pass-lane-model.lanes.v1",
+  "lanes": [
+    {
+      "id": "memory",
+      "label": "内存",
+      "question": "片上占用怎么降下来的，地址何时落定",
+      "subjectKinds": ["tile", "memref"],
+      "metrics": [
+        { "id": "slotCount", "label": "分配槽数", "metricKind": "count" },
+        { "id": "staticBytes", "label": "静态 tile.alloc 总量", "unit": "B", "metricKind": "bytes" },
+        { "id": "highWater", "label": "地址高水位", "unit": "B", "metricKind": "bytes" }
+      ],
+      "visual": { "form": "lifetime-bands", "primary": "staticBytes" },
+      "emitters": [
+        "OptimizeOrchTensors",
+        "InferTileMemorySpace",
+        "InjectGMPipeBuffer",
+        "InitMemRef",
+        "MaterializeSemanticAliases",
+        "MemoryReuse",
+        "AllocateMemoryAddr",
+        "FuseCreateAssembleToSlice"
+      ],
+      "downstreamEmitters": ["PlanMemory", "OptMemPlanForPipeline", "PTOResolveBufferSelect", "PTOResolveReservedBuffers"],
+      "collapsible": false
+    },
+    {
+      "id": "shape",
+      "label": "数据形态",
+      "question": "一个 tile 的形状与布局被改写成了什么",
+      "subjectKinds": ["tile", "tensor"],
+      "metrics": [
+        { "id": "rank", "label": "秩", "metricKind": "count" },
+        { "id": "shape", "label": "形状", "metricKind": "enum" },
+        { "id": "dtype", "label": "数据类型", "metricKind": "enum" },
+        { "id": "viewPresent", "label": "是否已物化 TileView", "metricKind": "enum" }
+      ],
+      "visual": { "form": "attribute-cards", "primary": "shape" },
+      "emitters": [
+        "FlattenTileNdTo2D",
+        "AutoTileMatmulL0",
+        "CanonicalizeTileSlice",
+        "ResolveBackendOpLayouts",
+        "MaterializeTensorStrides",
+        "FoldNoOpReshape"
+      ],
+      "downstreamEmitters": [
+        "InferPTOLayout",
+        "VMILayoutAssignment",
+        "VMILayoutFold",
+        "VMILayoutRematerialize",
+        "VMILayoutSinkMaterialization",
+        "VMIMaskGranularityAssignment"
+      ],
+      "collapsible": false
+    },
+    {
+      "id": "op",
+      "label": "算子形态",
+      "question": "一个源码级 op 最终膨胀成多少条指令",
+      "subjectKinds": ["op"],
+      "metrics": [
+        { "id": "fanout", "label": "降级扇出", "metricKind": "cardinality" },
+        { "id": "instrCount", "label": "指令条数", "metricKind": "count" }
+      ],
+      "visual": { "form": "lineage-tree", "primary": "fanout" },
+      "emitters": ["ConvertTensorToTileOps", "LowerCompositeOps", "AutoTileMatmulL0", "FuseCreateAssembleToSlice"],
+      "downstreamEmitters": ["ExpandTileOp", "PTOExpandSoftLib", "PTOInlineLibCall", "PTOLowerGenericOps"],
+      "collapsible": false
+    },
+    {
+      "id": "parallel",
+      "label": "并行结构",
+      "question": "函数怎么被切开，哪段跑在哪个核",
+      "subjectKinds": ["function"],
+      "metrics": [
+        { "id": "functionCount", "label": "函数数", "metricKind": "count" },
+        { "id": "coreType", "label": "核归属", "metricKind": "enum" }
+      ],
+      "visual": { "form": "function-tree", "primary": "coreType" },
+      "emitters": [
+        "OutlineHierarchyScopes",
+        "OutlineIncoreScopes",
+        "OutlineClusterScopes",
+        "LowerAutoVectorSplit",
+        "ExpandMixedKernel",
+        "SplitVectorKernel"
+      ],
+      "downstreamEmitters": ["PTOOutlineSIMTSections", "VPTOSplitCVModule", "PTOMaterializeSIMTPersistentFragment"],
+      "collapsible": false
+    },
+    {
+      "id": "timing",
+      "label": "时序",
+      "question": "流水怎么错开的，同步插在哪里",
+      "subjectKinds": ["pipe", "event"],
+      "metrics": [
+        { "id": "stageDepth", "label": "流水级数", "metricKind": "count" },
+        { "id": "syncCount", "label": "同步点数", "metricKind": "count" }
+      ],
+      "visual": { "form": "pipe-swimlane", "primary": "syncCount" },
+      "emitters": [
+        "ExpandMixedKernel",
+        "InjectGMPipeBuffer",
+        "StampTfreeSplit",
+        "SkewCrossCorePipeline",
+        "LowerPipelineLoops",
+        "ExpandManualPhaseFence"
+      ],
+      "downstreamEmitters": ["PTOInsertSync", "PTOLoweringSyncToPipe", "OpScheduling", "VPTOScheduler", "PTOInjectBarrierAllSync"],
+      "collapsible": false
+    },
+    {
+      "id": "dependency",
+      "label": "依赖",
+      "question": "算子之间的依赖和通信是怎么被推导出来的",
+      "subjectKinds": ["task", "callsite"],
+      "metrics": [
+        { "id": "taskCount", "label": "任务数", "metricKind": "count" },
+        { "id": "edgeCount", "label": "依赖边数", "metricKind": "count" }
+      ],
+      "visual": { "form": "dag-growth", "primary": "edgeCount" },
+      "emitters": [
+        "DeriveCallDirections",
+        "AutoDeriveTaskDependencies",
+        "ExpandManualPhaseFence",
+        "NormalizeReturnOrder",
+        "CanonicalizeIOOrder",
+        "MaterializeRuntimeScopes",
+        "ClassifyIterArgCarry",
+        "SynthesizeAllReduceSignals",
+        "MaterializeCommDomainScopes",
+        "LowerHostTensorCollectives",
+        "MaterializeDistTensorCtx"
+      ],
+      "downstreamEmitters": [],
+      "collapsible": false
+    },
+    {
+      "id": "normalization",
+      "label": "规范化（默认折叠）",
+      "question": "无——这些 pass 在六条线上不产生可见事件",
+      "subjectKinds": ["function"],
+      "metrics": [{ "id": "passCount", "label": "折叠的 pass 数", "metricKind": "count" }],
+      "visual": { "form": "attribute-cards", "primary": "passCount" },
+      "emitters": [
+        "InlineFunctions",
+        "UnrollLoops",
+        "CtrlFlowTransform",
+        "ConvertToSSA",
+        "Simplify",
+        "NormalizeStmtStructure",
+        "FlattenCallExpr"
+      ],
+      "downstreamEmitters": ["PTOCanonicalizeIR", "PTOUnrollLoops"],
+      "collapsible": true
+    }
+  ]
+}

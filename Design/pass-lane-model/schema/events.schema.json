@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pass-lane-model.events.v1",
+  "title": "Lane events",
+  "description": "LaneEvent 是 pass 在某条 lane 上对某个 Subject 做的一件事。pass 与 lane 是多对多，所以事件而非 pass 才是最小单位。",
+  "type": "object",
+  "required": ["schemaVersion", "events"],
+  "properties": {
+    "schemaVersion": { "const": "pass-lane-model.events.v1" },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "stage", "pass", "laneId", "kind"],
+        "properties": {
+          "id": { "type": "string" },
+          "stage": { "type": "integer", "description": "manifest.stages[].index，即时间轴刻度" },
+          "pass": { "type": "string" },
+          "laneId": { "type": "string" },
+          "subjectId": { "type": "string", "description": "1:1 事件的主体；split / merge 用 sources / targets" },
+          "kind": {
+            "enum": [
+              "created", "removed",
+              "shape-changed", "rank-changed", "dtype-changed",
+              "space-assigned", "memref-bound", "addr-assigned",
+              "view-materialized", "view-changed",
+              "layout-rewritten", "stride-materialized",
+              "split", "merge", "extract", "renamed", "moved",
+              "alias-forced", "sync-inserted", "dep-derived",
+              "attr-changed", "decision"
+            ]
+          },
+          "field": { "type": "string", "description": "attr/属性类事件改的是哪个字段" },
+          "from": { "type": "object", "description": "变化前的值；created 事件无此字段" },
+          "to": { "type": "object", "description": "变化后的值；removed 事件无此字段" },
+          "sources": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "split / merge / extract 的输入 subject id"
+          },
+          "targets": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "split / merge / extract 的输出 subject id"
+          },
+          "cardinality": {
+            "type": "string",
+            "pattern": "^[0-9]+:[0-9N]+$",
+            "description": "如 1:3（ExpandMixedKernel 拆核）或 4:1（MemoryReuse 合槽）。基数变化不能用 diff 表达，必须显式。"
+          },
+          "decision": {
+            "type": "object",
+            "description": "为什么这么做；需要 pass 主动埋点，无法从 dump 反推",
+            "properties": {
+              "inputs": { "type": "array", "items": { "type": "string" } },
+              "chosen": { "type": "string" },
+              "alternatives": { "type": "array", "items": { "type": "string" } },
+              "rationale": { "type": "string" }
+            }
+          },
+          "detail": { "type": "string", "description": "一行可读补充，通常是产生该 subject 的 op" },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "指向 dump 行、report 条目或 DFX 产物，供复核"
+          }
+        }
+      }
+    }
+  }
+}
