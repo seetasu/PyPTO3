@@ -2173,14 +2173,11 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     if (node.id === 'pv' || node.id.startsWith('pv/')) rows.push({ label: 'PV 源码 API', value: `pl.matmul ×${data.pvMatmul}；pl.matmul_acc ×${data.pvMatmulAcc}。每 Stack 首 Page 初始化，其余 Page 累加。` });
     return pypaInspectorSection('执行次数依据', rows) + `<nav class="kf-pypa-graph__source-links" aria-label="执行次数源码依据">${[[265,266], [279,285], ...entry.source.ranges].map(([start,end]) => `<button class="btn btn-ghost btn-sm" type="button" data-pypa-execution-source="${start}">源码 ${start}–${end}</button>`).join('')}</nav><p class="kf-pypa-graph__inspector-note">源码与样例输入推导 · 逻辑执行量；不表示硬件指令数或耗时。</p>`;
   }
-  function syncPypaExecution() {
-    const scene = $('#pypaTaskScene');
-    if (!scene || pypaGraphView !== 'compute' || activeSemanticModel() !== window.PTO_PYPA_SEMANTIC_GRAPH) return;
-    const data = pypaExecutionData();
+  function applyPypaExecution(scene, nodes, graph, data) {
     scene.querySelectorAll('[data-pypa-execution-count], [data-pypa-execution-stack]').forEach((decoration) => decoration.remove());
     scene.querySelectorAll('[data-pypa-node]').forEach((element) => {
       const entry = data?.nodes[element.dataset.pypaNode];
-      const node = pypaGraphController.nodes.find((item) => item.id === element.dataset.pypaNode);
+      const node = nodes.find((item) => item.id === element.dataset.pypaNode);
       element.classList.remove('has-execution-badge', 'has-execution-title');
       if (node) element.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${entry ? `，整个 Task ${data.task}：${entry.label}` : ''}`);
       if (!entry || !node) return;
@@ -2228,13 +2225,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         label: [...new Set(entries.map((entry) => entry.label))].join(' → ') };
     };
     scene.querySelectorAll('[data-pypa-edge]').forEach((path) => {
-      const edge = pypaGraphController.graph.edges.find((item) => item.id === path.dataset.pypaEdge);
+      const edge = graph.edges.find((item) => item.id === path.dataset.pypaEdge);
       const entry = executionForEdge(edge);
       if (entry) path.style.strokeWidth = String(entry.width);
       else path.style.removeProperty('stroke-width');
     });
     scene.querySelectorAll('[data-pypa-edge-label]').forEach((label) => {
-      const edge = pypaGraphController.graph.edges.find((item) => item.id === label.dataset.pypaEdgeLabel);
+      const edge = graph.edges.find((item) => item.id === label.dataset.pypaEdgeLabel);
       const entry = executionForEdge(edge);
       label.textContent = edge.label;
       if (entry) {
@@ -2245,6 +2242,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         label.appendChild(count);
       }
     });
+
+  }
+  function syncPypaExecution() {
+    const scene = $('#pypaTaskScene');
+    if (!scene || pypaGraphView !== 'compute' || activeSemanticModel() !== window.PTO_PYPA_SEMANTIC_GRAPH) return;
+    const data = pypaExecutionData();
+    applyPypaExecution(scene, pypaGraphController.nodes, pypaGraphController.graph, data);
     const context = $('#pypaExecutionContext');
     if (context) {
       const editing = document.activeElement?.matches('[data-pypa-execution-length]');
@@ -2592,6 +2596,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   }
   window.PtoStudioComputationGraph = Object.freeze({
     renderScene: renderPypaGraphScene,
+    applyExecution: applyPypaExecution,
     cardHtml: (node, model, layers) => pypaComputeCardHtml(node, { model, layers }),
   });
 
