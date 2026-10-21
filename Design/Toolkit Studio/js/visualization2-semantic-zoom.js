@@ -21,7 +21,7 @@
       const descendants=hold.querySelectorAll('*');root.append(hold);pane.querySelectorAll('*').forEach((element,index)=>{if(element.scrollTop||element.scrollLeft){descendants[index].scrollTop=element.scrollTop;descendants[index].scrollLeft=element.scrollLeft;}});
       job={direction,id,source,hold,frame:0,phase:'preparing',animations:[],masked:[]};return job;
     }
-    function play(current){if(!current||job!==current)return;current.frame=requestAnimationFrame(()=>{current.frame=requestAnimationFrame(()=>start(current));});}
+    function play(current){if(!current||job!==current)return;current.phase='queued';current.frame=requestAnimationFrame(()=>{current.frame=requestAnimationFrame(()=>start(current));});}
     function start(current){
       if(job!==current)return;
       const entering=current.direction==='in',target=entering?getAnatomy():getMatrix(current.id);
@@ -79,7 +79,7 @@
       tick(startTime);
     }
     global.addEventListener('resize',cancel);media.addEventListener('change',cancel);
-    return {prepare,play,cancel,get animating(){return job?.phase==='animating';}};
+    return {prepare,play,cancel,get animating(){return job?.phase==='queued'||job?.phase==='animating';}};
   }
   global.PtoVisualization2SemanticZoom=Object.freeze({create});
 })(window);

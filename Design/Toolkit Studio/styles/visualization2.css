@@ -5,8 +5,13 @@
 .viz2-header { flex: none; gap: var(--space-3); }
 .viz2-header .pto-ide-frame__pane-meta { margin-left: auto; }
 .viz2-content { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
-.viz2-tabs { flex: none; padding: var(--space-3) var(--space-5); }
-.viz2-canvas { flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+.viz2-tabs { flex: none; justify-content: center; padding: var(--space-3) var(--space-5); }
+.viz2-tabs .tab-control-item { display: inline-flex; align-items: center; gap: var(--space-2); }
+.viz2-tab-icon { display: inline-block; flex: none; width: 16px; height: 16px; background: currentColor; -webkit-mask: var(--viz2-tab-icon) center / contain no-repeat; mask: var(--viz2-tab-icon) center / contain no-repeat; }
+.viz2-tab-icon--assignment { --viz2-tab-icon: url('../assets/viz2-tabs/assignment.svg'); }
+.viz2-tab-icon--pipeline { --viz2-tab-icon: url('../assets/viz2-tabs/pipeline.svg'); }
+.viz2-tab-icon--graph { --viz2-tab-icon: url('../assets/viz2-tabs/graph.svg'); }
+.viz2-canvas { position: relative; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
 .viz2 .kf-pa-map { padding-top: var(--space-2); }
 .viz2 .kf-pa-map__context { font: var(--type-label); margin-top: var(--space-3); }
 @media (max-width: 720px) {
@@ -19,6 +24,28 @@
 /* Phase0 owns its data diagram; existing Attention matrix styles are unchanged. */
 #viz2-assignment { display: flex; flex-direction: column; }
 .viz2-phase-toolbar { flex: none; padding: 0 var(--space-5) var(--space-2); }
+/* All scope switches share one canvas-space position across tabs. */
+.viz2-phase-toolbar > .segmented-control[aria-label$="范围"],
+#viz2-assignment [data-viz2-phases] {
+  position: absolute;
+  z-index: 6;
+  left: var(--space-3);
+  box-shadow: var(--shadow-md);
+}
+#viz2-assignment [data-viz2-phases] { top: calc(50% - 44px); transform: translateY(-100%); }
+.viz2-phase-toolbar > .segmented-control[aria-label$="范围"] {
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+  align-items: stretch;
+}
+.viz2-phase-toolbar > .segmented-control[aria-label$="范围"] > .btn { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; padding-inline: var(--space-2); }
+.viz2-block-scope-icon { display: block; width: 20px; height: 20px; background: currentColor; -webkit-mask: url('../assets/viz2-tabs/block-scope.svg') center / contain no-repeat; mask: url('../assets/viz2-tabs/block-scope.svg') center / contain no-repeat; }
+.viz2-block-scope-icon--inter { transform: rotate(180deg); }
+@media (max-width: 720px) {
+  .viz2-phase-toolbar > .segmented-control[aria-label$="范围"],
+  #viz2-assignment [data-viz2-phases] { left: var(--space-2); }
+}
 .viz2-phase-surface { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 .viz2-p0-summary { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); padding: var(--space-2) var(--space-5); color: var(--foreground-secondary); font: var(--type-body-sm); }
 .viz2-p0-summary b { color: var(--foreground); font-family: var(--font-mono); }
@@ -73,6 +100,8 @@
 .viz2 { position: relative; }
 .viz2-transition-overlay { position: absolute; inset: 0; overflow: hidden; z-index: 12; pointer-events: none; }
 .viz2.viz2-morph-preparing[data-morph-destination="pipeline"] #viz2-pipeline,
-.viz2.viz2-morph-preparing[data-morph-destination="assignment"] #viz2-assignment { visibility: hidden; }
+.viz2.viz2-morph-preparing[data-morph-destination="assignment"] #viz2-assignment,
+.viz2.viz2-morph-preparing[data-morph-destination="graph"] #viz2-graph { visibility: hidden; }
+.viz2.viz2-morph-graph #viz2-graph-inter [data-viz2-graph-block] { visibility: hidden; }
 .viz2.viz2-morph-assignment #viz2-attention [data-pa-block],
 .viz2.viz2-morph-assignment #viz2-attention .kf-pa-map__sequence { visibility: hidden; }

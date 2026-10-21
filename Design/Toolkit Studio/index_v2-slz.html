@@ -253,10 +253,10 @@
   </style>
   <link rel="stylesheet" href="./styles/visualization2.css" />
   <link rel="stylesheet" href="./styles/visualization2-pipeline.css" />
-  <link rel="stylesheet" href="./styles/visualization2-graph.css" />
+  <link rel="stylesheet" href="./styles/visualization2-graph.css?v=shared1" />
   <link rel="stylesheet" href="./styles/visualization2-anatomy.css" />
   <link rel="stylesheet" href="./styles/visualization2-pipeline-intra.css" />
-  <link rel="stylesheet" href="./styles/visualization2-graph-intra.css?v=7" />
+  <link rel="stylesheet" href="./styles/visualization2-graph-intra.css?v=shared1" />
 </head>
 <body data-visualization2-enabled>
   <section class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="PyPTO Studio 可信 Kernel 工作台">
@@ -630,7 +630,7 @@
           </aside>
 
           <main class="pto-ide-frame__pane" data-ide-pane="editor-preview">
-            <div class="pto-ide-frame__tabstrip"><div class="kf-tabs" id="tabs"><button class="is-active" data-editor-tab="source">decode_layer.py</button></div></div>
+            <div class="pto-ide-frame__tabstrip"><div class="kf-tabs" id="tabs"><button class="is-active" data-editor-tab="source">paged_attention_pypto.py</button></div></div>
             <header class="pto-ide-frame__pane-header">
               <span class="pto-ide-frame__pane-title" id="stageTitle">定义目标</span>
               <span class="pto-ide-frame__pane-meta" id="stageMeta">recipe · decode_layer</span>
@@ -650,11 +650,11 @@
                 <div class="kf-callout"><span>✓</span><div><b>Decode Layer 已加载</b><small>hidden [16, 5120] · FP32 · 40 Q / 8 KV · Paged KV</small></div><button class="btn btn-solid" data-next>打开源码 <span>→</span></button></div>
               </section>
 
-              <section class="kf-stage kf-source-stage" data-stage="1" aria-label="decode_layer.py 全量源码">
+              <section class="kf-stage kf-source-stage" data-stage="1" aria-label="paged_attention_pypto.py 全量源码">
                 <!-- 源码地图：原来是右侧面板里的一排按钮，现在贴在源码顶部随滚动
                      指示"当前在哪一段"，点开可跳到任意一段。 -->
                 <div class="kf-source-region" id="sourceRegionBar" hidden></div>
-                <div class="kf-code kf-full-source" id="dslEditor" role="textbox" aria-label="decode_layer.py 全量源码" tabindex="0"></div>
+                <div class="kf-code kf-full-source" id="dslEditor" role="textbox" aria-label="paged_attention_pypto.py 全量源码" tabindex="0"></div>
               </section>
 
               <section class="kf-stage" data-stage="2" aria-labelledby="stage2Title">
@@ -904,7 +904,7 @@
   <script src="./js/paged-attention-intro.js?v=20261019-execution-1"></script>
   <script src="./js/paged-attention-execution.js?v=20261019-2"></script>
   <script src="./js/matmul-intro.js?v=20261013-1"></script>
-  <script src="./js/demo-v2.js?v=20261020-execution-deck-right-1"></script>
+  <script src="./js/demo-v2.js?v=20261021-default-paged-attention-1"></script>
   <script src="./js/ir-pipeline-data.js?v=20260901-1"></script>
   <script src="./js/ir-kernels-data.js?v=20260903-4"></script>
   <script src="./js/ir-pass-visuals.js?v=20260924-validation-flow-3"></script>
@@ -1386,13 +1386,13 @@
   <script src="./js/visualization2-phase0.js"></script>
   <script src="./js/visualization2-task-encoding.js"></script>
   <script src="./js/visualization2-pipeline.js"></script>
-  <script src="./js/visualization2-graph.js?v=overlays1"></script>
+  <script src="./js/visualization2-graph.js?v=shared1"></script>
   <script src="./js/visualization2-transition.js"></script>
   <script src="./js/visualization2-anatomy.js"></script>
   <script src="./js/visualization2-semantic-zoom.js"></script>
   <script src="./js/visualization2-pipeline-intra.js"></script>
   <script src="./js/visualization2-pipeline-zoom.js"></script>
-  <script src="./js/visualization2-graph-intra.js?v=7"></script>
+  <script src="./js/visualization2-graph-intra.js?v=shared1"></script>
   <script src="./js/visualization2.js"></script>
 </body>
 </html>

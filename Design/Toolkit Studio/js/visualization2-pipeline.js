@@ -33,10 +33,10 @@
     host.classList.add('viz2-pipeline');
     host.innerHTML = `<div class="viz2-pipeline-body">
       <div class="viz2-pipeline-stage">
-        <div class="viz2-pipeline-viewport" tabindex="0" role="group" aria-label="Block Execution Map，拖拽横向平移，滚轮缩放工作量">
+        <div class="viz2-pipeline-viewport" tabindex="0" role="group" aria-label="Block Execution Map，横向滚动缩放泳道，纵向滚动浏览 Block 行，拖拽横向平移">
           <div class="viz2-pipeline-surface"><canvas aria-hidden="true"></canvas><div class="viz2-pipeline-targets"></div></div>
         </div>
-        <footer class="viz2-pipeline-footer"><span><i style="background:${colors.attention}"></i>Attention · 宽度 ∝ Stack 数 <i style="background:${colors.output}"></i>每 Task 末尾 Output · 等宽符号 <small>静态逻辑顺序</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-bem-zoom="0.8" aria-label="缩小 Pipeline">−</button><output data-bem-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-bem-zoom="1.25" aria-label="放大 Pipeline">＋</button><button class="btn btn-ghost btn-sm" type="button" data-bem-fit>适应</button></div></footer>
+        <footer class="viz2-pipeline-footer"><span><i style="background:${colors.attention}"></i>Attention · 宽度 ∝ Stack 数 <i style="background:${colors.output}"></i>每 Task 末尾 Output · 等宽符号 <small>横向滚动缩放 · 纵向滚动浏览 Block</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-bem-zoom="0.8" aria-label="缩小 Pipeline">−</button><output data-bem-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-bem-zoom="1.25" aria-label="放大 Pipeline">＋</button><button class="btn btn-ghost btn-sm" type="button" data-bem-fit>适应</button></div></footer>
       </div>
       <aside class="pto-ide-frame__pane viz2-pipeline-inspector" aria-label="Pipeline 执行详情" hidden>
         <header class="pto-ide-frame__pane-header"><b data-bem-title></b><button class="btn btn-ghost btn-sm" type="button" data-bem-clear aria-label="清除 Pipeline 选择">×</button></header>
@@ -62,8 +62,9 @@
 
     function measure() {
       host.style.setProperty('--viz2-pipeline-footer-height', `${host.querySelector('.viz2-pipeline-footer').offsetHeight}px`);
-      const width = viewport.clientWidth, height = Math.max(viewport.clientHeight, 480);
-      const header = 40, row = (height - header - 8) / model.blocks;
+      const width = viewport.clientWidth, header = 40;
+      const row = Math.max(36,(viewport.clientHeight-header-8)/model.blocks);
+      const height = Math.max(viewport.clientHeight,header+row*model.blocks+8);
       const labelX = 12, phaseX = 72, phaseW = 98, syncX = 198, taskX = 232, outputW = 28, gap = 8;
       const available = Math.max(64, width - taskX - 18);
       const unit = Math.max(2, Math.min(...model.lanes.filter(lane=>lane.tasks.length).map(lane =>
@@ -181,7 +182,12 @@
       const block=event.target.closest('[data-bem-block]');if(block)onSelect({kind:'block',block:Number(block.dataset.bemBlock),task:null});
     });
     viewport.addEventListener('dblclick',event=>{const target=event.target.closest('[data-bem-task]');if(target){pattern.hideTooltip(tooltip);onEnter?.(doubleCandidate&&event.timeStamp-doubleCandidate.time<650?doubleCandidate.id:Number(target.dataset.bemTask));doubleCandidate=null;}});
-    viewport.addEventListener('wheel',event=>{event.preventDefault();const r=viewport.getBoundingClientRect(),unit=event.deltaMode===1?16:event.deltaMode===2?r.height:1;pattern.hideTooltip(tooltip);zoom(Math.exp(Math.max(-.22,Math.min(.22,-event.deltaY*unit*.003))),event.clientX-r.left);},{passive:false});
+    viewport.addEventListener('wheel',event=>{
+      event.preventDefault();const r=viewport.getBoundingClientRect(),unit=event.deltaMode===1?16:event.deltaMode===2?r.height:1;
+      pattern.hideTooltip(tooltip);
+      if(Math.abs(event.deltaX)>Math.abs(event.deltaY))zoom(Math.exp(Math.max(-.22,Math.min(.22,event.deltaX*unit*.003))),event.clientX-r.left);
+      else viewport.scrollTop+=event.deltaY*unit;
+    },{passive:false});
     viewport.addEventListener('pointerdown',event=>{if(event.button!==0)return;suppressClick=false;drag={id:event.pointerId,x:event.clientX,startX:event.clientX,startY:event.clientY,moved:false};});
     viewport.addEventListener('pointermove',event=>{
       if(drag){if(!drag.moved&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<=4)return;drag.moved=true;viewport.setPointerCapture(drag.id);viewport.classList.add('is-dragging');pattern.hideTooltip(tooltip);const c=camera||{scale:1,x:0};onCamera(bounded({...c,x:c.x+event.clientX-drag.x}));drag.x=event.clientX;return;}
