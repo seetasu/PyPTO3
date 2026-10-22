@@ -2445,6 +2445,13 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         line.setAttribute('class', `kf-pypa-graph__edge is-${edge.type}`);
         line.setAttribute('marker-end', `url(#${markerPrefix}-arrow-${edge.type})`);
         svg.appendChild(line);
+        if (edge.type === 'state' || edge.type === 'feedback') {
+          const hit = document.createElementNS(svgNS, 'path');
+          hit.setAttribute('d', routed.path);
+          hit.setAttribute('class', 'kf-pypa-graph__edge-hit');
+          hit.dataset.pypaEdgeHit = edge.id;
+          svg.appendChild(hit);
+        }
         if (edge.label) {
           const label = document.createElementNS(svgNS, 'text');
           label.setAttribute('class', 'kf-pypa-graph__edge-label');

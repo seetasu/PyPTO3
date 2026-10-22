@@ -30,7 +30,7 @@ const collapsedGeometry = [
 test('all Paged Attention semantic nodes validate without legacy display fields', () => {
   const w = load(), model = w.PTO_PYPA_SEMANTIC_GRAPH;
   assert.equal(w.PTO_SEMANTIC_COMPUTATION_GRAPH.validate(model), model);
-  assert.equal(allNodes(model).length, 69);
+  assert.equal(allNodes(model).length, 70);
   for (const { node } of allNodes(model)) {
     for (const legacy of ['sub', 'title', 'kind', 'badge', 'lines', 'sourceLine', 'api', 'semanticType']) assert.equal(legacy in node, false);
     assert.ok(node.source.ranges.length);

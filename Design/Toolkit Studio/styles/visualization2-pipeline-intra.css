@@ -24,3 +24,4 @@
 .viz2-intra-masked [data-intra-frame],.viz2-intra-masked [data-intra-kind="output"],.viz2-intra-masked [data-intra-operation$=":qk"] { visibility:hidden; }
 
 .viz2-intra-svg .viz2-intra-small { font-size:var(--intra-small-font,11px); }
+.viz2-intra [data-intra-source-preview] {white-space:pre;overflow:auto;max-height:280px;font:var(--type-mono);}

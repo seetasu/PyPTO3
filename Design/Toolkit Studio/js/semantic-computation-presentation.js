@@ -243,6 +243,12 @@
       const id = found.node.id, edges = found.graph.edges || [];
       const incoming = edges.filter((edge) => edge.t === id);
       const outgoing = edges.filter((edge) => edge.s === id);
+      if (semantic.type === 'state') add('状态演化', [
+        ['含义', semantic.description], ['更新公式', p.update], ['反馈', p.feedback],
+        ['输入来源', incoming.map((edge) => `${found.graph.nodes.find((node) => node.id === edge.s)?.name || edge.s} · ${edge.label}`)],
+        ['输出去向', outgoing.map((edge) => `${found.graph.nodes.find((node) => node.id === edge.t)?.name || edge.t} · ${edge.label}`)],
+        ['数据类型', '源码声明与静态推导；未选择具体 Task 时不表示运行时数值'],
+      ]);
       add('依赖', [
         ['生产者', incoming.filter((edge) => edge.type === 'data').map((edge) => edge.s)],
         ['消费者', outgoing.filter((edge) => edge.type === 'data').map((edge) => edge.t)],
@@ -251,6 +257,28 @@
       ]);
     }
     return sections;
+  }
+
+  function inspectorEdge(edge, { model } = {}) {
+    const parts = edge.id.split('/');
+    let graph = model;
+    for (const id of parts.slice(0, -1)) graph = graph?.nodes.find((node) => node.id === id)?.composite?.subgraph;
+    if (!graph) return [];
+    const semantic = edge.semantic || edge;
+    const source = graph.nodes.find((node) => node.id === semantic.s);
+    const target = graph.nodes.find((node) => node.id === semantic.t);
+    const rows = [
+      { label: '含义', value: edge.type === 'feedback' ? '更新后的状态经循环传给下一 Stack 的 Previous' : '状态参与当前计算' },
+      { label: '来源', value: source?.name || semantic.s },
+      { label: '去向', value: target?.name || semantic.t },
+      { label: '依赖', value: semantic.label },
+      { label: '更新公式', value: source?.state?.update || target?.state?.update || source?.description },
+      { label: '数据类型', value: '源码声明与静态推导；不表示运行时状态数值' },
+    ].filter((row) => row.value);
+    return [{ title: edge.type === 'feedback' ? '反馈' : '状态依赖', rows },
+      { title: '源码', rows: [source, target].filter(Boolean).map((node) => ({
+        label: node.name, value: formatSource(node.source),
+      })) }];
   }
 
   /* ================= Tensor Inspector（结构化数据） ================= */
@@ -420,11 +448,14 @@
         { label: '同步类型', value: 'Cross-core Synchronization' },
         { label: 'Producer', value: `${stage(event.producer)} / ${event.producer.coreType}` },
         { label: 'Set Pipe', value: event.producer.pipe },
-        { label: 'Consumer', value: `${stage(event.consumer)} / ${event.consumer.coreType}` },
+        { label: 'Consumer', value: `${model.nodes.find(node => node.id === (event.consumer.boundary || event.consumer.node))?.name || event.consumer.boundary || event.consumer.node} / ${event.consumer.coreType}` },
+        { label: 'WAIT 位置', value: `${event.consumer.boundary || event.consumer.node} · ${event.consumer.anchor}` },
         { label: 'Wait Pipe', value: event.consumer.pipe },
         { label: 'Transfer Buffer', value: `${event.buffer} · GM`, mono: true },
         { label: 'Data', value: `${event.dtype} · ${flatten(model).find((entry) => entry.id === event.tensor)?.node.name || event.tensor}` },
         { label: 'ffts_mode', value: `set: ${event.producer.fftsMode}；wait: 源码未传入` },
+        { label: 'Reason', value: event.explanation },
+        { label: '证据边界', value: '静态 READY 次序；逻辑 Tick 不表示耗时，WAIT 不表示已发生 Stall。Buffer Slot 复用与 State Feedback 分别建模。' },
       ],
       sources: [['set', event.producer], ['wait', event.consumer]].flatMap(([action, end]) =>
         end.source.ranges.map((range, index) => ({ action, index, range, source: end.source,
@@ -432,7 +463,7 @@
     };
   }
 
-  root.PTO_COMPUTATION_PRESENTATION = { node, edge, sourceRanges, sourceLine, formatSource, inspector,
+  root.PTO_COMPUTATION_PRESENTATION = { node, edge, sourceRanges, sourceLine, formatSource, inspector, inspectorEdge,
     flatten, shapeAxes: axes, shapeLine, card, regionView, tensorDetail, transformation, matmulRule,
     roleLabel, granularityLabel, overlays, synchronization };
 })(typeof window === 'undefined' ? globalThis : window);
