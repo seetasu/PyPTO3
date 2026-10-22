@@ -1,0 +1,12 @@
+<!-- Embed contract: the host owns the root container and script ordering. -->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="pattern.css"><link rel="stylesheet" href="sequence-navigation/navigation.css"><link rel="stylesheet" href="liquid-glass/liquid-glass.css">
+<div id="critical-path-swimlane"></div>
+<script src="data.js"></script>
+<script src="sequence-navigation/navigation.js"></script><script src="pattern.js"></script><script defer src="liquid-glass/liquid-glass.js"></script>
+<script>
+  const instance = CriticalPathSwimlane.mount(
+    document.getElementById('critical-path-swimlane'), SWIMLANE_DATA,
+    {step: 'D09', syncHash: false}
+  );
+</script>

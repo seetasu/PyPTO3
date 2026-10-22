@@ -1,0 +1,46 @@
+*{box-sizing:border-box}body{margin:0;background:#111;color:#ddd;font:14px system-ui}header{height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 28px}h1{font-size:22px;font-weight:500}button,select{background:#202020;color:#ddd;border:1px solid #404040;border-radius:20px;padding:9px 15px;cursor:pointer}button:hover{background:#333}button:focus-visible,select:focus-visible{outline:2px solid #eee}header div{display:flex;gap:12px}main{height:calc(100vh - 160px);overflow:auto;scrollbar-color:#444 #111}#chart{display:block;outline:none}footer{height:84px;display:flex;align-items:center;padding:0 28px;gap:30px}#navigator{position:relative;flex:1;height:46px}#mini{width:100%;height:30px}#position{width:100%;height:10px;accent-color:#aaa;margin:0;display:block}.controls{display:flex;border:1px solid #444;border-radius:26px;padding:3px}.controls button{border:0;background:none}aside{position:fixed;right:24px;top:86px;width:330px;max-height:calc(100vh - 190px);overflow:auto;background:#202020;border:1px solid #444;border-radius:18px;padding:22px;box-shadow:0 12px 40px #0008}aside h2{font-size:18px;overflow-wrap:anywhere}aside p{color:#aaa;line-height:1.7}aside button{float:right}dl{display:grid;grid-template-columns:1fr 1fr;gap:14px}dd{margin:0;text-align:right;font-family:monospace}dt{color:#aaa}#tip{position:fixed;pointer-events:none;background:#252525;border:1px solid #555;padding:12px 16px;border-radius:10px;white-space:pre-line;font:12px/1.7 monospace;max-width:350px}.caption{font-size:12px;color:#999}.bar{height:8px;background:#ccc;margin:10px 0}@media(max-width:700px){aside{width:280px}header{padding:0 16px}footer{padding:0 16px;gap:12px}}
+
+#navigator{height:30px}#mini{cursor:ew-resize;touch-action:none}#mini:focus-visible{outline:1px solid #aaa;outline-offset:4px}
+
+#info,aside>button{width:40px;height:40px;min-width:40px;min-height:40px;padding:0;display:grid;place-items:center;border-radius:50%;font-size:22px;flex-shrink:0}#rows[aria-pressed=true]{background:#eee;color:#111}footer{gap:28px}#navigator{max-width:900px;margin:auto}header select{max-width:160px}
+
+/* Use the same viewport and handles as Critical Path Swimlane. */
+#navigator.sequence-nav{height:36px;margin:4px auto;overflow:visible}
+#mini{position:absolute;inset:3px 0;width:100%;height:30px}
+#rank,#color-mode{appearance:none;padding:9px 38px 9px 16px;max-width:180px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23ccc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+
+.controls{align-items:center;flex-shrink:0}
+.controls #rows{width:36px;height:36px;padding:7px;display:grid;place-items:center;background:transparent;color:#ddd}
+.controls #rows:hover{background:#ffffff18}
+.control-divider{height:18px;width:1px;background:#555;margin:0 7px}
+#rows .compact-icon{display:none}
+#rows[aria-pressed=true] .expand-icon{display:none}
+#rows[aria-pressed=true] .compact-icon{display:inline}
+
+/* Immediate, state-aware tooltip, also available to keyboard users. */
+.controls #rows{position:relative}
+#rows:is(:hover,:focus-visible)::after{content:attr(aria-label);position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%);white-space:nowrap;background:#252525;color:#eee;border:1px solid #555;border-radius:6px;padding:8px 12px;font:12px/1.4 system-ui;pointer-events:none;z-index:20}
+
+#legend{min-height:32px;padding:0 28px 10px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;color:#aaa;font-size:11px}#legend span{display:flex;gap:6px;align-items:center}#legend i{width:12px;height:4px;border-radius:1px}#legend small{color:#777}main{height:calc(100vh - 192px)}.evidence-heading{font-size:14px;margin-top:24px}.peer-chart{width:100%;height:108px}.finding{border-left:3px solid var(--finding);padding-left:12px;color:#ddd}header{gap:12px}header div{flex-wrap:wrap;justify-content:flex-end}#color-mode{max-width:150px}@media(max-width:700px){header{height:auto;min-height:76px;padding-top:10px;padding-bottom:10px}h1{font-size:18px}#legend{gap:8px;padding-left:16px}header div{gap:6px}}
+
+#color-mode{max-width:none;min-width:166px;padding-right:42px;flex-shrink:0}
+
+/* Legend lives in Info; preserve the full canvas height. */
+main{height:calc(100vh - 160px)}
+aside #legend{padding:4px 0 16px;gap:10px 16px;font-size:12px}aside #legend small{flex-basis:100%}#info svg{width:18px;height:18px;display:block}
+
+header .menu-control{position:relative;display:block}header .menu-popup{position:absolute;right:0;top:calc(100% + 8px);z-index:30;min-width:190px;display:flex;flex-direction:column;gap:3px;padding:6px;background:#252525;border:1px solid #444;border-radius:12px;box-shadow:0 12px 32px #0006}header .menu-popup[hidden]{display:none}.menu-trigger{display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:40px;font:inherit}.menu-popup button{border:0;border-radius:6px;text-align:left;background:transparent;font:inherit;padding:10px 12px}.menu-popup button[aria-checked=true]{background:#414141;color:#fff}.menu-popup button:hover,.menu-popup button:focus-visible{background:#505050;outline:none}.menu-trigger:focus:not(:focus-visible){outline:none}
+
+/* Black execution surfaces on a dark-gray page ground. */
+body{background:#1c1c1c}main{scrollbar-color:#444 #1c1c1c}
+
+/* Unified Rank surfaces and a viewport-centered navigator. */
+body{background:#181818}main{scrollbar-color:#444 #181818}
+footer{position:relative;justify-content:center}
+#navigator.sequence-nav{position:absolute;left:50%;transform:translateX(-50%);width:min(900px,calc(100% - 480px));margin:0;flex:none}
+footer .controls{margin-left:auto}
+@media(max-width:700px){#navigator.sequence-nav{width:calc(100% - 48px);top:4px}footer{height:108px;align-items:flex-end;padding-bottom:8px}main{height:calc(100vh - 184px)}}
+
+@media(min-width:701px){footer{height:64px}main{height:calc(100vh - 140px)}}
+
+header .identity{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}header h1{margin:0}#file-name{font:11px monospace;color:#999;max-width:48vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.open-file{display:flex;align-items:center;padding:8px 14px;border:1px solid #444;border-radius:20px;cursor:pointer;white-space:nowrap}.open-file:hover{background:#333}#file-status:empty{display:none}#file-status{position:fixed;top:76px;right:24px;z-index:40;background:#252525;color:#ffb4a4;padding:12px;border-radius:8px;max-width:400px}

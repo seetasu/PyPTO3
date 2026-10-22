@@ -1,0 +1,18 @@
+(()=>{
+const input=document.querySelector('#open-json'),status=document.querySelector('#file-status');
+function parse(raw,file){
+ const events=Array.isArray(raw)?raw:raw.traceEvents;
+ if(!Array.isArray(events))throw Error('请选择包含 traceEvents 的 Chrome Trace JSON。');
+ const names=new Map();for(const e of events)if(e.ph==='M'&&e.name==='thread_name'&&/^AI[CV]_/.test(e.args?.name))names.set(`${e.pid}:${e.tid}`,e.args.name);
+ const keys=[...names.keys()].sort((a,b)=>names.get(a).localeCompare(names.get(b),undefined,{numeric:true}));
+ if(!keys.length)throw Error('文件中没有 AIC_/AIV_ 核心泳道元数据。');
+ const lanes=keys.map(k=>names.get(k)),indices=new Map(keys.map((k,i)=>[k,i])),tasks=[],ids=new Map(),groups={},logical=[],starts=new Map(),edges=[];
+ for(const e of events){const lane=indices.get(`${e.pid}:${e.tid}`);if(e.ph!=='X'||lane===undefined)continue;if(!Number.isFinite(e.ts)||!Number.isFinite(e.dur)||e.dur<0)throw Error('任务时间或持续时间无效。');const i=tasks.length;ids.set(`${e.pid}:${e.id}`,i);tasks.push({id:e.id,lane,name:String(e.name||'Task'),start:e.ts,end:e.ts+e.dur,task:String(e.args?.taskId||'')});const key=String(e.name).match(/\((r\d+t\d+)\)/)?.[1];if(key)(groups[key]??=[]).push(i)}
+ if(!tasks.length)throw Error('文件中没有可显示的核心执行记录。');
+ for(const e of events){const key=String(e.name).match(/\((r\d+t\d+)\)/)?.[1];if(e.ph==='X'&&key&&groups[key])for(const target of String(e.args?.['fanout-hint']||'').match(/r\d+t\d+/g)||[])if(groups[target])logical.push([key,target]);const flow=`${e.pid}:${e.id}`;if(e.ph==='s')starts.set(flow,e);if(e.ph==='f'&&starts.has(flow)){const a=ids.get(`${e.pid}:${starts.get(flow).bind_id}`),b=ids.get(`${e.pid}:${e.bind_id}`);if(a!==undefined&&b!==undefined&&a!==b)edges.push([a,b])}}
+ const unique=xs=>[...new Map(xs.map(x=>[JSON.stringify(x),x])).values()];
+ return {rank:0,lanes,tasks,groups,logical:unique(logical),edges:unique(edges),end:tasks.reduce((end,t)=>Math.max(end,t.end),0),source:file,unresolved:0};
+}
+input.onchange=async()=>{if(!input.files.length)return;try{status.textContent='正在读取…';const files=[...input.files],ranks=[];for(const [i,f]of files.entries()){const r=parse(JSON.parse(await f.text()),f.name);r.rank=i;ranks.push(r)}const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('swimlane-local',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});await new Promise((resolve,reject)=>{const tx=db.transaction('files','readwrite');tx.objectStore('files').put(ranks,'current');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close();location.reload()}catch(e){status.textContent=e.message;input.value=''}};
+async function boot(){try{const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('swimlane-local',1);r.onupgradeneeded=()=>r.result.createObjectStore('files');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});const saved=await new Promise(resolve=>{const r=db.transaction('files').objectStore('files').get('current');r.onsuccess=()=>resolve(r.result);r.onerror=()=>resolve(null)});db.close();if(saved)window.CSA_DATA=saved}catch{}const title=document.querySelector('#file-name');title.textContent=CSA_DATA.map(r=>r.source).join(' · ');title.title=title.textContent;document.querySelector('#rank').innerHTML='<option value="all">All ranks</option>'+CSA_DATA.map(r=>`<option value="${r.rank}">Focus Rank ${r.rank}</option>`).join('');for(const src of ['menus.js','view.js'])await new Promise(resolve=>{const s=document.createElement('script');s.src=src;s.onload=resolve;document.body.append(s)})}boot();
+})();
