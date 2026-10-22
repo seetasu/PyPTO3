@@ -137,3 +137,26 @@ test('Level 1 contracts transient data without losing dependency provenance or e
     }
   }
 });
+
+test('state evolution expansion retains current inputs, feedback, and phase order', () => {
+  const w = load(), model = w.PTO_PYPA_SEMANTIC_GRAPH;
+  const overview = w.PtoComputationVisibility.overview(model);
+  for (const composite of ['softmax', 'context-acc']) {
+    const graph = w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(overview, new Set([composite]),
+      { flowLayout: true, overviewLayout: true });
+    const node = (id) => graph.nodes.find((item) => item.id === `${composite}/${id}`);
+    const phases = model.nodes.find((item) => item.id === composite).composite.subgraph.stateEvolution;
+    const bottom = (ids) => Math.max(...ids.map((id) => node(id).y + node(id).h));
+    const top = (ids) => Math.min(...ids.map((id) => node(id).y));
+    assert.ok(bottom(phases.previous) < top(phases.current), composite);
+    assert.ok(bottom(phases.current) < top(phases.updated), composite);
+    assert.ok(graph.edges.some((edge) => edge.s === `${composite}/updated` && edge.type === 'feedback'));
+    assert.ok(graph.edges.some((edge) => edge.s === `${composite}/${composite === 'softmax' ? 'scores' : 'partial'}`));
+    verifyRoutes(graph);
+    verifyOverviewGeometry(graph);
+    const feedback = graph.edges.find((edge) => edge.s === `${composite}/updated` && edge.type === 'feedback');
+    const sections = w.PTO_COMPUTATION_PRESENTATION.inspectorEdge(feedback, { model });
+    assert.ok(sections.some((section) => section.rows.some((row) => row.label === '更新公式')));
+    assert.ok(sections.some((section) => section.title === '源码'));
+  }
+});

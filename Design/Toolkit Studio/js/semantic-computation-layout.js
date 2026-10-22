@@ -100,7 +100,23 @@
     const widest = Math.max(0, ...levels.map((rank) => rowWidth(ranks.get(rank))));
     let width = widest + side * 2;
     let cursorY = top;
-    if (options.flowLayout) {
+    if (childScope && graph.stateEvolution && options.overviewLayout) {
+      const phases = graph.stateEvolution;
+      const phaseRows = ['previous', 'current', 'updated'].flatMap((phase) => {
+        const members = (phases[phase] || []).map((id) => byId.get(id)).filter(Boolean);
+        return members.map((item) => ({ phase, members: [item] }));
+      });
+      // Reserve room for the unscaled viewport labels at the overview's typical
+      // fit scale; the semantic phases stay in one column at any operator size.
+      const phaseWidth = Math.max(520, ...phaseRows.map((row) => rowWidth(row.members)));
+      width = phaseWidth + side * 2 + 32;
+      phaseRows.forEach((row, index) => {
+        let x = side + (phaseWidth - rowWidth(row.members)) / 2;
+        row.members.forEach((item) => { item.x = x; item.y = cursorY; x += item.boxW + columnGap; });
+        cursorY += Math.max(...row.members.map((item) => item.boxH)) +
+          (phaseRows[index + 1]?.phase === row.phase ? 28 : 68);
+      });
+    } else if (options.flowLayout) {
       // Find a readable computation spine from graph topology, not operator names.
       // Feedback and state/control links remain semantic edges, but do not pull the spine sideways.
       const score = new Map(), previous = new Map();
@@ -306,9 +322,12 @@
       const sx = source.x + source.w / 2, sy = source.y + source.h;
       const tx = target.x + target.w / 2, ty = target.y;
       if (edge.type === 'feedback' || ty <= sy + (options.overviewLayout ? 4 : 22)) {
-        const lane = rightBound + 32 + returnLane++ * 18;
-        const start = { x: source.x + source.w, y: source.y + source.h / 2 };
-        const end = { x: target.x + target.w, y: target.y + target.h / 2 };
+        const parentId = source.parentId && source.parentId === target.parentId ? source.parentId : null;
+        const frame = parentId && byId.get(parentId);
+        const left = frame?.expandedGroup && target.x - frame.x < frame.x + frame.groupWidth - target.x - target.w;
+        const lane = frame?.expandedGroup ? left ? frame.x + 10 : frame.x + frame.groupWidth - 10 : rightBound + 32 + returnLane++ * 18;
+        const start = { x: left ? source.x : source.x + source.w, y: source.y + source.h / 2 };
+        const end = { x: left ? target.x : target.x + target.w, y: target.y + target.h / 2 };
         const points = [start, { x: lane, y: start.y }, { x: lane, y: end.y }, end];
         return { points, path: roundedPath(points, EDGE_CORNER_RADIUS), labelX: lane - 10,
           labelY: (start.y + end.y) / 2, labelAnchor: 'end', maxX: lane };

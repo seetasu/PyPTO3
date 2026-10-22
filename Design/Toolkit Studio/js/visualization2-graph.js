@@ -40,6 +40,7 @@
       const overview=!adapter && !layers.data;
       const visibleModel=overview?global.PtoComputationVisibility.overview(model):model;
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:overview});
+      scene.dataset.stateExpanded=String([...expanded].some(id=>visibleModel.nodes.find(node=>node.id===id)?.composite?.subgraph?.stateEvolution));
       if(adapter&&!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,{flowLayout:true});
       Object.entries(layers).forEach(([key,value])=>{scene.dataset[`overlay${key[0].toUpperCase()+key.slice(1)}`]=String(value);});
     rendered = global.PtoStudioComputationGraph.renderScene(scene, graph, {
@@ -156,7 +157,8 @@
     }
     function inspectorHtml(node) {
       const sections=global.PTO_COMPUTATION_PRESENTATION.inspector(node,{model,qualifiedId:node.id});
-      const primary=sections.filter(section=>['语义','属性','依赖','源码'].includes(section.title));
+      const primaryOrder=node.type==='state'?['语义','状态演化','依赖','源码']:['语义','属性','依赖','源码'];
+      const primary=primaryOrder.map(title=>sections.find(section=>section.title===title)).filter(Boolean);
       const advanced=sections.filter(section=>!primary.includes(section));
       const sectionHtml=section=>`<section><h3>${escape(section.title)}</h3><dl>${section.rows.map(row=>`<dt>${escape(row.label)}</dt><dd>${escape(row.value)}</dd>`).join('')}</dl></section>`;
       return primary.map(sectionHtml).join('')+(advanced.length?`<details><summary>更多属性</summary>${advanced.map(sectionHtml).join('')}</details>`:'');
@@ -184,9 +186,15 @@
       nodeLabels.forEach(({node,label})=>label.classList.toggle('is-viz2-related',related.includes(node.id)));
       scene.querySelectorAll('[data-pypa-edge]').forEach(el=>{
         const edge=graph.edges.find(edge=>edge.id===el.dataset.pypaEdge);
-        el.classList.toggle('is-viz2-related',!!edge&&(focus.edgeId===edge.id||related.includes(edge.s)&&related.includes(edge.t)));
+        el.classList.toggle('is-viz2-related',!!edge&&(view.edgeId===edge.id||focus.edgeId===edge.id||related.includes(edge.s)&&related.includes(edge.t)));
+        if(!adapter&&['state','feedback'].includes(edge?.type))el.style.pointerEvents='stroke';
         if(adapter)el.style.pointerEvents='stroke';
         if(adapter){const role=focus.edgeRoles?.[el.dataset.pypaEdge];if(role)el.dataset.stateRole=role;else delete el.dataset.stateRole;}
+      });
+      scene.querySelectorAll('[data-pypa-sync],[data-pypa-sync-path]').forEach(el=>{
+        const id=el.dataset.pypaSync||el.dataset.pypaSyncPath,selected=id===view.syncId;
+        el.style.display=view.syncId&&!selected?'none':'';
+        if(el.dataset.pypaSync)el.setAttribute('aria-pressed',String(selected));
       });
     }
     function update(nextSelection,nextView,options={}) {
@@ -216,10 +224,11 @@
       if(key!==lastFocusKey){lastFocusKey=key;pendingFocus=!skipFocusOnce;}
       skipFocusOnce=false;
       paintFocus(focus);
-      const node=nodeMap.get(focus.nodeId),sync=model.synchronizations?.find(s=>s.id===view.syncId),show=!!(node||sync||adapter?.hasInspector?.())&&view.inspectorOpen===true;inspector.hidden=!show;
+      const node=nodeMap.get(focus.nodeId),edge=graph.edges.find(e=>e.id===view.edgeId&&['state','feedback'].includes(e.type));
+      const sync=model.synchronizations?.find(s=>s.id===view.syncId),show=!!(node||edge||sync||adapter?.hasInspector?.())&&view.inspectorOpen===true;inspector.hidden=!show;
       if(options.restore)lastSize={width:viewport.clientWidth,height:viewport.clientHeight};
-      const ikey=show?(adapter?JSON.stringify([selection,view.nodeId,view.syncId]):sync?'sync:'+sync.id:node.id):'';
-      if(ikey!==inspectorKey){inspectorKey=ikey;if(adapter&&show){const detail=adapter.inspector(node,sync,graph);host.querySelector('[data-viz2-graph-title]').textContent=detail.title;host.querySelector('[data-viz2-graph-detail]').innerHTML=detail.html;}else if(sync&&show){host.querySelector('[data-viz2-graph-title]').textContent=sync.name;host.querySelector('[data-viz2-graph-detail]').innerHTML=`<dl>${[['Buffer',sync.buffer],['Dtype',sync.dtype],['Producer',`${sync.producer.coreType} SET · ${sync.producer.pipe}`],['Consumer',`${sync.consumer.coreType} WAIT · ${sync.consumer.pipe}`]].map(([k,v])=>`<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join('')}</dl><p>源码静态 READY 关系，不表示运行耗时。</p>`;}else if(node&&show){host.querySelector('[data-viz2-graph-title]').textContent=node.title;host.querySelector('[data-viz2-graph-detail]').innerHTML=inspectorHtml(node);}}
+      const ikey=show?(adapter?JSON.stringify([selection,view.nodeId,view.syncId]):edge?'edge:'+edge.id:sync?'sync:'+sync.id:node.id):'';
+      if(ikey!==inspectorKey){inspectorKey=ikey;if(adapter&&show){const detail=adapter.inspector(node,sync,graph);host.querySelector('[data-viz2-graph-title]').textContent=detail.title;host.querySelector('[data-viz2-graph-detail]').innerHTML=detail.html;}else if(edge&&show){host.querySelector('[data-viz2-graph-title]').textContent=edge.type==='feedback'?'跨 Stack 反馈':'状态依赖';host.querySelector('[data-viz2-graph-detail]').innerHTML=global.PTO_COMPUTATION_PRESENTATION.inspectorEdge(edge,{model}).map(section=>`<section><h3>${escape(section.title)}</h3><dl>${section.rows.map(row=>`<dt>${escape(row.label)}</dt><dd>${escape(row.value)}</dd>`).join('')}</dl></section>`).join('');}else if(sync&&show){host.querySelector('[data-viz2-graph-title]').textContent=sync.name;host.querySelector('[data-viz2-graph-detail]').innerHTML=`<dl>${[['Buffer',sync.buffer],['Dtype',sync.dtype],['Producer',`${sync.producer.coreType} SET · ${sync.producer.pipe}`],['Consumer',`${sync.consumer.coreType} WAIT · ${sync.consumer.pipe}`]].map(([k,v])=>`<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join('')}</dl><p>源码静态 READY 关系，不表示运行耗时。</p>`;}else if(node&&show){host.querySelector('[data-viz2-graph-title]').textContent=node.title;host.querySelector('[data-viz2-graph-detail]').innerHTML=inspectorHtml(node);}}
       const context=selection?.kind==='task'?`Task ${selection.task} · Batch ${selection.batch} · KV Head ${selection.kvHead}`:selection?.block!=null?`Block ${String(selection.block).padStart(2,'0')}${selection.kind==='lane'?` · AIV Lane ${selection.lane}`:''}`:'完整计算图';
       host.querySelector('[data-viz2-graph-context]').textContent=adapter?.context?.() || context;
       if(!active||!viewport.clientWidth||!viewport.clientHeight)return;
@@ -238,7 +247,11 @@
       if(select)skipFocusOnce=true;
       onView({expanded:[...next],...(select?{nodeId:id,syncId:null,inspectorOpen:true}:{})});
       const node=nodeMap.get(id);
-      if(point&&node)onView({camera:{...before,x:point.x-(node.x+node.w/2)*before.scale,y:point.y-(node.y+node.h/2)*before.scale}});
+      if(node&&next.has(id)&&node.expandedGroup){
+        const scale=Math.min(before?.scale||1,(viewport.clientWidth-72)/node.groupWidth,(viewport.clientHeight-72)/node.groupHeight);
+        onView({camera:{scale,x:viewport.clientWidth/2-(node.x+node.groupWidth/2)*scale,
+          y:viewport.clientHeight/2-(node.y+node.groupHeight/2)*scale}});
+      }else if(point&&node)onView({camera:{...before,x:point.x-(node.x+node.w/2)*before.scale,y:point.y-(node.y+node.h/2)*before.scale}});
     }
     host.addEventListener('click',event=>{
       // Graph owns these node events; the legacy page has document-level selectors.
@@ -248,20 +261,20 @@
       const block=event.target.closest('[data-viz2-graph-block]');
       if(block){const id=Number(block.dataset.viz2GraphBlock);if(onBlockEnter)onBlockEnter(id);else onSelect({kind:'block',block:id,task:null});return;}
       const toggle=event.target.closest('[data-pypa-expand-toggle]')||(event.detail===0?event.target.closest('[data-pypa-expand]'):null);
-      if(toggle){toggleExpanded(toggle.dataset.pypaExpandToggle||toggle.dataset.pypaExpand);return;}
+      if(toggle){toggleExpanded(toggle.dataset.pypaExpandToggle||toggle.dataset.pypaExpand,true);return;}
       const sync=event.target.closest('[data-pypa-sync]');if(sync){if(adapter)adapter.onSync(sync.dataset.pypaSync);else onView({syncId:sync.dataset.pypaSync,inspectorOpen:true});return;}
       if(event.target.closest('[data-viz2-graph-fit]')){fit();return;}
       if(event.target.closest('[data-viz2-graph-close]')){onView({inspectorOpen:false});return;}
       const zoomButton=event.target.closest('[data-viz2-graph-zoom]');if(zoomButton){zoom(Number(zoomButton.dataset.viz2GraphZoom));return;}
       if(suppressClick){suppressClick=false;return;}
-      const edge=event.target.closest('[data-pypa-edge],[data-pypa-edge-label]');
-      if(edge&&adapter){adapter.onEdge(edge.dataset.pypaEdge||edge.dataset.pypaEdgeLabel,graph);return;}
+      const edge=event.target.closest('[data-pypa-edge],[data-pypa-edge-hit],[data-pypa-edge-label]');
+      if(edge){const id=edge.dataset.pypaEdge||edge.dataset.pypaEdgeHit||edge.dataset.pypaEdgeLabel;if(adapter){adapter.onEdge(id,graph);return;}if(['state','feedback'].includes(graph.edges.find(item=>item.id===id)?.type)){skipFocusOnce=true;onView({edgeId:id,nodeId:null,syncId:null,inspectorOpen:true});return;}}
       const target=event.target.closest('[data-pypa-node], [data-viz2-graph-label]');if(!target)return;
       const id=target.dataset.pypaNode||target.dataset.viz2GraphLabel;
       if(event.detail===1)lastNodeClick={id,time:performance.now(),view:{camera:view.camera,nodeId:view.nodeId,inspectorOpen:view.inspectorOpen}};
       if(adapter){adapter.onNode(id);return;}
       if(nodeMap.get(id)?.expandable){toggleExpanded(id,true);return;}
-      onView({nodeId:id,syncId:null,inspectorOpen:true});
+      skipFocusOnce=true;onView({nodeId:id,edgeId:null,syncId:null,inspectorOpen:true});
       if(selection?.block!=null)onSelect({...selection,graphNodeId:id});
     });
     viewport.addEventListener('wheel',event=>{

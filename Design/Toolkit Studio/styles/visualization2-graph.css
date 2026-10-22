@@ -59,6 +59,10 @@
 
 .viz2-graph-scene .kf-pypa-graph__edge:is(.is-control,.is-feedback) { opacity: .18; }
 .viz2-graph-scene[data-overlay-control="true"] .kf-pypa-graph__edge:is(.is-control,.is-feedback) { opacity: 1; }
+.viz2-graph-scene[data-state-expanded="true"] .kf-pypa-graph__edge.is-feedback { opacity: .9; stroke-width: 2.5; cursor: pointer; }
+.viz2-graph-scene[data-state-expanded="true"] .kf-pypa-graph__edge.is-state { opacity: .9; cursor: pointer; }
+.viz2-graph-scene[data-state-expanded="true"] .kf-pypa-graph__edge-label[data-edge-type="feedback"] { opacity: 1; }
+.viz2-graph-scene .kf-pypa-graph__edge-hit { fill: none; stroke: transparent; stroke-width: 18px; pointer-events: stroke; cursor: pointer; }
 .viz2-graph-scene .kf-pypa-graph__edge-label { opacity: 0; transition: opacity .15s; }
 .viz2-graph-scene .kf-pypa-graph__edge.is-viz2-related + .kf-pypa-graph__edge-label { opacity: 1; }
 .viz2-graph-scene[data-focused="true"] .kf-pypa-graph__node:not(.is-selected):not(.is-viz2-related) { opacity: .42; }

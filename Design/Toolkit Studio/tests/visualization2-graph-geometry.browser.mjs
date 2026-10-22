@@ -55,11 +55,19 @@ async function inspect(tab) {
         if (near>2) issues.push(`edge boundary ${path.dataset.pypaEdge} / ${node.id}: ${near.toFixed(1)}px`);
       }
     }
-    for (const label of viewport.querySelectorAll('[data-viz2-graph-label]')) {
+    const visibleLabels = [...viewport.querySelectorAll('[data-viz2-graph-label]')]
+      .filter((label) => getComputedStyle(label).visibility !== 'hidden');
+    for (const label of visibleLabels) {
       if (getComputedStyle(label).visibility==='hidden') continue;
       const node=byId.get(label.dataset.viz2GraphLabel),name=label.querySelector('[data-viz2-graph-name]');
       if (node && name?.textContent!==node.element.title) issues.push(`incomplete title ${node.id}`);
       if (label.scrollWidth>label.clientWidth+1) issues.push(`clipped title ${node?.id}`);
+    }
+    for (let i=0;i<visibleLabels.length;i++) for (let j=i+1;j<visibleLabels.length;j++) {
+      const a=visibleLabels[i], b=visibleLabels[j];
+      const parent=(id)=>id.includes('/') ? id.slice(0,id.lastIndexOf('/')) : '';
+      if (parent(a.dataset.viz2GraphLabel)!==parent(b.dataset.viz2GraphLabel)) continue;
+      if (overlaps(rect(a),rect(b))) issues.push(`labels ${a.dataset.viz2GraphLabel} / ${b.dataset.viz2GraphLabel}`);
     }
     return { issues, nodeCount:nodes.length, regionCount:regions.length, edgeCount:svg.querySelectorAll('[data-pypa-edge]').length, scale };
   });

@@ -181,7 +181,7 @@
           shape: { allocated: ['AIV_ROW_TILE', 'STACK_TOKENS'], valid: ['lane_rows', 'STACK_TOKENS'] },
           storage: { space: 'Vec' } },
         [], { fact: 'shape 取自第 770–776 行 pl.load 的 [AIV_ROW_TILE, STACK_TOKENS] 与 valid_shape=[lane_rows, STACK_TOKENS]，以及第 782–788 行的 pl.set_validshape；storage 取自 target_memory=pl.MemorySpace.Vec。' }),
-      S('previous', 'Previous m / l_sum', '745–760', ['m_iter', 'l_iter'], '上轮 Stack 的 running max 和归一化和。二者是行归约结果，列布局未在源码中显式声明，故本节点不声明 shape。',
+      S('previous', 'Previous · m_old / l_old', '745–760', ['m_iter', 'l_iter'], '上轮 Stack 的 running max 和归一化和。m_old 对应 m_iter，l_old 对应 l_iter；首轮读取源码初始化值，不表示采集到的运行数值。',
         { entity: 'softmax.state', granularity: 'stack', dtype: 'FP32', initial: 'm = -3.0e38; l_sum = 0', update: '读取上轮 m_after / l_after', feedback: 'updated → previous，下一轮 Stack' }),
       O('local-max', 'Row Maximum', '789–789', ['pl.row_max'], '计算当前 Stack 的局部最大值。', 'reduction', ['local_m']),
       O('next-max', 'Update Maximum', '790–790', ['pl.maximum'], 'next_m = max(local_m, m_iter)。', 'reduction', ['next_m']),
@@ -191,7 +191,7 @@
         { role: 'intermediate', granularity: 'stack', entity: 'attention.probability', symbol: 'probability_bf16', dtype: 'BF16' },
         [], { fact: 'dtype 取自第 802–806 行 pl.cast(..., target_type=pl.BF16, mode="rint")；symbol 取自第 802、807–816 行的 set_validshape 与 pl.store。' }),
       O('sum', 'Normalization Sum', '793–801', ['pl.row_sum', 'pl.add', 'pl.mul'], 'next_l = rescale × l_iter + row_sum(probability_reduce)。', 'reduction', ['next_l']),
-      S('updated', 'Updated m / l_sum', '791–801、823–825、856–861', ['m_after', 'l_after', 'rescale_after'], 'm/l 更新后反馈到下一轮，rescale 被送入延迟 FIFO，l_sum 最终参与输出归一化。三个值都是行归约结果，列布局未在源码中显式声明，故本节点不声明 shape。',
+      S('updated', 'Updated · m_new / l_new', '791–801、823–825、856–861', ['m_after', 'l_after', 'rescale_after'], 'm_new = max(m_old, row_max(Scores))；l_new = exp(m_old − m_new) × l_old + sum(exp(Scores − m_new))。更新后反馈到下一 Stack；rescale 进入延迟 FIFO。',
         { entity: 'softmax.state', granularity: 'stack', dtype: 'FP32', initial: 'm = -3.0e38; l_sum = 0; pending rescale = 1', update: 'm_after=next_m; l_after=next_l; rescale_after=rescale', feedback: 'updated → previous；rescale → Pending Rescale FIFO' }),
     ], [E('scores', 'local-max', 'Scores'), E('scores', 'exp', 'Scores'), E('local-max', 'next-max', 'local_m'),
       E('previous', 'next-max', 'm_iter', 'state'), E('previous', 'rescale', 'm_iter', 'state'), E('next-max', 'rescale', 'next_m'), E('next-max', 'exp', 'next_m'),
@@ -230,17 +230,19 @@
         ['dtype'],
         { fact: 'shape / symbol 取自第 835–841 行 pl.load 的 [AIV_ROW_TILE, HEAD_DIM]、valid_shape=[lane_rows, HEAD_DIM]；storage 取自 target_memory=pl.MemorySpace.Vec。',
           resolved: 'dtype：第 835–841 行的 load 未声明类型，由第 447–451、503 行的 FP32 生产端与第 748–753 行的 FP32 累加器推导；granularity / role / entity 为语义归类。' }),
-      S('pending', 'Pending Rescale', '754–760、848–861', ['pending0_iter', 'pending1_iter', 'rescale_after'], '两个 rescale 槽位的 FIFO 状态；它承担延迟对齐，不是 PV 结果数据。rescale 同样是行归约结果，列布局未显式声明，故不声明 shape。',
+      S('pending', 'Delayed Rescale · pending0', '754–760、848–861', ['pending0_iter', 'pending1_iter', 'rescale_after'], 'rescale_after 先进入 pending1，下一次移到 pending0，再由 Context 消费；延迟使缩放因子与所累加的 PV partial 对齐。源码只给出静态传递关系，不提供运行值。',
         { entity: 'context.pending-rescale', granularity: 'stack', initial: 'pending0 = 1; pending1 = 1', update: 'pending0_after=pending1_iter; pending1_after=rescale_after', feedback: 'pl.range init_values 与 pl.yield_ 传递到下一 tick' }),
-      S('old', 'Previous Context', '748–760、842–861', ['o_iter', 'o_after'], '跨 Stack 保存的 Context accumulator：o 是 [AIV_ROW_TILE, HEAD_DIM] 的 FP32 累加器，valid 行数为 lane_rows（第 748–753 行）。',
+      S('old', 'Previous · o_old', '748–760、842–861', ['o_iter', 'o_after'], '跨 Stack 保存的 Context accumulator。o_old 对应 o_iter；首轮初始化为 0，之后读取上轮 o_after。',
         { entity: 'context.o', granularity: 'stack', dtype: 'FP32',
           shape: { allocated: ['AIV_ROW_TILE', 'HEAD_DIM'], valid: ['lane_rows', 'HEAD_DIM'] },
           initial: 'o = 0', update: 'o_after = o_iter × pending0_iter + pv_aiv', feedback: 'add → old，下一轮 Stack' },
         [], { fact: 'shape 与 dtype 取自第 748–753 行的 pl.tile.full([AIV_ROW_TILE, HEAD_DIM], dtype=pl.FP32) 与 pl.set_validshape(o_init, lane_rows, HEAD_DIM)；initial / update / feedback 取自第 748–760、842–861 行的 pl.range / pl.yield_ 传递。' }),
       O('rescale', 'Rescale Context', '842–843', ['pl.row_expand_mul'], '旧 Context 乘 pending0。', 'elementwise', ['o_iter', 'pending0_iter']),
       O('add', 'Accumulate', '842–844', ['pl.add'], '把当前 Stack 的 PV partial 加到重缩放后的 Context。', 'accumulation', ['o_after']),
-    ], [E('pending', 'rescale', 'pending0', 'state'), E('old', 'rescale', 'o', 'state'), E('rescale', 'add', 'rescaled o'), E('partial', 'add', 'PV partial'), E('add', 'old', 'next stack o', 'feedback', { route: 'feedback' })],
-    { partial: view('partial', 'context.partial'), state: aggregate('pending', 'softmax.state', 'rescale_after 经双槽 FIFO 延迟为 pending0_iter/pending1_iter。') }, { Context: view('add', 'context.o') }),
+      S('updated', 'Updated · o_new', '842–844、856–861', ['o_after'], 'o_new = o_old × pending0 + PV partial；经 pl.yield_ 传给下一 Stack 的 o_old。',
+        { entity: 'context.o', granularity: 'stack', dtype: 'FP32', initial: 'o = 0', update: 'o_after = o_iter × pending0_iter + pv_aiv', feedback: 'updated → previous，下一轮 Stack' }),
+    ], [E('pending', 'rescale', 'pending0', 'state'), E('old', 'rescale', 'o', 'state'), E('rescale', 'add', 'rescaled o'), E('partial', 'add', 'PV partial'), E('add', 'updated', 'o_after', 'state'), E('updated', 'old', 'next stack o', 'feedback', { route: 'feedback' })],
+    { partial: view('partial', 'context.partial'), state: aggregate('pending', 'softmax.state', 'rescale_after 经双槽 FIFO 延迟为 pending0_iter/pending1_iter。') }, { Context: view('updated', 'context.o') }),
     'output-norm': frame('output-normalization', [
       O('normalize', 'Final Normalize', '864–865', ['pl.recip', 'pl.row_expand_mul'], 'Context o 除以最终 l_sum。', 'normalization', ['o', 'l_sum']),
       O('cast', 'Cast BF16', '864–868', ['pl.cast'], '归一化 Context 转 BF16。', 'cast', ['ctx']),
@@ -248,6 +250,12 @@
     ], [E('normalize', 'cast', 'Context'), E('cast', 'store', 'BF16')],
     { Context: control('normalize', 'context.normalization-state', '输出归一化同时读取最终 o 与 l_sum。') }, { Output: view('store', 'attention.output') }),
   };
+
+  // The layout reads these phase memberships; node identity and dependencies stay in the graph.
+  subgraphs.softmax.graph.stateEvolution = {
+    previous: ['previous', 'scores'], current: ['local-max', 'next-max', 'rescale', 'exp', 'sum', 'probability'], updated: ['updated'] };
+  subgraphs['context-acc'].graph.stateEvolution = {
+    previous: ['old', 'pending', 'partial'], current: ['rescale', 'add'], updated: ['updated'] };
 
   const nodes = [
     D('q-proj', 'Q Projection', '68–94、215–227', ['q_proj'], '外部 Q 投影张量（GM）。签名只声明 pl.Tensor，未声明 dtype 与完整 shape；源码只按下标 [batch_idx, kv_head * GROUP * HEAD_DIM + q] 取 [1, GROUP * HEAD_DIM] 的行切片，列上界为 NUM_HEADS * HEAD_DIM，行数由运行时决定，故不声明 shape 与 dtype。',

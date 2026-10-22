@@ -284,6 +284,7 @@
     if(state.activeTab==='pipeline'&&pipelineInner&&!pipelineIntraController){
       pipelineIntraController=window.PtoVisualization2PipelineIntra.mount(root.querySelector('#viz2-pipeline-intra'),{model:pipelineIntraModel,
         onTask:id=>store.dispatch({type:'pipeline-intra-task',id}),onFocus:focus=>store.dispatch({type:'pipeline-intra-focus',focus}),
+        onNavigate:()=>{store.dispatch({type:'tab',id:'graph'});store.dispatch({type:'view',id:'graph',patch:{intraInspectorOpen:true}});},
         onCamera:(id,camera)=>store.dispatch({type:'view',id:'pipeline',patch:{intraCameras:{...store.getState().views.pipeline.intraCameras,[id]:camera}}}),
         onInspector:open=>store.dispatch({type:'view',id:'pipeline',patch:{intraInspectorOpen:open}})});
     }
@@ -297,7 +298,7 @@
       execution:{blocks:constants.blocks,taskCount:seqLens.length*constants.kvHeads,phase0Model,seqLens},onSelect:selection=>store.dispatch({type:'select',selection}),onView:patch=>store.dispatch({type:'view',id:'graph',patch}),onEnter:enterGraphIntra,
       onBlockEnter:block=>{const selected=store.getState().selection;const first=graphIntraModel.tasks.find(task=>task.block===block);if(first)enterGraphIntra(null,selected?.kind==='task'&&selected.block===block?selected.task:first.id);}});
     graphController?.update(state.selection,gv,{active:state.activeTab==='graph'&&!gi,enter:action.type==='tab'&&state.activeTab==='graph'&&!gi,restore:action.type==='graph-intra-exit'});
-    if(state.activeTab==='graph'&&gi&&!graphIntraController)graphIntraController=window.PtoVisualization2GraphIntra.mount(root.querySelector('#viz2-graph-intra'),{model:graphIntraModel,onTask:id=>store.dispatch({type:'graph-intra-task',id}),onFocus:focus=>store.dispatch({type:'graph-intra-focus',focus}),onView:patch=>store.dispatch({type:'view',id:'graph',patch})});
+    if(state.activeTab==='graph'&&gi&&!graphIntraController)graphIntraController=window.PtoVisualization2GraphIntra.mount(root.querySelector('#viz2-graph-intra'),{model:graphIntraModel,onTask:id=>store.dispatch({type:'graph-intra-task',id}),onFocus:focus=>store.dispatch({type:'graph-intra-focus',focus}),onView:patch=>store.dispatch({type:'view',id:'graph',patch}),onNavigate:()=>{store.dispatch({type:'tab',id:'pipeline'});store.dispatch({type:'view',id:'pipeline',patch:{intraInspectorOpen:true}});}});
     graphIntraController?.update(gv.intraTask,state.selection?.subobject,gv,{active:state.activeTab==='graph'&&gi});
     if (state.activeTab !== 'assignment') {assignmentMorph?.update(state.selection,false);anatomyController?.update(null,null,null,{active:false});return;}
     const assignment=state.views.assignment,inner=assignment.subview==='block';
