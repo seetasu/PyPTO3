@@ -262,16 +262,16 @@ const el = (n, a = {}) => { const e = document.createElementNS(SVG, n); for (con
 const ms = (us) => (us / 1000).toFixed(us >= 1000 ? 2 : 3);
 const mib = (b) => (b / 1024 / 1024).toFixed(b > 1024 * 1024 ? 0 : 1);
 
-// Red marks warning signals; candidates and selection use the neutral scale.
-// Core type is a tint, not a hue.
-const C = { accent: "#fd5644", accentDim: "#7e3129", candidate: "#a8a8a8", sel: "#f0f0f0",
+// Amber marks low concurrency; red is reserved for full-device idle gaps.
+// Candidates and selection use the neutral scale; core type is a tint.
+const C = { accent: "#fd5644", accentDim: "#7e3129", warn: "#b98a45", candidate: "#a8a8a8", sel: "#f0f0f0",
             block: "#565656", AIC: "#8e8e8e", AIV: "#606060",
             plain: "#3a3a3a", idle: "#232323", grid: "#262626", axis: "#6a6a6a", label: "#7a7a7a" };
 
 let D, R, me = null, lens = "wait", laneAll = true, laneView = "task", laneColor = "none", laneRange = null, taskLayer = "none";
 let laneZoomRaf = 0;
 const ovl = { ribbon: true, bands: true, marks: true };
-function laneLeft() { return 96; }
+function laneLeft() { return laneView === "core" ? 140 : 96; }
 
 const LENS = {
   wait: { label: "关键路径上的等待", hint: "单块任务串在关键路径上，零计算，纯等 rank 间数据或上游同步 —— 这段时间加核也不会变快。" },
@@ -537,9 +537,11 @@ function renderLane() {
   // grows on wide/high-resolution screens; keep a bounded row height so the
   // compact view remains usable on both normal and ultra-wide displays.
   const taskRow = Math.max(22, Math.min(30, Math.round(W / 72)));
-  const ROW = byTask ? taskRow : 13;
+  const baseROW = byTask ? taskRow : 8;
   const GH = byTask ? 14 : 0;                       // room for a group caption line
   const rowCount = byTask ? pk.depth.AIC + pk.depth.AIV : coreRows.length;
+  const aicCoreCount = byTask ? 0 : coreRows.filter((core) => core.ct === "AIC").length;
+  const CORE_GROUP_H = byTask ? 0 : 28;
   const innerW = W - LEFT - RIGHT, win = R.kpi.windowUs, cs = concStats();
   const viewStart = laneRange ? laneRange[0] : 0;
   const viewEnd = laneRange ? laneRange[1] : win;
@@ -554,13 +556,19 @@ function renderLane() {
     return `rgb(${v} ${v} ${v})`;
   };
   const marks = ovl.marks ? landmarks() : [];
-  const RIB = ovl.ribbon ? 64 : 0, RIBGAP = ovl.ribbon ? 8 : 0, LMROW = 20, LM = marks.length * LMROW;
+  const RIB = ovl.ribbon ? 64 : 0, RIBGAP = ovl.ribbon ? 8 : 0;
   const laneTop = TOP + RIB + RIBGAP;
-  const laneH = rowCount * ROW + (byTask ? GH * 2 : 0);
-  const lmTop = laneTop + laneH + 22;
-  const H = lmTop + LM + 4;
+  const laneViewportH = $("lane-wrap").clientHeight || 0;
+  // Expand physical-core rows to use the available viewport height. Keep the
+  // compact minimum on short screens, where the lane itself remains scrollable.
+  const ROW = byTask ? baseROW : Math.max(8, Math.min(18,
+    (laneViewportH - 28 - laneTop - 4 - CORE_GROUP_H * 2) / Math.max(1, rowCount)));
+  const coreY = (index) => laneTop + CORE_GROUP_H + index * ROW + (index >= aicCoreCount ? CORE_GROUP_H : 0);
+  const laneH = byTask ? rowCount * ROW + GH * 2 : rowCount * ROW + CORE_GROUP_H * 2;
+  const H = laneTop + laneH + 4;
   const cand = new Set(candidatesFor(lens).map((l) => l.id));
-  const keep = (id) => laneAll || cand.has(id) || id === me || taskAnalysis.hits.has(id);
+  const landmarkIds = new Set(marks.flatMap((m) => m.id ? [m.id] : []));
+  const keep = (id) => laneAll || cand.has(id) || id === me || taskAnalysis.hits.has(id) || landmarkIds.has(id);
   svg.textContent = ""; svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
   const xOf = (us) => LEFT + ((us - viewStart) / viewWin) * innerW;
   const r1 = (v) => Math.round(v * 10) / 10;
@@ -582,18 +590,21 @@ function renderLane() {
   // 1. low-concurrency bands, full height so a dip in the ribbon and a hole in
   //    the lane read as one column of time
   if (ovl.bands) {
-    const bandBot = laneTop + laneH;
-    const band = (r, fill, stroke) => {
+    const bandTop = laneTop, bandBot = laneTop + laneH;
+    const band = (r, fill, stroke, label) => {
       const t0 = Math.max(viewStart, r.t0), t1 = Math.min(viewEnd, r.t1);
       if (t1 <= t0) return;
       const x = xOf(t0), w = Math.max(1, xOf(t1) - xOf(t0));
-      svg.append(el("rect", { x, y: TOP, width: w, height: bandBot - TOP, fill }));
-      svg.append(el("line", { x1: x, x2: x, y1: TOP, y2: bandBot, stroke, "stroke-width": 1 }));
-      svg.append(el("line", { x1: x + w, x2: x + w, y1: TOP, y2: bandBot, stroke, "stroke-width": 1 }));
-      if (w > 48) txt({ x: x + 3, y: bandBot + 13, fill: stroke, "font-family": "var(--mono)", "font-size": 12 }, `${ms(r.t1 - r.t0)} ms`);
+      const area = el("rect", { x, y: bandTop, width: w, height: bandBot - bandTop, fill });
+      const title = el("title", {}); title.textContent = `${label} · ${ms(r.t1 - r.t0)} ms`;
+      area.append(title); svg.append(area);
+      svg.append(el("line", { x1: x, x2: x, y1: bandTop, y2: bandBot, stroke, "stroke-opacity": .72, "stroke-width": 1.2 }));
+      svg.append(el("line", { x1: x + w, x2: x + w, y1: bandTop, y2: bandBot, stroke, "stroke-opacity": .72, "stroke-width": 1.2 }));
+      svg.append(el("rect", { x, y: bandTop, width: w, height: 2, fill: stroke, opacity: .68, "pointer-events": "none" }));
+      if (w > 64) txt({ x: x + 4, y: bandBot + 13, fill: stroke, "font-family": "var(--mono)", "font-size": 12 }, `${label} · ${ms(r.t1 - r.t0)} ms`);
     };
-    cs.serial.slice(0, 10).forEach((r) => band(r, "rgb(255 255 255 / 5%)", "#4a4a4a"));
-    cs.gaps.slice(0, 10).forEach((r) => band(r, "rgb(253 86 68 / 11%)", C.accentDim));
+    cs.serial.slice(0, 10).forEach((r) => band(r, "rgb(185 138 69 / 9%)", C.warn, "低并行 · ≤2 核"));
+    cs.gaps.slice(0, 10).forEach((r) => band(r, "rgb(253 86 68 / 18%)", C.accent, "全机空闲 · 0 核"));
   }
   if (taskLayer === "bubble" && taskAnalysis.gaps.length) {
     const regions = taskAnalysis.gaps.map((g) => [Math.max(viewStart, g.t0), Math.min(viewEnd, g.t1)])
@@ -605,12 +616,21 @@ function renderLane() {
     });
     merged.forEach(([a, b]) => {
       const x = xOf(a), w = xOf(b) - x;
-      svg.append(el("rect", { x, y: TOP, width: w, height: laneTop + laneH - TOP,
+      svg.append(el("rect", { x, y: laneTop, width: w, height: laneH,
         fill: "rgb(253 86 68 / 6%)", "pointer-events": "none" }));
-      svg.append(el("line", { x1: x, x2: x, y1: TOP, y2: laneTop + laneH, stroke: C.accent, "stroke-opacity": .45, "stroke-width": 1 }));
-      svg.append(el("line", { x1: x + w, x2: x + w, y1: TOP, y2: laneTop + laneH, stroke: C.accent, "stroke-opacity": .45, "stroke-width": 1 }));
+      svg.append(el("line", { x1: x, x2: x, y1: laneTop, y2: laneTop + laneH, stroke: C.accent, "stroke-opacity": .45, "stroke-width": 1 }));
+      svg.append(el("line", { x1: x + w, x2: x + w, y1: laneTop, y2: laneTop + laneH, stroke: C.accent, "stroke-opacity": .45, "stroke-width": 1 }));
     });
   }
+  if (ovl.marks) marks.forEach((m) => {
+    if (m.t1 < viewStart || m.t0 > viewEnd) return;
+    const x0 = xOf(Math.max(viewStart, m.t0)), x1 = xOf(Math.min(viewEnd, m.t1));
+    const color = m.hot ? C.accent : "#a8a8a8";
+    svg.append(el("rect", { x: x0, y: laneTop, width: Math.max(1, x1 - x0), height: laneH,
+      fill: m.hot ? "rgb(253 86 68 / 4%)" : "rgb(220 220 220 / 2%)", "pointer-events": "none" }));
+    [x0, x1].forEach((x) => svg.append(el("line", { x1: x, x2: x, y1: laneTop, y2: laneTop + laneH,
+      stroke: color, "stroke-opacity": .52, "stroke-width": 1, "pointer-events": "none" })));
+  });
   if (ovl.ribbon) {
     const base = TOP + RIB, refY = base - RIB * .25;
     svg.append(el("rect", { x: LEFT, y: refY, width: innerW, height: base - refY, fill: "rgb(255 255 255 / 4%)" }));
@@ -654,7 +674,6 @@ function renderLane() {
     svg.append(el("line", { x1: LEFT, x2: W - RIGHT, y1: refY, y2: refY, stroke: "#707070", "stroke-width": 1, "stroke-dasharray": "4 4" }));
     svg.append(el("line", { x1: LEFT, x2: W - RIGHT, y1: base, y2: base, stroke: C.grid, "stroke-width": 1 }));
     txt({ x: 0, y: TOP + 13, fill: C.label, "font-family": "var(--mono)", "font-size": 12 }, "并行宽度");
-    txt({ x: 0, y: TOP + 27, fill: C.axis, "font-family": "var(--mono)", "font-size": 12 }, `满格 ${R.kpi.totalCores} 核`);
     txt({ x: 0, y: refY + 5, fill: C.axis, "font-family": "var(--mono)", "font-size": 12 }, `25% · ${Math.round(total * .25)} 核`);
   }
 
@@ -710,17 +729,29 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
     // ---- full: one row per physical core, blocks as flat texture ----
     const show = R.launches.flatMap((l) => (l.blocks.items || []).map((b) => ({ ...b, launch: l })))
       .filter((b) => keep(b.launch.id));
-    const hotRows = new Set(show.filter((b) => laneColor === "none" && cand.has(b.launch.id)).map((b) => b.core));
     const selectedRows = new Set(show.filter((b) => b.launch.id === me).map((b) => b.core));
-    coreRows.forEach((c, i) => {
-      const y = laneTop + i * ROW;
-      if (i === 0 || coreRows[i - 1].ct !== c.ct) {
-        if (i) svg.append(el("line", { x1: 0, x2: W, y1: y - 1, y2: y - 1, stroke: C.grid, "stroke-width": 1 }));
-        txt({ x: 0, y: y + 11, fill: C.label, "font-family": "var(--mono)", "font-size": 12 },
-          `${c.ct} ×${coreRows.filter((x) => x.ct === c.ct).length}`);
+    const drawCoreGroup = (ct, headerY) => {
+      const cy = headerY + CORE_GROUP_H / 2;
+      svg.append(el("circle", { cx: 27, cy, r: 11, fill: "#262626" }));
+      if (ct === "AIC") {
+        for (let row = 0; row < 2; row++) for (let col = 0; col < 2; col++) {
+          svg.append(el("rect", { x: 22 + col * 6, y: cy - 5 + row * 6, width: 4, height: 4,
+            fill: "none", stroke: "#aaaaaa", "stroke-width": 1 }));
+        }
+      } else {
+        for (let row = 0; row < 3; row++) svg.append(el("line", { x1: 22, x2: 32, y1: cy - 4 + row * 4, y2: cy - 4 + row * 4,
+          stroke: "#aaaaaa", "stroke-width": 1 }));
       }
-      txt({ x: LEFT - 7, y: y + 10, fill: selectedRows.has(c.id) ? C.sel : hotRows.has(c.id) ? C.candidate : "#4a4a4a",
-        "font-family": "var(--mono)", "font-size": 12, "text-anchor": "end" }, c.id);
+      txt({ x: 45, y: cy + 5, fill: "#bbbbbb", "font-family": "var(--font)", "font-size": 14 }, ct);
+    };
+    coreRows.forEach((c, i) => {
+      const y = coreY(i);
+      if (i === 0 || coreRows[i - 1].ct !== c.ct) {
+        const headerY = i === 0 ? laneTop : laneTop + CORE_GROUP_H + aicCoreCount * ROW;
+        drawCoreGroup(c.ct, headerY);
+      }
+      if (c.id % 4 === 0 || selectedRows.has(c.id)) txt({ x: LEFT - 10, y: y + ROW / 2 + 4,
+        fill: selectedRows.has(c.id) ? C.sel : "#999999", "font-family": "var(--mono)", "font-size": 12, "text-anchor": "end" }, c.id);
     });
     show.forEach((b) => {
       const t0 = Math.max(viewStart, b.startUs), t1 = Math.min(viewEnd, b.endUs);
@@ -728,15 +759,15 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
       const row = coreRows.findIndex((c) => c.id === b.core);
       if (row < 0) return;
       const x = xOf(t0), w = Math.max(.4, (t1 - t0) / viewWin * innerW);
-      const hitW = Math.max(3, w), y = laneTop + row * ROW + 2;
+      const barH = 2.6, rowY = coreY(row), hitW = Math.max(3, w), y = rowY + (ROW - barH) / 2;
       const isSel = b.launch.id === me, isCand = cand.has(b.launch.id);
       const taskLayerColor = taskColorById.get(b.launch.id);
       const g = hit(b.launch.id, `${b.launch.leaf} on ${b.launch.ct} physical core ${b.core}, ${b.startUs} to ${b.endUs} microseconds`);
-      g.append(el("rect", { x, y, width: w, height: ROW - 4,
+      g.append(el("rect", { x, y, width: w, height: barH, rx: 1,
         fill: isSel ? C.sel : taskLayerColor || metricColor(b.launch) || (isCand ? C.candidate : C.block),
         opacity: taskLayer !== "none" && !taskAnalysis.hits.has(b.launch.id) && !isSel ? .16
           : isSel || isCand || laneColor !== "none" ? 1 : .85 }));
-      g.append(el("rect", { x: x - (hitW - w) / 2, y: y - 2, width: hitW, height: ROW, fill: "transparent" }));
+      g.append(el("rect", { x: x - (hitW - w) / 2, y: rowY, width: hitW, height: ROW, fill: "transparent" }));
       const ttl = el("title", {});
       ttl.textContent = `${b.launch.leaf} · ${b.launch.ct} · core ${b.core}
 Task ${b.launch.taskId} · ${b.startUs.toFixed(1)}–${b.endUs.toFixed(1)} μs
@@ -746,19 +777,50 @@ Task ${b.launch.taskId} · ${b.startUs.toFixed(1)}–${b.endUs.toFixed(1)} μs
     });
   }
 
-  // 4. landmarks
+  // 4. landmark labels sit inside the lane area; their ranges are drawn beneath the blocks above.
   const textW = (str) => [...str].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? 12 : 7.2), 0);
-  marks.forEach((m, i) => {
+  let intervalLabelIndex = 0;
+  marks.forEach((m) => {
     if (m.t1 < viewStart || m.t0 > viewEnd) return;
-    const y = lmTop + i * LMROW + 13;
     const x0 = xOf(Math.max(viewStart, m.t0)), x1 = Math.max(x0 + 2, xOf(Math.min(viewEnd, m.t1)));
-    const col = m.hot ? C.accent : "#6f6f6f";
+    const col = m.hot ? C.accent : "#b0b0b0";
     const g = m.id ? hit(m.id, m.label) : el("g", {});
-    g.append(el("line", { x1: x0, x2: x1, y1: y, y2: y, stroke: col, "stroke-width": 1.4 }));
-    [x0, x1].forEach((x) => g.append(el("line", { x1: x, x2: x, y1: y - 3.5, y2: y + 3.5, stroke: col, "stroke-width": 1.4 })));
-    const label = `${m.label} · ${m.note}`;
-    const t = el("text", { x: Math.max(0, Math.min(x0, W - textW(label) - 4)), y: y - 6,
-      fill: col, "font-family": "var(--mono)", "font-size": 12 });
+    const fullLabel = `${m.label} · ${m.note}`;
+    const launch = m.id ? R.launches.find((l) => l.id === m.id) : null;
+    let taskAnchor = null;
+    if (launch && byTask) {
+      const row = pk.lane.get(launch.id);
+      if (row != null) taskAnchor = { x0: xOf(launch.startUs), x1: xOf(launch.endUs), y: laneTop + GH + row * ROW + ROW / 2 };
+    } else if (launch) {
+      const block = (launch.blocks.items || []).slice().sort((a, b) => a.startUs - b.startUs)[0];
+      if (block) {
+        const row = coreRows.findIndex((core) => core.id === block.core);
+        // Anchor to the launch span, not its first block: for multi-wave tasks
+        // (such as rank1 kv_score_proj) the first block ends long before the
+        // task, which made the label float over the task's own later blocks.
+        if (row >= 0) taskAnchor = { x0: xOf(launch.startUs), x1: xOf(launch.endUs), y: coreY(row) + ROW / 2 };
+      }
+    }
+    const labelMax = taskAnchor ? 260 : Math.min(360, Math.max(100, x1 - x0));
+    let label = taskAnchor && launch && m.label.startsWith("最长 Task")
+      ? `最长 Task · ${launch.leaf} · ${ms(launch.spanUs)} ms`
+      : fullLabel;
+    while (label.length > 4 && textW(label) > labelMax - 12) label = `${label.slice(0, -2)}…`;
+    const labelWidth = Math.min(labelMax, textW(label) + 10);
+    let labelX, y;
+    if (taskAnchor) {
+      const afterTask = taskAnchor.x1 + 5;
+      const beforeTask = taskAnchor.x0 - labelWidth - 5;
+      labelX = afterTask + labelWidth <= W - RIGHT ? afterTask : beforeTask;
+      labelX = Math.max(LEFT, Math.min(W - labelWidth - RIGHT, labelX));
+      y = taskAnchor.y;
+    } else {
+      y = laneTop + 13 + intervalLabelIndex++ * 16;
+      labelX = Math.max(LEFT, Math.min(W - labelWidth - RIGHT, x0 + 2));
+    }
+    g.append(el("rect", { x: labelX, y: y - 7, width: labelWidth, height: 14, rx: 2,
+      fill: "#111111", "fill-opacity": .92, stroke: col, "stroke-opacity": .5, "stroke-width": .7 }));
+    const t = el("text", { x: labelX + 5, y: y + 4, fill: col, "font-family": "var(--mono)", "font-size": 12 });
     t.textContent = label;
     g.append(t);
     const ttl = el("title", {}); ttl.textContent = `${m.label}\n${m.note}\n${ms(m.t0)} – ${ms(m.t1)} ms`;
@@ -803,7 +865,7 @@ Task ${b.launch.taskId} · ${b.startUs.toFixed(1)}–${b.endUs.toFixed(1)} μs
     `<span><i style="background:${C.sel}"></i>当前选中</span>`,
     taskLayerLegend,
     ovl.ribbon ? `<span><i style="width:16px;height:2px;background:#c4c4c4"></i>并行宽度低于 25% 参考线</span>` : "",
-    ovl.bands ? `<span><i style="background:#3d3d3d"></i>≤2 核在跑</span><span><i style="background:#4a2420"></i>真空窗（0 核）</span>` : "",
+    ovl.bands ? `<span><i style="background:${C.warn}"></i>低并行（≤2 核）</span><span><i style="background:${C.accent}"></i>真空窗（0 核）</span>` : "",
     byTask
       ? `<span>条宽 = Task 跨度 · <b style="color:var(--text-2)">条高 = 占用核数 ÷ 该类型可用核数</b> · 同轨的 Task 时间不重叠</span>`
       : `<span>每行 = 一个物理核 · 横轴 = 设备时间 · 悬停看耗时分解</span>`,
