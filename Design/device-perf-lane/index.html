@@ -50,24 +50,12 @@
     .chips .ctl{min-height:32px;padding:0 10px;font-size:var(--t-micro)}
     .metric-select{display:inline-flex;align-items:center;gap:6px;color:var(--text-4);font:var(--t-micro)/1 var(--mono)}
     .metric-select select{min-height:32px;padding:0 9px;font-size:var(--t-micro)}
-    .candidate-list{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--text-4);font:var(--t-micro)/1.4 var(--mono)}
-    .candidate-list-label{margin-right:2px;white-space:nowrap}
-    .candidate-chip{display:inline-flex;align-items:center;gap:5px;max-width:260px;min-height:30px;padding:4px 8px;
-      border:1px solid var(--divider);border-radius:999px;background:var(--surface);color:var(--text-2);
-      font:inherit;cursor:pointer}
-    .candidate-chip:hover,.candidate-chip[aria-pressed="true"]{border-color:var(--boundary);color:var(--text)}
-    .candidate-chip .rank{color:var(--text-4)}
-    .candidate-chip .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
     main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) clamp(260px,22vw,360px);align-items:stretch;gap:clamp(16px,2vw,32px);
       padding:var(--s2) var(--inset) var(--s3);overflow:hidden}
     .main-column{min-width:0;min-height:0;display:flex;flex-direction:column}
     .trace-pair{min-width:0;min-height:0;height:100%;display:flex;flex-direction:column;gap:var(--s2)}
     .view-tag{display:inline-flex;align-items:center;padding:3px 7px;border:1px solid var(--divider);
       border-radius:999px;color:var(--text-4);font:var(--t-micro)/1.2 var(--mono);white-space:nowrap}
-    .trace-link{display:flex;align-items:center;gap:var(--s2);min-height:20px;padding-left:var(--s2);
-      border-left:1px solid var(--divider);color:var(--text-3);font:var(--t-micro)/1.5 var(--mono)}
-    .trace-link .arrow{color:var(--text-2);font-size:13px}
     .analysis-panel{align-self:stretch;min-height:0;overflow:auto;
       padding-left:var(--s4);border-left:1px solid var(--divider);scrollbar-width:thin;scrollbar-color:#3a3a3a transparent}
     .analysis-panel .sec{gap:var(--s3)}
@@ -102,6 +90,12 @@
     .lane-axis-sticky{position:sticky;top:0;z-index:5;width:100%;min-width:1240px;background:var(--bg)}
     #lane-axis{display:block;width:100%;min-width:1240px;height:28px}
     .zoom-help{display:inline-flex;align-items:center;padding:0 4px;color:var(--text-4);font:var(--t-micro)/1.2 var(--mono);white-space:nowrap}
+    .lane-toolbar{align-self:center;max-width:100%;width:max-content;flex:none;display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+      min-height:52px;margin-top:var(--s1);padding:7px 9px 7px 18px;border:1px solid rgb(255 255 255 / 16%);
+      border-radius:999px;background:rgb(34 34 34 / 82%);backdrop-filter:blur(18px);
+      box-shadow:0 8px 28px rgb(0 0 0 / 24%)}
+    .lane-toolbar-label{flex:none;color:var(--text);font:var(--t-value)/1.2 var(--font);white-space:nowrap}
+    .lane-toolbar .chips{min-width:0;flex:0 1 auto;justify-content:flex-end}
 
     /* ---- four lenses: stat blocks on a rule, not cards ---- */
     .lens{display:flex;flex-direction:column;gap:var(--s2)}
@@ -124,18 +118,20 @@
     .hint{margin:0;max-width:78ch;color:var(--text-2);font:var(--t-label)/1.75 var(--font)}
     .analysis-panel .hint{padding:var(--s3);background:var(--surface);border-left:2px solid var(--divider);font-size:var(--t-micro)}
 
-    /* ---- selected-task bottom drawer ---- */
-    .task-drawer{position:relative;z-index:1;flex:0 0 0;min-height:0;display:flex;flex-direction:column;
-      margin:0 var(--inset);padding:0 var(--s4);overflow:hidden;visibility:hidden;
-      border:0;border-radius:12px 12px 0 0;background:#191919;box-shadow:none;
-      transition:flex-basis .24s var(--ease),padding .24s var(--ease),visibility .24s}
-    .task-drawer.open{flex-basis:min(34dvh,340px);padding:var(--s3) var(--s4) var(--s4);
-      border:1px solid var(--divider);border-bottom:0;box-shadow:0 -12px 36px rgb(0 0 0 / 24%);visibility:visible}
+    /* ---- selected-task side panel ---- */
+    .task-drawer{position:fixed;z-index:20;top:calc(52px + var(--s2));right:var(--inset);bottom:var(--s3);
+      width:min(clamp(320px,24vw,420px),calc(100vw - var(--inset) - var(--inset)));min-height:0;display:flex;flex-direction:column;
+      padding:var(--s3) var(--s4) var(--s4);overflow:hidden;visibility:hidden;pointer-events:none;
+      border:1px solid var(--divider);border-radius:12px;background:#191919;
+      box-shadow:0 16px 48px rgb(0 0 0 / 42%);transform:translateX(calc(100% + var(--inset)));
+      transition:transform .24s var(--ease),visibility .24s}
+    .task-drawer.open{transform:translateX(0);visibility:visible;pointer-events:auto}
     .drawer-head{flex:none;display:flex;align-items:center;gap:var(--s3);padding-bottom:var(--s2);border-bottom:1px solid var(--divider)}
-    .drawer-head h2{font-size:var(--t-value);color:var(--text-2);font-weight:500}
-    .drawer-head p{min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-4);font:var(--t-micro) var(--mono)}
+    .drawer-head h2{flex:none;font-size:var(--t-value);color:var(--text-2);font-weight:500;white-space:nowrap}
+    .drawer-head p{flex:1 1 120px;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-4);font:var(--t-micro) var(--mono)}
+    .drawer-head .sp{display:none}
     .drawer-close{width:28px;height:28px;padding:0;border:1px solid var(--divider);border-radius:6px;background:transparent;color:var(--text-2);cursor:pointer}
-    .drawer-content{min-height:0;flex:1;display:grid;grid-template-columns:minmax(240px,.85fr) minmax(0,1.15fr);gap:var(--s5);padding-top:var(--s3);overflow:auto}
+    .drawer-content{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:var(--s4);padding-top:var(--s3);overflow:auto}
     .drawer-content .sub{min-width:0;gap:var(--s2)}
     .drawer-content .sub h3{font-size:var(--t-label);color:var(--text-4)}
     #dist{max-height:132px}
@@ -161,6 +157,8 @@
       .analysis-panel{padding-left:var(--s3)}
       .top .run{max-width:38vw}
       .top .soc{display:none}
+      .lane-toolbar{border-radius:18px;align-items:flex-start;flex-direction:column;padding:10px 12px}
+      .lane-toolbar .chips{width:100%;justify-content:flex-start}
     }
     @media(max-width:680px){
       .top{gap:var(--s2)}
@@ -171,7 +169,8 @@
       .analysis-panel .lens button,.analysis-panel .lens-primary button,.analysis-panel .lens-secondary button{padding:5px 7px}
       .analysis-panel .lens .v{font-size:clamp(18px,5vw,22px)}
       .analysis-panel .hint{display:none}
-      .drawer-content{grid-template-columns:minmax(0,1fr);gap:var(--s3)}
+      .task-drawer{top:56px;right:12px;bottom:12px;width:min(420px,calc(100vw - 24px));padding:var(--s3)}
+      .drawer-content{gap:var(--s3)}
     }
     @media(max-width:620px){
       .top .run,.top .soc{display:none}
@@ -207,19 +206,16 @@
       <div class="scroll"><svg id="cp" role="img" aria-label="关键路径上各任务的实测跨度"></svg></div>
     </section>
 
-    <div class="trace-link" aria-live="polite"><span class="arrow" aria-hidden="true">↓</span><span id="trace-link-text">点击路径任务，在下方泳道定位它的运行区间</span></div>
-
     <section class="sec">
-      <div class="sec-h">
-        <h2>设备泳道</h2><span class="view-tag">实际运行位置</span><p id="lane-sub">—</p><span class="sp"></span>
-        <div class="chips" id="lane-ovl"></div>
-      </div>
-      <div class="candidate-list" id="lane-candidates" role="group" aria-label="当前视角候选任务"></div>
       <div class="scroll" id="lane-wrap" title="Ctrl + 滚轮缩放；缩放后可左右拖动平移；普通滚轮滚动泳道">
         <div class="lane-axis-sticky"><svg id="lane-axis" aria-label="设备时间轴"></svg></div>
         <svg id="lane" role="img" aria-label="包含全部提交的设备任务时间泳道；泳道过高时可在此区域滚动"></svg>
       </div>
       <div class="lgnd" id="lane-lgnd"></div>
+      <div class="lane-toolbar" role="toolbar" aria-label="设备泳道视图与叠加控制">
+        <span class="lane-toolbar-label">泳道视图</span>
+        <div class="chips" id="lane-ovl"></div>
+      </div>
     </section>
     </div>
 
@@ -239,7 +235,7 @@
 
   <section class="task-drawer" id="task-drawer" role="dialog" aria-modal="false" aria-labelledby="drawer-title" aria-hidden="true">
     <div class="drawer-head">
-      <h2 id="drawer-title">任务分析</h2><p id="drawer-sub">点击泳道中的任务查看耗时分布与执行信息</p><span class="sp"></span>
+      <h2 id="drawer-title">任务分析</h2><p id="drawer-sub">点击泳道中的任务查看耗时分布与执行信息</p>
       <button class="drawer-close" id="drawer-close" type="button" aria-label="关闭任务分析面板">×</button>
     </div>
     <div class="drawer-content">
@@ -564,7 +560,6 @@ function renderLane() {
   const lmTop = laneTop + laneH + 22;
   const H = lmTop + LM + 4;
   const cand = new Set(candidatesFor(lens).map((l) => l.id));
-  const candidateList = [...new Map(candidatesFor(lens).map((l) => [l.id, l])).values()];
   const keep = (id) => laneAll || cand.has(id) || id === me || taskAnalysis.hits.has(id);
   svg.textContent = ""; svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
   const xOf = (us) => LEFT + ((us - viewStart) / viewWin) * innerW;
@@ -773,24 +768,13 @@ Task ${b.launch.taskId} · ${b.startUs.toFixed(1)}–${b.endUs.toFixed(1)} μs
   svg.onclick = (e) => { const g = e.target.closest && e.target.closest(".task-event"); if (g) select(g.getAttribute("data-id")); };
   svg.onkeydown = (e) => { const g = e.target.closest && e.target.closest(".task-event"); if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); select(g.getAttribute("data-id")); } };
 
-  const blocksIn = (ls) => ls.reduce((a, l) => a + (l.blocks.items || []).length, 0);
-  const kept = R.launches.filter((l) => keep(l.id));
-  const shownN = byTask ? kept.length : blocksIn(kept);
-  const lowPct = (cs.lowUs / win * 100).toFixed(1);
-  $("lane-candidates").innerHTML = `<span class="candidate-list-label">当前视角候选 · ${candidateList.length} 个</span>`
-    + candidateList.map((l, i) => `<button type="button" class="candidate-chip" data-candidate-id="${esc(l.id)}" aria-pressed="${l.id === me}" title="${esc(l.leaf)} · ${esc(lensMetric(l))}">`
-      + `<span class="rank">${String(i + 1).padStart(2, "0")}</span><span class="name">${esc(l.leaf)}</span></button>`).join("");
-  $("lane-sub").innerHTML = (byTask
-      ? `${R.launches.length} 次提交压成 <b>${pk.depth.AIC + pk.depth.AIV}</b> 轨（AIC ${pk.depth.AIC} + AIV ${pk.depth.AIV}）· 显示 ${shownN}`
-      : `${coreRows.length} 个物理核 · ${shownN.toLocaleString()} / ${blocksIn(R.launches).toLocaleString()} block`)
-    + ` · 低并行 <b>${lowPct}%</b>（≤2 核在跑，其中真空窗 ${ms(cs.gapUs)} ms）`;
   $("lane-ovl").innerHTML =
     [["task", "按 Task"], ["core", "按物理核"]]
       .map(([v, label]) => `<button type="button" class="ctl${laneView === v ? " on" : ""}" data-view="${v}" aria-pressed="${laneView === v}">${label}</button>`).join("")
     + `<span style="width:10px"></span>`
     + [["ribbon", "并行宽度"], ["bands", "低并行区"], ["marks", "地标"]]
       .map(([k, label]) => `<button type="button" class="ctl${ovl[k] ? " on" : ""}" data-ovl="${k}" aria-pressed="${!!ovl[k]}">${label}</button>`).join("")
-    + `<button type="button" class="ctl${laneAll ? "" : " on"}" data-ovl="only" aria-pressed="${!laneAll}" title="只在泳道中显示上方列出的候选任务">仅显示候选</button>`
+    + `<button type="button" class="ctl${laneAll ? "" : " on"}" data-ovl="only" aria-pressed="${!laneAll}" title="只在泳道中显示当前分析视角的候选任务">仅显示候选</button>`
     + (!byTask ? `<label class="metric-select" title="按 Task 特征筛选并按 kernel 归组，规则是当前 trace 内的筛查线索">Task 分布<select id="task-layer" class="ctl" aria-label="Task 分布特征">`
       + TASK_LAYERS.map(([v, label]) => `<option value="${v}"${taskLayer === v ? " selected" : ""}>${label}</option>`).join("")
       + `</select></label>` : "")
@@ -883,9 +867,6 @@ function detail() {
 function paint() {
   header(); criticalPath(); renderLane(); distribution(); detail();
   const selected = R.launches.find((l) => l.id === me);
-  $("trace-link-text").textContent = selected
-    ? `已定位 ${selected.leaf} · 在泳道以白色高亮运行区间`
-    : "点击路径任务，在下方泳道定位它的运行区间";
   $("drawer-sub").textContent = selected
     ? `${selected.leaf} · ${selected.ct} · ${selected.blocks.n} 块 / ${selected.waves} 波`
     : "点击泳道中的任务查看耗时分布与执行信息";
@@ -896,7 +877,13 @@ function setDrawer(open) {
   drawer.setAttribute("aria-hidden", String(!open));
 }
 function select(id) { if (!R.launches.some((l) => l.id === id)) return; me = id; paint(); setDrawer(true); }
-function selectTask(taskId) { const l = R.launches.find((x) => x.taskId === taskId); if (l) select(l.id); }
+function selectTask(taskId) {
+  const l = R.launches.find((x) => x.taskId === taskId);
+  if (!l) return;
+  me = l.id;
+  paint();
+  setDrawer(false);
+}
 function setLens(id) {
   lens = id;
   const first = candidatesFor(id)[0];
@@ -945,10 +932,6 @@ if (D) {
     else if (e.target.id === "task-layer") taskLayer = e.target.value;
     else return;
     renderLane();
-  });
-  $("lane-candidates").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-candidate-id]");
-    if (b) select(b.dataset.candidateId);
   });
   $("drawer-close").addEventListener("click", () => setDrawer(false));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") setDrawer(false); });
