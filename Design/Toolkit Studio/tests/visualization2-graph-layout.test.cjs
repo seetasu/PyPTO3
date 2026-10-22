@@ -38,6 +38,33 @@ function verifyRoutes(graph) {
   });
 }
 
+function verifyOverviewGeometry(graph) {
+  const overlap = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 1 &&
+    Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 1;
+  graph.nodes.forEach((a, index) => graph.nodes.slice(index + 1).forEach((b) => {
+    if (a.id.startsWith(`${b.id}/`) || b.id.startsWith(`${a.id}/`)) return;
+    assert.equal(overlap(a, b), false, `nodes ${a.id} / ${b.id} overlap`);
+  }));
+  const topRegions = graph.groups.filter((group) => !group.id.includes('/'));
+  topRegions.forEach((a, index) => topRegions.slice(index + 1).forEach((b) =>
+    assert.equal(overlap(a, b), false, `regions ${a.id} / ${b.id} overlap`)));
+  for (const region of topRegions) for (const node of graph.nodes) {
+    if (node.id.includes('/')) continue;
+    assert.ok(node.y >= region.y + 48 || !overlap(node, region),
+      `region title ${region.id} covers ${node.id}`);
+  }
+  const byId = new Map(graph.nodes.map((node) => [node.id, node]));
+  graph.edgeRoutes.forEach((route, index) => {
+    const edge = graph.edges[index];
+    [[route.points[0], byId.get(edge.s)], [route.points.at(-1), byId.get(edge.t)]].forEach(([point, node]) => {
+      assert.ok(node, `missing endpoint for ${edge.id}`);
+      const near = Math.min(Math.abs(point.x - node.x), Math.abs(point.x - node.x - node.w),
+        Math.abs(point.y - node.y), Math.abs(point.y - node.y - node.h));
+      assert.ok(near < 1, `${edge.id} misses ${node.id} boundary by ${near}`);
+    });
+  });
+}
+
 test('flow layout keeps the computation spine aligned and state in a side rail', () => {
   const w = load(), model = w.PTO_PYPA_SEMANTIC_GRAPH;
   const graph = w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(model, new Set(), { flowLayout: true });
@@ -94,6 +121,7 @@ test('Level 1 contracts transient data without losing dependency provenance or e
     const graph = w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(overview, new Set(),
       { flowLayout: true, overviewLayout: true });
     verifyRoutes(graph);
+    verifyOverviewGeometry(graph);
     if (model.nodes.some((node) => node.type === 'data' && node.data.role === 'intermediate'))
       assert.ok(graph.edges.some((edge) => edge.sourceEdgeIds?.length > 1));
     assert.ok(graph.nodes.every((node) => node.type !== 'data' || node.data.role !== 'intermediate'));
@@ -101,7 +129,11 @@ test('Level 1 contracts transient data without losing dependency provenance or e
       assert.ok(edge.sourceEdgeIds.every((id) => model.edges.some((original) => original.id === id)));
     }
     const first = overview.nodes.find((node) => node.type === 'composite');
-    if (first) verifyRoutes(w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(overview,
-      new Set([first.id]), { flowLayout: true, overviewLayout: true }));
+    if (first) {
+      const expanded = w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(overview,
+        new Set([first.id]), { flowLayout: true, overviewLayout: true });
+      verifyRoutes(expanded);
+      verifyOverviewGeometry(expanded);
+    }
   }
 });

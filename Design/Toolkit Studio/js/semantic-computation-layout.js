@@ -153,15 +153,33 @@
         cursorY += Math.max(...row.map((item) => item.boxH)) + layerGap;
       });
     }
+    const regionTop = options.overviewLayout && !childScope ? 68 : BASE.regionTop;
+    const regionBottom = BASE.regionBottom;
+    if (options.overviewLayout && !childScope) {
+      // Region frames are layout objects: reserve their header and a gap before
+      // the next region instead of drawing overlapping boxes after placement.
+      let previousBottom = -Infinity;
+      (graph.groups || []).forEach((group, index) => {
+        const members = group.members.map((id) => byId.get(id)).filter(Boolean);
+        if (!members.length) return;
+        const firstTop = Math.min(...members.map((item) => item.y)) - regionTop;
+        const shift = Math.max(0, previousBottom + 32 - firstTop);
+        if (shift) {
+          const later = new Set(graph.groups.slice(index).flatMap((entry) => entry.members));
+          nodes.filter((item) => later.has(item.node.id)).forEach((item) => { item.y += shift; });
+        }
+        previousBottom = Math.max(...members.map((item) => item.y + item.boxH)) + regionBottom;
+      });
+    }
     const regions = (graph.groups || []).map((group) => {
       const members = group.members.map((id) => byId.get(id));
       return { ...group,
         label: group.name,
         id: fullId(prefix, group.id),
         x: Math.min(...members.map((item) => item.x)) - BASE.regionSide,
-        y: Math.min(...members.map((item) => item.y)) - BASE.regionTop,
+        y: Math.min(...members.map((item) => item.y)) - regionTop,
         w: Math.max(...members.map((item) => item.x + item.boxW)) - Math.min(...members.map((item) => item.x)) + BASE.regionSide * 2,
-        h: Math.max(...members.map((item) => item.y + item.boxH)) - Math.min(...members.map((item) => item.y)) + BASE.regionTop + BASE.regionBottom,
+        h: Math.max(...members.map((item) => item.y + item.boxH)) - Math.min(...members.map((item) => item.y)) + regionTop + regionBottom,
       };
     });
     const left = Math.min(0, ...regions.map((group) => group.x));

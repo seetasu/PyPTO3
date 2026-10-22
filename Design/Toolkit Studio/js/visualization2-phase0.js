@@ -24,35 +24,51 @@
     };
   }
   function createLayout(model) {
-    const width = 1250, height = 600, left = 179, span = 1048;
-    const columnPitch = span / model.kvHeads;
+    const size = { width: 1250, height: 860, itemWidth: 114, itemHeight: 18, headerHeight: 20,
+      padding: 8, labelWidth: 38, labelGap: 8, columnGap: 6, laneGap: 7, pairGap: 12,
+      groupGap: 24, top: 54, syncGap: 18, summaryHeight: 18, syncBarGap: 8, syncBarHeight: 26 };
+    const { width, height, itemWidth, itemHeight } = size;
+    const columnPitch = 1048 / model.kvHeads;
     const columnOrder = [...Array.from({ length: model.kvHeads }, (_, kv) => kv).filter(kv => kv % 2 === 0),
       ...Array.from({ length: model.kvHeads }, (_, kv) => kv).filter(kv => kv % 2 === 1)];
-    const itemWidth = Math.min(114, columnPitch - 12), itemHeight = 18;
-    const sourceRowPitch = 462 / model.activeBatch;
-    const pairCount = Math.ceil(model.activeBatch / 2), pairPitch = 480 / pairCount;
-    const sourceX = index => left + index * columnPitch + (columnPitch - itemWidth) / 2;
-    const targetPitch = (span - 36) / model.kvHeads;
-    const targetX = index => left + index * targetPitch + (index >= Math.ceil(model.kvHeads / 2) ? 36 : 0) + (targetPitch - itemWidth) / 2;
+    const sourceX = index => 179 + index * columnPitch + (columnPitch - itemWidth) / 2;
+    const halfColumns = Math.ceil(model.kvHeads / 2);
+    const itemPitch = itemWidth + size.columnGap;
+    const groupWidth = size.padding * 2 + size.labelWidth + size.labelGap + halfColumns * itemWidth + (halfColumns - 1) * size.columnGap;
+    const groupLeft = (width - groupWidth * 2 - size.groupGap) / 2;
+    const targetX = index => groupLeft + (index >= halfColumns ? groupWidth + size.groupGap : 0)
+      + size.padding + size.labelWidth + size.labelGap + index % halfColumns * itemPitch;
+    const blockHeight = size.headerHeight + size.padding * 2 + itemHeight * 2 + size.laneGap;
+    const pairPitch = blockHeight + size.pairGap;
+    const firstItemY = size.top + size.headerHeight + size.padding;
+    const sourceRowPitch = (pairPitch * Math.ceil(model.activeBatch / 2) - size.pairGap - itemHeight) / Math.max(1, model.activeBatch - 1);
     const sources = [], targets = [];
     model.items.forEach(item => {
-      sources[item.gIndex] = { x: sourceX(item.kvHead), y: 66 + item.batch * sourceRowPitch, w: itemWidth, h: itemHeight };
+      sources[item.gIndex] = { x: sourceX(item.kvHead), y: firstItemY + item.batch * sourceRowPitch, w: itemWidth, h: itemHeight };
       targets[item.gIndex] = { x: targetX(columnOrder.indexOf(item.kvHead)),
-        y: 77 + Math.floor(item.batch / 2) * pairPitch + item.batch % 2 * 25, w: itemWidth, h: itemHeight };
+        y: firstItemY + Math.floor(item.batch / 2) * pairPitch + item.batch % 2 * (itemHeight + size.laneGap), w: itemWidth, h: itemHeight };
     });
-    const bounds = (rects, topPad = 8, bottomPad = 3) => ({ x: Math.min(...rects.map(r => r.x)) - 8, y: Math.min(...rects.map(r => r.y)) - topPad,
-      w: Math.max(...rects.map(r => r.x + r.w)) - Math.min(...rects.map(r => r.x)) + 16,
-      h: Math.max(...rects.map(r => r.y + r.h)) - Math.min(...rects.map(r => r.y)) + topPad + bottomPad });
     const blockRects = Array.from({ length: model.blocks }, (_, block) => {
       const items = model.groupsForBlock(block);
-      return items.length ? bounds(items.map(item => targets[item.gIndex])) : null;
+      if (!items.length) return null;
+      const rects = items.map(item => targets[item.gIndex]);
+      const minX = Math.min(...rects.map(r => r.x)), maxX = Math.max(...rects.map(r => r.x + r.w));
+      const minY = Math.min(...rects.map(r => r.y)), maxY = Math.max(...rects.map(r => r.y + r.h));
+      const x = minX - size.labelWidth - size.labelGap - size.padding;
+      return { x, y: minY - size.headerHeight - size.padding, w: maxX + size.padding - x,
+        h: maxY - minY + size.headerHeight + size.padding * 2 };
     });
     const laneRects = model.lanes.map(lane => {
       if (!lane.groups.length) return null;
-      const r = bounds(lane.groups.map(item => targets[item.gIndex]), 1, 1);
-      return { ...r, x: r.x + 4, w: r.w - 8 };
+      const block = blockRects[lane.block], rects = lane.groups.map(item => targets[item.gIndex]);
+      const y = Math.min(...rects.map(r => r.y)), bottom = Math.max(...rects.map(r => r.y + r.h));
+      return { x: block.x + size.padding, y: y - 1, w: block.w - size.padding * 2, h: bottom - y + 2 };
     });
-    return { width, height, sources, targets, blockRects, laneRects, columnOrder, columnPitch, pairPitch };
+    const gridBottom = Math.max(...blockRects.filter(Boolean).map(r => r.y + r.h));
+    const syncSummaryY = gridBottom + size.syncGap + size.summaryHeight / 2;
+    const syncBarY = gridBottom + size.syncGap + size.summaryHeight + size.syncBarGap;
+    return { width, height, sources, targets, blockRects, laneRects, columnOrder, columnPitch, pairPitch,
+      size, sourceRowPitch, syncSummaryY, syncBarY };
   }
   const make = (tag, attrs, parent, text) => {
     const el = document.createElementNS(NS, tag);
@@ -64,21 +80,23 @@
     const layout = createLayout(model);
     host.classList.add('viz2-p0-morph');
     host.innerHTML = `<div class="viz2-am-head"><div><h2 data-p0-title-state></h2><p data-p0-formula></p></div><div class="viz2-am-controls"><button class="btn btn-ghost btn-sm" data-p0-play>暂停</button><button class="btn btn-ghost btn-sm" data-p0-replay>重播</button><div class="segmented-control segmented-control-muted"><button class="btn btn-sm" data-p0-state="generation">Work Generation</button><button class="btn btn-sm" data-p0-state="assignment">Block Assignment</button></div><label><input type="checkbox" data-p0-loop checked> 循环播放</label><button class="btn btn-ghost btn-sm" data-p0-fit>适应</button></div></div>
-      <div class="viz2-p0-viewport viz2-am-viewport" tabindex="0" role="group" aria-label="Phase0 工作项生成与 Block 分配画布"><svg class="viz2-p0-svg" viewBox="0 0 ${layout.width} ${layout.height}" aria-label="Phase0 Batch × KV Head 与 AIV Lane 分配"><g data-p0-scene><g data-p0-columns></g><g data-p0-generation></g><g data-p0-board></g><g data-p0-items></g></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
+      <div class="viz2-p0-viewport viz2-am-viewport" tabindex="0" role="group" aria-label="Phase0 工作项生成与 Block 分配画布"><svg class="viz2-p0-svg" aria-label="Phase0 Batch × KV Head 与 AIV Lane 分配"><g data-p0-scene><g data-p0-columns></g><g data-p0-generation></g><g data-p0-board></g><g data-p0-items></g></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
       <footer class="viz2-am-footer"><p data-p0-selection aria-live="polite">${model.total} 个工作项 · 每项 ${model.qPerKv}Q + K + V</p><span>Q/K Norm → RoPE → KV Cache Append · 静态分配，不表示执行时序</span></footer>
       <aside class="pto-ide-frame__pane viz2-p0-inspector" aria-label="Phase0 分配详情" hidden><header class="pto-ide-frame__pane-header"><b data-p0-title></b><button class="btn btn-ghost btn-sm" data-p0-clear aria-label="关闭 Phase0 详情">×</button></header><div class="pto-ide-frame__pane-body" data-p0-detail></div></aside>`;
     const viewport = host.querySelector('.viz2-p0-viewport'), scene = host.querySelector('[data-p0-scene]'), tooltip = host.querySelector('[role="tooltip"]');
     const columns = host.querySelector('[data-p0-columns]'), generation = host.querySelector('[data-p0-generation]'), board = host.querySelector('[data-p0-board]'), itemLayer = host.querySelector('[data-p0-items]');
     const columnNodes = Array.from({ length: model.kvHeads }, (_, kv) => make('text', { x: layout.sources[model.itemFor(0, kv).gIndex].x + layout.sources[0].w / 2, y: 30, class: 'viz2-p0-axis', 'text-anchor': 'middle' }, columns, `KV${kv}`));
     make('text', { x: 100, y: 30, class: 'viz2-p0-axis' }, generation, 'BATCH');
-    for (let b = 0; b < model.activeBatch; b++) make('text', { x: 100, y: 66 + (b + .5) * (506 / model.activeBatch), class: 'viz2-p0-batch' }, generation, `B${b}`);
+    for (let b = 0; b < model.activeBatch; b++) make('text', { x: 100, y: layout.sources[b].y + layout.size.itemHeight / 2, class: 'viz2-p0-batch' }, generation, `B${b}`);
     const blockNodes = layout.blockRects.map((r, block) => {
       if (!r) return null;
       const group = make('g', { class: 'viz2-p0-block', 'data-p0-block': block }, board);
       make('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 2, class: 'viz2-p0-frame' }, group);
+      make('line', { x1: r.x + layout.size.padding, y1: r.y + layout.size.headerHeight,
+        x2: r.x + r.w - layout.size.padding, y2: r.y + layout.size.headerHeight, class: 'viz2-p0-header-rule' }, group);
       const pick = make('g', { 'data-p0-pick-block': block, role: 'button', tabindex: '-1', 'aria-label': `Phase0 Block ${block}，${model.groupsForBlock(block).length} 项工作，参与同步` }, group);
-      make('rect', { x: r.x, y: r.y - 14, width: r.w, height: 14, fill: 'transparent' }, pick);
-      make('text', { x: r.x + 7, y: r.y - 3, class: 'viz2-p0-block-label' }, pick, `BLK ${String(block).padStart(2, '0')}`);
+      make('rect', { x: r.x, y: r.y, width: r.w, height: layout.size.headerHeight, fill: 'transparent' }, pick);
+      make('text', { x: r.x + layout.size.padding, y: r.y + layout.size.headerHeight / 2, 'dominant-baseline': 'central', class: 'viz2-p0-block-label' }, pick, `BLK ${String(block).padStart(2, '0')}`);
       return group;
     });
     const laneNodes = model.lanes.map((lane, index) => {
@@ -86,15 +104,16 @@
       const group = make('g', { class: 'viz2-p0-lane', 'data-p0-lane': lane.ropeCore, role: 'button', tabindex: '-1', 'aria-label': `Block ${lane.block} AIV${lane.lane}，rope_core ${lane.ropeCore}，${lane.groups.length} 项工作` }, blockNodes[lane.block] || board);
       if (r) {
         make('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 2, class: 'viz2-p0-lane-frame' }, group);
-        make('text', { x: r.x - 4, y: r.y + 14, 'text-anchor': 'end', class: 'viz2-p0-lane-label' }, group, `AIV${lane.lane}`);
+        make('text', { x: r.x + layout.size.labelWidth / 2, y: r.y + r.h / 2,
+          'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'viz2-p0-lane-label' }, group, `AIV${lane.lane}`);
       }
       return group;
     });
     const sync = make('g', { 'data-p0-sync': '' }, board);
     const idle = model.blocks - blockNodes.filter(Boolean).length;
-    make('text', { x: 624, y: 554, 'text-anchor': 'middle', class: 'viz2-p0-idle-label' }, sync, `${idle} Blocks · Sync Only`);
-    make('rect', { x: 24, y: 568, width: 1200, height: 26, rx: 2, class: 'viz2-p0-sync-frame' }, sync);
-    make('text', { x: 624, y: 585, 'text-anchor': 'middle', class: 'viz2-p0-sync-label' }, sync, `SYNCALL · ${model.blocks} Blocks 参与 · cacheinvalid → fence → SYNCALL(MIX) → cacheinvalid`);
+    make('text', { x: 624, y: layout.syncSummaryY, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'viz2-p0-idle-label' }, sync, `${idle} Blocks · Sync Only`);
+    make('rect', { x: 24, y: layout.syncBarY, width: 1200, height: layout.size.syncBarHeight, rx: 2, class: 'viz2-p0-sync-frame' }, sync);
+    make('text', { x: 624, y: layout.syncBarY + layout.size.syncBarHeight / 2, 'text-anchor': 'middle', 'dominant-baseline': 'central', class: 'viz2-p0-sync-label' }, sync, `SYNCALL · ${model.blocks} Blocks 参与 · cacheinvalid → fence → SYNCALL(MIX) → cacheinvalid`);
     const itemNodes = model.items.map((item, id) => {
       const group = make('g', { class: 'viz2-p0-item', 'data-p0-item': item.gIndex, role: 'button', tabindex: id === 0 ? '0' : '-1', 'aria-pressed': 'false', 'aria-label': `G${item.gIndex}，Batch ${item.batch}，KV${item.kvHead}，Block ${item.block}，AIV${item.lane}` }, itemLayer);
       const cell = make('rect', { class: 'viz2-p0-item-cell', rx: 3 }, group);
