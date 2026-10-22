@@ -853,6 +853,18 @@
         tags: ["Callable", "MemoryReuse", "Pass Dump", "Address Allocation"]
       },
       {
+        title: "Device Perf Lane · 上板性能分析",
+        subtitle: "DFX Trace × Compile-time Structure",
+        category: "内存与性能",
+        status: "可体验",
+        version: "双视图泳道",
+        updatedAt: "2026-10-22",
+        description: "一次 decode 上板执行的性能工具。四个优化视角（关键路径等待、尾块浪费、启动开销、并行波次）各给出前 5 个候选任务。设备泳道两种视图：按 Task 把 86 次提交装箱压成 12 轨，条宽 = 跨度、条高 = 占用核数，长而细的条一眼认出「跑得久但只占一个核」的通信等待；按物理核则摊开 72 行 4038 个 block。两个视图共用一层叠加：并行宽度曲线、低并行竖带、时间地标。rank0 有 28.3% 的时间全机只有 ≤2 核在跑、关键路径上 39% 在等 rank 间数据，rank1 对应 11.5% 和 3%。",
+        href: "Design/device-perf-lane/index.html",
+        preview: "Design/assets/launch-previews/device-perf-lane.jpg",
+        tags: ["DFX", "Critical Path", "AIC / AIV", "Swimlane"]
+      },
+      {
         title: "Pass Lane · 并行结构线",
         subtitle: "Cross-pass Lane Model · Parallel",
         category: "内存与性能",

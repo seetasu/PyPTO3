@@ -21,6 +21,23 @@ PASS_FILES = [
     (35, "MemoryReuse", "35_after_MemoryReuse.py"),
     (36, "AllocateMemoryAddr", "36_after_AllocateMemoryAddr.py"),
 ]
+TILE_MILESTONES = [
+    (11, "ConvertTensorToTileOps", "11_after_ConvertTensorToTileOps.py"),
+    (18, "CanonicalizeTileSlice", "18_after_CanonicalizeTileSlice.py"),
+    (21, "ResolveBackendOpLayouts", "21_after_ResolveBackendOpLayouts.py"),
+    (30, "LowerPipelineLoops", "30_after_LowerPipelineLoops.py"),
+    (33, "InitMemRef", "33_after_InitMemRef.py"),
+    (34, "MaterializeSemanticAliases", "34_after_MaterializeSemanticAliases.py"),
+    (35, "MemoryReuse", "35_after_MemoryReuse.py"),
+    (36, "AllocateMemoryAddr", "36_after_AllocateMemoryAddr.py"),
+]
+TILE_GROUPS = {
+    "load": "输入读取", "slice": "输入读取", "extract": "输入读取", "gather": "输入读取",
+    "reshape": "布局变换", "cast": "布局变换", "concat": "布局变换", "alias": "布局变换", "yield_": "布局变换",
+    "sub": "数值计算", "add": "数值计算", "exp": "数值计算", "mul": "数值计算",
+    "row_expand_mul": "数值计算", "maximum": "数值计算", "col_expand_mul": "数值计算", "row_expand_div": "数值计算",
+    "create": "结果构造", "assemble": "结果构造", "move": "内存复用迁移",
+}
 
 
 def get_int(node: ast.AST | None) -> int | None:
@@ -66,7 +83,9 @@ def extract_stage(number: int, pass_name: str, filename: str, callable_name: str
     allocations.sort(key=lambda item: item["line"])
 
     tiles = []
-    for node in ast.walk(function):
+    tile_defs = [node for node in ast.walk(function) if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and isinstance(node.annotation, ast.Subscript) and ast.unparse(node.annotation.value) == "pl.Tile"]
+    tile_names = {node.target.id for node in tile_defs}
+    for node in tile_defs:
         if not (
             isinstance(node, ast.AnnAssign)
             and isinstance(node.target, ast.Name)
@@ -96,6 +115,9 @@ def extract_stage(number: int, pass_name: str, filename: str, callable_name: str
         ]
         value_call = node.value
         op = ast.unparse(value_call.func) if isinstance(value_call, ast.Call) else "alias"
+        op_leaf = op.rsplit(".", 1)[-1]
+        inputs = sorted({ref.id for ref in ast.walk(value_call) if isinstance(ref, ast.Name) and isinstance(ref.ctx, ast.Load) and ref.id in tile_names}) if value_call else []
+        operands = sorted({ref.id for ref in ast.walk(value_call) if isinstance(ref, ast.Name) and isinstance(ref.ctx, ast.Load) and ref.id != node.target.id}) if value_call else []
         tiles.append(
             {
                 "name": node.target.id,
@@ -106,6 +128,10 @@ def extract_stage(number: int, pass_name: str, filename: str, callable_name: str
                 "bytes": size,
                 "offset": offset,
                 "op": op,
+                "opKind": op_leaf,
+                "group": TILE_GROUPS.get(op_leaf, "其他"),
+                "inputs": inputs,
+                "operands": operands,
                 "line": node.lineno,
                 "lastUseLine": max(uses, default=node.lineno),
                 "code": lines[node.lineno - 1].strip(),
@@ -179,6 +205,28 @@ def build_callable(callable_name: str, function_type: str) -> dict:
         )
     address_space = " · ".join(high_water_by_space) or "无片上空间"
 
+    tile_timeline = []
+    for number, pass_name, filename in TILE_MILESTONES:
+        path = RUN / filename
+        try:
+            function = callable_node(ast.parse(path.read_text(encoding="utf-8")), callable_name)
+            count = sum(1 for node in ast.walk(function) if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and isinstance(node.annotation, ast.Subscript) and ast.unparse(node.annotation.value) == "pl.Tile")
+        except (OSError, StopIteration, SyntaxError):
+            continue
+        tile_timeline.append({"number": number, "pass": pass_name, "count": count, "file": filename})
+
+    # The dump includes the exact frontend snapshot used for this compilation. It
+    # may differ from the checked-in source, so source links point to the snapshot.
+    source_snapshot = None
+    if function_type == "AIV":
+        frontend = RUN / "00_frontend.py"
+        if frontend.exists():
+            source_lines = frontend.read_text(encoding="utf-8").splitlines()
+            start = next((i for i, line in enumerate(source_lines) if f'name_hint="{callable_name}_spmd"' in line), None)
+            if start is not None:
+                end = next((i for i in range(start + 1, len(source_lines)) if source_lines[i].startswith("            _tuple_tmp_")), min(start + 90, len(source_lines)))
+                source_snapshot = {"file": "00_frontend.py", "startLine": start + 1, "lines": [{"line": i + 1, "code": source_lines[i]} for i in range(start, end)]}
+
     return {
         "run": "_jit_l3_decode_csa_20260903_010617",
         "callable": callable_name,
@@ -188,6 +236,8 @@ def build_callable(callable_name: str, function_type: str) -> dict:
         "reusePair": reuse_pair,
         "semanticChanges": semantic_changes,
         "stages": stages,
+        "tileTimeline": tile_timeline,
+        "sourceSnapshot": source_snapshot,
         "metrics": {
             "beforeReuseCount": stages[1]["allocationCount"],
             "afterReuseCount": stages[2]["allocationCount"],
