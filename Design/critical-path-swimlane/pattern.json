@@ -1,0 +1,32 @@
+{
+  "id": "critical-path-swimlane",
+  "kind": "rendered-pattern",
+  "entry": "index.html",
+  "embed": "pattern.html",
+  "renderer": "pattern.js",
+  "styles": [
+    "tokens.css",
+    "pattern.css",
+    "liquid-glass/liquid-glass.css"
+  ],
+  "data": "data.js",
+  "provenance": "provenance.json",
+  "api": {
+    "mount": "CriticalPathSwimlane.mount(root,data,options)",
+    "instance": [
+      "setStep(id)",
+      "getState()",
+      "destroy()"
+    ]
+  },
+  "sourceParity": "semantic extraction; source module unchanged; shared scale and lane identities retained",
+  "status": "reviewed",
+  "validation": {
+    "data": "54 steps / 864 lanes checked against raw STRACE",
+    "browser": "pending user acceptance",
+    "review": "2026-10-20 user requested Library / Pattern inclusion after screenshot review"
+  },
+  "dependencies": [
+    "liquid-glass/liquid-glass.js"
+  ]
+}

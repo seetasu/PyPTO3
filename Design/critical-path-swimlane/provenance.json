@@ -1,0 +1,53 @@
+{
+  "repository": "https://github.com/yinyucheng0601/PyPTO3",
+  "revision": "5547283136bca92467a9b02dd0a02697e39fc4d4",
+  "sources": [
+    {
+      "path": "Data/serving-strace-swimlane(2).json",
+      "sha256": "6216131acbd07fbe453279e729296e88276efcdf690b31d4d6d9d1ea36aebb60",
+      "url": "https://github.com/yinyucheng0601/PyPTO3/blob/5547283136bca92467a9b02dd0a02697e39fc4d4/Data/serving-strace-swimlane(2).json"
+    },
+    {
+      "path": "Design/execution-triage-workbench/build-data.cjs",
+      "sha256": "7a12f78ad4a37bd8601899bdc74fc7af84e0ebe37c7d4ea83f8698e1ba7ea5c4",
+      "url": "https://github.com/yinyucheng0601/PyPTO3/blob/5547283136bca92467a9b02dd0a02697e39fc4d4/Design/execution-triage-workbench/build-data.cjs"
+    },
+    {
+      "path": "Design/execution-triage-workbench/build-home-data.cjs",
+      "sha256": "f809637f299dde04514b0641001a5796ce61e26f549c366c6012a1bd6458f1cf",
+      "url": "https://github.com/yinyucheng0601/PyPTO3/blob/5547283136bca92467a9b02dd0a02697e39fc4d4/Design/execution-triage-workbench/build-home-data.cjs"
+    },
+    {
+      "path": "Design/execution-triage-workbench/data.js",
+      "sha256": "d82b7c57668b52291761628c55884303cb02c60a100c93299981629a4f196690",
+      "url": "https://github.com/yinyucheng0601/PyPTO3/blob/5547283136bca92467a9b02dd0a02697e39fc4d4/Design/execution-triage-workbench/data.js"
+    },
+    {
+      "path": "Design/execution-triage-workbench/home-data.js",
+      "sha256": "a07c0869792c3f022bf95c99807dbd6f2ad233d054e281d73966fc1563a76a06",
+      "url": "https://github.com/yinyucheng0601/PyPTO3/blob/5547283136bca92467a9b02dd0a02697e39fc4d4/Design/execution-triage-workbench/home-data.js"
+    },
+    {
+      "path": "Design/execution-triage-workbench/home.js",
+      "sha256": "dd3ced4ca616b8577a216e8eaea6e3f26d524c7a6494bd3c1badee6d419b2add",
+      "url": "https://github.com/yinyucheng0601/PyPTO3/blob/5547283136bca92467a9b02dd0a02697e39fc4d4/Design/execution-triage-workbench/home.js"
+    },
+    {
+      "path": "Design/execution-triage-workbench/home.css",
+      "sha256": "aebdf70bc3d4ccb5a68afc61518458718194963d05b8971fc110c0bcf34b2c5a",
+      "url": "https://github.com/yinyucheng0601/PyPTO3/blob/5547283136bca92467a9b02dd0a02697e39fc4d4/Design/execution-triage-workbench/home.css"
+    }
+  ],
+  "excluded": [
+    "deviceExec",
+    "waitEstimate"
+  ],
+  "adaptations": [
+    "rrEnd read directly from raw runner_run event; end remains outer simpler_run endpoint",
+    "Worker phases joined by step_id; STRACE candidates use latest completion before reclaim end and start after dispatch start, validated one-to-one; temporal association is not causal proof; Prefill uses batch containment; unshown D53 retained as boundary"
+  ],
+  "validation": {
+    "rawLaneComparisons": 864,
+    "browser": "not run; visual acceptance reserved for user"
+  }
+}
