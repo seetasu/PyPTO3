@@ -97,8 +97,11 @@
     #dist{min-width:360px;width:100%}
     #lane{min-width:1240px;width:100%}
     #lane-wrap{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+    #lane-wrap.can-pan{cursor:grab}
+    #lane-wrap.is-dragging{cursor:grabbing;user-select:none}
     .lane-axis-sticky{position:sticky;top:0;z-index:5;width:100%;min-width:1240px;background:var(--bg)}
     #lane-axis{display:block;width:100%;min-width:1240px;height:28px}
+    .zoom-help{display:inline-flex;align-items:center;padding:0 4px;color:var(--text-4);font:var(--t-micro)/1.2 var(--mono);white-space:nowrap}
 
     /* ---- four lenses: stat blocks on a rule, not cards ---- */
     .lens{display:flex;flex-direction:column;gap:var(--s2)}
@@ -122,14 +125,12 @@
     .analysis-panel .hint{padding:var(--s3);background:var(--surface);border-left:2px solid var(--divider);font-size:var(--t-micro)}
 
     /* ---- selected-task bottom drawer ---- */
-    .drawer-backdrop{position:fixed;inset:0;z-index:20;background:rgb(0 0 0 / 42%);opacity:0;transition:opacity .2s var(--ease)}
-    .task-drawer{position:fixed;z-index:21;left:var(--inset);right:var(--inset);bottom:0;max-height:min(46dvh,420px);
-      min-height:170px;display:flex;flex-direction:column;padding:var(--s3) var(--s4) var(--s4);
-      border:1px solid var(--divider);border-bottom:0;border-radius:12px 12px 0 0;background:#191919;
-      box-shadow:0 -18px 60px rgb(0 0 0 / 40%);transform:translateY(105%);visibility:hidden;
-      transition:transform .24s var(--ease),visibility .24s}
-    .task-drawer.open{transform:translateY(0);visibility:visible}
-    .drawer-backdrop.open{opacity:1}
+    .task-drawer{position:relative;z-index:1;flex:0 0 0;min-height:0;display:flex;flex-direction:column;
+      margin:0 var(--inset);padding:0 var(--s4);overflow:hidden;visibility:hidden;
+      border:0;border-radius:12px 12px 0 0;background:#191919;box-shadow:none;
+      transition:flex-basis .24s var(--ease),padding .24s var(--ease),visibility .24s}
+    .task-drawer.open{flex-basis:min(34dvh,340px);padding:var(--s3) var(--s4) var(--s4);
+      border:1px solid var(--divider);border-bottom:0;box-shadow:0 -12px 36px rgb(0 0 0 / 24%);visibility:visible}
     .drawer-head{flex:none;display:flex;align-items:center;gap:var(--s3);padding-bottom:var(--s2);border-bottom:1px solid var(--divider)}
     .drawer-head h2{font-size:var(--t-value);color:var(--text-2);font-weight:500}
     .drawer-head p{min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-4);font:var(--t-micro) var(--mono)}
@@ -214,7 +215,7 @@
         <div class="chips" id="lane-ovl"></div>
       </div>
       <div class="candidate-list" id="lane-candidates" role="group" aria-label="当前视角候选任务"></div>
-      <div class="scroll" id="lane-wrap">
+      <div class="scroll" id="lane-wrap" title="Ctrl + 滚轮缩放；缩放后可左右拖动平移；普通滚轮滚动泳道">
         <div class="lane-axis-sticky"><svg id="lane-axis" aria-label="设备时间轴"></svg></div>
         <svg id="lane" role="img" aria-label="包含全部提交的设备任务时间泳道；泳道过高时可在此区域滚动"></svg>
       </div>
@@ -236,7 +237,6 @@
     </aside>
   </main>
 
-  <div class="drawer-backdrop" id="drawer-backdrop" hidden aria-hidden="true"></div>
   <section class="task-drawer" id="task-drawer" role="dialog" aria-modal="false" aria-labelledby="drawer-title" aria-hidden="true">
     <div class="drawer-head">
       <h2 id="drawer-title">任务分析</h2><p id="drawer-sub">点击泳道中的任务查看耗时分布与执行信息</p><span class="sp"></span>
@@ -272,8 +272,10 @@ const C = { accent: "#fd5644", accentDim: "#7e3129", candidate: "#a8a8a8", sel: 
             block: "#565656", AIC: "#8e8e8e", AIV: "#606060",
             plain: "#3a3a3a", idle: "#232323", grid: "#262626", axis: "#6a6a6a", label: "#7a7a7a" };
 
-let D, R, me = null, lens = "wait", laneAll = true, laneView = "task", laneColor = "none";
+let D, R, me = null, lens = "wait", laneAll = true, laneView = "task", laneColor = "none", laneRange = null, taskLayer = "none";
+let laneZoomRaf = 0;
 const ovl = { ribbon: true, bands: true, marks: true };
+function laneLeft() { return 96; }
 
 const LENS = {
   wait: { label: "关键路径上的等待", hint: "单块任务串在关键路径上，零计算，纯等 rank 间数据或上游同步 —— 这段时间加核也不会变快。" },
@@ -444,10 +446,90 @@ function packTasks() {
   return R._packed;
 }
 
+const TASK_LAYERS = [
+  ["none", "关闭"], ["tail", "拖尾任务"], ["parallel", "Task 并行度不足"],
+  ["imbalance", "块负载不均"], ["underfill", "尾波空置"], ["fragmented", "离散小 Task"],
+  ["setup", "Setup 占比高"], ["bubble", "依赖间隔"],
+];
+function analyzeTaskLayer(mode) {
+  const tasks = R.launches, hits = new Set(), gaps = [];
+  const sorted = (values) => values.slice().sort((a, b) => a - b);
+  const quantile = (values, q) => {
+    const a = sorted(values);
+    return a.length ? a[Math.min(a.length - 1, Math.floor((a.length - 1) * q))] : 0;
+  };
+  const p50Span = quantile(tasks.map((l) => l.spanUs), .5);
+  const p25Span = quantile(tasks.map((l) => l.spanUs), .25);
+  const p25BlockCount = quantile(tasks.map((l) => l.blocks.n), .25);
+  const p90End = quantile(tasks.map((l) => l.endUs), .9);
+  const byTask = new Map(tasks.map((l) => [String(l.taskId), l]));
+  const predEdges = new Map();
+  if (mode === "bubble") R.edges.forEach((e) => {
+    const key = String(e.succ);
+    if (!predEdges.has(key)) predEdges.set(key, new Set());
+    predEdges.get(key).add(String(e.pred));
+  });
+
+  for (const l of tasks) {
+    const cores = l.ct === "AIC" ? R.kpi.aicCores : R.kpi.aivCores;
+    const setupShare = l.setupUs / Math.max(1, l.computeUs + l.setupUs);
+    const lastWave = cores ? l.blocks.n % cores : 0;
+    let match = false;
+    if (mode === "tail") match = l.endUs >= p90End && l.spanUs >= p50Span;
+    if (mode === "parallel") match = l.blocks.n > 1 && l.spanUs >= p50Span
+      && l.computeUs / Math.max(1, l.spanUs) < cores * .25 && setupShare < .5;
+    if (mode === "imbalance") match = l.blocks.n >= 4 && l.blocks.spread >= 1.5
+      && l.blocks.p90 / Math.max(1, l.blocks.p50) >= 1.4;
+    if (mode === "underfill") match = l.waves > 1 && lastWave > 0
+      && lastWave / Math.max(1, cores) < .5;
+    if (mode === "fragmented") match = l.blocks.n <= Math.max(4, p25BlockCount) && l.spanUs <= p25Span;
+    if (mode === "setup") match = setupShare >= .3 && l.setupUs > 1;
+    if (mode === "bubble") {
+      const ids = [...(predEdges.get(String(l.taskId)) || [])];
+      const preds = ids.map((id) => byTask.get(id));
+      if (preds.length && preds.every(Boolean)) {
+        const ready = Math.max(...preds.map((p) => p.endUs));
+        const gap = l.startUs - ready;
+        if (gap > Math.max(3, l.blocks.p50 * 2)) {
+          match = true;
+          gaps.push({ task: l, t0: ready, t1: l.startUs, gap });
+        }
+      }
+    }
+    if (match) hits.add(l.id);
+  }
+  const labels = {
+    tail: "结束时间靠后的长任务", parallel: "平均并行计算核数低于该类核的 25%",
+    imbalance: "块耗时离散且 P90 明显高于中位数", underfill: "末波使用不足一半的该类型可用核",
+    fragmented: "跨度和块数均处于当前 rank 的较低四分位", setup: "Setup 占计算与 Setup 总耗时的 30% 以上",
+    bubble: "前驱结束到该任务开始之间存在可观测间隔（仅作线索）",
+  };
+  const byKernel = new Map();
+  tasks.filter((l) => hits.has(l.id)).forEach((l) => {
+    const kernel = l.leaf.replace(/_\d+$/, ""), key = `${l.ct} · ${kernel}`;
+    if (!byKernel.has(key)) byKernel.set(key, { key, kernel, ct: l.ct, tasks: [] });
+    byKernel.get(key).tasks.push(l);
+  });
+  const groups = [...byKernel.values()].map((group) => {
+    group.tasks.sort((a, b) => a.startUs - b.startUs || b.endUs - a.endUs);
+    group.totalSpan = group.tasks.reduce((sum, task) => sum + task.spanUs, 0);
+    return group;
+  }).sort((a, b) => b.tasks.length - a.tasks.length || b.totalSpan - a.totalSpan);
+  return { hits, gaps, groups, label: labels[mode] || "", count: mode === "bubble" ? gaps.length : hits.size };
+}
+
 function renderLane() {
-  const svg = $("lane"), axis = $("lane-axis"), LEFT = 96, RIGHT = 12, TOP = 10;
+  const svg = $("lane"), axis = $("lane-axis"), LEFT = laneLeft(), RIGHT = 12, TOP = 10;
+  $("lane-wrap").classList.toggle("can-pan", !!laneRange);
   const W = Math.max(1240, Math.floor($("lane-wrap").clientWidth || 1240));
   const byTask = laneView === "task";
+  const taskAnalysis = !byTask && taskLayer !== "none"
+    ? analyzeTaskLayer(taskLayer) : { hits: new Set(), gaps: [], groups: [], label: "", count: 0 };
+  const taskPalette = ["#79b8ff", "#58c7ad", "#b7a0ff", "#dfbd69", "#70c5d8", "#b1cb72"];
+  const taskColorById = new Map();
+  taskAnalysis.groups.forEach((group, index) => group.tasks.forEach((task) => {
+    taskColorById.set(task.id, index < taskPalette.length ? taskPalette[index] : "#a8a8a8");
+  }));
   // Keep chart typography stable in CSS pixels: on wide screens the time axis
   // gains horizontal room instead of scaling the entire SVG and making rows taller.
   const labelScale = Math.max(1, (svg.clientWidth || W) / W);
@@ -463,6 +545,9 @@ function renderLane() {
   const GH = byTask ? 14 : 0;                       // room for a group caption line
   const rowCount = byTask ? pk.depth.AIC + pk.depth.AIV : coreRows.length;
   const innerW = W - LEFT - RIGHT, win = R.kpi.windowUs, cs = concStats();
+  const viewStart = laneRange ? laneRange[0] : 0;
+  const viewEnd = laneRange ? laneRange[1] : win;
+  const viewWin = Math.max(1e-6, viewEnd - viewStart);
   const metricValue = (l) => laneColor === "setup" ? l.setupUs / (l.computeUs || 1) * 100 : l.tailWasteUs / 1000;
   const metricValues = laneColor === "none" ? [] : R.launches.map(metricValue).sort((a, b) => a - b);
   const metricCap = metricValues.length ? metricValues[Math.max(0, Math.ceil(metricValues.length * .9) - 1)] || 1 : 1;
@@ -480,19 +565,23 @@ function renderLane() {
   const H = lmTop + LM + 4;
   const cand = new Set(candidatesFor(lens).map((l) => l.id));
   const candidateList = [...new Map(candidatesFor(lens).map((l) => [l.id, l])).values()];
-  const keep = (id) => laneAll || cand.has(id) || id === me;
+  const keep = (id) => laneAll || cand.has(id) || id === me || taskAnalysis.hits.has(id);
   svg.textContent = ""; svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
-  const xOf = (us) => LEFT + (us / win) * innerW;
+  const xOf = (us) => LEFT + ((us - viewStart) / viewWin) * innerW;
   const r1 = (v) => Math.round(v * 10) / 10;
   const txt = (o, s, parent = svg) => { const t = el("text", o); t.textContent = s; parent.append(t); return t; };
+  const hit = (id, aria) => el("g", { class: "task-event", "data-id": id, tabindex: "0", role: "button",
+    "aria-label": aria, style: "cursor:pointer" });
   axis.textContent = ""; axis.setAttribute("viewBox", `0 0 ${W} 28`); axis.setAttribute("width", W); axis.setAttribute("height", 28);
   axis.append(el("rect", { x: 0, y: 0, width: W, height: 28, fill: "#111111" }));
   axis.append(el("line", { x1: LEFT, x2: W - RIGHT, y1: 25, y2: 25, stroke: C.grid, "stroke-width": 1 }));
+  const axisLabel = (us) => viewWin < 1000 ? `${Math.round(us)} μs`
+    : `${(us / 1000).toFixed(viewWin < 10000 ? 3 : 2)} ms`;
   for (let t = 0; t <= 8; t++) {
     const x = LEFT + innerW * t / 8;
     axis.append(el("line", { x1: x, x2: x, y1: 20, y2: 27, stroke: C.grid, "stroke-width": 1 }));
     txt({ x, y: 15, fill: C.axis, "font-family": "var(--mono)", "font-size": 12,
-      "text-anchor": t === 0 ? "start" : t === 8 ? "end" : "middle" }, `${(win * t / 8 / 1000).toFixed(2)} ms`, axis);
+      "text-anchor": t === 0 ? "start" : t === 8 ? "end" : "middle" }, axisLabel(viewStart + viewWin * t / 8), axis);
   }
 
   // 1. low-concurrency bands, full height so a dip in the ribbon and a hole in
@@ -500,7 +589,9 @@ function renderLane() {
   if (ovl.bands) {
     const bandBot = laneTop + laneH;
     const band = (r, fill, stroke) => {
-      const x = xOf(r.t0), w = Math.max(1, xOf(r.t1) - xOf(r.t0));
+      const t0 = Math.max(viewStart, r.t0), t1 = Math.min(viewEnd, r.t1);
+      if (t1 <= t0) return;
+      const x = xOf(t0), w = Math.max(1, xOf(t1) - xOf(t0));
       svg.append(el("rect", { x, y: TOP, width: w, height: bandBot - TOP, fill }));
       svg.append(el("line", { x1: x, x2: x, y1: TOP, y2: bandBot, stroke, "stroke-width": 1 }));
       svg.append(el("line", { x1: x + w, x2: x + w, y1: TOP, y2: bandBot, stroke, "stroke-width": 1 }));
@@ -508,6 +599,22 @@ function renderLane() {
     };
     cs.serial.slice(0, 10).forEach((r) => band(r, "rgb(255 255 255 / 5%)", "#4a4a4a"));
     cs.gaps.slice(0, 10).forEach((r) => band(r, "rgb(253 86 68 / 11%)", C.accentDim));
+  }
+  if (taskLayer === "bubble" && taskAnalysis.gaps.length) {
+    const regions = taskAnalysis.gaps.map((g) => [Math.max(viewStart, g.t0), Math.min(viewEnd, g.t1)])
+      .filter(([a, b]) => b > a).sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    regions.forEach(([a, b]) => {
+      const last = merged[merged.length - 1];
+      if (last && a <= last[1]) last[1] = Math.max(last[1], b); else merged.push([a, b]);
+    });
+    merged.forEach(([a, b]) => {
+      const x = xOf(a), w = xOf(b) - x;
+      svg.append(el("rect", { x, y: TOP, width: w, height: laneTop + laneH - TOP,
+        fill: "rgb(253 86 68 / 6%)", "pointer-events": "none" }));
+      svg.append(el("line", { x1: x, x2: x, y1: TOP, y2: laneTop + laneH, stroke: C.accent, "stroke-opacity": .45, "stroke-width": 1 }));
+      svg.append(el("line", { x1: x + w, x2: x + w, y1: TOP, y2: laneTop + laneH, stroke: C.accent, "stroke-opacity": .45, "stroke-width": 1 }));
+    });
   }
   if (ovl.ribbon) {
     const base = TOP + RIB, refY = base - RIB * .25;
@@ -522,12 +629,15 @@ function renderLane() {
 
   // 3. concurrency ribbon
   if (ovl.ribbon) {
-    const NB = 400, bw = win / NB, base = TOP + RIB, buck = new Float64Array(NB);
+    const NB = 400, bw = viewWin / NB, base = TOP + RIB, buck = new Float64Array(NB);
     for (const [a, b, c] of cs.segs) {
       if (c <= 0) continue;
-      const i0 = Math.max(0, Math.floor(a / bw)), i1 = Math.min(NB - 1, Math.ceil(b / bw) - 1);
+      const aView = Math.max(a, viewStart), bView = Math.min(b, viewEnd);
+      if (bView <= aView) continue;
+      const i0 = Math.max(0, Math.floor((aView - viewStart) / bw));
+      const i1 = Math.min(NB - 1, Math.ceil((bView - viewStart) / bw) - 1);
       for (let i = i0; i <= i1; i++) {
-        const lo = Math.max(a, i * bw), hi = Math.min(b, (i + 1) * bw);
+        const lo = Math.max(aView, viewStart + i * bw), hi = Math.min(bView, viewStart + (i + 1) * bw);
         if (hi > lo) buck[i] += c * (hi - lo);
       }
     }
@@ -553,9 +663,6 @@ function renderLane() {
     txt({ x: 0, y: refY + 5, fill: C.axis, "font-family": "var(--mono)", "font-size": 12 }, `25% · ${Math.round(total * .25)} 核`);
   }
 
-  const hit = (id, aria) => el("g", { class: "task-event", "data-id": id, tabindex: "0", role: "button",
-    "aria-label": aria, style: "cursor:pointer" });
-
   if (byTask) {
     // ---- collapsed: one bar per submission, packed into tracks ----
     // width = span, height = share of that type's cores it held. A long thin bar
@@ -571,8 +678,10 @@ function renderLane() {
         svg.append(el("line", { x1: LEFT, x2: W - RIGHT, y1: yb, y2: yb, stroke: "#1e1e1e", "stroke-width": 1 }));
       }
       R.launches.filter((l) => l.ct === ct && keep(l.id)).forEach((l) => {
+        const t0 = Math.max(viewStart, l.startUs), t1 = Math.min(viewEnd, l.endUs);
+        if (t1 <= t0) return;
         const i = pk.lane.get(l.id), yb = top + i * ROW + ROW - 3;
-        const x = xOf(l.startUs), w = Math.max(1, (l.spanUs / win) * innerW);
+        const x = xOf(t0), w = Math.max(1, ((t1 - t0) / viewWin) * innerW);
         const full = ROW - 5, h = Math.max(2, (l.coresUsed / nCores) * full);
         const isSel = l.id === me, isCand = cand.has(l.id);
         const g = hit(l.id, `${l.leaf}, ${l.ct}, ${l.coresUsed} of ${nCores} cores, ${l.spanUs} microseconds`);
@@ -581,9 +690,14 @@ function renderLane() {
         g.append(el("rect", { x: x - Math.max(0, (3 - w) / 2), y: top + i * ROW, width: Math.max(3, w), height: ROW, fill: "transparent" }));
         if (w > 46) {
           const onBar = h > full - 4;
-          const t = el("text", { x: x + 3, y: yb - (onBar ? full - 8 : h + 3),
-            fill: isSel ? "#111111" : isCand ? (onBar ? "#111111" : C.candidate) : (onBar ? "#111111" : "#c0c0c0"),
-            "font-family": "var(--mono)", "font-size": taskLabelFont });
+          const barGray = laneColor === "none" ? (isCand ? 168 : 86)
+            : Math.round(56 + 152 * Math.max(0, Math.min(1, metricValue(l) / metricCap)));
+          const readableOnBar = barGray > 155 ? "#111111" : "#f2f2f2";
+          const t = el("text", { x: x + 3, y: onBar ? yb - h / 2 : yb - h - 3,
+            fill: isSel ? "#111111" : onBar ? readableOnBar : isCand ? C.candidate : "#d0d0d0",
+            "font-family": "var(--mono)", "font-size": taskLabelFont,
+            "dominant-baseline": onBar ? "middle" : "auto",
+            "paint-order": "stroke", stroke: "#111111", "stroke-width": .35, "stroke-linejoin": "round" });
           const room = Math.floor(w / taskLabelAdvance);
           t.textContent = l.leaf.length > room ? `${l.leaf.slice(0, room)}…` : l.leaf;
           g.append(t);
@@ -614,20 +728,25 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
         "font-family": "var(--mono)", "font-size": 12, "text-anchor": "end" }, c.id);
     });
     show.forEach((b) => {
+      const t0 = Math.max(viewStart, b.startUs), t1 = Math.min(viewEnd, b.endUs);
+      if (t1 <= t0) return;
       const row = coreRows.findIndex((c) => c.id === b.core);
       if (row < 0) return;
-      const x = xOf(b.startUs), w = Math.max(.4, (b.endUs - b.startUs) / win * innerW);
+      const x = xOf(t0), w = Math.max(.4, (t1 - t0) / viewWin * innerW);
       const hitW = Math.max(3, w), y = laneTop + row * ROW + 2;
       const isSel = b.launch.id === me, isCand = cand.has(b.launch.id);
+      const taskLayerColor = taskColorById.get(b.launch.id);
       const g = hit(b.launch.id, `${b.launch.leaf} on ${b.launch.ct} physical core ${b.core}, ${b.startUs} to ${b.endUs} microseconds`);
       g.append(el("rect", { x, y, width: w, height: ROW - 4,
-        fill: isSel ? C.sel : metricColor(b.launch) || (isCand ? C.candidate : C.block),
-        opacity: isSel || isCand || laneColor !== "none" ? 1 : .85 }));
+        fill: isSel ? C.sel : taskLayerColor || metricColor(b.launch) || (isCand ? C.candidate : C.block),
+        opacity: taskLayer !== "none" && !taskAnalysis.hits.has(b.launch.id) && !isSel ? .16
+          : isSel || isCand || laneColor !== "none" ? 1 : .85 }));
       g.append(el("rect", { x: x - (hitW - w) / 2, y: y - 2, width: hitW, height: ROW, fill: "transparent" }));
       const ttl = el("title", {});
       ttl.textContent = `${b.launch.leaf} · ${b.launch.ct} · core ${b.core}
 Task ${b.launch.taskId} · ${b.startUs.toFixed(1)}–${b.endUs.toFixed(1)} μs
-算 ${b.computeUs.toFixed(1)} μs · setup ${b.setupUs.toFixed(1)} μs · Task setup/compute ${(b.launch.setupUs / (b.launch.computeUs || 1) * 100).toFixed(1)}% · 尾块核时上界 ${ms(b.launch.tailWasteUs)} ms`;
+算 ${b.computeUs.toFixed(1)} μs · setup ${b.setupUs.toFixed(1)} μs · Task setup/compute ${(b.launch.setupUs / (b.launch.computeUs || 1) * 100).toFixed(1)}% · 尾块核时上界 ${ms(b.launch.tailWasteUs)} ms`
+        + (taskAnalysis.hits.has(b.launch.id) ? `\nTask 图层：${taskAnalysis.label}` : "");
       g.append(ttl); svg.append(g);
     });
   }
@@ -635,7 +754,9 @@ Task ${b.launch.taskId} · ${b.startUs.toFixed(1)}–${b.endUs.toFixed(1)} μs
   // 4. landmarks
   const textW = (str) => [...str].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? 12 : 7.2), 0);
   marks.forEach((m, i) => {
-    const y = lmTop + i * LMROW + 13, x0 = xOf(m.t0), x1 = Math.max(x0 + 2, xOf(m.t1));
+    if (m.t1 < viewStart || m.t0 > viewEnd) return;
+    const y = lmTop + i * LMROW + 13;
+    const x0 = xOf(Math.max(viewStart, m.t0)), x1 = Math.max(x0 + 2, xOf(Math.min(viewEnd, m.t1)));
     const col = m.hot ? C.accent : "#6f6f6f";
     const g = m.id ? hit(m.id, m.label) : el("g", {});
     g.append(el("line", { x1: x0, x2: x1, y1: y, y2: y, stroke: col, "stroke-width": 1.4 }));
@@ -670,17 +791,33 @@ Task ${b.launch.taskId} · ${b.startUs.toFixed(1)}–${b.endUs.toFixed(1)} μs
     + [["ribbon", "并行宽度"], ["bands", "低并行区"], ["marks", "地标"]]
       .map(([k, label]) => `<button type="button" class="ctl${ovl[k] ? " on" : ""}" data-ovl="${k}" aria-pressed="${!!ovl[k]}">${label}</button>`).join("")
     + `<button type="button" class="ctl${laneAll ? "" : " on"}" data-ovl="only" aria-pressed="${!laneAll}" title="只在泳道中显示上方列出的候选任务">仅显示候选</button>`
+    + (!byTask ? `<label class="metric-select" title="按 Task 特征筛选并按 kernel 归组，规则是当前 trace 内的筛查线索">Task 分布<select id="task-layer" class="ctl" aria-label="Task 分布特征">`
+      + TASK_LAYERS.map(([v, label]) => `<option value="${v}"${taskLayer === v ? " selected" : ""}>${label}</option>`).join("")
+      + `</select></label>` : "")
+    + (!byTask && taskLayer !== "none" ? `<span class="zoom-help" title="${esc(taskAnalysis.label)}">命中 ${taskAnalysis.count} 个 Task</span>` : "")
+    + `<span class="zoom-help">Ctrl + 滚轮缩放 · 缩放后拖动平移</span>`
+    + (laneRange ? `<button type="button" class="ctl" data-zoom-reset title="恢复完整时间范围">复位 ×${(win / viewWin).toFixed(1)}</button>` : "")
     + `<label class="metric-select">着色<select id="lane-color" class="ctl" aria-label="泳道数据着色方式">`
     + `<option value="none"${laneColor === "none" ? " selected" : ""}>候选任务</option>`
     + `<option value="setup"${laneColor === "setup" ? " selected" : ""}>setup 占比</option>`
     + `<option value="tail"${laneColor === "tail" ? " selected" : ""}>尾块浪费</option></select></label>`;
-  const colorLegend = laneColor === "none"
+  const colorLegend = taskLayer !== "none"
+    ? ""
+    : laneColor === "none"
     ? `<span><i style="background:${C.candidate}"></i>当前视角候选</span>`
     : `<span><i style="width:36px;height:8px;background:linear-gradient(90deg,#383838,#d0d0d0)"></i>${laneColor === "setup" ? "setup / compute" : "尾块核时上界"} · 0 → ${laneColor === "setup" ? `${metricCap.toFixed(0)}%` : `${metricCap.toFixed(2)} ms`}+（P90 饱和）</span>`;
+  const taskLayerLegend = !byTask && taskLayer !== "none"
+    ? taskAnalysis.groups.slice(0, taskPalette.length).map((group, index) =>
+      `<span title="${esc(group.key)}：${group.tasks.length} 个命中 Task"><i style="background:${taskPalette[index]}"></i>${esc(group.kernel)} · ${group.tasks.length}</span>`).join("")
+      + (taskAnalysis.groups.length > taskPalette.length
+        ? `<span title="其余 ${taskAnalysis.groups.length - taskPalette.length} 个 kernel 组"><i style="background:#a8a8a8"></i>其他 kernel · ${taskAnalysis.groups.slice(taskPalette.length).reduce((sum, group) => sum + group.tasks.length, 0)}</span>` : "")
+      + `<span>同 kernel 同色 · 未命中任务淡化</span>`
+    : "";
   $("lane-lgnd").innerHTML = [
     `<span><i style="background:${C.block}"></i>${byTask ? "一次提交" : "Task block（底层）"}</span>`,
     colorLegend,
     `<span><i style="background:${C.sel}"></i>当前选中</span>`,
+    taskLayerLegend,
     ovl.ribbon ? `<span><i style="width:16px;height:2px;background:#c4c4c4"></i>并行宽度低于 25% 参考线</span>` : "",
     ovl.bands ? `<span><i style="background:#3d3d3d"></i>≤2 核在跑</span><span><i style="background:#4a2420"></i>真空窗（0 核）</span>` : "",
     byTask
@@ -754,10 +891,9 @@ function paint() {
     : "点击泳道中的任务查看耗时分布与执行信息";
 }
 function setDrawer(open) {
-  const drawer = $("task-drawer"), backdrop = $("drawer-backdrop");
-  drawer.classList.toggle("open", open); backdrop.classList.toggle("open", open);
-  drawer.setAttribute("aria-hidden", String(!open)); backdrop.hidden = !open;
-  if (open) $("drawer-close").focus();
+  const drawer = $("task-drawer");
+  drawer.classList.toggle("open", open);
+  drawer.setAttribute("aria-hidden", String(!open));
 }
 function select(id) { if (!R.launches.some((l) => l.id === id)) return; me = id; paint(); setDrawer(true); }
 function selectTask(taskId) { const l = R.launches.find((x) => x.taskId === taskId); if (l) select(l.id); }
@@ -769,6 +905,7 @@ function setLens(id) {
 }
 function loadRank(name) {
   setDrawer(false);
+  laneRange = null;
   R = D.ranks.find((r) => r.rank === name) || D.ranks[0];
   // waves / available cores are display-only derivations, kept out of the data file
   R.launches.forEach((l) => {
@@ -795,6 +932,7 @@ if (D) {
   $("rank").onchange = (e) => loadRank(e.target.value);
   $("lens").addEventListener("click", (e) => { const b = e.target.closest("[data-lens]"); if (b) setLens(b.dataset.lens); });
   $("lane-ovl").addEventListener("click", (e) => {
+    if (e.target.closest("[data-zoom-reset]")) { laneRange = null; renderLane(); return; }
     const v = e.target.closest("[data-view]");
     if (v) { laneView = v.dataset.view; renderLane(); return; }
     const b = e.target.closest("[data-ovl]"); if (!b) return;
@@ -803,8 +941,9 @@ if (D) {
     renderLane();
   });
   $("lane-ovl").addEventListener("change", (e) => {
-    if (e.target.id !== "lane-color") return;
-    laneColor = e.target.value;
+    if (e.target.id === "lane-color") laneColor = e.target.value;
+    else if (e.target.id === "task-layer") taskLayer = e.target.value;
+    else return;
     renderLane();
   });
   $("lane-candidates").addEventListener("click", (e) => {
@@ -812,8 +951,70 @@ if (D) {
     if (b) select(b.dataset.candidateId);
   });
   $("drawer-close").addEventListener("click", () => setDrawer(false));
-  $("drawer-backdrop").addEventListener("click", () => setDrawer(false));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") setDrawer(false); });
+  $("lane-wrap").addEventListener("wheel", (e) => {
+    if (!e.ctrlKey && !e.shiftKey) return;
+    e.preventDefault();
+    const full = R.kpi.windowUs, current = laneRange || [0, full];
+    const currentSpan = current[1] - current[0];
+    if (e.shiftKey && !e.ctrlKey) {
+      const start = Math.max(0, Math.min(full - currentSpan, current[0] + Math.sign(e.deltaY) * currentSpan * .2));
+      laneRange = start === 0 && currentSpan === full ? null : [start, start + currentSpan];
+      if (!laneZoomRaf) laneZoomRaf = requestAnimationFrame(() => { laneZoomRaf = 0; renderLane(); });
+      return;
+    }
+    const factor = e.deltaY < 0 ? .8 : 1.25;
+    const minSpan = Math.max(1, full / 256), nextSpan = Math.min(full, Math.max(minSpan, currentSpan * factor));
+    const svg = $("lane"), rect = svg.getBoundingClientRect(), W = svg.viewBox.baseVal.width;
+    if (!rect.width || nextSpan === currentSpan) return;
+    const x = (e.clientX - rect.left) / rect.width * W;
+    const LEFT = laneLeft(), RIGHT = 12;
+    const anchorRatio = Math.max(0, Math.min(1, (x - LEFT) / (W - LEFT - RIGHT)));
+    const anchor = current[0] + currentSpan * anchorRatio;
+    let start = anchor - nextSpan * anchorRatio;
+    start = Math.max(0, Math.min(full - nextSpan, start));
+    laneRange = nextSpan >= full - 1e-6 ? null : [start, start + nextSpan];
+    if (!laneZoomRaf) laneZoomRaf = requestAnimationFrame(() => { laneZoomRaf = 0; renderLane(); });
+  }, { passive: false });
+  const laneWrap = $("lane-wrap");
+  let laneDrag = null, suppressLaneClick = false;
+  laneWrap.addEventListener("pointerdown", (e) => {
+    if (!laneRange || e.button !== 0 || e.pointerType !== "mouse") return;
+    const svg = $("lane"), rect = svg.getBoundingClientRect(), W = svg.viewBox.baseVal.width;
+    const LEFT = laneLeft(), RIGHT = 12;
+    const timelinePx = rect.width * (W - LEFT - RIGHT) / W;
+    if (!timelinePx) return;
+    laneDrag = { pointerId: e.pointerId, x: e.clientX, start: laneRange[0], span: laneRange[1] - laneRange[0], timelinePx, moved: false };
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!laneDrag || e.pointerId !== laneDrag.pointerId) return;
+    const dx = e.clientX - laneDrag.x;
+    if (!laneDrag.moved && Math.abs(dx) < 4) return;
+    laneDrag.moved = true;
+    laneWrap.classList.add("is-dragging");
+    e.preventDefault();
+    const full = R.kpi.windowUs;
+    const start = Math.max(0, Math.min(full - laneDrag.span, laneDrag.start - dx * laneDrag.span / laneDrag.timelinePx));
+    laneRange = [start, start + laneDrag.span];
+    if (!laneZoomRaf) laneZoomRaf = requestAnimationFrame(() => { laneZoomRaf = 0; renderLane(); });
+  });
+  const endLaneDrag = (e) => {
+    if (!laneDrag || e.pointerId !== laneDrag.pointerId) return;
+    const moved = laneDrag.moved;
+    laneDrag = null;
+    laneWrap.classList.remove("is-dragging");
+    if (moved) {
+      suppressLaneClick = true;
+      setTimeout(() => { suppressLaneClick = false; }, 0);
+    }
+  };
+  window.addEventListener("pointerup", endLaneDrag);
+  window.addEventListener("pointercancel", endLaneDrag);
+  laneWrap.addEventListener("click", (e) => {
+    if (!suppressLaneClick) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
   let laneResizeRaf = 0;
   window.addEventListener("resize", () => {
     if (laneResizeRaf) cancelAnimationFrame(laneResizeRaf);
