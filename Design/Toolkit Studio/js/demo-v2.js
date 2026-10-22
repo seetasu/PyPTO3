@@ -2127,7 +2127,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     ['data', 'Data 节点', '显示或隐藏 DATA 卡片；隐藏时连接上下游，保留 STATE 节点'],
     ['shape', 'Shape', '显示 Allocated、局部 Valid Shape 和数据粒度；动态维度保留符号'],
     ['precision', '精度', '显示语义模型中有依据的 Dtype 与操作输出精度，不补全缺失类型'],
-    ['memory', '存储', '显示源码声明或静态推导的 Memory Space；寻址见 Inspector'],
+    ['memory', '存储及执行', '显示 Data / State 的 Memory Space，以及 Op 所在的 AIC / AIV；寻址见 Inspector'],
     ['control', '状态 / 控制', '强调 control、state、feedback 语义关系；不表示运行时 hazard 或时序'],
   ];
   function pypaOverlayToolbarHtml() {
@@ -2787,6 +2787,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       layers.shape && fields.granularity ? `<span data-overlay-field="granularity">${pypaEscape(fields.granularity)}</span>` : '',
       layers.precision && fields.precision ? `<span data-overlay-field="precision" title="${pypaEscape(fields.precision)}">${pypaEscape(fields.precision)}</span>` : '',
       layers.memory && fields.memory ? `<span class="kf-pypa-graph__memory" data-overlay-field="memory">${pypaEscape(fields.memory)}</span>` : '',
+      layers.memory && fields.executionUnit ? `<span class="kf-pypa-graph__execution-unit" data-overlay-field="execution-unit">${pypaEscape(fields.executionUnit)}</span>` : '',
     ].filter(Boolean).join('');
     const core = !node.card ? `<small class="kf-pypa-graph__core-operation" title="${pypaEscape(node.api)}">${pypaEscape(node.semantic?.[node.type]?.category || node.sub)}</small>` : '';
     return `<span data-pypa-card>${core}${shape}${valid}${meta ? `<small class="kf-pypa-graph__node-meta-line">${meta}</small>` : ''}</span>`;

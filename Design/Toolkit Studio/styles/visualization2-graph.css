@@ -1,6 +1,7 @@
 /* Canvas chrome is local; node/edge/group appearance comes from the original graph CSS. */
 #viz2-graph, .viz2-graph { display: flex; flex-direction: column; }
 .viz2-graph-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
+.viz2-graph-modes { display: flex; align-self: flex-start; flex: none; gap: var(--space-1); margin: var(--space-2) var(--space-5); }
 .viz2-graph-stage { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .viz2-graph-viewport { position: relative; inset: auto; flex: 1; min-height: 0; min-width: 0; overflow: hidden; touch-action: none; }
 .viz2-graph-scene { user-select: none; }
@@ -24,19 +25,25 @@
   .viz2-graph-inspector { position: absolute; right: 0; top: 0; bottom: 0; width: min(300px, 80%); z-index: 5; }
 }
 
-/* Readable screen-space titles. The original renderer still owns all nodes,
-   groups and routes; only its scaled title text is replaced in this workspace. */
+/* Screen-space titles stay attached to their nodes at every zoom level. */
 .viz2-graph-scene .kf-pypa-graph__node-head b,
 .viz2-graph-scene .kf-pypa-graph__group > span { visibility: hidden; }
 .viz2-graph-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.viz2-graph-label-guides { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.viz2-graph-label-guides line { stroke: var(--foreground-muted); stroke-width: 1; opacity: .45; }
-.viz2-graph-node-title { position: absolute; left: 0; top: 0; white-space: nowrap; padding: 0 var(--space-1); font: var(--type-body); line-height: 20px; color: var(--foreground); background: var(--surface-2); border-radius: var(--radius-sm); cursor: pointer; pointer-events: auto; }
+.viz2-graph-node-title { position: absolute; left: 0; top: 0; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 var(--space-1); font: var(--type-body); line-height: 20px; color: var(--foreground); background: var(--surface-2); border-radius: var(--radius-sm); cursor: pointer; pointer-events: auto; }
+.viz2-graph-node-title > [data-viz2-graph-name] { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.viz2-graph-node-title.is-compact { font: var(--type-body-sm); line-height: 18px; }
+.viz2-graph-node-title.is-overview { justify-content: center; padding: 0 2px; font: var(--type-mono); line-height: 16px; }
+.viz2-graph-node-title.is-overview > button { display: none; }
+.viz2-graph-scene[data-density="compact"] .kf-pypa-graph__node-head em,
+.viz2-graph-scene[data-density="compact"] [data-pypa-card],
+.viz2-graph-scene[data-density="compact"] .kf-pypa-graph__node-expand { visibility: hidden; }
 .viz2-graph-node-title.is-selected { color: var(--foreground); background: var(--surface-2); }
+.viz2-graph-node-title.is-viz2-related { color: var(--foreground); }
 .viz2-graph-stage-title { position: absolute; left: 0; top: 0; display: grid; grid-template-columns: auto auto; align-items: center; gap: var(--space-1) var(--space-3); width: max-content; max-width: 340px; padding: var(--space-1); background: var(--surface-2); border-radius: var(--radius-sm); }
 .viz2-graph-stage-title b { font: var(--type-title-3); color: var(--foreground-secondary); }
 .viz2-graph-stage-title span { font: var(--type-mono); color: var(--primary); }
 .viz2-graph-stage-title small { grid-column: 1 / -1; font: var(--type-body-sm); color: var(--foreground-muted); }
+.viz2-graph-labels[data-density="compact"] .viz2-graph-stage-title small { display: none; }
 .viz2-graph-block-rail { position: absolute; left: 0; top: 0; width: 148px; padding: var(--space-2); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-2); box-shadow: var(--shadow-md); pointer-events: auto; }
 .viz2-graph-block-rail__title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-2); color: var(--foreground-secondary); font: var(--type-label); }
 .viz2-graph-block-rail__title small { color: var(--foreground-muted); font: var(--type-mono); }
@@ -46,12 +53,24 @@
 .viz2-graph-block-rail__grid button.is-selected { border-color: var(--primary); background: var(--state-selected); color: var(--foreground); }
 .viz2-graph-block-rail__grid button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 
-.viz2-graph-label-guides .viz2-graph-stage-guide { stroke-dasharray: 3 4; }
-
 /* Shared information layers scoped to the independent Block-level graph. */
 .viz2-graph-scene[data-overlay-sync="false"] .kf-pypa-graph__sync-marker,
 .viz2-graph-scene[data-overlay-sync="false"] .kf-pypa-graph__sync-path {display:none;}
 .viz2-graph > .kf-pypa-graph__overlays {flex:none;flex-wrap:wrap;}
+
+.viz2-graph-scene[data-relation-mode="compute"] .kf-pypa-graph__edge:not(.is-data),
+.viz2-graph-scene[data-relation-mode="state"] .kf-pypa-graph__edge.is-data,
+.viz2-graph-scene[data-relation-mode="sync"] .kf-pypa-graph__edge,
+.viz2-graph-scene:not([data-relation-mode="sync"]) .kf-pypa-graph__sync-path,
+.viz2-graph-scene:not([data-relation-mode="sync"]) .kf-pypa-graph__sync-marker { opacity: 0; pointer-events: none; }
+.viz2-graph-scene[data-relation-mode="compute"] .kf-pypa-graph__edge-label:not([data-edge-type="data"]),
+.viz2-graph-scene[data-relation-mode="state"] .kf-pypa-graph__edge-label[data-edge-type="data"],
+.viz2-graph-scene[data-relation-mode="sync"] .kf-pypa-graph__edge-label { display: none; }
+.viz2-graph-scene .kf-pypa-graph__edge-label { opacity: 0; transition: opacity .15s; }
+.viz2-graph-scene .kf-pypa-graph__edge.is-viz2-related + .kf-pypa-graph__edge-label { opacity: 1; }
+.viz2-graph-scene[data-relation-mode="sync"] .kf-pypa-graph__sync-path,
+.viz2-graph-scene[data-relation-mode="sync"] .kf-pypa-graph__sync-marker { opacity: 1; pointer-events: auto; }
+.viz2-graph-scene[data-focused="true"] .kf-pypa-graph__node:not(.is-selected):not(.is-viz2-related) { opacity: .42; }
 
 .viz2-graph-node-title {display:inline-flex;align-items:center;gap:var(--space-1);}
 .viz2-graph-node-title > button {min-height:20px;padding:0 var(--space-1);}

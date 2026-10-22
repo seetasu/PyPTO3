@@ -35,6 +35,7 @@ class Element {
     this.classList = {
       values: new Set(),
       add: (...xs) => xs.forEach((x) => this.classList.values.add(x)),
+      remove: (...xs) => xs.forEach((x) => this.classList.values.delete(x)),
       toggle: (x, on) => { if (on) this.classList.values.add(x); else this.classList.values.delete(x); },
       contains: (x) => this.classList.values.has(x),
     };

@@ -140,7 +140,7 @@ function mount(host,{model,onTask,onFocus,onView}){
   if(e){const weight=executionData(graph)?.edges[e.id];if(weight)rows.push(['逻辑传输',`${weight.label}；${weight.formula}`]);}
   return {title,line,rows};
  }
- const shared=global.PtoVisualization2Graph.mount(canvas,{onView:patch=>{if(patch.overlays){const {execution,...overlays}=patch.overlays;onView({intraOverlays:overlays,intraMode:execution?'weight':'structure'});return;}const mapped={};for(const [k,v] of Object.entries(patch))mapped[{camera:'intraCamera',expanded:'intraExpanded',overlays:'intraOverlays',inspectorOpen:'intraInspectorOpen'}[k]||k]=v;onView(mapped);},adapter:{
+ const shared=global.PtoVisualization2Graph.mount(canvas,{onView:patch=>{if(patch.overlays){const {execution,...overlays}=patch.overlays;onView({intraOverlays:overlays,intraMode:execution?'weight':'structure'});return;}const mapped={};for(const [k,v] of Object.entries(patch))mapped[{camera:'intraCamera',expanded:'intraExpanded',overlays:'intraOverlays',inspectorOpen:'intraInspectorOpen',relationMode:'intraRelationMode'}[k]||k]=v;onView(mapped);},adapter:{
   getModel:()=>task.graph,resolveFocus,executionData,showExecutionCount:node=>node.type==='operation'||node.type==='composite',
   stageLabel:g=>`<b>${esc(g.label)}</b>`,
   context:()=>view.intraMode==='weight'?'Static Execution Weight · AIC / 每 AIV Lane 分别统计 · 非耗时':'Data / State / Feedback / READY · 源码静态计算关系',
@@ -168,7 +168,7 @@ function mount(host,{model,onTask,onFocus,onView}){
    toolbar.querySelectorAll('[data-compute-mode]').forEach(b=>{const selected=b.dataset.computeMode===(v.intraMode||'structure');b.classList.toggle('is-selected',selected);b.setAttribute('aria-pressed',String(selected));});
   }
   const sync=task.graph.synchronizations.find(s=>s.id===f?.syncId||s.name===f?.event?.replace('_EVENT',''));
-  shared.update({kind:'task',task:task.id,block:task.block,batch:task.batch,kvHead:task.kvHead,subobject:f},{camera:v.intraCamera,nodeId:currentNode(),syncId:sync?.id,expanded:v.intraExpanded||[],overlays:{control:true,...v.intraOverlays,execution:v.intraMode==='weight'},inspectorOpen:v.intraInspectorOpen},{active});
+  shared.update({kind:'task',task:task.id,block:task.block,batch:task.batch,kvHead:task.kvHead,subobject:f},{camera:v.intraCamera,nodeId:currentNode(),syncId:sync?.id,expanded:v.intraExpanded||[],overlays:{control:true,...v.intraOverlays,execution:v.intraMode==='weight'},relationMode:v.intraRelationMode,inspectorOpen:v.intraInspectorOpen},{active});
  },hideTooltip:shared.hideTooltip,getTransitionRect:shared.getTransitionRect};
 }
 global.PtoVisualization2GraphIntra=Object.freeze({createModel,mount});
