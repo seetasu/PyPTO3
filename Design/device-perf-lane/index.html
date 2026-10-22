@@ -455,7 +455,11 @@ function renderLane() {
   const taskLabelAdvance = 7.2 / labelScale;
   const coreRows = R.cores.slice().sort((a, b) => a.id - b.id);
   const pk = byTask ? packTasks() : null;
-  const ROW = byTask ? 20 : 13;
+  // Task lanes need a little more vertical breathing room as the time axis
+  // grows on wide/high-resolution screens; keep a bounded row height so the
+  // compact view remains usable on both normal and ultra-wide displays.
+  const taskRow = Math.max(22, Math.min(30, Math.round(W / 72)));
+  const ROW = byTask ? taskRow : 13;
   const GH = byTask ? 14 : 0;                       // room for a group caption line
   const rowCount = byTask ? pk.depth.AIC + pk.depth.AIV : coreRows.length;
   const innerW = W - LEFT - RIGHT, win = R.kpi.windowUs, cs = concStats();
