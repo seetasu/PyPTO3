@@ -38,6 +38,21 @@ test('known Lane membership and cross-phase identities are correct', () => {
   assert.deepEqual([g.batch, g.kvHead, g.block, g.lane, g.attentionTaskId, g.attentionTaskId % model.blocks], [0, 2, 0, 0, 2, 2]);
 });
 
+test('every item keeps one size and its Block slot follows the source mapping', () => {
+  model.items.forEach((item, id) => {
+    const sourceRect = layout.sources[id], targetRect = layout.targets[id];
+    assert.equal(sourceRect.w, targetRect.w);
+    assert.equal(sourceRect.h, targetRect.h);
+    assert.equal(item.block, Math.floor((item.gIndex % config.ropeCores) / 2));
+    assert.equal(item.lane, item.gIndex % 2);
+    assert.equal(item.iteration, Math.floor(item.gIndex / config.ropeCores));
+    assert.equal(item.block < 8, item.kvHead % 2 === 0);
+    const lane = layout.laneRects[item.ropeCore];
+    assert.ok(targetRect.x >= lane.x && targetRect.x + targetRect.w <= lane.x + lane.w);
+  });
+  assert.ok(model.lanes.slice(32).every(lane => lane.groups.length === 0));
+});
+
 test('layout contains every item in its true Lane, keeps endpoint cells separate and compacts idle Blocks', () => {
   assert.equal(new Set(layout.sources.map(r => r.x)).size, 8);
   assert.equal(new Set(layout.sources.map(r => r.y)).size, 16);
