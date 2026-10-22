@@ -86,3 +86,22 @@ test('flow routing also works for the Matmul semantic graph', () => {
   collect(model);
   verifyRoutes(w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(model, expanded, { flowLayout: true }));
 });
+
+test('Level 1 contracts transient data without losing dependency provenance or expansion', () => {
+  const w = load();
+  for (const model of [w.PTO_PYPA_SEMANTIC_GRAPH, w.PTO_MATMUL_SEMANTIC_GRAPH]) {
+    const overview = w.PtoComputationVisibility.overview(model);
+    const graph = w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(overview, new Set(),
+      { flowLayout: true, overviewLayout: true });
+    verifyRoutes(graph);
+    if (model.nodes.some((node) => node.type === 'data' && node.data.role === 'intermediate'))
+      assert.ok(graph.edges.some((edge) => edge.sourceEdgeIds?.length > 1));
+    assert.ok(graph.nodes.every((node) => node.type !== 'data' || node.data.role !== 'intermediate'));
+    for (const edge of graph.edges.filter((entry) => entry.sourceEdgeIds)) {
+      assert.ok(edge.sourceEdgeIds.every((id) => model.edges.some((original) => original.id === id)));
+    }
+    const first = overview.nodes.find((node) => node.type === 'composite');
+    if (first) verifyRoutes(w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(overview,
+      new Set([first.id]), { flowLayout: true, overviewLayout: true }));
+  }
+});

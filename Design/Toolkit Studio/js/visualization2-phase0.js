@@ -24,32 +24,35 @@
     };
   }
   function createLayout(model) {
-    const width = 1250, height = 600, columns = Math.min(8, model.blocks), top = 52, bottom = 550;
-    const rows = Math.ceil(model.blocks / columns), gap = 12, left = 24, boardWidth = 1200;
-    const rowActive = Array.from({ length: rows }, (_, row) => Array.from({ length: columns }, (_, col) => row * columns + col).some(b => b < model.blocks && model.groupsForBlock(b).length));
-    const activeRows = rowActive.filter(Boolean).length, idleRows = rows - activeRows;
-    const idleHeight = Math.min(48, (bottom - top - (rows - 1) * gap) / rows);
-    const activeHeight = activeRows ? (bottom - top - (rows - 1) * gap - idleRows * idleHeight) / activeRows : idleHeight;
-    const blockWidth = (boardWidth - (columns - 1) * gap) / columns;
-    let y = top;
-    const rowRects = rowActive.map(active => { const r = { y, h: active ? activeHeight : idleHeight }; y += r.h + gap; return r; });
-    const blockRects = Array.from({ length: model.blocks }, (_, b) => ({ x: left + b % columns * (blockWidth + gap), y: rowRects[Math.floor(b / columns)].y, w: blockWidth, h: rowRects[Math.floor(b / columns)].h }));
+    const width = 1250, height = 600, left = 179, span = 1048;
+    const columnPitch = span / model.kvHeads;
+    const columnOrder = [...Array.from({ length: model.kvHeads }, (_, kv) => kv).filter(kv => kv % 2 === 0),
+      ...Array.from({ length: model.kvHeads }, (_, kv) => kv).filter(kv => kv % 2 === 1)];
+    const itemWidth = Math.min(114, columnPitch - 12), itemHeight = 18;
+    const sourceRowPitch = 462 / model.activeBatch;
+    const pairCount = Math.ceil(model.activeBatch / 2), pairPitch = 480 / pairCount;
+    const sourceX = index => left + index * columnPitch + (columnPitch - itemWidth) / 2;
+    const targetPitch = (span - 36) / model.kvHeads;
+    const targetX = index => left + index * targetPitch + (index >= Math.ceil(model.kvHeads / 2) ? 36 : 0) + (targetPitch - itemWidth) / 2;
+    const sources = [], targets = [];
+    model.items.forEach(item => {
+      sources[item.gIndex] = { x: sourceX(item.kvHead), y: 66 + item.batch * sourceRowPitch, w: itemWidth, h: itemHeight };
+      targets[item.gIndex] = { x: targetX(columnOrder.indexOf(item.kvHead)),
+        y: 77 + Math.floor(item.batch / 2) * pairPitch + item.batch % 2 * 25, w: itemWidth, h: itemHeight };
+    });
+    const bounds = (rects, topPad = 8, bottomPad = 3) => ({ x: Math.min(...rects.map(r => r.x)) - 8, y: Math.min(...rects.map(r => r.y)) - topPad,
+      w: Math.max(...rects.map(r => r.x + r.w)) - Math.min(...rects.map(r => r.x)) + 16,
+      h: Math.max(...rects.map(r => r.y + r.h)) - Math.min(...rects.map(r => r.y)) + topPad + bottomPad });
+    const blockRects = Array.from({ length: model.blocks }, (_, block) => {
+      const items = model.groupsForBlock(block);
+      return items.length ? bounds(items.map(item => targets[item.gIndex])) : null;
+    });
     const laneRects = model.lanes.map(lane => {
-      const b = blockRects[lane.block], usable = b.h - 29, laneHeight = (usable - 6 * (model.lanesPerBlock - 1)) / model.lanesPerBlock;
-      return { x: b.x + 6, y: b.y + 25 + lane.lane * (laneHeight + 6), w: b.w - 12, h: lane.groups.length ? laneHeight : 0 };
+      if (!lane.groups.length) return null;
+      const r = bounds(lane.groups.map(item => targets[item.gIndex]), 1, 1);
+      return { ...r, x: r.x + 4, w: r.w - 8 };
     });
-    const sourcePitchX = 1048 / model.kvHeads, sourcePitchY = 506 / model.activeBatch;
-    const largestLane = Math.max(1, ...model.activeLanes.map(lane => lane.groups.length));
-    const shortestLane = Math.min(...model.activeLanes.map(lane => laneRects[lane.ropeCore].h));
-    const itemWidth = Math.min(112, blockWidth - 20, sourcePitchX - 12);
-    const itemHeight = Math.min(20, sourcePitchY - 5, (shortestLane - 8) / largestLane - 2);
-    const sources = model.items.map(item => ({ x: 179 + item.kvHead * sourcePitchX + (sourcePitchX - itemWidth) / 2, y: 66 + item.batch * sourcePitchY + (sourcePitchY - itemHeight) / 2, w: itemWidth, h: itemHeight }));
-    const targets = model.items.map(item => {
-      const lane = laneRects[item.ropeCore], count = model.lanes[item.ropeCore].groups.length;
-      const pitch = (lane.h - 8) / count;
-      return { x: lane.x + (lane.w - itemWidth) / 2, y: lane.y + 4 + item.iteration * pitch + (pitch - itemHeight) / 2, w: itemWidth, h: itemHeight };
-    });
-    return { width, height, columns, sources, targets, blockRects, laneRects };
+    return { width, height, sources, targets, blockRects, laneRects, columnOrder, columnPitch, pairPitch };
   }
   const make = (tag, attrs, parent, text) => {
     const el = document.createElementNS(NS, tag);
@@ -61,34 +64,35 @@
     const layout = createLayout(model);
     host.classList.add('viz2-p0-morph');
     host.innerHTML = `<div class="viz2-am-head"><div><h2 data-p0-title-state></h2><p data-p0-formula></p></div><div class="viz2-am-controls"><button class="btn btn-ghost btn-sm" data-p0-play>暂停</button><button class="btn btn-ghost btn-sm" data-p0-replay>重播</button><div class="segmented-control segmented-control-muted"><button class="btn btn-sm" data-p0-state="generation">Work Generation</button><button class="btn btn-sm" data-p0-state="assignment">Block Assignment</button></div><label><input type="checkbox" data-p0-loop checked> 循环播放</label><button class="btn btn-ghost btn-sm" data-p0-fit>适应</button></div></div>
-      <div class="viz2-p0-viewport viz2-am-viewport" tabindex="0" role="group" aria-label="Phase0 工作项生成与 Block 分配画布"><svg class="viz2-p0-svg" viewBox="0 0 ${layout.width} ${layout.height}" aria-label="Phase0 Batch × KV Head 与 AIV Lane 分配"><g data-p0-scene><g data-p0-generation></g><g data-p0-board></g><g data-p0-items></g></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
+      <div class="viz2-p0-viewport viz2-am-viewport" tabindex="0" role="group" aria-label="Phase0 工作项生成与 Block 分配画布"><svg class="viz2-p0-svg" viewBox="0 0 ${layout.width} ${layout.height}" aria-label="Phase0 Batch × KV Head 与 AIV Lane 分配"><g data-p0-scene><g data-p0-columns></g><g data-p0-generation></g><g data-p0-board></g><g data-p0-items></g></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
       <footer class="viz2-am-footer"><p data-p0-selection aria-live="polite">${model.total} 个工作项 · 每项 ${model.qPerKv}Q + K + V</p><span>Q/K Norm → RoPE → KV Cache Append · 静态分配，不表示执行时序</span></footer>
       <aside class="pto-ide-frame__pane viz2-p0-inspector" aria-label="Phase0 分配详情" hidden><header class="pto-ide-frame__pane-header"><b data-p0-title></b><button class="btn btn-ghost btn-sm" data-p0-clear aria-label="关闭 Phase0 详情">×</button></header><div class="pto-ide-frame__pane-body" data-p0-detail></div></aside>`;
     const viewport = host.querySelector('.viz2-p0-viewport'), scene = host.querySelector('[data-p0-scene]'), tooltip = host.querySelector('[role="tooltip"]');
-    const generation = host.querySelector('[data-p0-generation]'), board = host.querySelector('[data-p0-board]'), itemLayer = host.querySelector('[data-p0-items]');
-    for (let kv = 0; kv < model.kvHeads; kv++) make('text', { x: 179 + (kv + .5) * (1048 / model.kvHeads), y: 30, class: 'viz2-p0-axis', 'text-anchor': 'middle' }, generation, `KV${kv}`);
+    const columns = host.querySelector('[data-p0-columns]'), generation = host.querySelector('[data-p0-generation]'), board = host.querySelector('[data-p0-board]'), itemLayer = host.querySelector('[data-p0-items]');
+    const columnNodes = Array.from({ length: model.kvHeads }, (_, kv) => make('text', { x: layout.sources[model.itemFor(0, kv).gIndex].x + layout.sources[0].w / 2, y: 30, class: 'viz2-p0-axis', 'text-anchor': 'middle' }, columns, `KV${kv}`));
     make('text', { x: 100, y: 30, class: 'viz2-p0-axis' }, generation, 'BATCH');
     for (let b = 0; b < model.activeBatch; b++) make('text', { x: 100, y: 66 + (b + .5) * (506 / model.activeBatch), class: 'viz2-p0-batch' }, generation, `B${b}`);
     const blockNodes = layout.blockRects.map((r, block) => {
-      const active = model.groupsForBlock(block).length > 0;
-      const group = make('g', { class: `viz2-p0-block${active ? '' : ' is-idle'}`, 'data-p0-block': block }, board);
+      if (!r) return null;
+      const group = make('g', { class: 'viz2-p0-block', 'data-p0-block': block }, board);
       make('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 2, class: 'viz2-p0-frame' }, group);
       const pick = make('g', { 'data-p0-pick-block': block, role: 'button', tabindex: '-1', 'aria-label': `Phase0 Block ${block}，${model.groupsForBlock(block).length} 项工作，参与同步` }, group);
-      make('rect', { x: r.x, y: r.y, width: r.w, height: 23, fill: 'transparent' }, pick);
-      make('text', { x: r.x + 7, y: r.y + 16, class: 'viz2-p0-block-label' }, pick, `BLK ${String(block).padStart(2, '0')}`);
-      if (!active) make('text', { x: r.x + r.w / 2, y: r.y + r.h - 12, class: 'viz2-p0-idle-label', 'text-anchor': 'middle' }, group, '仅同步');
+      make('rect', { x: r.x, y: r.y - 14, width: r.w, height: 14, fill: 'transparent' }, pick);
+      make('text', { x: r.x + 7, y: r.y - 3, class: 'viz2-p0-block-label' }, pick, `BLK ${String(block).padStart(2, '0')}`);
       return group;
     });
     const laneNodes = model.lanes.map((lane, index) => {
       const r = layout.laneRects[index];
-      const group = make('g', { class: 'viz2-p0-lane', 'data-p0-lane': lane.ropeCore, role: 'button', tabindex: '-1', 'aria-label': `Block ${lane.block} AIV${lane.lane}，rope_core ${lane.ropeCore}，${lane.groups.length} 项工作` }, blockNodes[lane.block]);
-      if (lane.groups.length) {
+      const group = make('g', { class: 'viz2-p0-lane', 'data-p0-lane': lane.ropeCore, role: 'button', tabindex: '-1', 'aria-label': `Block ${lane.block} AIV${lane.lane}，rope_core ${lane.ropeCore}，${lane.groups.length} 项工作` }, blockNodes[lane.block] || board);
+      if (r) {
         make('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 2, class: 'viz2-p0-lane-frame' }, group);
-        make('text', { x: r.x + 6, y: r.y + 13, class: 'viz2-p0-lane-label' }, group, `AIV${lane.lane}`);
+        make('text', { x: r.x - 4, y: r.y + 14, 'text-anchor': 'end', class: 'viz2-p0-lane-label' }, group, `AIV${lane.lane}`);
       }
       return group;
     });
     const sync = make('g', { 'data-p0-sync': '' }, board);
+    const idle = model.blocks - blockNodes.filter(Boolean).length;
+    make('text', { x: 624, y: 554, 'text-anchor': 'middle', class: 'viz2-p0-idle-label' }, sync, `${idle} Blocks · Sync Only`);
     make('rect', { x: 24, y: 568, width: 1200, height: 26, rx: 2, class: 'viz2-p0-sync-frame' }, sync);
     make('text', { x: 624, y: 585, 'text-anchor': 'middle', class: 'viz2-p0-sync-label' }, sync, `SYNCALL · ${model.blocks} Blocks 参与 · cacheinvalid → fence → SYNCALL(MIX) → cacheinvalid`);
     const itemNodes = model.items.map((item, id) => {
@@ -99,11 +103,11 @@
       const k = make('text', { class: 'viz2-p0-kv-symbol', 'text-anchor': 'middle' }, symbols, 'K');
       const v = make('text', { class: 'viz2-p0-kv-symbol', 'text-anchor': 'middle' }, symbols, 'V');
       const label = make('text', { class: 'viz2-p0-item-id', 'text-anchor': 'middle', 'dominant-baseline': 'central' }, group, `G${item.gIndex}`);
-      const r = layout.sources[id], pitch = (r.w - 6) / (model.qPerKv + 2);
+      const r = layout.sources[id], pitch = 9;
       cell.setAttribute('width', r.w); cell.setAttribute('height', r.h);
-      label.setAttribute('x', r.w / 2); label.setAttribute('y', r.h / 2);
-      q.forEach((dot, index) => { dot.setAttribute('cx', 3 + (index + .5) * pitch); dot.setAttribute('cy', r.h / 2); dot.setAttribute('r', Math.min(r.h * .2, pitch * .28)); });
-      [k, v].forEach((glyph, index) => { glyph.setAttribute('x', 3 + (model.qPerKv + index + .5) * pitch); glyph.setAttribute('y', r.h / 2); });
+      label.setAttribute('x', r.w - 20); label.setAttribute('y', r.h / 2);
+      q.forEach((dot, index) => { dot.setAttribute('cx', 5 + (index + .5) * pitch); dot.setAttribute('cy', r.h / 2); dot.setAttribute('r', 2.5); });
+      [k, v].forEach((glyph, index) => { glyph.setAttribute('x', 5 + (model.qPerKv + index + .5) * pitch); glyph.setAttribute('y', r.h / 2); });
       return { group, cell, symbols, q, k, v, label };
     });
     let current = null, camera = null, active = false, inspectorOpen = false, hovered = null;
@@ -125,14 +129,15 @@
     function draw(p) {
       host.dataset.p0Progress = String(p);
       generation.style.opacity = String(1 - p);
-      const alpha = p;
+      const alpha = clamp((p - .55) / .4);
       board.style.opacity = String(alpha); board.style.pointerEvents = alpha > .8 ? '' : 'none';
-      [...laneNodes, ...host.querySelectorAll('[data-p0-pick-block]')].forEach(n => n.setAttribute('tabindex', alpha > .8 ? '0' : '-1'));
+      [...laneNodes.filter((_, index) => model.lanes[index].groups.length), ...host.querySelectorAll('[data-p0-pick-block]')].forEach(n => n.setAttribute('tabindex', alpha > .8 ? '0' : '-1'));
+      columnNodes.forEach((node, kv) => node.setAttribute('transform', `translate(${mix(layout.sources[model.itemFor(0, kv).gIndex].x, layout.targets[model.itemFor(0, kv).gIndex].x, p) - layout.sources[model.itemFor(0, kv).gIndex].x} 0)`));
       itemNodes.forEach((n, id) => {
         const a = layout.sources[id], b = layout.targets[id];
         n.group.setAttribute('transform', `translate(${mix(a.x, b.x, p)} ${mix(a.y, b.y, p)})`);
       });
-      host.querySelector('[data-p0-title-state]').textContent = p < .5 ? `Work Generation · ${model.total} Items` : `Block Assignment · ${model.blocks} SPMD Blocks`;
+      host.querySelector('[data-p0-title-state]').textContent = p < .5 ? `Work Generation · ${model.total} Items` : `Block Assignment · ${blockNodes.filter(Boolean).length} Active Blocks`;
       host.querySelector('[data-p0-formula]').textContent = p < .5 ? `g_idx = KV Head × ${model.activeBatch} + Batch · 每项处理当前 token 的 ${model.qPerKv}Q + K + V` : `rope_core = g_idx % ${model.ropeCores} · Block = ⌊rope_core / ${model.lanesPerBlock}⌋ · 逻辑分组，非物理排列`;
       host.querySelectorAll('[data-p0-state]').forEach(button => { const selected = button.dataset.p0State === (p < .5 ? 'generation' : 'assignment'); button.setAttribute('aria-pressed', String(selected)); button.classList.toggle('is-selected', selected); });
     }
@@ -149,7 +154,7 @@
     }
     function paintSelection() {
       const selected = mapSelection(current);
-      blockNodes.forEach((node, block) => node.classList.toggle('is-selected', block === selected?.block));
+      blockNodes.forEach((node, block) => node?.classList.toggle('is-selected', block === selected?.block));
       laneNodes.forEach((node, index) => { const lane = model.lanes[index], related = lane.block === selected?.block && (selected.lane == null || lane.lane === selected.lane); node.classList.toggle('is-selected', related); node.setAttribute('aria-pressed', String(related)); });
       itemNodes.forEach(({ group }, id) => {
         const item = model.items[id], related = item.block === selected?.block && (selected.lane == null || item.lane === selected.lane), exact = item.gIndex === selected?.gIndex;

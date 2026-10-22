@@ -10,9 +10,10 @@
   const fullId = (prefix, local) => prefix ? `${prefix}/${local}` : local;
   const forward = (edge) => edge.type !== 'feedback';
 
-  function nodeSize(node, child) {
-    const fallbackWidth = child ? 194 : ['data', 'state'].includes(node.type) ? 170 : 188;
-    return { w: node.w || fallbackWidth, h: node.h || (child ? 80 : 88) };
+  function nodeSize(node, child, options) {
+    const overview = options.overviewLayout && !child;
+    const fallbackWidth = child ? 194 : overview ? (['data', 'state'].includes(node.type) ? 178 : 228) : ['data', 'state'].includes(node.type) ? 170 : 188;
+    return { w: node.w || fallbackWidth, h: node.h || (child ? 80 : overview ? 52 : 88) };
   }
 
   function rankNodes(nodes, edges, scope) {
@@ -45,7 +46,7 @@
       const id = fullId(prefix, node.id);
       const inner = node.composite?.subgraph && expanded.has(id)
         ? layoutScope(node.composite.subgraph, id, expanded, true, options) : null;
-      const base = nodeSize(node, childScope);
+      const base = nodeSize(node, childScope, options);
       return { node, id, inner, index,
         boxW: inner ? Math.max(base.w, inner.width + BASE.compositeSide * 2) : base.w,
         boxH: inner ? BASE.compositeHeader + inner.height + BASE.compositeBottom : base.h };
@@ -92,9 +93,9 @@
     });
 
     const side = childScope ? BASE.childX : BASE.rootX;
-    const top = childScope ? BASE.childTop : BASE.rootTop;
+    const top = childScope ? BASE.childTop : options.overviewLayout ? 58 : BASE.rootTop;
     const columnGap = childScope ? BASE.childColumnGap : BASE.columnGap;
-    const layerGap = childScope ? BASE.childLayerGap : BASE.layerGap;
+    const layerGap = childScope ? BASE.childLayerGap : options.overviewLayout ? 16 : BASE.layerGap;
     const rowWidth = (row) => row.reduce((sum, item) => sum + item.boxW, 0) + Math.max(0, row.length - 1) * columnGap;
     const widest = Math.max(0, ...levels.map((rank) => rowWidth(ranks.get(rank))));
     let width = widest + side * 2;
@@ -122,21 +123,27 @@
       const isStateRail = (item) => item.node.type === 'state' &&
         (item.node.state?.feedback || graph.edges.some((edge) => edge.type === 'feedback' && (edge.s === item.node.id || edge.t === item.node.id)));
       const sideRows = levels.map((rank) => ranks.get(rank).filter((item) => !spine.has(item.node.id) && !isStateRail(item)));
-      const sideWidth = Math.max(0, ...sideRows.map(rowWidth));
+      const split = (row) => ({ left: row.filter((_, index) => index % 2 === 0), right: row.filter((_, index) => index % 2 === 1) });
+      const leftWidth = Math.max(0, ...sideRows.map((row) => rowWidth(options.overviewLayout ? split(row).left : row)));
+      const rightWidth = options.overviewLayout ? Math.max(0, ...sideRows.map((row) => rowWidth(split(row).right))) : 0;
       const spineWidth = Math.max(188, ...nodes.filter((item) => spine.has(item.node.id)).map((item) => item.boxW));
-      const center = side + sideWidth + columnGap + spineWidth / 2;
+      const center = side + leftWidth + columnGap + spineWidth / 2;
       const stateX = center + spineWidth / 2 + columnGap * 2;
       levels.forEach((rank) => {
         const row = ranks.get(rank), main = row.find((item) => spine.has(item.node.id));
         const rail = row.filter(isStateRail);
         const others = row.filter((item) => item !== main && !rail.includes(item));
-        let leftX = center - spineWidth / 2 - columnGap - rowWidth(others);
-        others.forEach((item) => { item.x = leftX; item.y = cursorY; leftX += item.boxW + columnGap; });
+        const sides = options.overviewLayout ? split(others) : { left: others, right: [] };
+        let leftX = center - spineWidth / 2 - columnGap - rowWidth(sides.left);
+        sides.left.forEach((item) => { item.x = leftX; item.y = cursorY; leftX += item.boxW + columnGap; });
         if (main) { main.x = center - main.boxW / 2; main.y = cursorY; }
+        let rightX = center + spineWidth / 2 + columnGap;
+        sides.right.forEach((item) => { item.x = rightX; item.y = cursorY; rightX += item.boxW + columnGap; });
         rail.forEach((item, index) => { item.x = stateX + index * (item.boxW + columnGap); item.y = cursorY; });
         cursorY += Math.max(...row.map((item) => item.boxH)) + layerGap;
       });
-      width = Math.max(width, stateX + Math.max(0, ...nodes.filter(isStateRail).map((item) => item.boxW)) + side,
+      width = Math.max(width, center + spineWidth / 2 + columnGap + rightWidth + side,
+        stateX + Math.max(0, ...nodes.filter(isStateRail).map((item) => item.boxW)) + side,
         center + spineWidth / 2 + side);
     } else {
       levels.forEach((rank) => {
@@ -258,16 +265,17 @@
   const labelWidth = (text) => [...String(text)]
     .reduce((sum, char) => sum + (/[\u2e80-\u9fff\uff00-\uffef]/.test(char) ? 12 : 6.8), 0) + 12;
 
-  function routeFlowEdges(nodes, edges, rightBound) {
+  function routeFlowEdges(nodes, edges, rightBound, options = {}) {
     const byId = new Map(nodes.map((node) => [node.id, node]));
     const obstacles = nodes.filter((node) => !node.expandedGroup);
+    const clearance = options.overviewLayout ? 3 : 10;
     const same = (a, b) => Math.abs(a - b) < 0.5;
     const clear = (points, source, target) => points.slice(1).every((end, index) => {
       const start = points[index];
       return obstacles.every((node) => {
         if (node.id === source.id || node.id === target.id) return true;
-        const left = node.x - 10, right = node.x + node.w + 10;
-        const top = node.y - 10, bottom = node.y + node.h + 10;
+        const left = node.x - clearance, right = node.x + node.w + clearance;
+        const top = node.y - clearance, bottom = node.y + node.h + clearance;
         if (same(start.x, end.x)) return start.x <= left || start.x >= right ||
           Math.max(start.y, end.y) <= top || Math.min(start.y, end.y) >= bottom;
         return start.y <= top || start.y >= bottom ||
@@ -279,7 +287,7 @@
       const source = byId.get(edge.s), target = byId.get(edge.t);
       const sx = source.x + source.w / 2, sy = source.y + source.h;
       const tx = target.x + target.w / 2, ty = target.y;
-      if (edge.type === 'feedback' || ty <= sy + 22) {
+      if (edge.type === 'feedback' || ty <= sy + (options.overviewLayout ? 4 : 22)) {
         const lane = rightBound + 32 + returnLane++ * 18;
         const start = { x: source.x + source.w, y: source.y + source.h / 2 };
         const end = { x: target.x + target.w, y: target.y + target.h / 2 };
@@ -290,8 +298,9 @@
       const middle = (sy + ty) / 2;
       const direct = [{ x: sx, y: sy }, { x: sx, y: middle }, { x: tx, y: middle }, { x: tx, y: ty }];
       const candidates = [direct];
-      const upper = sy + Math.min(28, (ty - sy) / 3);
-      const lower = ty - Math.min(28, (ty - sy) / 3);
+      const bend = options.overviewLayout ? 6 : 28;
+      const upper = sy + Math.min(bend, (ty - sy) / 3);
+      const lower = ty - Math.min(bend, (ty - sy) / 3);
       const corridor = obstacles.filter((node) => node.id !== source.id && node.id !== target.id &&
         node.y < lower && node.y + node.h > upper);
       const lanes = [sx, tx, ...corridor.flatMap((node) => [node.x - 24, node.x + node.w + 24]),
@@ -311,7 +320,7 @@
   }
 
   function routeEdges(nodes, edges, rightBound, options = {}) {
-    if (options.flowLayout) return routeFlowEdges(nodes, edges, rightBound);
+    if (options.flowLayout) return routeFlowEdges(nodes, edges, rightBound, options);
     /* 圆角拐点与带底板标签只在显式开启时生效（matmul 走 model-graphviz 契约），
        其余图保持原有的直角折线与无底板标签读法。 */
     const corner = options.modelGraphviz ? EDGE_CORNER_RADIUS : 0;

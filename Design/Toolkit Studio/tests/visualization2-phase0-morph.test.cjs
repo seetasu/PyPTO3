@@ -51,9 +51,19 @@ test('every item keeps one size and its Block slot follows the source mapping', 
     assert.ok(targetRect.x >= lane.x && targetRect.x + targetRect.w <= lane.x + lane.w);
   });
   assert.ok(model.lanes.slice(32).every(lane => lane.groups.length === 0));
+  for (let kv = 0; kv < config.kvHeads; kv++) {
+    const column = model.items.filter(item => item.kvHead === kv);
+    assert.equal(new Set(column.map(item => layout.sources[item.gIndex].x)).size, 1);
+    assert.equal(new Set(column.map(item => layout.targets[item.gIndex].x)).size, 1);
+  }
+  for (let pair = 0; pair < config.activeBatch / 2; pair++) {
+    const even = layout.blockRects[pair], odd = layout.blockRects[pair + 8];
+    assert.equal(even.y, odd.y);
+    assert.ok(even.x + even.w <= odd.x);
+  }
 });
 
-test('layout contains every item in its true Lane, keeps endpoint cells separate and compacts idle Blocks', () => {
+test('layout contains every item in its true Lane and keeps both matrices separate', () => {
   assert.equal(new Set(layout.sources.map(r => r.x)).size, 8);
   assert.equal(new Set(layout.sources.map(r => r.y)).size, 16);
   model.items.forEach((i, id) => {
@@ -63,13 +73,17 @@ test('layout contains every item in its true Lane, keeps endpoint cells separate
     assert.ok(lane.x > block.x && lane.x + lane.w < block.x + block.w);
     assert.ok(lane.y > block.y && lane.y + lane.h < block.y + block.h);
   });
-  for (const rects of [layout.sources, layout.targets, layout.blockRects]) {
+  for (const rects of [layout.sources, layout.targets, layout.blockRects.filter(Boolean)]) {
     rects.forEach((a, id) => {
       assert.ok(a.w > 0 && a.h > 0 && a.x >= 0 && a.x + a.w < layout.width && a.y >= 0 && a.y + a.h < layout.height);
       rects.slice(id + 1).forEach(b => assert.equal(a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y, false));
     });
   }
-  assert.ok(layout.blockRects[16].h < layout.blockRects[0].h / 2);
+  assert.ok(layout.blockRects.slice(16).every(rect => rect === null));
+  assert.deepEqual(Array.from(layout.columnOrder), [0, 2, 4, 6, 1, 3, 5, 7]);
+  assert.equal(new Set(layout.sources.map(rect => rect.x)).size, 8);
+  assert.equal(new Set(layout.sources.map(rect => rect.y)).size, 16);
+  assert.equal(new Set(layout.blockRects.filter(Boolean).map(rect => rect.y)).size, 8);
 });
 
 test('runtime Batch sizes and partial final lanes use the same mapping formulas', () => {
