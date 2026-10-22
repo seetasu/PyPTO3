@@ -2391,7 +2391,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
   // node markup, edge routing, grouping and semantic colors. View chrome stays local.
   function renderPypaGraphScene(scene, graph, options = {}) {
     const { view = 'compute', selectedNodeId = null, expandedStages = new Set(),
-      modelGraphviz = false, markerPrefix = 'pypa', cardHtml = pypaComputeCardHtml } = options;
+      modelGraphviz = false, compactNodes = false, markerPrefix = 'pypa', cardHtml = pypaComputeCardHtml } = options;
     const placedNodes = graph.nodes.map((node) => ({
       ...node, expandable: options.allowExpand === false ? false : node.expandable,
       y: view === 'overview' ? node.y + (node.y >= 600 ? 70 : 0) + (node.y >= 760 ? 60 : 0) : node.y,
@@ -2441,6 +2441,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
         const line = document.createElementNS(svgNS, 'path');
         line.setAttribute('d', routed.path);
         line.dataset.pypaEdge = edge.id; line.dataset.edgeType = edge.type;
+        line.dataset.edgeSource = edge.s; line.dataset.edgeTarget = edge.t;
         line.setAttribute('class', `kf-pypa-graph__edge is-${edge.type}`);
         line.setAttribute('marker-end', `url(#${markerPrefix}-arrow-${edge.type})`);
         svg.appendChild(line);
@@ -2510,6 +2511,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       const line = document.createElementNS(svgNS, 'path');
       line.setAttribute('d', path);
       line.dataset.pypaEdge = edge.id; line.dataset.edgeType = edge.type;
+      line.dataset.edgeSource = edge.s; line.dataset.edgeTarget = edge.t;
       line.setAttribute('class', `kf-pypa-graph__edge is-${edge.route || edge.type || 'dep'}`);
       line.setAttribute('marker-end', `url(#${markerPrefix}-arrow-${edge.route || edge.type || 'dep'})`);
       svg.appendChild(line);
@@ -2529,6 +2531,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     graph.groups?.forEach((group) => {
       const box = document.createElement('div');
       box.className = 'kf-pypa-graph__group';
+      box.dataset.pypaRegion = group.id;
       box.style.cssText = `left:${group.x}px;top:${group.y}px;width:${group.w}px;height:${group.h}px`;
       box.innerHTML = `<span>${pypaEscape(group.label)}</span>`;
       scene.appendChild(box);
@@ -2578,6 +2581,15 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       button.style.width = `${node.w}px`;
       button.style.minHeight = `${node.h}px`;
       button.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${node.meta?.length ? '，' + node.meta.join('，') : ''}`);
+      if (compactNodes) {
+        // The viewport owns full-size labels. Keep the scene node's DOM box
+        // identical to the dimensions used by layout and edge routing.
+        button.classList.add('is-compact-node');
+        button.style.height = `${node.h}px`;
+        button.style.padding = '0';
+        scene.appendChild(button);
+        return;
+      }
       if (modelGraphviz) {
         /* 节点密度按 model-graphviz 还原：op / tensor 只有一行居中标签，
            不再画 badge、Shape、Valid、粒度/精度/内存；这些仍在 title、

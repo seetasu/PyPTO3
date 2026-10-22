@@ -3,6 +3,7 @@
 .viz2-p0-morph .viz2-p0-axis, .viz2-p0-morph .viz2-p0-block-label { fill:var(--foreground-secondary); }
 .viz2-p0-morph .viz2-p0-batch { fill:var(--foreground-secondary); dominant-baseline:central; }
 .viz2-p0-morph .viz2-p0-frame { fill:transparent; stroke:var(--border-strong); stroke-width:1; vector-effect:non-scaling-stroke; }
+.viz2-p0-morph .viz2-p0-header-rule { stroke:var(--border-subtle); stroke-width:1; vector-effect:non-scaling-stroke; }
 .viz2-p0-morph .viz2-p0-block.is-selected .viz2-p0-frame { stroke:var(--primary); stroke-dasharray:none; }
 .viz2-p0-morph .viz2-p0-lane-frame { fill:transparent; stroke:var(--border-subtle); vector-effect:non-scaling-stroke; }
 .viz2-p0-morph .viz2-p0-lane.is-selected .viz2-p0-lane-frame { stroke:var(--primary); }

@@ -43,7 +43,7 @@
       if(adapter&&!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,{flowLayout:true});
       Object.entries(layers).forEach(([key,value])=>{scene.dataset[`overlay${key[0].toUpperCase()+key.slice(1)}`]=String(value);});
     rendered = global.PtoStudioComputationGraph.renderScene(scene, graph, {
-      view:'compute', expandedStages:expanded, synchronizations:true, markerPrefix:'viz2-graph',
+      view:'compute', expandedStages:expanded, synchronizations:true, compactNodes:!adapter, markerPrefix:'viz2-graph',
       cardHtml:node=>global.PtoStudioComputationGraph.cardHtml(node,model,layers),
     });
     nodes = rendered.placedNodes; nodeMap = new Map(nodes.map(node=>[node.id,node]));
@@ -95,7 +95,7 @@
       const project=box=>({x:camera.x+box.x*scale,y:camera.y+box.y*scale,w:box.w*scale,h:box.h*scale});
       stageLabels.forEach(({group,label,blockRail})=>{
         const box=project(group),visible=box.x+box.w>0&&box.y+box.h>0&&box.x<width&&box.y<height;
-        label.style.visibility=visible&&scale>=.3&&(!(!adapter&&!layers.data&&scale<.75)||group===stageLabels[0].group)?'visible':'hidden';
+        label.style.visibility=visible&&scale>=.3?'visible':'hidden';
         label.style.transform=`translate(${box.x+10}px,${box.y+2}px)`;
         if(blockRail){
           blockRail.style.visibility=visible&&scale>=.8?'visible':'hidden';

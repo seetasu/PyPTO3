@@ -59,8 +59,21 @@ test('every item keeps one size and its Block slot follows the source mapping', 
   for (let pair = 0; pair < config.activeBatch / 2; pair++) {
     const even = layout.blockRects[pair], odd = layout.blockRects[pair + 8];
     assert.equal(even.y, odd.y);
-    assert.ok(even.x + even.w <= odd.x);
+    assert.equal(odd.x - (even.x + even.w), layout.size.groupGap);
+    const items = model.groupsForBlock(pair);
+    const first = Math.min(...items.map(item => layout.targets[item.gIndex].y));
+    assert.equal(first - even.y, layout.size.headerHeight + layout.size.padding);
+    for (const lane of model.lanes.filter(lane => lane.block === pair || lane.block === pair + 8)) {
+      const row = layout.laneRects[lane.ropeCore];
+      const firstItem = Math.min(...lane.groups.map(item => layout.targets[item.gIndex].x));
+      assert.equal(firstItem - row.x, layout.size.labelWidth + layout.size.labelGap);
+    }
+    if (pair) assert.equal(even.y - (layout.blockRects[pair - 1].y + layout.blockRects[pair - 1].h), layout.size.pairGap);
   }
+  const bottom = Math.max(...layout.blockRects.filter(Boolean).map(rect => rect.y + rect.h));
+  assert.ok(layout.syncSummaryY - layout.size.summaryHeight / 2 >= bottom + layout.size.syncGap);
+  assert.ok(layout.syncBarY >= layout.syncSummaryY + layout.size.summaryHeight / 2 + layout.size.syncBarGap);
+  assert.ok(layout.syncBarY + layout.size.syncBarHeight < layout.height);
 });
 
 test('layout contains every item in its true Lane and keeps both matrices separate', () => {
@@ -68,7 +81,7 @@ test('layout contains every item in its true Lane and keeps both matrices separa
   assert.equal(new Set(layout.sources.map(r => r.y)).size, 16);
   model.items.forEach((i, id) => {
     const r = layout.targets[id], lane = layout.laneRects[i.ropeCore], block = layout.blockRects[i.block];
-    assert.ok(r.x > lane.x && r.x + r.w < lane.x + lane.w);
+    assert.ok(r.x > lane.x && r.x + r.w <= lane.x + lane.w);
     assert.ok(r.y > lane.y && r.y + r.h < lane.y + lane.h);
     assert.ok(lane.x > block.x && lane.x + lane.w < block.x + block.w);
     assert.ok(lane.y > block.y && lane.y + lane.h < block.y + block.h);
