@@ -446,6 +446,12 @@ function packTasks() {
 function renderLane() {
   const svg = $("lane"), axis = $("lane-axis"), W = 1240, LEFT = 96, RIGHT = 12, TOP = 10;
   const byTask = laneView === "task";
+  // Keep task names visually compact when the 1240px viewBox is scaled up on
+  // wide/high-resolution screens. Other chart geometry may grow; labels should
+  // stay close to a 10px screen size so they do not dominate the lane bars.
+  const labelScale = Math.max(1, (svg.clientWidth || W) / W);
+  const taskLabelFont = 10 / labelScale;
+  const taskLabelAdvance = 6 / labelScale;
   const coreRows = R.cores.slice().sort((a, b) => a.id - b.id);
   const pk = byTask ? packTasks() : null;
   const ROW = byTask ? 20 : 16;
@@ -572,8 +578,8 @@ function renderLane() {
           const onBar = h > full - 4;
           const t = el("text", { x: x + 3, y: yb - (onBar ? full - 8 : h + 3),
             fill: isSel ? "#111111" : isCand ? (onBar ? "#111111" : C.candidate) : (onBar ? "#111111" : "#c0c0c0"),
-            "font-family": "var(--mono)", "font-size": 12 });
-          const room = Math.floor(w / 7.2);
+            "font-family": "var(--mono)", "font-size": taskLabelFont });
+          const room = Math.floor(w / taskLabelAdvance);
           t.textContent = l.leaf.length > room ? `${l.leaf.slice(0, room)}…` : l.leaf;
           g.append(t);
         }
@@ -803,6 +809,11 @@ if (D) {
   $("drawer-close").addEventListener("click", () => setDrawer(false));
   $("drawer-backdrop").addEventListener("click", () => setDrawer(false));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") setDrawer(false); });
+  let laneResizeRaf = 0;
+  window.addEventListener("resize", () => {
+    if (laneResizeRaf) cancelAnimationFrame(laneResizeRaf);
+    laneResizeRaf = requestAnimationFrame(() => { laneResizeRaf = 0; renderLane(); });
+  });
   loadRank(D.ranks[0].rank);
 }
 })();
