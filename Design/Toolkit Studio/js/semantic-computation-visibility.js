@@ -28,5 +28,29 @@
     return { ...graph, nodes, edges,
       edgeRoutes: root.PTO_COMPUTATION_LAYOUT.routeEdges(nodes, edges, graph.width - 88, options) };
   }
-  root.PtoComputationVisibility = { withoutData };
+  // Level 1 keeps the operator contract visible while contracting transient
+  // values. Each replacement edge records the semantic edges it represents.
+  function overview(model) {
+    const hidden = new Set(model.nodes.filter((node) => node.type === 'data' &&
+      node.data.role === 'intermediate').map((node) => node.id));
+    const outgoing = new Map(model.nodes.map((node) => [node.id, []]));
+    model.edges.forEach((edge) => outgoing.get(edge.s).push(edge));
+    const edges = [];
+    function follow(chain, seen) {
+      const first = chain[0], last = chain.at(-1);
+      if (!hidden.has(last.t)) {
+        if (chain.length === 1) { edges.push(first); return; }
+        edges.push({ ...first, id: `overview:${chain.map((edge) => edge.id).join('|')}`,
+          t: last.t, targetPort: last.targetPort, type: chain.every((edge) => edge.type === 'data') ? 'data' : last.type,
+          label: last.label || first.label, sourceEdgeIds: chain.map((edge) => edge.id) });
+        return;
+      }
+      if (seen.has(last.t)) return;
+      for (const next of outgoing.get(last.t)) follow([...chain, next], new Set(seen).add(last.t));
+    }
+    model.edges.filter((edge) => !hidden.has(edge.s)).forEach((edge) => follow([edge], new Set([edge.s])));
+    return { ...model, nodes: model.nodes.filter((node) => !hidden.has(node.id)), edges,
+      groups: model.groups.map((group) => ({ ...group, members: group.members.filter((id) => !hidden.has(id)) })) };
+  }
+  root.PtoComputationVisibility = { withoutData, overview };
 })(typeof window === 'undefined' ? globalThis : window);
