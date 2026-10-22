@@ -323,7 +323,8 @@ function header() {
 function criticalPath() {
   const svg = $("cp"); svg.textContent = "";
   const total = R.criticalPath.reduce((a, p) => a + p.spanUs, 0) || 1;
-  const W = 1020, H = 72, GAP = 3, TOP = 6, BAR = 30;
+  const W = Math.max(1020, Math.floor(svg.parentElement.clientWidth || 1020));
+  const H = 72, GAP = 3, TOP = 6, BAR = 30;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
   let x = 0;
   R.criticalPath.forEach((p) => {
@@ -444,17 +445,17 @@ function packTasks() {
 }
 
 function renderLane() {
-  const svg = $("lane"), axis = $("lane-axis"), W = 1240, LEFT = 96, RIGHT = 12, TOP = 10;
+  const svg = $("lane"), axis = $("lane-axis"), LEFT = 96, RIGHT = 12, TOP = 10;
+  const W = Math.max(1240, Math.floor($("lane-wrap").clientWidth || 1240));
   const byTask = laneView === "task";
-  // Keep task names visually compact when the 1240px viewBox is scaled up on
-  // wide/high-resolution screens. Other chart geometry may grow; labels should
-  // stay close to a 10px screen size so they do not dominate the lane bars.
+  // Keep chart typography stable in CSS pixels: on wide screens the time axis
+  // gains horizontal room instead of scaling the entire SVG and making rows taller.
   const labelScale = Math.max(1, (svg.clientWidth || W) / W);
-  const taskLabelFont = 10 / labelScale;
-  const taskLabelAdvance = 6 / labelScale;
+  const taskLabelFont = 12 / labelScale;
+  const taskLabelAdvance = 7.2 / labelScale;
   const coreRows = R.cores.slice().sort((a, b) => a.id - b.id);
   const pk = byTask ? packTasks() : null;
-  const ROW = byTask ? 20 : 16;
+  const ROW = byTask ? 20 : 13;
   const GH = byTask ? 14 : 0;                       // room for a group caption line
   const rowCount = byTask ? pk.depth.AIC + pk.depth.AIV : coreRows.length;
   const innerW = W - LEFT - RIGHT, win = R.kpi.windowUs, cs = concStats();
@@ -602,10 +603,10 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
       const y = laneTop + i * ROW;
       if (i === 0 || coreRows[i - 1].ct !== c.ct) {
         if (i) svg.append(el("line", { x1: 0, x2: W, y1: y - 1, y2: y - 1, stroke: C.grid, "stroke-width": 1 }));
-        txt({ x: 0, y: y + 13, fill: C.label, "font-family": "var(--mono)", "font-size": 12 },
+        txt({ x: 0, y: y + 11, fill: C.label, "font-family": "var(--mono)", "font-size": 12 },
           `${c.ct} ×${coreRows.filter((x) => x.ct === c.ct).length}`);
       }
-      txt({ x: LEFT - 7, y: y + 12, fill: selectedRows.has(c.id) ? C.sel : hotRows.has(c.id) ? C.candidate : "#4a4a4a",
+      txt({ x: LEFT - 7, y: y + 10, fill: selectedRows.has(c.id) ? C.sel : hotRows.has(c.id) ? C.candidate : "#4a4a4a",
         "font-family": "var(--mono)", "font-size": 12, "text-anchor": "end" }, c.id);
     });
     show.forEach((b) => {
@@ -812,7 +813,7 @@ if (D) {
   let laneResizeRaf = 0;
   window.addEventListener("resize", () => {
     if (laneResizeRaf) cancelAnimationFrame(laneResizeRaf);
-    laneResizeRaf = requestAnimationFrame(() => { laneResizeRaf = 0; renderLane(); });
+    laneResizeRaf = requestAnimationFrame(() => { laneResizeRaf = 0; criticalPath(); renderLane(); });
   });
   loadRank(D.ranks[0].rank);
 }
