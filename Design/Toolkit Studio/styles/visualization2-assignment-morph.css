@@ -22,7 +22,10 @@
 .viz2-am-block-hit { cursor:pointer; }
 .viz2-am-block-hit:focus-visible { stroke:var(--focus-ring); outline:none; }
 .viz2-am-task .kf-pa-map__cell { fill:var(--surface-4); }
-.viz2-am-task .kf-pa-map__task-id { fill:var(--foreground); font-size:var(--am-label-size, 12px); font-weight:600; dominant-baseline:central; }
+.viz2-am-task .kf-pa-map__task-id { fill:var(--foreground); font-size:var(--am-label-size, 12px); font-weight:600; dominant-baseline:central; paint-order:stroke fill; stroke:var(--surface-2); stroke-width:2px; stroke-linejoin:round; }
+.viz2-am-q-encoding, .viz2-am-seq-encoding { pointer-events:none; }
+.viz2-am-seq-encoding .kf-pa-map__seq-track { fill:var(--surface-2); }
+.viz2-am-seq-encoding .kf-pa-map__seq-fill { fill:var(--primary); fill-opacity:.72; }
 .viz2-am-task.is-assigned .kf-pa-map__cell { fill:var(--state-selected); }
 .viz2-am-task.is-selected .kf-pa-map__cell, .viz2-am-task:hover .kf-pa-map__cell { fill:var(--state-focus); stroke:var(--primary); stroke-width:2; }
 .viz2-am-footer { display:flex; gap:15px; align-items:center; padding:8px 26px 13px 200px; min-height:43px; color:var(--foreground-muted); font:var(--type-body-sm); }
