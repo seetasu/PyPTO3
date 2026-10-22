@@ -1,112 +1,230 @@
-/* Phase0 assignment from paged_attention_pypto.py, lines 127–145 and 253–263.
- * Geometry expresses ownership and a logical barrier; it carries no timing data.
- */
+/* Phase0 uses g_idx = KV * active_batch + Batch; this is not Attention Task order. */
 (function (global) {
   'use strict';
-  function createModel({ blocks, kvHeads, qPerKv, activeBatch, ropeCores, itemsPerCore, lanesPerBlock }) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const mix = (a, b, p) => a + (b - a) * p;
+  const clamp = p => Math.max(0, Math.min(1, p));
+  function createModel({ blocks, kvHeads, qPerKv, activeBatch, ropeCores, itemsPerCore = Math.ceil(activeBatch * kvHeads / ropeCores), lanesPerBlock }) {
     const total = activeBatch * kvHeads;
     const lanes = Array.from({ length: blocks * lanesPerBlock }, (_, ropeCore) => {
+      const block = Math.floor(ropeCore / lanesPerBlock), lane = ropeCore % lanesPerBlock;
       const groups = ropeCore >= ropeCores ? [] : Array.from({ length: itemsPerCore }, (_, it) => {
-        const gIndex = ropeCore + it * ropeCores;
-        const kvHead = Math.floor(gIndex / activeBatch), batch = gIndex % activeBatch;
-        return { gIndex, it, batch, kvHead, qStart: kvHead * qPerKv, qEnd: (kvHead + 1) * qPerKv - 1 };
+        const gIndex = ropeCore + it * ropeCores, kvHead = Math.floor(gIndex / activeBatch), batch = gIndex % activeBatch;
+        return { id: `g:${gIndex}`, gIndex, it, iteration: it, batch, kvHead, ropeCore, block, lane,
+          attentionTaskId: batch * kvHeads + kvHead, qStart: kvHead * qPerKv, qEnd: (kvHead + 1) * qPerKv - 1 };
       }).filter(group => group.gIndex < total);
-      return { ropeCore, block: Math.floor(ropeCore / lanesPerBlock), lane: ropeCore % lanesPerBlock, groups };
+      return { ropeCore, block, lane, groups };
     });
-    return { blocks, kvHeads, activeBatch, ropeCores, qPerKv, total, lanesPerBlock, itemsPerCore, lanes,
+    const items = lanes.flatMap(lane => lane.groups).sort((a, b) => a.gIndex - b.gIndex);
+    return { blocks, kvHeads, activeBatch, ropeCores, qPerKv, total, lanesPerBlock, itemsPerCore, lanes, items,
       activeLanes: lanes.filter(lane => lane.groups.length),
       groupsForBlock: block => lanes.filter(lane => lane.block === block).flatMap(lane => lane.groups),
-      ownerOf: (batch, kvHead) => lanes[(kvHead * activeBatch + batch) % ropeCores] };
-  }
-  const size = { width: 1160 }, columns = 8;
-  function mount(host, { model, onSelect, onCamera }) {
-    host.innerHTML = `<div class="viz2-p0-summary"><span><b>${model.blocks}</b> Blocks × ${model.lanesPerBlock} AIV Lanes</span><span><b>${model.activeLanes.length}</b> 条参与 Lane</span><span><b>${model.total}</b> 组 Batch × KV Head</span><span>每条参与 Lane <b>${model.activeLanes[0]?.groups.length ?? 0}</b> 组</span></div>
-      <div class="viz2-p0-body">
-        <div class="viz2-p0-stage">
-          <div class="viz2-p0-operations"><b>Phase0</b><span>Q/K Norm</span><i>→</i><span>RoPE</span><i>→</i><span>KV Cache Append</span></div>
-          <div class="viz2-p0-viewport" tabindex="0" role="group" aria-label="Phase0 分配画布，拖拽平移，滚轮缩放">
-            <svg class="viz2-p0-svg" aria-label="24 Blocks 的双 AIV Lane 分配与 SYNCALL 逻辑关系"><g data-p0-scene></g></svg>
-            <div class="kf-pa-map__tooltip" role="tooltip" hidden></div>
-          </div>
-          <footer class="viz2-p0-footer"><span>短条 = 1 组 · 虚线 Block 无预处理工作 · 连接线表示逻辑汇合</span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-p0-zoom="0.8" aria-label="缩小 Phase0">−</button><output data-p0-scale>100%</output><button class="btn btn-ghost btn-sm" data-p0-zoom="1.25" aria-label="放大 Phase0">＋</button><button class="btn btn-ghost btn-sm" data-p0-fit>适应</button></div></footer>
-        </div>
-        <aside class="pto-ide-frame__pane viz2-p0-inspector" aria-label="Phase0 分配详情" hidden><header class="pto-ide-frame__pane-header"><b data-p0-title></b><button class="btn btn-ghost btn-sm" data-p0-clear aria-label="清除 Phase0 选择">×</button></header><div class="pto-ide-frame__pane-body" data-p0-detail></div></aside>
-      </div>`;
-    const viewport = host.querySelector('.viz2-p0-viewport'), scene = host.querySelector('[data-p0-scene]'), tooltip = host.querySelector('[role="tooltip"]');
-    const rows = Math.ceil(model.blocks / columns), rowStep = 120, startY = 18, bottom = startY + rows * rowStep;
-    // The buses collect every Block, including the Blocks without preprocessing work.
-    const buses = Array.from({ length: rows }, (_, row) => {
-      const y = startY + row * rowStep + 106;
-      return `<path class="viz2-p0-link" d="M74 ${y} H1128"/>`;
-    }).join('');
-    scene.innerHTML = `${buses}<path class="viz2-p0-link" d="M1128 ${startY+106} V${bottom+18} H580 V${bottom+28}"/>
-      ${Array.from({ length: model.blocks }, (_, block) => {
-        const x = 14 + block % columns * 138, y = startY + Math.floor(block / columns) * rowStep;
-        const lanes = model.lanes.filter(lane => lane.block === block), active = lanes.some(lane => lane.groups.length);
-        return `<g class="viz2-p0-block${active ? '' : ' is-idle'}" data-p0-block="${block}" transform="translate(${x} ${y})">
-          <path class="viz2-p0-link" d="M60 94 V106"/>
-          <rect class="viz2-p0-boundary" width="120" height="94" rx="8"/>
-          <g class="viz2-p0-block-target" data-p0-pick-block="${block}" role="button" tabindex="0" aria-pressed="false" aria-label="Phase0 Block ${block}，${model.groupsForBlock(block).length} 组工作"><rect class="viz2-p0-hit" width="120" height="32"/><text x="10" y="21">Block ${String(block).padStart(2,'0')}</text></g>
-          ${lanes.map(lane => `<g class="viz2-p0-lane" data-p0-lane="${lane.ropeCore}" role="button" tabindex="0" aria-pressed="false" aria-label="Block ${block} AIV Lane ${lane.lane}，rope_core ${lane.ropeCore}，${lane.groups.length} 组工作" transform="translate(8 ${32+lane.lane*28})"><rect class="viz2-p0-lane-fill" width="104" height="24" rx="6"/><text x="6" y="16">AIV ${lane.lane}</text>${Array.from({length:model.itemsPerCore},(_,i)=>`<rect class="viz2-p0-mark${i<lane.groups.length?' is-work':''}" data-p0-mark="${lane.groups[i]?.gIndex ?? ''}" x="${56+i*(44/model.itemsPerCore)}" y="6" width="${Math.max(2,44/model.itemsPerCore-4)}" height="12" rx="2"/>`).join('')}</g>`).join('')}
-        </g>`;
-      }).join('')}
-      <g class="viz2-p0-barrier" transform="translate(365 ${bottom+28})"><rect width="430" height="42" rx="8"/><text x="215" y="26" text-anchor="middle">SYNCALL · 全部 ${model.blocks} Blocks 参与</text><title>cacheinvalid → fence → SYNCALL(MIX) → cacheinvalid；逻辑屏障，不表示真实耗时</title></g>
-      <path class="viz2-p0-link" d="M580 ${bottom+70} V${bottom+91}"/><text class="viz2-p0-next" x="580" y="${bottom+112}" text-anchor="middle">Attention · 所有 Blocks 进入下一阶段</text>`;
-    let current = null, camera = null, drag = null, suppressClick = false, lastSize = null;
-    const fitted = () => { const scale = Math.max(.05, Math.min((viewport.clientWidth-24)/size.width,(viewport.clientHeight-16)/(bottom+132),1.2)); return {scale,x:(viewport.clientWidth-size.width*scale)/2,y:(viewport.clientHeight-(bottom+132)*scale)/2}; };
-    const fit = () => { if (viewport.clientWidth && viewport.clientHeight) onCamera(fitted()); };
-    function zoom(factor, point = {x:viewport.clientWidth/2,y:viewport.clientHeight/2}) {
-      const old = camera || fitted(), scale = Math.max(.08,Math.min(6,old.scale*factor)), ratio = scale/old.scale;
-      onCamera({scale,x:point.x-(point.x-old.x)*ratio,y:point.y-(point.y-old.y)*ratio});
-    }
-    const mapped = selection => {
-      if (selection?.kind === 'task') { const lane = model.ownerOf(selection.batch,selection.kvHead); return { ...selection, block:lane.block, lane:lane.lane, ropeCore:lane.ropeCore, gIndex:selection.kvHead*model.activeBatch+selection.batch }; }
-      return selection;
+      ownerOf: (batch, kvHead) => lanes[(kvHead * activeBatch + batch) % ropeCores],
+      itemFor: (batch, kvHead) => items[kvHead * activeBatch + batch],
     };
-    const groupRows = groups => `<table class="viz2-p0-table"><thead><tr><th>工作项 g_idx</th><th>Batch</th><th>KV Head</th></tr></thead><tbody>${groups.map(group=>`<tr${group.gIndex===mapped(current)?.gIndex?' class="is-focused"':''}><td>${group.gIndex}</td><td>${group.batch}</td><td>${group.kvHead}</td></tr>`).join('')}</tbody></table>`;
-    function detail(selection) {
-      const inspector=host.querySelector('aside'), s=mapped(selection); inspector.hidden=!s;
-      if (!s) return;
-      const lanes=model.lanes.filter(lane=>lane.block===s.block && (s.lane==null || lane.lane===s.lane));
-      const groups=lanes.flatMap(lane=>lane.groups);
-      host.querySelector('[data-p0-title]').textContent=`Block ${s.block}${s.lane==null?'':` · AIV ${s.lane}`}`;
-      host.querySelector('[data-p0-detail]').innerHTML=`${groups.length ? `<p>${groups.length} 组预处理工作${s.kind==='task'?` · 焦点 Batch ${s.batch} / KV ${s.kvHead}`:''}</p>
-        ${lanes.map(lane=>`<section class="viz2-p0-detail-section"><h3>AIV ${lane.lane} <small>rope_core ${lane.ropeCore}</small></h3>${groupRows(lane.groups)}</section>`).join('')}
-        <section class="viz2-p0-detail-section"><h3>每组工作</h3><p>Q/K Norm、RoPE；追加当前 token 的 K/V 至 KV Cache，写回旋转后的 Q。</p><p>每个 KV Head 对应 ${model.qPerKv} 个 Q Heads。</p></section>` : `<p>无有效预处理工作</p><p>rope_core ${lanes.map(lane=>lane.ropeCore).join(' / ')} ≥ ROPE_CORES ${model.ropeCores}，跳过 Phase0 工作循环。</p>`}
-        <section class="viz2-p0-detail-section"><h3>同步后进入 Attention</h3><p>该 Block 仍参与 SYNCALL。</p><code>cacheinvalid → fence<br>→ SYNCALL(MIX)<br>→ cacheinvalid</code><p>连接线表达逻辑同步，不表示实际执行时间。</p></section>`;
-    }
-    function update(selection, nextCamera, { selectionChanged = true } = {}) {
-      current=selection; camera=nextCamera;
-      const s=mapped(selection);
-      scene.querySelectorAll('[data-p0-block]').forEach(el=>el.classList.toggle('is-selected',Number(el.dataset.p0Block)===s?.block));
-      scene.querySelectorAll('[data-p0-pick-block]').forEach(el=>el.setAttribute('aria-pressed',String(Number(el.dataset.p0PickBlock)===s?.block && s?.lane==null)));
-      scene.querySelectorAll('[data-p0-lane]').forEach(el=>{const lane=model.lanes[Number(el.dataset.p0Lane)], active=lane.block===s?.block && (s.lane==null || lane.lane===s.lane); el.classList.toggle('is-selected',active); el.setAttribute('aria-pressed',String(active));});
-      scene.querySelectorAll('[data-p0-mark]').forEach(el=>el.classList.toggle('is-focused',el.dataset.p0Mark!=='' && Number(el.dataset.p0Mark)===s?.gIndex));
-      if (selectionChanged) detail(selection);
-      if (!camera && viewport.clientWidth) { fit(); return; }
-      if (camera) { scene.style.setProperty('--p0-label-size', `${Math.max(12, 11/camera.scale)}px`); scene.setAttribute('transform',`translate(${camera.x} ${camera.y}) scale(${camera.scale})`); host.querySelector('[data-p0-scale]').textContent=`${Math.round(camera.scale/fitted().scale*100)}%`; }
-    }
-    host.addEventListener('click',event=>{
-      if(event.target.closest('[data-p0-clear]')) { onSelect(null); return; }
-      if(event.target.closest('[data-p0-fit]')) { fit(); return; }
-      const z=event.target.closest('[data-p0-zoom]'); if(z) {zoom(Number(z.dataset.p0Zoom));return;}
-      if(suppressClick) {suppressClick=false;return;}
-      const lane=event.target.closest('[data-p0-lane]'), block=event.target.closest('[data-p0-pick-block]');
-      if(lane) {const l=model.lanes[Number(lane.dataset.p0Lane)];onSelect({kind:'lane',block:l.block,lane:l.lane,ropeCore:l.ropeCore,task:null});}
-      else if(block) onSelect({kind:'block',block:Number(block.dataset.p0PickBlock),task:null});
-    });
-    viewport.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key) && event.target.closest('[role="button"]')) {event.preventDefault();event.target.closest('[role="button"]').dispatchEvent(new MouseEvent('click',{bubbles:true}));} else if(event.key==='Escape') {onSelect(null);viewport.focus();}});
-    viewport.addEventListener('wheel',event=>{event.preventDefault();const r=viewport.getBoundingClientRect(),unit=event.deltaMode===1?16:event.deltaMode===2?r.height:1;zoom(Math.exp(Math.max(-.22,Math.min(.22,-event.deltaY*unit*.003))),{x:event.clientX-r.left,y:event.clientY-r.top});},{passive:false});
-    viewport.addEventListener('pointerdown',event=>{if(event.button!==0)return;suppressClick=false;drag={x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,id:event.pointerId,moved:false};});
-    viewport.addEventListener('pointermove',event=>{
-      if(drag) {if(!drag.moved && Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<=4)return;drag.moved=true;viewport.setPointerCapture(drag.id);viewport.classList.add('is-dragging');tooltip.hidden=true;const c=camera||fitted();onCamera({...c,x:c.x+event.clientX-drag.x,y:c.y+event.clientY-drag.y});drag.x=event.clientX;drag.y=event.clientY;return;}
-      const lane=event.target.closest('[data-p0-lane]'),block=event.target.closest('[data-p0-pick-block]');tooltip.hidden=!lane&&!block;
-      if(lane||block) {const l=lane?model.lanes[Number(lane.dataset.p0Lane)]:null, groups=l?l.groups:model.groupsForBlock(Number(block.dataset.p0PickBlock));tooltip.textContent=`${l?`rope_core ${l.ropeCore} · `:''}${groups.length?groups.map(g=>`g${g.gIndex}: B${g.batch}/KV${g.kvHead}`).join(' · '):'无有效预处理工作 · 仍参与 SYNCALL'}`;const r=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+12,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;}
-    });
-    const endDrag=()=>{if(drag?.moved)suppressClick=true;drag=null;viewport.classList.remove('is-dragging');};
-    ['pointerup','pointercancel','lostpointercapture'].forEach(type=>viewport.addEventListener(type,endDrag));viewport.addEventListener('pointerleave',()=>{tooltip.hidden=true;});
-    new ResizeObserver(()=>{const width=viewport.clientWidth,height=viewport.clientHeight;if(!width||!height)return;if(!camera)fit();else if(lastSize&&(width!==lastSize.width||height!==lastSize.height)){const previousFit=Math.max(.05,Math.min((lastSize.width-24)/size.width,(lastSize.height-16)/(bottom+132),1.2));const ratio=fitted().scale/previousFit;onCamera({scale:camera.scale*ratio,x:width/2+(camera.x-lastSize.width/2)*ratio,y:height/2+(camera.y-lastSize.height/2)*ratio});}lastSize={width,height};}).observe(viewport);
-    return { update, hideTooltip:()=>{tooltip.hidden=true;}, model };
   }
-  global.PtoVisualization2Phase0=Object.freeze({createModel,mount});
+  function createLayout(model) {
+    const width = 1250, height = 600, columns = Math.min(model.kvHeads, model.blocks), top = 52, bottom = 552;
+    const rows = Math.ceil(model.blocks / columns), gap = 12, left = 24, boardWidth = 1200;
+    const rowActive = Array.from({ length: rows }, (_, row) => Array.from({ length: columns }, (_, col) => row * columns + col).some(b => b < model.blocks && model.groupsForBlock(b).length));
+    const activeRows = rowActive.filter(Boolean).length, idleRows = rows - activeRows;
+    const idleHeight = Math.min(76, (bottom - top - (rows - 1) * gap) / rows);
+    const activeHeight = activeRows ? (bottom - top - (rows - 1) * gap - idleRows * idleHeight) / activeRows : idleHeight;
+    const blockWidth = (boardWidth - (columns - 1) * gap) / columns;
+    let y = top;
+    const rowRects = rowActive.map(active => { const r = { y, h: active ? activeHeight : idleHeight }; y += r.h + gap; return r; });
+    const blockRects = Array.from({ length: model.blocks }, (_, b) => ({ x: left + b % columns * (blockWidth + gap), y: rowRects[Math.floor(b / columns)].y, w: blockWidth, h: rowRects[Math.floor(b / columns)].h }));
+    const laneRects = model.lanes.map(lane => {
+      const b = blockRects[lane.block], laneGap = 6, w = (b.w - 12 - (model.lanesPerBlock - 1) * laneGap) / model.lanesPerBlock;
+      return { x: b.x + 6 + lane.lane * (w + laneGap), y: b.y + 27, w, h: lane.groups.length ? b.h - 34 : 22 };
+    });
+    const sources = model.items.map(item => ({ x: 179 + item.kvHead * (1048 / model.kvHeads), y: 66 + item.batch * (506 / model.activeBatch), w: 1048 / model.kvHeads - 24, h: Math.min(22, 506 / model.activeBatch - 5) }));
+    const targets = model.items.map(item => {
+      const lane = laneRects[item.ropeCore], count = model.lanes[item.ropeCore].groups.length;
+      const pitch = (lane.h - 29) / count;
+      return { x: lane.x + 4, y: lane.y + 24 + item.iteration * pitch, w: lane.w - 8, h: Math.min(26, pitch - 5) };
+    });
+    return { width, height, columns, sources, targets, blockRects, laneRects };
+  }
+  const make = (tag, attrs, parent, text) => {
+    const el = document.createElementNS(NS, tag);
+    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+    if (text != null) el.textContent = text;
+    parent.append(el); return el;
+  };
+  function mount(host, { model, seqLens = [], onSelect, onCamera }) {
+    const layout = createLayout(model);
+    host.classList.add('viz2-p0-morph');
+    host.innerHTML = `<div class="viz2-am-head"><div><h2 data-p0-title-state></h2><p data-p0-formula></p></div><div class="viz2-am-controls"><button class="btn btn-ghost btn-sm" data-p0-play>暂停</button><button class="btn btn-ghost btn-sm" data-p0-replay>重播</button><div class="segmented-control segmented-control-muted"><button class="btn btn-sm" data-p0-state="generation">Work Generation</button><button class="btn btn-sm" data-p0-state="assignment">Block Assignment</button></div><label><input type="checkbox" data-p0-loop checked> 循环播放</label><button class="btn btn-ghost btn-sm" data-p0-fit>适应</button></div></div>
+      <div class="viz2-p0-viewport viz2-am-viewport" tabindex="0" role="group" aria-label="Phase0 工作项生成与 Block 分配画布"><svg class="viz2-p0-svg" aria-label="Phase0 Batch × KV Head 与 AIV Lane 分配"><g data-p0-scene><g data-p0-generation></g><g data-p0-board></g><g data-p0-items></g></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
+      <footer class="viz2-am-footer"><p data-p0-selection aria-live="polite">${model.total} 个工作项 · 每项 ${model.qPerKv}Q + K + V</p><span>Q/K Norm → RoPE → KV Cache Append · 静态分配，不表示执行时序</span></footer>
+      <aside class="pto-ide-frame__pane viz2-p0-inspector" aria-label="Phase0 分配详情" hidden><header class="pto-ide-frame__pane-header"><b data-p0-title></b><button class="btn btn-ghost btn-sm" data-p0-clear aria-label="关闭 Phase0 详情">×</button></header><div class="pto-ide-frame__pane-body" data-p0-detail></div></aside>`;
+    const viewport = host.querySelector('.viz2-p0-viewport'), scene = host.querySelector('[data-p0-scene]'), tooltip = host.querySelector('[role="tooltip"]');
+    const generation = host.querySelector('[data-p0-generation]'), board = host.querySelector('[data-p0-board]'), itemLayer = host.querySelector('[data-p0-items]');
+    for (let kv = 0; kv < model.kvHeads; kv++) make('text', { x: 179 + kv * (1048 / model.kvHeads) + layout.sources[0].w / 2, y: 30, class: 'viz2-p0-axis', 'text-anchor': 'middle' }, generation, `KV${kv}`);
+    make('text', { x: 100, y: 30, class: 'viz2-p0-axis' }, generation, 'BATCH');
+    for (let b = 0; b < model.activeBatch; b++) make('text', { x: 100, y: 66 + b * (506 / model.activeBatch) + layout.sources[0].h / 2, class: 'viz2-p0-batch' }, generation, `B${b}`);
+    const blockNodes = layout.blockRects.map((r, block) => {
+      const active = model.groupsForBlock(block).length > 0;
+      const group = make('g', { class: `viz2-p0-block${active ? '' : ' is-idle'}`, 'data-p0-block': block }, board);
+      make('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 2, class: 'viz2-p0-frame' }, group);
+      const pick = make('g', { 'data-p0-pick-block': block, role: 'button', tabindex: '-1', 'aria-label': `Phase0 Block ${block}，${model.groupsForBlock(block).length} 项工作，参与同步` }, group);
+      make('rect', { x: r.x, y: r.y, width: r.w, height: 23, fill: 'transparent' }, pick);
+      make('text', { x: r.x + 7, y: r.y + 16, class: 'viz2-p0-block-label' }, pick, `BLK ${String(block).padStart(2, '0')}`);
+      if (!active) make('text', { x: r.x + r.w / 2, y: r.y + r.h - 12, class: 'viz2-p0-idle-label', 'text-anchor': 'middle' }, group, '仅同步');
+      return group;
+    });
+    const laneNodes = model.lanes.map((lane, index) => {
+      const r = layout.laneRects[index];
+      const group = make('g', { class: 'viz2-p0-lane', 'data-p0-lane': lane.ropeCore, role: 'button', tabindex: '-1', 'aria-label': `Block ${lane.block} AIV${lane.lane}，rope_core ${lane.ropeCore}，${lane.groups.length} 项工作` }, blockNodes[lane.block]);
+      make('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 2, class: 'viz2-p0-lane-frame' }, group);
+      make('text', { x: r.x + r.w / 2, y: r.y + 15, 'text-anchor': 'middle', class: 'viz2-p0-lane-label' }, group, `AIV${lane.lane}`);
+      return group;
+    });
+    const sync = make('g', { 'data-p0-sync': '' }, board);
+    make('rect', { x: 24, y: 568, width: 1200, height: 26, rx: 2, class: 'viz2-p0-sync-frame' }, sync);
+    make('text', { x: 624, y: 585, 'text-anchor': 'middle', class: 'viz2-p0-sync-label' }, sync, `SYNCALL · ${model.blocks} Blocks 参与 · cacheinvalid → fence → SYNCALL(MIX) → cacheinvalid`);
+    const itemNodes = model.items.map((item, id) => {
+      const group = make('g', { class: 'viz2-p0-item', 'data-p0-item': item.gIndex, role: 'button', tabindex: id === 0 ? '0' : '-1', 'aria-pressed': 'false', 'aria-label': `G${item.gIndex}，Batch ${item.batch}，KV${item.kvHead}，Block ${item.block}，AIV${item.lane}` }, itemLayer);
+      const cell = make('rect', { class: 'viz2-p0-item-cell', rx: 3 }, group);
+      const symbols = make('g', { class: 'viz2-p0-item-symbols', 'aria-hidden': 'true' }, group);
+      const q = Array.from({ length: model.qPerKv }, () => make('circle', { class: 'viz2-p0-q' }, symbols));
+      const k = make('text', { class: 'viz2-p0-kv-symbol', 'text-anchor': 'middle' }, symbols, 'K');
+      const v = make('text', { class: 'viz2-p0-kv-symbol', 'text-anchor': 'middle' }, symbols, 'V');
+      const label = make('text', { class: 'viz2-p0-item-id', 'text-anchor': 'middle', 'dominant-baseline': 'central' }, group, `G${item.gIndex}`);
+      return { group, cell, symbols, q, k, v, label };
+    });
+    let current = null, camera = null, active = false, inspectorOpen = false, hovered = null;
+    let drag = null, suppressClick = false, lastSize = null;
+    const mapSelection = selection => {
+      if (selection?.kind !== 'task') return selection;
+      const item = model.itemFor(selection.batch, selection.kvHead);
+      return item ? { ...selection, block: item.block, lane: item.lane, ropeCore: item.ropeCore, gIndex: item.gIndex } : null;
+    };
+    const fitted = (w = viewport.clientWidth, h = viewport.clientHeight) => {
+      const scale = Math.max(.05, Math.min((w - 24) / layout.width, (h - 16) / layout.height));
+      return { scale, x: (w - layout.width * scale) / 2, y: (h - layout.height * scale) / 2 };
+    };
+    function paintCamera() {
+      const c = camera || fitted();
+      scene.setAttribute('transform', `translate(${c.x} ${c.y}) scale(${c.scale})`);
+      scene.style.setProperty('--p0-label-size', `${Math.max(12, 11 / c.scale)}px`);
+    }
+    function draw(p) {
+      host.dataset.p0Progress = String(p);
+      generation.style.opacity = String(clamp(1 - p / .25));
+      const alpha = clamp((p - .75) / .25);
+      board.style.opacity = String(alpha); board.style.pointerEvents = alpha > .8 ? '' : 'none';
+      [...laneNodes, ...host.querySelectorAll('[data-p0-pick-block]')].forEach(n => n.setAttribute('tabindex', alpha > .8 ? '0' : '-1'));
+      itemNodes.forEach((n, id) => {
+        const a = layout.sources[id], b = layout.targets[id], w = mix(a.w, b.w, p), h = mix(a.h, b.h, p);
+        n.group.setAttribute('transform', `translate(${mix(a.x, b.x, p)} ${mix(a.y, b.y, p)})`);
+        n.cell.setAttribute('width', w); n.cell.setAttribute('height', h);
+        n.label.setAttribute('x', w / 2); n.label.setAttribute('y', h / 2);
+        n.symbols.style.opacity = String(1 - p);
+        const pitch = (w - 6) / (model.qPerKv + 2);
+        n.q.forEach((q, index) => { q.setAttribute('cx', 3 + (index + .5) * pitch); q.setAttribute('cy', h / 2); q.setAttribute('r', Math.min(h * .2, pitch * .28)); });
+        [n.k, n.v].forEach((text, index) => { text.setAttribute('x', 3 + (model.qPerKv + index + .5) * pitch); text.setAttribute('y', h / 2); });
+      });
+      host.querySelector('[data-p0-title-state]').textContent = p < .5 ? `Work Generation · ${model.total} Items` : `Block Assignment · ${model.blocks} SPMD Blocks`;
+      host.querySelector('[data-p0-formula]').textContent = p < .5 ? `g_idx = KV Head × ${model.activeBatch} + Batch · 每项处理当前 token 的 ${model.qPerKv}Q + K + V` : `rope_core = g_idx % ${model.ropeCores} · Block = ⌊rope_core / ${model.lanesPerBlock}⌋ · 逻辑分组，非物理排列`;
+      host.querySelectorAll('[data-p0-state]').forEach(button => { const selected = button.dataset.p0State === (p < .5 ? 'generation' : 'assignment'); button.setAttribute('aria-pressed', String(selected)); button.classList.toggle('is-selected', selected); });
+    }
+    const player = global.PtoVisualization2MorphPlayer.create({ draw, pauseOnReturn: true, onChange: s => { host.querySelector('[data-p0-play]').textContent = s.playing ? '暂停' : '播放'; } });
+    const pause = () => player.pause();
+    function itemDescription(item) {
+      const len = seqLens[item.batch];
+      return `G${item.gIndex} · B${item.batch} / KV${item.kvHead} · Q${item.qStart}–Q${item.qEnd} + K/V · BLK ${String(item.block).padStart(2, '0')} / AIV${item.lane} · rope_core ${item.ropeCore} · it ${item.iteration}${len == null ? '' : ` · seq_lens ${len} · position ${len - 1}`} · Attention Task ${item.attentionTaskId}`;
+    }
+    function selectItem(gIndex) {
+      const item = model.items[gIndex]; if (!item) return;
+      pause(); inspectorOpen = true;
+      onSelect({ kind: 'task', task: item.attentionTaskId, block: item.attentionTaskId % model.blocks, batch: item.batch, kvHead: item.kvHead });
+    }
+    function paintSelection() {
+      const selected = mapSelection(current);
+      blockNodes.forEach((node, block) => node.classList.toggle('is-selected', block === selected?.block));
+      laneNodes.forEach((node, index) => { const lane = model.lanes[index], related = lane.block === selected?.block && (selected.lane == null || lane.lane === selected.lane); node.classList.toggle('is-selected', related); node.setAttribute('aria-pressed', String(related)); });
+      itemNodes.forEach(({ group }, id) => {
+        const item = model.items[id], related = item.block === selected?.block && (selected.lane == null || item.lane === selected.lane), exact = item.gIndex === selected?.gIndex;
+        group.classList.toggle('is-assigned', related); group.classList.toggle('is-selected', exact); group.classList.toggle('is-hovered', item.gIndex === hovered);
+        group.setAttribute('aria-pressed', String(exact)); group.setAttribute('tabindex', id === (selected?.gIndex ?? 0) ? '0' : '-1');
+      });
+      host.querySelector('[data-p0-selection]').textContent = selected?.gIndex != null ? itemDescription(model.items[selected.gIndex]) : selected ? `Block ${selected.block}${selected.lane == null ? '' : ` / AIV${selected.lane}`} · ${model.groupsForBlock(selected.block).filter(item => selected.lane == null || item.lane === selected.lane).map(item => `G${item.gIndex}`).join(', ') || '无预处理工作，仍参与 SYNCALL'}` : `${model.total} 个工作项 · 每项 ${model.qPerKv}Q + K + V`;
+    }
+    function detail() {
+      const selection = mapSelection(current), aside = host.querySelector('aside');
+      aside.hidden = !active || !selection || !inspectorOpen;
+      if (!selection) return;
+      const item = selection.gIndex == null ? null : model.items[selection.gIndex];
+      const lanes = model.lanes.filter(lane => lane.block === selection.block && (selection.lane == null || lane.lane === selection.lane));
+      host.querySelector('[data-p0-title]').textContent = item ? `G${item.gIndex} · B${item.batch} / KV${item.kvHead}` : `BLK ${String(selection.block).padStart(2, '0')}${selection.lane == null ? '' : ` / AIV${selection.lane}`}`;
+      const len = item ? seqLens[item.batch] : null;
+      host.querySelector('[data-p0-detail]').innerHTML = `${item ? `<section class="viz2-p0-detail-section"><h3>工作项映射</h3><p>Block ${item.block} / AIV${item.lane}<br>rope_core ${item.ropeCore} · iteration ${item.iteration}<br>Q${item.qStart}–Q${item.qEnd} + K + V${len == null ? '' : `<br>seq_lens ${len} · position ${len - 1}`}</p><p>对应 Attention Task ${item.attentionTaskId}<br>Attention Block ${item.attentionTaskId % model.blocks}</p></section>` : ''}
+        ${lanes.map(lane => `<section class="viz2-p0-detail-section"><h3>AIV${lane.lane} <small>rope_core ${lane.ropeCore}</small></h3>${lane.groups.length ? `<table class="viz2-p0-table"><thead><tr><th>工作项</th><th>Batch</th><th>KV</th></tr></thead><tbody>${lane.groups.map(g => `<tr><td><button class="btn btn-ghost btn-sm" data-p0-pick-item="${g.gIndex}">G${g.gIndex}</button></td><td>${g.batch}</td><td>${g.kvHead}</td></tr>`).join('')}</tbody></table>` : `<p>无有效预处理工作。${lane.ropeCore >= model.ropeCores ? `rope_core ≥ ${model.ropeCores}，跳过工作循环。` : '该 Lane 没有有效工作项。'}</p>`}</section>`).join('')}
+        <section class="viz2-p0-detail-section"><h3>当前 token 的预处理</h3><p>Q/K Norm → RoPE → KV Cache Append。写回旋转后的 Q，并追加当前 token 的 K/V。</p><p>seq_lens 决定 RoPE position，不表示本阶段扫描历史序列。</p></section><section class="viz2-p0-detail-section"><h3>同步后进入 Attention</h3><p>全部 ${model.blocks} Blocks 参与 SYNCALL。</p><code>cacheinvalid → fence<br>→ SYNCALL(MIX)<br>→ cacheinvalid</code></section>`;
+    }
+    function update(selection, nextCamera, { selectionChanged = true, active: nextActive = true } = {}) {
+      const changed = JSON.stringify(current) !== JSON.stringify(selection);
+      current = selection; camera = nextCamera; active = nextActive;
+      if (changed && selectionChanged) inspectorOpen = !!selection;
+      player.setActive(active); paintSelection(); paintCamera();
+      if (selectionChanged || changed || !active) detail();
+    }
+    function fit() { pause(); if (viewport.clientWidth && viewport.clientHeight) onCamera(fitted()); }
+    host.addEventListener('click', event => {
+      if (suppressClick) { suppressClick = false; return; }
+      if (event.target.closest('[data-p0-play]')) { player.toggle(); return; }
+      if (event.target.closest('[data-p0-replay]')) { player.replay(); return; }
+      const state = event.target.closest('[data-p0-state]'); if (state) { player.goTo(state.dataset.p0State === 'assignment' ? 1 : 0); return; }
+      if (event.target.closest('[data-p0-fit]')) { fit(); return; }
+      if (event.target.closest('[data-p0-clear]')) { pause(); inspectorOpen = false; detail(); return; }
+      const item = event.target.closest('[data-p0-item],[data-p0-pick-item]');
+      if (item) { selectItem(Number(item.dataset.p0Item ?? item.dataset.p0PickItem)); return; }
+      const lane = event.target.closest('[data-p0-lane]'), block = event.target.closest('[data-p0-pick-block]');
+      if (lane || block) { pause(); inspectorOpen = true; if (lane) { const l = model.lanes[Number(lane.dataset.p0Lane)]; onSelect({ kind: 'lane', block: l.block, lane: l.lane, ropeCore: l.ropeCore, task: null }); } else onSelect({ kind: 'block', block: Number(block.dataset.p0PickBlock), task: null }); }
+    });
+    host.querySelector('[data-p0-loop]').addEventListener('change', event => player.setLoop(event.target.checked));
+    viewport.addEventListener('pointerover', event => { if (event.target.closest('[data-p0-item],[data-p0-lane],[data-p0-pick-block]')) pause(); });
+    viewport.addEventListener('keydown', event => {
+      pause();
+      const target = event.target.closest('[data-p0-item],[data-p0-lane],[data-p0-pick-block]');
+      if (['Enter', ' '].includes(event.key) && target) { event.preventDefault(); target.dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
+      if (event.key === 'Escape') { onSelect(null); viewport.focus(); return; }
+      const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -model.kvHeads, ArrowDown: model.kvHeads }[event.key];
+      if (delta != null) { event.preventDefault(); const id = Math.max(0, Math.min(model.total - 1, (current?.task ?? 0) + delta)); const batch = Math.floor(id / model.kvHeads), kv = id % model.kvHeads; selectItem(kv * model.activeBatch + batch); itemNodes[kv * model.activeBatch + batch].group.focus(); }
+    });
+    viewport.addEventListener('dblclick', event => { const item = event.target.closest('[data-p0-item]'); if (item) selectItem(Number(item.dataset.p0Item)); else fit(); });
+    viewport.addEventListener('wheel', event => {
+      event.preventDefault(); pause(); const r = viewport.getBoundingClientRect(), c = camera || fitted(), unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? r.height : 1;
+      const factor = Math.exp(Math.max(-.22, Math.min(.22, -event.deltaY * unit * .003))), scale = Math.max(.08, Math.min(6, c.scale * factor)), ratio = scale / c.scale;
+      const x = event.clientX - r.left, y = event.clientY - r.top; onCamera({ scale, x: x - (x - c.x) * ratio, y: y - (y - c.y) * ratio });
+    }, { passive: false });
+    viewport.addEventListener('pointerdown', event => { pause(); if (event.button === 0) { suppressClick = false; drag = { x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, id: event.pointerId, moved: false }; } });
+    viewport.addEventListener('pointermove', event => {
+      if (drag) {
+        if (!drag.moved && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) <= 4) return;
+        drag.moved = true; viewport.setPointerCapture(drag.id); tooltip.hidden = true;
+        const c = camera || fitted(); onCamera({ ...c, x: c.x + event.clientX - drag.x, y: c.y + event.clientY - drag.y }); drag.x = event.clientX; drag.y = event.clientY; return;
+      }
+      const item = event.target.closest('[data-p0-item]'), lane = event.target.closest('[data-p0-lane]'), block = event.target.closest('[data-p0-pick-block]');
+      hovered = item ? Number(item.dataset.p0Item) : null; paintSelection(); tooltip.hidden = !item && !lane && !block;
+      if (!tooltip.hidden) {
+        tooltip.textContent = item ? itemDescription(model.items[hovered]) : lane ? `rope_core ${lane.dataset.p0Lane} · ${model.lanes[Number(lane.dataset.p0Lane)].groups.map(g => `G${g.gIndex}`).join(', ') || '无预处理工作 · 仍参与同步'}` : `Block ${block.dataset.p0PickBlock} · ${model.groupsForBlock(Number(block.dataset.p0PickBlock)).length} 项工作 · 参与 SYNCALL`;
+        const r = viewport.getBoundingClientRect(); tooltip.style.left = `${Math.max(8, Math.min(event.clientX - r.left + 12, r.width - tooltip.offsetWidth - 8))}px`; tooltip.style.top = `${Math.max(8, Math.min(event.clientY - r.top + 18, r.height - tooltip.offsetHeight - 8))}px`;
+      }
+    });
+    viewport.addEventListener('pointerleave', () => { tooltip.hidden = true; hovered = null; paintSelection(); });
+    const endDrag = () => { if (!drag) return; suppressClick = drag.moved; drag = null; };
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => viewport.addEventListener(type, endDrag));
+    const observer = new ResizeObserver(() => {
+      const w = viewport.clientWidth, h = viewport.clientHeight; if (!w || !h || !active) return;
+      if (!camera) onCamera(fitted());
+      else if (lastSize && (w !== lastSize.w || h !== lastSize.h)) { const ratio = fitted().scale / fitted(lastSize.w, lastSize.h).scale; onCamera({ scale: camera.scale * ratio, x: w / 2 + (camera.x - lastSize.w / 2) * ratio, y: h / 2 + (camera.y - lastSize.h / 2) * ratio }); }
+      lastSize = { w, h };
+    });
+    observer.observe(viewport); paintCamera();
+    return { update, hideTooltip: () => { tooltip.hidden = true; }, model, pause, settle: player.settle, get progress() { return player.progress; }, destroy() { player.destroy(); observer.disconnect(); } };
+  }
+  global.PtoVisualization2Phase0 = Object.freeze({ createModel, createLayout, mount });
 })(window);

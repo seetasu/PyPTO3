@@ -3,7 +3,16 @@
   'use strict';
   const NS = 'http://www.w3.org/2000/svg';
   const clamp = value => Math.max(0, Math.min(1, value));
-  const ease = t => t * t * (3 - 2 * t);
+  function partitionWidth(width, count, gap = 1.5) {
+    const cellWidth = (width - gap * (count - 1)) / count;
+    return Array.from({ length: count }, (_, index) => ({ x: index * (cellWidth + gap), width: cellWidth }));
+  }
+  function sequenceSegments(seqLen, width, count, segmentTokens = 512) {
+    return partitionWidth(width, count).map((segment, index) => {
+      const fraction = clamp((seqLen - index * segmentTokens) / segmentTokens);
+      return { ...segment, fraction, fillWidth: segment.width * fraction };
+    });
+  }
   const svg = (tag, attrs, parent) => {
     const node = document.createElementNS(NS, tag);
     for (const [key, value] of Object.entries(attrs || {})) node.setAttribute(key, value);
@@ -67,17 +76,21 @@
     svg('text', { x: 8, y: 30, class: 'viz2-am-axis' }, generation).textContent = 'BATCH';
     svg('text', { x: 80, y: 30, class: 'viz2-am-axis' }, generation).textContent = 'seq_lens';
     const segments = Math.max(1, Math.ceil(Math.max(...seqLens) / 512));
+    // One geometry/fill rule serves both Batch metadata and Task interiors.
+    function drawSequence(parent, len, { x, y, width, height }) {
+      return sequenceSegments(len, width, segments).map(segment => ({
+        track: svg('rect', { x: x + segment.x, y, width: segment.width, height, class: 'kf-pa-map__seq-track' }, parent),
+        fill: svg('rect', { x: x + segment.x, y, width: segment.fillWidth, height, class: 'kf-pa-map__seq-fill' }, parent),
+      }));
+    }
+    const batchSequences = [];
     for (let b = 0; b < batch; b++) {
-      const row = svg('g', { 'data-pa-column': b, 'data-am-batch': b }, generation), y = layout.sources[b * kvHeads].y, len = seqLens[b] || 0;
+      const row = svg('g', { 'data-am-batch': b }, generation), y = layout.sources[b * kvHeads].y, len = seqLens[b] || 0;
       svg('text', { x: 8, y: y + layout.sources[0].h / 2, class: 'viz2-am-batch' }, row).textContent = `B${b}`;
       svg('text', { x: 75, y: y + layout.sources[0].h / 2, class: 'viz2-am-seq' }, row).textContent = len;
       // Keep the sequence snapshot contract used by Anatomy; metadata now follows Batch rows.
       const seq = svg('g', { class: 'kf-pa-map__sequence', 'aria-label': `seq_lens ${len}` }, row);
-      for (let i = 0; i < segments; i++) {
-        const width = 68 / segments, x = 87 + i * width;
-        svg('rect', { x, y: y + layout.sources[0].h / 2 - 3, width: width - 2, height: 6, class: 'kf-pa-map__seq-track' }, seq);
-        svg('rect', { x, y: y + layout.sources[0].h / 2 - 3, width: (width - 2) * clamp((len - i * 512) / 512), height: 6, class: 'kf-pa-map__seq-fill' }, seq);
-      }
+      batchSequences.push({ node: seq, parts: drawSequence(seq, len, { x: 0, y: 0, width: 68, height: 6 }) });
     }
     layout.groups.forEach(group => {
       svg('text', { x: 8, y: group.y + group.height / 2, class: 'viz2-am-group-label', 'data-am-group': group.index }, groupLabels).textContent = group.label;
@@ -88,16 +101,29 @@
       svg('text', { x: r.x + 7, y: r.y + 15, class: 'viz2-am-block-label' }, group).textContent = `BLK ${String(block).padStart(2, '0')}`;
       return group;
     });
+    const qEncodings = [], seqEncodings = [];
     const nodes = layout.sources.map((r, id) => {
       const group = svg('g', { 'data-pa-task': id, 'data-am-kv-column': id % kvHeads, class: 'kf-pa-map__task viz2-am-task', role: 'button', tabindex: id === 0 ? '0' : '-1', 'aria-label': `Task ${id}, Batch ${Math.floor(id / kvHeads)}, KV Head ${id % kvHeads}, Block ${id % blocks}` }, taskLayer);
       svg('rect', { class: 'kf-pa-map__cell', width: r.w, height: r.h, rx: 3 }, group);
-      for (let q = 0; q < qPerKv; q++) svg('rect', { class: 'kf-pa-map__q', x: 4 + q * 8, y: 3, width: 5, height: Math.max(1, r.h - 6), rx: 1 }, group);
+      const inner = { x: 2, y: 2, width: r.w - 4, height: Math.max(1, r.h - 4) };
+      const qLayer = svg('g', { class: 'viz2-am-q-encoding', 'data-am-q-encoding': '', 'aria-hidden': 'true' }, group);
+      const qPitch = inner.width / qPerKv;
+      const qRadius = Math.min(inner.height / 2 - 2, qPitch * .28);
+      for (let q = 0; q < qPerKv; q++) svg('circle', { class: 'kf-pa-map__q', cx: inner.x + (q + .5) * qPitch, cy: r.h / 2, r: Math.max(1, qRadius) }, qLayer);
+      const len = seqLens[Math.floor(id / kvHeads)] || 0;
+      const seqLayer = svg('g', { class: 'viz2-am-seq-encoding', 'data-am-task-sequence': '', 'data-am-seq-len': len, 'aria-hidden': 'true' }, group);
+      if (id % kvHeads === 0) {
+        // The original Batch strip is the KV0 encoding, not an overlay clone.
+        // Keeping data-pa-column on its wrapper preserves Anatomy snapshots.
+        seqLayer.setAttribute('data-pa-column', Math.floor(id / kvHeads));
+        seqLayer.append(batchSequences[Math.floor(id / kvHeads)].node);
+      } else drawSequence(seqLayer, len, inner);
+      qEncodings.push(qLayer); seqEncodings.push(seqLayer);
       svg('text', { x: r.w / 2, y: r.h / 2, class: 'kf-pa-map__task-id' }, group).textContent = id;
       return group;
     });
     const hits = layout.blockRects.map((r, block) => svg('rect', { x: r.x, y: r.y, width: r.w, height: 22, fill: 'transparent', class: 'viz2-am-block-hit', 'data-am-block-hit': block, role: 'button', tabindex: '-1', 'aria-label': `选择 Block ${block}` }, hitLayer));
-    const media = matchMedia('(prefers-reduced-motion: reduce)');
-    let progress = 0, target = 0, running = false, frame = 0, timer = 0, active = false, loop = true, selection = null, held = false;
+    let progress = 0, selection = null;
     const play = host.querySelector('[data-am-play]');
     function describe(p) {
       const assignment = p >= .5;
@@ -120,49 +146,33 @@
       nodes.forEach((node, id) => {
         const from = layout.sources[id], to = layout.targets[id];
         const y = from.y + (to.y - from.y) * progress;
-        // X, size, stripes and label identity are invariant for the whole morph.
+        // Tasks remain in fixed KV columns. Batch strips separately travel into KV0.
         node.setAttribute('transform', `translate(${from.x} ${y})`);
+        qEncodings[id].style.opacity = String(1 - progress);
+        if (id % kvHeads === 0) {
+          const b = Math.floor(id / kvHeads), width = 68 + (from.w - 4 - 68) * progress, height = 6 + (from.h - 4 - 6) * progress;
+          const x = (87 - from.x) * (1 - progress) + 2 * progress;
+          const localY = (from.h / 2 - 3) * (1 - progress) + 2 * progress;
+          seqEncodings[id].style.opacity = '1';
+          seqEncodings[id].setAttribute('transform', `translate(${x} ${localY})`);
+          sequenceSegments(seqLens[b] || 0, width, segments).forEach((segment, i) => {
+            const { track, fill } = batchSequences[b].parts[i];
+            for (const rect of [track, fill]) {
+              rect.setAttribute('x', segment.x); rect.setAttribute('height', height);
+            }
+            track.setAttribute('width', segment.width); fill.setAttribute('width', segment.fillWidth);
+          });
+        } else seqEncodings[id].style.opacity = String(progress);
       });
       describe(progress);
     }
-    function clear() { clearTimeout(timer); cancelAnimationFrame(frame); timer = frame = 0; running = false; }
-    function pause() { clear(); held = true; play.textContent = '播放'; onPause?.(); }
-    function animateTo(next, duration, done) {
-      clear(); target = next;
-      if (media.matches || duration === 0 || progress === next) { draw(next); done?.(); return; }
-      running = true;
-      const start = performance.now(), from = progress;
-      const tick = now => {
-        const t = clamp((now - start) / duration);
-        draw(from + (next - from) * ease(t));
-        if (t < 1) frame = requestAnimationFrame(tick);
-        else { running = false; frame = 0; done?.(); }
-      };
-      frame = requestAnimationFrame(tick);
-    }
-    function schedule() {
-      if (!active || held || !loop || document.hidden) { if (!loop) { held = true; play.textContent = '播放'; } return; }
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        if (!active || held || document.hidden) return;
-        target = progress < .5 ? 1 : 0;
-        animateTo(target, target ? 2800 : 2400, schedule);
-      }, progress < .5 ? 2000 : 3600);
-    }
-    function manual(next) { pause(); animateTo(next, Math.max(300, Math.abs(next - progress) * 1400)); }
-    play.addEventListener('click', () => {
-      if (running || (!held && timer)) { pause(); return; }
-      held = false; play.textContent = '暂停';
-      const next = progress > 0 && progress < 1 ? target : progress === 0 ? 1 : 0;
-      animateTo(next, Math.max(300, Math.abs(next - progress) * 2500), schedule);
-    });
-    host.querySelector('[data-am-replay]').addEventListener('click', () => { clear(); target = 0; draw(0); held = false; play.textContent = '暂停'; schedule(); });
+    const player = global.PtoVisualization2MorphPlayer.create({draw, onChange: state => { play.textContent = state.playing ? '暂停' : '播放'; }});
+    function pause() { player.pause(); onPause?.(); }
+    const manual = next => player.goTo(next);
+    play.addEventListener('click', player.toggle);
+    host.querySelector('[data-am-replay]').addEventListener('click', player.replay);
     host.querySelectorAll('[data-am-state]').forEach(button => button.addEventListener('click', () => manual(button.dataset.amState === 'assignment' ? 1 : 0)));
-    host.querySelector('[data-am-loop]').addEventListener('change', event => {
-      loop = event.target.checked;
-      if (!loop) { clearTimeout(timer); timer = 0; if (!running) { held = true; play.textContent = '播放'; } }
-      else if (active && !held && !running) schedule();
-    });
+    host.querySelector('[data-am-loop]').addEventListener('change', event => player.setLoop(event.target.checked));
     viewport.addEventListener('pointerover', event => { if (event.target.closest('[data-pa-task],[data-pa-block],[data-am-block-hit]')) pause(); });
     let zoom = 1, panX = 0, panY = 0, drag = null, suppressClick = false;
     const camera = () => scene.setAttribute('transform', `translate(${panX} ${panY}) translate(625 300) scale(${zoom}) translate(-625 -300)`);
@@ -189,8 +199,6 @@
     viewport.addEventListener('pointercancel', () => { drag = null; });
     viewport.addEventListener('click', event => { if (suppressClick) { event.stopPropagation(); suppressClick = false; } }, true);
     viewport.addEventListener('keydown', pause);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
-    media.addEventListener('change', () => { if (media.matches) { clear(); draw(progress < .5 ? 0 : 1); } });
     new ResizeObserver(() => {
       const r = viewport.getBoundingClientRect(), unit = Math.min(r.width / layout.width, r.height / layout.height);
       if (unit > 0) scene.style.setProperty('--am-label-size', `${Math.max(12, 11 / unit)}px`);
@@ -204,11 +212,10 @@
       });
       blockNodes.forEach((node, id) => { node.classList.toggle('is-selected', id === selection?.block); node.setAttribute('aria-pressed', String(id === selection?.block)); });
       host.querySelector('[data-am-enter]').hidden = selection?.kind !== 'task';
-      if (!visible) { clear(); active = false; }
-      else if (!active) { active = true; draw(progress < .5 ? 0 : 1); if (!held) schedule(); }
+      player.setActive(visible);
     }
     draw(0);
-    return { update, pause, manual, fit, settle() { clear(); draw(progress < .5 ? 0 : 1); }, get progress() { return progress; }, get viewport() { return viewport; }, get scene() { return scene; }, get tooltip() { return host.querySelector('[role="tooltip"]'); } };
+    return { update, pause, manual, fit, settle: player.settle, get progress() { return progress; }, get viewport() { return viewport; }, get scene() { return scene; }, get tooltip() { return host.querySelector('[role="tooltip"]'); } };
   }
-  global.PtoVisualization2AssignmentMorph = Object.freeze({ mount, createLayout });
+  global.PtoVisualization2AssignmentMorph = Object.freeze({ mount, createLayout, partitionWidth, sequenceSegments });
 })(window);

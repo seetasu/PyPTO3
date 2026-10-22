@@ -11,6 +11,31 @@ const source = context.window.PTO_PAGED_ATTENTION_PYPTO_SOURCE;
 const number = name => Number(source.match(new RegExp(`^${name} = (\\d+)`, 'm'))[1]);
 const config = { batch: number('BATCH'), kvHeads: number('NUM_KV_HEADS'), blocks: number('ATTN_SPMD_BLOCKS') };
 const layout = createLayout(config);
+const { partitionWidth, sequenceSegments } = context.window.PtoVisualization2AssignmentMorph;
+
+test('Q Head partitions equally span the available Task width at different sizes', () => {
+  for (const width of [62, layout.sources[0].w - 4, 180]) {
+    const partitions = partitionWidth(width, 5);
+    assert.equal(partitions.length, 5);
+    assert.equal(new Set(partitions.map(p => p.width)).size, 1);
+    assert.equal(partitions[0].x, 0);
+    assert.ok(Math.abs(partitions.at(-1).x + partitions.at(-1).width - width) < 1e-9);
+    partitions.slice(1).forEach((p, i) => assert.ok(p.x > partitions[i].x + partitions[i].width));
+  }
+});
+
+test('Batch strips and Task interiors use identical 512-token fractions on a shared seven-segment scale', () => {
+  for (const [len, full, partial] of [[512, 1, 0], [1025, 2, 1 / 512], [2048, 4, 0], [3584, 7, 0]]) {
+    const strip = sequenceSegments(len, 68, 7), task = sequenceSegments(len, layout.sources[0].w - 4, 7);
+    assert.equal(task.length, 7);
+    assert.equal(task.filter(s => s.fraction === 1).length, full);
+    assert.equal(task[full]?.fraction || 0, partial);
+    assert.deepEqual(Array.from(strip, s => s.fraction), Array.from(task, s => s.fraction));
+    assert.equal(new Set(task.map(s => s.width)).size, 1);
+    assert.ok(Math.abs(task.reduce((sum, s) => sum + s.fraction * 512, 0) - len) < 1e-9);
+    task.forEach(s => assert.ok(s.fillWidth >= 0 && s.fillWidth <= s.width));
+  }
+});
 
 test('source is 16 Batch rows by 8 persistent KV columns, with no X or size change at the destination', () => {
   assert.equal(layout.sources.length, 128);

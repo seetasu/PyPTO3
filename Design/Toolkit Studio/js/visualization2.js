@@ -130,7 +130,7 @@
     pipelineZoom=window.PtoVisualization2PipelineZoom.create({root,getOuter:()=>pipelineController,getInner:()=>pipelineIntraController});
     semanticZoom=window.PtoVisualization2SemanticZoom.create({root,getMatrix:matrixSnapshot,getAnatomy:()=>anatomyController?.getTransitionSnapshot()});
     phase0Controller = window.PtoVisualization2Phase0.mount(root.querySelector('#viz2-phase0'), {
-      model: phase0Model,
+      model: phase0Model, seqLens,
       onSelect: selection => store.dispatch({type:'select',selection}),
       onCamera: camera => store.dispatch({type:'view',id:'assignment',patch:{phase0Camera:camera}}),
     });
@@ -243,6 +243,10 @@
   }
   function render(state, action) {
     root.hidden=!state.open;
+    phase0Controller?.update(state.selection, state.views.assignment.phase0Camera, {
+      active:state.open && state.activeTab==='assignment' && state.views.assignment.phase==='phase0' && state.views.assignment.subview!=='block',
+      selectionChanged:action.type!=='view',
+    });
     if (!state.open) { assignmentMorph?.update(state.selection,false); return; }
     tabs.forEach(id => { const active=id===state.activeTab, tab=root.querySelector(`[data-viz2-tab="${id}"]`); tab.classList.toggle('is-selected',active); tab.setAttribute('aria-selected',String(active)); tab.tabIndex=active?0:-1; root.querySelector(`#viz2-${id}`).hidden=!active; });
     if (action.type === 'tab') {
@@ -308,6 +312,10 @@
     const detailFocus=inner?assignment.anatomyFocus?.[assignment.anatomyTask]:null;
     const detailName=detailFocus?({q:'Q Tile',output:'Attention Output'}[detailFocus.kind]||`${{page:'Page',stack:'Stack',slot:'Slot'}[detailFocus.kind]} ${detailFocus.index}`):'';
     root.querySelector('[data-viz2-breadcrumb]').textContent=state.selection?.task!=null?`Assignment / Block ${String(state.selection.block).padStart(2,'0')} / Task ${state.selection.task}${detailName?` / ${detailName}`:''}`:'Assignment';
+    if(assignment.phase==='phase0'&&!inner){
+      const s=state.selection,item=s?.kind==='task'?phase0Model.itemFor(s.batch,s.kvHead):null;
+      root.querySelector('[data-viz2-breadcrumb]').textContent=item?`Assignment / Phase0 / Block ${String(item.block).padStart(2,'0')} / AIV${item.lane} / G${item.gIndex}`:s?`Assignment / Phase0 / Block ${String(s.block).padStart(2,'0')}${s.lane==null?'':` / AIV${s.lane}`}`:'Assignment / Phase0';
+    }
     if(inner){
       assignmentMorph?.update(state.selection,false);
       root.querySelector('#viz2-phase0').hidden=true;root.querySelector('#viz2-attention').hidden=true;
@@ -337,7 +345,6 @@
     }
     if (phase === 'phase0') {
       assignmentMorph?.update(state.selection,false);
-      phase0Controller.update(state.selection, state.views.assignment.phase0Camera, {selectionChanged: action.type !== 'view'});
       return;
     }
     assignmentMorph.update(state.selection, state.open && state.activeTab==='assignment' && phase==='attention');
