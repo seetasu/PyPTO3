@@ -121,7 +121,6 @@
 
     let selection = null, view = {}, active = false, camera = null, first = true, lastObjectKey, lastFocusKey = '', inspectorKey = '';
     let hoverNodeId = null;
-    const relationCameras = {};
     let lastNodeClick=null;
     let drag = null, suppressClick = false, lastSize = null, pendingFocus = false;
     const bounds = ids => {
@@ -155,20 +154,6 @@
       // Fit remains explicit. On a later cross-view entry, frame only the mapped objects.
       const scale=Math.max(.01,Math.min((viewport.clientWidth-80)/(box.w+80),(viewport.clientHeight-80)/(box.h+80),.9));
       onView({camera:{scale,x:viewport.clientWidth/2-(box.x+box.w/2)*scale,y:viewport.clientHeight/2-(box.y+box.h/2)*scale}});
-    }
-    function relationCamera(mode) {
-      if (relationCameras[mode]) return relationCameras[mode];
-      const targets = mode === 'state'
-        ? nodes.filter(node => node.type === 'state').sort((a,b)=>a.y-b.y).slice(0,1)
-        : mode === 'sync' ? (() => {
-          const bridge = global.PTO_COMPUTATION_LAYOUT.synchronizationBridges(graph)[0];
-          return bridge ? [nodeMap.get(bridge.producer),nodeMap.get(bridge.consumer)].filter(Boolean) : [];
-        })() : [];
-      const box = bounds(targets.map(node=>node.id));
-      if (!box || !camera) return camera;
-      const scale = Math.min(camera.scale,.8,(viewport.clientWidth-100)/(box.w+100),(viewport.clientHeight-100)/(box.h+100));
-      return {scale,x:viewport.clientWidth/2-(box.x+box.w/2)*scale,
-        y:viewport.clientHeight/2-(box.y+box.h/2)*scale};
     }
     function inspectorHtml(node) {
       const sections=global.PTO_COMPUTATION_PRESENTATION.inspector(node,{model,qualifiedId:node.id});
@@ -264,7 +249,7 @@
       const mode=event.target.closest('[data-viz2-relation-mode]');
       if(mode){
         const current=view.relationMode||'compute',next=mode.dataset.viz2RelationMode;
-        if(current!==next){relationCameras[current]=camera;onView({relationMode:next,camera:relationCamera(next)});}
+        if(current!==next)onView({relationMode:next});
         return;
       }
       const block=event.target.closest('[data-viz2-graph-block]');
