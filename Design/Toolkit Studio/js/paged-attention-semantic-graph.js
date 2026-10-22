@@ -380,6 +380,25 @@
     region('paged-attention', 'Paged Attention', ['cache-append', 'k-cache', 'v-cache', 'qk', 'scores', 'scale-mask', 'softmax', 'probability', 'pv', 'context-acc']),
     region('output-region', 'Output', ['context', 'output-norm', 'output']),
   ] };
+  // 源码中 Phase 0、Softmax 与输出归一化位于 split_aiv；QK / PV 位于 split_aic。
+  // 只给计算节点标执行单元，DATA / STATE 的存储位置仍由 storage 单独描述。
+  const executionUnits = {
+    'q-prep': 'AIV', 'k-prep': 'AIV', 'v-scale': 'AIV', 'cache-append': 'AIV',
+    qk: 'AIC', 'scale-mask': 'AIV', softmax: 'AIV', pv: 'AIC',
+    'context-acc': 'AIV', 'output-norm': 'AIV',
+  };
+  const annotateExecution = (graph, unit) => {
+    for (const item of graph.nodes) {
+      const current = graph === model ? executionUnits[item.id] : unit;
+      if (current && (item.type === 'operation' || item.type === 'composite')) {
+        item[item.type].executionUnit = current;
+        item.provenance.push({ kind: 'resolved', origin: 'source', fields: [`${item.type}.executionUnit`],
+          note: '依据源码中的 split_aic / split_aiv 执行分支归属。' });
+      }
+      if (item.type === 'composite') annotateExecution(item.composite.subgraph, current);
+    }
+  };
+  annotateExecution(model);
   // Execution constraints are orthogonal to the mathematical graph and Journey edges.
   // QK's load/wait boundary precedes Scaling + Mask, even though Softmax is the consumer stage.
   const endpoint = (node, anchor, coreType, pipe, ranges, extra = {}) =>

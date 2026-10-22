@@ -17,7 +17,7 @@ function fixture() {
   const demo = read('demo-v2.js');
   const slice = (a, b) => demo.slice(demo.indexOf(a), demo.indexOf(b, demo.indexOf(a)));
   vm.runInContext(`const pypaOverlays = {shape:true, precision:true, memory:false, control:false}; const pypaEscape = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));\n` +
-    slice('  function pypaComputeCardHtml(node) {', '  // 缩放读数：') +
+    slice('  function pypaComputeCardHtml(node, options = {}) {', '  // 缩放读数：') +
     slice('  function pypaInspectorRows(rows) {', '  /* 总览保留任务执行图') +
     'window.render = {card:pypaComputeCardHtml, inspector:pypaInspectorHtml, layers:pypaOverlays};', context);
   return { w, model, all, graph, render: w.render };

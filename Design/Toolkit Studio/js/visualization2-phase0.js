@@ -89,10 +89,8 @@
       const cell = make('rect', { class: 'viz2-p0-item-cell', rx: 3 }, group);
       const symbols = make('g', { class: 'viz2-p0-item-symbols', 'aria-hidden': 'true' }, group);
       const q = Array.from({ length: model.qPerKv }, () => make('circle', { class: 'viz2-p0-q' }, symbols));
-      const k = make('text', { class: 'viz2-p0-kv-symbol', 'text-anchor': 'middle' }, symbols, 'K');
-      const v = make('text', { class: 'viz2-p0-kv-symbol', 'text-anchor': 'middle' }, symbols, 'V');
       const label = make('text', { class: 'viz2-p0-item-id', 'text-anchor': 'middle', 'dominant-baseline': 'central' }, group, `G${item.gIndex}`);
-      return { group, cell, symbols, q, k, v, label };
+      return { group, cell, symbols, q, label };
     });
     let current = null, camera = null, active = false, inspectorOpen = false, hovered = null;
     let drag = null, suppressClick = false, lastSize = null;
@@ -122,9 +120,8 @@
         n.cell.setAttribute('width', w); n.cell.setAttribute('height', h);
         n.label.setAttribute('x', w / 2); n.label.setAttribute('y', h / 2);
         n.symbols.style.opacity = String(1 - p);
-        const pitch = (w - 6) / (model.qPerKv + 2);
+        const pitch = (w - 6) / model.qPerKv;
         n.q.forEach((q, index) => { q.setAttribute('cx', 3 + (index + .5) * pitch); q.setAttribute('cy', h / 2); q.setAttribute('r', Math.min(h * .2, pitch * .28)); });
-        [n.k, n.v].forEach((text, index) => { text.setAttribute('x', 3 + (model.qPerKv + index + .5) * pitch); text.setAttribute('y', h / 2); });
       });
       host.querySelector('[data-p0-title-state]').textContent = p < .5 ? `Work Generation · ${model.total} Items` : `Block Assignment · ${model.blocks} SPMD Blocks`;
       host.querySelector('[data-p0-formula]').textContent = p < .5 ? `g_idx = KV Head × ${model.activeBatch} + Batch · 每项处理当前 token 的 ${model.qPerKv}Q + K + V` : `rope_core = g_idx % ${model.ropeCores} · Block = ⌊rope_core / ${model.lanesPerBlock}⌋ · 逻辑分组，非物理排列`;

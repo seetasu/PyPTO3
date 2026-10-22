@@ -106,7 +106,7 @@
     return { shape: shape?.text || null, shapeTitle: shape?.title || '',
       valid: view?.valid && view.valid.text !== view.allocated?.text ? view.valid.text : null,
       granularity: payload.granularity ? granularityLabel(payload.granularity) : '',
-      precision, memory: payload.storage?.space || '',
+      precision, memory: payload.storage?.space || '', executionUnit: payload.executionUnit || '',
       control: semantic.type === 'state' || payload.role === 'metadata' || (payload.relations || []).some((entry) => entry.kind === 'control') || incomingTypes.some((type) => ['control', 'state', 'feedback'].includes(type)),
       evidence: (semantic.provenance || []).map((entry) => ({ kind: entry.kind, fields: [...entry.fields], note: entry.note || entry.origin })) };
   }

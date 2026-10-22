@@ -40,11 +40,11 @@
     return { incoming, outgoing };
   }
 
-  function layoutScope(graph, prefix, expanded, childScope) {
+  function layoutScope(graph, prefix, expanded, childScope, options) {
     const nodes = graph.nodes.map((node, index) => {
       const id = fullId(prefix, node.id);
       const inner = node.composite?.subgraph && expanded.has(id)
-        ? layoutScope(node.composite.subgraph, id, expanded, true) : null;
+        ? layoutScope(node.composite.subgraph, id, expanded, true, options) : null;
       const base = nodeSize(node, childScope);
       return { node, id, inner, index,
         boxW: inner ? Math.max(base.w, inner.width + BASE.compositeSide * 2) : base.w,
@@ -99,12 +99,53 @@
     const widest = Math.max(0, ...levels.map((rank) => rowWidth(ranks.get(rank))));
     let width = widest + side * 2;
     let cursorY = top;
-    levels.forEach((rank) => {
-      const row = ranks.get(rank);
-      let cursorX = side + (widest - rowWidth(row)) / 2;
-      row.forEach((item) => { item.x = cursorX; item.y = cursorY; cursorX += item.boxW + columnGap; });
-      cursorY += Math.max(...row.map((item) => item.boxH)) + layerGap;
-    });
+    if (options.flowLayout) {
+      // Find a readable computation spine from graph topology, not operator names.
+      // Feedback and state/control links remain semantic edges, but do not pull the spine sideways.
+      const score = new Map(), previous = new Map();
+      const ordered = nodes.slice().sort((a, b) => a.rank - b.rank || a.index - b.index);
+      ordered.forEach((item) => {
+        const candidates = (incoming.get(item.node.id) || []).map((id) => {
+          const edge = graph.edges.find((entry) => entry.s === id && entry.t === item.node.id && ['data', 'state'].includes(entry.type));
+          return edge ? { id, value: score.get(id) || 0 } : null;
+        }).filter(Boolean).sort((a, b) => b.value - a.value);
+        const weight = item.node.type === 'operation' || item.node.type === 'composite' ? 4 : item.node.type === 'data' ? 2 : 0;
+        score.set(item.node.id, weight + (candidates[0]?.value || 0));
+        if (candidates[0]) previous.set(item.node.id, candidates[0].id);
+      });
+      const end = ordered.filter((item) => item.node.type !== 'state').sort((a, b) =>
+        (score.get(b.node.id) || 0) - (score.get(a.node.id) || 0) || b.rank - a.rank)[0];
+      const spine = new Set();
+      for (let id = end?.node.id; id; id = previous.get(id)) {
+        if (byId.get(id).node.type !== 'state') spine.add(id);
+      }
+      const isStateRail = (item) => item.node.type === 'state' &&
+        (item.node.state?.feedback || graph.edges.some((edge) => edge.type === 'feedback' && (edge.s === item.node.id || edge.t === item.node.id)));
+      const sideRows = levels.map((rank) => ranks.get(rank).filter((item) => !spine.has(item.node.id) && !isStateRail(item)));
+      const sideWidth = Math.max(0, ...sideRows.map(rowWidth));
+      const spineWidth = Math.max(188, ...nodes.filter((item) => spine.has(item.node.id)).map((item) => item.boxW));
+      const center = side + sideWidth + columnGap + spineWidth / 2;
+      const stateX = center + spineWidth / 2 + columnGap * 2;
+      levels.forEach((rank) => {
+        const row = ranks.get(rank), main = row.find((item) => spine.has(item.node.id));
+        const rail = row.filter(isStateRail);
+        const others = row.filter((item) => item !== main && !rail.includes(item));
+        let leftX = center - spineWidth / 2 - columnGap - rowWidth(others);
+        others.forEach((item) => { item.x = leftX; item.y = cursorY; leftX += item.boxW + columnGap; });
+        if (main) { main.x = center - main.boxW / 2; main.y = cursorY; }
+        rail.forEach((item, index) => { item.x = stateX + index * (item.boxW + columnGap); item.y = cursorY; });
+        cursorY += Math.max(...row.map((item) => item.boxH)) + layerGap;
+      });
+      width = Math.max(width, stateX + Math.max(0, ...nodes.filter(isStateRail).map((item) => item.boxW)) + side,
+        center + spineWidth / 2 + side);
+    } else {
+      levels.forEach((rank) => {
+        const row = ranks.get(rank);
+        let cursorX = side + (widest - rowWidth(row)) / 2;
+        row.forEach((item) => { item.x = cursorX; item.y = cursorY; cursorX += item.boxW + columnGap; });
+        cursorY += Math.max(...row.map((item) => item.boxH)) + layerGap;
+      });
+    }
     const regions = (graph.groups || []).map((group) => {
       const members = group.members.map((id) => byId.get(id));
       return { ...group,
@@ -130,7 +171,7 @@
 
   function layout(model, expandedIds = new Set(), options = {}) {
     const expanded = new Set(expandedIds);
-    const hierarchy = layoutScope(model, '', expanded, false);
+    const hierarchy = layoutScope(model, '', expanded, false, options);
     const nodes = [], groups = [], rawEdges = [], opened = new Set();
     const visit = (scope, offsetX, offsetY) => {
       scope.regions.forEach((group) => groups.push({ ...group, x: offsetX + group.x, y: offsetY + group.y }));
@@ -174,7 +215,7 @@
     const right = Math.max(hierarchy.width, ...nodes.map((node) => node.x + node.w), ...groups.map((group) => group.x + group.w));
     const bottom = Math.max(hierarchy.height, ...nodes.map((node) => node.y + (node.groupHeight || node.h)), ...groups.map((group) => group.y + group.h));
     const geometry = routeEdges(nodes, edges, right, options);
-    return { ...model, semantic: model, nodes, edges, groups, opened, edgeRoutes: geometry,
+    return { ...model, semantic: model, nodes, edges, groups, opened, flowLayout: !!options.flowLayout, edgeRoutes: geometry,
       width: Math.max(right + 88, ...geometry.map((route) => route.maxX + 32)), height: bottom + 100 };
   }
 
@@ -217,7 +258,60 @@
   const labelWidth = (text) => [...String(text)]
     .reduce((sum, char) => sum + (/[\u2e80-\u9fff\uff00-\uffef]/.test(char) ? 12 : 6.8), 0) + 12;
 
+  function routeFlowEdges(nodes, edges, rightBound) {
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+    const obstacles = nodes.filter((node) => !node.expandedGroup);
+    const same = (a, b) => Math.abs(a - b) < 0.5;
+    const clear = (points, source, target) => points.slice(1).every((end, index) => {
+      const start = points[index];
+      return obstacles.every((node) => {
+        if (node.id === source.id || node.id === target.id) return true;
+        const left = node.x - 10, right = node.x + node.w + 10;
+        const top = node.y - 10, bottom = node.y + node.h + 10;
+        if (same(start.x, end.x)) return start.x <= left || start.x >= right ||
+          Math.max(start.y, end.y) <= top || Math.min(start.y, end.y) >= bottom;
+        return start.y <= top || start.y >= bottom ||
+          Math.max(start.x, end.x) <= left || Math.min(start.x, end.x) >= right;
+      });
+    });
+    let returnLane = 0;
+    return edges.map((edge) => {
+      const source = byId.get(edge.s), target = byId.get(edge.t);
+      const sx = source.x + source.w / 2, sy = source.y + source.h;
+      const tx = target.x + target.w / 2, ty = target.y;
+      if (edge.type === 'feedback' || ty <= sy + 22) {
+        const lane = rightBound + 32 + returnLane++ * 18;
+        const start = { x: source.x + source.w, y: source.y + source.h / 2 };
+        const end = { x: target.x + target.w, y: target.y + target.h / 2 };
+        const points = [start, { x: lane, y: start.y }, { x: lane, y: end.y }, end];
+        return { points, path: roundedPath(points, EDGE_CORNER_RADIUS), labelX: lane - 10,
+          labelY: (start.y + end.y) / 2, labelAnchor: 'end', maxX: lane };
+      }
+      const middle = (sy + ty) / 2;
+      const direct = [{ x: sx, y: sy }, { x: sx, y: middle }, { x: tx, y: middle }, { x: tx, y: ty }];
+      const candidates = [direct];
+      const upper = sy + Math.min(28, (ty - sy) / 3);
+      const lower = ty - Math.min(28, (ty - sy) / 3);
+      const corridor = obstacles.filter((node) => node.id !== source.id && node.id !== target.id &&
+        node.y < lower && node.y + node.h > upper);
+      const lanes = [sx, tx, ...corridor.flatMap((node) => [node.x - 24, node.x + node.w + 24]),
+        Math.min(source.x, target.x) - 32, Math.max(source.x + source.w, target.x + target.w) + 32];
+      [...new Set(lanes)].forEach((lane) => candidates.push([
+        { x: sx, y: sy }, { x: sx, y: upper }, { x: lane, y: upper },
+        { x: lane, y: lower }, { x: tx, y: lower }, { x: tx, y: ty },
+      ]));
+      const valid = candidates.filter((points) => clear(points, source, target));
+      const cost = (points) => points.slice(1).reduce((sum, point, index) =>
+        sum + Math.abs(point.x - points[index].x) + Math.abs(point.y - points[index].y), 0) + points.length * 12;
+      const points = (valid.length ? valid : candidates.slice(-2)).sort((a, b) => cost(a) - cost(b))[0];
+      const labelY = points.length === 4 ? middle : lower;
+      return { points, path: roundedPath(points, EDGE_CORNER_RADIUS), labelX: tx + 10,
+        labelY: labelY - 8, labelAnchor: 'start', maxX: Math.max(...points.map((point) => point.x)) };
+    });
+  }
+
   function routeEdges(nodes, edges, rightBound, options = {}) {
+    if (options.flowLayout) return routeFlowEdges(nodes, edges, rightBound);
     /* 圆角拐点与带底板标签只在显式开启时生效（matmul 走 model-graphviz 契约），
        其余图保持原有的直角折线与无底板标签读法。 */
     const corner = options.modelGraphviz ? EDGE_CORNER_RADIUS : 0;
@@ -320,6 +414,12 @@
       if (!producer || !consumer) throw new Error(`${event.name}: unresolved synchronization boundary`);
       const sx = producer.x + producer.w / 2, sy = producer.y + producer.h;
       const tx = consumer.x + consumer.w / 2, ty = consumer.y;
+      if (graph.flowLayout) {
+        const route = routeFlowEdges(graph.nodes, [{ s: producer.id, t: consumer.id, type: 'sync' }], right)[0];
+        const x = (route.points[3]?.x ?? producer.x + producer.w) + 16;
+        return { event, producer: producer.id, consumer: consumer.id,
+          x, y: sy + 18, w: 254, h: 48, path: route.path, maxX: Math.max(route.maxX, x + 254) };
+      }
       const lane = right + 24 + event.eventId * 12;
       return { event, producer: producer.id, consumer: consumer.id,
         x: producer.x + producer.w + 24, y: sy + 22, w: 254, h: 48,

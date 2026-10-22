@@ -14,7 +14,6 @@
 .viz2-p0-morph .viz2-p0-item-id { fill:var(--foreground); font-weight:600; paint-order:stroke fill; stroke:var(--surface-2); stroke-width:2; stroke-linejoin:round; }
 .viz2-p0-morph .viz2-p0-item-symbols { pointer-events:none; }
 .viz2-p0-morph .viz2-p0-q { fill:var(--foreground); fill-opacity:.08; }
-.viz2-p0-morph .viz2-p0-kv-symbol { fill:var(--foreground-muted); dominant-baseline:central; }
 .viz2-p0-morph .viz2-p0-item.is-assigned .viz2-p0-item-cell { fill:var(--state-selected); }
 .viz2-p0-morph .viz2-p0-item:is(.is-selected,.is-hovered,:focus-visible) .viz2-p0-item-cell { fill:var(--state-focus); stroke:var(--primary); stroke-width:1.5; vector-effect:non-scaling-stroke; }
 .viz2-p0-morph .viz2-p0-item:is(.is-selected,.is-hovered) .viz2-p0-q { fill:var(--primary); fill-opacity:.3; }
