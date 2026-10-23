@@ -107,9 +107,9 @@
       svg('rect', { class: 'kf-pa-map__cell', width: r.w, height: r.h, rx: 3 }, group);
       const inner = { x: 2, y: 2, width: r.w - 4, height: Math.max(1, r.h - 4) };
       const qLayer = svg('g', { class: 'viz2-am-q-encoding', 'data-am-q-encoding': '', 'aria-hidden': 'true' }, group);
-      const qPitch = inner.width / qPerKv;
-      const qRadius = Math.min(inner.height / 2 - 2, qPitch * .28);
-      for (let q = 0; q < qPerKv; q++) svg('circle', { class: 'kf-pa-map__q', cx: inner.x + (q + .5) * qPitch, cy: r.h / 2, r: Math.max(1, qRadius) }, qLayer);
+      const qPitch = Math.min(9, (inner.width - 36) / qPerKv);
+      const qRadius = Math.min(2.5, inner.height / 2 - 2, qPitch * .28);
+      for (let q = 0; q < qPerKv; q++) svg('circle', { class: 'kf-pa-map__q', cx: 5 + (q + .5) * qPitch, cy: r.h / 2, r: Math.max(1, qRadius) }, qLayer);
       const len = seqLens[Math.floor(id / kvHeads)] || 0;
       const seqLayer = svg('g', { class: 'viz2-am-seq-encoding', 'data-am-task-sequence': '', 'data-am-seq-len': len, 'aria-hidden': 'true' }, group);
       if (id % kvHeads === 0) {
@@ -119,7 +119,7 @@
         seqLayer.append(batchSequences[Math.floor(id / kvHeads)].node);
       } else drawSequence(seqLayer, len, inner);
       qEncodings.push(qLayer); seqEncodings.push(seqLayer);
-      svg('text', { x: r.w / 2, y: r.h / 2, class: 'kf-pa-map__task-id' }, group).textContent = id;
+      svg('text', { x: r.w - 20, y: r.h / 2, 'text-anchor': 'middle', class: 'kf-pa-map__task-id' }, group).textContent = id;
       return group;
     });
     const hits = layout.blockRects.map((r, block) => svg('rect', { x: r.x, y: r.y, width: r.w, height: 22, fill: 'transparent', class: 'viz2-am-block-hit', 'data-am-block-hit': block, role: 'button', tabindex: '-1', 'aria-label': `选择 Block ${block}` }, hitLayer));

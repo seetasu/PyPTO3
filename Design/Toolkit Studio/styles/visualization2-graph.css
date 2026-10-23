@@ -4,11 +4,20 @@
 .viz2-graph-stage { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .viz2-graph-viewport { position: relative; inset: auto; flex: 1; min-height: 0; min-width: 0; overflow: hidden; touch-action: none; }
 .viz2-graph-scene { user-select: none; }
-.viz2-graph-footer { display: flex; flex: none; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-5); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.viz2-graph-footer { display: flex; flex: none; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); color: var(--foreground-secondary); font: var(--type-body-sm); }
+.viz2-graph-footer__controls {display:flex;align-items:center;gap:var(--space-2);flex:none;}
+.viz2-graph-layer-menu {position:relative;}
+.viz2-graph-layer-menu > summary {list-style:none;cursor:pointer;padding:5px 9px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--foreground);}
+.viz2-graph-layer-menu > summary::-webkit-details-marker {display:none;}
+.viz2-graph-layer-menu__content {position:absolute;right:0;bottom:calc(100% + 8px);z-index:10;display:grid;grid-template-columns:1fr;gap:var(--space-1);padding:var(--space-2);min-width:180px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface-2);box-shadow:var(--shadow-md);}
+.viz2-graph-layer-menu__content [data-viz2-graph-layer] {display:flex;align-items:center;justify-content:flex-start;gap:var(--space-2);width:100%;background:transparent;color:var(--foreground);box-shadow:none;}
+.viz2-graph-layer-menu__content [data-viz2-graph-layer]::before {content:"";display:inline-block;width:16px;flex:none;}
+.viz2-graph-layer-menu__content [data-viz2-graph-layer][aria-pressed="true"]::before {content:"✓";}
+.viz2-graph-layer-menu__content [data-viz2-graph-layer]:is(.is-selected,:hover,:active) {background:transparent;color:var(--foreground);box-shadow:none;}
 .viz2-graph .kf-pypa-graph__node.is-viz2-related { box-shadow: 0 0 0 2px var(--focus-ring); }
 .viz2-graph .kf-pypa-graph__edge.is-viz2-related { opacity: 1; stroke-width: 3; }
 .viz2-graph .kf-pa-map__tooltip { max-width: min(360px, calc(100% - 16px)); }
-.viz2-graph-inspector { flex: 0 0 300px; min-width: 0; margin: var(--space-2) var(--space-3) var(--space-3) 0; }
+.viz2-graph-inspector { flex: 0 0 clamp(270px,28vw,340px); min-width: 0; min-height:0; margin: var(--space-2) var(--space-3) var(--space-3) 0; }
 .viz2-graph-inspector .pto-ide-frame__pane-header { justify-content: space-between; }
 .viz2-graph-inspector .pto-ide-frame__pane-header b { min-width: 0; font: var(--type-title-3); }
 .viz2-graph-inspector .pto-ide-frame__pane-body { padding: var(--space-3) var(--space-4); overflow: auto; font: var(--type-body); }
@@ -19,9 +28,14 @@
 .viz2-graph-inspector dt { color: var(--foreground-muted); font: var(--type-body-sm); margin-top: var(--space-2); }
 .viz2-graph-inspector dd { margin: var(--space-1) 0 var(--space-3); color: var(--foreground-secondary); }
 .viz2-graph-inspector summary { cursor: pointer; color: var(--foreground-secondary); }
+.viz2-graph-inspector .viz2-inspector-core p {margin:0;color:var(--foreground);line-height:1.5;overflow-wrap:anywhere;}
+.viz2-graph-inspector .viz2-inspector-core h3 {color:var(--foreground-muted);font:var(--type-label);}
+.viz2-graph-inspector .viz2-inspector-details {padding:var(--space-3) 0;border-top:1px solid var(--border-subtle);}
+.viz2-graph-inspector .viz2-inspector-details > summary {font:var(--type-label);color:var(--foreground);}
+.viz2-graph-inspector .viz2-inspector-details[open] > summary {margin-bottom:var(--space-3);}
 @media (max-width: 900px) {
-  .viz2-graph-body { position: relative; }
-  .viz2-graph-inspector { position: absolute; right: 0; top: 0; bottom: 0; width: min(300px, 80%); z-index: 5; }
+  .viz2-graph-inspector { flex-basis: min(280px,42vw); }
+  .viz2-graph-footer [data-viz2-graph-context] {display:none;}
 }
 
 /* Screen-space titles stay attached to their nodes at every zoom level. */
