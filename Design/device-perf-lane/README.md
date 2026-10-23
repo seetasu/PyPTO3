@@ -149,6 +149,29 @@ node Design/device-perf-lane/scripts/build_perf_lane.mjs
 8. 编译期一侧来自 pass dump；64 个叶子 kernel 与设备 `name_map` 完全对应，86 个 task 的 `block_num` 与编译期 `core_num` 全部一致。43 个任务由 `pl.submit` 提交，本来就没有 `core_num`，表里标为「submit 无」。
 9. 只有一次 decode 的 trace，没有基线可比；所有「多/少」都是同一次运行内部的横比。
 
+## 关注点的 Pass 分析
+
+物理核视图的系统推荐中，`csa_merge_pack_publish` 卡片下有「查看 Pass 分析」入口。打开后按 P29 → P30 → P35 → P50 展示流水请求、循环降低、缓冲复用与通信 Fence 插入；P30 / P35 / P50 提供前后快照，P35 可展开完整 PH-MR-001 告警及 PTO 源码位置映射。代码摘录保留原文件行号，文件链接打开本次运行的原始归档。
+
+面板的跨度、Setup 占比与计算核时取自当前 rank；编译证据为该 run 的固定摘录，不随 rank 改变。这里只展示编译行为和诊断线索，尚未证明它们造成高 Setup，也没有估算优化收益。
+
+`qr_hadamard_matmul` 与 `qr_hadamard_quant` 同样提供「查看 Pass 分析」入口：
+
+- Matmul：前端 64 行切分 → P11 / P17 的 tile 规模 → P19 的 Mat / Left / Right 空间与最终布局 → PH001 输入搬运告警及 C++ 指令。
+- Quant：前端两轮读取 → P11 的加载与舍入转换链 → P35 缓冲复用 → 最终布局、读写粒度告警及 C++ 两轮加载。
+
+两类分析用表格展示静态形状、数据路径、字节数和布局，关联原始告警与 PTO 源码位置；运行摘要显示当前 rank 的平均计算并行度和最慢 / 平均块比值。静态字节数、粒度建议不能当作实际 GM 流量、带宽或慢块原因。
+
+三个 kernel 的任务详情抽屉也提供同一入口，即使切换 rank 后未进入推荐前五，仍可从泳道选中该任务打开；关闭分析后返回原来的任务详情。推荐卡片入口则返回对应卡片。
+
+`pass-analysis.css` 为局部样式，`data/pass-analysis.js` 是可直接在 `file://` 下加载的证据数据，无需网络请求。更新归档或摘录范围后运行：
+
+```bash
+node Design/device-perf-lane/scripts/build_pass_analysis.mjs
+```
+
+该脚本只生成按 kernel 索引的 Pass 证据文件，不重建性能 trace、不改写页面内联数据。摘录范围与解释为人工策划，归档变化后需重新核对。
+
 ## 相关
 
 - `Design/parallel-lane` —— 编译期并行结构线，本工具的编译期数据来源。
