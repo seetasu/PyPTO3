@@ -1127,8 +1127,6 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
     + (!byTask ? `<label class="metric-select" title="按 Task 特征筛选并按 kernel 归组，规则是当前 trace 内的筛查线索">Task 分布<select id="task-layer" class="ctl" aria-label="Task 分布特征">`
       + TASK_LAYERS.map(([v, label]) => `<option value="${v}"${taskLayer === v ? " selected" : ""}>${label}</option>`).join("")
       + `</select></label>` : "")
-    + (!byTask && taskLayer !== "none" ? `<span class="zoom-help" title="${esc(taskAnalysis.label)}">${taskAnalysis.groups.length} 个 kernel 组 · ${taskAnalysis.count} 个 Task</span>` : "")
-    + `<span class="zoom-help">Ctrl + 滚轮缩放 · 缩放后拖动平移</span>`
     + (laneRange ? `<button type="button" class="ctl" data-zoom-reset title="恢复完整时间范围">复位 ×${(win / viewWin).toFixed(1)}</button>` : "")
     + `<label class="metric-select">着色<select id="lane-color" class="ctl" aria-label="泳道数据着色方式">`
     + `<option value="none"${laneColor === "none" ? " selected" : ""}>候选任务</option>`
