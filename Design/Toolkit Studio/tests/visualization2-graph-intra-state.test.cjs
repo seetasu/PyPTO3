@@ -41,3 +41,18 @@ test('Task Stack evolution follows source-backed state versions and delayed FIFO
     assert.equal(w.PtoVisualization2GraphIntra.stackEvolution(task, count), null);
   }
 });
+
+test('Page instances project Stack ownership and distinguish PV init from accumulation',()=>{
+ const w=load();
+ for(const count of [1,9,17,28]){
+  const task={pages:Array.from({length:count},(_,index)=>({index,tokens:index===count-1?1:128})),stacks:Array.from({length:Math.ceil(count/4)},(_,index)=>({index,pages:Array.from({length:Math.min(4,count-index*4)},(_,offset)=>index*4+offset)}))};
+  const qk=w.PtoVisualization2GraphIntra.pageInstances(task,'qk'),pv=w.PtoVisualization2GraphIntra.pageInstances(task,'pv/matmul');
+  assert.equal(qk.flatMap(s=>s.pages).length,count);
+  assert.ok(qk.flatMap(s=>s.pages).every(p=>p.api==='pl.matmul'));
+  assert.equal(pv.flatMap(s=>s.pages).filter(p=>p.api==='pl.matmul').length,task.stacks.length);
+  assert.equal(pv.flatMap(s=>s.pages).filter(p=>p.api==='pl.matmul_acc').length,count-task.stacks.length);
+  assert.equal(pv.at(-1).pages.at(-1).tokens,1);
+  assert.equal(task.pages[0].physicalId,undefined);
+  for(const page of [...qk.flatMap(s=>s.pages),...pv.flatMap(s=>s.pages)])assert.ok(w.PTO_PAGED_ATTENTION_PYPTO_SOURCE.includes(page.sourceSymbol+' = '+page.api),page.sourceSymbol);
+ }
+});

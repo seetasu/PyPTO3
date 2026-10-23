@@ -47,9 +47,11 @@
       const inner = node.composite?.subgraph && expanded.has(id)
         ? layoutScope(node.composite.subgraph, id, expanded, true, options) : null;
       const base = nodeSize(node, childScope, options);
+      const footprint = inner ? {right:0,bottom:0} : options.executionFootprints?.[id] || {right:0,bottom:0};
       return { node, id, inner, index,
-        boxW: inner ? Math.max(base.w, inner.width + BASE.compositeSide * 2) : base.w,
-        boxH: inner ? BASE.compositeHeader + inner.height + BASE.compositeBottom : base.h };
+        footprint, frontW:base.w, frontH:base.h,
+        boxW: inner ? Math.max(base.w, inner.width + BASE.compositeSide * 2) : base.w + footprint.right,
+        boxH: inner ? BASE.compositeHeader + inner.height + BASE.compositeBottom : base.h + footprint.bottom };
     });
     const byId = new Map(nodes.map((item) => [item.node.id, item]));
     if (!nodes.length) return { graph, prefix, nodes, regions: [], width: 120, height: 90 };
@@ -221,8 +223,8 @@
         const id = item.id;
         // 投影需要 model 才能解析常量与运行时维度；几何仍只由语义节点决定。
         nodes.push({ ...root.PTO_COMPUTATION_PRESENTATION.node(node, { id, parentId: scope.prefix || undefined, model }),
-          x: offsetX + item.x, y: offsetY + item.y, w: item.boxW,
-          h: item.inner ? 42 : item.boxH,
+          x: offsetX + item.x, y: offsetY + item.y, w: item.inner ? item.boxW : item.frontW,
+          h: item.inner ? 42 : item.frontH, executionFootprint:item.footprint,
           childOperation: !!scope.prefix, expandable: !!node.composite?.subgraph,
           expandedGroup: !!item.inner, groupWidth: item.inner ? item.boxW : undefined,
           groupHeight: item.inner ? item.boxH : undefined,
@@ -301,7 +303,7 @@
 
   function routeFlowEdges(nodes, edges, rightBound, options = {}) {
     const byId = new Map(nodes.map((node) => [node.id, node]));
-    const obstacles = nodes.filter((node) => !node.expandedGroup);
+    const obstacles = nodes.filter((node) => !node.expandedGroup).map(node=>({...node,w:node.w+(node.executionFootprint?.right||0),h:node.h+(node.executionFootprint?.bottom||0)}));
     const clearance = options.overviewLayout ? 3 : 10;
     const same = (a, b) => Math.abs(a - b) < 0.5;
     const clear = (points, source, target) => points.slice(1).every((end, index) => {

@@ -50,7 +50,7 @@
     targets.innerHTML = model.lanes.map(lane => `<button class="viz2-pipeline-target" type="button" data-bem-block="${lane.block}" aria-label="Pipeline Block ${String(lane.block).padStart(2,'0')}，${lane.tasks.length} Tasks" aria-pressed="false"></button>
       ${lane.tasks.map(task => `<button class="viz2-pipeline-target" type="button" data-bem-task="${task.id}" aria-label="${taskDescription(task)}，末尾 Output Normalize 和 BF16 Store" aria-pressed="false"></button>`).join('')}`).join('');
     let selection = null, camera = null, layout = null, drag = null, suppressClick = false, hover = null, active = false;
-    let selectionKey = '', focusOnNextPaint = false, transitionMasked = false, semanticTaskMask = null, doubleCandidate = null;
+    let selectionKey = '', focusOnNextPaint = false, transitionMasked = false, transitionFocusBlock = null, semanticTaskMask = null, doubleCandidate = null;
     const tooltip = document.createElement('div');
     tooltip.className = 'pto-swimlane-task-tooltip viz2-pipeline-tooltip'; tooltip.setAttribute('role','tooltip');
     const tooltipController = pattern.initHoverTooltip({ root: viewport, targets: '[data-bem-task], [data-bem-block]',
@@ -139,7 +139,7 @@
       ctx.save();ctx.beginPath();ctx.rect(layout.taskX,layout.header,Math.max(0,layout.width-layout.taskX),layout.height-layout.header);ctx.clip();
       positions().forEach(rect=>{
         const task=rect.task, selected=selection?.kind==='task'&&selection.task===task.id, related=selection?.block===task.block;
-        if (!transitionMasked && semanticTaskMask !== task.id) global.PtoVisualization2TaskEncoding.draw(ctx,{task,...rect,
+        if (!transitionMasked && transitionFocusBlock !== task.block && semanticTaskMask !== task.id) global.PtoVisualization2TaskEncoding.draw(ctx,{task,...rect,
           colors:{track:color('--surface-4'),fill:color('--primary'),page:color('--surface-2'),text:fg,label:color('--surface-2')},
           selected,related,hovered:hover===task.id,fontFamily:mono});
         // One Output cap belongs to this Task. No synthesized IN/OUT timing segments.
@@ -152,13 +152,12 @@
       host.querySelector('[data-bem-scale]').textContent=`${Math.round(camera.scale*100)}%`;
     }
     function updateInspector() {
-      inspector.hidden=!selection;
-      if(!selection)return;
-      const task=selection.kind==='task'?model.tasks[selection.task]:null, lane=model.lanes[selection.block];
+      inspector.hidden=!selection||selection.kind==='task';
+      if(inspector.hidden)return;
+      const lane=model.lanes[selection.block];
       if(!lane){inspector.hidden=true;return;}
-      host.querySelector('[data-bem-title]').textContent=task?`Task ${task.id}`:`Block ${String(lane.block).padStart(2,'0')}`;
-      detail.innerHTML=task?`<dl class="viz2-pipeline-facts"><dt>Task ID</dt><dd>${task.id}</dd><dt>Block</dt><dd>${String(task.block).padStart(2,'0')}</dd><dt>Batch</dt><dd>${task.batch}</dd><dt>KV Head</dt><dd>${task.kvHead}</dd><dt>Seq Len</dt><dd>${task.seqLen} tokens</dd><dt>Stacks</dt><dd>${task.stacks}</dd></dl><section><h3>Attention</h3><p>${task.pages} Pages → ${task.stacks} Stacks<br>每 Stack ${model.stackTokens} tokens</p></section><section><h3>该 Task 的 Output</h3><p>Normalize：o / l_sum<br>转换为 BF16，写回对应 Batch / Q Head 的输出位置。</p></section><section><h3>Block 内逻辑顺序</h3><p>Task ${lane.tasks.map(t=>t.id).join(' → ')}</p><p>这些 Task 属于同一 SPMD Block 内的循环工作项。</p></section>`
-        :`<section><h3>Phase0</h3><p>${lane.phase0Groups?`${lane.phase0Lanes.length} 条 AIV Lane · ${lane.phase0Groups} 组预处理`:'无有效预处理工作'}<br>参与 SYNCALL 后进入 Attention。</p>${selection.kind==='lane'?`<p>保留 Assignment 焦点：AIV Lane ${selection.lane}</p>`:''}</section><section><h3>Attention · stride ${model.blocks}</h3><p>${lane.tasks.length} Tasks · ${lane.totalStacks} Stacks</p><div class="viz2-pipeline-task-list">${lane.tasks.map(t=>`<button class="btn btn-ghost btn-sm" type="button" data-bem-select="${t.id}">Task ${t.id}<span>${t.stacks} Stacks</span></button>`).join('')}</div></section><section><h3>Output</h3><p>每个 Task 末尾独立 Normalize 并以 BF16 写回；图中的 N↓ 为等宽符号。</p></section>`;
+      host.querySelector('[data-bem-title]').textContent=`Block ${String(lane.block).padStart(2,'0')}`;
+      detail.innerHTML=`<section><h3>Phase0</h3><p>${lane.phase0Groups?`${lane.phase0Lanes.length} 条 AIV Lane · ${lane.phase0Groups} 组预处理`:'无有效预处理工作'}<br>参与 SYNCALL 后进入 Attention。</p>${selection.kind==='lane'?`<p>保留 Assignment 焦点：AIV Lane ${selection.lane}</p>`:''}</section><section><h3>Attention · stride ${model.blocks}</h3><p>${lane.tasks.length} Tasks · ${lane.totalStacks} Stacks</p><div class="viz2-pipeline-task-list">${lane.tasks.map(t=>`<button class="btn btn-ghost btn-sm" type="button" data-bem-select="${t.id}">Task ${t.id}<span>${t.stacks} Stacks</span></button>`).join('')}</div></section><section><h3>Output</h3><p>每个 Task 末尾独立 Normalize 并以 BF16 写回；图中的 N↓ 为等宽符号。</p></section>`;
     }
     function selectTask(id) {const task=model.tasks[id];if(task)onSelect({kind:'task',task:id,block:task.block,batch:task.batch,kvHead:task.kvHead});}
     function update(nextSelection,nextCamera,options={}) {
@@ -209,9 +208,15 @@
       if (!layout || !active) return null;
       const r=canvas.getBoundingClientRect(), v=viewport.getBoundingClientRect();
       const rect=(x,y,width,height)=>({x:r.left+x,y:r.top+y,width,height});
+      const mono=color('--font-mono')||getComputedStyle(host).fontFamily;
       return {clip:{x:v.left+layout.taskX,y:v.top+layout.header,width:Math.max(0,v.width-layout.taskX),height:Math.max(0,v.height-layout.header)},
         blocks:model.lanes.map(lane=>({id:lane.block,rect:rect(layout.labelX,layout.header+lane.block*layout.row,30,layout.row)})),
-        tasks:positions().map(p=>({id:p.task.id,batch:p.task.batch,task:p.task,rect:rect(p.x,p.y,p.width,p.height),output:rect(p.outputX,p.y,p.outputWidth,p.height)}))};
+        tasks:positions().map(p=>{
+          const size=Math.min(11,Math.max(7,(p.width-3)/String(p.task.id).length/.62));
+          ctx.font=`${size}px ${mono}`;
+          return {id:p.task.id,batch:p.task.batch,task:p.task,rect:rect(p.x,p.y,p.width,p.height),
+            output:rect(p.outputX,p.y,p.outputWidth,p.height),label:{size,width:ctx.measureText(String(p.task.id)).width,fontFamily:mono}};
+        })};
     }
     function ensureTransitionBlockVisible(block) {
       if (!layout || !active || !model.lanes[block]?.tasks.length) return false;
@@ -220,7 +225,9 @@
         viewport.scrollTop = Math.max(0, top - Math.max(layout.header, (viewport.clientHeight - layout.row) / 2));
       return true;
     }
-    return {update,getTransitionSnapshot,ensureTransitionBlockVisible,setSemanticTaskMask(id){semanticTaskMask=id;paint();},setTransitionMasked(value){transitionMasked=value;paint();},hideTooltip:()=>pattern.hideTooltip(tooltip),model,destroy:()=>tooltipController.destroy()};
+    return {update,getTransitionSnapshot,ensureTransitionBlockVisible,
+      setTransitionFocusBlock(block){transitionFocusBlock=block;paint();},
+      setSemanticTaskMask(id){semanticTaskMask=id;paint();},setTransitionMasked(value){transitionMasked=value;paint();},hideTooltip:()=>pattern.hideTooltip(tooltip),model,destroy:()=>tooltipController.destroy()};
   }
   global.PtoVisualization2Pipeline=Object.freeze({createModel,mount});
 })(window);

@@ -3,11 +3,12 @@
 .viz2-assignment-hud nav { color: var(--foreground-secondary); font: var(--type-body-sm); }
 .viz2-anatomy { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
 .viz2-anatomy-taskbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-5); padding: var(--space-2) var(--space-5); font: var(--type-body-sm); color: var(--foreground-secondary); }
-.viz2-anatomy-taskbar [role="group"] { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.viz2-anatomy-taskbar > button { margin-left:auto; }
+.viz2-anatomy-taskbar > span { color:var(--foreground-muted); }
 .viz2-anatomy-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .viz2-anatomy-stage { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; }
-.viz2-anatomy-viewport { position: relative; flex: 1; min-height: 120px; overflow: hidden; touch-action: none; cursor: grab; }
-.viz2-anatomy-svg { display: block; width: 100%; height: 100%; user-select: none; }
+.viz2-anatomy-viewport { position: relative; flex: 1; min-height: 120px; overflow: hidden; touch-action: pan-y; cursor: grab; }
+.viz2-anatomy-svg { display:block; width:100%; flex:none; user-select:none; }
 .viz2-anatomy-svg text { font: var(--type-mono); font-size: var(--anatomy-font,12px); fill: var(--foreground); pointer-events: none; }
 .viz2-anatomy-svg .viz2-anatomy-heading { font-family: var(--font-sans); font-weight: 650; }
 .viz2-anatomy-svg .viz2-anatomy-muted { fill: var(--foreground-secondary); }
@@ -48,3 +49,33 @@
   .viz2-anatomy-inspector { position: absolute; right: 0; top: 0; bottom: 52px; width: min(280px,75%); z-index: 5; }
   .viz2-anatomy-footer { padding-inline: var(--space-3); }
 }
+
+/* Q is a fixed structural reference. Only the persistent KV card track moves. */
+.viz2-anatomy-workspace { position:relative; display:flex; flex:1; min-height:0; min-width:0; gap:var(--space-5); padding:var(--space-4) var(--space-5); }
+.viz2-anatomy-query { flex:0 0 clamp(150px,19%,220px); align-self:center; min-width:0; color:var(--foreground-secondary); font:var(--type-body-sm); }
+.viz2-anatomy-query h3 { color:var(--foreground); font:var(--type-title-3); }
+.viz2-anatomy-query b { display:block; margin-top:var(--space-4); }
+.viz2-anatomy-query p { line-height:1.6; }
+.viz2-anatomy-query > p { margin-top:var(--space-5); color:var(--foreground-muted); }
+.viz2-anatomy-viewport { mask-image:linear-gradient(to right,transparent,#000 7%,#000 93%,transparent); }
+.viz2-anatomy-track { position:absolute; top:var(--space-2); bottom:var(--space-2); left:0; width:100%; will-change:transform; }
+.viz2-anatomy-card { position:absolute; top:0; bottom:0; display:flex; flex-direction:column; min-height:0; box-sizing:border-box; padding:var(--space-4); border-radius:var(--radius-lg); background:var(--surface-2); overflow:hidden; }
+.viz2-anatomy-card.is-current { background:var(--surface-3); }
+.viz2-anatomy-card header { flex:none; padding:0 var(--space-2) var(--space-3); }
+.viz2-anatomy-card h3 { margin:0 0 var(--space-2); color:var(--foreground); font:var(--type-title-3); }
+.viz2-anatomy-card header p { margin:var(--space-1) 0; font:var(--type-body-sm); color:var(--foreground-secondary); }
+.viz2-anatomy-cache-scroll { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding:var(--space-1); touch-action:pan-y; }
+.viz2-anatomy-card .viz2-anatomy-stack-boundary { fill:var(--surface-2); }
+.viz2-anatomy-card .viz2-anatomy-svg { min-width:0; }
+.viz2-anatomy-footer { flex-wrap:wrap; }
+.viz2-anatomy-footer .kf-pa-map__tools { margin-left:auto; }
+@media(max-width:900px) {
+  .viz2-anatomy-workspace { gap:var(--space-2); padding-inline:var(--space-3); }
+  .viz2-anatomy-query { flex-basis:150px; }
+  .viz2-anatomy-footer small { display:none; }
+  .viz2-anatomy-card { padding:var(--space-2); }
+}
+
+#viz2-assignment:has(#viz2-anatomy:not([hidden])) > .viz2-phase-toolbar { display:none; }
+.viz2-anatomy-card.is-before header { text-align:right; }
+.viz2-anatomy-viewport { overflow:clip; }

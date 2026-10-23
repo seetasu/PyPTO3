@@ -2162,7 +2162,7 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
     const data = pypaExecutionData(), entry = data?.nodes[node.id];
     if (!entry) return '';
     const rows = [
-      { label: '统计范围', value: `整个 Task ${data.task} · seq_len = ${data.seqLen} · AIV lane 合并计数` },
+      { label: '统计范围', value: `整个 Task ${data.task} · seq_len = ${data.seqLen} · AIC / 每 AIV Lane 分别计数` },
       { label: '阶段执行量', value: entry.label },
       { label: 'Page / Stack', value: `ceil(${data.seqLen} / ${data.pageTokens}) = ${data.pages} Pages；ceil(${data.pages} / ${data.pagesPerStack}) = ${data.stacks} Stacks` },
       { label: 'Pipeline ticks', value: `${data.stacks} + PRE_LAUNCH (${data.preLaunch}) = ${data.ticks}；QK / Softmax 在生产阶段，PV / Accumulate 在延迟消费阶段` },
@@ -2180,37 +2180,30 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       const node = nodes.find((item) => item.id === element.dataset.pypaNode);
       element.classList.remove('has-execution-badge', 'has-execution-title');
       if (node) element.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${entry ? `，整个 Task ${data.task}：${entry.label}` : ''}`);
-      if (!entry || !node) return;
-      const inline = node.expandedGroup || node.childOperation;
-      element.classList.add(inline ? 'has-execution-title' : 'has-execution-badge');
+      if (!entry || !node || !window.PtoPagedAttentionExecution.decoration(node,data)) return;
+      element.classList.add('has-execution-badge');
       const badge = document.createElement('span');
-      badge.dataset.pypaExecutionCount = element.dataset.pypaNode;
+      badge.dataset.pypaExecutionCount = node.id;
       badge.className = 'kf-pypa-graph__execution-count';
-      badge.textContent = entry.label;
-      badge.title = `整个 Task ${data.task} · seq_len ${data.seqLen} · ${node.id.startsWith('pv') ? '逻辑 Page 贡献；matmul 与 matmul_acc 次数见节点详情 · ' : ''}源码与样例输入推导`;
-      badge.setAttribute('aria-hidden', 'true');
-      const head = element.querySelector('.kf-pypa-graph__node-head');
-      (inline ? head.querySelector('b') : head).appendChild(badge);
-      // Grounded child operations only. The front card is instance 1; every
-      // remaining logical instance gets its own underlay, without new graph nodes.
-      if (!node.childOperation || node.type !== 'operation' || entry.count <= 1) return;
+      badge.textContent = `×${entry.count}`;
+      badge.title = `${entry.unit} · ${entry.formula || entry.label} · 查看逻辑实例`;
+      badge.setAttribute('role','button'); badge.setAttribute('tabindex','0');
+      badge.setAttribute('aria-label',`${node.title} ×${entry.count}，查看逻辑实例`);
+      element.appendChild(badge);
+      if (entry.count <= 1) return;
       const stack = document.createElement('div');
       stack.className = 'kf-pypa-graph__execution-stack';
       stack.dataset.pypaExecutionStack = node.id;
-      stack.setAttribute('aria-hidden', 'true');
-      stack.style.cssText = `left:${node.x}px;top:${node.y}px;width:${element.offsetWidth}px;height:${element.offsetHeight}px`;
-      // The composite reserves 22px at either side. Compress dense decks into
-      // an 18px footprint so even 28 Pages fit without changing layout or ports.
-      // Layers fan out to the RIGHT of the node: each underlay shifts right and
-      // tilts a touch, pivoting around the node's left edge (card-deck look).
-      const step = Math.min(2, 18 / (entry.count - 1));
-      const tilt = Math.min(1.4, 12 / (entry.count - 1));
+      stack.setAttribute('role','button');stack.setAttribute('tabindex','0');
+      stack.setAttribute('aria-label',`${node.title}，${entry.count} 个静态逻辑实例`);
+      stack.style.cssText = `left:${node.x}px;top:${node.y}px;width:${node.w}px;height:${node.h}px`;
       for (let instance = entry.count; instance >= 2; instance--) {
         const layer = document.createElement('span');
         layer.className = 'kf-pypa-graph__execution-layer';
         layer.dataset.pypaExecutionInstance = String(instance);
-        layer.style.setProperty('--execution-offset', `${(instance - 1) * step}px`);
-        layer.style.setProperty('--execution-rotate', `${(instance - 1) * tilt}deg`);
+        const offset=window.PtoPagedAttentionExecution.deckOffset(instance);
+        layer.style.setProperty('--execution-offset', `${offset.right}px`);
+        layer.style.setProperty('--execution-offset-y', `${offset.bottom}px`);
         stack.appendChild(layer);
       }
       stack.classList.toggle('is-journey-path', element.classList.contains('is-journey-path'));

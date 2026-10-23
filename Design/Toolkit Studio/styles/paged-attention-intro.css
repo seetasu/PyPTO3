@@ -347,67 +347,18 @@
 
 /* Task execution is a data projection on existing cards, not graph topology. */
 .kf-pypa-graph__execution-count {
-  color: var(--foreground);
-  font: var(--type-mono);
-  white-space: nowrap;
+  position:absolute;top:var(--space-2);right:var(--space-2);z-index:4;
+  padding:0 var(--space-1);border-radius:var(--radius-sm);background:var(--surface-3);
+  color:var(--foreground);font:var(--type-mono);font-size:11px;line-height:1.5;white-space:nowrap;cursor:pointer;
 }
-.has-semantic-overlays .has-execution-badge .kf-pypa-graph__execution-count {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-5);
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--primary) 18%, var(--surface-3));
-  font-size: 11px !important;
-  line-height: 1.5;
-}
-.has-semantic-overlays .has-execution-badge .kf-pypa-graph__node-head em {
-  padding-inline: calc(var(--space-1) / 2);
-  font-size: 11px !important;
-}
-.has-semantic-overlays .has-execution-badge .kf-pypa-graph__node-head b {
-  padding-right: calc(var(--space-6) + var(--space-1));
-  box-sizing: border-box;
-}
-.has-semantic-overlays .has-execution-badge .kf-pypa-graph__node-expand {
-  position: absolute;
-  right: var(--space-2);
-  top: 50%;
-  transform: translateY(-50%);
-}
-.has-semantic-overlays .has-execution-title .kf-pypa-graph__node-head b {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  overflow: visible;
-}
-.has-semantic-overlays .has-execution-title.is-detail-node .kf-pypa-graph__node-head b {
-  justify-content: center;
-  font-size: 14px !important;
-}
-.has-semantic-overlays .has-execution-title .kf-pypa-graph__execution-count {
-  flex: none;
-  font: var(--type-mono);
-  font-size: 12px !important;
-  font-weight: 600;
-}
-.has-execution-title.is-operation:not(.is-expanded-head) .kf-pypa-graph__execution-count {
-  color: inherit;
-}
-.kf-pypa-graph__execution-stack {
-  position: absolute;
-  z-index: 2;
-  pointer-events: none;
-}
+.has-semantic-overlays .has-execution-badge .kf-pypa-graph__node-head {box-sizing:border-box;padding-right:46px;}
+.has-semantic-overlays .has-execution-badge .kf-pypa-graph__node-expand {z-index:6;pointer-events:auto;position:absolute;right:var(--space-2);bottom:var(--space-2);top:auto;transform:none;}
+.kf-pypa-graph__execution-stack {position:absolute;z-index:2;pointer-events:none;}
 .kf-pypa-graph__execution-layer {
-  position: absolute;
-  inset: 0;
-  box-sizing: border-box;
-  border: 1px solid color-mix(in srgb, var(--primary) 48%, var(--foreground-muted));
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--primary) 16%, var(--surface-3));
-  transform-origin: left center;
-  transform: translate(var(--execution-offset), 0) rotate(var(--execution-rotate, 0deg));
+  position:absolute;inset:0;box-sizing:border-box;
+  border:1px solid color-mix(in srgb,var(--primary) 48%,var(--foreground-muted));
+  border-radius:var(--radius-pill);background:color-mix(in srgb,var(--primary) 16%,var(--surface-3));
+  transform:translate(var(--execution-offset),var(--execution-offset-y,0px));pointer-events:auto;cursor:pointer;
 }
 .kf-pypa-graph__execution-stack.is-context-muted { opacity: .6; }
 .kf-pypa-graph__scene.has-journey .kf-pypa-graph__execution-stack:not(.is-journey-path):not(.is-selected) {

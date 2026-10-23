@@ -160,3 +160,18 @@ test('state evolution expansion retains current inputs, feedback, and phase orde
     assert.ok(sections.some((section) => section.title === '源码'));
   }
 });
+
+test('execution decks reserve region and routing space for 9, 17 and 28 instances',()=>{
+ const w=load(),model=w.PtoComputationVisibility.overview(w.PTO_PYPA_SEMANTIC_GRAPH);
+ for(const count of [9,17,28])for(const expanded of [new Set(),new Set(['qk','pv'])]){
+  const base=w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(model,expanded,{flowLayout:true,overviewLayout:true});
+  const footprints=Object.fromEntries(base.nodes.filter(n=>!n.expandedGroup&&['operation','composite'].includes(n.type)).map(n=>[n.id,{right:3*(count-1),bottom:1.5*(count-1)}]));
+  const graph=w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(model,expanded,{flowLayout:true,overviewLayout:true,executionFootprints:footprints});
+  const occupied={...graph,nodes:graph.nodes.map(n=>({...n,w:n.w+(n.executionFootprint?.right||0),h:n.h+(n.executionFootprint?.bottom||0)}))};
+  verifyOverviewGeometry(graph);verifyRoutes(occupied);
+  occupied.nodes.forEach((a,i)=>occupied.nodes.slice(i+1).forEach(b=>{
+   if(a.id.startsWith(b.id+'/')||b.id.startsWith(a.id+'/'))return;
+   assert.ok(Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x)<=1||Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y)<=1,`deck ${a.id} overlaps ${b.id}`);
+  }));
+ }
+});

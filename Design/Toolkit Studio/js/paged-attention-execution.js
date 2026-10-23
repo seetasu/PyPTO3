@@ -1,8 +1,10 @@
 /* Logical execution counts for one Task. No device instruction or timing estimates. */
 (function (root) {
   'use strict';
-  // Fixed linear scale: 1 → 1.5px, 6 → 5px, 24 → 17.6px, 28 → 20.4px.
-  const width = (count) => 1.5 + 0.7 * (count - 1);
+  // Bounded logarithmic frequency: comparable across Tasks, never time or bytes.
+  const width = count => Math.min(6, 1.5 + 0.9 * Math.log2(Math.max(1, count)));
+  const deckOffset = count => ({right:3 * Math.max(0,count-1),bottom:1.5 * Math.max(0,count-1)});
+  const decoration = (node,data) => !node.expandedGroup && ['operation','composite'].includes(node.type) && Number.isFinite(data?.nodes[node.id]?.count) ? data.nodes[node.id] : null;
   function derive(model, taskModel, scenario) {
     const { task, seqLen } = scenario || {};
     const value = (key) => model.constants[key].value;
@@ -45,5 +47,5 @@
       pageTokens: value('BLOCK_SIZE'), pagesPerStack: value('STACK_PAGES'), preLaunch: value('PRE_LAUNCH'),
       pvMatmul: stacks, pvMatmulAcc: pages - stacks, nodes, edges };
   }
-  root.PtoPagedAttentionExecution = { derive, width };
+  root.PtoPagedAttentionExecution = { derive, width, deckOffset, decoration };
 })(typeof window === 'undefined' ? globalThis : window);

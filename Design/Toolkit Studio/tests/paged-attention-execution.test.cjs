@@ -43,7 +43,8 @@ test('only grounded nodes/data edges are weighted and expansion preserves identi
   }
   for (const [id, entry] of Object.entries(d.edges)) {
     assert.equal(graph.edges.find((edge) => edge.id === id)?.type, 'data', id);
-    assert.equal(entry.width, 1.5 + 0.7 * (entry.count - 1));
+    assert.equal(entry.width, w.PtoPagedAttentionExecution.width(entry.count));
+    assert.ok(entry.width >= 1.5 && entry.width <= 6);
   }
   assert.equal(d.edges['qk>scores:Scores'].count, 9);
   assert.equal(d.edges['scores>scale-mask:Scores'].count, 3);
@@ -90,4 +91,22 @@ test('execution labels use semantic constants matching the Task partition model'
   const pv = source.slice(368,718).join('\n');
   assert.equal((pv.match(/= pl.matmul\(/g) || []).length,4,'full, one-, two-, three-Page branch initializers');
   assert.equal((pv.match(/= pl.matmul_acc\(/g) || []).length,6,'3 + 0 + 1 + 2 accumulation sites');
+});
+
+test('deck footprints distinguish 9/17/28 without changing front cards or semantic dependencies', () => {
+  const {w,model,derive}=fixture();
+  const previous=[];
+  for(const len of [1025,2049,3584]){
+    const data=derive(len),base=w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(model,new Set(),{flowLayout:true});
+    const footprints=Object.fromEntries(base.nodes.flatMap(node=>{const entry=w.PtoPagedAttentionExecution.decoration(node,data);return entry?[[node.id,w.PtoPagedAttentionExecution.deckOffset(entry.count)]]:[];}));
+    const graph=w.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(model,new Set(),{flowLayout:true,executionFootprints:footprints});
+    const qk=graph.nodes.find(n=>n.id==='qk'),front=base.nodes.find(n=>n.id==='qk');
+    assert.equal(qk.w,front.w);assert.equal(qk.h,front.h);
+    assert.equal(qk.executionFootprint.right,3*(data.pages-1));
+    previous.push(qk.executionFootprint.right);
+    for(const n of graph.nodes.filter(n=>['data','state'].includes(n.type)))assert.equal(w.PtoPagedAttentionExecution.decoration(n,data),null);
+    assert.equal(w.PtoPagedAttentionExecution.decoration({...qk,expandedGroup:true},data),null);
+    assert.equal(JSON.stringify(graph.edges.map(e=>[e.id,e.s,e.t])),JSON.stringify(base.edges.map(e=>[e.id,e.s,e.t])));
+  }
+  assert.ok(previous[0]<previous[1]&&previous[1]<previous[2]);
 });
