@@ -2,9 +2,14 @@
 .viz2-assignment-hud { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
 .viz2-assignment-hud nav { color: var(--foreground-secondary); font: var(--type-body-sm); }
 .viz2-anatomy { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
-.viz2-anatomy-taskbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-5); padding: var(--space-2) var(--space-5); font: var(--type-body-sm); color: var(--foreground-secondary); }
-.viz2-anatomy-taskbar > button { margin-left:auto; }
-.viz2-anatomy-taskbar > span { color:var(--foreground-muted); }
+.viz2-anatomy-taskbar { display:flex; flex:none; align-items:center; flex-wrap:nowrap; min-width:0; gap:var(--space-4); padding:var(--space-2) var(--space-5); font:var(--type-body-sm); color:var(--foreground-secondary); }
+.viz2-anatomy-taskbar > button { margin-left:auto; flex:none; white-space:nowrap; }
+.viz2-anatomy-taskbar h2 { flex:none; margin:0; color:var(--foreground); font:var(--type-title-3); font-weight:700; white-space:nowrap; }
+.viz2-anatomy-taskbar > span { flex:none; color:var(--foreground-muted); white-space:nowrap; }
+.viz2-anatomy-task-nav { display:flex; flex:0 1 auto; min-width:0; align-items:center; gap:var(--space-1); padding-left:var(--space-4); border-left:1px solid var(--border-subtle); overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:thin; }
+.viz2-anatomy-task-nav button { flex:none; white-space:nowrap; color:var(--foreground-muted); border-radius:var(--radius-pill); }
+.viz2-anatomy-task-nav button:is(:hover,:focus-visible) { color:var(--foreground); }
+.viz2-anatomy-task-nav button[aria-current="true"] { color:var(--foreground); background:var(--surface-4); }
 .viz2-anatomy-body { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .viz2-anatomy-stage { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; }
 .viz2-anatomy-viewport { position: relative; flex: 1; min-height: 120px; overflow: hidden; touch-action: pan-y; cursor: grab; }

@@ -33,15 +33,15 @@
     const esc=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const media=global.matchMedia('(prefers-reduced-motion: reduce)');
     host.classList.add('viz2-anatomy');
-    host.innerHTML=`<div class="viz2-anatomy-taskbar"><b data-anatomy-context></b><span data-anatomy-current aria-live="polite"></span><button class="btn btn-ghost btn-sm" data-anatomy-back>← 返回 Block 间</button></div>
+    host.innerHTML=`<div class="viz2-anatomy-taskbar"><h2 data-anatomy-block></h2><span data-anatomy-kv></span><nav class="viz2-anatomy-task-nav" aria-label="Block 内 Task 快捷导航" data-anatomy-task-nav></nav><button class="btn btn-ghost btn-sm" data-anatomy-back>← 返回 Block 间</button></div>
       <div class="viz2-anatomy-body"><div class="viz2-anatomy-stage"><div class="viz2-anatomy-workspace">
         <section class="viz2-anatomy-query" aria-label="固定 Q Tile 结构模板"><div data-anatomy-query></div><p>结构模板 · 各 Batch 使用各自的 Q 数据</p></section>
-        <div class="viz2-anatomy-viewport" role="region" aria-roledescription="轮播" tabindex="0" aria-label="Block 内 Task KV Cache，左右方向键切换，横向拖动或滚动浏览"><div class="viz2-anatomy-track" data-anatomy-track></div></div>
+        <div class="viz2-anatomy-viewport" id="viz2-anatomy-carousel" role="region" aria-roledescription="轮播" tabindex="0" aria-label="Block 内 Task KV Cache，左右方向键切换，横向拖动或滚动浏览"><div class="viz2-anatomy-track" data-anatomy-track></div></div>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
         <footer class="viz2-anatomy-footer"><span>有效数据 <i class="viz2-anatomy-key"></i>未用容量 <i class="viz2-anatomy-key is-capacity"></i><small>横向浏览 Task · 卡片内纵向浏览 Stacks</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-anatomy-prev aria-label="上一个 Task">←</button><output data-anatomy-position></output><button class="btn btn-ghost btn-sm" data-anatomy-next aria-label="下一个 Task">→</button><button class="btn btn-ghost btn-sm" data-anatomy-zoom="0.8" aria-label="缩小 KV Cache">−</button><output data-anatomy-scale>100%</output><button class="btn btn-ghost btn-sm" data-anatomy-zoom="1.25" aria-label="放大 KV Cache">＋</button><button class="btn btn-ghost btn-sm" data-anatomy-fit>适应</button></div></footer></div>
         <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="Task 数据详情" hidden><header class="pto-ide-frame__pane-header"><b data-anatomy-title></b><button class="btn btn-ghost btn-sm" data-anatomy-close aria-label="关闭数据详情">×</button></header><div class="pto-ide-frame__pane-body" data-anatomy-detail></div></aside></div>`;
     const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-anatomy-track]'),query=host.querySelector('[data-anatomy-query]'),inspector=host.querySelector('aside'),tooltip=host.querySelector('[role="tooltip"]');
-    let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,wheelTimer=0,suppressClick=false,scale=1,pitch=440,lastTime=0,pendingFocus=null;
+    let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,wheelTimer=0,suppressClick=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,wheelGesture=null;
     const clamp=index=>Math.max(0,Math.min(tasks.length-1,index));
     const rect=(x,y,w,h,attrs='')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" ${attrs}/>`;
     const text=(x,y,value,cls='')=>`<text x="${x}" y="${y}" class="${cls}">${esc(value)}</text>`;
@@ -58,7 +58,11 @@
     }
     function buildBlock(){
       block=task.block;tasks=model.tasks.filter(t=>t.block===block).sort((a,b)=>a.id-b.id);
-      host.querySelector('[data-anatomy-context]').textContent=`Block ${String(block).padStart(2,'0')} · KV Head ${[...new Set(tasks.map(t=>t.kvHead))].join(', ')} · ${tasks.length} Tasks`;
+      host.querySelector('[data-anatomy-block]').textContent=`Block ${String(block).padStart(2,'0')}`;
+      host.querySelector('[data-anatomy-kv]').textContent=`KV Head ${[...new Set(tasks.map(t=>t.kvHead))].join(', ')}`;
+      const navigation=host.querySelector('[data-anatomy-task-nav]');
+      navigation.innerHTML=tasks.map(t=>`<button type="button" class="btn btn-ghost btn-sm" data-anatomy-task-go="${t.id}" aria-current="false" aria-controls="viz2-anatomy-carousel">Task ${t.id}</button>`).join('');
+      navButtons=[...navigation.children];navTask=null;
       const height=task.q.shape[0]*9+20;
       query.innerHTML=`<h3>Q Tile</h3><svg class="viz2-anatomy-svg" viewBox="0 0 190 ${height}" style="height:${height}px" aria-label="Q Tile 结构模板">${object('q',0,'Q Tile 结构模板',rect(0,0,190,height,'class="viz2-anatomy-q-boundary"')+Array.from({length:task.q.shape[0]},(_,row)=>rect(16,10+row*9,158,7,`class="${row<task.qHeads.length?'viz2-anatomy-valid':'viz2-anatomy-empty'}" ${row<task.qHeads.length?`data-anatomy-q-row="${row}"`:''}`)).join(''))}</svg><b>Q Heads ${task.qHeads[0]}–${task.qHeads.at(-1)}</b><p>Tile Shape · ${task.q.shape.join(' × ')}</p><p>Valid Shape · ${task.q.validShape.join(' × ')}</p>`;
       track.innerHTML=tasks.map(card).join('');cards=[...track.children];
@@ -76,28 +80,34 @@
         element.setAttribute('aria-current',String(element.dataset.anatomyTask===String(task.id)));
         const svg=element.querySelector('svg');svg.style.width=`${scale*100}%`;svg.style.height=`${Math.max(84,tasks[index].stacks.length*84)*scale}px`;
       });
-      const context=host.querySelector('[data-anatomy-current]'),label=`Task ${task.id} · Batch ${task.batch} · ${task.seqLen} tokens`;
-      if(context.textContent!==label)context.textContent=label;
+      if(navTask!==task.id){
+        navTask=task.id;
+        navButtons.forEach(button=>{const selected=Number(button.dataset.anatomyTaskGo)===task.id;button.classList.toggle('is-selected',selected);button.setAttribute('aria-current',String(selected));});
+        navButtons.find(button=>Number(button.dataset.anatomyTaskGo)===task.id)?.scrollIntoView({block:'nearest',inline:'nearest'});
+      }
       host.querySelector('[data-anatomy-position]').textContent=`${tasks.findIndex(t=>t.id===task.id)+1} / ${tasks.length}`;
       host.querySelector('[data-anatomy-prev]').disabled=target<=0;
       host.querySelector('[data-anatomy-next]').disabled=target>=tasks.length-1;
       host.querySelector('[data-anatomy-scale]').textContent=`${Math.round(scale*100)}%`;
     }
-    function stop(){cancelAnimationFrame(frame);frame=0;clearTimeout(wheelTimer);wheelTimer=0;drag=null;pendingFocus=null;tooltip.hidden=true;}
+    function stop(){cancelAnimationFrame(frame);frame=0;clearTimeout(wheelTimer);wheelTimer=0;wheelGesture=null;drag=null;pendingFocus=null;tooltip.hidden=true;}
     function commit(){
       const next=tasks[target];if(!next)return;
       if(next.id!==task.id)onTask(next.id);
       if(pendingFocus){const nextFocus=pendingFocus;pendingFocus=null;onFocus(nextFocus);}
     }
-    function snap(index,initialVelocity=velocity){
-      cancelAnimationFrame(frame);clearTimeout(wheelTimer);wheelTimer=0;target=clamp(Math.round(index));velocity=initialVelocity;lastTime=0;
-      if(media.matches){position=target;velocity=0;frame=0;paint();commit();return;}
+    function snap(index){
+      cancelAnimationFrame(frame);target=clamp(Math.round(index));velocity=0;
+      const origin=position,duration=400;let started=null;
+      if(media.matches){position=target;frame=0;paint();commit();return;}
       function tick(now){
         if(!active){frame=0;return;}
-        const dt=lastTime?Math.min(.032,(now-lastTime)/1000):1/60;lastTime=now;
-        // Critically damped spring in card units; no global selection during motion.
-        velocity+=(240*(target-position)-30*velocity)*dt;position+=velocity*dt;paint();
-        if(Math.abs(target-position)<.001&&Math.abs(velocity)<.015){position=target;velocity=0;frame=0;paint();commit();}
+        if(started===null)started=now;
+        const progress=Math.min(1,(now-started)/duration);
+        // A bounded full-page move, with zero velocity at both endpoints.
+        const eased=progress*progress*progress*(progress*(progress*6-15)+10);
+        position=origin+(target-origin)*eased;paint();
+        if(progress===1){position=target;frame=0;paint();commit();}
         else frame=requestAnimationFrame(tick);
       }
       frame=requestAnimationFrame(tick);
@@ -142,6 +152,8 @@
     host.addEventListener('click',event=>{
       if(suppressClick){suppressClick=false;event.preventDefault();return;}
       tooltip.hidden=true;
+      const taskButton=event.target.closest('[data-anatomy-task-go]');
+      if(taskButton){const id=Number(taskButton.dataset.anatomyTaskGo);if(id!==task.id){pendingFocus=null;snap(tasks.findIndex(t=>t.id===id));}return;}
       if(event.target.closest('[data-anatomy-back]')){stop();onExit();return;}
       if(event.target.closest('[data-anatomy-close]')){onInspector(false);return;}
       if(event.target.closest('[data-anatomy-fit]')){onCamera(task.id,{scale:1,x:0,y:0});snap(tasks.findIndex(t=>t.id===task.id),0);return;}
@@ -156,26 +168,66 @@
     viewport.addEventListener('wheel',event=>{
       const unit=event.deltaMode===1?16:event.deltaMode===2?viewport.clientWidth:1;
       if(event.ctrlKey||event.metaKey){event.preventDefault();zoom(Math.exp(-event.deltaY*unit*.002));return;}
-      if(Math.abs(event.deltaX)<=Math.abs(event.deltaY))return;
-      event.preventDefault();cancelAnimationFrame(frame);frame=0;pendingFocus=null;tooltip.hidden=true;
-      position=resistance(position+event.deltaX*unit/pitch);velocity=0;paint();clearTimeout(wheelTimer);wheelTimer=setTimeout(()=>snap(position,0),110);
+      // Ordinary vertical wheel input belongs to the card's Stack scroller.
+      // Shift+wheel is the explicit horizontal paging gesture on wheel mice.
+      const horizontal=event.shiftKey&&event.deltaX===0?event.deltaY:event.deltaX;
+      if(!horizontal||(!event.shiftKey&&Math.abs(horizontal)<=Math.abs(event.deltaY)))return;
+      event.preventDefault();
+      if(drag){
+        if(event.buttons&1)return;
+        endDrag(true);
+      }
+      const now=performance.now(),delta=horizontal*unit,magnitude=Math.abs(delta);
+      const gap=wheelGesture?now-wheelGesture.lastEvent:Infinity;
+      // Re-arm from event timestamps too: a new gesture must not depend on a
+      // timer callback (or a pointer click) clearing the previous session.
+      const renewedIntent=wheelGesture?.fired&&!frame&&gap>=80&&
+        wheelGesture.lastMagnitude<=8&&magnitude>=30&&magnitude>=wheelGesture.lastMagnitude*4;
+      if(!wheelGesture||gap>=260||renewedIntent){
+        wheelGesture={sum:0,fired:false,lastEvent:now,lastMagnitude:magnitude};
+      }
+      wheelGesture.lastEvent=now;wheelGesture.lastMagnitude=magnitude;
+      clearTimeout(wheelTimer);
+      wheelTimer=setTimeout(()=>{
+        wheelTimer=0;
+        if(wheelGesture&&performance.now()-wheelGesture.lastEvent>=260)wheelGesture=null;
+      },270);
+      // Input during a page move is consumed by that move. Once both the move
+      // and gesture have ended, the next event can start a fresh page command.
+      if(frame){wheelGesture.fired=true;return;}
+      if(wheelGesture.fired)return;
+      wheelGesture.sum+=horizontal*unit;
+      const threshold=event.deltaMode===1?1:30;
+      if(Math.abs(wheelGesture.sum)<threshold)return;
+      wheelGesture.fired=true;pendingFocus=null;tooltip.hidden=true;
+      snap(target+Math.sign(wheelGesture.sum));
     },{passive:false});
     viewport.addEventListener('pointerdown',event=>{
       if(event.button!==0||event.target.closest('button'))return;
       stop();pendingFocus=null;suppressClick=false;velocity=0;
-      drag={id:event.pointerId,x:event.clientX,y:event.clientY,lastX:event.clientX,lastTime:performance.now(),position,moved:false};
+      drag={id:event.pointerId,x:event.clientX,y:event.clientY,lastX:event.clientX,lastTime:performance.now(),position,index:clamp(Math.round(position)),moved:false};
     });
     viewport.addEventListener('pointermove',event=>{
       if(!drag)return;
+      if(!(event.buttons&1)){endDrag(true);return;}
       const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
       if(!drag.moved){if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>6){drag=null;return;}if(Math.abs(dx)<5)return;drag.moved=true;viewport.setPointerCapture(drag.id);}
       event.preventDefault();const now=performance.now(),dt=Math.max(8,now-drag.lastTime);
       velocity=.65*velocity+.35*(drag.lastX-event.clientX)/pitch/dt*1000;
-      position=resistance(drag.position-dx/pitch);drag.lastX=event.clientX;drag.lastTime=now;paint();
+      const offset=-dx/pitch;
+      const bounded=Math.sign(offset)*Math.min(.92,Math.abs(offset));
+      position=resistance(drag.index+bounded);drag.lastX=event.clientX;drag.lastTime=now;paint();
     });
     function endDrag(cancelled=false){if(!drag)return;const current=drag;drag=null;suppressClick=current.moved;
-      if(current.moved){if(performance.now()-current.lastTime>100)velocity=0;snap(cancelled?position:position+velocity*.16,cancelled?0:velocity);}}
-    viewport.addEventListener('pointerup',()=>endDrag());
+      if(current.moved){
+        if(performance.now()-current.lastTime>100)velocity=0;
+        const offset=position-current.index;
+        const direction=Math.abs(offset)>.18?Math.sign(offset):Math.abs(velocity)>.55?Math.sign(velocity):0;
+        snap(current.index+(cancelled?0:direction));
+      }else if(Math.abs(position-current.index)>.001)snap(current.index);
+    }
+
+    window.addEventListener('pointerup',()=>endDrag());
     viewport.addEventListener('pointercancel',()=>endDrag(true));viewport.addEventListener('lostpointercapture',()=>endDrag(true));
     host.addEventListener('pointermove',event=>{
       if(drag||frame){tooltip.hidden=true;return;}
@@ -188,6 +240,11 @@
     viewport.addEventListener('focusin',event=>{const card=event.target.closest('[data-anatomy-task]');if(card&&Number(card.dataset.anatomyTask)!==task.id){pendingFocus=null;snap(tasks.findIndex(t=>t.id===Number(card.dataset.anatomyTask)));}});
     host.addEventListener('keydown',event=>{
       if(!active)return;
+      const taskButton=event.target.closest('[data-anatomy-task-go]');
+      if(taskButton&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){
+        event.preventDefault();const index=navButtons.indexOf(taskButton),next=event.key==='Home'?0:event.key==='End'?tasks.length-1:clamp(index+(event.key==='ArrowLeft'?-1:1));
+        navButtons[next].focus();navButtons[next].click();return;
+      }
       if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();pendingFocus=null;snap(target+(event.key==='ArrowLeft'?-1:1));}
       else if(event.key==='Escape')onInspector(false);
       else if(['+','=','-','0'].includes(event.key)){event.preventDefault();if(event.key==='0')host.querySelector('[data-anatomy-fit]').click();else zoom(event.key==='-'?.8:1.25);}
