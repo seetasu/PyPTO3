@@ -62,13 +62,16 @@
         objects.set(id,item);
       };
       if(tab==='assignment'){
-        for(const element of host.querySelectorAll('[data-anatomy-kind]')){
+        const current=host.querySelector(`[data-anatomy-task="${task}"]`);
+        for(const element of [...host.querySelectorAll('.viz2-anatomy-query [data-anatomy-kind]'),...(current?.querySelectorAll('[data-anatomy-kind]')||[])]){
           const {anatomyKind:kind,anatomyIndex:index}=element.dataset;
           add(`${kind}:${index}`,element,element.querySelector('rect')||element);
         }
       }else if(tab==='pipeline'){
-        for(const element of host.querySelectorAll('[data-intra-kind="stage"]'))add(`stage:${element.dataset.intraIndex}:${element.dataset.intraStage}`,element,element.querySelector('rect')||element);
-        const output=host.querySelector('[data-intra-kind="output"]'),cards=output?.querySelectorAll('.viz2-intra-output');
+        const current=host.querySelector(`[data-intra-task="${task}"]`);
+        if(!current)return null;
+        for(const element of current.querySelectorAll('[data-intra-kind="stage"]'))add(`stage:${element.dataset.intraIndex}:${element.dataset.intraStage}`,element,element.querySelector('rect')||element);
+        const output=current.querySelector('[data-intra-kind="output"]'),cards=output?.querySelectorAll('.viz2-intra-output');
         if(cards?.[0])add('normalize',cards[0]);if(cards?.[1])add('output',cards[1]);
       }else{
         for(const element of host.querySelectorAll('[data-pypa-node]'))add(`node:${element.dataset.pypaNode}`,element,element);
