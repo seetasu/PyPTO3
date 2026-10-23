@@ -96,7 +96,7 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
  host.classList.add('viz2-compute');
  host.innerHTML='<div class="viz2-anatomy-taskbar" data-compute-toolbar></div><div class="viz2-compute-canvas"></div>';
  const toolbar=host.querySelector('[data-compute-toolbar]');
- toolbar.innerHTML=`<div class="segmented-control segmented-control-muted" role="group" aria-label="Graph 显示模式"><button class="btn btn-sm" data-compute-mode="structure">Structure</button><button class="btn btn-sm" data-compute-mode="weight">Execution Weight</button></div><label>Task <select data-compute-task aria-label="Graph Task">${model.tasks.map(t=>`<option value="${t.id}">Task ${t.id} · B${t.block} / Batch ${t.batch} / KV ${t.kvHead}</option>`).join('')}</select></label><span data-compute-context></span><div data-compute-stacks role="group" aria-label="Stack 焦点"></div><div data-compute-pages role="group" aria-label="有效逻辑 Pages"></div><span data-compute-state-summary></span><span data-compute-weight-legend hidden>×N：源码静态次数 · 节点强调：相对重复次数 · 线宽：逻辑传输次数；AIC / 每 AIV Lane / 每 Task 分别计数，不能比较耗时</span><div data-compute-evolution></div>`;
+ toolbar.innerHTML=`<div class="segmented-control segmented-control-muted" role="group" aria-label="Graph 显示模式"><button class="btn btn-sm" data-compute-mode="structure">Structure</button><button class="btn btn-sm" data-compute-mode="weight">Execution Weight</button></div><label>Task <select data-compute-task aria-label="Graph Task">${model.tasks.map(t=>`<option value="${t.id}">Task ${t.id}</option>`).join('')}</select></label><span data-compute-context></span><div data-compute-stacks role="group" aria-label="Stack 焦点"></div>`;
  let task=model.tasks[85]||model.tasks[0],focus,view={},active=false,hover=null;
  const canvas=host.querySelector('.viz2-compute-canvas');
  const stackIndex=()=>Number.isInteger(focus?.stackIndex)?focus.stackIndex:['stack','stage','event'].includes(focus?.kind)?focus.index:focus?.kind==='page'?task.pages[focus.index]?.stack:null;
@@ -109,7 +109,7 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
   const index=stackIndex()??0,dependency=global.PtoPagedAttentionStackDependencyModel.build(global.PtoPagedAttentionIntro.model.pipelineFor(task.seqLen),task.graph.synchronizations).edges.find(e=>e.id===`sync:s${index}:${sync.id}`);
   const waitRanges=dependency?.consumerSource?.ranges||sync.consumer.source.ranges;
   const sources=[...sync.producer.source.ranges.map((r,i)=>({end:'producer',range:i,label:`SET · :${r.start}–${r.end}`})),...waitRanges.map((r,i)=>({end:'consumer',range:i,label:`WAIT · :${r.start}–${r.end}`}))];
-  return `<section><h3>READY 同步证据 · S${index}</h3><dl>${detail.rows.map(r=>`<dt>${esc(r.label)}</dt><dd>${esc(r.value)}</dd>`).join('')}</dl><div class="viz2-ready-source-links">${sources.map(r=>`<button class="btn btn-ghost btn-sm" data-compute-sync-source="${sync.id}" data-compute-sync-end="${r.end}" data-compute-sync-range="${r.range}">${esc(r.label)}</button>`).join('')}</div><button class="btn btn-sm" data-compute-pipeline-ready>在 Pipeline 中查看</button><pre data-compute-code hidden></pre></section>`;
+  return `<div class="viz2-ready-source-links">${sources.map(r=>`<button class="btn btn-ghost btn-sm" data-compute-sync-source="${sync.id}" data-compute-sync-end="${r.end}" data-compute-sync-range="${r.range}">${esc(r.label)}</button>`).join('')}</div><button class="btn btn-sm" data-compute-pipeline-ready>在 Pipeline 中查看</button><pre data-compute-code hidden></pre><details class="viz2-inspector-details"><summary>同步证据</summary><dl>${detail.rows.map(r=>`<dt>${esc(r.label)}</dt><dd>${esc(r.value)}</dd>`).join('')}</dl></details>`;
  };
  function executionData(graph){
   const data=global.PtoPagedAttentionExecution.derive(task.graph,global.PtoPagedAttentionIntro.model,{task:task.id,seqLen:task.seqLen});
@@ -174,7 +174,27 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
   stageLabel:g=>`<b>${esc(g.label)}</b>`,
   context:()=>view.intraMode==='weight'?'Static Execution Weight · AIC / 每 AIV Lane 分别统计 · 非耗时':'Data / State / Feedback / READY · 源码静态计算关系',
   hasInspector:()=>!!focus,
-  inspector(node,sync,graph){const d=description(node,sync,graph),semantic=node&&!sync?global.PTO_COMPUTATION_PRESENTATION.inspector(node,{model:task.graph,qualifiedId:node.id}):[],related=node&&!sync?relatedSyncs(node.id):[];return {title:d.title,html:`<dl>${d.rows.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>${related.length?`<section><h3>关联 READY 事件</h3>${related.map(item=>`<button class="btn btn-ghost btn-sm" data-compute-ready="${item.id}">${esc(item.name)} · ${esc(item.buffer)}</button>`).join('')}</section>`:''}${sync?syncHtml(sync):''}${semantic.map(section=>`<section><h3>${esc(section.title)}</h3><dl>${section.rows.map(r=>`<dt>${esc(r.label)}</dt><dd>${esc(r.value)}</dd>`).join('')}</dl></section>`).join('')}<button class="btn btn-ghost btn-sm" data-compute-source="${d.line}">PyPTO 源码 :${d.line}</button><pre data-compute-code hidden></pre>`};},
+  inspector(node,sync,graph){
+   const d=description(node,sync,graph),semantic=node&&!sync?global.PTO_COMPUTATION_PRESENTATION.inspector(node,{model:task.graph,qualifiedId:node.id}):[],related=node&&!sync?relatedSyncs(node.id):[];
+   const s=stackIndex(),step=stackEvolution(task,s),root=node?.id.split('/')[0],fact=task.nodes.find(item=>semanticId(item.id)===root);
+   const incoming=node?graph.edges.filter(edge=>edge.t===node.id&&edge.type==='data').map(edge=>graph.nodes.find(item=>item.id===edge.s)?.title||edge.s):[];
+   const outgoing=node?graph.edges.filter(edge=>edge.s===node.id&&edge.type==='data').map(edge=>graph.nodes.find(item=>item.id===edge.t)?.title||edge.t):[];
+   const names=items=>[...new Set(items)].join('、')||'当前 Task 输入';
+   let what=node?`${node.type==='composite'?'复合计算':node.type==='operation'?'计算操作':node.type==='state'?'循环状态':'数据'} · ${fact?.unit||node.semantic?.data?.granularity||'按语义节点'}`:`Task ${task.id} · Block ${task.block} · Batch ${task.batch} · KV ${task.kvHead}`;
+   let input=node?names(incoming):'当前 Task 的 Q、K/V Cache 与上一 Stack 状态';
+   let compute=node?(node.detail||fact?.detail||fact?.formula||'按源码定义的数据依赖计算'):`${task.stackCount} 个 Stack 的静态计算依赖`;
+   let output=node?names(outgoing):'更新状态传入下一 Stack；最终输出 BF16 Context';
+   if(root==='softmax'){input=`Scores + ${step?`${step.states.m.previous}、${step.states.l.previous}`:'m_old、l_old'}`;compute='m_new = max(m_old, row_max(Scores))；l_new = exp(m_old−m_new) × l_old + sum(exp(Scores−m_new))';output=`${step?`${step.states.m.updated}、${step.states.l.updated}`:'m_new、l_new'} → 下一 Stack；Probability → PV Matmul`;}
+   if(root==='context-acc'){input=`${step?step.states.o.previous:'o_old'} + PV Partial + Delayed Rescale（pending0）`;compute='o_new = delayed_rescale × o_old + PV Partial；Context 在延迟的逻辑 Tick 消费 Softmax 产生的缩放';output=`${step?step.states.o.updated:'o_new'} → 下一 Stack / Output Normalize`;}
+   if(root==='rescale'){input='Online Softmax 产生 rescale_after；FIFO 初始 pending0 = pending1 = 1';compute=`produce → pending1 → pending0 → consume${step?`；生产 Tick ${step.produceTick}，消费 Tick ${step.consumeTick}`:''}`;output='Delayed Rescale → Context Accumulate，重标定历史 o';}
+   if(sync){what=`${sync.name} · READY 同步 · Task ${task.id} / S${s??0}`;input=`${sync.producer.node} · ${sync.producer.coreType} SET；保护 ${sync.buffer} 的写入`;compute=sync.explanation;output=`${sync.consumer.boundary||sync.consumer.node} · ${sync.consumer.coreType} WAIT 后读取 ${sync.buffer}`;}
+   const core=[['是什么',what],['输入什么',input],['计算什么',compute],['输出什么',output]].map(([label,value])=>`<section class="viz2-inspector-core"><h3>${label}</h3><p>${esc(value)}</p></section>`).join('');
+   const evolution=['softmax','context-acc','rescale'].includes(root)||!node&&!sync&&s!=null?`<details class="viz2-inspector-details" data-compute-state-explore><summary>查看跨 Stack 演化</summary>${step?evolutionMarkup(step):'<p>选择具体 Stack 后查看静态状态版本与逻辑 Tick；当前为符号化依赖。</p>'}</details>`:'';
+   const ready=related.length?`<section class="viz2-inspector-related"><h3>关联 READY</h3>${related.map(item=>`<button class="btn btn-ghost btn-sm" data-compute-ready="${item.id}">${esc(item.name)}</button>`).join('')}</section>`:'';
+   const detailRows=d.rows.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
+   const detailSections=semantic.map(section=>`<section><h3>${esc(section.title)}</h3><dl>${section.rows.map(r=>`<dt>${esc(r.label)}</dt><dd>${esc(r.value)}</dd>`).join('')}</dl></section>`).join('');
+   return {title:d.title,html:`${core}${sync?syncHtml(sync):''}${ready}${evolution}<details class="viz2-inspector-details"><summary>详细信息</summary><dl>${detailRows}</dl>${detailSections}<section><button class="btn btn-ghost btn-sm" data-compute-source="${d.line}">PyPTO 源码 :${d.line}</button><pre data-compute-code hidden></pre></section></details>`};
+  },
   onNode(id){const root=localId(id.split('/')[0]),stage=['qk','softmax','pv','accumulate'].includes(root)?root:null;onFocus({kind:stage?'stage':root==='output'?'output':'graph',node:id,index:stackIndex()??0,stackIndex:stackIndex(),...(stage?{stage}:{})});},
   onEdge(id,graph){onFocus({kind:'graph-edge',edge:id,index:stackIndex()??0,stackIndex:stackIndex()});},
   onSync(id){const sync=syncFor(id),index=stackIndex()??0;onFocus({kind:'event',syncId:sync.id,event:sync.name+'_EVENT',index,stackIndex:index});},
@@ -191,10 +211,6 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
   if(model.tasks[id])task=model.tasks[id];focus=f;view=v;active=!!next;hover=null;
   if(active){toolbar.querySelector('[data-compute-task]').value=task.id;toolbar.querySelector('[data-compute-context]').textContent=`Batch ${task.batch} · KV ${task.kvHead} · ${task.seqLen} tokens · ${task.pageCount} Pages / ${task.stackCount} Stacks / ${task.tickCount} logical ticks`;
    const s=stackIndex();toolbar.querySelector('[data-compute-stacks]').innerHTML=task.stacks.map(stack=>`${stack.index?'<span aria-hidden="true">→</span>':''}<button class="btn btn-ghost btn-sm ${s===stack.index?'is-selected':''}" data-compute-stack="${stack.index}" aria-pressed="${s===stack.index}">S${stack.index}</button>`).join('');
-   toolbar.querySelector('[data-compute-pages]').innerHTML=task.stacks[s]?.pages.map(p=>`<button class="btn btn-ghost btn-sm ${f?.kind==='page'&&f.index===p?'is-selected':''}" data-compute-page="${p}">P${p} · ${task.pages[p].tokens}/${task.pageTokens}</button>`).join('')||'';
-   toolbar.querySelector('[data-compute-state-summary]').textContent=s==null?'状态沿 Stack 传递 · 选择 S 查看依赖链':`S${s} · Softmax tick ${s} / Context tick ${s+task.preLaunch} · 静态依赖`;
-   toolbar.querySelector('[data-compute-evolution]').innerHTML=evolutionMarkup(stackEvolution(task,s));
-   toolbar.querySelector('[data-compute-weight-legend]').hidden=v.intraMode!=='weight';
    toolbar.querySelectorAll('[data-compute-mode]').forEach(b=>{const selected=b.dataset.computeMode===(v.intraMode||'structure');b.classList.toggle('is-selected',selected);b.setAttribute('aria-pressed',String(selected));});
   }
   const sync=task.graph.synchronizations.find(s=>s.id===f?.syncId||s.name===f?.event?.replace('_EVENT',''));

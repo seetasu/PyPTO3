@@ -119,15 +119,12 @@
       const cell = make('rect', { class: 'viz2-p0-item-cell', rx: 3 }, group);
       const symbols = make('g', { class: 'viz2-p0-item-symbols', 'aria-hidden': 'true' }, group);
       const q = Array.from({ length: model.qPerKv }, () => make('circle', { class: 'viz2-p0-q' }, symbols));
-      const k = make('text', { class: 'viz2-p0-kv-symbol', 'text-anchor': 'middle' }, symbols, 'K');
-      const v = make('text', { class: 'viz2-p0-kv-symbol', 'text-anchor': 'middle' }, symbols, 'V');
       const label = make('text', { class: 'viz2-p0-item-id', 'text-anchor': 'middle', 'dominant-baseline': 'central' }, group, `G${item.gIndex}`);
       const r = layout.sources[id], pitch = 9;
       cell.setAttribute('width', r.w); cell.setAttribute('height', r.h);
       label.setAttribute('x', r.w - 20); label.setAttribute('y', r.h / 2);
       q.forEach((dot, index) => { dot.setAttribute('cx', 5 + (index + .5) * pitch); dot.setAttribute('cy', r.h / 2); dot.setAttribute('r', 2.5); });
-      [k, v].forEach((glyph, index) => { glyph.setAttribute('x', 5 + (model.qPerKv + index + .5) * pitch); glyph.setAttribute('y', r.h / 2); });
-      return { group, cell, symbols, q, k, v, label };
+      return { group, cell, symbols, q, label };
     });
     let current = null, camera = null, active = false, inspectorOpen = false, hovered = null;
     let drag = null, suppressClick = false, lastSize = null;
