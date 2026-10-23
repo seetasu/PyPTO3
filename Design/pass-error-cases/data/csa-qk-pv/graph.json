@@ -1,0 +1,1298 @@
+{
+  "schemaVersion": "csa-pass-field.graph.v1",
+  "scenarioId": "l3_decode_csa.qk_pv",
+  "entryPassId": "frontend",
+  "nodes": [
+    {
+      "id": "scope.qk-pv",
+      "semanticKind": "scope",
+      "renderKind": "scope",
+      "label": "qk_pv · mixed InCore scope",
+      "role": "CSA callable scope",
+      "attributes": {
+        "level": "InCore",
+        "collapsedCount": 8
+      },
+      "identity": {
+        "lineageRoot": "scope.qk-pv",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "value.q",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "label": "Q",
+      "role": "query activation",
+      "attributes": {
+        "shape": [
+          "T_HEADS",
+          512
+        ],
+        "dtype": "BF16",
+        "tensorRole": "i"
+      },
+      "identity": {
+        "lineageRoot": "value.q",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "value.kv",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "label": "KV blocks",
+      "role": "key/value cache blocks",
+      "attributes": {
+        "shape": [
+          32,
+          512
+        ],
+        "dtype": "BF16",
+        "tensorRole": "i"
+      },
+      "identity": {
+        "lineageRoot": "value.kv",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "op.qk",
+      "semanticKind": "op",
+      "renderKind": "op",
+      "label": "tensor.matmul · QKᵀ",
+      "role": "QK score projection",
+      "attributes": {
+        "domain": "Tensor"
+      },
+      "identity": {
+        "lineageRoot": "op.qk",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "value.scores",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "label": "QK scores",
+      "role": "score tile",
+      "attributes": {
+        "shape": [
+          32,
+          128
+        ],
+        "dtype": "FP32",
+        "tensorRole": "i"
+      },
+      "identity": {
+        "lineageRoot": "value.scores",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "op.rowmax",
+      "semanticKind": "op",
+      "renderKind": "op",
+      "label": "tensor.row_max",
+      "role": "online softmax row maximum",
+      "attributes": {
+        "domain": "Tensor"
+      },
+      "identity": {
+        "lineageRoot": "op.rowmax",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "value.max",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "label": "mᵢ",
+      "role": "row maximum accumulator",
+      "attributes": {
+        "shape": [
+          32,
+          1
+        ],
+        "dtype": "FP32",
+        "tensorRole": "a"
+      },
+      "identity": {
+        "lineageRoot": "value.max",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "op.exp",
+      "semanticKind": "op",
+      "renderKind": "op",
+      "label": "tensor.exp",
+      "role": "shift and exponentiate",
+      "attributes": {
+        "domain": "Tensor"
+      },
+      "identity": {
+        "lineageRoot": "op.exp",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "value.prob",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "label": "exp(score − mᵢ)",
+      "role": "softmax numerator",
+      "attributes": {
+        "shape": [
+          32,
+          128
+        ],
+        "dtype": "BF16",
+        "tensorRole": "i"
+      },
+      "identity": {
+        "lineageRoot": "value.prob",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "op.rowsum",
+      "semanticKind": "op",
+      "renderKind": "op",
+      "label": "tensor.row_sum",
+      "role": "online softmax row sum",
+      "attributes": {
+        "domain": "Tensor"
+      },
+      "identity": {
+        "lineageRoot": "op.rowsum",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "value.sum",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "label": "ℓᵢ",
+      "role": "row sum accumulator",
+      "attributes": {
+        "shape": [
+          32,
+          1
+        ],
+        "dtype": "FP32",
+        "tensorRole": "a"
+      },
+      "identity": {
+        "lineageRoot": "value.sum",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "op.pv",
+      "semanticKind": "op",
+      "renderKind": "op",
+      "label": "tensor.matmul · PV",
+      "role": "probability-value accumulation",
+      "attributes": {
+        "domain": "Tensor"
+      },
+      "identity": {
+        "lineageRoot": "op.pv",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "value.out",
+      "semanticKind": "tensor_value",
+      "renderKind": "tensor",
+      "label": "Oᵢ",
+      "role": "partial attention output",
+      "attributes": {
+        "shape": [
+          16,
+          512
+        ],
+        "dtype": "FP32",
+        "tensorRole": "i"
+      },
+      "identity": {
+        "lineageRoot": "value.out",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "kernel.aic",
+      "semanticKind": "kernel",
+      "renderKind": "kernel",
+      "label": "qk_pv_aic",
+      "role": "Cube kernel",
+      "attributes": {
+        "target": "AIC",
+        "detail": "QK + PV matmul"
+      },
+      "identity": {
+        "lineageRoot": "kernel.aic",
+        "aliases": []
+      },
+      "provenance": "observed",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/23_after_ExpandMixedKernel.py",
+          "line": 1714,
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "kernel.aiv",
+      "semanticKind": "kernel",
+      "renderKind": "kernel",
+      "label": "qk_pv_aiv",
+      "role": "Vector kernel",
+      "attributes": {
+        "target": "AIV",
+        "detail": "online softmax"
+      },
+      "identity": {
+        "lineageRoot": "kernel.aiv",
+        "aliases": []
+      },
+      "provenance": "observed",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/23_after_ExpandMixedKernel.py",
+          "line": 1851,
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "handoff.c2v-push",
+      "semanticKind": "op",
+      "renderKind": "handoff",
+      "label": "C2V · push",
+      "role": "Cube to Vector transfer",
+      "attributes": {
+        "direction": "AIC → AIV",
+        "slots": 2
+      },
+      "identity": {
+        "lineageRoot": "handoff.c2v-push",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "handoff.c2v-pop",
+      "semanticKind": "op",
+      "renderKind": "handoff",
+      "label": "C2V · pop",
+      "role": "Vector receives scores",
+      "attributes": {
+        "direction": "AIC → AIV",
+        "slots": 2
+      },
+      "identity": {
+        "lineageRoot": "handoff.c2v-pop",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "handoff.v2c-push",
+      "semanticKind": "op",
+      "renderKind": "handoff",
+      "label": "V2C · push",
+      "role": "Vector to Cube transfer",
+      "attributes": {
+        "direction": "AIV → AIC",
+        "slots": 2
+      },
+      "identity": {
+        "lineageRoot": "handoff.v2c-push",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "handoff.v2c-pop",
+      "semanticKind": "op",
+      "renderKind": "handoff",
+      "label": "V2C · pop",
+      "role": "Cube receives probabilities",
+      "attributes": {
+        "direction": "AIV → AIC",
+        "slots": 2
+      },
+      "identity": {
+        "lineageRoot": "handoff.v2c-pop",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "memory.qk-pv",
+      "semanticKind": "memref",
+      "renderKind": "memory",
+      "label": "qk_pv buffers · 分空间展开",
+      "role": "pre-reuse local buffers",
+      "attributes": {
+        "space": "Mat / Left / Right / Acc / Vec",
+        "buffers": 53,
+        "bytes": 944128
+      },
+      "identity": {
+        "lineageRoot": "memory.qk-pv",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "memory.pipe",
+      "semanticKind": "memref",
+      "renderKind": "memory",
+      "label": "GM pipe buffer · symbolic",
+      "role": "cross-core pipeline backing",
+      "attributes": {
+        "space": "GM",
+        "offset": null
+      },
+      "identity": {
+        "lineageRoot": "memory.pipe",
+        "aliases": []
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "task.plan",
+      "semanticKind": "scope",
+      "renderKind": "task",
+      "label": "valid-qk-plan scope",
+      "role": "prepares sparse QK plan",
+      "attributes": {
+        "target": "CORE_GROUP",
+        "form": "scope",
+        "dependencyOrder": 1
+      },
+      "identity": {
+        "lineageRoot": "task.plan",
+        "aliases": []
+      },
+      "provenance": "observed",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1464,
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "task.qk-pv",
+      "semanticKind": "scope",
+      "renderKind": "task",
+      "label": "qk_pv · SPMD scope",
+      "role": "SPMD scope with task dependencies",
+      "attributes": {
+        "target": "SPMD",
+        "form": "scope",
+        "dependencyOrder": 2
+      },
+      "identity": {
+        "lineageRoot": "task.qk-pv",
+        "aliases": []
+      },
+      "provenance": "observed",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1510,
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "isa.load",
+      "semanticKind": "isa_group",
+      "renderKind": "isa",
+      "label": "TLOAD ×12",
+      "role": "tile loads",
+      "attributes": {
+        "executionUnit": "mixed",
+        "api": "TLOAD",
+        "detailLevel": "isa"
+      },
+      "identity": {
+        "lineageRoot": "isa.load",
+        "aliases": []
+      },
+      "provenance": "observed",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "isa.matmul",
+      "semanticKind": "isa_group",
+      "renderKind": "isa",
+      "label": "TMATMUL ×8 · ACC ×8",
+      "role": "Cube matrix instructions",
+      "attributes": {
+        "executionUnit": "AIC",
+        "api": "TMATMUL",
+        "detailLevel": "isa"
+      },
+      "identity": {
+        "lineageRoot": "isa.matmul",
+        "aliases": []
+      },
+      "provenance": "observed",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "isa.c2v",
+      "semanticKind": "isa_group",
+      "renderKind": "isa",
+      "label": "TPUSH→AIV ×2",
+      "role": "Cube to Vector ISA protocol",
+      "attributes": {
+        "executionUnit": "cross-core",
+        "api": "TPUSH / TPOP / TFREE",
+        "detailLevel": "isa"
+      },
+      "identity": {
+        "lineageRoot": "isa.c2v",
+        "aliases": []
+      },
+      "provenance": "observed",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "isa.softmax",
+      "semanticKind": "isa_group",
+      "renderKind": "isa",
+      "label": "TROWMAX · TEXP · TROWSUM ×2",
+      "role": "Vector softmax instructions",
+      "attributes": {
+        "executionUnit": "AIV",
+        "api": "TROWMAX / TEXP / TROWSUM",
+        "detailLevel": "isa"
+      },
+      "identity": {
+        "lineageRoot": "isa.softmax",
+        "aliases": []
+      },
+      "provenance": "observed",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "isa.v2c",
+      "semanticKind": "isa_group",
+      "renderKind": "isa",
+      "label": "TPUSH→AIC ×2",
+      "role": "Vector to Cube ISA protocol",
+      "attributes": {
+        "executionUnit": "cross-core",
+        "api": "TPUSH / TPOP / TFREE",
+        "detailLevel": "isa"
+      },
+      "identity": {
+        "lineageRoot": "isa.v2c",
+        "aliases": []
+      },
+      "provenance": "observed",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "isa.store",
+      "semanticKind": "isa_group",
+      "renderKind": "isa",
+      "label": "TSTORE ×11",
+      "role": "tile stores",
+      "attributes": {
+        "executionUnit": "mixed",
+        "api": "TSTORE",
+        "detailLevel": "isa"
+      },
+      "identity": {
+        "lineageRoot": "isa.store",
+        "aliases": []
+      },
+      "provenance": "observed",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "id": "control.qk",
+      "semanticKind": "control_context",
+      "renderKind": "context",
+      "label": "控制流与作用域",
+      "role": "从相邻快照提取的 CSA 控制结构；计算主干是提炼视图",
+      "attributes": {
+        "rows": []
+      },
+      "identity": {
+        "lineageRoot": "control.qk",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "region.iter",
+      "semanticKind": "control_scope",
+      "renderKind": "loop",
+      "label": "for qk_it",
+      "role": "CSA control region",
+      "attributes": {},
+      "identity": {
+        "lineageRoot": "region.iter",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "region.guard",
+      "semanticKind": "control_scope",
+      "renderKind": "loop",
+      "label": "if qk_block_valid > 0",
+      "role": "CSA control region",
+      "attributes": {},
+      "identity": {
+        "lineageRoot": "region.guard",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "region.runs",
+      "semanticKind": "control_scope",
+      "renderKind": "loop",
+      "label": "for qk_run · unroll(5)",
+      "role": "CSA control region",
+      "attributes": {},
+      "identity": {
+        "lineageRoot": "region.runs",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.0",
+      "semanticKind": "op",
+      "renderKind": "op",
+      "label": "gather_row · 0",
+      "role": "unrolled original-KV gather",
+      "attributes": {
+        "auxiliary": true
+      },
+      "identity": {
+        "lineageRoot": "gather.0",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.1",
+      "semanticKind": "op",
+      "renderKind": "op",
+      "label": "gather_row · 1",
+      "role": "unrolled original-KV gather",
+      "attributes": {
+        "auxiliary": true
+      },
+      "identity": {
+        "lineageRoot": "gather.1",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.2",
+      "semanticKind": "op",
+      "renderKind": "op",
+      "label": "gather_row · 2",
+      "role": "unrolled original-KV gather",
+      "attributes": {
+        "auxiliary": true
+      },
+      "identity": {
+        "lineageRoot": "gather.2",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.3",
+      "semanticKind": "op",
+      "renderKind": "op",
+      "label": "gather_row · 3",
+      "role": "unrolled original-KV gather",
+      "attributes": {
+        "auxiliary": true
+      },
+      "identity": {
+        "lineageRoot": "gather.3",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.4",
+      "semanticKind": "op",
+      "renderKind": "op",
+      "label": "gather_row · 4",
+      "role": "unrolled original-KV gather",
+      "attributes": {
+        "auxiliary": true
+      },
+      "identity": {
+        "lineageRoot": "gather.4",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "region.aic.iter",
+      "semanticKind": "control_scope",
+      "renderKind": "loop",
+      "label": "for qk_it · qk_lane_iters",
+      "role": "kernel-local loop",
+      "attributes": {
+        "kernel": "kernel.aic",
+        "controlKind": "loop"
+      },
+      "identity": {
+        "lineageRoot": "region.aic.iter",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "region.aic.guard",
+      "semanticKind": "control_scope",
+      "renderKind": "loop",
+      "label": "if 0 < qk_block_valid",
+      "role": "kernel-local condition",
+      "attributes": {
+        "kernel": "kernel.aic",
+        "controlKind": "condition"
+      },
+      "identity": {
+        "lineageRoot": "region.aic.guard",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "region.aiv.iter",
+      "semanticKind": "control_scope",
+      "renderKind": "loop",
+      "label": "for qk_it · qk_lane_iters",
+      "role": "kernel-local loop",
+      "attributes": {
+        "kernel": "kernel.aiv",
+        "controlKind": "loop"
+      },
+      "identity": {
+        "lineageRoot": "region.aiv.iter",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    },
+    {
+      "id": "region.aiv.guard",
+      "semanticKind": "control_scope",
+      "renderKind": "loop",
+      "label": "if 0 < qk_block_valid",
+      "role": "kernel-local condition",
+      "attributes": {
+        "kernel": "kernel.aiv",
+        "controlKind": "condition"
+      },
+      "identity": {
+        "lineageRoot": "region.aiv.guard",
+        "aliases": []
+      },
+      "provenance": "derived",
+      "sourceRefs": []
+    }
+  ],
+  "edges": [
+    {
+      "id": "data.q-qk",
+      "semanticKind": "data",
+      "source": "value.q",
+      "target": "op.qk",
+      "sourcePort": "out",
+      "targetPort": "lhs",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.kv-qk",
+      "semanticKind": "data",
+      "source": "value.kv",
+      "target": "op.qk",
+      "sourcePort": "out",
+      "targetPort": "rhs",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.qk-scores",
+      "semanticKind": "data",
+      "source": "op.qk",
+      "target": "value.scores",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.scores-rowmax",
+      "semanticKind": "data",
+      "source": "value.scores",
+      "target": "op.rowmax",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.rowmax-max",
+      "semanticKind": "data",
+      "source": "op.rowmax",
+      "target": "value.max",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.scores-exp",
+      "semanticKind": "data",
+      "source": "value.scores",
+      "target": "op.exp",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.max-exp",
+      "semanticKind": "data",
+      "source": "value.max",
+      "target": "op.exp",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.exp-prob",
+      "semanticKind": "data",
+      "source": "op.exp",
+      "target": "value.prob",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.prob-rowsum",
+      "semanticKind": "data",
+      "source": "value.prob",
+      "target": "op.rowsum",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.rowsum-sum",
+      "semanticKind": "data",
+      "source": "op.rowsum",
+      "target": "value.sum",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.prob-pv",
+      "semanticKind": "data",
+      "source": "value.prob",
+      "target": "op.pv",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.kv-pv",
+      "semanticKind": "data",
+      "source": "value.kv",
+      "target": "op.pv",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.pv-out",
+      "semanticKind": "data",
+      "source": "op.pv",
+      "target": "value.out",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.qk-c2v-push",
+      "semanticKind": "data",
+      "source": "op.qk",
+      "target": "handoff.c2v-push",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "control.c2v",
+      "semanticKind": "control",
+      "source": "handoff.c2v-push",
+      "target": "handoff.c2v-pop",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {
+        "label": "slot 0/1"
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.c2v-scores",
+      "semanticKind": "data",
+      "source": "handoff.c2v-pop",
+      "target": "value.scores",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.prob-v2c-push",
+      "semanticKind": "data",
+      "source": "value.prob",
+      "target": "handoff.v2c-push",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "control.v2c",
+      "semanticKind": "control",
+      "source": "handoff.v2c-push",
+      "target": "handoff.v2c-pop",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {
+        "label": "slot 0/1"
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "data.v2c-pv",
+      "semanticKind": "data",
+      "source": "handoff.v2c-pop",
+      "target": "op.pv",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "binding.qk-memory",
+      "semanticKind": "memoryBinding",
+      "source": "op.qk",
+      "target": "memory.qk-pv",
+      "sourcePort": "memory",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "binding.softmax-memory",
+      "semanticKind": "memoryBinding",
+      "source": "op.exp",
+      "target": "memory.qk-pv",
+      "sourcePort": "memory",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "binding.pipe",
+      "semanticKind": "memoryBinding",
+      "source": "handoff.c2v-push",
+      "target": "memory.pipe",
+      "sourcePort": "memory",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "task.qk-aic",
+      "semanticKind": "lowering",
+      "source": "task.qk-pv",
+      "target": "kernel.aic",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {
+        "label": "kernel family"
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "task.qk-aiv",
+      "semanticKind": "lowering",
+      "source": "task.qk-pv",
+      "target": "kernel.aiv",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {
+        "label": "kernel family"
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "task.plan-qk",
+      "semanticKind": "taskDependency",
+      "source": "task.plan",
+      "target": "task.qk-pv",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {
+        "label": "依赖 QK 计划",
+        "detail": "deps=[qk_plan_tid, cache_ready_dep]；缓存就绪依赖未绘制为节点"
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "lower.qk-load",
+      "semanticKind": "lowering",
+      "source": "op.qk",
+      "target": "isa.load",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "lower.qk-matmul",
+      "semanticKind": "lowering",
+      "source": "op.qk",
+      "target": "isa.matmul",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "lower.c2v",
+      "semanticKind": "lowering",
+      "source": "handoff.c2v-push",
+      "target": "isa.c2v",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "lower.softmax",
+      "semanticKind": "lowering",
+      "source": "op.exp",
+      "target": "isa.softmax",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "lower.v2c",
+      "semanticKind": "lowering",
+      "source": "handoff.v2c-push",
+      "target": "isa.v2c",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "lower.store",
+      "semanticKind": "lowering",
+      "source": "op.pv",
+      "target": "isa.store",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.next.0",
+      "semanticKind": "data",
+      "source": "gather.0",
+      "target": "gather.1",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.next.1",
+      "semanticKind": "data",
+      "source": "gather.1",
+      "target": "gather.2",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.next.2",
+      "semanticKind": "data",
+      "source": "gather.2",
+      "target": "gather.3",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.next.3",
+      "semanticKind": "data",
+      "source": "gather.3",
+      "target": "gather.4",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.next.4",
+      "semanticKind": "data",
+      "source": "gather.4",
+      "target": "value.kv",
+      "sourcePort": "memory",
+      "targetPort": "memory",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "gather.folded-kv",
+      "semanticKind": "data",
+      "source": "gather.0",
+      "target": "value.kv",
+      "sourcePort": "memory",
+      "targetPort": "memory",
+      "attributes": {},
+      "provenance": "curated",
+      "sourceRefs": []
+    },
+    {
+      "id": "control.valid-gather",
+      "semanticKind": "control",
+      "source": "region.guard",
+      "target": "gather.0",
+      "sourcePort": "out",
+      "targetPort": "in",
+      "attributes": {
+        "label": "有效块"
+      },
+      "provenance": "curated",
+      "sourceRefs": []
+    }
+  ],
+  "initialState": {
+    "nodeIds": [
+      "scope.qk-pv",
+      "value.q",
+      "value.kv",
+      "op.qk",
+      "value.scores",
+      "op.rowmax",
+      "value.max",
+      "op.exp",
+      "value.prob",
+      "op.rowsum",
+      "value.sum",
+      "op.pv",
+      "value.out",
+      "task.plan",
+      "task.qk-pv",
+      "control.qk",
+      "region.iter",
+      "region.guard",
+      "region.runs",
+      "gather.0"
+    ],
+    "edgeIds": [
+      "data.q-qk",
+      "data.kv-qk",
+      "data.qk-scores",
+      "data.scores-rowmax",
+      "data.rowmax-max",
+      "data.scores-exp",
+      "data.max-exp",
+      "data.exp-prob",
+      "data.prob-rowsum",
+      "data.rowsum-sum",
+      "data.prob-pv",
+      "data.kv-pv",
+      "data.pv-out",
+      "task.plan-qk",
+      "gather.folded-kv",
+      "control.valid-gather"
+    ]
+  },
+  "projections": {
+    "isa": {
+      "nodeIds": [
+        "isa.load",
+        "isa.matmul",
+        "isa.c2v",
+        "isa.softmax",
+        "isa.v2c",
+        "isa.store"
+      ],
+      "edgeIds": [
+        "lower.qk-load",
+        "lower.qk-matmul",
+        "lower.c2v",
+        "lower.softmax",
+        "lower.v2c",
+        "lower.store"
+      ],
+      "availableAfterPass": 51,
+      "provenance": "post-Pass PTOAS projection; not a MaterializeValidShapeSymbols delta"
+    }
+  },
+  "notes": {
+    "topology": "contains relations are expressed by scope/kernel glyph boundaries; overlays do not participate in the primary DAG",
+    "provenance": "the compact compute spine is curated from qk_pv; Pass order, changed/no-op status, memory counts and ISA names are source-backed"
+  }
+}

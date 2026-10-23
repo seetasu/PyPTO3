@@ -1,0 +1,285 @@
+/* Execution Triage · 压测总览
+ * 复用 home.css 的暗色线框语言，只补这一页特有的件：
+ * 头条指标与运行配置、右栏指标轨、2D 主图（生命线 + 波次 + 图上标签）、底部分布直方图。 */
+
+.shell { grid-template-columns: minmax(0, 1fr) 320px; }
+
+/* ------------------------------------------------------------ 字体
+ * 整页只用一种字体：--font-sans + 等宽数字（同 AI_Infra Atlas 的 svg text 规则）。
+ * 不用 mono：mono 回退到 Consolas 后，同一行里的中文还会再落到另一种系统字体。
+ * 图上文字按屏幕像素定字号：--u = viewBox 单位 / 屏幕像素（由 overview.js 渲染时写入），
+ * 画布再宽，10 / 11 / 12 px 的字也不会跟着放大，和 HTML 正文同一量级。
+ * 字重以 400 为主，只有结论行与单 rank 数值用 500；层级靠颜色区分，不靠加粗。 */
+:root {
+  --ov-num: 400 12px/1.4 var(--font-sans);                     /* HTML 里的数字 */
+  --ov-num-lg: 400 20px/1.1 var(--font-sans);                  /* 右栏指标值，按档位改字号 */
+}
+/* 图上字号变量定义在 svg 自身上：var(--u) 在定义处取值，放在 :root 会读到默认的 1 */
+.iso {
+  --u: 1;
+  --svg-xs: 400 calc(10px * var(--u)) / 1 var(--font-sans);    /* 刻度、轴值、注释、图例 */
+  --svg-sm: 400 calc(11px * var(--u)) / 1 var(--font-sans);    /* 标题、名称、标签 */
+  --svg-md: 400 calc(12px * var(--u)) / 1 var(--font-sans);    /* 统计值、读数 */
+  --svg-md-strong: 500 calc(12px * var(--u)) / 1 var(--font-sans);  /* 结论行 */
+  --svg-lg: 500 calc(14px * var(--u)) / 1 var(--font-sans);    /* 单 rank 侧边数值 */
+}
+body, .iso text { font-variant-numeric: tabular-nums; }
+.iso .tick-label { font: var(--svg-xs); }
+.iso .tick-label.strong { font: var(--svg-sm); }
+.iso .tag-num { font: var(--svg-md); }
+.iso .tag-label { font: var(--svg-sm); }
+
+/* ------------------------------------------------------------ 头条指标 */
+.scene-head { max-width: 460px; }
+.headline-sub { margin-top: 10px; font: var(--type-body-sm); color: var(--foreground-muted); }
+.headline-sub b { color: var(--foreground-secondary); font-weight: 500; }
+
+.meta-toggle {
+  pointer-events: auto; margin-top: 14px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px 5px 12px; border: 1px solid var(--border-default); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03); font: var(--type-body-sm); color: var(--foreground-secondary);
+}
+.meta-toggle:hover { color: var(--foreground); border-color: var(--border-strong); }
+.meta-toggle svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.15s; }
+.meta-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+.meta-card {
+  pointer-events: auto; margin: 8px 0 0; width: 420px; max-width: 100%;
+  display: grid; grid-template-columns: 56px 1fr; gap: 4px 12px;
+  padding: 12px 14px; border-radius: 10px;
+  border: 1px solid var(--border-strong); background: var(--card-bg);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.meta-card[hidden] { display: none; }
+.meta-card dt { font: var(--type-body-sm); color: var(--foreground-muted); }
+.meta-card dd { margin: 0; font: var(--type-body-sm); color: var(--foreground-secondary); }
+
+/* ------------------------------------------------------------ 右栏：服务指标轨 */
+.rail { min-height: 0; display: flex; flex-direction: column; padding: 8px 4px 8px 20px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--surface-4) transparent; }
+.kpis { display: flex; flex-direction: column; gap: 16px; }
+
+.rail-group { display: flex; flex-direction: column; gap: 10px; }
+.rail-group h3 {
+  margin: 0; padding-bottom: 6px; border-bottom: 1px solid var(--border-subtle);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font: var(--type-label); color: var(--foreground-secondary);
+}
+.qlg { display: inline-flex; align-items: center; gap: 3px; font: var(--type-micro); font-style: normal; color: var(--foreground-disabled); letter-spacing: 0; }
+.qlg b { width: 2px; height: 8px; border-radius: 1px; margin-left: 5px; }
+.qlg b.q50 { background: var(--foreground); margin-left: 0; }
+.qlg b.q90 { background: rgba(255, 255, 255, 0.45); }
+.qlg b.q99 { background: var(--hot); }
+.rail-item { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ri-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ri-label { font: var(--type-body-sm); color: var(--foreground-muted); white-space: nowrap; }
+.ri-val { font: var(--ov-num-lg); color: var(--foreground); white-space: nowrap; }
+.ri-val small { margin-left: 3px; font: var(--type-body-sm); color: var(--foreground-secondary); }
+.rail-item.is-bad .ri-val { color: var(--hot); }
+.ri-foot { font: var(--type-micro); color: var(--foreground-muted); }
+
+/* 三档优先级：越能动手的，给的字号和图形越大 */
+.rail-group.p0 { gap: 14px; }
+.rail-group.p0 .ri-val { font-size: 26px; }
+.rail-group.p0 .ri-label { color: var(--foreground-secondary); }
+.rail-group.p0 h3 { color: var(--foreground); }
+.rail-group.p0 .pbar { height: 7px; }
+.rail-group.p0 .spark { height: 30px; }
+
+.rail-group.p1 .ri-val { font-size: 19px; }
+
+.rail-group.p2 { gap: 6px; }
+.rail-group.p2 h3 { color: var(--foreground-muted); }
+.rail-group.p2 .rail-item { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 8px; }
+.rail-group.p2 .ri-val { font-size: 15px; color: var(--foreground-secondary); }
+.rail-group.p2 .rail-item.is-bad .ri-val { color: var(--hot); }
+.rail-group.p2 .ri-foot { grid-column: 1 / 3; }
+
+/* 迷你直方图：留给最该看的那一项 */
+.mhist { display: flex; align-items: flex-end; gap: 1px; height: 30px; }
+.mhist i { flex: 1; min-width: 0; height: var(--h); min-height: 1px; border-radius: 1px 1px 0 0; background: rgba(255, 255, 255, 0.34); }
+.mhist i.hot { background: var(--hot); }
+.mhist i.zero { background: rgba(255, 255, 255, 0.07); }
+
+.pill { font: var(--type-micro); font-style: normal; margin-left: 6px; padding: 1px 6px; border-radius: 99px; }
+.pill.ok { background: rgba(255, 255, 255, 0.1); color: var(--foreground-secondary); }
+
+/* 占比条 */
+.pbar { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.pbar i { display: block; height: 100%; border-radius: 3px; background: var(--foreground-secondary); }
+.rail-item.is-bad .pbar i { background: var(--hot); }
+
+/* 分位条：min–max 为轨，标出 P50 / P90 / P99 */
+.qbar { position: relative; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); }
+.qfill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 3px 0 0 3px; background: rgba(255, 255, 255, 0.16); }
+.qt { position: absolute; top: -2px; width: 2px; height: 10px; border-radius: 1px; transform: translateX(-1px); }
+.qt.q50 { background: var(--foreground); }
+.qt.q90 { background: rgba(255, 255, 255, 0.45); }
+.qt.q99 { background: var(--hot); }
+.qax { display: flex; justify-content: space-between; font: var(--type-micro); color: var(--foreground-disabled); }
+
+/* 迷你曲线 */
+.spark { display: block; width: 100%; height: 24px; }
+.spark-line { fill: none; stroke: var(--foreground-secondary); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.spark-split { stroke: var(--hot); stroke-width: 1; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+.spark-sel { fill: rgba(255, 255, 255, 0.07); }
+
+/* 视图切换：服务曲线 / 请求生命线 */
+.view-tabs { position: absolute; z-index: 2; top: 24px; right: 68px; display: flex; gap: 2px; }
+.view-tabs button {
+  padding: 5px 11px; border: 1px solid transparent; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04); font: var(--type-label); color: var(--foreground-muted);
+}
+.view-tabs button:hover { color: var(--foreground); }
+.view-tabs button.is-on { background: rgba(255, 255, 255, 0.12); border-color: var(--border-strong); color: var(--foreground); }
+
+/* ------------------------------------------------------------ 主图 */
+.iso { top: 206px; height: calc(100% - 230px); }   /* 底部分布已并入右栏，主图铺到底 */
+
+.iso .panel { fill: rgba(255, 255, 255, 0.035); stroke: rgba(255, 255, 255, 0.12); stroke-width: 1; }
+.iso .axis-base { stroke: rgba(255, 255, 255, 0.28); }
+
+.iso .req-wait { stroke: rgba(255, 255, 255, 0.1); stroke-width: 0.6; }
+.iso .req-slow { stroke: rgba(255, 255, 255, 0.3); stroke-width: 0.9; }
+.iso .req-fast { stroke: rgba(255, 255, 255, 0.66); stroke-width: 0.9; }
+.iso .req-dim .req-slow, .iso .req-dim .req-fast { stroke: rgba(255, 255, 255, 0.08); }
+.iso .edge-first, .iso .edge-last { fill: none; stroke: rgba(255, 255, 255, 0.5); stroke-width: 1.1; }
+.iso .edge-last { stroke-dasharray: 3 2; }
+.iso .req-hot { stroke: var(--hot); stroke-width: 1.6; }
+.iso .req-dot { fill: var(--scene-bg); stroke: var(--foreground); stroke-width: 1.2; }
+.iso .hit { fill: transparent; cursor: pointer; }
+.iso .dim-cover { fill: rgba(18, 18, 18, 0.66); pointer-events: none; }
+
+/* 服务曲线 */
+.iso .band-fill { fill: #333; stroke: none; }
+.iso .band-fill.gen { fill: #3d3d3d; }
+.iso .band-fill.wait { fill: #5e2420; }
+.iso .band-line { fill: none; stroke: var(--foreground); stroke-width: 1.8; stroke-linejoin: round; }
+.iso .band-title { font: var(--svg-sm); fill: var(--foreground-secondary); paint-order: stroke; stroke: rgba(18, 18, 18, 0.85); stroke-width: 3px; stroke-linejoin: round; }
+.iso .band-stat { font: var(--svg-md); fill: var(--foreground); }
+.iso .band-max { font: var(--svg-xs); fill: var(--foreground-muted); }
+.iso .band-max.dim { fill: var(--foreground-disabled); }
+.iso .band-key { font: var(--svg-xs); fill: var(--foreground-muted); paint-order: stroke; stroke: rgba(18, 18, 18, 0.85); stroke-width: 3px; stroke-linejoin: round; }
+.iso .key.gen { fill: #3d3d3d; stroke: var(--wire-dim); stroke-width: 0.8; }
+.iso .key.wait { fill: #5e2420; stroke: rgba(239, 75, 60, 0.7); stroke-width: 0.8; }
+.iso .cross { stroke: var(--foreground); stroke-width: 1; stroke-dasharray: 3 3; }
+.iso .cross-dot { fill: var(--scene-bg); stroke: var(--foreground); stroke-width: 1.6; }
+.iso .cross-hit { cursor: crosshair; }
+
+.iso .wave { fill: #2e2e2e; stroke: var(--wire-dim); stroke-width: 0.7; }
+.iso .wave.slow { fill: #3a1712; stroke: rgba(239, 75, 60, 0.8); }
+.iso .wave.is-dim { fill: none; stroke: rgba(255, 255, 255, 0.14); }
+.iso .wave:hover { fill: var(--foreground); stroke: var(--foreground); }
+
+.iso .split-line { stroke: var(--hot); stroke-width: 1.4; stroke-dasharray: 4 3; }
+.iso .split-label { font: var(--svg-sm); fill: var(--hot); paint-order: stroke; stroke: var(--scene-bg); stroke-width: 4px; }
+
+/* 图上的可点标签：批次（左）与波段（两图之间） */
+.iso .pick { cursor: pointer; }
+.iso .pick-hit { fill: transparent; }
+.iso .pick:hover .pick-hit { fill: rgba(255, 255, 255, 0.04); }
+.iso .pick:focus-visible { outline: none; }
+.iso .pick:focus-visible .pick-hit { stroke: var(--primary); stroke-width: 2; }
+
+.iso .grp-n { font: var(--svg-md); fill: var(--foreground-secondary); }
+.iso .grp-sub { font: var(--svg-xs); fill: var(--foreground-muted); }
+.iso .grp-bar { stroke: rgba(255, 255, 255, 0.22); stroke-width: 2; }
+.iso .pick.is-on .grp-n, .iso .pick:hover .grp-n { fill: var(--foreground); }
+.iso .pick.is-on .grp-bar { stroke: var(--foreground); }
+
+.iso .band-label { font: var(--svg-sm); fill: var(--foreground-secondary); }
+.iso .band-label.hot { fill: var(--hot); }
+.iso .band-sub { font: var(--svg-xs); fill: var(--foreground-muted); }
+.iso .band-bar { stroke: rgba(255, 255, 255, 0.22); stroke-width: 2; }
+.iso .band-bar.hot { stroke: rgba(239, 75, 60, 0.55); }
+.iso .pick.is-on .band-bar { stroke: var(--foreground); }
+.iso .pick.is-on .band-bar.hot { stroke: var(--hot); }
+.iso .pick.is-on .band-label, .iso .pick:hover .band-label { fill: var(--foreground); }
+.iso .pick.is-on .band-label.hot, .iso .pick:hover .band-label.hot { fill: var(--hot); }
+
+/* 16 rank 定位视图 */
+.iso .rank-head { font: var(--svg-md-strong); fill: var(--foreground-secondary); }
+.iso .rank-head.hot { fill: var(--hot); }
+.iso .rank-topo { font: var(--svg-xs); fill: var(--foreground-muted); }
+.iso .col-title { font: var(--svg-sm); fill: var(--foreground-muted); }
+.iso .rk-note { font: var(--svg-xs); fill: var(--foreground-disabled); }
+
+/* rank 立方体：取自 AI_Infra NPU Memory Atlas（背面压暗、分层块、白色轮廓、斜贴墙标） */
+.iso .rk { cursor: pointer; }
+.iso .rk:focus-visible { outline: none; }
+.iso .rk-back { fill: #000; fill-opacity: 0.8; stroke: none; }
+.iso .rk-back-edge { stroke: #505050; stroke-width: 1; }
+.iso .rk-outline { fill: none; stroke: rgba(255, 255, 255, 0.62); stroke-width: 1; stroke-linejoin: round; }
+.iso .rk:hover .rk-outline, .iso .rk:focus-visible .rk-outline { stroke: #fff; }
+.iso .rk.is-sel .rk-outline { stroke: #fff; stroke-width: 2; }
+.iso .rk.is-hot .rk-outline { stroke: var(--hot); }
+.iso .rk.is-hot.is-sel .rk-outline { stroke-width: 2; }
+.iso .rk-big .rk-outline { stroke: #fff; stroke-width: 1.6; }
+.iso .rk-big.is-hot .rk-outline { stroke: var(--hot); }
+.iso .rk-big .rk-back-edge { stroke-width: 1.6; }
+.iso .rk-wall { pointer-events: none; }
+.iso .rk-wall-title { font-family: var(--font-sans); font-weight: 500; fill: #f5f5f5; }
+.iso .rk.is-hot .rk-wall-title { fill: var(--hot); }
+.iso .rk-wall-sub { font: 400 10px/1 var(--font-sans); fill: #bdbdbd; }
+.iso .rk-top { font-family: var(--font-sans); font-weight: 500; fill: #fff; paint-order: stroke; stroke: rgba(0, 0, 0, 0.75); stroke-width: 2px; pointer-events: none; }
+.iso .rk.is-hot .rk-top { fill: var(--hot); }
+
+.iso .rk-axis { stroke-width: 1; stroke-dasharray: 3 3; }
+.iso .rk-tick { font: var(--svg-xs); }
+.iso .rk-tick.dim { fill: var(--foreground-disabled); }
+.iso .rk-tag rect { fill: #202020; stroke-width: 1; }
+.iso .rk-tag text { font: 500 10px/1 var(--font-sans); }
+
+/* 单 rank 的侧边标注 */
+.iso .rk-labels { pointer-events: none; }
+.iso .rk-swatch.free { stroke: #484848; stroke-width: 1; }
+.iso .rk-val { font: var(--svg-lg); fill: #f5f5f5; }
+.iso .rk-val.dim { fill: var(--foreground-secondary); }
+.iso .rk-unit { font: var(--svg-xs); fill: #f5f5f5; }
+.iso .rk-name { font: var(--svg-sm); fill: #bdbdbd; }
+
+/* 右列读数与 16 rank 对比 */
+.iso .rk-fact-k { font: var(--svg-sm); fill: var(--foreground-muted); }
+.iso .rk-fact-v { font: var(--svg-md); fill: var(--foreground); }
+.iso .rk-fact-v.hot { fill: var(--hot); }
+.iso .rk-bar { fill: rgba(255, 255, 255, 0.28); cursor: pointer; }
+.iso .rk-bar:hover { fill: rgba(255, 255, 255, 0.6); }
+.iso .rk-bar.hot { fill: rgba(239, 75, 60, 0.6); }
+.iso .rk-bar.is-sel { fill: var(--foreground); }
+.iso .rk-bar.hot.is-sel { fill: var(--hot); }
+
+/* 输出间隔的双峰：钉在各自中位数的位置上，点峰即筛选对应波段（与主图波段标注同一个开关） */
+.mhist { position: relative; }
+.mhist.has-peaks { margin-top: 26px; }
+.mhist .peak {
+  position: absolute; bottom: calc(100% + 4px); transform: translateX(-50%);
+  padding: 1px 6px; border-radius: 6px; white-space: nowrap;
+  border: 1px solid var(--border-default); background: #222;
+  font: var(--type-micro); color: var(--foreground-muted);
+}
+.mhist .peak b { font: var(--ov-num); color: var(--foreground); }
+.mhist .peak.hot { border-color: rgba(239, 75, 60, 0.5); }
+.mhist .peak.hot b { color: var(--hot); }
+.mhist .peak:hover { border-color: var(--border-strong); color: var(--foreground); }
+.mhist .peak.is-on { border-color: var(--foreground); background: rgba(255, 255, 255, 0.1); }
+.mhist .peak.hot.is-on { border-color: var(--hot); background: rgba(239, 75, 60, 0.16); }
+.mhist .peak:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* ------------------------------------------------------------ responsive */
+@media (max-width: 980px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { padding-left: 4px; }
+  .rail { overflow: visible; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; align-items: start; }
+  .iso { top: 206px; }
+}
+@media (max-width: 560px) {
+  .scene-head { max-width: none; }
+  .view-tabs { position: static; margin: 14px 20px 0; }
+  .iso { height: 190px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .meta-toggle svg { transition: none; }
+}
+
+.iso .rule { stroke: rgba(255, 255, 255, 0.12); }

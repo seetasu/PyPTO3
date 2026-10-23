@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pass-lane-model.manifest.v1",
+  "title": "Pass lane bundle manifest",
+  "type": "object",
+  "required": ["schemaVersion", "scenarioId", "run", "callable", "sourceDirectory", "activeLanes", "stages", "counts"],
+  "properties": {
+    "schemaVersion": { "const": "pass-lane-model.manifest.v1" },
+    "scenarioId": { "type": "string", "description": "run/callable/lane 三段式，唯一标识一次投影" },
+    "run": { "type": "string", "description": "编译 run 目录名" },
+    "callable": { "type": "string", "description": "被观测的 callable；lane 投影总是限定在一个 callable 内" },
+    "sourceDirectory": { "type": "string", "description": "passes_dump 的仓库相对路径，供复核" },
+    "activeLanes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "本 bundle 里事件完整的 lane id"
+    },
+    "partialLanes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "只有部分事件的 lane id；UI 必须标注为不完整，不得当作该 lane 的全貌"
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["index", "pass"],
+        "properties": {
+          "index": { "type": "integer", "description": "dump 文件序号，即时间轴刻度" },
+          "pass": { "type": "string" },
+          "file": { "type": "string" },
+          "subjectCount": { "type": "integer" },
+          "skipped": { "type": "boolean", "description": "被配置门控跳过；时间轴仍占位，避免两次编译对不齐" },
+          "skipReason": { "type": "string" },
+          "owner": { "enum": ["pypto", "ptoas"], "description": "该刻度属于哪个仓；换仓处 dump 会断" }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "required": ["subjects", "events"],
+      "properties": {
+        "subjects": { "type": "integer" },
+        "events": { "type": "integer" }
+      }
+    },
+    "caveats": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "口径与身份匹配的已知限制，必须在页面上可见"
+    }
+  }
+}

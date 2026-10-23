@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Memory Lane · csa_merge_pack_publish</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css" />
+  <style>
+    :root{
+      color-scheme:dark;
+      --page:#0b0d11;--panel:#111318;--panel2:#161920;--line:#282e38;--soft:#1f242c;
+      --text:#e9edf3;--muted:#8d95a3;--faint:#5c6472;
+      --accent:#4f7ef7;--accent-soft:#6f8fd8;--land:#17a8b4;--warn:#c0861a;--bad:#c4584f;
+      --mono:"Cascadia Code","SFMono-Regular",Consolas,monospace;
+      --sans:Inter,"PingFang SC","Microsoft YaHei",sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-width:320px;background:var(--page);color:var(--text);font-family:var(--sans)}
+    body{font-size:12.5px}
+    button,input,select{font:inherit;color:inherit}
+    .app{min-height:100vh;display:grid;grid-template-rows:38px 1fr 22px;grid-template-columns:minmax(0,1fr)}
+
+    .bar{display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+    .mark{width:19px;height:19px;border:1px solid #4d5668;border-radius:5px;display:grid;place-items:center;color:var(--accent);font:700 10px var(--mono)}
+    .bar b{font-weight:650;font-size:12px}
+    .bar .path{color:var(--muted);font:10.5px var(--mono)}
+    .sp{flex:1}
+    .sel{height:25px;padding:0 7px;border:1px solid var(--line);border-radius:5px;background:#0c0e12;color:#d7dde7;font:10px var(--mono);max-width:46vw}
+    .layer-nav{padding:4px 7px;border:1px solid #36445f;border-radius:5px;background:#151c2a;color:#b9c9f5;text-decoration:none;font:9px var(--mono);white-space:nowrap}.layer-nav:hover{border-color:#6d82ae;color:#e0e8ff}.layer-current{color:#a7b9e9;font:9px var(--mono);white-space:nowrap}
+    .budget{color:var(--muted);font:10px var(--mono);white-space:nowrap}
+
+    main{padding:12px 14px 26px;display:flex;flex-direction:column;gap:12px}
+
+    /* KPI */
+    .kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+    .kpi{padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:var(--panel)}
+    .kpi.hero{grid-column:span 2;border-color:#4a3a22;background:#171209}
+    .k-l{color:var(--faint);font:9.5px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .k-v{margin-top:4px;font:600 17px var(--mono);color:#e7edf6;letter-spacing:-.01em}
+    .kpi.hero .k-v{color:#e3b46a;font-size:21px}
+    .k-s{margin-top:3px;color:var(--faint);font:9.5px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .track{height:5px;margin-top:7px;border-radius:3px;background:#20242c;overflow:hidden;position:relative}
+    .fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#8a6a22,#d8a548)}
+    .track i{position:absolute;top:-2px;bottom:-2px;width:1px;background:#6d7787}
+
+    /* canvas */
+    .panel{border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden}
+    .ph{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--soft)}
+    .ph strong{font-size:11.5px}
+    .ph span{color:var(--faint);font:9.5px var(--mono)}
+    .ph .sp{flex:1}
+    .legend{display:flex;gap:12px;color:var(--faint);font:9.5px var(--mono)}
+    .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+    .scroll{overflow-x:auto}
+    svg{display:block;height:auto}
+    #lane{min-width:1000px;width:100%}
+    #addr{min-width:620px;width:100%}
+
+    /* detail */
+    .dt{width:100%;border-collapse:collapse;font:10px var(--mono)}
+    .dt th,.dt td{padding:5px 8px;border-bottom:1px solid var(--soft);text-align:left;white-space:nowrap}
+    .dt th{color:var(--faint);font-weight:400;background:#13161c;position:sticky;top:0}
+    .dt td.k{color:var(--faint)}
+    .dt td.chg{color:#a9c2ff}
+    .dt td.off{color:#6ec9c6}
+    .dt tbody tr:hover td{background:#14181f}
+    .dwrap{overflow-x:auto;max-height:230px}
+    .dhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:9px 12px;border-bottom:1px solid var(--soft)}
+    .dhead b{font:600 12px var(--mono);color:#cfd9ff}
+    .dhead span{color:var(--faint);font:9.5px var(--mono)}
+    .pill{padding:2px 6px;border:1px solid #39404e;border-radius:4px;color:#aab3c1;font:9px var(--mono)}
+
+    details.caveat{border:1px solid var(--line);border-radius:7px;background:var(--panel)}
+    details.caveat summary{padding:8px 12px;cursor:pointer;color:var(--muted);font:10px var(--mono);list-style:none}
+    details.caveat summary::-webkit-details-marker{display:none}
+    details.caveat summary:before{content:"▸ ";color:var(--faint)}
+    details.caveat[open] summary:before{content:"▾ "}
+    details.caveat ol{margin:0;padding:0 14px 10px 30px;color:var(--faint);font-size:10px;line-height:1.8}
+
+    .status{display:flex;align-items:center;gap:10px;padding:0 10px;overflow:hidden;background:#13161c;border-top:1px solid var(--line);color:#767f8d;font:9.5px var(--mono)}
+    .status #st{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .ok{color:#8ccfa2;white-space:nowrap}
+    .tip{position:absolute;z-index:9;padding:7px 9px;border:1px solid #39414f;border-radius:6px;background:#0d1016f5;box-shadow:0 8px 24px #0009;color:#dbe2ec;font:9.5px/1.65 var(--mono);pointer-events:none;white-space:nowrap}
+    .tip b{color:#fff}
+
+    @media(max-width:1000px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.kpi.hero{grid-column:span 3}}
+    @media(max-width:620px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi.hero{grid-column:span 2}.bar .path{display:none}main{padding:10px 9px 20px}}
+    @media(prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="bar">
+      <div class="mark">P</div><b>Memory Lane</b><a id="callable-layer-link" class="layer-nav" href="../memory-pass-replay/index.html">← 01 Callable</a><span class="layer-current">/ 02 Object</span>
+      <span class="path" id="run">—</span>
+      <select id="pick" class="sel" aria-label="选择观测 tile"></select>
+      <span class="sp"></span>
+      <span class="budget" id="budget">—</span>
+    </header>
+
+    <main>
+      <section class="kpis" id="kpis"></section>
+
+      <section class="panel">
+        <div class="ph">
+          <strong>8 个内存 pass · 全部 <span id="tcount">—</span> 个 tile 的槽位归属</strong>
+          <span class="sp"></span>
+          <div class="legend">
+            <span><i style="background:#333c4b"></i><i style="background:#222935"></i>槽位分带</span>
+            <span><i style="background:#6f8fd8"></i>本步改写</span>
+            <span><i style="background:#1b1f27"></i>槽位未建立</span>
+            <span><i style="background:#4f7ef7"></i>选中</span>
+          </div>
+        </div>
+        <div class="scroll"><svg id="lane" role="img" aria-label="八个内存 pass 中每个 tile 的槽位归属"></svg></div>
+      </section>
+
+      <section class="panel">
+        <div class="ph"><strong>Vec 地址布局</strong><span id="addr-sub">—</span></div>
+        <div class="scroll" style="padding:10px 12px 14px"><svg id="addr" role="img" aria-label="最终 Vec 地址布局"></svg></div>
+      </section>
+
+      <section class="panel">
+        <div class="dhead"><b id="d-name">—</b><span id="d-meta"></span></div>
+        <div class="dwrap"><table class="dt" id="dt"></table></div>
+      </section>
+
+      <details class="caveat">
+        <summary>口径与限制</summary>
+        <ol id="caveats"></ol>
+      </details>
+    </main>
+
+    <footer class="status">
+      <span class="ok">●</span><span id="st">—</span><span class="sp"></span><span>static IR evidence</span>
+    </footer>
+  </div>
+
+  <script>
+  (() => {
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const kib = (n) => (n >= 1024 ? `${(n / 1024).toFixed(n % 1024 ? 1 : 0)} KiB` : `${n} B`);
+    const pct = (x, d = 1) => `${(x * 100).toFixed(d)}%`;
+    let D = null, me = null, order = null, tip = null;
+
+    fetch('./data/memory-lane.json').then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((d) => { D = d; boot(); })
+      .catch((e) => { document.querySelector('main').innerHTML =
+        `<div class="panel" style="padding:20px;line-height:1.8">数据加载失败：${esc(e.message)}。请通过本地 HTTP 服务打开。</div>`; });
+
+    const tile = (name) => D.tiles.find((t) => t.name === name);
+    const at = (name, si) => (tile(name) || { perStage: [] }).perStage[si] || null;
+    const lastIdx = D ? 0 : 0;
+
+    function boot() {
+      $('run').textContent = `${D.run.replace(/^_jit_/, '')} / ${D.callable}`;
+      $('budget').textContent = `${D.budget.space} 预算 ${kib(D.budget.safeBytes)}（物理 ${kib(D.budget.physicalBytes)}）`;
+      $('st').textContent = `${D.sourceDirectory} · ${D.stages.length} 个 pass · ${D.tiles.length} 个 tile`;
+      $('tcount').textContent = D.tiles.length;
+      $('caveats').innerHTML = D.caveats.map((c) => `<li>${esc(c)}</li>`).join('');
+
+      const finalSi = D.stages.length - 1;
+      order = D.tiles.map((t) => t.name).sort((a, b) => {
+        const fa = at(a, finalSi), fb = at(b, finalSi);
+        const ka = (fa && fa.base) || 'zz', kb = (fb && fb.base) || 'zz';
+        if (ka !== kb) return ka.localeCompare(kb, undefined, { numeric: true });
+        const sa = (at(a, 3) || {}).base || '', sb = (at(b, 3) || {}).base || '';
+        return sa.localeCompare(sb, undefined, { numeric: true }) || a.localeCompare(b);
+      });
+      // Prefer a semantically named tile that actually moves: counter-style names (t__tile_N)
+      // get reused by unrelated temporaries across snapshots, so they are a poor default.
+      const moves = (n) => new Set(tile(n).perStage.filter(Boolean).map((x) => x.base).filter(Boolean)).size > 1;
+      const named = (n) => !/^t__tile_\d+$/.test(n);
+      const requestedTile = new URLSearchParams(location.search).get('tile');
+      me = order.includes(requestedTile) ? requestedTile : order.find((n) => named(n) && moves(n)) || order.find(moves) || order[0];
+      $('pick').innerHTML = order.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+      $('pick').value = me;
+      $('pick').addEventListener('change', (e) => { me = e.target.value; render(); });
+
+      renderKpi(); render();
+    }
+
+    function renderKpi() {
+      const k = D.kpi;
+      const over = k.occupancy > 0.8;
+      $('kpis').innerHTML = `
+        <div class="kpi hero">
+          <div class="k-l">${D.budget.space} 占用率 · 对 ${kib(D.budget.safeBytes)} 安全预算</div>
+          <div class="k-v">${pct(k.occupancy)}</div>
+          <div class="track"><div class="fill" style="width:${Math.min(100, k.occupancy * 100)}%"></div><i style="left:80%"></i></div>
+          <div class="k-s">${kib(k.finalBytes)} 已用 · 余量 ${kib(k.headroomBytes)}${over ? ' · 超 80% 阈值' : ''}</div>
+        </div>
+        <div class="kpi"><div class="k-l">静态总量</div><div class="k-v">−${pct(k.reduction)}</div>
+          <div class="k-s">${kib(k.peakBytes)} → ${kib(k.finalBytes)}</div></div>
+        <div class="kpi"><div class="k-l">分配槽</div><div class="k-v">${k.slotsBefore}→${k.slotsAfter}</div>
+          <div class="k-s">每槽均 ${k.tenantsPerSlot.toFixed(1)} 个 tile</div></div>
+        <div class="kpi"><div class="k-l">碎片率</div><div class="k-v">${pct(k.fragmentation, 2)}</div>
+          <div class="k-s">空洞 ${k.fragmentationBytes} B · 高水位 ${kib(k.highWater)}</div></div>
+        <div class="kpi"><div class="k-l">集中度 · 前 3 槽</div><div class="k-v">${pct(k.top3Share)}</div>
+          <div class="k-s">最大 ${esc(k.largestSlot.base)} ${pct(k.largestSlot.share)}</div></div>`;
+    }
+
+    function render() { renderLane(); renderAddr(); renderDetail(); $('callable-layer-link').href = `../memory-pass-replay/index.html?tile=${encodeURIComponent(me || '')}`; }
+
+    const ROW = 2.7, GGAP = 3.5, TOP = 50, GUT = 112, CW = 104, CGAP = 10;
+    function renderLane() {
+      const svg = $('lane'), S = D.stages, finalSi = S.length - 1;
+      const W = GUT + S.length * (CW + CGAP);
+      const parts = [];
+
+      const ys = new Map(); let y = TOP, prev = null; const groups = [];
+      order.forEach((n) => {
+        const f = at(n, finalSi); const key = (f && f.base) || '—';
+        if (prev !== null && key !== prev) y += GGAP;
+        if (prev === null || key !== prev) groups.push({ base: key, top: y, n: 0 });
+        groups[groups.length - 1].n += 1;
+        ys.set(n, y); y += ROW; prev = key;
+      });
+      const H = y + 10;
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+      groups.forEach((g) => {
+        if (g.n < 5) return;
+        parts.push(`<text x="${GUT - 7}" y="${(g.top + g.n * ROW / 2 + 3).toFixed(1)}" text-anchor="end"
+          fill="#5c6472" font-family="var(--mono)" font-size="8.5">${esc(g.base.replace('mem_vec_', '#'))}·${g.n}</text>`);
+      });
+
+      const maxBytes = Math.max(...S.map((s) => s.allocBytes)) || 1;
+      S.forEach((st, si) => {
+        const x = GUT + si * (CW + CGAP);
+        parts.push(`<text x="${x}" y="12" fill="#9aa3b1" font-family="var(--mono)" font-size="9.5">${st.index} ${esc(st.pass.slice(0, 15))}</text>`);
+        parts.push(`<text x="${x}" y="24" fill="#5c6472" font-family="var(--mono)" font-size="8.5">${st.tileCount}t · ${st.slotCount ? `${st.slotCount}槽` : '无槽位'}</text>`);
+        if (st.allocBytes) {
+          parts.push(`<text x="${x + CW}" y="24" text-anchor="end" fill="#8d95a3" font-family="var(--mono)" font-size="8.5">${kib(st.allocBytes)}</text>`);
+          parts.push(`<rect x="${x}" y="29" width="${CW}" height="3" rx="1.5" fill="#20242c"></rect>`);
+          parts.push(`<rect x="${x}" y="29" width="${(CW * st.allocBytes / maxBytes).toFixed(1)}" height="3" rx="1.5" fill="#6f8fd8"></rect>`);
+        }
+        if (st.movedCount) {
+          parts.push(`<text x="${x + CW}" y="42" text-anchor="end" fill="#a9c2ff" font-family="var(--mono)" font-size="8.5">↻ ${st.movedCount}</text>`);
+        }
+
+        const SH = ['#333c4b', '#222935']; let band = 0, lastBase = null;
+        order.forEach((n) => {
+          const t = at(n, si), p = si ? at(n, si - 1) : null;
+          const ry = ys.get(n);
+          if (!t) { parts.push(`<rect class="row" x="${x}" y="${ry.toFixed(2)}" width="${CW}" height="${ROW}" fill="#12151b" data-n="${esc(n)}"></rect>`); lastBase = null; return; }
+          if (!t.base) { parts.push(`<rect class="row" x="${x}" y="${ry.toFixed(2)}" width="${CW}" height="${ROW}" fill="#1b1f27" data-n="${esc(n)}"></rect>`); lastBase = null; return; }
+          if (lastBase !== null && t.base !== lastBase) band ^= 1;
+          lastBase = t.base;
+          const isMe = n === me;
+          parts.push(`<rect class="row" x="${x}" y="${ry.toFixed(2)}" width="${CW}" height="${ROW}"
+            fill="${isMe ? '#4f7ef7' : SH[band]}" data-n="${esc(n)}"></rect>`);
+          if (p && p.base && p.base !== t.base && !isMe) {
+            parts.push(`<rect x="${x}" y="${ry.toFixed(2)}" width="5" height="${ROW}" fill="#6f8fd8"></rect>`);
+          }
+        });
+      });
+
+      const myY = ys.get(me);
+      if (myY != null) parts.push(`<text x="${GUT - 7}" y="${(myY + 3).toFixed(1)}" text-anchor="end" fill="#8fb0ff" font-size="8">▶</text>`);
+
+      svg.innerHTML = parts.join('');
+      svg.querySelectorAll('.row').forEach((el) => {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', () => { me = el.dataset.n; $('pick').value = me; render(); });
+        el.addEventListener('mouseenter', (ev) => showTip(ev, el.dataset.n));
+        el.addEventListener('mouseleave', hideTip);
+      });
+    }
+
+    function renderAddr() {
+      const svg = $('addr'), S = D.stages, fin = S[S.length - 1];
+      const hw = D.kpi.highWater, W = 1000, H = 44;
+      const mine = (at(me, S.length - 1) || {}).base;
+      svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      const segs = fin.allocations.slice().sort((a, b) => (a.offset ?? 0) - (b.offset ?? 0));
+      const parts = [`<rect x="0" y="8" width="${W}" height="20" rx="3" fill="#141922" stroke="#262c36"></rect>`];
+      segs.forEach((a) => {
+        const x = (a.offset / hw) * W, w = Math.max(1, (a.bytes / hw) * W);
+        const hot = a.base === mine;
+        parts.push(`<rect x="${x.toFixed(1)}" y="8" width="${w.toFixed(1)}" height="20"
+          fill="${hot ? '#17a8b4' : '#2f3744'}" stroke="#0b0d11" stroke-width="0.6"></rect>`);
+        if (w > 46) parts.push(`<text x="${(x + w / 2).toFixed(1)}" y="21" text-anchor="middle"
+          fill="${hot ? '#062a2b' : '#8d95a3'}" font-family="var(--mono)" font-size="8.5">${esc(a.base.replace('mem_vec_', '#'))} ${kib(a.bytes)}</text>`);
+      });
+      parts.push(`<text x="0" y="40" fill="#5c6472" font-family="var(--mono)" font-size="8.5">0</text>`);
+      parts.push(`<text x="${W}" y="40" text-anchor="end" fill="#5c6472" font-family="var(--mono)" font-size="8.5">${kib(hw)}</text>`);
+      svg.innerHTML = parts.join('');
+      const m = at(me, S.length - 1);
+      $('addr-sub').textContent = `${fin.allocations.length} 个槽 · 高水位 ${kib(hw)} · 碎片 ${pct(D.kpi.fragmentation, 2)}` +
+        (m && m.offset != null ? ` · 选中位于 ${m.offset}–${m.offset + (m.bytes || 0)} B` : '');
+    }
+
+    function renderDetail() {
+      const t = tile(me), S = D.stages;
+      const last = t.perStage.filter(Boolean).pop() || {};
+      $('d-name').textContent = me;
+      $('d-meta').innerHTML = `<span class="pill">${esc(last.shape || '—')}</span>` +
+        `<span class="pill">${esc(last.dtype || '—')}</span>` +
+        `<span class="pill">${esc(last.space || '—')}</span>` +
+        `<span class="pill">${esc(last.op || '—')}</span>` +
+        `<span>自身 ${last.bytes != null ? kib(last.bytes) : '—'}</span>`;
+      const rows = [
+        ['所在槽', (v) => (v && v.base) || '—', 'base'],
+        ['偏移', (v) => (v && v.offset != null ? `${v.offset}` : '—'), 'offset'],
+        ['空间', (v) => (v && v.space) || '—', 'space'],
+        ['形状', (v) => (v && v.shape) || '—', 'shape'],
+        ['dump 行', (v) => (v && v.line) || '—', 'line'],
+      ];
+      $('dt').innerHTML =
+        `<thead><tr><th>字段</th>${S.map((s) => `<th>${s.index} ${esc(s.pass.slice(0, 13))}</th>`).join('')}</tr></thead>` +
+        `<tbody>${rows.map(([label, get, key]) => `<tr><td class="k">${label}</td>` +
+          S.map((s, i) => {
+            const v = t.perStage[i], p = i ? t.perStage[i - 1] : null;
+            const cur = get(v), prev = p ? get(p) : null;
+            const chg = prev !== null && cur !== prev && cur !== '—';
+            const cls = key === 'offset' && cur !== '—' ? 'off' : chg ? 'chg' : '';
+            return `<td class="${cls}">${esc(cur)}</td>`;
+          }).join('') + '</tr>').join('')}</tbody>`;
+    }
+
+    function showTip(ev, name) {
+      hideTip();
+      const t = tile(name);
+      const bases = D.stages.map((s, i) => `${s.index} ${(t.perStage[i] && t.perStage[i].base) || (t.perStage[i] ? '无槽' : '—')}`);
+      tip = document.createElement('div');
+      tip.className = 'tip';
+      tip.innerHTML = `<b>${esc(name)}</b><br/>${bases.join('<br/>')}`;
+      document.body.appendChild(tip);
+      const r = ev.currentTarget.getBoundingClientRect(), b = tip.getBoundingClientRect();
+      tip.style.left = `${Math.min(window.scrollX + r.left + 12, window.scrollX + window.innerWidth - b.width - 8)}px`;
+      tip.style.top = `${Math.max(window.scrollY + 4, window.scrollY + r.top - b.height - 6)}px`;
+    }
+    const hideTip = () => { if (tip) { tip.remove(); tip = null; } };
+    window.addEventListener('scroll', hideTip, { passive: true });
+  })();
+  </script>
+</body>
+</html>

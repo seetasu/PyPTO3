@@ -657,28 +657,92 @@
     // 新增或更新 Design Demo 时，在此数组维护其 updatedAt（YYYY-MM-DD）。
     const demos = [
       {
+        "title": "Swimlane View · 多核执行泳道",
+        "subtitle": "多 Rank · AIC / AIV",
+        "category": "内存与性能",
+        "status": "新增",
+        "version": "01 / Swimlane",
+        "updatedAt": "2026-10-22",
+        "description": "查看核心执行、任务依赖与跨核耗时差异，支持语义染色、行高展开及本地 Trace JSON。",
+        "href": "Design/csa-swimlane/index.html",
+        "preview": "Design/csa-swimlane/cover.png",
+        "tags": [
+          "Profiling",
+          "CSA",
+          "Swimlane"
+        ]
+      },
+      {
+        "title": "Inference Request · 推理请求",
+        "subtitle": "Serving · Host · Device",
+        "category": "内存与性能",
+        "status": "新增",
+        "version": "01 / Swimlane",
+        "updatedAt": "2026-10-22",
+        "description": "沿共享时间轴查看一次推理请求，从 Prefill 到 Decode 连续缩放，联动检查 Host 与 Device 的执行关系。",
+        "href": "Design/critical-path-swimlane/index.html",
+        "preview": "Design/critical-path-swimlane/cover.png",
+        "tags": [
+          "Inference",
+          "Serving",
+          "Swimlane"
+        ]
+      },
+      {
+        title: "CSA Pass Field · 编译过程图",
+        subtitle: "qk_pv · IR → AIC / AIV → PTO-ISA",
+        category: "开发工具",
+        status: "新增",
+        version: "01 / Pass Field",
+        updatedAt: "2026-10-14",
+        description: "沿 qk_pv 核心计算观察 Pass 变换、跨核数据交接、片上内存绑定与 PTO-ISA 指令，结合 CSA 原始计算图定位上下文，支持横纵布局与逐步播放。",
+        href: "Design/csa-pass-field/dist/index.html#pass=1&palette=identity&layout=horizontal",
+        preview: "Design/csa-pass-field/cover.png",
+        tags: ["CSA", "Pass", "IR", "PTO-ISA", "计算图"]
+      },
+      {
+        title: "Serving · Host · Device 观测",
+        subtitle: "Inference · Request Path",
+        category: "内存与性能",
+        status: "新增",
+        version: "01 / Observe",
+        updatedAt: "2026-10-12",
+        description: "默认展示 256 条真实请求的 TTFT / ITL 分布与服务吞吐，并可点选匿名样本查看请求指标；16 Rank 拓扑作为独立示意视图，资源值明确标注为演示数据。",
+        href: "Design/serving-host-device-observability/index.html",
+        preview: "Design/assets/launch-previews/tuning-console.svg",
+        tags: ["Serving", "Host", "Ascend Device", "Request Trace"]
+      },
+      {
+        title: "执行定界工作台",
+        subtitle: "Execution Triage · DSpark Serving",
+        category: "内存与性能",
+        status: "新增",
+        version: "06 / Observe",
+        updatedAt: "2026-10-12",
+        description: "从一轮 256 并发压测下钻到一个 decode step。总览页把定界与定位放进同一张图：上半四条服务曲线（在系统内的请求数 / 输出速率 / 输出间隔 P50 / KV cache），下半 16 个 rank 的热力带 + 计算·通信·等待构成 + 专家路由量，共用一条时间轴。一条十字光标同时读出两半，点波段标注则两半一起按时间段过滤、rank 构成随之重算。23.00 s 之后并发在降、吞吐却涨 8 倍；r6 承载高 33%、每步占 97%，其余卡都在等它。切到请求生命线可看 256 条请求各自的首 token 与收尾，底部可切 TTFT / 输出间隔 / TPOT / E2E 分布。点任一请求进入单请求页：Serving、Host、Device 三块板叠放，红色折线是关键路径（上一步屏障 → device 6 bind → runner_run → 同步屏障）。",
+        href: "Design/execution-triage-workbench/overview.html",
+        preview: "Design/assets/launch-previews/tuning-console.svg",
+        tags: ["定界", "GBS256", "Critical Path", "16 Rank", "DSpark", "16 NPU"],
+        variants: [
+          { label: "压测总览 · 256 请求", href: "Design/execution-triage-workbench/overview.html" },
+          { label: "下钻 · 单请求单步流转", href: "Design/execution-triage-workbench/index.html" },
+          { label: "V2 · GBS256 压测", href: "Design/execution-triage-workbench-v2/index.html" },
+          { label: "设备详情 · 算子级", href: "Design/execution-triage-workbench/device.html" },
+          { label: "核级泳道 · AIC/AIV", href: "Design/execution-triage-workbench/core.html" },
+          { label: "详细分析", href: "Design/execution-triage-workbench/analysis.html" }
+        ]
+      },
+      {
         title: "算子调优控制台",
         subtitle: "Tuning Console · 多版本探索",
         category: "内存与性能",
-        status: "新增",
-        version: "01 / Console",
+        status: "4 个版本",
+        version: "V1 · V2 · V3 · V4",
         updatedAt: "2026-09-24",
-        description: "以一次真实上板执行（DeepSeek V4 decode_csa，双 rank、72 核、4038 个任务块）为对象，把调优闭环做成可操作界面：端到端分 rank 对账、L2 泳道与关键路径、单核 kernel/setup/hand-off 三口径拆解、片上预算试算、230 条编译提示按源码点归位，并用实验台账强制每轮只验证一个假设。",
+        description: "以一次真实上板执行（DeepSeek V4 decode_csa，双 rank、72 核、4038 个任务块）为对象，集中体验调优闭环的多个版本：端到端分 rank 对账、L2 泳道与关键路径、单核拆解、片上预算试算、编译提示与实验台账。",
         href: "Design/operator-tuning-console/index.html",
         preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["Chip Swimlane", "Critical Path", "MemoryReuse", "Tile Budget", "实验台账"]
-      },
-      {
-        title: "算子调优控制台 V2",
-        subtitle: "Tuning Console · Investigations",
-        category: "内存与性能",
-        status: "新增",
-        version: "02 / AI Flow",
-        updatedAt: "2026-09-24",
-        description: "保留原始五层证据、Pass 轨迹和实验台账，并将入口重构为真实开发任务流：以 Investigation 管理基线、假设、证据和单变量实验；层级视图只在需要查证时打开。",
-        href: "Design/operator-tuning-console-v2/index.html",
-        preview: "Design/assets/launch-previews/tuning-console.svg",
-        tags: ["L2 Scheduling", "Ready Queue", "Core Swimlane", "PMU", "40-Layer"],
+        tags: ["Chip Swimlane", "Critical Path", "MemoryReuse", "Tile Budget", "实验台账"],
         variants: [
           { label: "V1", href: "Design/operator-tuning-console/index.html" },
           { label: "V2", href: "Design/operator-tuning-console-v2/index.html" },
@@ -783,6 +847,78 @@
         href: "Design/memory-viz-demo/index.html",
         preview: "Design/assets/launch-previews/memory-viz.png",
         tags: ["Memory", "Timeline", "Runtime", "Ascend"]
+      },
+      {
+        title: "Pass Error Cases · 内存绑定诊断",
+        subtitle: "CP-01 · UB 共址告警与方案比较",
+        category: "内存与性能",
+        status: "定稿",
+        version: "CP-01 / Pass 36",
+        updatedAt: "2026-10-20",
+        description: "从 UB 共址告警出发，比较 Scope、地址与精度处理方案，查看应用后的四路 Tile 与独立内存绑定结果，支持重置与对象联动检查。",
+        href: "Design/pass-error-cases/cp01.html?v=ecf3836a5af3#case=CP-01&state=before&pass=36",
+        preview: "Design/assets/launch-previews/pass-error-cases-cp01.png",
+        tags: ["Compiler", "Memory", "UB", "Binding", "Issue #1723"]
+      },
+      {
+        title: "Memory Inspector · 函数内存图",
+        subtitle: "MI-01 · Function Memory Map",
+        category: "内存与性能",
+        status: "定稿",
+        version: "MI-01 / Pass 32",
+        updatedAt: "2026-10-16",
+        description: "基于 AllocateMemoryAddr 源码的 AST 静态分析，呈现 38 个函数、697 个 Tile 的地址与生命周期；支持空间与语义染色、独立比例尺缩放、拖动和源码联动。",
+        href: "Design/pass-error-cases/index.html#case=MI-01&pass=32",
+        preview: "Design/assets/launch-previews/memory-inspector-mi01.png",
+        tags: ["Memory", "AST", "Lifetime", "Function Memory Map"]
+      },
+      {
+        title: "Callable Memory Observatory",
+        subtitle: "Cross-callable Overview · Single-callable Detail",
+        category: "内存与性能",
+        status: "可体验",
+        version: "01 Callable 之间 · 02 单个 Callable",
+        updatedAt: "2026-10-21",
+        description: "基于真实 PyPTO pass dump，先横向比较 116 个 callable 在四个内存快照中的静态分配，再下钻查看含片上 tile.alloc 的单个 callable、槽位复用与最终地址布局。",
+        href: "Design/callable-memory-observatory/index.html",
+        preview: "Design/assets/launch-previews/callable-memory-observatory.svg",
+        tags: ["Callable", "MemoryReuse", "Pass Dump", "Address Allocation"]
+      },
+      {
+        title: "Device Perf Lane · 上板性能分析",
+        subtitle: "DFX Trace × Compile-time Structure",
+        category: "内存与性能",
+        status: "可体验",
+        version: "双视图泳道",
+        updatedAt: "2026-10-22",
+        description: "一次 decode 上板执行的性能工具。四个优化视角（关键路径等待、尾块浪费、启动开销、并行波次）各给出前 5 个候选任务。设备泳道两种视图：按 Task 把 86 次提交装箱压成 12 轨，条宽 = 跨度、条高 = 占用核数，长而细的条一眼认出「跑得久但只占一个核」的通信等待；按物理核则摊开 72 行 4038 个 block。两个视图共用一层叠加：并行宽度曲线、低并行竖带、时间地标。rank0 有 28.3% 的时间全机只有 ≤2 核在跑、关键路径上 39% 在等 rank 间数据，rank1 对应 11.5% 和 3%。",
+        href: "Design/device-perf-lane/index.html",
+        preview: "Design/assets/launch-previews/device-perf-lane.jpg",
+        tags: ["DFX", "Critical Path", "AIC / AIV", "Swimlane"]
+      },
+      {
+        title: "Pass Lane · 并行结构线",
+        subtitle: "Cross-pass Lane Model · Parallel",
+        category: "内存与性能",
+        status: "可体验",
+        version: "Lane 3 / 6",
+        updatedAt: "2026-10-21",
+        description: "一个 program 的并行结构如何成形：24 个源码函数被内联压到 4 个，再被外提放大到 116 个，最后在 ExpandMixedKernel 一次性把 62 个 InCore 改写成 AIC / AIV / Group。KPI 以 910B 的 24×AIC + 48×AIV 为判据，本 program 的 Cube:Vector 函数配比 1:3.57 比硬件 1:2 多出 79%。主画布是 136 个函数的核归属矩阵，下方是最终 116 节点 / 115 条边的调用树。",
+        href: "Design/parallel-lane/index.html",
+        preview: "Design/assets/launch-previews/parallel-lane.jpg",
+        tags: ["Lane Model", "Outline", "AIC / AIV", "Call Tree"]
+      },
+      {
+        title: "Pass Lane · 数据形态线",
+        subtitle: "Cross-pass Lane Model",
+        category: "内存与性能",
+        status: "可体验",
+        version: "Lane 2 / 6",
+        updatedAt: "2026-10-20",
+        description: "把 pass 当刻度、把 tile 当主角：跨 10 个 pass 聚合看 callable 的 tile 构成如何从 64 涨到 138，并按身份可追踪性开放逐对象形态时间线。配套 lane / Subject / LaneEvent 的 schema。",
+        href: "Design/pass-lane-model/index.html",
+        preview: "Design/assets/launch-previews/pass-lane-model.jpg",
+        tags: ["Lane Model", "Pass Dump", "Tile Shape", "Schema"]
       },
       {
         title: "Memory Inspector",
@@ -957,9 +1093,6 @@
         description: "直接解析 passes_dump 的 52 / 42 份 IR 快照：Pass 时间线按改动量排序，代码 Diff 精确到 token，五种结构图（调用、控制流、数据流、任务 DAG、内存）做前后对照，并用实测增量说明每个 Pass 究竟做了什么优化。",
         href: "Design/pass-transform-explorer/demo.html",
         preview: "Design/assets/launch-previews/pass-atlas.png",
-        variants: [
-          { label: "在线 Demo（单文件）", href: "Design/pass-transform-explorer/demo.html" },
-        ],
         tags: ["Pass Diff", "IR Graph", "MemoryReuse", "Task DAG", "passes_dump"]
       },
       {

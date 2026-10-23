@@ -119,7 +119,9 @@ button { color: inherit; }
 .kf-stage.is-active { display: block; animation: kf-in 180ms ease both; }
 .kf-source-stage { padding: 0; }
 .kf-source-stage.is-active { min-height: 100%; }
-.kf-full-source { min-width: max-content; min-height: 100%; padding: 12px 0 32px; box-sizing: border-box; }
+/* 源码面板跟随容器宽度换行：不再用 max-content 撑开（那会产生横向滚动），
+   长行在面板内折行显示。 */
+.kf-full-source { width: 100%; min-width: 0; min-height: 100%; padding: 12px 0 32px; box-sizing: border-box; }
 .kf-full-source > div { min-height: 19px; }
 .kf-main-body.is-explorer .kf-stage:not([data-stage="1"]),
 .kf-main-body.is-workflow .kf-stage[data-stage="1"] { display: none !important; }
@@ -159,13 +161,24 @@ button { color: inherit; }
 .kf-mini-btn { padding: 4px 8px; color: var(--foreground-muted); font-size: var(--kf-type-xs); }
 .kf-mini-btn:hover, .kf-link-btn:hover { color: var(--foreground); }
 .kf-code { padding: 12px 0; outline: none; font: var(--kf-type-sm)/1.78 var(--font-mono); }
-.kf-code > div { display: grid; grid-template-columns: 50px 1fr; padding-right: 14px; }
+.kf-code > div { display: grid; grid-template-columns: 50px minmax(0, 1fr); padding-right: 14px; }
 .kf-code > div:hover { background: color-mix(in srgb, var(--surface-3) 40%, transparent); }
 .kf-code i { padding-right: 12px; color: var(--foreground-muted); font-style: normal; text-align: right; user-select: none; }
-.kf-code code { color: var(--foreground-secondary); white-space: pre; }
+/* pre-wrap 保留缩进，同时允许在长 token 内断行（anywhere 才能让网格列真正收缩） */
+.kf-code code {
+  min-width: 0;
+  color: var(--foreground-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* 悬挂缩进：--kf-code-indent 是本行前导空白的宽度（由 renderFullSource 逐行写入）。
+     padding 把整个代码块右移，负 text-indent 只抵消首行——于是自动换行的续行
+     会落到本行内容的起始位置，首行位置不变。 */
+  padding-left: var(--kf-code-indent, 0ch);
+  text-indent: calc(-1 * var(--kf-code-indent, 0ch));
+}
 .kf-code b { color: #8ea8ff; font-weight: 500; }
 .kf-code s { color: #a9d5bd; text-decoration: none; }
-.kf-code .tok-kw { color: #c084f5; font-weight: 500; }
+.kf-code .tok-kw { color: #c084f5; font-weight: 600; }
 .kf-code .tok-const { color: #59b0ff; }
 .kf-code .tok-self { color: #d9739a; font-style: italic; }
 .kf-code .tok-fn { color: #e2c46b; }
@@ -174,6 +187,13 @@ button { color: inherit; }
 .kf-code .tok-num { color: #9fd08a; }
 .kf-code .tok-com { color: var(--foreground-muted); font-style: italic; }
 .kf-code .tok-dec { color: #8ea8ff; }
+/* 细化分层：内置名 / 属性 / 运算符 / 括号 / docstring / f-string 插值 */
+.kf-code .tok-builtin { color: #4fc1e9; }
+.kf-code .tok-prop { color: #9db4ff; }
+.kf-code .tok-op { color: #e0876a; }
+.kf-code .tok-punc { color: color-mix(in srgb, var(--foreground-secondary) 62%, transparent); }
+.kf-code .tok-doc { color: #6fae9c; font-style: italic; }
+.kf-code .tok-interp { color: #ffd479; }
 .kf-code u { color: var(--warning); text-decoration: underline wavy color-mix(in srgb, var(--warning) 65%, transparent); text-underline-offset: 3px; }
 .kf-code .has-warning { background: color-mix(in srgb, var(--warning) 6%, transparent); }
 .kf-diagnostic { display: flex; align-items: center; gap: 10px; padding: 10px 13px; border-top: 1px solid color-mix(in srgb, var(--warning) 30%, transparent); background: color-mix(in srgb, var(--warning) 7%, transparent); }

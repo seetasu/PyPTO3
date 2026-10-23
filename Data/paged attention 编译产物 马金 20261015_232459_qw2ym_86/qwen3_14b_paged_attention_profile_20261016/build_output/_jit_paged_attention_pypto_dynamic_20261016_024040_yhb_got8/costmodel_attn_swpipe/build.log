@@ -1,0 +1,53 @@
+In file included from build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/costmodel_attn_swpipe/main.cpp:2:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/pto-inst.hpp:19:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/runtime_stub.hpp:16:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/common/arch_select.hpp:16:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/a2a3/cce_costmodel.hpp:12:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/a2a3/cce_costmodel/cce_costmodel_core.hpp:13:
+.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/arch_config.hpp:142:94: error: use of undeclared identifier 'kMicrosPerSecond'
+inline thread_local long double gPredictFrequencyMHz = GetDefaultArchConfig().frequency_hz / kMicrosPerSecond;
+                                                                                             ^
+.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/arch_config.hpp:156:63: error: use of undeclared identifier 'kMicrosPerSecond'
+    SetPredictFrequencyAndBandwidth(archConfig.frequency_hz / kMicrosPerSecond, archConfig.bandwidth);
+                                                              ^
+In file included from build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/costmodel_attn_swpipe/main.cpp:2:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/pto-inst.hpp:19:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/runtime_stub.hpp:16:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/common/arch_select.hpp:16:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/a2a3/cce_costmodel.hpp:12:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/a2a3/cce_costmodel/cce_costmodel_core.hpp:14:
+.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/trace.hpp:108:43: error: no member named 'bit_cast' in namespace 'std'
+        return static_cast<uint64_t>(std::bit_cast<uint32_t>(value));
+                                     ~~~~~^
+.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/trace.hpp:108:52: error: unexpected type name 'uint32_t': expected expression
+        return static_cast<uint64_t>(std::bit_cast<uint32_t>(value));
+                                                   ^
+.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/trace.hpp:110:21: error: no member named 'bit_cast' in namespace 'std'
+        return std::bit_cast<uint64_t>(value);
+               ~~~~~^
+.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/trace.hpp:110:30: error: unexpected type name 'uint64_t': expected expression
+        return std::bit_cast<uint64_t>(value);
+                             ^
+.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/trace.hpp:115:43: error: no member named 'bit_cast' in namespace 'std'
+        return static_cast<uint64_t>(std::bit_cast<uint16_t>(value));
+                                     ~~~~~^
+.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/trace.hpp:115:52: error: unexpected type name 'uint16_t': expected expression
+        return static_cast<uint64_t>(std::bit_cast<uint16_t>(value));
+                                                   ^
+In file included from build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/costmodel_attn_swpipe/main.cpp:2:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/pto-inst.hpp:19:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/runtime_stub.hpp:16:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/common/arch_select.hpp:16:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/a2a3/cce_costmodel.hpp:12:
+.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/a2a3/cce_costmodel/cce_costmodel_core.hpp:77:44: error: use of undeclared identifier 'ev'
+        (static_cast<long double>(bytes) / ev::kBytesPerGb) / static_cast<long double>(bandwidth) *
+                                           ^
+In file included from build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/costmodel_attn_swpipe/main.cpp:2:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/pto-inst.hpp:19:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/runtime_stub.hpp:16:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/common/arch_select.hpp:16:
+In file included from .venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/a2a3/cce_costmodel.hpp:16:
+.venv311/lib/python3.11/site-packages/simpler_setup/_assets/build/pto-isa/include/pto/costmodel/a2a3/cce_costmodel/cce_costmodel_vector_compare.hpp:12:10: fatal error: 'pto/costmodel/a2a3/cce_costmodel/cce_cycle_profiles_generated.hpp' file not found
+#include <pto/costmodel/a2a3/cce_costmodel/cce_cycle_profiles_generated.hpp>
+         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+10 errors generated.

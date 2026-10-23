@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Callable Memory Observatory · PyPTO</title>
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css" />
+  <style>
+    :root{color-scheme:dark;--page:#0b0d11;--panel:#111318;--panel2:#171a20;--line:#2b303a;--soft:#222630;--text:#edf0f5;--muted:#929aa8;--faint:#626b79;--blue:#829cff;--teal:#74d2c0;--green:#92d7a8;--amber:#e5b66b;--mono:"Cascadia Code","SFMono-Regular",Consolas,monospace;--sans:Inter,"PingFang SC","Microsoft YaHei",sans-serif}
+    *{box-sizing:border-box}html,body{margin:0;min-width:320px;min-height:100%;background:var(--page);color:var(--text);font-family:var(--sans)}body{font-size:13px}button,input,select{font:inherit;color:inherit}button{cursor:pointer}.app{min-height:100vh;display:grid;grid-template-rows:44px 1fr 24px}.topbar{display:flex;align-items:center;gap:10px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--soft)}.brand-mark{width:22px;height:22px;border:1px solid #596274;border-radius:6px;display:grid;place-items:center;color:var(--blue);font:700 12px var(--mono)}.brand{font-weight:650}.sep{color:#454b56}.context{color:var(--muted);font:10px var(--mono)}.spacer{flex:1}.badge{border:1px solid #315340;background:#122219;color:#a6dfb4;border-radius:999px;padding:4px 8px;font-size:9px}
+    main{width:min(1380px,100%);margin:auto;padding:26px 24px 38px}.heading{display:flex;align-items:flex-end;gap:18px;margin-bottom:18px}.eyebrow{color:var(--blue);font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase}h1{margin:5px 0;font-size:22px;letter-spacing:-.02em}.subtitle{max-width:790px;color:var(--muted);font-size:12px;line-height:1.65}.actions{display:flex;gap:7px;margin-left:auto}.control{display:inline-flex;align-items:center;justify-content:center;min-height:31px;padding:0 10px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:#c4cbd6;text-decoration:none}.control:hover:not(:disabled){border-color:#596887;color:white}.control:disabled{opacity:.4;cursor:default}.primary{border-color:#536791;background:#202b43;color:#c8d4ff}.hidden{display:none!important}
+    .scopebar{display:flex;align-items:center;gap:6px;margin-bottom:12px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#101319}.scope-step{display:flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid transparent;border-radius:5px;color:var(--muted);font-size:10px}.scope-step.active{border-color:#3c4b6d;background:#182033;color:#d4dfff}.scope-step .n{color:var(--blue);font:10px var(--mono)}.scope-arrow{color:#515a69}.run-tag{margin-left:auto;color:var(--faint);font:9px var(--mono)}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}.kpi,.panel{border:1px solid var(--line);border-radius:8px;background:var(--panel)}.kpi{padding:11px 13px}.kpi-label{color:var(--faint);font-size:9px}.kpi-value{margin-top:5px;color:#e0e7f1;font:600 17px var(--mono)}.kpi-note{margin-top:4px;color:var(--faint);font-size:9px}.panel{overflow:hidden}.panel-head{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--soft)}.panel-head strong{font-size:11px}.panel-head span{color:var(--faint);font-size:9px}.panel-head .spacer{flex:1}
+    .pass-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:11px 13px;border-bottom:1px solid var(--soft);background:#0f1116}.pass-tab{min-width:0;padding:9px 10px;text-align:left;border:1px solid #2c323c;border-radius:6px;background:#14171d}.pass-tab:hover{border-color:#4a566c}.pass-tab.active{border-color:#6177a4;background:#192131;box-shadow:inset 0 2px 0 var(--blue)}.pass-name{font-size:10px;font-weight:650}.pass-meta{display:flex;justify-content:space-between;gap:6px;margin-top:6px;color:#d4dbe5;font:9px var(--mono)}.pass-num{color:var(--blue)}
+    .overview-body{display:grid;grid-template-columns:minmax(300px,.78fr) minmax(480px,1.22fr);min-height:310px}.ranking{padding:12px 14px;border-right:1px solid var(--soft)}.ranking-title{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}.ranking-title strong{font-size:10px}.ranking-title span{color:var(--faint);font-size:9px}.rank-list{display:grid;gap:5px}.rank-row{display:grid;grid-template-columns:minmax(105px,1fr) minmax(80px,1.25fr) 62px;gap:8px;align-items:center;width:100%;padding:6px 7px;border:1px solid transparent;border-radius:5px;background:transparent;text-align:left}.rank-row:hover{border-color:#323a48;background:#171b22}.rank-name{overflow:hidden;color:#cbd4e1;font:9px var(--mono);text-overflow:ellipsis;white-space:nowrap}.rank-track,.bar-track{height:11px;position:relative;overflow:hidden;border:1px solid #272d37;border-radius:3px;background:#0b0d11}.rank-fill,.bar-fill{height:100%;min-width:1px;border-radius:2px;background:linear-gradient(90deg,#52679c,#8198df)}.rank-value{text-align:right;color:#aeb8c7;font:8px var(--mono);white-space:nowrap}.ranking-empty{padding:18px;color:var(--muted);font-size:10px;line-height:1.6}
+    .callable-list{min-width:0}.list-tools{display:flex;align-items:center;gap:7px;padding:9px 11px;border-bottom:1px solid var(--soft)}.search,.select{height:28px;padding:0 8px;border:1px solid var(--line);border-radius:5px;outline:none;background:#0c0e12;color:#dce1e9;font-size:9px}.search{min-width:130px;flex:1;font-family:var(--mono)}.select:focus,.search:focus{border-color:#677da9}.select{max-width:160px}.table-wrap{max-height:346px;overflow:auto}table{width:100%;border-collapse:collapse;text-align:left;font-size:9px}thead{position:sticky;top:0;z-index:1;background:#151820;color:var(--faint)}th,td{padding:8px 9px;border-bottom:1px solid #1f232b}th{font-weight:500;white-space:nowrap}td{color:#c4ccd8}tbody tr{cursor:pointer}tbody tr:hover{background:#171a20}tbody tr.no-detail{cursor:default;opacity:.58}tbody tr.no-detail:hover{background:transparent}td.mono,th.mono{font-family:var(--mono)}td.dim{color:var(--faint)}.call-name{max-width:210px;overflow:hidden;color:#cbd6e5;font:9px var(--mono);text-overflow:ellipsis;white-space:nowrap}.kind{display:inline-block;padding:2px 5px;border:1px solid #333b49;border-radius:4px;color:#aeb9ca;font:8px var(--mono)}.value-cell{min-width:88px}.cell-main{color:#c5cedb;font:8px var(--mono)}.cell-mini{height:3px;margin-top:4px;border-radius:3px;background:#252a33}.cell-mini i{display:block;height:100%;border-radius:3px;background:#7188cc}.delta-down{color:var(--green);font:8px var(--mono)}.delta-flat{color:var(--faint);font:8px var(--mono)}.no-results{padding:20px;color:var(--muted);text-align:center;font-size:10px}
+    .footnote{padding:10px 13px;border-top:1px solid var(--soft);color:var(--faint);font-size:9px;line-height:1.6}.statusbar{display:flex;align-items:center;gap:10px;padding:0 10px;background:#14171d;border-top:1px solid var(--soft);color:#7d8795;font:9px var(--mono)}.ok{color:#91d6a6}
+    .detail-head{display:flex;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid var(--soft)}.call-icon{width:34px;height:34px;display:grid;place-items:center;border:1px solid #3c4d72;border-radius:8px;background:#171d2b;color:#aebfff;font:700 10px var(--mono)}.detail-kicker{color:var(--faint);font:8px var(--mono);letter-spacing:.1em;text-transform:uppercase}.detail-name{margin-top:3px;font:600 13px var(--mono);overflow-wrap:anywhere}.detail-meta{margin-left:auto;color:var(--muted);font-size:9px;text-align:right;line-height:1.7}.detail-pass{padding:13px 15px 12px;border-bottom:1px solid var(--soft);background:#0f1116}.detail-pass-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.detail-pass-card{padding:8px 9px;border:1px solid #2c323c;border-radius:6px;background:#14171d;text-align:left}.detail-pass-card.active{border-color:#55749c;background:#182031}.detail-pass-card strong{display:block;color:#dce5ef;font-size:9px}.detail-pass-card span{display:block;margin-top:4px;color:#9da8b8;font:8px var(--mono)}.detail-pass-card em{display:block;margin-top:5px;color:var(--faint);font:normal 8px var(--mono)}
+    .detail-grid{display:grid;grid-template-columns:minmax(0,1fr) 310px;min-height:380px}.memory-map{padding:14px 15px;min-width:0}.map-title{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}.map-title strong{font-size:10px}.map-title span{color:var(--faint);font-size:8px}.space-group{margin:0 0 13px}.space-head{display:flex;align-items:center;gap:7px;margin-bottom:5px;color:#abb7c8;font:9px var(--mono)}.space-head small{margin-left:auto;color:var(--faint);font:8px var(--mono)}.slot-row{display:grid;grid-template-columns:100px minmax(80px,1fr) 70px 35px;gap:8px;align-items:center;width:100%;min-height:25px;padding:3px 5px;border:1px solid transparent;border-radius:4px;background:transparent;text-align:left}.slot-row:hover{background:#191d25}.slot-row.selected{border-color:#3b675f;background:#17211f}.slot-label{overflow:hidden;color:#c1cad7;font:8px var(--mono);text-overflow:ellipsis;white-space:nowrap}.slot-row.selected .slot-label{color:#a6e0d1}.slot-value,.slot-owner-count{color:var(--faint);font:8px var(--mono);text-align:right;white-space:nowrap}.slot-row.selected .bar-fill{background:linear-gradient(90deg,#328780,#71cbb4)}.axis{display:flex;justify-content:space-between;margin:0 77px 5px 2px;color:var(--faint);font:7px var(--mono)}.side{padding:14px 14px;border-left:1px solid var(--soft);background:#0f1116}.side-title{display:flex;align-items:baseline;gap:7px}.side-title strong{font-size:10px}.side-title span{margin-left:auto;color:var(--faint);font:8px var(--mono)}.side-copy{margin:6px 0 11px;color:var(--muted);font-size:9px;line-height:1.6}.stats{display:grid;grid-template-columns:1fr 1fr;gap:5px}.stat{padding:8px;border:1px solid var(--soft);border-radius:5px;background:#13161c}.stat label{display:block;color:var(--faint);font-size:8px}.stat b{display:block;margin-top:4px;color:#e0e6ef;font:600 10px var(--mono)}.code-label{margin-top:13px;color:var(--faint);font:8px var(--mono);text-transform:uppercase;letter-spacing:.08em}.code{max-height:92px;overflow:auto;margin:6px 0 0;padding:8px;border:1px solid var(--soft);border-radius:5px;background:#0b0d11;color:#cbd5e1;font:8px/1.55 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}.owner-list{display:flex;flex-wrap:wrap;gap:4px;max-height:120px;overflow:auto;margin-top:7px}.owner{max-width:100%;padding:4px 6px;overflow:hidden;border:1px solid #303641;border-radius:4px;background:#171a20;color:#c7d0dd;font:8px var(--mono);text-overflow:ellipsis;white-space:nowrap;cursor:pointer}.owner:hover,.owner.active{border-color:#547d72;color:#9bd7c8;background:#15201e}.owner-code{margin-top:7px}.detail-footer{padding:9px 14px;border-top:1px solid var(--soft);color:var(--faint);font-size:8px;line-height:1.55}
+    @media(max-width:980px){.overview-body{grid-template-columns:1fr}.ranking{border-right:0;border-bottom:1px solid var(--soft)}.rank-list{grid-template-columns:repeat(2,minmax(0,1fr))}.detail-grid{grid-template-columns:minmax(0,1fr) 270px}}
+    @media(max-width:680px){.app{grid-template-rows:42px 1fr 24px}.topbar{gap:7px;padding:0 9px}.context{display:none}.badge{font-size:8px}main{padding:15px 9px 22px}.heading{display:block}.heading h1{font-size:19px}.actions{margin:10px 0 0}.scopebar{flex-wrap:wrap}.run-tag{width:100%;margin-left:0}.kpis{grid-template-columns:1fr 1fr;gap:5px}.kpi{padding:9px}.kpi-value{font-size:14px}.pass-tabs,.detail-pass-grid{grid-template-columns:1fr 1fr;gap:5px}.overview-body{display:block}.rank-list{grid-template-columns:1fr}.ranking{padding:10px}.list-tools{flex-wrap:wrap}.search{flex-basis:100%}.select{flex:1;max-width:none}.table-wrap{max-height:420px}th,td{padding:7px 6px}.hide-mobile{display:none}.detail-head{padding:11px}.detail-meta{font-size:8px}.detail-grid{grid-template-columns:1fr}.memory-map{padding:11px 9px}.slot-row{grid-template-columns:78px minmax(45px,1fr) 58px 28px;gap:5px;padding:3px}.side{border-left:0;border-top:1px solid var(--soft);padding:12px}.axis{margin-right:66px}.statusbar{gap:6px;font-size:8px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition-duration:.01ms!important}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar"><div class="brand-mark">P</div><span class="brand">PyPTO</span><span class="sep">/</span><span class="context">compiler · callable memory observatory</span><span class="spacer"></span><span class="badge">REAL PASS DUMPS</span></header>
+    <main>
+      <div class="heading"><div><div class="eyebrow">Memory observer · cross callable / single callable</div><h1>Callable 内存观测</h1><div class="subtitle">先横向比较一次编译运行中各 callable 的静态分配规模，再进入单个 callable 回放 MemRef 建立、语义别名、缓冲复用与地址分配。</div></div><div class="actions"><button id="overview-return" class="control hidden" type="button">← 全部 Callable</button></div></div>
+      <nav class="scopebar" aria-label="观测层级"><div id="scope-callables" class="scope-step active"><span class="n">01</span> Callable 之间</div><span class="scope-arrow">→</span><div id="scope-one" class="scope-step"><span class="n">02</span> 单个 Callable</div><span class="run-tag" id="run-tag">—</span></nav>
+
+      <section id="overview-screen">
+        <div class="kpis" id="overview-kpis"></div>
+        <section class="panel">
+          <div class="panel-head"><strong>选择 Pass 快照</strong><span>所有 Callable 在同一阶段横向对照</span><span class="spacer"></span><span id="scope-note"></span></div>
+          <nav class="pass-tabs" id="overview-pass-tabs" aria-label="全局 Pass 快照"></nav>
+          <div class="overview-body">
+            <section class="ranking"><div class="ranking-title"><strong id="ranking-title">高占用 Callable</strong><span id="ranking-note"></span></div><div id="ranking-list" class="rank-list"></div></section>
+            <section class="callable-list"><div class="list-tools"><input id="search" class="search" type="search" placeholder="搜索 callable 名称" aria-label="搜索 callable 名称" /><select id="kind-filter" class="select" aria-label="按 callable 类型筛选"><option value="all">全部类型</option></select><select id="space-filter" class="select" aria-label="按内存空间筛选"><option value="all">全部空间</option></select></div><div class="table-wrap" id="callable-table"></div></section>
+          </div>
+          <div class="footnote">静态分配字节数是各 callable 的 `tile.alloc` 容量求和，用于比较编译后缓冲区规模。不同 callable 可能串行、并行或按条件调用；跨 callable 合计不代表设备同时存活峰值，也不代表运行时性能。</div>
+        </section>
+      </section>
+
+      <section id="detail-screen" class="hidden">
+        <section class="panel">
+          <header class="detail-head"><div class="call-icon">FN</div><div><div class="detail-kicker">Single callable · memory snapshots</div><div id="detail-name" class="detail-name">—</div></div><div id="detail-meta" class="detail-meta">—</div></header>
+          <nav id="detail-pass-tabs" class="detail-pass"><div class="detail-pass-grid"></div></nav>
+          <div class="detail-grid"><section class="memory-map"><div class="map-title"><strong id="map-title">分配槽</strong><span id="map-note"></span></div><div id="memory-map"></div></section><aside class="side"><div class="side-title"><strong id="selected-slot">选择一个分配槽</strong><span id="selected-line"></span></div><p id="side-copy" class="side-copy"></p><div id="slot-stats" class="stats"></div><div class="code-label">tile.alloc 声明</div><pre id="alloc-code" class="code"></pre><div class="code-label">该槽关联的 Tile 定义</div><div id="owner-list" class="owner-list"></div><pre id="tile-code" class="code owner-code"></pre><div id="tile-meta" class="side-copy"></div></aside></div>
+          <div class="detail-footer">地址偏移只在 AllocateMemoryAddr 阶段展示。一个 MemRef 下的 Tile 引用不代表它们同时存活；这里只呈现 pass dump 中的静态 IR 关系。</div>
+        </section>
+      </section>
+    </main>
+    <footer class="statusbar"><span class="ok">● Snapshot chain loaded</span><span id="status">—</span><span class="spacer"></span><span>Static IR evidence · PyPTO</span></footer>
+  </div>
+  <script>
+    (() => {
+      const PASS_TITLES = ['建立 MemRef', '语义别名物化', '缓冲复用', '地址分配'];
+      const PASS_EXPLANATIONS = [
+        'InitMemRef 为 Tile 建立 MemRef，并为非 DDR 内存生成尚未分配地址的 tile.alloc。',
+        'MaterializeSemanticAliases 固定循环携带、原地更新等语义上必须共享的缓冲区。',
+        'MemoryReuse 按生命周期合并可复用的 MemRef，并清理不再被 Tile 引用的分配。',
+        'AllocateMemoryAddr 为复用后的 MemRef 写入各内存空间内的实际偏移。'
+      ];
+      const $ = (id) => document.getElementById(id);
+      const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const fmt = (n) => n >= 1048576 ? `${(n / 1048576).toFixed(2)} MiB` : n >= 1024 ? `${(n / 1024).toFixed(n % 1024 ? 1 : 0)} KiB` : `${n} B`;
+      const DETAIL_COPY = PASS_EXPLANATIONS;
+      let data, stageIndex = 2, selectedName = null, selectedBase = null, selectedTile = null;
+      fetch('./data/memory-observatory.json').then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }).then((payload) => { data = payload; init(); }).catch((e) => { document.querySelector('main').innerHTML = `<section class="panel" style="padding:22px">数据加载失败：${esc(e.message)}。请通过本地 HTTP 服务打开。</section>`; });
+      const details = () => selectedName ? data.details[selectedName] : null;
+      const stage = (i = stageIndex) => details()?.stages[i];
+      const fmtBytes = (callable, si, space) => space === 'all' ? callable.stages[si].bytes : callable.stages[si].spaceBytes[space] || 0;
+      const allSpaces = () => [...new Set(data.callables.flatMap((c) => c.stages.flatMap((s) => Object.keys(s.spaceBytes))))].sort();
+      const stageName = (item) => `${String(item.number).padStart(2,'0')} · ${PASS_TITLES.find((_, i) => data.passChain[i].pass === item.pass) || item.pass}`;
+      function init() {
+        $('run-tag').textContent = `${data.run} · ${data.sourceDirectory}`;
+        const kinds = [...new Set(data.callables.map((c) => c.type))].sort();
+        $('kind-filter').insertAdjacentHTML('beforeend', kinds.map((kind) => `<option value="${esc(kind)}">${esc(kind)}</option>`).join(''));
+        $('space-filter').insertAdjacentHTML('beforeend', allSpaces().map((space) => `<option value="${esc(space)}">${esc(space)}</option>`).join(''));
+        $('overview-pass-tabs').innerHTML = data.passChain.map((p, i) => `<button class="pass-tab${i === stageIndex ? ' active' : ''}" data-overview-stage="${i}"><div class="pass-name"><span class="pass-num">${String(p.number).padStart(2,'0')}</span> ${esc(PASS_TITLES[i])}</div><div class="pass-meta"><span>${esc(p.pass)}</span><span id="tab-total-${i}"></span></div></button>`).join('');
+        document.querySelectorAll('[data-overview-stage]').forEach((button) => button.addEventListener('click', () => { stageIndex = Number(button.dataset.overviewStage); renderOverview(); }));
+        $('search').addEventListener('input', renderOverview);
+        $('kind-filter').addEventListener('change', renderOverview);
+        $('space-filter').addEventListener('change', renderOverview);
+        $('overview-return').addEventListener('click', showOverview);
+        const requested = new URLSearchParams(location.search).get('callable');
+        if (requested && data.details[requested]) showCallable(requested, false);
+        else renderOverview();
+      }
+      function visibleCallables() {
+        const query = $('search').value.trim().toLowerCase(), kind = $('kind-filter').value, space = $('space-filter').value;
+        return data.callables.filter((item) => (!query || item.name.toLowerCase().includes(query)) && (kind === 'all' || item.type === kind) && (space === 'all' || item.stages.some((s) => (s.spaceBytes[space] || 0) > 0)));
+      }
+      function renderOverview() {
+        $('overview-screen').classList.remove('hidden'); $('detail-screen').classList.add('hidden'); $('overview-return').classList.add('hidden');
+        $('scope-callables').classList.add('active'); $('scope-one').classList.remove('active');
+        const space = $('space-filter').value, visible = visibleCallables(), current = (item) => fmtBytes(item, stageIndex, space);
+        const allocated = data.callables.filter((item) => item.stages.some((s) => s.slotCount > 0)).length;
+        const initialBytes = data.callables.reduce((sum, item) => sum + fmtBytes(item, 0, space), 0);
+        const reusedBytes = data.callables.reduce((sum, item) => sum + fmtBytes(item, 2, space), 0);
+        const initialSlots = data.callables.reduce((sum, item) => sum + item.stages[0].slotCount, 0);
+        const reusedSlots = data.callables.reduce((sum, item) => sum + item.stages[2].slotCount, 0);
+        const top = [...visible].sort((a,b) => current(b) - current(a)).slice(0,8), max = Math.max(1, ...top.map(current));
+        $('overview-kpis').innerHTML = [
+          ['Pass dump 中的 Callable', data.callables.length, `${allocated} 个含片上分配`],
+          ['静态容量合计 · 当前空间', fmt(data.callables.reduce((sum,item) => sum + current(item),0)), `${space === 'all' ? '全部片上空间' : space} · 当前选中 Pass`],
+          ['分配槽合计', `${data.callables.reduce((sum,item) => sum + item.stages[stageIndex].slotCount,0).toLocaleString()} 个`, `InitMemRef ${initialSlots.toLocaleString()} → MemoryReuse ${reusedSlots.toLocaleString()}`],
+          ['MemoryReuse 后静态容量', fmt(reusedBytes), `InitMemRef ${fmt(initialBytes)} · 当前口径：${space === 'all' ? '全空间' : space}`]
+        ].map(([label,value,note]) => `<article class="kpi"><div class="kpi-label">${esc(label)}</div><div class="kpi-value">${esc(value)}</div><div class="kpi-note">${esc(note)}</div></article>`).join('');
+        data.passChain.forEach((p, i) => {
+          const sum = data.callables.reduce((total,item) => total + fmtBytes(item,i,space),0);
+          const slots = data.callables.reduce((total,item) => total + item.stages[i].slotCount,0);
+          $(`tab-total-${i}`).textContent = `${fmt(sum)} · ${slots.toLocaleString()} 槽`;
+        });
+        document.querySelectorAll('.pass-tab').forEach((button,i) => button.classList.toggle('active',i === stageIndex));
+        $('scope-note').textContent = `${visible.length} / ${data.callables.length} 个 Callable`;
+        $('ranking-title').textContent = `${space === 'all' ? '片上分配量' : `${space} 分配量`} · Top ${top.length}`;
+        $('ranking-note').textContent = `${PASS_TITLES[stageIndex]} / 按静态容量排序`;
+        $('ranking-list').innerHTML = top.length ? top.map((item) => `<button class="rank-row" data-open="${esc(item.name)}"><span class="rank-name" title="${esc(item.name)}">${esc(item.name)}</span><span class="rank-track"><i class="rank-fill" style="display:block;width:${current(item)/max*100}%"></i></span><span class="rank-value">${fmt(current(item))}</span></button>`).join('') : '<div class="ranking-empty">当前筛选下没有 callable。</div>';
+        const maxInList = Math.max(1, ...visible.map(current));
+        $('callable-table').innerHTML = visible.length ? `<table><thead><tr><th>Callable · 类型</th><th class="value-cell">当前 Pass</th><th class="value-cell hide-mobile">InitMemRef</th><th class="value-cell hide-mobile">MemoryReuse</th><th class="mono hide-mobile">槽位</th><th class="hide-mobile">减少量*</th></tr></thead><tbody>${visible.slice().sort((a,b) => current(b)-current(a) || a.name.localeCompare(b.name)).map((item) => {
+          const now = current(item), before = fmtBytes(item,0,space), after = fmtBytes(item,2,space), delta = before-after;
+          const hasDetail = Boolean(data.details[item.name]);
+          return `<tr${hasDetail ? ` data-open="${esc(item.name)}"` : ' class="no-detail" title="此 callable 没有可下钻的片上 tile.alloc 快照"'}><td><div class="call-name" title="${esc(item.name)}">${esc(item.name)}</div><span class="kind">${esc(item.type)}</span>${hasDetail ? '' : ' <span class="dim">无片上 alloc</span>'}</td><td class="value-cell"><div class="cell-main">${fmt(now)} · ${item.stages[stageIndex].slotCount} 槽</div><div class="cell-mini"><i style="width:${now/maxInList*100}%"></i></div></td><td class="value-cell hide-mobile"><div class="cell-main">${fmt(before)} · ${item.stages[0].slotCount}</div></td><td class="value-cell hide-mobile"><div class="cell-main">${fmt(after)} · ${item.stages[2].slotCount}</div></td><td class="mono hide-mobile">${item.stages[stageIndex].slotCount}</td><td>${delta > 0 ? `<span class="delta-down">−${fmt(delta)}</span>` : '<span class="delta-flat">—</span>'}</td></tr>`;
+        }).join('')}</tbody></table>` : '<div class="no-results">没有匹配的 Callable。</div>';
+        document.querySelectorAll('[data-open]').forEach((el) => el.addEventListener('click', () => showCallable(el.dataset.open, true)));
+        $('status').textContent = `${PASS_TITLES[stageIndex]} · ${visible.length} Callable shown`;
+      }
+      function showCallable(name, push = true) {
+        if (!data.details[name]) return;
+        selectedName = name; selectedBase = null; selectedTile = null;
+        stageIndex = Math.min(stageIndex, data.details[name].stages.length - 1);
+        $('overview-screen').classList.add('hidden'); $('detail-screen').classList.remove('hidden'); $('overview-return').classList.remove('hidden');
+        $('scope-callables').classList.remove('active'); $('scope-one').classList.add('active');
+        if (push) history.pushState({callable:name}, '', `?callable=${encodeURIComponent(name)}`);
+        renderDetail();
+      }
+      function showOverview() {
+        selectedName = null; selectedBase = null; selectedTile = null;
+        history.pushState({}, '', location.pathname);
+        renderOverview();
+      }
+      function renderDetail() {
+        const detail = details(), s = stage();
+        if (!detail || !s) return;
+        $('detail-name').textContent = detail.name;
+        $('detail-meta').innerHTML = `<span class="kind">${esc(detail.type)}</span><br>${detail.stages[0].tileCount} → ${detail.stages[2].tileCount} Tile 定义 · ${s.allocationCount} 个分配槽`;
+        $('detail-pass-tabs').querySelector('.detail-pass-grid').innerHTML = detail.stages.map((item,i) => `<button class="detail-pass-card${i === stageIndex ? ' active' : ''}" data-detail-stage="${i}"><strong><span style="color:var(--blue)">${String(item.number).padStart(2,'0')}</span> ${esc(PASS_TITLES[i])}</strong><span>${fmt(item.allocationBytes)} · ${item.allocationCount} 槽</span><em>${esc(item.pass)}</em></button>`).join('');
+        document.querySelectorAll('[data-detail-stage]').forEach((button) => button.addEventListener('click', () => changeStage(Number(button.dataset.detailStage))));
+        const grouped = new Map();
+        for (const alloc of s.allocations) {
+          if (!grouped.has(alloc.space)) grouped.set(alloc.space, []);
+          grouped.get(alloc.space).push(alloc);
+        }
+        const spaces = [...grouped.keys()].sort((a,b) => (s.spaceBytes[b] || 0) - (s.spaceBytes[a] || 0));
+        const finalAddress = stageIndex === 3;
+        $('map-title').textContent = finalAddress ? '各内存空间的地址布局' : 'Callable 分配槽';
+        $('map-note').textContent = finalAddress ? '每个空间拥有独立地址轴；选槽查看关联 Tile 与 IR 行。' : `${s.allocationCount} 个 tile.alloc · 当前未分配最终物理偏移`;
+        $('memory-map').innerHTML = spaces.length ? spaces.map((space) => {
+          const allocs = grouped.get(space), high = finalAddress ? Math.max(1,s.highWaterBySpace[space] || 0) : Math.max(1,...allocs.map((a) => a.bytes));
+          const offsets = finalAddress;
+          const rows = allocs.slice().sort((a,b) => offsets ? (a.offset ?? 0)-(b.offset ?? 0) : b.bytes-a.bytes);
+          return `<section class="space-group"><div class="space-head">${esc(space)}<small>${allocs.length} 槽 · ${fmt(s.spaceBytes[space] || 0)}${offsets ? ` · 高水位 ${fmt(high)}` : ''}</small></div>${offsets ? `<div class="axis"><span>0 B</span><span>${fmt(high/2)}</span><span>${fmt(high)}</span></div>` : ''}${rows.map((alloc) => {
+            const left = offsets ? (Number(alloc.offset || 0)/high)*100 : 0;
+            const width = (Number(alloc.bytes || 0)/high)*100;
+            const owners = alloc.owners || [];
+            return `<button class="slot-row${alloc.base === selectedBase ? ' selected' : ''}" data-base="${esc(alloc.base)}"><span class="slot-label" title="${esc(alloc.base)}">${esc(alloc.base)}</span><span class="bar-track"><i class="bar-fill" style="display:block;position:absolute;top:0;bottom:0;left:${left}%;width:${width}%"></i></span><span class="slot-value">${offsets ? `${fmt(alloc.offset || 0)} · ` : ''}${fmt(alloc.bytes)}</span><span class="slot-owner-count">${owners.length} Tile</span></button>`;
+          }).join('')}</section>`;
+        }).join('') : '<div class="no-results">该 callable 在此快照中没有片上 tile.alloc。</div>';
+        document.querySelectorAll('[data-base]').forEach((el) => el.addEventListener('click', () => { selectedBase = el.dataset.base; const alloc = s.allocations.find((item) => item.base === selectedBase); selectedTile = alloc?.owners?.[0] || null; renderDetail(); }));
+        renderSelected();
+        $('status').textContent = `${String(s.number).padStart(2,'0')}_after_${s.pass}.py · ${detail.name}`;
+      }
+      function renderSelected() {
+        const s = stage(), alloc = s.allocations.find((item) => item.base === selectedBase);
+        if (!alloc) {
+          $('selected-slot').textContent = '选择一个分配槽'; $('selected-line').textContent = '';
+          $('side-copy').textContent = DETAIL_COPY[stageIndex]; $('slot-stats').innerHTML = '';
+          $('alloc-code').textContent = '选择左侧槽位查看 tile.alloc 声明。'; $('owner-list').innerHTML = ''; $('tile-code').textContent = '选择 Tile 名称查看对应 IR 定义。'; $('tile-meta').textContent = '';
+          return;
+        }
+        const owners = s.tiles.filter((tile) => tile.base === alloc.base), tile = owners.find((item) => item.name === selectedTile) || owners[0];
+        selectedTile = tile?.name || null;
+        $('selected-slot').textContent = alloc.base; $('selected-line').textContent = `alloc · L${alloc.line}`;
+        $('side-copy').textContent = DETAIL_COPY[stageIndex];
+        const address = stageIndex === 3 && alloc.offset !== null ? fmt(alloc.offset) : '待分配';
+        $('slot-stats').innerHTML = [['容量',fmt(alloc.bytes)],['空间',alloc.space],['偏移',address],['Tile 引用',`${owners.length} 条`]].map(([label,value]) => `<div class="stat"><label>${esc(label)}</label><b>${esc(value)}</b></div>`).join('');
+        $('alloc-code').textContent = alloc.code || `${alloc.base}: pl.Ptr = pl.tile.alloc(pl.Mem.${alloc.space}, ${alloc.bytes})`;
+        $('owner-list').innerHTML = owners.length ? owners.map((item) => `<button class="owner${item.name === selectedTile ? ' active' : ''}" data-owner="${esc(item.name)}" title="${esc(item.name)} · L${item.line}">${esc(item.name)}</button>`).join('') : '<span class="side-copy">当前槽没有可关联的 Tile 类型定义。</span>';
+        $('tile-code').textContent = tile?.code || '该槽暂无 Tile IR 定义。';
+        $('tile-meta').textContent = tile ? `L${tile.line}–L${tile.lastUseLine} · ${tile.shape} ${tile.dtype} · ${fmt(tile.bytes)}` : '';
+        document.querySelectorAll('[data-owner]').forEach((el) => el.addEventListener('click', () => { selectedTile = el.dataset.owner; renderSelected(); }));
+      }
+      function changeStage(next) {
+        const old = stage(), prevOwners = old?.allocations.find((item) => item.base === selectedBase)?.owners || [];
+        const oldTile = selectedTile;
+        stageIndex = Math.max(0,Math.min(3,next));
+        const now = stage(), target = now.allocations.find((item) => item.owners?.includes(oldTile)) || now.allocations.find((item) => item.owners?.some((owner) => prevOwners.includes(owner)));
+        selectedBase = target?.base || null;
+        selectedTile = target?.owners?.includes(oldTile) ? oldTile : target?.owners?.find((owner) => prevOwners.includes(owner)) || null;
+        renderDetail();
+      }
+      window.addEventListener('popstate', () => {
+        const requested = new URLSearchParams(location.search).get('callable');
+        if (requested && data.details[requested]) showCallable(requested,false); else { selectedName = null; renderOverview(); }
+      });
+    })();
+  </script>
+</body>
+</html>

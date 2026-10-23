@@ -1,0 +1,68 @@
+任务已提交: task_20261016_035019_202196021438 (断开后可用 task-submit --wait task_20261016_035019_202196021438 重连)
+等待任务执行: task_20261016_035019_202196021438 (Ctrl+C 终止任务)
+[npu-lock] 获取设备 15 的锁 (无超时)...
+[npu-lock] 已获取设备 15 的锁 (pid=2024808)
+allocated_device 15 soc Ascend910_9392
+[RUN] compile ...
+2026-10-16 03:50:29.376 I | [perf_hint] 33 hints across 33 sites; see build_output/_jit_paged_attention_pypto_dynamic_20261016_035027_48baglaw/report/perf_hints.log
+[RUN] compile done (2.82s)
+[RUN] generate inputs ...
+[RUN] generate inputs done (0.01s)
+[RUN] compute golden ...
+[RUN] compute golden done (0.58s)
+[RUN] runtime ...
+[mono_ns=720280216762715][T0xffffa64fc020][TIMING] emit_host_span: [STRACE] v=1 pid=2283133 tid=2283133 inv=0 hid=0 depth=0 name=chip.prewarm.build ts=720280195376759 dur=21376706 
+[mono_ns=720280228564679][T0xffffa64fc020][TIMING] log_callable_image: Callable image: device=15 runner=0xaaab0a3fe280 chip_hash=0x31d36151b22652b chip_dev=0x12c0c001a000 upload_bytes=792656 children=2
+[mono_ns=720280228587719][T0xffffa64fc020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab0a3fe280 chip_hash=0x31d36151b22652b chip_dev=0x12c0c001a000 func_id=0 code_begin=0x12c0c00d76a0 code_end_exclusive=0x12c0c00d88d8 code_bytes=4664 code_fnv1a64=0x57be59ed9454ea62
+[mono_ns=720280228607019][T0xffffa64fc020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab0a3fe280 chip_hash=0x31d36151b22652b chip_dev=0x12c0c001a000 func_id=1 code_begin=0x12c0c00d89a0 code_end_exclusive=0x12c0c00db80c code_bytes=11884 code_fnv1a64=0x7dc9d3ee46ac35eb
+[mono_ns=720280228661059][T0xffffa64fc020][TIMING] record_device_orch_callable: [device_runner_base.cpp:1934] Callable registration: device=15 runner=0xaaab0a3fe280 cid=0 chip_hash=0x31d36151b22652b aicore_image_hash=0x75d661c63a9961a7 orch_hash=0xd2d95e2d8bba86 orch_bytes=758056
+[swimlane:dep_gen subprocess] capturing the task dependency graph for the swimlane; the following compile/run output is for deps.json only (timing is discarded).
+[mono_ns=720284775683794][T0xffff8f9ee020][TIMING] emit_host_span: [STRACE] v=1 pid=2098012 tid=2098012 inv=0 hid=0 depth=0 name=chip.prewarm.build ts=720284751439471 dur=24233303 
+[mono_ns=720284784262777][T0xffff8f9ee020][TIMING] log_callable_image: Callable image: device=15 runner=0xaaab0aad1080 chip_hash=0x31d36151b22652b chip_dev=0x12c0c001a000 upload_bytes=792656 children=2
+[mono_ns=720284784284207][T0xffff8f9ee020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab0aad1080 chip_hash=0x31d36151b22652b chip_dev=0x12c0c001a000 func_id=0 code_begin=0x12c0c00d76a0 code_end_exclusive=0x12c0c00d88d8 code_bytes=4664 code_fnv1a64=0x57be59ed9454ea62
+[mono_ns=720284784303177][T0xffff8f9ee020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab0aad1080 chip_hash=0x31d36151b22652b chip_dev=0x12c0c001a000 func_id=1 code_begin=0x12c0c00d89a0 code_end_exclusive=0x12c0c00db80c code_bytes=11884 code_fnv1a64=0x7dc9d3ee46ac35eb
+[mono_ns=720284784310167][T0xffff8f9ee020][TIMING] record_device_orch_callable: [device_runner_base.cpp:1934] Callable registration: device=15 runner=0xaaab0aad1080 cid=0 chip_hash=0x31d36151b22652b aicore_image_hash=0x75d661c63a9961a7 orch_hash=0xd2d95e2d8bba86 orch_bytes=758056
+
+✓ Conversion complete
+  Input:  /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_035027_48baglaw/dfx_outputs/chip_swimlane_records.json
+  Output: /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_035027_48baglaw/dfx_outputs/merged_swimlane_20261016_035043.json
+
+To visualize: Open https://ui.perfetto.dev/ and drag in /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_035027_48baglaw/dfx_outputs/merged_swimlane_20261016_035043.json
+
+============================================================================================================================================
+Task Statistics by Function
+  Source chip_swimlane_level: 4 (full collection with orchestrator phases; recorded in chip_swimlane_records.json)
+  Exec = kernel time on AICore; Latency = dispatch->finish (incl. head OH + Exec + tail OH)
+  Head OH split (v3): Prop = NoC propagation (dispatch_ts→AICore receive); Local = dcci+ack (receive→start)
+============================================================================================================================================
+Func_ID  Func_Name    Count   Avg Exec(us)  Avg Latency(us)   Exec%   Avg Head OH(us)  Avg Tail OH(us)  Avg Prop(us)  Avg Local(us)
+--------------------------------------------------------------------------------------------------------------------------------------------
+0        attn_swpipe_aic    24          22.33            51.41   43.4%              5.28            23.81          0.50           4.78
+1        attn_swpipe_aiv    48          22.66            54.70   41.4%              6.27            25.76          0.52           5.76
+--------------------------------------------------------------------------------------------------------------------------------------------
+TOTAL                    72        1623.76          3859.30
+
+Total Test Time: 79.60 us (from earliest dispatch to latest finish)
+
+--- Task execution vs Scheduler overhead ---
+  Per-task (valid scheduler timing):  Avg Exec = 22.55 us,  Avg Latency (dispatch->finish) = 53.60 us,  Exec/Latency = 42.07%
+  (Latency = dispatch→finish; Exec = AICore kernel time per task)
+  Dispatch→kernel start (Host-computed): Total = 427.84 us, Max = 10.08 us
+==============================================================================================================
+
+Scheduler-overhead deep-dive: run sched_overhead_analysis manually with a separately-captured deps.json (--enable-dep-gen).
+[swimlane] chip swimlane enabled -> running the kernel twice (dep_gen perturbs timing, so the graph and the timing are captured separately):
+[swimlane] run 1/2: capturing the task dependency graph (deps.json) in a subprocess; its timing is discarded.
+[swimlane] run 2/2: measuring clean per-task timing (this run's numbers are the ones reported).
+Swimlane JSON written to: /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_035027_48baglaw/dfx_outputs/merged_swimlane_20261016_035043.json
+PMU CSV written to: /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_035027_48baglaw/dfx_outputs/pmu.csv
+[RUN] runtime done (12.86s)
+[RUN] validate ...
+[RUN]   'key_cache' PASS  shape=(10368, 1024) dtype=torch.bfloat16 (<lambda>)
+[RUN]   'value_cache' PASS  shape=(10368, 1024) dtype=torch.bfloat16 (<lambda>)
+[RUN]   'out' PASS  shape=(2, 40, 128) dtype=torch.bfloat16 (_compare_output)
+[RUN] validate done (0.02s)
+[RUN] PASS (16.30s)
+[test_paged_attention_pypto] case=cli-b2 status=passed work_dir=/data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_035027_48baglaw
+[npu-lock] 已释放设备 15 的锁
+=== 任务完成 (exit=0) ===

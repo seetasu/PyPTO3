@@ -1,0 +1,213 @@
+/* matmul.py 简介（TILED MATMUL）。
+   面板骨架直接复用 paged-attention-intro.css 的 kf-pa-map 组件（指标行 / 分块货架 /
+   画布 / 页脚工具条），这里只补 matmul 自己的 SVG 记号，保持同一套视觉语言。 */
+.kf-mm-map { overflow: hidden; }
+/* 分块货架按 M band 分组、每组 4 个 tile，铺成与 C 矩阵同构的 4×4 网格。 */
+.kf-mm-map .kf-mm-shelf-band { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.kf-mm-map .kf-pa-map__block { height: 46px; gap: 2px; }
+.kf-mm-map .kf-pa-map__block svg { width: 20px; height: 18px; }
+.kf-mm-map .kf-pa-map__viewport { min-height: 140px; }
+.kf-mm-map .kf-pa-map__context > [data-mm-action="focus"] { margin-left: auto; }
+
+/* SVG 记号 */
+.kf-mm-map .kf-mm-matrix-frame { fill: color-mix(in srgb, var(--surface-2) 62%, transparent); stroke: var(--border-default); }
+.kf-mm-map .kf-mm-gridline { stroke: var(--border-subtle); }
+.kf-mm-map .kf-mm-band-fill { fill: transparent; transition: fill 120ms ease; }
+.kf-mm-map .kf-mm-band.is-selected .kf-mm-band-fill { fill: color-mix(in srgb, var(--primary) 16%, transparent); }
+.kf-mm-map .kf-mm-tile { cursor: pointer; outline: none; }
+.kf-mm-map .kf-mm-tile-frame { fill: var(--surface-2); stroke: var(--border-subtle); transition: fill 120ms ease; }
+.kf-mm-map .kf-mm-tile:is(.is-selected, .is-hovered, :focus-visible) .kf-mm-tile-frame { fill: color-mix(in srgb, var(--primary) 16%, var(--surface-2)); stroke: var(--primary); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.kf-mm-map .kf-mm-tile:is(.is-selected, .is-hovered, :focus-visible) .kf-mm-svg-tile { fill: var(--foreground); }
+.kf-mm-map .kf-mm-flow { fill: none; stroke: var(--primary); stroke-width: 2; stroke-dasharray: 7 5; opacity: .8; }
+.kf-mm-map .kf-mm-klane rect { fill: color-mix(in srgb, var(--primary) 10%, var(--surface-2)); stroke: color-mix(in srgb, var(--primary) 40%, var(--border-default)); }
+.kf-mm-map .kf-mm-svg-title { fill: var(--foreground); font-weight: 650; font-size: calc(var(--pa-svg-label, 12px) * 1.3); }
+.kf-mm-map .kf-mm-svg-sub { fill: var(--foreground-secondary); font-size: calc(var(--pa-svg-label, 12px) * 1.02); }
+.kf-mm-map .kf-mm-svg-axis { fill: var(--foreground-muted); }
+.kf-mm-map .kf-mm-svg-tile { fill: var(--foreground-secondary); }
+
+@container (max-width: 720px) {
+  .kf-mm-map .kf-pa-map__block { height: 38px; }
+  .kf-mm-map .kf-pa-map__block svg { display: none; }
+}
+
+/* Keep the shape content in flow below the tab row. */
+.kf-pypa-graph.has-task-intro > .kf-mm-shape-content {
+  position: relative;
+  inset: auto;
+  z-index: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ===== 计算图：按 model-graphviz 全量还原（仅 matmul 生效） =====
+   取值逐项对应 pto-design-system/patterns/model-graphviz：
+   - pattern.css : --model-graphviz-line / line-soft / node-label / node-type /
+                   cluster-label / tensor-fill / tensor-stroke / edge-tag-*
+   - pattern.js  : op 胶囊 rx = h/2；tensor rx = min(14, max(8, h × .32))；
+                   cluster rx = 16；cluster 标签 20px；折叠控件直径 28（半径 14）；
+                   edge 1.2px + 圆角连接；marker refX 8.6
+   - pattern.json: postLayoutEdgeRouting 走 roundedRoutePath（12px 拐角）
+   仓库色板（sem:* / opv:*）没有 view / store / matmul 三个键，按语义就近取档：
+     view → opv:comm #06B6D4（数据搬移）、matmul → opv:linear #4F46E5（矩阵乘）、
+     store → opv:head #7C3AED（输出写回）、折叠 composite → opv:model #475569（容器）
+   规则全部挂 data-pypa-module="matmul"，其他模块的计算图读法不变。 */
+.kf-pypa-graph[data-pypa-module='matmul'] {
+  --mm-tensor-neutral: #d1d1d1;
+  --mm-line: var(--foreground);
+  --mm-line-soft: var(--border-strong);
+  --mm-node-label: var(--foreground);
+  --mm-node-type: var(--foreground-secondary);
+  --mm-cluster-label: color-mix(in srgb, var(--foreground) 86%, transparent);
+  --mm-tensor-fill: color-mix(in srgb, var(--surface-4) 72%, var(--foreground));
+  --mm-tag-bg: color-mix(in srgb, var(--surface-1) 94%, var(--background));
+  --mm-tag-fg: var(--foreground-secondary);
+  --mm-tag-border: var(--border-default);
+  --mm-op-view: #06b6d4;
+  --mm-op-matmul: #4f46e5;
+  --mm-op-store: #7c3aed;
+  --mm-module: #475569;
+}
+
+/* 节点：默认是 tensor 外形（圆角矩形 + 中性填充 + 0.75px 描边），标签单行居中。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 0 14px;
+  text-align: center;
+  border: 0.75px solid var(--mm-line-soft);
+  border-radius: 14px;
+  background: var(--mm-tensor-fill);
+  color: var(--mm-node-label);
+  box-shadow: none;
+}
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node:hover { background: var(--mm-tensor-fill); filter: brightness(1.08); }
+/* 叠加层把节点钉成 88px 固定高、并加了 6/10 内边距；单行标签下这两条都不再成立：
+   高度交回布局（inline min-height），内边距取仓库胶囊的左右留白。 */
+.kf-pypa-graph[data-pypa-module='matmul'].has-semantic-overlays .kf-pypa-graph__node.is-computation:not(.is-expanded-head) {
+  height: auto;
+  padding: 0 14px;
+}
+
+/* op：胶囊（rx = h/2），语义色取仓库档位。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node[data-node-kind='op'] { border-radius: 999px; background: var(--mm-op-matmul); }
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node[data-node-kind='op'][data-sem='op:view'] { background: var(--mm-op-view); }
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node[data-node-kind='op'][data-sem='op:store'] { background: var(--mm-op-store); }
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node[data-node-kind='op']:hover { filter: brightness(1.08); }
+
+/* 折叠的 composite：module 外形，胶囊 + 类名一行。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node[data-node-kind='module'] {
+  border-radius: 999px;
+  background: var(--mm-module);
+}
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node[data-node-kind='module']:hover { filter: brightness(1.08); }
+/* 右上角的折叠控件要占位：仓库的 rightReserved 也是把正文从控件宽度里让出来。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node[data-node-kind='module'][data-pypa-expand] {
+  padding-right: 42px;
+}
+
+/* 展开后：节点退化成簇标题（左上角纯文字 20px），不再有胶囊外壳。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node.is-expanded-head {
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--mm-cluster-label);
+}
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node.is-expanded-head:hover { background: transparent; filter: none; }
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node.is-expanded-head .kf-pypa-graph__node-label {
+  color: var(--mm-cluster-label);
+  font-size: 20px !important;
+  font-weight: 700;
+}
+
+/* 标签与类型行：仓库 node-label / node-type。
+   这里的 !important 只为一件事：demo.css 有一条
+   `.pto-ide-frame [data-ide-pane="inspector"] :where(...span, button...) { font-size: 12px !important }`
+   把面板内所有文字钉成 12px；仓库的节点标签是 16px，仓库自己的
+   .pto-model-graphviz-node-label 也是用 !important 反向覆盖的（demo.css:1695）。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node-label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: inherit;
+  font-size: 16px !important;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node-kind {
+  display: block;
+  color: var(--mm-node-type);
+  font-size: 12px !important;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+/* 折叠控件：圆形，直径 28，0.8px 描边，底取 state-focus（仓库 toggle 规格）。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node-expand {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  margin-left: 0;
+  transform: translateY(-50%);
+  border: 0.8px solid var(--mm-line-soft);
+  border-radius: 999px;
+  background: var(--state-focus);
+  color: var(--mm-node-label);
+  font-size: 16px;
+  line-height: 1;
+}
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__node.is-expanded-head .kf-pypa-graph__node-expand {
+  top: 7px;
+  transform: none;
+  border-color: var(--mm-line-soft);
+  color: var(--mm-node-label);
+}
+
+/* 展开容器：透明外壳，rx=16，1.6px 描边，不做彩色叠底。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__expanded-group {
+  border: 1.6px solid var(--mm-line-soft);
+  border-radius: var(--radius-xl);
+  background: transparent;
+}
+
+/* 边：1.2px 前台色 + 圆角连接（仓库 .pto-model-graphviz-edge）。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__edge {
+  stroke: var(--mm-line);
+  stroke-width: 1.2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* 数据依赖保持开口箭头（AI_Infra compiler-objects 的关系约定），描边跟线走。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__arrow.is-open {
+  fill: none;
+  stroke: var(--mm-line);
+  stroke-width: 1.4;
+}
+
+/* 边标签：底板（edge-tag）+ 12px/800 文本，压在线段上不透明遮挡。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__edge-tag rect {
+  fill: var(--mm-tag-bg);
+  stroke: var(--mm-tag-border);
+  stroke-width: 0.75px;
+}
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__edge-tag text {
+  fill: var(--mm-tag-fg);
+  font-size: 12px !important;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+/* Inspector 里的操作数 / 结果卡片画的是同一批张量，保持中性灰。 */
+.kf-pypa-graph[data-pypa-module='matmul'] .kf-pypa-graph__transform-card {
+  border-color: color-mix(in srgb, var(--mm-tensor-neutral) 30%, var(--border-default));
+  background: color-mix(in srgb, var(--mm-tensor-neutral) 5%, var(--surface-2));
+}

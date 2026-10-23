@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="一张 NPU 上一个 decode step 的设备侧详细分析：多流甘特、算子排行、逐步趋势（Ascend profiler trace）" />
+  <title>Device Detail</title>
+  <link rel="icon" type="image/svg+xml" href="../../pto-studio-logo.svg" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="./home.css" />
+  <link rel="stylesheet" href="./device.css" />
+</head>
+<body class="device-page">
+  <header class="dv-head">
+    <div class="dv-head-main">
+      <nav class="crumb" aria-label="返回">
+        <a class="crumb-up" id="backLink" href="./index.html#view=e2e&layer=device&tab=dist&lane=6">‹ 设备分布</a>
+        <span class="crumb-sep" aria-hidden="true">›</span>
+        <b class="crumb-cur" id="devTitle">dev 6 · 设备详情</b>
+      </nav>
+      <!-- 出处先于数字：这块数据不是单请求页那次采集 -->
+      <p class="dv-prov" id="prov"></p>
+      <!-- 再往下一层是核级，但只有另一份导出（Qwen3 TP1）带得动，页面上写明 -->
+      <a class="ops-open" href="./core.html">再往下一层：一张卡 60 个核（20 AIC + 40 AIV）的核级泳道 — 另一份样本（Qwen3 TP1 prefill）↗</a>
+    </div>
+    <div class="dv-kpis" id="kpis"></div>
+  </header>
+
+  <main class="dv-main">
+    <!-- ① 66 步总览：每步一根柱，点任一步下钻 -->
+    <section class="dv-sec" aria-label="全部 step 总览">
+      <header class="dv-sec-head">
+        <h2 id="stepsTitle"></h2>
+        <div class="dv-legend" id="stepsLegend"></div>
+      </header>
+      <svg class="dv-steps" id="stepsChart" role="img" aria-label="每个 step 的步长与构成"></svg>
+      <p class="dv-note" id="stepsNote"></p>
+    </section>
+
+    <!-- ② 选中 step 的多流甘特 -->
+    <section class="dv-sec" aria-label="选中 step 的多流甘特">
+      <header class="dv-sec-head">
+        <h2 id="ganttTitle"></h2>
+        <div class="dv-legend" id="ganttLegend"></div>
+      </header>
+      <svg class="dv-gantt" id="gantt" role="img" aria-label="这一步在各条流上的任务"></svg>
+      <p class="dv-note" id="ganttNote"></p>
+    </section>
+
+    <div class="dv-cols">
+      <!-- ③ 算子排行 -->
+      <section class="dv-sec" aria-label="这一步的算子排行">
+        <header class="dv-sec-head">
+          <h2>算子排行</h2>
+          <div class="dv-sort" id="opSort" role="group" aria-label="排序方式"></div>
+        </header>
+        <div class="dv-table-wrap">
+          <table class="dv-table" id="opTable"></table>
+        </div>
+        <p class="dv-note" id="opNote"></p>
+      </section>
+
+      <!-- ④ 选中算子在全部 step 里的变化 + 分组构成 -->
+      <section class="dv-sec" aria-label="选中算子的逐步趋势">
+        <header class="dv-sec-head">
+          <h2 id="trendTitle">逐步趋势</h2>
+          <span class="dv-sub" id="trendSub"></span>
+        </header>
+        <svg class="dv-trend" id="trend" role="img" aria-label="选中算子在每个 step 的耗时"></svg>
+        <p class="dv-note" id="trendNote"></p>
+        <h3 class="dv-h3">这一步的分组构成</h3>
+        <div class="dv-groups" id="groups"></div>
+      </section>
+    </div>
+
+    <section class="dv-sec" aria-label="数据口径">
+      <details class="fold" id="specFold">
+        <summary><span>这份数据的口径</span><i id="specMeta"></i></summary>
+        <div class="fold-body"><table class="ledger dim" id="specTable"></table></div>
+      </details>
+    </section>
+  </main>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <script src="./device-data.js"></script>
+  <script src="./device.js"></script>
+</body>
+</html>

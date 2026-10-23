@@ -1,0 +1,4218 @@
+{
+  "33": {
+    "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/33_after_InitMemRef.py",
+    "rows": [
+      {
+        "id": "qk_pv_aic:mem_mat_14",
+        "base": "mem_mat_14",
+        "kernel": "qk_pv_aic",
+        "space": "Mat",
+        "size": 131072,
+        "line": 3584,
+        "values": [
+          {
+            "name": "qk_kv_inline2415__tile",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.create([128, 512], dtype=pl.BF16, target_memory=pl.Mem.Mat, transpose=False)",
+            "line": 3623
+          },
+          {
+            "name": "qk_kv_inline2415__tile_1",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__tile, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v0, 0], [qk_run_src_inline2384__ssa_v0, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v0 - qk_run_lo_inline2372__ssa_v0, 512], transpose=False)",
+            "line": 3637
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v2",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_1)",
+            "line": 3638
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v2",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile)",
+            "line": 3640
+          },
+          {
+            "name": "qk_kv_inline2415__tile_2",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v2, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v1, 0], [qk_run_src_inline2384__ssa_v1, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v1 - qk_run_lo_inline2372__ssa_v1, 512], transpose=False)",
+            "line": 3646
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v4",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_2)",
+            "line": 3647
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v4",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v2)",
+            "line": 3649
+          },
+          {
+            "name": "qk_kv_inline2415__tile_3",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v4, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v2, 0], [qk_run_src_inline2384__ssa_v2, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v2 - qk_run_lo_inline2372__ssa_v2, 512], transpose=False)",
+            "line": 3655
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v6",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_3)",
+            "line": 3656
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v6",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v4)",
+            "line": 3658
+          },
+          {
+            "name": "qk_kv_inline2415__tile_4",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v6, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v3, 0], [qk_run_src_inline2384__ssa_v3, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v3 - qk_run_lo_inline2372__ssa_v3, 512], transpose=False)",
+            "line": 3664
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v8",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_4)",
+            "line": 3665
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v8",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v6)",
+            "line": 3667
+          },
+          {
+            "name": "qk_kv_inline2415__tile_5",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v8, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v4, 0], [qk_run_src_inline2384__ssa_v4, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v4 - qk_run_lo_inline2372__ssa_v4, 512], transpose=False)",
+            "line": 3673
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v10",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_5)",
+            "line": 3674
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v10",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v8)",
+            "line": 3676
+          },
+          {
+            "name": "qk_kv_inline2415__tile_6",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v10, ori_kv_flat_inline2344__ssa_v1, [qk_run_rows_inline2332__ssa_v0, 0], [0, 0], [128, 512], valid_shape=[qk_tail_n_inline2329__ssa_v0, 512], transpose=False)",
+            "line": 3679
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v12",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_6)",
+            "line": 3680
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v12",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v10)",
+            "line": 3682
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v13",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v12)",
+            "line": 3683
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v13",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile)",
+            "line": 3685
+          },
+          {
+            "name": "qk_kv_inline2415__tile_7",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, cmp_kv_flat_inline2401__ssa_v0, [qk_r_inline2390__idx_v0, 0], [qk_csrc_inline2400__ssa_v0, 0], [1, 512], transpose=False)",
+            "line": 3695
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v18",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_7)",
+            "line": 3696
+          },
+          {
+            "name": "qk_kv_inline2415__tile_8",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, ori_kv_flat_inline2344__ssa_v1, [qk_r_inline2390__idx_v0, 0], [0, 0], [1, 512], transpose=False)",
+            "line": 3698
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v18",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_8)",
+            "line": 3699
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v20",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v18)",
+            "line": 3700
+          },
+          {
+            "name": "qk_kv_inline2415__tile_9",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, ori_kv_flat_inline2344__ssa_v1, [qk_r_inline2390__idx_v0, 0], [0, 0], [1, 512], transpose=False)",
+            "line": 3702
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v20",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_9)",
+            "line": 3703
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v20)",
+            "line": 3704
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15_t",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.transpose_view(qk_kv_inline2415__rv_v15, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3708
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15_t_1",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.transpose_view(qk_kv_inline2415__rv_v15, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3723
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_mat_25",
+        "base": "mem_mat_25",
+        "kernel": "qk_pv_aic",
+        "space": "Mat",
+        "size": 32768,
+        "line": 3585,
+        "values": [
+          {
+            "name": "qk_q_tile_inline2338__tile",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.load(q_flat_inline2355__ssa_v0, [qk_head_row_inline2326__ssa_v0, 0], [32, 512], [32, 512], target_memory=pl.Mem.Mat, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3707
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_acc_26",
+        "base": "mem_acc_26",
+        "kernel": "qk_pv_aic",
+        "space": "Acc",
+        "size": 16384,
+        "line": 3586,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_init",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Acc, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3709
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c, qk_raw_inline2397__tile_l0_a, qk_raw_inline2397__tile_l0_b, qk_raw_inline2397__tile_l0_ko == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3715
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_acc, qk_raw_inline2397__tile_l0_a_1, qk_raw_inline2397__tile_l0_b_1, qk_raw_inline2397__tile_l0_ko + 128 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3716
+          },
+          {
+            "name": "qk_raw_inline2397__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.yield_(qk_raw_inline2397__tile_l0_c_acc_1)",
+            "line": 3717
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_27",
+        "base": "mem_left_27",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 3587,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile, 0, qk_raw_inline2397__tile_l0_ko, [32, 128], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;0:0\"})",
+            "line": 3711
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_28",
+        "base": "mem_right_28",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3588,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t, qk_raw_inline2397__tile_l0_ko, 0, [128, 128], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;0:0\"})",
+            "line": 3712
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_29",
+        "base": "mem_left_29",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 3589,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_1",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile, 0, qk_raw_inline2397__tile_l0_ko + 128, [32, 128], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;0:1\"})",
+            "line": 3713
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_30",
+        "base": "mem_right_30",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3590,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t, qk_raw_inline2397__tile_l0_ko + 128, 0, [128, 128], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;0:1\"})",
+            "line": 3714
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_mat_32",
+        "base": "mem_mat_32",
+        "kernel": "qk_pv_aic",
+        "space": "Mat",
+        "size": 32768,
+        "line": 3591,
+        "values": [
+          {
+            "name": "qk_q_tile_inline2338__tile_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.load(q_flat_inline2355__ssa_v0, [qk_head_row_inline2326__ssa_v0_1, 0], [32, 512], [32, 512], target_memory=pl.Mem.Mat, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3722
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_acc_33",
+        "base": "mem_acc_33",
+        "kernel": "qk_pv_aic",
+        "space": "Acc",
+        "size": 16384,
+        "line": 3592,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_init_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Acc, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3724
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_2",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_1, qk_raw_inline2397__tile_l0_a_2, qk_raw_inline2397__tile_l0_b_2, qk_raw_inline2397__tile_l0_ko_1 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3730
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_3",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_acc_2, qk_raw_inline2397__tile_l0_a_3, qk_raw_inline2397__tile_l0_b_3, qk_raw_inline2397__tile_l0_ko_1 + 128 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3731
+          },
+          {
+            "name": "qk_raw_inline2397__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.yield_(qk_raw_inline2397__tile_l0_c_acc_3)",
+            "line": 3732
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_34",
+        "base": "mem_left_34",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 3593,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_2",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile_1, 0, qk_raw_inline2397__tile_l0_ko_1, [32, 128], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;1:0\"})",
+            "line": 3726
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_35",
+        "base": "mem_right_35",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3594,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_2",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t_1, qk_raw_inline2397__tile_l0_ko_1, 0, [128, 128], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;1:0\"})",
+            "line": 3727
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_36",
+        "base": "mem_left_36",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 3595,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_3",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile_1, 0, qk_raw_inline2397__tile_l0_ko_1 + 128, [32, 128], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;1:1\"})",
+            "line": 3728
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_37",
+        "base": "mem_right_37",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3596,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_3",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t_1, qk_raw_inline2397__tile_l0_ko_1 + 128, 0, [128, 128], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;1:1\"})",
+            "line": 3729
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_acc_39",
+        "base": "mem_acc_39",
+        "kernel": "qk_pv_aic",
+        "space": "Acc",
+        "size": 65536,
+        "line": 3597,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_init",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.create([32, 512], dtype=pl.FP32, target_memory=pl.Mem.Acc, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3734
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c, qk_oi_inline2335__tile_l0_a, qk_oi_inline2335__tile_l0_b, qk_oi_inline2335__tile_l0_ko == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3741
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_acc, qk_oi_inline2335__tile_l0_a_1, qk_oi_inline2335__tile_l0_b_1, qk_oi_inline2335__tile_l0_ko + 32 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3742
+          },
+          {
+            "name": "qk_oi_inline2335__tile",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.yield_(qk_oi_inline2335__tile_l0_c_acc_1)",
+            "line": 3743
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_40",
+        "base": "mem_left_40",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 2048,
+        "line": 3598,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_a",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat, 0, qk_oi_inline2335__tile_l0_ko, [32, 32], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;2:0\"})",
+            "line": 3737
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_41",
+        "base": "mem_right_41",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3599,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_b",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko, 0, [32, 512], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;2:0\"})",
+            "line": 3738
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_42",
+        "base": "mem_left_42",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 2048,
+        "line": 3600,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_1",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat, 0, qk_oi_inline2335__tile_l0_ko + 32, [32, 32], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;2:1\"})",
+            "line": 3739
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_43",
+        "base": "mem_right_43",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3601,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko + 32, 0, [32, 512], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;2:1\"})",
+            "line": 3740
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_acc_48",
+        "base": "mem_acc_48",
+        "kernel": "qk_pv_aic",
+        "space": "Acc",
+        "size": 65536,
+        "line": 3602,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_init_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.create([32, 512], dtype=pl.FP32, target_memory=pl.Mem.Acc, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3758
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_2",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_1, qk_oi_inline2335__tile_l0_a_2, qk_oi_inline2335__tile_l0_b_2, qk_oi_inline2335__tile_l0_ko_1 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3765
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_3",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_acc_2, qk_oi_inline2335__tile_l0_a_3, qk_oi_inline2335__tile_l0_b_3, qk_oi_inline2335__tile_l0_ko_1 + 32 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3766
+          },
+          {
+            "name": "qk_oi_inline2335__tile_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.yield_(qk_oi_inline2335__tile_l0_c_acc_3)",
+            "line": 3767
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_49",
+        "base": "mem_left_49",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 2048,
+        "line": 3603,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_2",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat_1, 0, qk_oi_inline2335__tile_l0_ko_1, [32, 32], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;3:0\"})",
+            "line": 3761
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_50",
+        "base": "mem_right_50",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3604,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_2",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko_1, 0, [32, 512], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;3:0\"})",
+            "line": 3762
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_51",
+        "base": "mem_left_51",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 2048,
+        "line": 3605,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_3",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat_1, 0, qk_oi_inline2335__tile_l0_ko_1 + 32, [32, 32], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;3:1\"})",
+            "line": 3763
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_52",
+        "base": "mem_right_52",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3606,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_3",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko_1 + 32, 0, [32, 512], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;3:1\"})",
+            "line": 3764
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_14",
+        "base": "mem_vec_14",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 512,
+        "line": 3791,
+        "values": [
+          {
+            "name": "qk_bias_row_inline2419__tile",
+            "offset": 0,
+            "size": 512,
+            "expression": "pl.tile.load(sparse_bias_inline2381__rv_v2, [qk_t_inline2411__ssa_v0, qk_s0_inline2418__ssa_v0], [1, 128], [1, 128], target_memory=pl.Mem.Vec)",
+            "line": 3836
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_15",
+        "base": "mem_vec_15",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3792,
+        "values": [
+          {
+            "name": "qk_scaled_inline2416__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.muls(qk_raw_inline2397__tile_Vec, 0.044194173824159223)",
+            "line": 3841
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_16",
+        "base": "mem_vec_16",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3793,
+        "values": [
+          {
+            "name": "qk_scores_inline2325__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.col_expand_add(qk_scaled_inline2416__tile, qk_bias_row_inline2419__tile)",
+            "line": 3843
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_17",
+        "base": "mem_vec_17",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3794,
+        "values": [
+          {
+            "name": "tmp_tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3844
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_18",
+        "base": "mem_vec_18",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 3795,
+        "values": [
+          {
+            "name": "qk_mi_inline2360__tile",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_max(qk_scores_inline2325__tile, tmp_tile)",
+            "line": 3845
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_19",
+        "base": "mem_vec_19",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3796,
+        "values": [
+          {
+            "name": "t__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.row_expand_sub(qk_scores_inline2325__tile, qk_mi_inline2360__tile)",
+            "line": 3846
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_20",
+        "base": "mem_vec_20",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3797,
+        "values": [
+          {
+            "name": "qk_exp_inline2324__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.exp(t__tile_1)",
+            "line": 3847
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_21",
+        "base": "mem_vec_21",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3798,
+        "values": [
+          {
+            "name": "tmp_tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3848
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_22",
+        "base": "mem_vec_22",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 3799,
+        "values": [
+          {
+            "name": "qk_li_inline2323__tile",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_sum(qk_exp_inline2324__tile, tmp_tile_1)",
+            "line": 3849
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_23",
+        "base": "mem_vec_23",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 8192,
+        "line": 3800,
+        "values": [
+          {
+            "name": "qk_exp_bf16_inline2322__tile",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.cast(qk_exp_inline2324__tile, target_type=pl.BF16, mode='rint')",
+            "line": 3850
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_27",
+        "base": "mem_vec_27",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 32768,
+        "line": 3801,
+        "values": [
+          {
+            "name": "qk_oi_zero_inline2318__tile",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.full([16, 512], dtype=pl.FP32, value=0.0)",
+            "line": 3871
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_28",
+        "base": "mem_vec_28",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3802,
+        "values": [
+          {
+            "name": "sparse_blk_mi_inline2404__tile_2",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=-3.0000000000000001e+38)",
+            "line": 3875
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_3",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_mi_inline2404__tile_2, [16, 1])",
+            "line": 3876
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_29",
+        "base": "mem_vec_29",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3803,
+        "values": [
+          {
+            "name": "sparse_blk_li_inline2405__tile_2",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=0.0)",
+            "line": 3878
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_3",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_li_inline2405__tile_2, [16, 1])",
+            "line": 3879
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_37",
+        "base": "mem_vec_37",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 512,
+        "line": 3804,
+        "values": [
+          {
+            "name": "qk_bias_row_inline2419__tile_1",
+            "offset": 0,
+            "size": 512,
+            "expression": "pl.tile.create([1, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3897
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_38",
+        "base": "mem_vec_38",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3805,
+        "values": [
+          {
+            "name": "qk_scaled_inline2416__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.muls(qk_raw_inline2397__tile_Vec_1, 0.044194173824159223)",
+            "line": 3902
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_39",
+        "base": "mem_vec_39",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3806,
+        "values": [
+          {
+            "name": "qk_scores_inline2325__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.col_expand_add(qk_scaled_inline2416__tile_1, qk_bias_row_inline2419__tile_1)",
+            "line": 3904
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_40",
+        "base": "mem_vec_40",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3807,
+        "values": [
+          {
+            "name": "tmp_tile_2",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3905
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_41",
+        "base": "mem_vec_41",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 3808,
+        "values": [
+          {
+            "name": "qk_mi_inline2360__tile_1",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_max(qk_scores_inline2325__tile_1, tmp_tile_2)",
+            "line": 3906
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_42",
+        "base": "mem_vec_42",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3809,
+        "values": [
+          {
+            "name": "t__tile_7",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.row_expand_sub(qk_scores_inline2325__tile_1, qk_mi_inline2360__tile_1)",
+            "line": 3907
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_43",
+        "base": "mem_vec_43",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3810,
+        "values": [
+          {
+            "name": "qk_exp_inline2324__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.exp(t__tile_7)",
+            "line": 3908
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_44",
+        "base": "mem_vec_44",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3811,
+        "values": [
+          {
+            "name": "tmp_tile_3",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3909
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_45",
+        "base": "mem_vec_45",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 3812,
+        "values": [
+          {
+            "name": "qk_li_inline2323__tile_1",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_sum(qk_exp_inline2324__tile_1, tmp_tile_3)",
+            "line": 3910
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_46",
+        "base": "mem_vec_46",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 8192,
+        "line": 3813,
+        "values": [
+          {
+            "name": "qk_exp_bf16_inline2322__tile_1",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.cast(qk_exp_inline2324__tile_1, target_type=pl.BF16, mode='rint')",
+            "line": 3911
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_47",
+        "base": "mem_vec_47",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3814,
+        "values": [
+          {
+            "name": "t__tile_8",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3917
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_49",
+        "base": "mem_vec_49",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3815,
+        "values": [
+          {
+            "name": "t__tile_9",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3919
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_51",
+        "base": "mem_vec_51",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3816,
+        "values": [
+          {
+            "name": "t__tile_10",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3925
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_53",
+        "base": "mem_vec_53",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3817,
+        "values": [
+          {
+            "name": "t__tile_11",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3927
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_58",
+        "base": "mem_vec_58",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 32768,
+        "line": 3818,
+        "values": [
+          {
+            "name": "qk_oi_zero_inline2318__tile_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.full([16, 512], dtype=pl.FP32, value=0.0)",
+            "line": 3932
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_59",
+        "base": "mem_vec_59",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3819,
+        "values": [
+          {
+            "name": "sparse_blk_mi_inline2404__tile_6",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=-3.0000000000000001e+38)",
+            "line": 3936
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_7",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_mi_inline2404__tile_6, [16, 1])",
+            "line": 3937
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_60",
+        "base": "mem_vec_60",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3820,
+        "values": [
+          {
+            "name": "sparse_blk_li_inline2405__tile_6",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=0.0)",
+            "line": 3938
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_7",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_li_inline2405__tile_6, [16, 1])",
+            "line": 3939
+          }
+        ]
+      }
+    ],
+    "reserves": [
+      {
+        "kernel": "qk_pv_aic",
+        "name": "qk_pv_v2c_slot_buffer",
+        "size": 32768,
+        "offset": null
+      },
+      {
+        "kernel": "qk_pv_aiv",
+        "name": "qk_pv_c2v_slot_buffer",
+        "size": 32768,
+        "offset": null
+      }
+    ]
+  },
+  "34": {
+    "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+    "rows": [
+      {
+        "id": "qk_pv_aic:mem_mat_14",
+        "base": "mem_mat_14",
+        "kernel": "qk_pv_aic",
+        "space": "Mat",
+        "size": 131072,
+        "line": 3584,
+        "values": [
+          {
+            "name": "qk_kv_inline2415__tile",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.create([128, 512], dtype=pl.BF16, target_memory=pl.Mem.Mat, transpose=False)",
+            "line": 3623
+          },
+          {
+            "name": "qk_kv_inline2415__tile_1",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__tile, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v0, 0], [qk_run_src_inline2384__ssa_v0, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v0 - qk_run_lo_inline2372__ssa_v0, 512], transpose=False)",
+            "line": 3637
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v2",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_1)",
+            "line": 3638
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v2",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile)",
+            "line": 3640
+          },
+          {
+            "name": "qk_kv_inline2415__tile_2",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v2, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v1, 0], [qk_run_src_inline2384__ssa_v1, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v1 - qk_run_lo_inline2372__ssa_v1, 512], transpose=False)",
+            "line": 3646
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v4",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_2)",
+            "line": 3647
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v4",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v2)",
+            "line": 3649
+          },
+          {
+            "name": "qk_kv_inline2415__tile_3",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v4, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v2, 0], [qk_run_src_inline2384__ssa_v2, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v2 - qk_run_lo_inline2372__ssa_v2, 512], transpose=False)",
+            "line": 3655
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v6",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_3)",
+            "line": 3656
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v6",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v4)",
+            "line": 3658
+          },
+          {
+            "name": "qk_kv_inline2415__tile_4",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v6, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v3, 0], [qk_run_src_inline2384__ssa_v3, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v3 - qk_run_lo_inline2372__ssa_v3, 512], transpose=False)",
+            "line": 3664
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v8",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_4)",
+            "line": 3665
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v8",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v6)",
+            "line": 3667
+          },
+          {
+            "name": "qk_kv_inline2415__tile_5",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v8, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v4, 0], [qk_run_src_inline2384__ssa_v4, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v4 - qk_run_lo_inline2372__ssa_v4, 512], transpose=False)",
+            "line": 3673
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v10",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_5)",
+            "line": 3674
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v10",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v8)",
+            "line": 3676
+          },
+          {
+            "name": "qk_kv_inline2415__tile_6",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v10, ori_kv_flat_inline2344__ssa_v1, [qk_run_rows_inline2332__ssa_v0, 0], [0, 0], [128, 512], valid_shape=[qk_tail_n_inline2329__ssa_v0, 512], transpose=False)",
+            "line": 3679
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v12",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_6)",
+            "line": 3680
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v12",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v10)",
+            "line": 3682
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v13",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v12)",
+            "line": 3683
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v13",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile)",
+            "line": 3685
+          },
+          {
+            "name": "qk_kv_inline2415__tile_7",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, cmp_kv_flat_inline2401__ssa_v0, [qk_r_inline2390__idx_v0, 0], [qk_csrc_inline2400__ssa_v0, 0], [1, 512], transpose=False)",
+            "line": 3695
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v18",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_7)",
+            "line": 3696
+          },
+          {
+            "name": "qk_kv_inline2415__tile_8",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, ori_kv_flat_inline2344__ssa_v1, [qk_r_inline2390__idx_v0, 0], [0, 0], [1, 512], transpose=False)",
+            "line": 3698
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v18",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_8)",
+            "line": 3699
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v20",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v18)",
+            "line": 3700
+          },
+          {
+            "name": "qk_kv_inline2415__tile_9",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, ori_kv_flat_inline2344__ssa_v1, [qk_r_inline2390__idx_v0, 0], [0, 0], [1, 512], transpose=False)",
+            "line": 3702
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v20",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_9)",
+            "line": 3703
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v20)",
+            "line": 3704
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15_t",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.transpose_view(qk_kv_inline2415__rv_v15, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3708
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15_t_1",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.transpose_view(qk_kv_inline2415__rv_v15, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3723
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_mat_25",
+        "base": "mem_mat_25",
+        "kernel": "qk_pv_aic",
+        "space": "Mat",
+        "size": 32768,
+        "line": 3585,
+        "values": [
+          {
+            "name": "qk_q_tile_inline2338__tile",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.load(q_flat_inline2355__ssa_v0, [qk_head_row_inline2326__ssa_v0, 0], [32, 512], [32, 512], target_memory=pl.Mem.Mat, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3707
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_acc_26",
+        "base": "mem_acc_26",
+        "kernel": "qk_pv_aic",
+        "space": "Acc",
+        "size": 16384,
+        "line": 3586,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_init",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Acc, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3709
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c, qk_raw_inline2397__tile_l0_a, qk_raw_inline2397__tile_l0_b, qk_raw_inline2397__tile_l0_ko == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3715
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_acc, qk_raw_inline2397__tile_l0_a_1, qk_raw_inline2397__tile_l0_b_1, qk_raw_inline2397__tile_l0_ko + 128 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3716
+          },
+          {
+            "name": "qk_raw_inline2397__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.yield_(qk_raw_inline2397__tile_l0_c_acc_1)",
+            "line": 3717
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_27",
+        "base": "mem_left_27",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 3587,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile, 0, qk_raw_inline2397__tile_l0_ko, [32, 128], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;0:0\"})",
+            "line": 3711
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_28",
+        "base": "mem_right_28",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3588,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t, qk_raw_inline2397__tile_l0_ko, 0, [128, 128], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;0:0\"})",
+            "line": 3712
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_29",
+        "base": "mem_left_29",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 3589,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_1",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile, 0, qk_raw_inline2397__tile_l0_ko + 128, [32, 128], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;0:1\"})",
+            "line": 3713
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_30",
+        "base": "mem_right_30",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3590,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t, qk_raw_inline2397__tile_l0_ko + 128, 0, [128, 128], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;0:1\"})",
+            "line": 3714
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_mat_32",
+        "base": "mem_mat_32",
+        "kernel": "qk_pv_aic",
+        "space": "Mat",
+        "size": 32768,
+        "line": 3591,
+        "values": [
+          {
+            "name": "qk_q_tile_inline2338__tile_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.load(q_flat_inline2355__ssa_v0, [qk_head_row_inline2326__ssa_v0_1, 0], [32, 512], [32, 512], target_memory=pl.Mem.Mat, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3722
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_acc_33",
+        "base": "mem_acc_33",
+        "kernel": "qk_pv_aic",
+        "space": "Acc",
+        "size": 16384,
+        "line": 3592,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_init_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Acc, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3724
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_2",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_1, qk_raw_inline2397__tile_l0_a_2, qk_raw_inline2397__tile_l0_b_2, qk_raw_inline2397__tile_l0_ko_1 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3730
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_3",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_acc_2, qk_raw_inline2397__tile_l0_a_3, qk_raw_inline2397__tile_l0_b_3, qk_raw_inline2397__tile_l0_ko_1 + 128 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3731
+          },
+          {
+            "name": "qk_raw_inline2397__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.yield_(qk_raw_inline2397__tile_l0_c_acc_3)",
+            "line": 3732
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_34",
+        "base": "mem_left_34",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 3593,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_2",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile_1, 0, qk_raw_inline2397__tile_l0_ko_1, [32, 128], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;1:0\"})",
+            "line": 3726
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_35",
+        "base": "mem_right_35",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3594,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_2",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t_1, qk_raw_inline2397__tile_l0_ko_1, 0, [128, 128], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;1:0\"})",
+            "line": 3727
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_36",
+        "base": "mem_left_36",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 3595,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_3",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile_1, 0, qk_raw_inline2397__tile_l0_ko_1 + 128, [32, 128], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;1:1\"})",
+            "line": 3728
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_37",
+        "base": "mem_right_37",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3596,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_3",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t_1, qk_raw_inline2397__tile_l0_ko_1 + 128, 0, [128, 128], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;1:1\"})",
+            "line": 3729
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_acc_39",
+        "base": "mem_acc_39",
+        "kernel": "qk_pv_aic",
+        "space": "Acc",
+        "size": 65536,
+        "line": 3597,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_init",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.create([32, 512], dtype=pl.FP32, target_memory=pl.Mem.Acc, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3734
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c, qk_oi_inline2335__tile_l0_a, qk_oi_inline2335__tile_l0_b, qk_oi_inline2335__tile_l0_ko == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3741
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_acc, qk_oi_inline2335__tile_l0_a_1, qk_oi_inline2335__tile_l0_b_1, qk_oi_inline2335__tile_l0_ko + 32 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3742
+          },
+          {
+            "name": "qk_oi_inline2335__tile",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.yield_(qk_oi_inline2335__tile_l0_c_acc_1)",
+            "line": 3743
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_40",
+        "base": "mem_left_40",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 2048,
+        "line": 3598,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_a",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat, 0, qk_oi_inline2335__tile_l0_ko, [32, 32], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;2:0\"})",
+            "line": 3737
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_41",
+        "base": "mem_right_41",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3599,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_b",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko, 0, [32, 512], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;2:0\"})",
+            "line": 3738
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_42",
+        "base": "mem_left_42",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 2048,
+        "line": 3600,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_1",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat, 0, qk_oi_inline2335__tile_l0_ko + 32, [32, 32], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;2:1\"})",
+            "line": 3739
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_43",
+        "base": "mem_right_43",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3601,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko + 32, 0, [32, 512], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;2:1\"})",
+            "line": 3740
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_acc_48",
+        "base": "mem_acc_48",
+        "kernel": "qk_pv_aic",
+        "space": "Acc",
+        "size": 65536,
+        "line": 3602,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_init_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.create([32, 512], dtype=pl.FP32, target_memory=pl.Mem.Acc, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3758
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_2",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_1, qk_oi_inline2335__tile_l0_a_2, qk_oi_inline2335__tile_l0_b_2, qk_oi_inline2335__tile_l0_ko_1 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3765
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_3",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_acc_2, qk_oi_inline2335__tile_l0_a_3, qk_oi_inline2335__tile_l0_b_3, qk_oi_inline2335__tile_l0_ko_1 + 32 == 0, attrs={\"pipeline_membership\": \"1048576:0\"})",
+            "line": 3766
+          },
+          {
+            "name": "qk_oi_inline2335__tile_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.yield_(qk_oi_inline2335__tile_l0_c_acc_3)",
+            "line": 3767
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_49",
+        "base": "mem_left_49",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 2048,
+        "line": 3603,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_2",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat_1, 0, qk_oi_inline2335__tile_l0_ko_1, [32, 32], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;3:0\"})",
+            "line": 3761
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_50",
+        "base": "mem_right_50",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3604,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_2",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko_1, 0, [32, 512], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;3:0\"})",
+            "line": 3762
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_51",
+        "base": "mem_left_51",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 2048,
+        "line": 3605,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_3",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat_1, 0, qk_oi_inline2335__tile_l0_ko_1 + 32, [32, 32], target_memory=pl.Mem.Left, attrs={\"pipeline_membership\": \"1048576:0;3:1\"})",
+            "line": 3763
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_52",
+        "base": "mem_right_52",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 3606,
+        "values": [
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_3",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko_1 + 32, 0, [32, 512], target_memory=pl.Mem.Right, attrs={\"pipeline_membership\": \"1048576:0;3:1\"})",
+            "line": 3764
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_14",
+        "base": "mem_vec_14",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 512,
+        "line": 3791,
+        "values": [
+          {
+            "name": "qk_bias_row_inline2419__tile",
+            "offset": 0,
+            "size": 512,
+            "expression": "pl.tile.load(sparse_bias_inline2381__rv_v2, [qk_t_inline2411__ssa_v0, qk_s0_inline2418__ssa_v0], [1, 128], [1, 128], target_memory=pl.Mem.Vec)",
+            "line": 3836
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_15",
+        "base": "mem_vec_15",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3792,
+        "values": [
+          {
+            "name": "qk_scaled_inline2416__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.muls(qk_raw_inline2397__tile_Vec, 0.044194173824159223)",
+            "line": 3841
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_16",
+        "base": "mem_vec_16",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3793,
+        "values": [
+          {
+            "name": "qk_scores_inline2325__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.col_expand_add(qk_scaled_inline2416__tile, qk_bias_row_inline2419__tile)",
+            "line": 3843
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_17",
+        "base": "mem_vec_17",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3794,
+        "values": [
+          {
+            "name": "tmp_tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3844
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_18",
+        "base": "mem_vec_18",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 3795,
+        "values": [
+          {
+            "name": "qk_mi_inline2360__tile",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_max(qk_scores_inline2325__tile, tmp_tile)",
+            "line": 3845
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_19",
+        "base": "mem_vec_19",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3796,
+        "values": [
+          {
+            "name": "t__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.row_expand_sub(qk_scores_inline2325__tile, qk_mi_inline2360__tile)",
+            "line": 3846
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_20",
+        "base": "mem_vec_20",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3797,
+        "values": [
+          {
+            "name": "qk_exp_inline2324__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.exp(t__tile_1)",
+            "line": 3847
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_21",
+        "base": "mem_vec_21",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3798,
+        "values": [
+          {
+            "name": "tmp_tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3848
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_22",
+        "base": "mem_vec_22",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 3799,
+        "values": [
+          {
+            "name": "qk_li_inline2323__tile",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_sum(qk_exp_inline2324__tile, tmp_tile_1)",
+            "line": 3849
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_23",
+        "base": "mem_vec_23",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 8192,
+        "line": 3800,
+        "values": [
+          {
+            "name": "qk_exp_bf16_inline2322__tile",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.cast(qk_exp_inline2324__tile, target_type=pl.BF16, mode='rint')",
+            "line": 3850
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_27",
+        "base": "mem_vec_27",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 32768,
+        "line": 3801,
+        "values": [
+          {
+            "name": "qk_oi_zero_inline2318__tile",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.full([16, 512], dtype=pl.FP32, value=0.0)",
+            "line": 3871
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_28",
+        "base": "mem_vec_28",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3802,
+        "values": [
+          {
+            "name": "sparse_blk_mi_inline2404__tile_2",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=-3.0000000000000001e+38)",
+            "line": 3875
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_3",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_mi_inline2404__tile_2, [16, 1])",
+            "line": 3876
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_29",
+        "base": "mem_vec_29",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3803,
+        "values": [
+          {
+            "name": "sparse_blk_li_inline2405__tile_2",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=0.0)",
+            "line": 3878
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_3",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_li_inline2405__tile_2, [16, 1])",
+            "line": 3879
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_37",
+        "base": "mem_vec_37",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 512,
+        "line": 3804,
+        "values": [
+          {
+            "name": "qk_bias_row_inline2419__tile_1",
+            "offset": 0,
+            "size": 512,
+            "expression": "pl.tile.create([1, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3897
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_38",
+        "base": "mem_vec_38",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3805,
+        "values": [
+          {
+            "name": "qk_scaled_inline2416__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.muls(qk_raw_inline2397__tile_Vec_1, 0.044194173824159223)",
+            "line": 3902
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_39",
+        "base": "mem_vec_39",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3806,
+        "values": [
+          {
+            "name": "qk_scores_inline2325__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.col_expand_add(qk_scaled_inline2416__tile_1, qk_bias_row_inline2419__tile_1)",
+            "line": 3904
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_40",
+        "base": "mem_vec_40",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3807,
+        "values": [
+          {
+            "name": "tmp_tile_2",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3905
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_41",
+        "base": "mem_vec_41",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 3808,
+        "values": [
+          {
+            "name": "qk_mi_inline2360__tile_1",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_max(qk_scores_inline2325__tile_1, tmp_tile_2)",
+            "line": 3906
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_42",
+        "base": "mem_vec_42",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3809,
+        "values": [
+          {
+            "name": "t__tile_7",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.row_expand_sub(qk_scores_inline2325__tile_1, qk_mi_inline2360__tile_1)",
+            "line": 3907
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_43",
+        "base": "mem_vec_43",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3810,
+        "values": [
+          {
+            "name": "qk_exp_inline2324__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.exp(t__tile_7)",
+            "line": 3908
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_44",
+        "base": "mem_vec_44",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 3811,
+        "values": [
+          {
+            "name": "tmp_tile_3",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3909
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_45",
+        "base": "mem_vec_45",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 3812,
+        "values": [
+          {
+            "name": "qk_li_inline2323__tile_1",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_sum(qk_exp_inline2324__tile_1, tmp_tile_3)",
+            "line": 3910
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_46",
+        "base": "mem_vec_46",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 8192,
+        "line": 3813,
+        "values": [
+          {
+            "name": "qk_exp_bf16_inline2322__tile_1",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.cast(qk_exp_inline2324__tile_1, target_type=pl.BF16, mode='rint')",
+            "line": 3911
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_47",
+        "base": "mem_vec_47",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3814,
+        "values": [
+          {
+            "name": "t__tile_8",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3917
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_49",
+        "base": "mem_vec_49",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3815,
+        "values": [
+          {
+            "name": "t__tile_9",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3919
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_51",
+        "base": "mem_vec_51",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3816,
+        "values": [
+          {
+            "name": "t__tile_10",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3925
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_53",
+        "base": "mem_vec_53",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3817,
+        "values": [
+          {
+            "name": "t__tile_11",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3927
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_58",
+        "base": "mem_vec_58",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 32768,
+        "line": 3818,
+        "values": [
+          {
+            "name": "qk_oi_zero_inline2318__tile_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.full([16, 512], dtype=pl.FP32, value=0.0)",
+            "line": 3932
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_59",
+        "base": "mem_vec_59",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3819,
+        "values": [
+          {
+            "name": "sparse_blk_mi_inline2404__tile_6",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=-3.0000000000000001e+38)",
+            "line": 3936
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_7",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_mi_inline2404__tile_6, [16, 1])",
+            "line": 3937
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_60",
+        "base": "mem_vec_60",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 64,
+        "line": 3820,
+        "values": [
+          {
+            "name": "sparse_blk_li_inline2405__tile_6",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=0.0)",
+            "line": 3938
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_7",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_li_inline2405__tile_6, [16, 1])",
+            "line": 3939
+          }
+        ]
+      }
+    ],
+    "reserves": [
+      {
+        "kernel": "qk_pv_aic",
+        "name": "qk_pv_v2c_slot_buffer",
+        "size": 32768,
+        "offset": null
+      },
+      {
+        "kernel": "qk_pv_aiv",
+        "name": "qk_pv_c2v_slot_buffer",
+        "size": 32768,
+        "offset": null
+      }
+    ]
+  },
+  "35": {
+    "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+    "rows": [
+      {
+        "id": "qk_pv_aic:mem_mat_14",
+        "base": "mem_mat_14",
+        "kernel": "qk_pv_aic",
+        "space": "Mat",
+        "size": 131072,
+        "line": 2762,
+        "values": [
+          {
+            "name": "qk_kv_inline2415__tile",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.create([128, 512], dtype=pl.BF16, target_memory=pl.Mem.Mat, transpose=False)",
+            "line": 2785
+          },
+          {
+            "name": "qk_kv_inline2415__tile_1",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__tile, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v0, 0], [qk_run_src_inline2384__ssa_v0, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v0 - qk_run_lo_inline2372__ssa_v0, 512], transpose=False)",
+            "line": 2799
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v2",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_1)",
+            "line": 2800
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v2",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile)",
+            "line": 2802
+          },
+          {
+            "name": "qk_kv_inline2415__tile_2",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v2, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v1, 0], [qk_run_src_inline2384__ssa_v1, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v1 - qk_run_lo_inline2372__ssa_v1, 512], transpose=False)",
+            "line": 2808
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v4",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_2)",
+            "line": 2809
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v4",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v2)",
+            "line": 2811
+          },
+          {
+            "name": "qk_kv_inline2415__tile_3",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v4, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v2, 0], [qk_run_src_inline2384__ssa_v2, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v2 - qk_run_lo_inline2372__ssa_v2, 512], transpose=False)",
+            "line": 2817
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v6",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_3)",
+            "line": 2818
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v6",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v4)",
+            "line": 2820
+          },
+          {
+            "name": "qk_kv_inline2415__tile_4",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v6, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v3, 0], [qk_run_src_inline2384__ssa_v3, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v3 - qk_run_lo_inline2372__ssa_v3, 512], transpose=False)",
+            "line": 2826
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v8",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_4)",
+            "line": 2827
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v8",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v6)",
+            "line": 2829
+          },
+          {
+            "name": "qk_kv_inline2415__tile_5",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v8, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v4, 0], [qk_run_src_inline2384__ssa_v4, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v4 - qk_run_lo_inline2372__ssa_v4, 512], transpose=False)",
+            "line": 2835
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v10",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_5)",
+            "line": 2836
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v10",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v8)",
+            "line": 2838
+          },
+          {
+            "name": "qk_kv_inline2415__tile_6",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v10, ori_kv_flat_inline2344__ssa_v1, [qk_run_rows_inline2332__ssa_v0, 0], [0, 0], [128, 512], valid_shape=[qk_tail_n_inline2329__ssa_v0, 512], transpose=False)",
+            "line": 2841
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v12",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_6)",
+            "line": 2842
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v12",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v10)",
+            "line": 2844
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v13",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v12)",
+            "line": 2845
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v13",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile)",
+            "line": 2847
+          },
+          {
+            "name": "qk_kv_inline2415__tile_7",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, cmp_kv_flat_inline2401__ssa_v0, [qk_r_inline2390__idx_v0, 0], [qk_csrc_inline2400__ssa_v0, 0], [1, 512], transpose=False)",
+            "line": 2857
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v18",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_7)",
+            "line": 2858
+          },
+          {
+            "name": "qk_kv_inline2415__tile_8",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, ori_kv_flat_inline2344__ssa_v1, [qk_r_inline2390__idx_v0, 0], [0, 0], [1, 512], transpose=False)",
+            "line": 2860
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v18",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_8)",
+            "line": 2861
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v20",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v18)",
+            "line": 2862
+          },
+          {
+            "name": "qk_kv_inline2415__tile_9",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, ori_kv_flat_inline2344__ssa_v1, [qk_r_inline2390__idx_v0, 0], [0, 0], [1, 512], transpose=False)",
+            "line": 2864
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v20",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_9)",
+            "line": 2865
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v20)",
+            "line": 2866
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15_t",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.transpose_view(qk_kv_inline2415__rv_v15)",
+            "line": 2870
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15_t_1",
+            "offset": 0,
+            "size": 131072,
+            "expression": "pl.tile.transpose_view(qk_kv_inline2415__rv_v15)",
+            "line": 2885
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_mat_25",
+        "base": "mem_mat_25",
+        "kernel": "qk_pv_aic",
+        "space": "Mat",
+        "size": 32768,
+        "line": 2763,
+        "values": [
+          {
+            "name": "qk_q_tile_inline2338__tile",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.load(q_flat_inline2355__ssa_v0, [qk_head_row_inline2326__ssa_v0, 0], [32, 512], [32, 512], target_memory=pl.Mem.Mat)",
+            "line": 2869
+          },
+          {
+            "name": "qk_q_tile_inline2338__tile_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.load(q_flat_inline2355__ssa_v0, [qk_head_row_inline2326__ssa_v0_1, 0], [32, 512], [32, 512], target_memory=pl.Mem.Mat)",
+            "line": 2884
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_27",
+        "base": "mem_left_27",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 2764,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile, 0, qk_raw_inline2397__tile_l0_ko, [32, 128], target_memory=pl.Mem.Left)",
+            "line": 2873
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_2",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile_1, 0, qk_raw_inline2397__tile_l0_ko_1, [32, 128], target_memory=pl.Mem.Left)",
+            "line": 2888
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_a",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat, 0, qk_oi_inline2335__tile_l0_ko, [32, 32], target_memory=pl.Mem.Left)",
+            "line": 2899
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_2",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat_1, 0, qk_oi_inline2335__tile_l0_ko_1, [32, 32], target_memory=pl.Mem.Left)",
+            "line": 2923
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_28",
+        "base": "mem_right_28",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 2765,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t, qk_raw_inline2397__tile_l0_ko, 0, [128, 128], target_memory=pl.Mem.Right)",
+            "line": 2874
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_2",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t_1, qk_raw_inline2397__tile_l0_ko_1, 0, [128, 128], target_memory=pl.Mem.Right)",
+            "line": 2889
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_b",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko, 0, [32, 512], target_memory=pl.Mem.Right)",
+            "line": 2900
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_2",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko_1, 0, [32, 512], target_memory=pl.Mem.Right)",
+            "line": 2924
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_left_29",
+        "base": "mem_left_29",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 2766,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_1",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile, 0, qk_raw_inline2397__tile_l0_ko + 128, [32, 128], target_memory=pl.Mem.Left)",
+            "line": 2875
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_3",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile_1, 0, qk_raw_inline2397__tile_l0_ko_1 + 128, [32, 128], target_memory=pl.Mem.Left)",
+            "line": 2890
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_1",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat, 0, qk_oi_inline2335__tile_l0_ko + 32, [32, 32], target_memory=pl.Mem.Left)",
+            "line": 2901
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_3",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat_1, 0, qk_oi_inline2335__tile_l0_ko_1 + 32, [32, 32], target_memory=pl.Mem.Left)",
+            "line": 2925
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_right_30",
+        "base": "mem_right_30",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 2767,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t, qk_raw_inline2397__tile_l0_ko + 128, 0, [128, 128], target_memory=pl.Mem.Right)",
+            "line": 2876
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_3",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t_1, qk_raw_inline2397__tile_l0_ko_1 + 128, 0, [128, 128], target_memory=pl.Mem.Right)",
+            "line": 2891
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko + 32, 0, [32, 512], target_memory=pl.Mem.Right)",
+            "line": 2902
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_3",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko_1 + 32, 0, [32, 512], target_memory=pl.Mem.Right)",
+            "line": 2926
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aic:mem_acc_39",
+        "base": "mem_acc_39",
+        "kernel": "qk_pv_aic",
+        "space": "Acc",
+        "size": 65536,
+        "line": 2768,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_init",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Acc)",
+            "line": 2871
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c, qk_raw_inline2397__tile_l0_a, qk_raw_inline2397__tile_l0_b, qk_raw_inline2397__tile_l0_ko == 0)",
+            "line": 2877
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_acc, qk_raw_inline2397__tile_l0_a_1, qk_raw_inline2397__tile_l0_b_1, qk_raw_inline2397__tile_l0_ko + 128 == 0)",
+            "line": 2878
+          },
+          {
+            "name": "qk_raw_inline2397__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.yield_(qk_raw_inline2397__tile_l0_c_acc_1)",
+            "line": 2879
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_init_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Acc)",
+            "line": 2886
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_2",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_1, qk_raw_inline2397__tile_l0_a_2, qk_raw_inline2397__tile_l0_b_2, qk_raw_inline2397__tile_l0_ko_1 == 0)",
+            "line": 2892
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_3",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_acc_2, qk_raw_inline2397__tile_l0_a_3, qk_raw_inline2397__tile_l0_b_3, qk_raw_inline2397__tile_l0_ko_1 + 128 == 0)",
+            "line": 2893
+          },
+          {
+            "name": "qk_raw_inline2397__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.yield_(qk_raw_inline2397__tile_l0_c_acc_3)",
+            "line": 2894
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_init",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.create([32, 512], dtype=pl.FP32, target_memory=pl.Mem.Acc)",
+            "line": 2896
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c, qk_oi_inline2335__tile_l0_a, qk_oi_inline2335__tile_l0_b, qk_oi_inline2335__tile_l0_ko == 0)",
+            "line": 2903
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_acc, qk_oi_inline2335__tile_l0_a_1, qk_oi_inline2335__tile_l0_b_1, qk_oi_inline2335__tile_l0_ko + 32 == 0)",
+            "line": 2904
+          },
+          {
+            "name": "qk_oi_inline2335__tile",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.yield_(qk_oi_inline2335__tile_l0_c_acc_1)",
+            "line": 2905
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_init_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.create([32, 512], dtype=pl.FP32, target_memory=pl.Mem.Acc)",
+            "line": 2920
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_2",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_1, qk_oi_inline2335__tile_l0_a_2, qk_oi_inline2335__tile_l0_b_2, qk_oi_inline2335__tile_l0_ko_1 == 0)",
+            "line": 2927
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_3",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_acc_2, qk_oi_inline2335__tile_l0_a_3, qk_oi_inline2335__tile_l0_b_3, qk_oi_inline2335__tile_l0_ko_1 + 32 == 0)",
+            "line": 2928
+          },
+          {
+            "name": "qk_oi_inline2335__tile_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.yield_(qk_oi_inline2335__tile_l0_c_acc_3)",
+            "line": 2929
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_14",
+        "base": "mem_vec_14",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 512,
+        "line": 2953,
+        "values": [
+          {
+            "name": "qk_bias_row_inline2419__tile",
+            "offset": 0,
+            "size": 512,
+            "expression": "pl.tile.load(sparse_bias_inline2381__rv_v2, [qk_t_inline2411__ssa_v0, qk_s0_inline2418__ssa_v0], [1, 128], [1, 128], target_memory=pl.Mem.Vec)",
+            "line": 2973
+          },
+          {
+            "name": "qk_bias_row_inline2419__tile_1",
+            "offset": 0,
+            "size": 512,
+            "expression": "pl.tile.create([1, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3034
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_17",
+        "base": "mem_vec_17",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 2954,
+        "values": [
+          {
+            "name": "tmp_tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 2981
+          },
+          {
+            "name": "tmp_tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 2985
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_2",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=-3.0000000000000001e+38)",
+            "line": 3012
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_3",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_mi_inline2404__tile_2, [16, 1])",
+            "line": 3013
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_2",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=0.0)",
+            "line": 3015
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_3",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_li_inline2405__tile_2, [16, 1])",
+            "line": 3016
+          },
+          {
+            "name": "tmp_tile_2",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3042
+          },
+          {
+            "name": "tmp_tile_3",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3046
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_18",
+        "base": "mem_vec_18",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 2955,
+        "values": [
+          {
+            "name": "qk_mi_inline2360__tile",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_max(qk_scores_inline2325__tile, tmp_tile)",
+            "line": 2982
+          },
+          {
+            "name": "qk_mi_inline2360__tile_1",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_max(qk_scores_inline2325__tile_1, tmp_tile_2)",
+            "line": 3043
+          },
+          {
+            "name": "qk_li_inline2323__tile_1",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_sum(qk_exp_inline2324__tile_1, tmp_tile_3)",
+            "line": 3047
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_22",
+        "base": "mem_vec_22",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 2956,
+        "values": [
+          {
+            "name": "qk_li_inline2323__tile",
+            "offset": 0,
+            "size": 128,
+            "expression": "pl.tile.row_sum(qk_exp_inline2324__tile, tmp_tile_1)",
+            "line": 2986
+          }
+        ]
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_27",
+        "base": "mem_vec_27",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 32768,
+        "line": 2957,
+        "values": [
+          {
+            "name": "qk_scaled_inline2416__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.muls(qk_raw_inline2397__tile_Vec, 0.044194173824159223)",
+            "line": 2978
+          },
+          {
+            "name": "qk_scores_inline2325__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.col_expand_add(qk_scaled_inline2416__tile, qk_bias_row_inline2419__tile)",
+            "line": 2980
+          },
+          {
+            "name": "t__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.row_expand_sub(qk_scores_inline2325__tile, qk_mi_inline2360__tile)",
+            "line": 2983
+          },
+          {
+            "name": "qk_exp_inline2324__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.exp(t__tile_1)",
+            "line": 2984
+          },
+          {
+            "name": "qk_exp_bf16_inline2322__tile",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.cast(qk_exp_inline2324__tile, target_type=pl.BF16, mode='rint')",
+            "line": 2987
+          },
+          {
+            "name": "qk_oi_zero_inline2318__tile",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.full([16, 512], dtype=pl.FP32, value=0.0)",
+            "line": 3008
+          },
+          {
+            "name": "qk_scaled_inline2416__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.muls(qk_raw_inline2397__tile_Vec_1, 0.044194173824159223)",
+            "line": 3039
+          },
+          {
+            "name": "qk_scores_inline2325__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.col_expand_add(qk_scaled_inline2416__tile_1, qk_bias_row_inline2419__tile_1)",
+            "line": 3041
+          },
+          {
+            "name": "t__tile_7",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.row_expand_sub(qk_scores_inline2325__tile_1, qk_mi_inline2360__tile_1)",
+            "line": 3044
+          },
+          {
+            "name": "qk_exp_inline2324__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.exp(t__tile_7)",
+            "line": 3045
+          },
+          {
+            "name": "qk_exp_bf16_inline2322__tile_1",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.cast(qk_exp_inline2324__tile_1, target_type=pl.BF16, mode='rint')",
+            "line": 3048
+          },
+          {
+            "name": "t__tile_8",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3054
+          },
+          {
+            "name": "t__tile_9",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3056
+          },
+          {
+            "name": "t__tile_10",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3062
+          },
+          {
+            "name": "t__tile_11",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3064
+          },
+          {
+            "name": "qk_oi_zero_inline2318__tile_1",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.full([16, 512], dtype=pl.FP32, value=0.0)",
+            "line": 3069
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_6",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=-3.0000000000000001e+38)",
+            "line": 3073
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_7",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_mi_inline2404__tile_6, [16, 1])",
+            "line": 3074
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_6",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=0.0)",
+            "line": 3075
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_7",
+            "offset": 0,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_li_inline2405__tile_6, [16, 1])",
+            "line": 3076
+          }
+        ]
+      }
+    ],
+    "reserves": [
+      {
+        "kernel": "qk_pv_aic",
+        "name": "qk_pv_v2c_slot_buffer",
+        "size": 32768,
+        "offset": null
+      },
+      {
+        "kernel": "qk_pv_aiv",
+        "name": "qk_pv_c2v_slot_buffer",
+        "size": 32768,
+        "offset": null
+      }
+    ]
+  },
+  "36": {
+    "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/36_after_AllocateMemoryAddr.py",
+    "rows": [
+      {
+        "id": "qk_pv_aic:mem_mat_14",
+        "base": "mem_mat_14",
+        "kernel": "qk_pv_aic",
+        "space": "Mat",
+        "size": 131072,
+        "line": 2762,
+        "values": [
+          {
+            "name": "qk_kv_inline2415__tile",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.create([128, 512], dtype=pl.BF16, target_memory=pl.Mem.Mat, transpose=False)",
+            "line": 2785
+          },
+          {
+            "name": "qk_kv_inline2415__tile_1",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__tile, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v0, 0], [qk_run_src_inline2384__ssa_v0, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v0 - qk_run_lo_inline2372__ssa_v0, 512], transpose=False)",
+            "line": 2799
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v2",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_1)",
+            "line": 2800
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v2",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile)",
+            "line": 2802
+          },
+          {
+            "name": "qk_kv_inline2415__tile_2",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v2, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v1, 0], [qk_run_src_inline2384__ssa_v1, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v1 - qk_run_lo_inline2372__ssa_v1, 512], transpose=False)",
+            "line": 2808
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v4",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_2)",
+            "line": 2809
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v4",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v2)",
+            "line": 2811
+          },
+          {
+            "name": "qk_kv_inline2415__tile_3",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v4, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v2, 0], [qk_run_src_inline2384__ssa_v2, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v2 - qk_run_lo_inline2372__ssa_v2, 512], transpose=False)",
+            "line": 2817
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v6",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_3)",
+            "line": 2818
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v6",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v4)",
+            "line": 2820
+          },
+          {
+            "name": "qk_kv_inline2415__tile_4",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v6, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v3, 0], [qk_run_src_inline2384__ssa_v3, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v3 - qk_run_lo_inline2372__ssa_v3, 512], transpose=False)",
+            "line": 2826
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v8",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_4)",
+            "line": 2827
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v8",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v6)",
+            "line": 2829
+          },
+          {
+            "name": "qk_kv_inline2415__tile_5",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v8, ori_kv_flat_inline2344__ssa_v1, [qk_run_lo_inline2372__ssa_v4, 0], [qk_run_src_inline2384__ssa_v4, 0], [128, 512], valid_shape=[qk_run_hi_inline2330__ssa_v4 - qk_run_lo_inline2372__ssa_v4, 512], transpose=False)",
+            "line": 2835
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v10",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_5)",
+            "line": 2836
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v10",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v8)",
+            "line": 2838
+          },
+          {
+            "name": "qk_kv_inline2415__tile_6",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__phi_v10, ori_kv_flat_inline2344__ssa_v1, [qk_run_rows_inline2332__ssa_v0, 0], [0, 0], [128, 512], valid_shape=[qk_tail_n_inline2329__ssa_v0, 512], transpose=False)",
+            "line": 2841
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v12",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_6)",
+            "line": 2842
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v12",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v10)",
+            "line": 2844
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v13",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v12)",
+            "line": 2845
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v13",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile)",
+            "line": 2847
+          },
+          {
+            "name": "qk_kv_inline2415__tile_7",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, cmp_kv_flat_inline2401__ssa_v0, [qk_r_inline2390__idx_v0, 0], [qk_csrc_inline2400__ssa_v0, 0], [1, 512], transpose=False)",
+            "line": 2857
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v18",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_7)",
+            "line": 2858
+          },
+          {
+            "name": "qk_kv_inline2415__tile_8",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, ori_kv_flat_inline2344__ssa_v1, [qk_r_inline2390__idx_v0, 0], [0, 0], [1, 512], transpose=False)",
+            "line": 2860
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v18",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_8)",
+            "line": 2861
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v20",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v18)",
+            "line": 2862
+          },
+          {
+            "name": "qk_kv_inline2415__tile_9",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.gather_row(qk_kv_inline2415__iter_v14, ori_kv_flat_inline2344__ssa_v1, [qk_r_inline2390__idx_v0, 0], [0, 0], [1, 512], transpose=False)",
+            "line": 2864
+          },
+          {
+            "name": "qk_kv_inline2415__phi_v20",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__tile_9)",
+            "line": 2865
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.yield_(qk_kv_inline2415__phi_v20)",
+            "line": 2866
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15_t",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.transpose_view(qk_kv_inline2415__rv_v15)",
+            "line": 2870
+          },
+          {
+            "name": "qk_kv_inline2415__rv_v15_t_1",
+            "offset": 32768,
+            "size": 131072,
+            "expression": "pl.tile.transpose_view(qk_kv_inline2415__rv_v15)",
+            "line": 2885
+          }
+        ],
+        "offset": 32768
+      },
+      {
+        "id": "qk_pv_aic:mem_mat_25",
+        "base": "mem_mat_25",
+        "kernel": "qk_pv_aic",
+        "space": "Mat",
+        "size": 32768,
+        "line": 2763,
+        "values": [
+          {
+            "name": "qk_q_tile_inline2338__tile",
+            "offset": 163840,
+            "size": 32768,
+            "expression": "pl.tile.load(q_flat_inline2355__ssa_v0, [qk_head_row_inline2326__ssa_v0, 0], [32, 512], [32, 512], target_memory=pl.Mem.Mat)",
+            "line": 2869
+          },
+          {
+            "name": "qk_q_tile_inline2338__tile_1",
+            "offset": 163840,
+            "size": 32768,
+            "expression": "pl.tile.load(q_flat_inline2355__ssa_v0, [qk_head_row_inline2326__ssa_v0_1, 0], [32, 512], [32, 512], target_memory=pl.Mem.Mat)",
+            "line": 2884
+          }
+        ],
+        "offset": 163840
+      },
+      {
+        "id": "qk_pv_aic:mem_left_27",
+        "base": "mem_left_27",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 2764,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile, 0, qk_raw_inline2397__tile_l0_ko, [32, 128], target_memory=pl.Mem.Left)",
+            "line": 2873
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_2",
+            "offset": 0,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile_1, 0, qk_raw_inline2397__tile_l0_ko_1, [32, 128], target_memory=pl.Mem.Left)",
+            "line": 2888
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_a",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat, 0, qk_oi_inline2335__tile_l0_ko, [32, 32], target_memory=pl.Mem.Left)",
+            "line": 2899
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_2",
+            "offset": 0,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat_1, 0, qk_oi_inline2335__tile_l0_ko_1, [32, 32], target_memory=pl.Mem.Left)",
+            "line": 2923
+          }
+        ],
+        "offset": 0
+      },
+      {
+        "id": "qk_pv_aic:mem_right_28",
+        "base": "mem_right_28",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 2765,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t, qk_raw_inline2397__tile_l0_ko, 0, [128, 128], target_memory=pl.Mem.Right)",
+            "line": 2874
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_2",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t_1, qk_raw_inline2397__tile_l0_ko_1, 0, [128, 128], target_memory=pl.Mem.Right)",
+            "line": 2889
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_b",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko, 0, [32, 512], target_memory=pl.Mem.Right)",
+            "line": 2900
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_2",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko_1, 0, [32, 512], target_memory=pl.Mem.Right)",
+            "line": 2924
+          }
+        ],
+        "offset": 0
+      },
+      {
+        "id": "qk_pv_aic:mem_left_29",
+        "base": "mem_left_29",
+        "kernel": "qk_pv_aic",
+        "space": "Left",
+        "size": 8192,
+        "line": 2766,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_1",
+            "offset": 8192,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile, 0, qk_raw_inline2397__tile_l0_ko + 128, [32, 128], target_memory=pl.Mem.Left)",
+            "line": 2875
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_a_3",
+            "offset": 8192,
+            "size": 8192,
+            "expression": "pl.tile.extract(qk_q_tile_inline2338__tile_1, 0, qk_raw_inline2397__tile_l0_ko_1 + 128, [32, 128], target_memory=pl.Mem.Left)",
+            "line": 2890
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_1",
+            "offset": 8192,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat, 0, qk_oi_inline2335__tile_l0_ko + 32, [32, 32], target_memory=pl.Mem.Left)",
+            "line": 2901
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_a_3",
+            "offset": 8192,
+            "size": 2048,
+            "expression": "pl.tile.extract(qk_oi_inline2335__tile_l0_lmat_1, 0, qk_oi_inline2335__tile_l0_ko_1 + 32, [32, 32], target_memory=pl.Mem.Left)",
+            "line": 2925
+          }
+        ],
+        "offset": 8192
+      },
+      {
+        "id": "qk_pv_aic:mem_right_30",
+        "base": "mem_right_30",
+        "kernel": "qk_pv_aic",
+        "space": "Right",
+        "size": 32768,
+        "line": 2767,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_1",
+            "offset": 32768,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t, qk_raw_inline2397__tile_l0_ko + 128, 0, [128, 128], target_memory=pl.Mem.Right)",
+            "line": 2876
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_b_3",
+            "offset": 32768,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15_t_1, qk_raw_inline2397__tile_l0_ko_1 + 128, 0, [128, 128], target_memory=pl.Mem.Right)",
+            "line": 2891
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_1",
+            "offset": 32768,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko + 32, 0, [32, 512], target_memory=pl.Mem.Right)",
+            "line": 2902
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_b_3",
+            "offset": 32768,
+            "size": 32768,
+            "expression": "pl.tile.extract(qk_kv_inline2415__rv_v15, qk_oi_inline2335__tile_l0_ko_1 + 32, 0, [32, 512], target_memory=pl.Mem.Right)",
+            "line": 2926
+          }
+        ],
+        "offset": 32768
+      },
+      {
+        "id": "qk_pv_aic:mem_acc_39",
+        "base": "mem_acc_39",
+        "kernel": "qk_pv_aic",
+        "space": "Acc",
+        "size": 65536,
+        "line": 2768,
+        "values": [
+          {
+            "name": "qk_raw_inline2397__tile_l0_init",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Acc)",
+            "line": 2871
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c, qk_raw_inline2397__tile_l0_a, qk_raw_inline2397__tile_l0_b, qk_raw_inline2397__tile_l0_ko == 0)",
+            "line": 2877
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_acc, qk_raw_inline2397__tile_l0_a_1, qk_raw_inline2397__tile_l0_b_1, qk_raw_inline2397__tile_l0_ko + 128 == 0)",
+            "line": 2878
+          },
+          {
+            "name": "qk_raw_inline2397__tile",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.yield_(qk_raw_inline2397__tile_l0_c_acc_1)",
+            "line": 2879
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_init_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Acc)",
+            "line": 2886
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_2",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_1, qk_raw_inline2397__tile_l0_a_2, qk_raw_inline2397__tile_l0_b_2, qk_raw_inline2397__tile_l0_ko_1 == 0)",
+            "line": 2892
+          },
+          {
+            "name": "qk_raw_inline2397__tile_l0_c_acc_3",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.tile.matmul_acc(qk_raw_inline2397__tile_l0_c_acc_2, qk_raw_inline2397__tile_l0_a_3, qk_raw_inline2397__tile_l0_b_3, qk_raw_inline2397__tile_l0_ko_1 + 128 == 0)",
+            "line": 2893
+          },
+          {
+            "name": "qk_raw_inline2397__tile_1",
+            "offset": 0,
+            "size": 16384,
+            "expression": "pl.yield_(qk_raw_inline2397__tile_l0_c_acc_3)",
+            "line": 2894
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_init",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.create([32, 512], dtype=pl.FP32, target_memory=pl.Mem.Acc)",
+            "line": 2896
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c, qk_oi_inline2335__tile_l0_a, qk_oi_inline2335__tile_l0_b, qk_oi_inline2335__tile_l0_ko == 0)",
+            "line": 2903
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_acc, qk_oi_inline2335__tile_l0_a_1, qk_oi_inline2335__tile_l0_b_1, qk_oi_inline2335__tile_l0_ko + 32 == 0)",
+            "line": 2904
+          },
+          {
+            "name": "qk_oi_inline2335__tile",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.yield_(qk_oi_inline2335__tile_l0_c_acc_1)",
+            "line": 2905
+          },
+          {
+            "name": "t__tile_3",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.slice(qk_oi_inline2335__tile, [16, 512], [qk_r0_inline2343__ssa_v0, 0])",
+            "line": 2911
+          },
+          {
+            "name": "t__tile_4",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.slice(qk_oi_inline2335__tile, [16, 512], [qk_r0_inline2343__ssa_v1, 0])",
+            "line": 2917
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_init_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.create([32, 512], dtype=pl.FP32, target_memory=pl.Mem.Acc)",
+            "line": 2920
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_2",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_1, qk_oi_inline2335__tile_l0_a_2, qk_oi_inline2335__tile_l0_b_2, qk_oi_inline2335__tile_l0_ko_1 == 0)",
+            "line": 2927
+          },
+          {
+            "name": "qk_oi_inline2335__tile_l0_c_acc_3",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.tile.matmul_acc(qk_oi_inline2335__tile_l0_c_acc_2, qk_oi_inline2335__tile_l0_a_3, qk_oi_inline2335__tile_l0_b_3, qk_oi_inline2335__tile_l0_ko_1 + 32 == 0)",
+            "line": 2928
+          },
+          {
+            "name": "qk_oi_inline2335__tile_1",
+            "offset": 0,
+            "size": 65536,
+            "expression": "pl.yield_(qk_oi_inline2335__tile_l0_c_acc_3)",
+            "line": 2929
+          },
+          {
+            "name": "t__tile_5",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.slice(qk_oi_inline2335__tile_1, [16, 512], [qk_r0_inline2343__ssa_v0_1, 0])",
+            "line": 2935
+          },
+          {
+            "name": "t__tile_6",
+            "offset": 0,
+            "size": 32768,
+            "expression": "pl.tile.slice(qk_oi_inline2335__tile_1, [16, 512], [qk_r0_inline2343__ssa_v1_1, 0])",
+            "line": 2941
+          }
+        ],
+        "offset": 0
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_14",
+        "base": "mem_vec_14",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 512,
+        "line": 2953,
+        "values": [
+          {
+            "name": "qk_bias_row_inline2419__tile",
+            "offset": 32768,
+            "size": 512,
+            "expression": "pl.tile.load(sparse_bias_inline2381__rv_v2, [qk_t_inline2411__ssa_v0, qk_s0_inline2418__ssa_v0], [1, 128], [1, 128], target_memory=pl.Mem.Vec)",
+            "line": 2973
+          },
+          {
+            "name": "qk_bias_row_inline2419__tile_1",
+            "offset": 32768,
+            "size": 512,
+            "expression": "pl.tile.create([1, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3034
+          }
+        ],
+        "offset": 32768
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_17",
+        "base": "mem_vec_17",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 16384,
+        "line": 2954,
+        "values": [
+          {
+            "name": "tmp_tile",
+            "offset": 33280,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 2981
+          },
+          {
+            "name": "tmp_tile_1",
+            "offset": 33280,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 2985
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_2",
+            "offset": 33280,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=-3.0000000000000001e+38)",
+            "line": 3012
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_3",
+            "offset": 33280,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_mi_inline2404__tile_2, [16, 1])",
+            "line": 3013
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_2",
+            "offset": 33280,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=0.0)",
+            "line": 3015
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_3",
+            "offset": 33280,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_li_inline2405__tile_2, [16, 1])",
+            "line": 3016
+          },
+          {
+            "name": "tmp_tile_2",
+            "offset": 33280,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3042
+          },
+          {
+            "name": "tmp_tile_3",
+            "offset": 33280,
+            "size": 16384,
+            "expression": "pl.tile.create([32, 128], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3046
+          }
+        ],
+        "offset": 33280
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_18",
+        "base": "mem_vec_18",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 2955,
+        "values": [
+          {
+            "name": "qk_mi_inline2360__tile",
+            "offset": 49664,
+            "size": 128,
+            "expression": "pl.tile.row_max(qk_scores_inline2325__tile, tmp_tile)",
+            "line": 2982
+          },
+          {
+            "name": "t__tile_2",
+            "offset": 49664,
+            "size": 64,
+            "expression": "pl.tile.slice(qk_mi_inline2360__tile, [16, 1], [qk_r0_inline2343__ssa_v0, 0])",
+            "line": 2993
+          },
+          {
+            "name": "t__tile_4",
+            "offset": 49664,
+            "size": 64,
+            "expression": "pl.tile.slice(qk_mi_inline2360__tile, [16, 1], [qk_r0_inline2343__ssa_v1, 0])",
+            "line": 3001
+          },
+          {
+            "name": "qk_mi_inline2360__tile_1",
+            "offset": 49664,
+            "size": 128,
+            "expression": "pl.tile.row_max(qk_scores_inline2325__tile_1, tmp_tile_2)",
+            "line": 3043
+          },
+          {
+            "name": "qk_li_inline2323__tile_1",
+            "offset": 49664,
+            "size": 128,
+            "expression": "pl.tile.row_sum(qk_exp_inline2324__tile_1, tmp_tile_3)",
+            "line": 3047
+          }
+        ],
+        "offset": 49664
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_22",
+        "base": "mem_vec_22",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 128,
+        "line": 2956,
+        "values": [
+          {
+            "name": "qk_li_inline2323__tile",
+            "offset": 49792,
+            "size": 128,
+            "expression": "pl.tile.row_sum(qk_exp_inline2324__tile, tmp_tile_1)",
+            "line": 2986
+          },
+          {
+            "name": "t__tile_3",
+            "offset": 49792,
+            "size": 64,
+            "expression": "pl.tile.slice(qk_li_inline2323__tile, [16, 1], [qk_r0_inline2343__ssa_v0, 0])",
+            "line": 2995
+          },
+          {
+            "name": "t__tile_5",
+            "offset": 49792,
+            "size": 64,
+            "expression": "pl.tile.slice(qk_li_inline2323__tile, [16, 1], [qk_r0_inline2343__ssa_v1, 0])",
+            "line": 3003
+          }
+        ],
+        "offset": 49792
+      },
+      {
+        "id": "qk_pv_aiv:mem_vec_27",
+        "base": "mem_vec_27",
+        "kernel": "qk_pv_aiv",
+        "space": "Vec",
+        "size": 32768,
+        "line": 2957,
+        "values": [
+          {
+            "name": "qk_scaled_inline2416__tile",
+            "offset": 49920,
+            "size": 16384,
+            "expression": "pl.tile.muls(qk_raw_inline2397__tile_Vec, 0.044194173824159223)",
+            "line": 2978
+          },
+          {
+            "name": "qk_scores_inline2325__tile",
+            "offset": 49920,
+            "size": 16384,
+            "expression": "pl.tile.col_expand_add(qk_scaled_inline2416__tile, qk_bias_row_inline2419__tile)",
+            "line": 2980
+          },
+          {
+            "name": "t__tile_1",
+            "offset": 49920,
+            "size": 16384,
+            "expression": "pl.tile.row_expand_sub(qk_scores_inline2325__tile, qk_mi_inline2360__tile)",
+            "line": 2983
+          },
+          {
+            "name": "qk_exp_inline2324__tile",
+            "offset": 49920,
+            "size": 16384,
+            "expression": "pl.tile.exp(t__tile_1)",
+            "line": 2984
+          },
+          {
+            "name": "qk_exp_bf16_inline2322__tile",
+            "offset": 49920,
+            "size": 8192,
+            "expression": "pl.tile.cast(qk_exp_inline2324__tile, target_type=pl.BF16, mode='rint')",
+            "line": 2987
+          },
+          {
+            "name": "qk_oi_zero_inline2318__tile",
+            "offset": 49920,
+            "size": 32768,
+            "expression": "pl.tile.full([16, 512], dtype=pl.FP32, value=0.0)",
+            "line": 3008
+          },
+          {
+            "name": "qk_scaled_inline2416__tile_1",
+            "offset": 49920,
+            "size": 16384,
+            "expression": "pl.tile.muls(qk_raw_inline2397__tile_Vec_1, 0.044194173824159223)",
+            "line": 3039
+          },
+          {
+            "name": "qk_scores_inline2325__tile_1",
+            "offset": 49920,
+            "size": 16384,
+            "expression": "pl.tile.col_expand_add(qk_scaled_inline2416__tile_1, qk_bias_row_inline2419__tile_1)",
+            "line": 3041
+          },
+          {
+            "name": "t__tile_7",
+            "offset": 49920,
+            "size": 16384,
+            "expression": "pl.tile.row_expand_sub(qk_scores_inline2325__tile_1, qk_mi_inline2360__tile_1)",
+            "line": 3044
+          },
+          {
+            "name": "qk_exp_inline2324__tile_1",
+            "offset": 49920,
+            "size": 16384,
+            "expression": "pl.tile.exp(t__tile_7)",
+            "line": 3045
+          },
+          {
+            "name": "qk_exp_bf16_inline2322__tile_1",
+            "offset": 49920,
+            "size": 8192,
+            "expression": "pl.tile.cast(qk_exp_inline2324__tile_1, target_type=pl.BF16, mode='rint')",
+            "line": 3048
+          },
+          {
+            "name": "t__tile_8",
+            "offset": 49920,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3054
+          },
+          {
+            "name": "t__tile_9",
+            "offset": 49920,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3056
+          },
+          {
+            "name": "t__tile_10",
+            "offset": 49920,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3062
+          },
+          {
+            "name": "t__tile_11",
+            "offset": 49920,
+            "size": 64,
+            "expression": "pl.tile.create([16, 1], dtype=pl.FP32, target_memory=pl.Mem.Vec)",
+            "line": 3064
+          },
+          {
+            "name": "qk_oi_zero_inline2318__tile_1",
+            "offset": 49920,
+            "size": 32768,
+            "expression": "pl.tile.full([16, 512], dtype=pl.FP32, value=0.0)",
+            "line": 3069
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_6",
+            "offset": 49920,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=-3.0000000000000001e+38)",
+            "line": 3073
+          },
+          {
+            "name": "sparse_blk_mi_inline2404__tile_7",
+            "offset": 49920,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_mi_inline2404__tile_6, [16, 1])",
+            "line": 3074
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_6",
+            "offset": 49920,
+            "size": 64,
+            "expression": "pl.tile.full([1, 16], dtype=pl.FP32, value=0.0)",
+            "line": 3075
+          },
+          {
+            "name": "sparse_blk_li_inline2405__tile_7",
+            "offset": 49920,
+            "size": 64,
+            "expression": "pl.tile.reshape(sparse_blk_li_inline2405__tile_6, [16, 1])",
+            "line": 3076
+          }
+        ],
+        "offset": 49920
+      }
+    ],
+    "reserves": [
+      {
+        "kernel": "qk_pv_aic",
+        "name": "qk_pv_v2c_slot_buffer",
+        "size": 32768,
+        "offset": 0
+      },
+      {
+        "kernel": "qk_pv_aiv",
+        "name": "qk_pv_c2v_slot_buffer",
+        "size": 32768,
+        "offset": 0
+      }
+    ]
+  }
+}

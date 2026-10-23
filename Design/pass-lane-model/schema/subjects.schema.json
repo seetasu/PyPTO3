@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pass-lane-model.subjects.v1",
+  "title": "Subjects",
+  "description": "Subject 是被观测对象的实例，是可视化的主角；pass 只是它一生中的刻度。一个 Subject 可以同时出现在多条 lane 上。",
+  "type": "object",
+  "required": ["schemaVersion", "subjects"],
+  "properties": {
+    "schemaVersion": { "const": "pass-lane-model.subjects.v1" },
+    "subjects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "laneIds", "kind", "label", "identity", "lifespan"],
+        "properties": {
+          "id": { "type": "string", "description": "形如 tile:<name> / func:<name> / op:<span>" },
+          "laneIds": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "该 Subject 出现在哪些 lane；多 lane 是常态，不是例外"
+          },
+          "kind": { "enum": ["tile", "tensor", "memref", "function", "op", "pipe", "event", "task", "callsite"] },
+          "label": { "type": "string" },
+          "identity": {
+            "type": "object",
+            "required": ["name"],
+            "description": "跨快照判断“还是同一个东西”的依据。名字会因 SSA / inline 后缀改变，span 才是稳定锚。",
+            "properties": {
+              "name": { "type": "string" },
+              "span": {
+                "type": "object",
+                "description": "源码位置，所有 lane 的公共横向锚点",
+                "properties": {
+                  "file": { "type": "string" },
+                  "line": { "type": "integer" },
+                  "column": { "type": "integer" }
+                }
+              },
+              "anchorLine": { "type": "integer", "description": "dump 内行号，非源码行号" },
+              "firstStage": { "type": "integer" },
+              "aliasOf": { "type": "string", "description": "被判定为同一实体的另一个 subject id（重命名归并）" },
+              "identityConfidence": {
+                "enum": ["exact", "name-match", "span-match", "heuristic"],
+                "description": "身份判定强度；heuristic 必须在 UI 上可见"
+              }
+            }
+          },
+          "lifespan": {
+            "type": "object",
+            "required": ["from", "to"],
+            "properties": {
+              "from": { "type": "integer", "description": "首次出现的 stage index" },
+              "to": { "type": "integer", "description": "最后出现的 stage index" }
+            }
+          },
+          "current": {
+            "type": "object",
+            "description": "最后一个快照上的属性，供列表直接渲染，避免每次重放事件"
+          }
+        }
+      }
+    }
+  }
+}

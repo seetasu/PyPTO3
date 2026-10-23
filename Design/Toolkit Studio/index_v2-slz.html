@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="dark" data-pypa-intro="task-map">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,7 +17,9 @@
   <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/model-graphviz/pattern.css?v=20260813-2" />
   <link rel="stylesheet" href="./styles/demo.css?v=20260908-1" />
   <link rel="stylesheet" href="./styles/coding-v2.css?v=20260820-26" />
-  <link rel="stylesheet" href="./styles/operator-inspector.css?v=20260907-1" />
+  <link rel="stylesheet" href="./styles/operator-inspector.css?v=20261022-storage-execution-1" />
+  <link rel="stylesheet" href="./styles/paged-attention-intro.css?v=20261023-weight-instances-2" />
+  <link rel="stylesheet" href="./styles/matmul-intro.css?v=20261019-model-graphviz-2" />
   <link rel="stylesheet" href="./styles/profiler.css?v=20260821-4" />
   <link rel="stylesheet" href="./styles/fusion.css?v=20260829-1" />
   <link rel="stylesheet" href="./styles/qwen3-performance-swimlane.css?v=20260907-5" />
@@ -249,8 +251,16 @@
 
     .kf-em-empty { padding: 26px 12px; color: var(--kf-em-dim); font-size: var(--kf-type-2xs); text-align: center; }
   </style>
+  <link rel="stylesheet" href="./styles/visualization2.css" />
+  <link rel="stylesheet" href="./styles/visualization2-assignment-morph.css?v=20261023-assignment-camera-2" />
+  <link rel="stylesheet" href="./styles/visualization2-phase0-morph.css?v=20261023-assignment-camera-2" />
+  <link rel="stylesheet" href="./styles/visualization2-pipeline.css" />
+  <link rel="stylesheet" href="./styles/visualization2-graph.css?v=20261023-weight-instances-2" />
+  <link rel="stylesheet" href="./styles/visualization2-anatomy.css?v=20261023-task-carousel-1" />
+  <link rel="stylesheet" href="./styles/visualization2-pipeline-intra.css?v=ready-evidence-1" />
+  <link rel="stylesheet" href="./styles/visualization2-graph-intra.css?v=20261022-inspector-ux-1" />
 </head>
-<body>
+<body data-visualization2-enabled>
   <section class="pto-ide-frame" data-ide-frame data-host="standalone" data-cursor-dots="true" aria-label="PyPTO Studio 可信 Kernel 工作台">
     <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
       <div class="pto-ide-frame__topbar-left">
@@ -418,7 +428,10 @@
           </div>
         </section>
 
-        <div class="pto-ide-frame__split" id="ideMainSplit" data-ide-split="standalone-main" data-split-direction="horizontal" data-sizes="22,51,27" data-pixel-sizes="286" data-min-size="240,520,300" data-storage-key="kernel-forge-flow-a-v1">
+        <!-- storage key 从 -v1 提到 -v2：v1 里可能存着被折叠动作污染过的
+             [33.33,33.33,33.33]（见 workbench-shell setSizes 的注释），
+             留着会让首次加载变成三等分。 -->
+        <div class="pto-ide-frame__split" id="ideMainSplit" data-ide-split="standalone-main" data-split-direction="horizontal" data-sizes="22,51,27" data-pixel-sizes="286" data-min-size="240,520,300" data-storage-key="kernel-forge-flow-a-v2">
           <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="kf-explorer">
             <header class="pto-ide-frame__pane-header"><div class="kf-pane-title-stack"><span class="kf-pane-kicker" id="sidePaneKicker">PROJECT</span><span class="pto-ide-frame__pane-title" id="sidePaneTitle">资源管理器</span></div><span class="pto-ide-frame__pane-meta" id="sidePaneMeta">workspace</span></header>
             <div class="pto-ide-frame__pane-body kf-explorer-body">
@@ -584,11 +597,12 @@
                     <div class="kf-tree-row depth-1"><button type="button" data-file="SECURITY.md"><span class="kf-file-icon md">M</span><span>SECURITY.md</span></button></div>
                     <div class="kf-tree-row depth-1"><button type="button" data-file="decode_layer.py" data-open-step="1"><span class="kf-file-icon py">Py</span><span>decode_layer.py</span><i>1</i></button></div>
                     <div class="kf-tree-row depth-1"><button type="button" data-file="paged_attention_dynamic.py" data-open-step="1"><span class="kf-file-icon py">Py</span><span>paged_attention_dynamic.py</span></button></div>
+                    <div class="kf-tree-row depth-1"><button type="button" data-file="paged_attention_pypto.py" data-open-step="1"><span class="kf-file-icon py">Py</span><span>paged_attention_pypto.py</span></button></div>
                     <div class="kf-tree-row depth-1"><button type="button" data-file="pto3_tile_loop_lab.py" data-open-step="1"><span class="kf-file-icon py">Py</span><span>pto3_tile_loop_lab.py</span><i>Lab</i></button></div>
                     <div class="kf-tree-row depth-1"><button type="button" data-file="matmul.py" data-open-step="1"><span class="kf-file-icon py">Py</span><span>matmul.py</span></button></div>
                   </div>
                 </div>
-                <div class="kf-tree-summary" aria-label="项目统计"><span title="15 files"><b>15</b><em>files</em></span><span title="14 folders"><b>14</b><em>folders</em></span><span class="kf-tree-summary__diagnostic" title="1 diagnostic"><b>1</b><em>diagnostic</em></span></div>
+                <div class="kf-tree-summary" aria-label="项目统计"><span title="16 files"><b>16</b><em>files</em></span><span title="14 folders"><b>14</b><em>folders</em></span><span class="kf-tree-summary__diagnostic" title="1 diagnostic"><b>1</b><em>diagnostic</em></span></div>
               </section>
 
               <section class="kf-side-view" data-side-view="workflow" aria-label="Kernel 任务流程" hidden>
@@ -618,7 +632,7 @@
           </aside>
 
           <main class="pto-ide-frame__pane" data-ide-pane="editor-preview">
-            <div class="pto-ide-frame__tabstrip"><div class="kf-tabs" id="tabs"><button class="is-active" data-editor-tab="source">decode_layer.py</button></div></div>
+            <div class="pto-ide-frame__tabstrip"><div class="kf-tabs" id="tabs"><button class="is-active" data-editor-tab="source">paged_attention_pypto.py</button></div></div>
             <header class="pto-ide-frame__pane-header">
               <span class="pto-ide-frame__pane-title" id="stageTitle">定义目标</span>
               <span class="pto-ide-frame__pane-meta" id="stageMeta">recipe · decode_layer</span>
@@ -638,11 +652,11 @@
                 <div class="kf-callout"><span>✓</span><div><b>Decode Layer 已加载</b><small>hidden [16, 5120] · FP32 · 40 Q / 8 KV · Paged KV</small></div><button class="btn btn-solid" data-next>打开源码 <span>→</span></button></div>
               </section>
 
-              <section class="kf-stage kf-source-stage" data-stage="1" aria-label="decode_layer.py 全量源码">
+              <section class="kf-stage kf-source-stage" data-stage="1" aria-label="paged_attention_pypto.py 全量源码">
                 <!-- 源码地图：原来是右侧面板里的一排按钮，现在贴在源码顶部随滚动
                      指示"当前在哪一段"，点开可跳到任意一段。 -->
                 <div class="kf-source-region" id="sourceRegionBar" hidden></div>
-                <div class="kf-code kf-full-source" id="dslEditor" role="textbox" aria-label="decode_layer.py 全量源码" tabindex="0"></div>
+                <div class="kf-code kf-full-source" id="dslEditor" role="textbox" aria-label="paged_attention_pypto.py 全量源码" tabindex="0"></div>
               </section>
 
               <section class="kf-stage" data-stage="2" aria-labelledby="stage2Title">
@@ -858,6 +872,15 @@
   <script src="../../vendor/pto-design-system/patterns/model-graphviz/pattern.js?v=20260813-2"></script>
   <script src="../../vendor/pto-design-system/patterns/swimlane-task/pattern.js?v=20260907-1"></script>
   <script src="./js/decode-layer-source.js?v=20260807-4"></script>
+  <script src="./js/paged-attention-pypto-source.js?v=20261010-1"></script>
+  <script src="./js/semantic-computation-graph.js?v=20261019-model-graphviz-2"></script>
+  <script src="./js/semantic-computation-presentation.js?v=20261022-ready-evidence-1"></script>
+  <script src="./js/semantic-computation-journey.js?v=20261019-data-visibility-1"></script>
+  <script src="./js/semantic-computation-layout.js?v=20261023-weight-instances-2"></script>
+  <script src="./js/semantic-computation-visibility.js?v=20261022-level1"></script>
+  <script src="./js/matmul-semantic-graph.js?v=20261019-model-graphviz-2"></script>
+  <script src="./js/paged-attention-semantic-graph.js?v=20261022-state-evolution-1"></script>
+  <script src="./js/paged-attention-task-graph-data.js?v=20261010-1"></script>
   <!-- Large source snapshots are loaded on demand when their tree entry opens. -->
   <script src="./js/passes-graph.js?v=20260811-8"></script>
   <script src="./js/qwen3-model-viz.js?v=20260907-1"></script>
@@ -878,7 +901,12 @@
   <script src="./js/fusion-catalog-advisor.js?v=20260828-1"></script>
   <script src="./js/operator-scan.js?v=20260907-1"></script>
   <script src="./js/operator-inspector.js?v=20260908-1"></script>
-  <script src="./js/demo-v2.js?v=20260908-4"></script>
+  <script src="./js/paged-attention-stack-dependency-model.js?v=20261016-1"></script>
+  <script src="./js/paged-attention-stack-dependency.js?v=20261016-pipeline-analysis-1"></script>
+  <script src="./js/paged-attention-intro.js?v=20261019-execution-1"></script>
+  <script src="./js/paged-attention-execution.js?v=20261023-weight-instances-2"></script>
+  <script src="./js/matmul-intro.js?v=20261013-1"></script>
+  <script src="./js/demo-v2.js?v=20261023-weight-instances-2"></script>
   <script src="./js/ir-pipeline-data.js?v=20260901-1"></script>
   <script src="./js/ir-kernels-data.js?v=20260903-4"></script>
   <script src="./js/ir-pass-visuals.js?v=20260924-validation-flow-3"></script>
@@ -1357,5 +1385,19 @@
       upgrade(document.getElementById('runFan'));
     })();
   </script>
+  <script src="./js/visualization2-morph-player.js"></script>
+  <script src="./js/visualization2-phase0.js?v=20261023-assignment-camera-2"></script>
+  <script src="./js/visualization2-task-encoding.js"></script>
+  <script src="./js/visualization2-pipeline.js"></script>
+  <script src="./js/visualization2-graph.js?v=20261023-weight-instances-2"></script>
+  <script src="./js/visualization2-transition-intra.js"></script>
+  <script src="./js/visualization2-transition.js"></script>
+  <script src="./js/visualization2-anatomy.js?v=20261023-task-carousel-1"></script>
+  <script src="./js/visualization2-semantic-zoom.js"></script>
+  <script src="./js/visualization2-assignment-morph.js?v=20261023-assignment-camera-2"></script>
+  <script src="./js/visualization2-pipeline-intra.js?v=20261022-ready-evidence-2"></script>
+  <script src="./js/visualization2-pipeline-zoom.js"></script>
+  <script src="./js/visualization2-graph-intra.js?v=20261023-weight-instances-2"></script>
+  <script src="./js/visualization2.js?v=20261022-ready-evidence-1"></script>
 </body>
 </html>

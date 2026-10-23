@@ -1,0 +1,16 @@
+{
+  "context": {
+    "platform": "a2a3",
+    "pto_isa_revision": "418de18dde8fa33773dc5c384fdfe5506463b628",
+    "runtime_name": "tensormap_and_ringbuffer",
+    "runtime_revision": "c1f89ea431f5306f78c0e4ab9573c829756d7f1e",
+    "schema": 2
+  },
+  "files": {
+    "cache/incore_0_aic_attn_swpipe_aic_a2a3.bin": "5b04b4c10e529c65515d6549140446105ccbf8bacc7e9451736dac2e7c02f90a",
+    "cache/incore_1_aiv_attn_swpipe_aiv_a2a3.bin": "069b1d60bb023b11f4d5e70a465f67ce9b8aa32f0c6987c5d4a4e6416e2c4eb3",
+    "kernels/aic/attn_swpipe_aic.o": "a5bee4d4e86c863f32d89b22dcbda87ab45f436e5041a783044450b546af416b",
+    "kernels/aiv/attn_swpipe_aiv.o": "fe63438922beefa6cfde5c740fe7d869480a52b69df8194c0a550ef272822bd0",
+    "orchestration/paged_attention_pypto_dynamic.so": "ca1304c9d655855b3ab38c9a4ad0d64178fa3f5f74f21c42be0efc30e31ed3df"
+  }
+}

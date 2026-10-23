@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#090b0d" />
+    <meta name="description" content="推理服务请求概览与 Ascend 多 Rank 链路示意" />
+    <title>Serving · Host · Device</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="../../launch.html" aria-label="返回 Demo 列表"><span class="brand-mark">P</span><span>OBSERVE <i>/ ASCEND</i></span></a>
+        <div class="top-meta"><span class="live-dot"></span>基准运行 <span class="meta-divider"></span>2026-09-08 12:17:30</div>
+      </header>
+
+      <section class="page-heading">
+        <div><div class="eyebrow">SERVING · HOST · DEVICE</div><h1>推理运行总览</h1><p id="run-model">DeepSeek-V4-Flash-0731-w8a8</p></div>
+        <div class="run-context"><span id="run-config">A3 / DP4 TP4 EP16 / GBS256 / IN256 / O64</span></div>
+      </section>
+
+      <section class="run-stats" aria-label="请求运行摘要">
+        <div><span>请求</span><strong><b id="completed-count">256</b><small> / <i id="total-count">256</i></small></strong></div>
+        <div><span>失败</span><strong id="failed-count">0</strong></div>
+        <div><span>请求吞吐</span><strong><b id="request-throughput">9.34</b><small> req/s</small></strong></div>
+        <div><span>输出吞吐</span><strong><b id="output-throughput">598</b><small> tok/s</small></strong></div>
+        <div class="stat-latency"><span>TTFT</span><strong>P50 <b id="ttft-p50">2.59 s</b><i></i>P99 <b id="ttft-p99">3.43 s</b></strong></div>
+      </section>
+
+      <section class="workspace" aria-label="请求与设备链路总览">
+        <section class="topology-panel" aria-label="Serving 到 Host 到 16 个 Ascend Rank 的拓扑示意">
+          <header class="panel-heading"><div><span class="section-index">01 / EXECUTION PATH</span><h2>Serving → Host → Device</h2></div><span class="schematic-tag">拓扑示意</span></header>
+          <div class="topology">
+            <div class="topology-meta"><span>Qwen3-32B</span><i></i><span>TP 16</span><i></i><span>2 Hosts</span><i></i><span>Ascend 910B</span></div>
+            <div class="serving-node"><span class="serving-icon">S</span><span class="serving-name"><strong>Serving</strong><small>qwen3-32b-prod</small></span><span class="serving-divider"></span><span class="request-id">请求入口</span><span class="result-state"><i></i><b>运行中</b></span></div>
+            <div class="fanout" aria-hidden="true"><span></span><i></i></div>
+            <div class="hosts-grid">
+              <section class="host-group" aria-label="Host 01 上的 Rank 00 到 Rank 07"><header class="host-head"><div class="host-title"><span class="host-glyph">H</span><strong>Host 01</strong><span class="health"><i></i>正常</span></div><div class="host-meta"><span>CPU <b>42%</b></span><span>内存 <b>68%</b></span></div></header><div class="rank-grid" id="host-one-ranks"></div></section>
+              <section class="host-group" aria-label="Host 02 上的 Rank 08 到 Rank 15"><header class="host-head"><div class="host-title"><span class="host-glyph">H</span><strong>Host 02</strong><span class="health"><i></i>正常</span></div><div class="host-meta"><span>CPU <b>38%</b></span><span>内存 <b>64%</b></span></div></header><div class="rank-grid" id="host-two-ranks"></div></section>
+            </div>
+            <div class="rank-inspector" aria-live="polite"><span class="inspector-rank" id="inspector-rank">RANK 07</span><span class="inspector-device" id="inspector-device">Ascend 910B · Device 7 · Host 01</span><span class="inspector-metric"><i class="mini-dot"></i>AICore <b id="inspector-core">79%</b></span><span class="inspector-metric"><i class="mini-dot memory-dot"></i>HBM <b id="inspector-memory">70%</b></span><span class="inspector-hint">选择 Rank</span></div>
+          </div>
+          <p class="source-note"><span>i</span>Host / Rank 状态为界面示意；本次基准未采集设备指标与请求路由 Trace。</p>
+        </section>
+
+        <section class="requests-panel" aria-label="256 个请求的性能分布">
+          <header class="panel-heading"><div><span class="section-index">02 / REQUESTS</span><h2>全部请求 <small>256</small></h2></div><span class="completion"><i></i>256 / 256 完成</span></header>
+          <div class="chart-summary"><strong>首 token 延迟</strong><span>按到达顺序</span></div>
+          <div class="chart-wrap"><svg id="request-chart" viewBox="0 0 1000 360" role="img" aria-label="256 个推理请求的首 token 延迟散点图"></svg></div>
+          <footer class="chart-axis-caption"><span>TTFT（秒）</span><span>请求 #</span></footer>
+          <div class="request-detail" aria-live="polite">
+            <div class="detail-id"><span class="detail-dot"></span><strong id="selected-sample">#001</strong></div>
+            <div><span>TTFT</span><strong id="selected-ttft">1.67 s</strong></div>
+            <div><span>平均 ITL</span><strong id="selected-itl">— ms</strong></div>
+            <div><span>输入 / 输出</span><strong><b id="selected-input">256</b> / <b id="selected-output">64</b></strong></div>
+          </div>
+          <div class="legend"><span><i class="legend-dot low"></i>低 ITL</span><span><i class="legend-dot mid"></i>中 ITL</span><span><i class="legend-dot high"></i>高 ITL</span></div>
+          <p class="requests-note">每个点代表一条请求。选择数据点查看详情；来源未提供请求与 Rank 的逐条关联。</p>
+        </section>
+      </section>
+      <footer class="footer"><span>Serving Observability</span><span>实测请求数据 <b>·</b> 拓扑示意</span></footer>
+    </main>
+    <script src="./request-overview-data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

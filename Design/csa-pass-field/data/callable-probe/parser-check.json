@@ -1,0 +1,136 @@
+[
+  {
+    "index": 0,
+    "parserErrors": 0,
+    "family": []
+  },
+  {
+    "index": 9,
+    "parserErrors": 0,
+    "family": [
+      {
+        "name": "csa_merge_pack_publish",
+        "kind": "InCore",
+        "level": "CHIP_DIE",
+        "stmtCount": 146,
+        "loops": 4,
+        "allocs": 0,
+        "dagNodes": 151,
+        "dagTruncated": false,
+        "controlNodes": 13
+      }
+    ]
+  },
+  {
+    "index": 11,
+    "parserErrors": 0,
+    "family": [
+      {
+        "name": "csa_merge_pack_publish",
+        "kind": "InCore",
+        "level": "CHIP_DIE",
+        "stmtCount": 157,
+        "loops": 5,
+        "allocs": 0,
+        "dagNodes": 160,
+        "dagTruncated": false,
+        "controlNodes": 17
+      },
+      {
+        "name": "csa_merge_pack_publish_spmd",
+        "kind": "Spmd",
+        "level": null,
+        "stmtCount": 1,
+        "loops": 0,
+        "allocs": 0,
+        "dagNodes": 14,
+        "dagTruncated": false,
+        "controlNodes": 2
+      }
+    ]
+  },
+  {
+    "index": 33,
+    "parserErrors": 0,
+    "family": [
+      {
+        "name": "csa_merge_pack_publish",
+        "kind": "AIV",
+        "level": "AIV",
+        "stmtCount": 285,
+        "loops": 5,
+        "allocs": 53,
+        "dagNodes": 288,
+        "dagTruncated": false,
+        "controlNodes": 17
+      },
+      {
+        "name": "csa_merge_pack_publish_spmd",
+        "kind": "Spmd",
+        "level": null,
+        "stmtCount": 1,
+        "loops": 0,
+        "allocs": 0,
+        "dagNodes": 14,
+        "dagTruncated": false,
+        "controlNodes": 2
+      }
+    ]
+  },
+  {
+    "index": 35,
+    "parserErrors": 0,
+    "family": [
+      {
+        "name": "csa_merge_pack_publish",
+        "kind": "AIV",
+        "level": "AIV",
+        "stmtCount": 246,
+        "loops": 5,
+        "allocs": 12,
+        "dagNodes": 249,
+        "dagTruncated": false,
+        "controlNodes": 17
+      },
+      {
+        "name": "csa_merge_pack_publish_spmd",
+        "kind": "Spmd",
+        "level": null,
+        "stmtCount": 1,
+        "loops": 0,
+        "allocs": 0,
+        "dagNodes": 14,
+        "dagTruncated": false,
+        "controlNodes": 2
+      }
+    ]
+  },
+  {
+    "index": 51,
+    "parserErrors": 0,
+    "family": [
+      {
+        "name": "csa_merge_pack_publish",
+        "kind": "AIV",
+        "level": "AIV",
+        "stmtCount": 248,
+        "loops": 5,
+        "allocs": 12,
+        "dagNodes": 251,
+        "dagTruncated": false,
+        "controlNodes": 17
+      },
+      {
+        "name": "csa_merge_pack_publish_spmd",
+        "kind": "Spmd",
+        "level": null,
+        "stmtCount": 1,
+        "loops": 0,
+        "allocs": 0,
+        "dagNodes": 16,
+        "dagTruncated": false,
+        "controlNodes": 2
+      }
+    ]
+  }
+]

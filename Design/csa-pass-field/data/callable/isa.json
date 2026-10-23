@@ -1,0 +1,640 @@
+{
+  "source": {
+    "pto": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/csa_merge_pack_publish.pto"
+  },
+  "instructions": [
+    {
+      "id": "isa.0",
+      "mlirName": "pto.tload",
+      "apiName": "TLOAD",
+      "occurrenceCount": 13,
+      "occurrences": [
+        {
+          "line": 88,
+          "text": "pto.tload ins(%sparse_blk_mi_inline1234__ssa_v0_pview : !pto.partition_tensor_view<16x1xf32>) outs(%m_mi_inline1221__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":416:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 416
+        },
+        {
+          "line": 92,
+          "text": "pto.tload ins(%sparse_blk_li_inline1283__ssa_v0_pview : !pto.partition_tensor_view<16x1xf32>) outs(%m_li_inline1302__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":417:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 417
+        },
+        {
+          "line": 96,
+          "text": "pto.tload ins(%sparse_blk_oi_inline1233__ssa_v0_pview : !pto.partition_tensor_view<16x512xf32>) outs(%m_oi_inline1220__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":418:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 418
+        },
+        {
+          "line": 106,
+          "text": "pto.tload ins(%92 : !pto.partition_tensor_view<16x1xf32>) outs(%m_cur_mi_inline1217__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":422:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 422
+        },
+        {
+          "line": 110,
+          "text": "pto.tload ins(%94 : !pto.partition_tensor_view<16x1xf32>) outs(%m_cur_li_inline1293__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":423:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 423
+        },
+        {
+          "line": 114,
+          "text": "pto.tload ins(%96 : !pto.partition_tensor_view<16x512xf32>) outs(%m_cur_oi_inline1216__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":424:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 424
+        },
+        {
+          "line": 118,
+          "text": "pto.tload ins(%98 : !pto.partition_tensor_view<16x1xf32>) outs(%0 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":422:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 422
+        },
+        {
+          "line": 122,
+          "text": "pto.tload ins(%100 : !pto.partition_tensor_view<16x1xf32>) outs(%1 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":423:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 423
+        },
+        {
+          "line": 126,
+          "text": "pto.tload ins(%102 : !pto.partition_tensor_view<16x512xf32>) outs(%2 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":424:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 424
+        },
+        {
+          "line": 225,
+          "text": "pto.tload ins(%attn_sink__ssa_v0_pview : !pto.partition_tensor_view<16xf32>) outs(%44 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":432:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.normalize",
+          "sourceLine": 432
+        },
+        {
+          "line": 262,
+          "text": "pto.tload ins(%rope_cos_il_inline1232__ssa_v0_pview : !pto.partition_tensor_view<1x64xf32>) outs(%m_cos_il_inline1286__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":439:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 439
+        },
+        {
+          "line": 266,
+          "text": "pto.tload ins(%rope_sin_signed_inline1231__ssa_v0_pview : !pto.partition_tensor_view<1x64xf32>) outs(%m_sin_signed_inline1225__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":440:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 440
+        },
+        {
+          "line": 269,
+          "text": "pto.tload ins(%rope_swap_idx_inline1230__ssa_v0_pview : !pto.partition_tensor_view<16x64xi32>) outs(%49 : !pto.tile_buf<loc=vec, dtype=i32, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":441:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 441
+        }
+      ]
+    },
+    {
+      "id": "isa.1",
+      "mlirName": "pto.tmax",
+      "apiName": "TMAX",
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "line": 130,
+          "text": "pto.tmax ins(%m_mi_new_inline1215__rm_a0_tmp_v0, %m_mi_new_inline1215__rm_a1_tmp_v1 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%m_mi_new_inline1215__row_major_tmp_v2 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":425:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 425
+        },
+        {
+          "line": 175,
+          "text": "pto.tmax ins(%10, %11 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%12 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":425:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 425
+        }
+      ]
+    },
+    {
+      "id": "isa.2",
+      "mlirName": "pto.tsub",
+      "apiName": "TSUB",
+      "occurrenceCount": 6,
+      "occurrences": [
+        {
+          "line": 136,
+          "text": "pto.tsub ins(%t__rm_a0_tmp_v3, %t__rm_a1_tmp_v4 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%t__row_major_tmp_v5 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":426:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 426
+        },
+        {
+          "line": 145,
+          "text": "pto.tsub ins(%t__rm_a0_tmp_v8, %t__rm_a1_tmp_v9 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%t__row_major_tmp_v10 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":427:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 427
+        },
+        {
+          "line": 181,
+          "text": "pto.tsub ins(%15, %16 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%17 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":426:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 426
+        },
+        {
+          "line": 190,
+          "text": "pto.tsub ins(%22, %23 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%24 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":427:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 427
+        },
+        {
+          "line": 230,
+          "text": "pto.tsub ins(%t__rm_a0_tmp_v22, %t__rm_a1_tmp_v23 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%t__row_major_tmp_v24 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":433:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.normalize",
+          "sourceLine": 433
+        },
+        {
+          "line": 240,
+          "text": "pto.tsub ins(%t__rm_a0_tmp_v28, %t__rm_a1_tmp_v29 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%t__row_major_tmp_v30 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":434:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.normalize",
+          "sourceLine": 434
+        }
+      ]
+    },
+    {
+      "id": "isa.3",
+      "mlirName": "pto.texp",
+      "apiName": "TEXP",
+      "occurrenceCount": 5,
+      "occurrences": [
+        {
+          "line": 140,
+          "text": "pto.texp ins(%m_alpha_inline1214__rm_a0_tmp_v6 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%m_alpha_inline1214__row_major_tmp_v7 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":426:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 426
+        },
+        {
+          "line": 149,
+          "text": "pto.texp ins(%m_beta_inline1213__rm_a0_tmp_v11 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%m_beta_inline1213__row_major_tmp_v12 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":427:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 427
+        },
+        {
+          "line": 185,
+          "text": "pto.texp ins(%19 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%20 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":426:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 426
+        },
+        {
+          "line": 194,
+          "text": "pto.texp ins(%26 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%27 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":427:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 427
+        },
+        {
+          "line": 244,
+          "text": "pto.texp ins(%t__rm_a0_tmp_v31 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%t__row_major_tmp_v32 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":434:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.normalize",
+          "sourceLine": 434
+        }
+      ]
+    },
+    {
+      "id": "isa.4",
+      "mlirName": "pto.tmul",
+      "apiName": "TMUL",
+      "occurrenceCount": 4,
+      "occurrences": [
+        {
+          "line": 154,
+          "text": "pto.tmul ins(%t__rm_a0_tmp_v13, %t__rm_a1_tmp_v14 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%t__row_major_tmp_v15 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":428:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 428
+        },
+        {
+          "line": 159,
+          "text": "pto.tmul ins(%t__rm_a0_tmp_v16, %t__rm_a1_tmp_v17 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%t__row_major_tmp_v18 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":428:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 428
+        },
+        {
+          "line": 199,
+          "text": "pto.tmul ins(%29, %30 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%31 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":428:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 428
+        },
+        {
+          "line": 204,
+          "text": "pto.tmul ins(%33, %34 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%35 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":428:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 428
+        }
+      ]
+    },
+    {
+      "id": "isa.5",
+      "mlirName": "pto.tadd",
+      "apiName": "TADD",
+      "occurrenceCount": 7,
+      "occurrences": [
+        {
+          "line": 164,
+          "text": "pto.tadd ins(%m_li_inline1302__rm_a0_tmp_v19, %m_li_inline1302__rm_a1_tmp_v20 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%m_li_inline1302__row_major_tmp_v21 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":428:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 428
+        },
+        {
+          "line": 171,
+          "text": "pto.tadd ins(%7, %8 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%9 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":429:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 429
+        },
+        {
+          "line": 209,
+          "text": "pto.tadd ins(%37, %38 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%39 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":428:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 428
+        },
+        {
+          "line": 216,
+          "text": "pto.tadd ins(%41, %42 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%43 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":429:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 429
+        },
+        {
+          "line": 235,
+          "text": "pto.tadd ins(%n_sink_tile_inline1212__rm_a0_tmp_v25, %n_sink_tile_inline1212__rm_a1_tmp_v26 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%n_sink_tile_inline1212__row_major_tmp_v27 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":433:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.normalize",
+          "sourceLine": 433
+        },
+        {
+          "line": 249,
+          "text": "pto.tadd ins(%n_denom_inline1254__rm_a0_tmp_v33, %n_denom_inline1254__rm_a1_tmp_v34 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%n_denom_inline1254__row_major_tmp_v35 : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=16, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":434:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.normalize",
+          "sourceLine": 434
+        },
+        {
+          "line": 290,
+          "text": "pto.tadd ins(%50, %51 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%m_rot_inline1206__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":442:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 442
+        }
+      ]
+    },
+    {
+      "id": "isa.6",
+      "mlirName": "pto.trowexpandmul",
+      "apiName": "TROWEXPANDMUL",
+      "occurrenceCount": 4,
+      "occurrences": [
+        {
+          "line": 167,
+          "text": "pto.trowexpandmul ins(%m_oi_inline1220__tile, %m_alpha_inline1214__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%7 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":429:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 429
+        },
+        {
+          "line": 169,
+          "text": "pto.trowexpandmul ins(%m_cur_oi_inline1216__tile, %m_beta_inline1213__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%8 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":429:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 429
+        },
+        {
+          "line": 212,
+          "text": "pto.trowexpandmul ins(%9, %21 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%41 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":429:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 429
+        },
+        {
+          "line": 214,
+          "text": "pto.trowexpandmul ins(%2, %28 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%42 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":429:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 429
+        }
+      ]
+    },
+    {
+      "id": "isa.7",
+      "mlirName": "pto.tmov",
+      "apiName": "TMOV",
+      "occurrenceCount": 3,
+      "occurrences": [
+        {
+          "line": 218,
+          "text": "pto.tmov ins(%14 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%m_mi_inline1221__ssa_v3_mv : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":416:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 416
+        },
+        {
+          "line": 220,
+          "text": "pto.tmov ins(%40 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%m_li_inline1302__tile_mv : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":417:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.merge",
+          "sourceLine": 417
+        },
+        {
+          "line": 280,
+          "text": "pto.tmov ins(%gather_row : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%assemble_view : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=64, v_row=1, v_col=64, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":441:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 441
+        }
+      ]
+    },
+    {
+      "id": "isa.8",
+      "mlirName": "pto.trowexpanddiv",
+      "apiName": "TROWEXPANDDIV",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "line": 252,
+          "text": "pto.trowexpanddiv ins(%m_oi_inline1220__tile, %n_denom_inline1254__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=1, v_row=?, v_col=?, blayout=col_major, slayout=none_box, fractal=512, pad=0>) outs(%48 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":435:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.normalize",
+          "sourceLine": 435
+        }
+      ]
+    },
+    {
+      "id": "isa.9",
+      "mlirName": "pto.tcvt",
+      "apiName": "TCVT",
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "line": 256,
+          "text": "pto.tcvt ins(%slice_view {rmode = #pto<round_mode RINT>} : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=16, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%n_bf16_inline1210__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":436:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.normalize",
+          "sourceLine": 436
+        },
+        {
+          "line": 292,
+          "text": "pto.tcvt ins(%m_rot_inline1206__tile {rmode = #pto<round_mode RINT>} : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%n_rope_bf16_inline1205__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":443:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 443
+        }
+      ]
+    },
+    {
+      "id": "isa.10",
+      "mlirName": "pto.tgather",
+      "apiName": "TGATHER",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "line": 278,
+          "text": "pto.tgather ins(%107, %108, %gather_row_tmp : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=64, v_row=1, v_col=64, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=i32, rows=1, cols=64, v_row=1, v_col=64, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=i32, rows=1, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%gather_row : !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":441:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 441
+        }
+      ]
+    },
+    {
+      "id": "isa.11",
+      "mlirName": "pto.textract",
+      "apiName": "TEXTRACT",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "line": 284,
+          "text": "pto.textract ins(%48, %c0_index, %c448_index : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, index, index) outs(%m_rope_inline1208__tile_textract : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":442:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 442
+        }
+      ]
+    },
+    {
+      "id": "isa.12",
+      "mlirName": "pto.tcolexpandmul",
+      "apiName": "TCOLEXPANDMUL",
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "line": 286,
+          "text": "pto.tcolexpandmul ins(%m_rope_inline1208__tile_textract, %m_cos_il_inline1286__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%50 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":442:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 442
+        },
+        {
+          "line": 288,
+          "text": "pto.tcolexpandmul ins(%m_swapped_inline1207__tile, %m_sin_signed_inline1225__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=1, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%51 : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":442:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 442
+        }
+      ]
+    },
+    {
+      "id": "isa.13",
+      "mlirName": "pto.tconcat",
+      "apiName": "TCONCAT",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "line": 296,
+          "text": "pto.tconcat ins(%109, %n_rope_bf16_inline1205__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=16, cols=448, v_row=16, v_col=448, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=bf16, rows=16, cols=64, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%n_full_bf16_inline1285__tile : !pto.tile_buf<loc=vec, dtype=bf16, rows=16, cols=512, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":444:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.rope",
+          "sourceLine": 444
+        }
+      ]
+    },
+    {
+      "id": "isa.14",
+      "mlirName": "pto.tstore",
+      "apiName": "TSTORE",
+      "occurrenceCount": 16,
+      "occurrences": [
+        {
+          "line": 307,
+          "text": "pto.tstore ins(%115 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%attention_grouped_inline1276__iter_v3_pview : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 319,
+          "text": "pto.tstore ins(%124 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%attention_grouped_inline1276__tile_pview : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 331,
+          "text": "pto.tstore ins(%134 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%138 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 343,
+          "text": "pto.tstore ins(%145 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%149 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 355,
+          "text": "pto.tstore ins(%156 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%160 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 367,
+          "text": "pto.tstore ins(%167 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%171 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 379,
+          "text": "pto.tstore ins(%178 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%182 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 391,
+          "text": "pto.tstore ins(%189 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%193 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 403,
+          "text": "pto.tstore ins(%200 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%204 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 415,
+          "text": "pto.tstore ins(%211 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%215 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 427,
+          "text": "pto.tstore ins(%222 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%226 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 439,
+          "text": "pto.tstore ins(%233 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%237 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 451,
+          "text": "pto.tstore ins(%244 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%248 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 463,
+          "text": "pto.tstore ins(%255 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%259 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 475,
+          "text": "pto.tstore ins(%266 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%270 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        },
+        {
+          "line": 487,
+          "text": "pto.tstore ins(%277 : !pto.tile_buf<loc=vec, dtype=bf16, rows=1, cols=512, v_row=1, v_col=512, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%281 : !pto.partition_tensor_view<1x512xbf16>) loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":450:25)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "op.pack",
+          "sourceLine": 450
+        }
+      ]
+    },
+    {
+      "id": "isa.15",
+      "mlirName": "pto.comm.tput",
+      "apiName": "TPUT",
+      "occurrenceCount": 2,
+      "occurrences": [
+        {
+          "line": 516,
+          "text": "pto.comm.tput(%attention_window__ssa_v0_peer_pview, %attention_grouped_inline1276__rv_v4_local_pview, buf(%tput_stage) : !pto.partition_tensor_view<8x4096xbf16>, !pto.partition_tensor_view<8x4096xbf16>, !pto.tile_buf<loc=vec, dtype=bf16, rows=8, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) {atomicType = #pto<atomic_type atomic_none>} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":458:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "handoff.publish",
+          "sourceLine": 458
+        },
+        {
+          "line": 549,
+          "text": "pto.comm.tput(%330, %331, buf(%69) : !pto.partition_tensor_view<8x4096xbf16>, !pto.partition_tensor_view<8x4096xbf16>, !pto.tile_buf<loc=vec, dtype=bf16, rows=8, cols=4096, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) {atomicType = #pto<atomic_type atomic_none>} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":458:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "handoff.publish",
+          "sourceLine": 458
+        }
+      ]
+    },
+    {
+      "id": "isa.16",
+      "mlirName": "pto.comm.tnotify",
+      "apiName": "TNOTIFY",
+      "occurrenceCount": 1,
+      "occurrences": [
+        {
+          "line": 575,
+          "text": "pto.comm.tnotify(%attention_signal__ssa_v0_peer_pview, %c1_i32 : !pto.partition_tensor_view<1x1xi32>, i32) {notifyOp = #pto<notify_op atomic_add>} loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":471:21)",
+          "kernel": "csa_merge_pack_publish",
+          "owner": "handoff.notify",
+          "sourceLine": 471
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "csa-callable-explorer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data:build": "npm run analyze:merge && python3 scripts/build-callable.py",
+    "data:validate": "node scripts/validate-callable.mjs",
+    "dev": "vite",
+    "build": "npm run data:build && npm run data:validate && vite build && node scripts/copy-data.mjs && node scripts/inline-dist.mjs",
+    "preview": "vite preview",
+    "probe:callable": "python3 scripts/probe-callable.py",
+    "analyze:merge": "python3 scripts/probe-callable.py --run ../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617 --callable csa_merge_pack_publish --output data/callable-probe",
+    "test:callable": "node scripts/validate-callable.mjs && node scripts/callable-flow.test.mjs",
+    "test:samples": "node scripts/sample-selector.test.mjs",
+    "docs:build": "node scripts/build-docs.mjs",
+    "predev": "npm run docs:build",
+    "prebuild": "npm run docs:build"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "5.0.4",
+    "dagre": "^0.8.5",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "reactflow": "11.4.2",
+    "vite": "6.4.2"
+  }
+}

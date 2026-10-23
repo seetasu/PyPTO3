@@ -1,0 +1,7 @@
+run_root=/data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701
+total=1
+exported=0
+failed=1
+
+exports:
+attn_swpipe	failed	/data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701/funcs/attn_swpipe/export	StepError('command failed rc=1: cmake --build /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701/builds/attn_swpipe --target attn_swpipe_msprof_sim')

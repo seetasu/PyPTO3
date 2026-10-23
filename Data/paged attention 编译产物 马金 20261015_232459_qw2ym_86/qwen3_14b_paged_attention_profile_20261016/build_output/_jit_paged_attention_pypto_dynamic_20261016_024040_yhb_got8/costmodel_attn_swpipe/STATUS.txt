@@ -1,0 +1,6 @@
+PTO ISA Perf-Sim attempt for Qwen3-14B Page Attention attn_swpipe
+Source kernel: ../ptoas/attn_swpipe.cpp from the 20261016_024040 build.
+Status: no cost-model result was generated. Do not interpret build.log as profiling data.
+Method: CPU wrapper following pto-isa/docs/costmodel/perf-sim-user-guide.md.
+The installed pto-isa headers do not compile this kernel as __COSTMODEL with the host toolchain; build.log records the failure.
+main.cpp is the attempted wrapper and is not a production kernel or a raw runtime dump.

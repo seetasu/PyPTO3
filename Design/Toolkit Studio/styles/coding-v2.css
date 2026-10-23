@@ -292,7 +292,9 @@
 #dslEditor [data-paged-attention-line].is-paged-attention-line-target > i {
   color: var(--primary); font-weight: 700;
 }
-#dslEditor .kf-pa-source-row { grid-template-columns: 50px minmax(0, 1fr) auto; align-items: center; }
+/* 行号 / 段首标签与「该行的第一行」对齐（VS Code 那种效果）。开启自动换行后一行会占
+   多个视觉行，居中对齐会让行号漂到两行之间、和哪一行都对不上。 */
+#dslEditor .kf-pa-source-row { grid-template-columns: 50px minmax(0, 1fr) auto; align-items: start; }
 #dslEditor .kf-pa-source-tag {
   justify-self: end; margin-left: 18px; padding: 2px 7px;
   border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--border-subtle)); border-radius: 999px;
@@ -310,6 +312,18 @@
 #dslEditor .kf-pa-source-tag.is-online { color: var(--success); border-color: color-mix(in srgb, var(--success) 42%, var(--border-subtle)); background: color-mix(in srgb, var(--success) 8%, transparent); }
 #dslEditor .kf-pa-source-tag.is-golden,
 #dslEditor .kf-pa-source-tag.is-runtime { color: var(--foreground-muted); border-color: var(--border-subtle); background: var(--surface-2); }
+/* paged_attention_pypto.py 的段首标签按"类别"上色（不按段 key 逐条配）：
+   flow=编排/结构（蓝）、cube=矩阵乘（黄）、vector=向量归约（绿）、meta=声明/常量（灰） */
+#dslEditor .kf-pa-source-tag.t-flow { color: var(--primary); }
+#dslEditor .kf-pa-source-tag.t-cube { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 42%, var(--border-subtle)); background: color-mix(in srgb, var(--warning) 8%, transparent); }
+#dslEditor .kf-pa-source-tag.t-vector { color: var(--success); border-color: color-mix(in srgb, var(--success) 42%, var(--border-subtle)); background: color-mix(in srgb, var(--success) 8%, transparent); }
+#dslEditor .kf-pa-source-tag.t-meta { color: var(--foreground-muted); border-color: var(--border-subtle); background: var(--surface-2); }
+/* 带 .is-node 的标签表示该行对应右侧计算图里的某个节点——标签文字就是那个节点的标题，
+   前面加一个小圆点做视觉标记，方便和图里的节点对号入座。 */
+#dslEditor .kf-pa-source-tag.is-node { display: inline-flex; align-items: center; gap: 5px; }
+#dslEditor .kf-pa-source-tag.is-node::before {
+  content: ''; flex: none; width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+}
 #dslEditor .kf-pa-source-row.is-paged-attention-line-active .kf-pa-source-tag,
 #dslEditor .kf-pa-source-row.is-paged-attention-line-target .kf-pa-source-tag {
   color: var(--foreground-primary); border-color: var(--primary); background: color-mix(in srgb, var(--primary) 18%, transparent);

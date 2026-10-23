@@ -1,0 +1,27 @@
+/* Four fixed stage rows; only Tick x coordinates grow with Stack count. */
+#viz2-pipeline { display:flex; flex-direction:column; }
+.viz2-intra { --intra-slot-0:var(--primary); --intra-slot-1:var(--success); --intra-slot-2:var(--warning); }
+.viz2-intra-svg { display:block; width:100%; height:100%; user-select:none; }
+.viz2-intra-svg text { font-family:var(--font-mono); font-size:var(--intra-font,12px); fill:var(--foreground); pointer-events:none; }
+.viz2-intra-heading { font-weight:650; }
+.viz2-intra-svg .viz2-intra-row-title { fill:var(--foreground-secondary); }
+.viz2-intra-svg .viz2-intra-node-slot { fill:var(--foreground-secondary); font-size:var(--intra-small-font,11px); }
+.viz2-intra-svg .viz2-intra-tick-label { text-anchor:middle; fill:var(--foreground-muted); }
+.viz2-intra-frame { fill:transparent; pointer-events:none; }
+.viz2-intra-tick-hit,.viz2-intra-output-hit { fill:transparent; pointer-events:all; }
+.viz2-intra-operation { fill:var(--surface-3); stroke:var(--foreground-muted); stroke-opacity:.65; stroke-width:1; vector-effect:non-scaling-stroke; }
+.viz2-intra-event { fill:var(--surface-2); stroke:var(--foreground-muted); stroke-width:1; vector-effect:non-scaling-stroke; }
+.viz2-intra-flow { fill:none; stroke:var(--slot-color); stroke-width:1; opacity:.65; vector-effect:non-scaling-stroke; pointer-events:none; }
+.viz2-intra-reuse { fill:none; stroke:var(--slot-color); stroke-width:5; stroke-linecap:round; opacity:.65; vector-effect:non-scaling-stroke; pointer-events:stroke; }
+.viz2-intra-output { fill:var(--surface-3); stroke:var(--foreground-secondary); stroke-width:1; vector-effect:non-scaling-stroke; }
+.viz2-intra-output-link { fill:none; stroke:var(--foreground-muted); stroke-width:1; vector-effect:non-scaling-stroke; pointer-events:none; }
+.viz2-intra-svg [data-intra-kind] { cursor:pointer; }
+.viz2-intra-svg .is-related .viz2-intra-operation,.viz2-intra-svg .is-shared .viz2-intra-operation { fill:var(--surface-4); stroke-opacity:1; }
+.viz2-intra-svg .is-related .viz2-intra-flow,.viz2-intra-svg .is-shared .viz2-intra-flow { opacity:1; }
+.viz2-intra-svg [data-intra-kind]:is(.is-selected,:focus-visible) > rect:not(.viz2-intra-output-hit),.viz2-intra-svg [data-intra-kind]:is(.is-selected,:focus-visible) > circle,.viz2-intra-svg [data-intra-kind].is-related > rect { stroke:var(--foreground); stroke-opacity:1; stroke-width:1.5; vector-effect:non-scaling-stroke; }
+.viz2-intra-svg .viz2-intra-reuse:is(.is-highlighted,.is-selected,:focus-visible) { opacity:1; }
+.viz2-intra-svg [data-intra-kind]:focus-visible { outline:none; }
+.viz2-intra-masked [data-intra-frame],.viz2-intra-masked [data-intra-kind="output"],.viz2-intra-masked [data-intra-operation$=":qk"] { visibility:hidden; }
+
+.viz2-intra-svg .viz2-intra-small { font-size:var(--intra-small-font,11px); }
+.viz2-intra [data-intra-source-preview] {white-space:pre;overflow:auto;max-height:280px;font:var(--type-mono);}

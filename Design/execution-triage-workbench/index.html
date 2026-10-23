@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="DSpark Serving 单请求的性能定界：Serving · Host · Device 三层流转、关键路径与 bind / H2D 瓶颈分解" />
+  <title>Execution Triage</title>
+  <link rel="icon" type="image/svg+xml" href="../../pto-studio-logo.svg" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="./home.css" />
+</head>
+<body>
+  <div class="shell">
+    <!-- 场景：三栋楼 = Serving / Host / Device，楼高 = 关键路径耗时 -->
+    <section class="scene" aria-label="执行定界场景">
+      <div class="scene-head">
+        <!-- 请求结果 -->
+        <div class="eyebrow" id="eyebrow"></div>
+        <div class="result">
+          <h1 class="layer-name" id="layerName"></h1>
+          <div class="result-side">
+            <div class="meta" id="layerMeta"></div>
+            <div class="req-kpis" id="reqKpis"></div>
+          </div>
+        </div>
+        <!-- 每个 decode step 的构成 -->
+        <div class="eyebrow sub" id="eyebrow2"></div>
+        <div class="step-mix" id="stepMix"></div>
+      </div>
+
+      <div class="scene-tools">
+        <a class="tool" href="./overview.html" title="返回压测总览（256 请求）" aria-label="返回压测总览（256 请求）">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V8m0 0-5 5m5-5 5 5M4 4h16" /></svg>
+        </a>
+        <a class="tool" id="analysisLink" href="./analysis.html" title="打开详细分析" aria-label="打开详细分析">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8" /></svg>
+        </a>
+      </div>
+
+      <div class="time-controls" role="group" aria-label="时间轴缩放">
+        <button type="button" id="timeZoomOut" aria-label="缩小时间轴" title="缩小时间轴">−</button>
+        <output id="timeZoomLevel" aria-live="polite">1×</output>
+        <button type="button" id="timeZoomIn" aria-label="放大时间轴" title="放大时间轴">＋</button>
+        <button type="button" id="timeZoomReset" aria-label="重置时间轴缩放" title="重置时间轴缩放">重置</button>
+      </div>
+
+      <!-- 主导航：面包屑 + 54 个 step 的时间线 -->
+      <div class="lane-nav">
+        <div class="request" id="request"></div>
+      </div>
+
+      <svg class="iso" id="iso" role="img" aria-label="单个 step 的流转：Serving、Host、Device 三块板与关键路径"></svg>
+    </section>
+
+    <!-- 右栏：关键路径 / 设备分布 / 优化队列 / 逐步构成 -->
+    <section class="floors" aria-label="定界明细">
+      <div class="side-tabs" role="tablist" aria-label="定界明细">
+        <button class="side-tab" type="button" role="tab" id="tabPath" data-tab="path" aria-controls="panel-path">关键路径</button>
+        <button class="side-tab" type="button" role="tab" id="tabDist" data-tab="dist" aria-controls="panel-dist">设备分布</button>
+        <button class="side-tab" type="button" role="tab" id="tabPlan" data-tab="plan" aria-controls="panel-plan">优化队列</button>
+        <button class="side-tab" type="button" role="tab" id="tabSteps" data-tab="steps" aria-controls="panel-steps">逐步构成</button>
+      </div>
+      <div class="breakdown" id="panel-path" role="tabpanel" aria-labelledby="tabPath"></div>
+      <div class="breakdown" id="panel-dist" role="tabpanel" aria-labelledby="tabDist"></div>
+      <div class="breakdown" id="panel-plan" role="tabpanel" aria-labelledby="tabPlan"></div>
+      <div class="steps-panel" id="panel-steps" role="tabpanel" aria-labelledby="tabSteps">
+        <header class="floors-head">
+          <h2 id="floorsTitle"></h2>
+          <div class="floor-head" id="floorHead" aria-hidden="true"></div>
+        </header>
+        <div class="floor-list" id="floorList" tabindex="-1"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <script src="./home-data.js"></script>
+  <!-- 算子级下钻的数据：另一次采集（GBS256 压测包里的 profiler trace，单卡），见 README -->
+  <script src="./ops-data.js"></script>
+  <script src="./home.js"></script>
+</body>
+</html>

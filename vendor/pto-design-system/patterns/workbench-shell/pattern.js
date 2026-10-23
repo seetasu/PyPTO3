@@ -304,7 +304,19 @@
       },
       getSizes: () => panePercentSizes(panes, axis),
       setSizes(nextSizes) {
-        const sizes = normalizeSizes(nextSizes, panes.length);
+        // A caller may legitimately hand us a 0 for a pane it is about to collapse.
+        // normalizeSizes() treats anything non-positive as garbage and replaces the
+        // WHOLE set with an even split, which then gets persisted and turns into the
+        // default layout on the next load. Keep explicit zeros here; the caller is
+        // responsible for pinning the collapsed pane afterwards.
+        const list = Array.isArray(nextSizes) ? nextSizes.map(Number) : [];
+        const total = list.reduce((sum, size) => sum + (Number.isFinite(size) ? size : 0), 0);
+        const keepZeros = list.length === panes.length
+          && list.every((size) => Number.isFinite(size) && size >= 0)
+          && total > 0;
+        const sizes = keepZeros
+          ? list.map((size) => size / total * 100)
+          : normalizeSizes(nextSizes, panes.length);
         applyPaneSizes(panes, axis, sizes);
         writeStoredSizes(rawOptions.storageKey, sizes);
         rawOptions.onResize?.(sizes, { phase: 'api', direction: axis.direction });

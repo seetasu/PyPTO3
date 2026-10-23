@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "csa-pass-field.manifest.v1",
+  "scenarioId": "l3_decode_csa.qk_pv",
+  "title": "CSA qk_pv mixed Cube/Vector handoff",
+  "generatedAt": "2026-10-15T09:35:37.498Z",
+  "buildIdentity": {
+    "runId": "_jit_l3_decode_csa_20260903_010617",
+    "inputHashes": {
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py": "1788e957a6f1a15c68eca812baf32406012604910a06d2553a8df065644ac9db",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/01_after_InlineFunctions.py": "8aa2e1e4bc41e71815f994a121f54700872c36de44226f293f2562f0667ccac0",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/02_after_UnrollLoops.py": "cbdf84af244b85b673dbf1c18a7a8ee60a7f7357995dd7991f4d317eb3a70ac4",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/03_after_CtrlFlowTransform.py": "cbdf84af244b85b673dbf1c18a7a8ee60a7f7357995dd7991f4d317eb3a70ac4",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/04_after_ConvertToSSA.py": "5ad19daf7cb61e8d48adaac142d1617b8230b35040d19f1cf8a5210995ab7a65",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/05_after_Simplify.py": "4bf10996b2bde2536f2e4ceda841ad13539c24d532ed649f62e35c75b4392263",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/06_after_NormalizeStmtStructure.py": "4bf10996b2bde2536f2e4ceda841ad13539c24d532ed649f62e35c75b4392263",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/07_after_FlattenCallExpr.py": "c1908510a033a7e14665c62d85edf767ae7902e5308753a936360980faafcd4f",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/08_after_OutlineHierarchyScopes.py": "c1908510a033a7e14665c62d85edf767ae7902e5308753a936360980faafcd4f",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/09_after_OutlineIncoreScopes.py": "cdddb289e57b57b2570fb8384d39250f76f6ef80149ee03c128686ca4b3f7932",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/10_after_OutlineClusterScopes.py": "45b61c6823648993b6dc702a02f26aaa01b5c50135f31ce447c23833a478c337",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/11_after_ConvertTensorToTileOps.py": "53e2cec808266b3a1efb28eb55228f485a9fe6b052e5b4a40da80ec70e152b99",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/12_after_OptimizeOrchTensors.py": "53e2cec808266b3a1efb28eb55228f485a9fe6b052e5b4a40da80ec70e152b99",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/13_after_LowerCompositeOps.py": "53e2cec808266b3a1efb28eb55228f485a9fe6b052e5b4a40da80ec70e152b99",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/14_after_FlattenTileNdTo2D.py": "d421ec912fddc232d6041347734459a77193ce788fe1e37c3c8709649f246b30",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/15_after_BlockNzTensorViews.py": "d421ec912fddc232d6041347734459a77193ce788fe1e37c3c8709649f246b30",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/16_after_LegalizeTileCast.py": "d421ec912fddc232d6041347734459a77193ce788fe1e37c3c8709649f246b30",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/17_after_AutoTileMatmulL0.py": "0213574797d6f08bb12b37fb76c82d2f4800c2713bc647254e2a775c8be23fbd",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/18_after_CanonicalizeTileSlice.py": "1ece0b5bfbb53f905ab448ed4a647245df6fee9646dd79dbacb9cb485ef70d9e",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/19_after_InferTileMemorySpace.py": "15c9daa23820893052e748cc1e93c3d73e63073ce9798cfc2c3ad7236eb8faa6",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/20_after_InsertMxScaleAddr.py": "15c9daa23820893052e748cc1e93c3d73e63073ce9798cfc2c3ad7236eb8faa6",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/21_after_ResolveBackendOpLayouts.py": "400d1954b788e9d55c9606f315ee585216d265dfc1228fde155238ca162825c2",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/22_after_LowerAutoVectorSplit.py": "400d1954b788e9d55c9606f315ee585216d265dfc1228fde155238ca162825c2",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/23_after_ExpandMixedKernel.py": "dd8db3430d3bbd6fcd7429887fa422d7fa7b326cf6c2aa9a497c60987d0a377e",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/24_after_InjectGMPipeBuffer.py": "81af19da53ba88177d7d9d3a8221c9875d9da935ba891afba377f06d3e96dae2",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/25_after_SplitVectorKernel.py": "08e4cfeb340036ea4b263d7e2f7996a80f529ce8d4618ee0d782031c662c0084",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/26_after_StampTfreeSplit.py": "42867bd26d87d44d5582b9fd3984c52c78cd116efd8b8dfc87f2e453e212084c",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/27_after_NormalizeReturnOrder.py": "66218c360ba0b502d585aabc27fe5f281f2aa725f757db5069ecdfd8eb26a982",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/28_after_SkewCrossCorePipeline.py": "4f0d54cb81face4199b1797938190603e0303dc27448120bf2ce8a5d754f23af",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/29_after_LowerPipelineToSlots.py": "4f0d54cb81face4199b1797938190603e0303dc27448120bf2ce8a5d754f23af",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/30_after_LowerPipelineLoops.py": "d3f90d469f126ff5210266ee136d1570bd5a4281360a09077b2d085606bf54cb",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/31_after_CanonicalizeIOOrder.py": "27b34c1338e38f94857af09588e8fd3b949836e1014e4c1a54446312d6a5573b",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/32_after_MaterializeTensorStrides.py": "27b34c1338e38f94857af09588e8fd3b949836e1014e4c1a54446312d6a5573b",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/33_after_InitMemRef.py": "984af37ae834df2137da0ebaa9ea6f4767f48553d705c0329284bd6a093bb453",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py": "0e445c7519a537b56a13ab24fe5d075fce0b6982b801f81cf9f77059d1eaeb25",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py": "43c674032651b6071c665e62162a4f63a682668d2523285da126d4adbf26b885",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/36_after_AllocateMemoryAddr.py": "c56f0e7e631013a86ffc5baea71bc29e10dee288ff528655a149f0a41f129b95",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/37_after_FoldNoOpReshape.py": "97a3d116524f2904cc49e96345410815aa44045bd88d4ee48b97e493feed4c62",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/38_after_FuseCreateAssembleToSlice.py": "97a3d116524f2904cc49e96345410815aa44045bd88d4ee48b97e493feed4c62",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/39_after_DeriveCallDirections.py": "69ad19ad0732161c9add3f1b17e9e3b884092d35975705847414e17cb4b7b14c",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/40_after_AutoDeriveTaskDependencies.py": "69ad19ad0732161c9add3f1b17e9e3b884092d35975705847414e17cb4b7b14c",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/41_after_ExpandManualPhaseFence.py": "69ad19ad0732161c9add3f1b17e9e3b884092d35975705847414e17cb4b7b14c",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/42_after_SynthesizeAllReduceSignals.py": "69ad19ad0732161c9add3f1b17e9e3b884092d35975705847414e17cb4b7b14c",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/43_after_MaterializeCommDomainScopes.py": "e040d609ec0878647be57ffbb749df37faa124396065f01a18a619a88dd1ca3a",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/44_after_LowerHostTensorCollectives.py": "e040d609ec0878647be57ffbb749df37faa124396065f01a18a619a88dd1ca3a",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/45_after_MaterializeDistTensorCtx.py": "c89ffeddd9eaf78b2e5fcd51df0246b748b19e77aa4179d5c6a6dc47137dec92",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/46_after_Simplify.py": "f2a6cb2f9891c2b7882abc7efa38f824a2dddd5ba7dbaabc06ffdd809dcb8a54",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/47_after_LegalizeGraphBoundary.py": "f2a6cb2f9891c2b7882abc7efa38f824a2dddd5ba7dbaabc06ffdd809dcb8a54",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/48_after_MaterializeRuntimeScopes.py": "3f180124321ef0128579e399a3a254c107d975ada81d30c4adb74e3905c2aa51",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/49_after_ClassifyIterArgCarry.py": "81df4973ec6940956cbe073ae6cd5b1595a0bd313834092285952a6d67a73109",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/50_after_InsertCommFence.py": "9f91aba3cc6c0d0af0793c90100036aa471fb5ef1a317c4f2c9d185383497d01",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/51_after_MaterializeValidShapeSymbols.py": "9f91aba3cc6c0d0af0793c90100036aa471fb5ef1a317c4f2c9d185383497d01",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto": "3fc77d76b909c0d3887943c1d763011d74952c6cf370ced92ea283ddfabb0bac",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp": "2192f063793ae7738f942f73720ef3519bf8eef2dd563e00e138e490da261394",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank0/d0/chip_swimlane_records.json": "54b496bc8539aac30cff94c556b735cafeb9aa1b75650c665c193a7cfe08909d",
+      "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank1/d0/chip_swimlane_records.json": "21a0cc472ae06810451b1d4cd604f2537445633da2f1c29ce205f80c71674d6b"
+    },
+    "generatorSha256": "1d218acca7eb06f53e8977ca424ccd7e4bb80486b9f86326a85e46beace74655"
+  },
+  "deployment": {
+    "view": "shared-compile-structure",
+    "ranks": [
+      {
+        "rankId": "rank0",
+        "dispatchId": "d0",
+        "cores": {
+          "aic": 24,
+          "aiv": 48
+        },
+        "recordCount": 4038,
+        "sourceRefs": [
+          {
+            "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank0/d0/chip_swimlane_records.json",
+            "evidence": "observed"
+          }
+        ]
+      },
+      {
+        "rankId": "rank1",
+        "dispatchId": "d0",
+        "cores": {
+          "aic": 24,
+          "aiv": 48
+        },
+        "recordCount": 4038,
+        "sourceRefs": [
+          {
+            "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank1/d0/chip_swimlane_records.json",
+            "evidence": "observed"
+          }
+        ]
+      }
+    ]
+  },
+  "sourceRoots": {
+    "passDumps": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump",
+    "pto": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+    "cpp": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.cpp"
+  },
+  "passCount": 51,
+  "artifacts": {
+    "graph": "graph.json",
+    "passes": "passes.json",
+    "isa": "isa.json",
+    "views": "views.json",
+    "objectLinks": "object-links.json"
+  },
+  "evidenceSummary": {
+    "sourceChangedForQkPvFamily": 17,
+    "changedForProgram": 33,
+    "noOpForProgram": 18,
+    "isaStaticOccurrences": 57
+  }
+}

@@ -31,6 +31,9 @@ body {
     display: none !important;
   }
 
+  /* 双栏布局下没有右侧面板可展开，「可视化」按钮跟着一起收掉 */
+  .kf-source-region__visualize { display: none !important; }
+
   #ideMainSplit > [data-ide-pane="explorer"] {
     flex: 0 0 clamp(220px, 27vw, 286px) !important;
     min-width: 0 !important;

@@ -1,0 +1,5 @@
+$ /data/m00956180/runtime/pypto-lib-hw-native-sys/.venv311/bin/python /data/m00956180/runtime/pypto-lib-hw-native-sys/.claude/skills/incore-profiling/gen_profiling_case.py --input /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/ptoas/attn_swpipe.cpp --testcase attn_swpipe_msprof --output-root /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701/cases --run-mode sim --soc-version Ascend910B1 --aicore-arch dav-c220 --dynamic-dim 256
+[gen_profiling_case] %arg23, %arg24, %arg25, %arg26 use --dynamic-dim=256; generated main.cpp rejects larger direct scalar values
+[gen_profiling_case] wrote testcase -> /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit_paged_attention_pypto_dynamic_20261016_024040_yhb_got8/kernel_insight_all_funcs_20261016_024701/cases/ptoas/attn_swpipe_msprof
+
+[exit 0]

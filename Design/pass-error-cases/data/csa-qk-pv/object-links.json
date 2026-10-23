@@ -1,0 +1,382 @@
+{
+  "schemaVersion": "csa-pass-field.object-links.v1",
+  "runId": "_jit_l3_decode_csa_20260903_010617",
+  "taskKey": [
+    "runId",
+    "rankId",
+    "dispatchId",
+    "taskId"
+  ],
+  "kernelInstanceKey": [
+    "runId",
+    "rankId",
+    "dispatchId",
+    "taskId",
+    "funcId"
+  ],
+  "blockKey": [
+    "runId",
+    "rankId",
+    "dispatchId",
+    "taskId",
+    "funcId",
+    "coreId",
+    "recordId"
+  ],
+  "taskIdEncoding": "string",
+  "links": [
+    {
+      "staticObjectId": "scope.qk-pv",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "value.q",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "value.kv",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "op.qk",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "value.scores",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "op.rowmax",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "value.max",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "op.exp",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "value.prob",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "op.rowsum",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "value.sum",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "op.pv",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "value.out",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "kernel.aic",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/23_after_ExpandMixedKernel.py",
+          "line": 1714,
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "kernel.aiv",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/23_after_ExpandMixedKernel.py",
+          "line": 1851,
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "handoff.c2v-push",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "handoff.c2v-pop",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "handoff.v2c-push",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "handoff.v2c-pop",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "memory.qk-pv",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "memory.pipe",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "task.plan",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1464,
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "task.qk-pv",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+          "line": 1510,
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "isa.load",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "isa.matmul",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "isa.c2v",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "isa.softmax",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "isa.v2c",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "isa.store",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": [
+        {
+          "file": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/qk_pv.pto",
+          "evidence": "observed"
+        }
+      ]
+    },
+    {
+      "staticObjectId": "control.qk",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "region.iter",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "region.guard",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "region.runs",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "gather.0",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "gather.1",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "gather.2",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "gather.3",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "gather.4",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "region.aic.iter",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "region.aic.guard",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "region.aiv.iter",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    },
+    {
+      "staticObjectId": "region.aiv.guard",
+      "status": "unresolved",
+      "runtimeIds": [],
+      "reason": "尚未接入 dispatch 名称表与任务记录的精确身份关联；当前仅展示编译结构",
+      "sourceRefs": []
+    }
+  ]
+}

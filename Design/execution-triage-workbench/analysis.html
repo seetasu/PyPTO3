@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="昇腾模型 / 算子一次上板执行的性能定界工作台：Serving · Host · Device" />
+  <title>Execution Triage · Analysis</title>
+  <link rel="icon" type="image/svg+xml" href="../../pto-studio-logo.svg" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css" />
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./index.html" title="返回定界首页">
+      <img src="../../pto-studio-logo.svg" alt="" width="22" height="22" />
+      <strong>Execution Triage</strong>
+      <span class="crumb">详细分析</span>
+    </a>
+    <div class="top-actions">
+      <span class="run-meta" id="runMeta"></span>
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="切换浅色 / 深色主题" title="切换主题">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" /></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="page">
+    <!-- 1. 定界：结论 + 三段条 + 三层卡片 -->
+    <section class="triage" aria-labelledby="verdictTitle">
+      <div class="verdict">
+        <div class="eyebrow">定界结论</div>
+        <h1 id="verdictTitle"></h1>
+        <p class="verdict-text" id="verdictText"></p>
+        <div class="verdict-foot" id="verdictFoot"></div>
+      </div>
+
+      <div class="bound">
+        <div class="bound-head">
+          <span id="boundTitle"></span>
+          <span class="muted" id="boundNote"></span>
+        </div>
+        <div class="bound-bar" id="boundBar" role="group" aria-label="关键路径按层拆分"></div>
+        <div class="bound-sub" id="boundSub"></div>
+      </div>
+
+      <div class="layers" id="layerTiles" role="tablist" aria-label="按层查看"></div>
+    </section>
+
+    <!-- 2. 节奏 / 关键路径 / 层详情 -->
+    <section class="work">
+      <article class="panel rhythm">
+        <header class="panel-head">
+          <div>
+            <h2 id="rhythmTitle"></h2>
+            <p class="panel-sub" id="rhythmSub"></p>
+          </div>
+          <div class="legend" id="rhythmLegend"></div>
+        </header>
+        <div class="chart" id="rhythmChart"></div>
+      </article>
+
+      <aside class="panel detail" id="detail" aria-live="polite"></aside>
+
+      <article class="panel waterfall">
+        <header class="panel-head">
+          <div>
+            <h2 id="wfTitle"></h2>
+            <p class="panel-sub" id="wfSub"></p>
+          </div>
+          <div class="legend" id="wfLegend"></div>
+        </header>
+        <div class="chart" id="wfChart"></div>
+      </article>
+    </section>
+
+    <footer class="sources" id="sources"></footer>
+  </main>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <script src="./data.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

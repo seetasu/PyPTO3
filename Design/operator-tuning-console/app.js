@@ -39,6 +39,9 @@
    * because the two dumps do not carry the same artifacts: one has host
    * STRACE spans and two ranks, the other has neither. */
   let D = RUNS[initialCase];
+  /* the TUNING_RUNS key: the mock case clones decode_csa and keeps a
+   * different D.case.id, so this, not D.case.id, keys re-run fixtures */
+  let caseKey = initialCase;
   let CYC_PER_US = D.case.clockHz ? D.case.clockHz / 1e6 : null;
   let TRACE_MATCH = {};
   let findingById = {};
@@ -79,6 +82,7 @@
     dockMode: 'sched',
     termTab: 'problems',
     ledger: [],
+    compareExp: null,         /* ledger row id the 修改对比 view is showing */
     tile: null,
     e2ePanel: 'triage',       /* triage | serving | device | samples
                                * qwen3: step | ops | api | topo */
@@ -87,6 +91,8 @@
     l1Panel: 'pipe',          /* pipe | pmu */
     guidedPass: 'MemoryReuse',
     guidedDepth: 2,
+    contextPanel: 'queue',
+    rankListOpen: false,
   };
 
   const R = () => D.ranks[S.rank];
@@ -156,6 +162,10 @@
 
   function loadCase(id) {
     D = RUNS[id];
+    caseKey = id;
+    S.compareExp = null;
+    S.contextPanel = 'queue';
+    S.rankListOpen = false;
     CYC_PER_US = D.case.clockHz ? D.case.clockHz / 1e6 : null;
     /* the tab title names the case, so it has to follow the switch */
     document.title = 'Tuning Console · ' + id;
@@ -1294,8 +1304,17 @@
     const projection = e2eProjection();
     if (S.e2ePanel === 'triage') {
       renderE2ETriage(stage);
-      renderE2ECriticalPaths(stage);
-      if (multiRank()) renderE2ECrossRankScheduler(stage);
+      if (multiRank()) {
+        const more = el('details', 'tc-e2e-more');
+        more.appendChild(el('summary', null, '跨卡详情'));
+        const body = el('div', 'tc-e2e-more-body');
+        renderE2ECriticalPaths(body);
+        renderE2ECrossRankScheduler(body);
+        if (body.childNodes.length) {
+          more.appendChild(body);
+          stage.appendChild(more);
+        }
+      }
       return;
     }
     if (S.e2ePanel === 'serving') {
@@ -4011,18 +4030,54 @@
     host.textContent = '';
     const title = $('[data-bind="inspectorTitle"]');
     const meta = $('[data-bind="inspectorMeta"]');
-
     const focus = S.focus || defaultFocus();
     const crumb = scopeCrumb();
     if (crumb) host.appendChild(crumb);
-    if (focus === 'scope') renderScopeInspector(host, title, meta);
+    if (S.view === 'compare') renderCompareInspector(host, title, meta);
+    else if (!S.focus || focus === 'run') renderRunObjectInspector(host, title, meta);
+    else if (focus === 'scope') renderScopeInspector(host, title, meta);
     else if (focus === 'finding' && S.finding) renderFindingInspector(host, title, meta);
     else if (focus === 'hint' && S.hintSite) renderHintInspector(host, title, meta);
     else if (focus === 'pass') renderPassInspector(host, title, meta);
-    else if (focus === 'run') renderRunInspector(host, title, meta);
-    else renderTaskInspector(host, title, meta);
+    else if (focus === 'task') renderTaskInspector(host, title, meta);
+    else renderRunObjectInspector(host, title, meta);
 
-    host.appendChild(renderLedger());
+    /* Keep the ledger out of the default run summary. Once the user drills
+     * into an object, its established experiment workflow remains available. */
+    if (S.focus && S.focus !== 'run') host.appendChild(renderLedger());
+  }
+
+  function renderRunObjectInspector(host, title, meta) {
+    title.textContent = '运行对象';
+    meta.textContent = D.case.toolchain.platform || D.case.backend || 'run';
+    const benchmark = isServingBenchmark();
+    const info = inspectorSection('采集信息', D.case.runDir || D.case.program);
+    const pairs = [
+      ['程序', D.case.program],
+      ['模型', D.case.model],
+      ['运行目录', D.case.runDir || '请求级 benchmark'],
+      ['采集时间', D.case.capturedAt || null],
+      ['平台 / 后端', [D.case.toolchain.platform, D.case.backend].filter(Boolean).join(' / ') || null],
+    ];
+    if (benchmark) {
+      pairs.push(
+        ['执行单元', D.benchmark.requests + ' 请求 · 并发 ' + D.benchmark.concurrency],
+        ['输入 / 输出', D.benchmark.inputTokens + ' / ' + D.benchmark.outputTokens + ' tokens'],
+        ['完成情况', D.benchmark.completed + ' / ' + D.benchmark.requests],
+        ['数据来源', D.benchmark.trace.raw || 'benchmark'],
+      );
+    } else {
+      pairs.push(
+        ['执行单元', D.case.ranks.length + ' rank · 当前 ' + S.rank],
+        ['设备规格', D.case.numCores + ' 核（AIC ' + D.case.aicCount + ' / AIV ' + D.case.aivCount + '）'],
+        ['kernel / scope', D.case.callables + ' / ' + scopeCountOf()],
+        ['绑定参数', D.case.params.length ? String(D.case.params.length) : '未记录'],
+        ['PTO ISA', D.case.toolchain.ptoIsaRevision ? D.case.toolchain.ptoIsaRevision.slice(0, 12) : '—'],
+        ['Runtime', D.case.toolchain.runtimeName || '—'],
+      );
+    }
+    info.appendChild(kv(pairs));
+    host.appendChild(info);
   }
 
   /* the inspector follows the view unless the user pinned something else.
@@ -5203,6 +5258,8 @@
   }
 
   /* ------------------------------------------------------- experiment */
+  const CHANGE_PLACEHOLDER = '（未填写改动位置）';
+
   function renderComposer(f) {
     const open = openExperiment();
     const s = inspectorSection('实验台账', open ? '已有 1 个进行中' : '每轮只验证一个假设');
@@ -5225,7 +5282,9 @@
     hyp.value = f.lever;
     const chg = el('input');
     chg.type = 'text';
-    chg.placeholder = '例如：hc_post.py:51 把 co-live tile 从 5 组降到 2 组';
+    const fx = rerunOf(f.id);
+    chg.placeholder = fx ? '留空则用复测样本的改动：' + fx.summary
+      : '例如：hc_post.py:51 把 co-live tile 从 5 组降到 2 组';
     const l1 = el('label');
     l1.appendChild(el('span', null, '假设'));
     l1.appendChild(hyp);
@@ -5245,7 +5304,7 @@
           findingId: f.id,
           title: f.id + ' · ' + f.title,
           hypothesis: hyp.value.trim() || f.lever,
-          change: chg.value.trim() || '（未填写改动位置）',
+          change: chg.value.trim() || CHANGE_PLACEHOLDER,
           correctness: null, perf: null, keep: null,
           verify: f.verify, guardrail: f.guardrail,
         });
@@ -5257,7 +5316,12 @@
     return s;
   }
 
+  /* With a re-run sample the order gains one fixed step: the re-run has to be
+   * attached before correctness, because both the correctness reading and the
+   * 性能 line are read off the comparison instead of typed from memory. */
   function renderStepper(row) {
+    const fx = rerunOf(row.findingId);
+    const cmp = row.rerun ? buildComparison(row) : null;
     const wrap = el('div', 'tc-form');
     const steps = el('div', 'tc-ledger-steps');
     const step = (k, v, done) => {
@@ -5269,16 +5333,28 @@
     };
     steps.appendChild(step('假设', row.hypothesis, true));
     steps.appendChild(step('改动', row.change, true));
+    if (fx) {
+      steps.appendChild(step('复测', cmp ? fx.candidate.runDir + ' · ' + fx.candidate.repeats + ' 次 · 模拟' : '待导入',
+        !!cmp));
+    }
     steps.appendChild(step('正确性', row.correctness || '待记录', !!row.correctness));
     steps.appendChild(step('性能', row.perf || row.verify, !!row.perf));
     steps.appendChild(step('结论', row.keep || '待决定', !!row.keep));
     wrap.appendChild(steps);
 
     const acts = el('div', 'tc-actions');
-    if (!row.correctness) {
+    if (fx && !cmp) {
+      wrap.appendChild(el('div', 'inspector-soft-card is-info',
+        '复测样本 · ' + fx.summary + '（模拟复测，' + fx.candidate.repeats + ' 次）'));
+      acts.appendChild(btn('导入复测 run', {
+        size: 'sm', variant: 'solid',
+        on: () => importRerun(row),
+      }));
+    } else if (!row.correctness) {
       const inp = el('input');
       inp.type = 'text';
       inp.placeholder = '精度阈值 / 对比基准';
+      if (cmp) inp.value = correctnessSummary(cmp.fx);
       const lb = el('label');
       lb.appendChild(el('span', null, '正确性'));
       lb.appendChild(inp);
@@ -5291,6 +5367,7 @@
       const inp = el('input');
       inp.type = 'text';
       inp.placeholder = '复测结果，例如 device_wall 5132.8 → ? us';
+      if (cmp) inp.value = perfSummary(cmp);
       const lb = el('label');
       lb.appendChild(el('span', null, '性能'));
       lb.appendChild(inp);
@@ -5303,8 +5380,25 @@
       const guard = el('div', 'inspector-soft-card is-warning');
       guard.textContent = row.guardrail;
       wrap.appendChild(guard);
-      acts.appendChild(btn('保留', { size: 'sm', variant: 'solid', on: () => { row.keep = '保留'; row.state = 'kept'; render(); } }));
-      acts.appendChild(btn('回退', { size: 'sm', on: () => { row.keep = '回退'; row.state = 'reverted'; render(); } }));
+      /* a broken guardrail or an incomparable re-run cannot be kept: that is
+       * the whole point of having written the guardrail down first */
+      const blocked = cmp && (cmp.rec.id === 'revert' || cmp.rec.id === 'incomparable');
+      if (cmp) {
+        wrap.appendChild(el('div', 'inspector-soft-card ' + (cmp.rec.tone === 'good' ? 'is-info' : 'is-warning'),
+          '对比：' + cmp.rec.label + ' · ' + cmp.rec.why));
+      }
+      acts.appendChild(btn(cmp && cmp.rec.id === 'incomparable' ? '保留（需先重采）' : '保留', {
+        size: 'sm', variant: blocked ? null : 'solid', disabled: blocked,
+        title: blocked ? cmp.rec.label + '：' + cmp.rec.why : null,
+        on: () => { row.keep = '保留'; row.state = 'kept'; render(); },
+      }));
+      acts.appendChild(btn('回退', {
+        size: 'sm', variant: blocked ? 'solid' : null,
+        on: () => { row.keep = '回退'; row.state = 'reverted'; render(); },
+      }));
+    }
+    if (cmp && S.view !== 'compare') {
+      acts.appendChild(btn('查看对比', { size: 'sm', variant: 'ghost', on: () => openCompare(row) }));
     }
     acts.appendChild(btn('放弃这轮', {
       size: 'sm', variant: 'ghost',
@@ -5326,8 +5420,10 @@
       item.appendChild(hd);
       item.appendChild(el('span', 'ti', row.title));
       const steps = el('div', 'tc-ledger-steps');
-      [['假设', row.hypothesis], ['改动', row.change], ['正确性', row.correctness],
-        ['性能', row.perf], ['结论', row.keep]].forEach((p) => {
+      [['假设', row.hypothesis], ['改动', row.change]]
+        .concat(row.rerun && EXPERIMENTS[row.rerun]
+          ? [['复测', EXPERIMENTS[row.rerun].candidate.runDir + ' · 模拟']] : [])
+        .concat([['正确性', row.correctness], ['性能', row.perf], ['结论', row.keep]]).forEach((p) => {
         const r = el('div', 'tc-ledger-step');
         r.dataset.done = p[1] ? 'true' : 'false';
         r.appendChild(el('span', 'k', p[0]));
@@ -5335,16 +5431,622 @@
         steps.appendChild(r);
       });
       item.appendChild(steps);
-      if (row.findingId) {
-        item.appendChild(btn('回到 ' + row.findingId, {
+      const links = el('div', 'tc-actions');
+      if (row.rerun) {
+        links.appendChild(btn('查看对比', {
           variant: 'ghost', size: 'sm',
-          on: () => { S.finding = row.findingId; S.focus = 'finding'; applyFocus(findingById[row.findingId]); render(); },
+          on: () => { openCompare(row); },
         }));
       }
+      if (row.findingId) {
+        links.appendChild(btn('回到 ' + row.findingId, {
+          variant: 'ghost', size: 'sm',
+          on: () => { backToFinding(row); render(); },
+        }));
+      }
+      if (links.childNodes.length) item.appendChild(links);
       list.appendChild(item);
     });
     s.appendChild(list);
     return s;
+  }
+
+  /* ======================================================= 修改对比
+   * The ledger's 性能 step used to be one free-text box: the reader typed
+   * "5132.8 → ? us" and nothing on screen said whether that moved past noise,
+   * what the edit actually was, or what it cost the tasks the finding's 护栏
+   * names. This view puts the baseline (this run, real) next to the
+   * experiment's re-run and answers the three questions keep / revert needs:
+   * what changed, what moved beyond noise, did the guardrails hold.
+   *
+   * No dump carries a post-change capture, so every candidate number comes
+   * from experiment-compare-data.js and is labelled 模拟复测 wherever it shows.
+   * Baseline numbers are always resolved from the loaded run. */
+  const EXPERIMENTS = window.TUNING_EXPERIMENTS || {};
+  const rerunOf = (findingId) => (findingId ? EXPERIMENTS[caseKey + ':' + findingId] || null : null);
+  const comparedRows = () => S.ledger.filter((r) => r.rerun && EXPERIMENTS[r.rerun]);
+  const CMP_LAYERS = ['e2e', 'l2', 'l1', 'compiler'];
+  const CMP_ROLE = {
+    target: { label: '目标', hint: '假设说应该变好的量' },
+    guard: { label: '护栏', hint: '瓶颈条目的护栏：不能被打破的量' },
+    observe: { label: '观察', hint: '上下文读数，不参与判定' },
+  };
+  const CMP_VERDICT = {
+    better: { label: '改善', tone: 'ok' },
+    flat: { label: '持平', tone: null },
+    worse: { label: '变差', tone: 'bad' },
+    held: { label: '守住', tone: 'ok' },
+    broken: { label: '越界', tone: 'bad' },
+    na: { label: '无基线', tone: 'warn' },
+  };
+
+  function e2eUs(rank, key) {
+    if (!D.e2e || !D.e2e[rank] || !TRACE_MATCH[rank]) return null;
+    const row = D.e2e[rank][TRACE_MATCH[rank].inv][key];
+    return row ? row.us : null;
+  }
+
+  /* every baseline number is read off the loaded run; a fixture may only
+   * supply one for a reading this dump never had (and it is then flagged) */
+  function compareBase(m, rank) {
+    if (m.base != null) return { v: m.base, simulated: true };
+    const ref = m.ref || '';
+    let v = null;
+    let mm;
+    if ((mm = /^task:([^.]+)\.(\w+)$/.exec(ref))) {
+      const t = tasksOf[rank] && tasksOf[rank][mm[1]];
+      v = t ? t[mm[2]] : null;
+    } else if ((mm = /^(span|makespan|aicUtil|aivUtil):(.+)$/.exec(ref))) {
+      const r = D.ranks[mm[2]];
+      if (r) {
+        v = mm[1] === 'span' ? r.swimlane.spanUs
+          : mm[1] === 'makespan' ? r.cpath.makespan : r.occupancy[mm[1]];
+      }
+    } else if ((mm = /^wall:(.+)$/.exec(ref))) {
+      v = e2eUs(mm[1], 'chip.run.runner_run.device_wall');
+    } else if ((mm = /^e2e:([^:]+):(.+)$/.exec(ref))) {
+      v = e2eUs(mm[1], mm[2]);
+    } else if (ref === 'skew') {
+      v = D.launchSkew ? D.launchSkew.runnerUs : null;
+    } else if ((mm = /^waitSum:(.+)$/.exec(ref))) {
+      v = D.launchSkew && D.launchSkew.waitSum ? D.launchSkew.waitSum[mm[1]] : null;
+    } else if ((mm = /^hint:(.+)\.(\w+)$/.exec(ref))) {
+      const site = D.depthSites.find((x) => x.key === mm[1]);
+      v = site ? site[mm[2]] : null;
+    }
+    return { v: v == null ? null : v, simulated: false };
+  }
+
+  /* A delta inside 2σ of the candidate's own run-to-run spread is 持平, not a
+   * win. A guard fails on its absolute bound, or on a regression past its
+   * tolerance that is also outside noise. */
+  function judgeMetric(m, rank) {
+    const b = compareBase(m, rank);
+    const out = Object.assign({}, m, { baseV: b.v, baseSimulated: b.simulated });
+    if (b.v == null) { out.verdict = 'na'; return out; }
+    out.delta = m.cand - b.v;
+    out.rel = b.v ? out.delta / Math.abs(b.v) : null;
+    out.sig = m.sigma ? Math.abs(out.delta) > 2 * m.sigma : Math.abs(out.delta) > 1e-9;
+    out.good = m.better === 'higher' ? out.delta > 0 : out.delta < 0;
+    if (m.role === 'guard') {
+      const lim = m.limit || {};
+      let ok = true;
+      if (lim.min != null && m.cand < lim.min) ok = false;
+      if (lim.max != null && m.cand > lim.max) ok = false;
+      if (lim.tol != null && out.sig && !out.good && out.rel != null && Math.abs(out.rel) > lim.tol) ok = false;
+      out.verdict = ok ? 'held' : 'broken';
+    } else {
+      out.verdict = !out.sig ? 'flat' : (out.good ? 'better' : 'worse');
+    }
+    return out;
+  }
+
+  function limitText(m) {
+    const lim = m.limit || {};
+    if (lim.min != null) return '候选须 ≥ ' + (lim.min === 0 ? '0' : fmtCmp(lim.min, m.unit));
+    if (lim.max != null) return '候选须 ≤ ' + (lim.max === 0 ? '0' : fmtCmp(lim.max, m.unit));
+    if (lim.tol != null) return '回退不超过 ' + num(lim.tol * 100, 0) + '%（超出 2σ 才算）';
+    return '';
+  }
+
+  function fmtCmp(v, unit) {
+    if (v == null) return '—';
+    if (unit === '%') return num(v, 1) + '%';
+    /* block-level times are a few us; one decimal would hide the change */
+    if (unit === 'us') return num(v, Math.abs(v) < 20 ? 2 : 1) + ' us';
+    if (unit === '级') return String(v) + ' 级';
+    return Math.abs(v) < 1 ? num(v, 3) : num(v, 2);
+  }
+
+  /* every swimlane capture in these dumps ran with PMU off; the qwen3 torch
+   * side is PMU-on, but it is not what a re-run's swimlane is compared to */
+  function comparability(fx) {
+    const c = fx.candidate;
+    const tc = c.toolchain || D.case.toolchain;
+    const same = tc.platform === D.case.toolchain.platform
+      && tc.ptoIsaRevision === D.case.toolchain.ptoIsaRevision
+      && tc.runtimeRevision === D.case.toolchain.runtimeRevision;
+    return [
+      { k: '程序 / shape', state: 'ok',
+        v: D.case.params.length ? D.case.params.length + ' 个绑定参数一致' : '同一入口与 shape' },
+      { k: '平台 / 工具链', state: same ? 'ok' : 'block',
+        v: tc.platform + ' · pto-isa ' + String(tc.ptoIsaRevision).slice(0, 8) },
+      { k: '卡数', state: 'ok', v: D.case.ranks.length + ' rank' },
+      { k: 'PMU', state: c.pmu ? 'block' : 'ok',
+        v: 'off → ' + (c.pmu ? 'on · 墙钟不可比' : 'off') },
+      { k: '泳道级别', state: c.swimlaneLevel === D.case.swimlaneLevel ? 'ok' : 'block',
+        v: 'level ' + D.case.swimlaneLevel + ' → ' + c.swimlaneLevel },
+      { k: '重复次数', state: c.repeats >= 5 ? 'warn' : 'block',
+        v: '基线 1 · 候选 ' + c.repeats + (c.repeats >= 5 ? ' · 噪声按候选 σ 估' : ' · 少于 5 次') },
+    ];
+  }
+
+  function buildComparison(row) {
+    const fx = EXPERIMENTS[row.rerun];
+    if (!fx) return null;
+    const metrics = fx.metrics.map((m) => judgeMetric(m, fx.rank));
+    const checks = comparability(fx);
+    const blockers = checks.filter((c) => c.state === 'block');
+    const targets = metrics.filter((m) => m.role === 'target');
+    const guards = metrics.filter((m) => m.role === 'guard');
+    const broken = guards.filter((m) => m.verdict === 'broken');
+    const better = targets.filter((m) => m.verdict === 'better');
+    const worse = targets.filter((m) => m.verdict === 'worse');
+    let rec;
+    if (blockers.length) {
+      rec = { id: 'incomparable', label: '不可比', tone: 'bad',
+        why: blockers.map((c) => c.k + ' ' + c.v).join('；') + '。先按基线条件重采，再做决定。' };
+    } else if (!fx.correctness.pass) {
+      rec = { id: 'revert', label: '建议回退', tone: 'bad', why: '正确性未通过：' + fx.correctness.value };
+    } else if (broken.length) {
+      rec = { id: 'revert', label: '建议回退', tone: 'bad',
+        why: broken.map((m) => m.label + ' ' + fmtCmp(m.cand, m.unit) + '，' + limitText(m)).join('；') };
+    } else if (better.length && !worse.length) {
+      rec = { id: 'keep', label: '建议保留', tone: 'good',
+        why: better.length + ' / ' + targets.length + ' 个目标超出 2σ 改善，护栏 ' + guards.length + ' / ' + guards.length + ' 守住' };
+    } else {
+      rec = { id: 'inconclusive', label: '证据不足', tone: 'warn',
+        why: worse.length ? worse.map((m) => m.label).join('、') + ' 变差' : '目标指标的变化都在 2σ 噪声内' };
+    }
+    return { fx, metrics, checks, blockers, targets, guards, broken, better, worse, rec };
+  }
+
+  function perfSummary(cmp) {
+    const parts = cmp.targets.map((m) => m.label + ' ' + fmtCmp(m.baseV, m.unit) + ' → ' + fmtCmp(m.cand, m.unit)
+      + (m.rel != null ? '（' + (m.rel > 0 ? '+' : '') + num(m.rel * 100, 1) + '%）' : ''));
+    const held = cmp.guards.filter((m) => m.verdict === 'held').length;
+    parts.push('护栏 ' + held + ' / ' + cmp.guards.length + ' 守住');
+    parts.push('模拟复测 n=' + cmp.fx.candidate.repeats);
+    if (cmp.blockers.length) parts.unshift('不可比（' + cmp.blockers.map((c) => c.k).join('、') + '）');
+    return parts.join(' · ');
+  }
+
+  function correctnessSummary(fx) {
+    const c = fx.correctness;
+    return c.check + ' · ' + c.value + ' · 阈值 ' + c.limit + (c.pass ? ' · 通过' : ' · 未通过');
+  }
+
+  function openCompare(row) {
+    S.compareExp = row.id;
+    S.view = 'compare';
+    S.focus = null;
+    render();
+  }
+
+  /* the guided case walks its chain one rung at a time; returning to it from
+   * the comparison lands on the rung the experiment came from, not rung one */
+  function backToFinding(row) {
+    const f = findingById[row.findingId];
+    if (!f) return;
+    S.finding = f.id;
+    S.focus = 'finding';
+    if (D.case.guidedJourney && f.chain && f.chain.length) applyStep(f, f.chain[f.chain.length - 1]);
+    else applyFocus(f);
+  }
+
+  function importRerun(row) {
+    const fx = rerunOf(row.findingId);
+    if (!fx) return;
+    row.rerun = caseKey + ':' + row.findingId;
+    if (row.change === CHANGE_PLACEHOLDER) {
+      row.change = fx.summary + '（' + fx.code.map((c) => c.file).join('、') + '）';
+    }
+    openCompare(row);
+  }
+
+  function cmpBadge(text, tone) {
+    const b = el('span', 'tc-cmp-badge', text);
+    if (tone) b.dataset.tone = tone;
+    return b;
+  }
+
+  function viewCompare(stage) {
+    const rows = comparedRows();
+    const row = rows.find((r) => r.id === S.compareExp) || rows[rows.length - 1] || null;
+    if (!row) { compareEmpty(stage); return; }
+    S.compareExp = row.id;
+    const cmp = buildComparison(row);
+    const fx = cmp.fx;
+
+    /* ---- which two runs, and may they be compared at all */
+    const head = el('section');
+    const back = btn('回到 ' + row.findingId, { size: 'sm', on: () => { backToFinding(row); render(); } });
+    head.appendChild(sectionHead('修改对比', row.id + ' · ' + row.title, back));
+    const pair = el('div', 'tc-cmp-pair');
+    const runCard = (side, label, tag, tagTone, pairs) => {
+      const c = el('div', 'tc-cmp-run');
+      c.dataset.side = side;
+      const h = el('div', 'hd');
+      h.appendChild(el('span', 'nm', label));
+      h.appendChild(cmpBadge(tag, tagTone));
+      c.appendChild(h);
+      c.appendChild(kv(pairs));
+      return c;
+    };
+    pair.appendChild(runCard('base', '基线 B0', '实测', null, [
+      ['run', D.case.runDir],
+      ['采集', D.case.capturedAt],
+      ['次数', '1 次 trace'],
+      ['PMU / 泳道', 'off · level ' + D.case.swimlaneLevel],
+    ]));
+    pair.appendChild(el('span', 'tc-cmp-arrow', '→'));
+    pair.appendChild(runCard('cand', '候选 ' + row.id, '模拟复测', 'warn', [
+      ['run', fx.candidate.runDir],
+      ['采集', fx.candidate.capturedAt],
+      ['次数', fx.candidate.repeats + ' 次，取均值'],
+      ['PMU / 泳道', (fx.candidate.pmu ? 'on' : 'off') + ' · level ' + fx.candidate.swimlaneLevel],
+    ]));
+    head.appendChild(pair);
+    const checks = el('div', 'tc-cmp-checks');
+    cmp.checks.forEach((c) => {
+      const chip = el('span', 'tc-cmp-check');
+      chip.dataset.state = c.state;
+      chip.appendChild(el('i', null, c.state === 'ok' ? '✓' : c.state === 'warn' ? '!' : '✕'));
+      chip.appendChild(el('span', 'k', c.k));
+      chip.appendChild(el('span', 'v', c.v));
+      checks.appendChild(chip);
+    });
+    head.appendChild(checks);
+    stage.appendChild(head);
+
+    /* ---- the answer first */
+    const verdict = el('section');
+    const held = cmp.guards.filter((m) => m.verdict === 'held').length;
+    /* an incomparable pair still shows its deltas, but nothing on screen may
+     * colour them as a result */
+    const ref = cmp.blockers.length ? '不可比 · 仅供参考' : null;
+    verdict.appendChild(tiles([
+      { k: '结论', v: cmp.rec.label, tone: cmp.rec.tone },
+      { k: '目标 · 超出噪声改善', v: cmp.better.length + ' / ' + cmp.targets.length, u: ref,
+        tone: ref ? null : cmp.worse.length ? 'bad' : cmp.better.length ? 'good' : 'warn' },
+      { k: '护栏 · 守住', v: held + ' / ' + cmp.guards.length, u: ref,
+        tone: ref ? null : cmp.broken.length ? 'bad' : 'good' },
+      { k: '正确性', v: fx.correctness.pass ? '通过' : '未通过', u: fx.correctness.value,
+        tone: fx.correctness.pass ? 'good' : 'bad' },
+    ]));
+    const why = el('div', 'inspector-soft-card ' + (cmp.rec.tone === 'good' ? 'is-info' : 'is-warning'));
+    why.textContent = cmp.rec.label + '：' + cmp.rec.why;
+    verdict.appendChild(why);
+    stage.appendChild(verdict);
+
+    /* ---- what was changed: source, then what the compiler made of it */
+    const change = el('section');
+    const nAdd = fx.code.reduce((a, f) => a + f.hunks.reduce((b, h) => b + h.lines.filter((l) => l[0] === '+').length, 0), 0);
+    const nDel = fx.code.reduce((a, f) => a + f.hunks.reduce((b, h) => b + h.lines.filter((l) => l[0] === '-').length, 0), 0);
+    change.appendChild(sectionHead('改了什么', fx.summary,
+      el('span', 'tc-readout', fx.code.length + ' 个文件 · +' + nAdd + ' / −' + nDel)));
+    const grid = el('div', 'tc-cmp-change');
+    const codeCol = el('div', 'tc-cmp-code');
+    fx.code.forEach((file) => codeCol.appendChild(diffCard(file)));
+    grid.appendChild(codeCol);
+    grid.appendChild(compileCard(fx));
+    change.appendChild(grid);
+    stage.appendChild(change);
+
+    /* ---- every reading, side by side */
+    const mt = el('section');
+    mt.appendChild(sectionHead('指标对比', ref
+      ? '不可比：' + cmp.blockers.map((c) => c.k).join('、') + ' 与基线不同，以下差值不能用于决定'
+      : '基线 = 本 run 实测 · 候选 = 模拟复测均值 ± σ · 2σ 内记为持平',
+    el('span', 'tc-readout' + (ref ? ' is-crit' : ''), cmp.metrics.length + ' 项 · 点行看基线')));
+    const ordered = cmp.metrics.slice().sort((a, b) => (CMP_LAYERS.indexOf(a.layer) - CMP_LAYERS.indexOf(b.layer))
+      || (Object.keys(CMP_ROLE).indexOf(a.role) - Object.keys(CMP_ROLE).indexOf(b.role)));
+    const maxRel = Math.max(0.05, ...ordered.map((m) => Math.abs(m.rel || 0)));
+    mt.appendChild(table([
+      { label: '层', width: '64px', cell: (m) => esc(LEVEL_LABEL[m.layer] || m.layer) },
+      { label: '指标', cell: (m) => {
+        const s = el('span', 'tc-cmp-metric');
+        s.appendChild(el('span', null, m.label));
+        if (m.task) s.appendChild(el('code', null, m.task));
+        if (m.baseSimulated) s.appendChild(cmpBadge('基线亦为模拟', 'warn'));
+        return s;
+      } },
+      { label: '角色', width: '56px', cell: (m) => {
+        const s = cmpBadge(CMP_ROLE[m.role].label, m.role === 'target' ? 'primary' : m.role === 'guard' ? 'warn' : null);
+        s.title = CMP_ROLE[m.role].hint + (m.role === 'guard' ? NL + limitText(m) : '');
+        return s;
+      } },
+      { label: '基线', num: true, cell: (m) => esc(fmtCmp(m.baseV, m.unit)) },
+      { label: '候选', num: true, cell: (m) => esc(fmtCmp(m.cand, m.unit))
+        + (m.sigma ? ' <span class="tc-cmp-sigma">± ' + esc(fmtCmp(m.sigma, m.unit === '%' ? '%' : m.unit === '级' ? '' : m.unit)) + '</span>' : '') },
+      { label: 'Δ', num: true, width: '200px', cell: (m) => deltaCell(m, maxRel, !!ref) },
+      { label: '判定', width: '64px', cell: (m) => {
+        const v = CMP_VERDICT[m.verdict];
+        const tone = ref ? null : m.role === 'observe' && v.tone === 'bad' ? 'warn' : v.tone;
+        const s = el('span', tone || null, ref ? '仅参考' : v.label);
+        if (m.role === 'guard') s.title = limitText(m);
+        return s;
+      } },
+    ], ordered, {
+      onPick: (m) => {
+        S.view = m.layer;
+        if (m.task && tasksOf[fx.rank] && tasksOf[fx.rank][m.task]) {
+          if (D.ranks[fx.rank] && S.rank !== fx.rank) selectAnalysisRank(fx.rank);
+          S.task = m.task;
+          S.focus = 'task';
+        } else {
+          S.focus = null;
+        }
+        render();
+      },
+    }));
+    stage.appendChild(mt);
+
+    if (fx.window) stage.appendChild(compareWindow(fx));
+  }
+
+  function deltaCell(m, maxRel, muted) {
+    const wrap = el('span', 'tc-cmp-delta');
+    if (m.delta == null) { wrap.textContent = '—'; return wrap; }
+    /* an observe row never decides, so its regressions are amber, not red */
+    const tone = muted ? 'flat'
+      : m.verdict === 'broken' || (m.verdict === 'worse' && m.role !== 'observe') ? 'bad'
+        : m.sig ? (m.good ? 'good' : 'warn') : 'flat';
+    const track = el('span', 'tc-cmp-dbar');
+    const fill = el('i');
+    const w = m.rel == null ? 0 : Math.min(50, Math.abs(m.rel) / maxRel * 50);
+    fill.style.width = w.toFixed(1) + '%';
+    if (m.delta < 0) fill.style.right = '50%'; else fill.style.left = '50%';
+    fill.dataset.tone = tone;
+    track.appendChild(fill);
+    wrap.appendChild(track);
+    const unit = m.unit === '%' ? ' pt' : m.unit === 'us' ? ' us' : m.unit === '级' ? ' 级' : '';
+    const digits = m.unit === '' ? 3 : m.unit === '级' ? 0 : Math.abs(m.delta) < 1 ? 2 : 1;
+    const absTxt = (m.delta > 0 ? '+' : '') + num(m.delta, digits) + unit;
+    const t = el('span', 'tc-cmp-dval', absTxt);
+    t.dataset.tone = tone;
+    wrap.appendChild(t);
+    if (m.rel != null && m.unit !== '%') {
+      wrap.appendChild(el('span', 'tc-cmp-drel', (m.rel > 0 ? '+' : '') + num(m.rel * 100, 1) + '%'));
+    }
+    return wrap;
+  }
+
+  /* unified diff with both line-number gutters, so "decode_csa.py:910" in the
+   * diff is the same line the scope → source mapping points at */
+  function diffCard(file) {
+    const card = el('article', 'tc-cmp-diff');
+    const add = file.hunks.reduce((a, h) => a + h.lines.filter((l) => l[0] === '+').length, 0);
+    const del = file.hunks.reduce((a, h) => a + h.lines.filter((l) => l[0] === '-').length, 0);
+    const h = el('div', 'h');
+    h.appendChild(el('code', null, file.file));
+    h.appendChild(el('span', 'add', '+' + add));
+    h.appendChild(el('span', 'del', '−' + del));
+    card.appendChild(h);
+    const body = el('div', 'bd');
+    file.hunks.forEach((hunk, hi) => {
+      let o = hunk.at[0];
+      let n = hunk.at[1];
+      const oldLen = hunk.lines.filter((l) => l[0] !== '+').length;
+      const newLen = hunk.lines.filter((l) => l[0] !== '-').length;
+      const sep = el('div', 'tc-cmp-hunk', '@@ −' + o + ',' + oldLen + ' +' + n + ',' + newLen + ' @@');
+      if (hi) sep.classList.add('is-gap');
+      body.appendChild(sep);
+      hunk.lines.forEach((line) => {
+        const kind = line[0] === '+' ? 'add' : line[0] === '-' ? 'del' : 'ctx';
+        const r = el('div', 'tc-cmp-line');
+        r.dataset.kind = kind;
+        r.appendChild(el('span', 'ln', kind === 'add' ? '' : String(o)));
+        r.appendChild(el('span', 'ln', kind === 'del' ? '' : String(n)));
+        r.appendChild(el('span', 'sg', kind === 'add' ? '+' : kind === 'del' ? '−' : ''));
+        r.appendChild(el('span', 'tx', line.slice(1)));
+        if (kind !== 'add') o += 1;
+        if (kind !== 'del') n += 1;
+        body.appendChild(r);
+      });
+    });
+    card.appendChild(body);
+    return card;
+  }
+
+  function compileCard(fx) {
+    const c = fx.compile || {};
+    const card = el('article', 'tc-cmp-compile');
+    card.appendChild(el('div', 'h', '编译产物'));
+    const body = el('div', 'bd');
+    if (c.note) body.appendChild(el('p', 'tc-cmp-note', c.note));
+    (c.hints || []).forEach((hint) => {
+      const r = el('div', 'tc-cmp-hint');
+      r.dataset.state = hint.state;
+      const hd = el('div', 'hd');
+      hd.appendChild(el('code', null, hint.code));
+      hd.appendChild(el('span', 'site', hint.site));
+      hd.appendChild(cmpBadge(hint.state === 'resolved' ? '已消除' : hint.state === 'new' ? '新出现' : '仍存在',
+        hint.state === 'resolved' ? 'ok' : 'bad'));
+      r.appendChild(hd);
+      r.appendChild(kv([['基线', hint.base], ['候选', hint.cand]]));
+      body.appendChild(r);
+    });
+    if (c.graph && c.graph.length) {
+      body.appendChild(table([
+        { label: '项', cell: (g) => esc(g[0]) },
+        { label: '基线', num: true, cell: (g) => esc(g[1] == null ? '—' : g[1]) },
+        { label: '候选', num: true, cell: (g) => esc(g[2]) },
+      ], c.graph, {}));
+    }
+    if (!(c.hints || []).length) body.appendChild(el('span', 'tc-readout', 'perf hint：基线 ' + D.hints.length + ' 条 · 候选无增减'));
+    card.appendChild(body);
+    return card;
+  }
+
+  /* The window the finding is about, both runs on one axis. latest-finish is
+   * end + slack from the baseline's CPM: a candidate bar that ends past it has
+   * moved the delay to that task's successors. */
+  function compareWindow(fx) {
+    const w = fx.window;
+    const sec = el('section');
+    sec.appendChild(sectionHead('关键窗口 · 前后对比', w.rank + ' · ' + num(w.t0, 0) + '–' + num(w.t1, 0) + ' us',
+      el('span', 'tc-readout', '上 = 基线 · 下 = 候选')));
+    const box = el('div', 'tc-cmp-gantt');
+    const span = w.t1 - w.t0;
+    const pos = (t) => clamp((t - w.t0) / span * 100, 0, 100);
+    const axis = el('div', 'tc-cmp-axis');
+    axis.appendChild(el('span', 'lbl'));
+    const ticks = el('div', 'ticks');
+    for (let i = 0; i <= 4; i += 1) {
+      const tk = el('span', null, num(w.t0 + span * i / 4, 0));
+      tk.style.left = (i * 25) + '%';
+      ticks.appendChild(tk);
+    }
+    axis.appendChild(ticks);
+    axis.appendChild(el('span', 'rd'));
+    box.appendChild(axis);
+    const tasks = tasksOf[w.rank] || {};
+    Object.keys(w.tasks).forEach((tag) => {
+      const t = tasks[tag];
+      if (!t) return;
+      const c = w.tasks[tag];
+      const lf = t.slack > 0 && !t.onCrit ? t.end + t.slack : null;
+      const late = lf != null && c.end > lf;
+      const row = el('div', 'tc-cmp-grow');
+      const lbl = el('div', 'lbl');
+      lbl.appendChild(el('span', 'nm', t.callable));
+      const sub = el('span', 'sub', tag + (t.onCrit ? ' · 关键路径' : ' · slack ' + num(t.slack, 1)));
+      lbl.appendChild(sub);
+      row.appendChild(lbl);
+      const track = el('div', 'track');
+      const barOf = (cls, s, e, title) => {
+        const b = el('i', cls);
+        b.style.left = pos(s) + '%';
+        b.style.width = Math.max(0.4, pos(e) - pos(s)) + '%';
+        b.title = title;
+        return b;
+      };
+      track.appendChild(barOf('is-base', t.start, t.end, '基线 ' + num(t.start, 1) + '–' + num(t.end, 1) + ' us'));
+      track.appendChild(barOf('is-cand' + (late ? ' is-late' : ''), c.start, c.end,
+        '候选（模拟）' + num(c.start, 1) + '–' + num(c.end, 1) + ' us' + (late ? NL + '越过 latest-finish ' + num(c.end - lf, 1) + ' us' : '')));
+      if (lf != null && lf >= w.t0 && lf <= w.t1) {
+        const mk = el('span', 'lf');
+        mk.style.left = pos(lf) + '%';
+        mk.title = 'latest-finish = 基线 end + slack = ' + num(lf, 1) + ' us';
+        track.appendChild(mk);
+      }
+      row.appendChild(track);
+      const rd = el('div', 'rd');
+      const d = (c.end - c.start) - t.span;
+      rd.appendChild(el('span', null, num(t.span, 1) + ' → ' + num(c.end - c.start, 1)));
+      const dv = el('span', 'tc-cmp-dval', (d > 0 ? '+' : '') + num(d, 1) + ' us');
+      dv.dataset.tone = late ? 'bad' : d < 0 ? 'good' : 'flat';
+      rd.appendChild(dv);
+      row.appendChild(rd);
+      box.appendChild(row);
+    });
+    sec.appendChild(box);
+    const legend = el('div', 'tc-cmp-legend');
+    [['is-base', '基线（实测）'], ['is-cand', '候选（模拟复测）'], ['is-late', '越过 latest-finish'], ['lf', 'latest-finish']].forEach((p) => {
+      const it = el('span');
+      it.appendChild(el('i', p[0]));
+      it.appendChild(el('span', null, p[1]));
+      legend.appendChild(it);
+    });
+    sec.appendChild(legend);
+    if (w.caption) sec.appendChild(el('span', 'tc-readout tc-cmp-caption', w.caption));
+    return sec;
+  }
+
+  function compareEmpty(stage) {
+    const sec = el('section');
+    const avail = D.findings.filter((f) => rerunOf(f.id));
+    sec.appendChild(sectionHead('修改对比', '还没有导入复测 run 的实验'));
+    const flow = el('div', 'tc-cmp-flow');
+    ['开始实验', '导入复测 run', '记录正确性', '记录性能', '保留 / 回退'].forEach((s, i) => {
+      const it = el('span', 'step');
+      it.appendChild(el('b', null, String(i + 1)));
+      it.appendChild(el('span', null, s));
+      flow.appendChild(it);
+    });
+    sec.appendChild(flow);
+    if (!avail.length) {
+      sec.appendChild(el('div', 'tc-pass-empty', '本 case 没有复测样本：台账仍可手动记录性能，但不会生成前后对比。'));
+      stage.appendChild(sec);
+      return;
+    }
+    const list = el('div', 'tc-cmp-avail');
+    avail.forEach((f) => {
+      const fx = rerunOf(f.id);
+      const card = el('article', 'tc-cmp-avail-item');
+      const hd = el('div', 'hd');
+      hd.appendChild(el('span', 'id', f.id));
+      hd.appendChild(el('span', 'ti', f.title));
+      card.appendChild(hd);
+      card.appendChild(el('span', 'sm', fx.summary));
+      const meta = el('div', 'mt');
+      meta.appendChild(cmpBadge('模拟复测 · ' + fx.candidate.repeats + ' 次', 'warn'));
+      meta.appendChild(el('span', 'tc-readout', fx.code.map((c) => c.file).join('、') + ' · ' + fx.metrics.length + ' 项指标'));
+      card.appendChild(meta);
+      card.appendChild(btn('打开 ' + f.id + ' 开始实验', {
+        size: 'sm',
+        on: () => { S.finding = f.id; S.chainStep = null; S.focus = 'finding'; applyFocus(f); render(); },
+      }));
+      list.appendChild(card);
+    });
+    sec.appendChild(list);
+    stage.appendChild(sec);
+  }
+
+  function renderCompareInspector(host, title, meta) {
+    const row = comparedRows().find((r) => r.id === S.compareExp);
+    if (!row) {
+      title.textContent = '修改对比';
+      meta.textContent = '无复测';
+      const s = inspectorSection('怎么得到一份对比');
+      s.appendChild(el('div', 'inspector-soft-card', '在瓶颈条目里开始实验，复测步骤点「导入复测 run」。基线固定为台账 B0，即本 run。'));
+      host.appendChild(s);
+      return;
+    }
+    const cmp = buildComparison(row);
+    title.textContent = row.id + ' · 修改对比';
+    meta.textContent = cmp.rec.label;
+
+    const s1 = inspectorSection('结论', cmp.rec.label);
+    s1.appendChild(el('div', 'inspector-soft-card ' + (cmp.rec.tone === 'good' ? 'is-info' : 'is-warning'), cmp.rec.why));
+    host.appendChild(s1);
+
+    const held = cmp.guards.filter((m) => m.verdict === 'held').length;
+    const s2 = inspectorSection('护栏', held + ' / ' + cmp.guards.length + ' 守住');
+    const list = el('div', 'tc-cmp-guards');
+    cmp.guards.forEach((m) => {
+      const r = el('div', 'tc-cmp-guard');
+      r.dataset.state = m.verdict;
+      const hd = el('div', 'hd');
+      hd.appendChild(el('span', 'nm', m.label));
+      hd.appendChild(el('span', 'st', CMP_VERDICT[m.verdict].label));
+      r.appendChild(hd);
+      r.appendChild(el('span', 'v', fmtCmp(m.baseV, m.unit) + ' → ' + fmtCmp(m.cand, m.unit) + ' · ' + limitText(m)));
+      list.appendChild(r);
+    });
+    s2.appendChild(list);
+    const f = findingById[row.findingId];
+    if (f && f.guardrail) s2.appendChild(el('p', 'tc-note', f.guardrail));
+    host.appendChild(s2);
+
+    const s3 = inspectorSection('实验 ' + row.id, row.state === 'open' ? '进行中' : row.keep || row.state);
+    if (row.state === 'open') s3.appendChild(renderStepper(row));
+    else {
+      s3.appendChild(kv([['假设', row.hypothesis], ['改动', row.change], ['正确性', row.correctness],
+        ['性能', row.perf], ['结论', row.keep]]));
+    }
+    host.appendChild(s3);
   }
 
   /* ========================================= E2E cross-rank scheduler */
@@ -5782,6 +6484,18 @@
       b.addEventListener('click', () => { S.view = l.id; S.focus = null; render(); });
       host.appendChild(b);
     });
+    if (isServingBenchmark()) return;
+    /* not a layer: it compares two runs across all of them, so it sits apart
+     * from the five and never joins the queue's layer filter */
+    const n = comparedRows().length;
+    const cb = el('button', 'tab-control-item tc-tab-compare' + (S.view === 'compare' ? ' is-selected' : ''));
+    cb.type = 'button';
+    cb.title = '基线 B0 与实验复测 run 的前后对比';
+    cb.setAttribute('aria-pressed', S.view === 'compare' ? 'true' : 'false');
+    cb.appendChild(el('span', null, '修改对比'));
+    if (n) cb.appendChild(el('span', 'tc-tab-count', String(n)));
+    cb.addEventListener('click', () => { S.view = 'compare'; S.focus = null; render(); });
+    host.appendChild(cb);
   }
 
   function renderToolbar() {
@@ -5829,6 +6543,16 @@
 
     if (S.view === 'compiler') {
       right.appendChild(el('span', 'tc-readout', D.passes.length + ' Pass dump · ' + D.hints.length + ' perf hint'));
+    }
+
+    if (S.view === 'compare') {
+      const rows = comparedRows();
+      if (rows.length > 1) {
+        right.appendChild(field('实验', select(rows.map((r) => ({
+          id: r.id, label: r.id + ' · ' + r.findingId + (r.keep ? ' · ' + r.keep : ''),
+        })), S.compareExp, (v) => { S.compareExp = v; render(); })));
+      }
+      if (rows.length) right.appendChild(el('span', 'tc-readout', '基线 B0 = 本 run 实测 · 候选 = 模拟复测'));
     }
 
     /* the swimlane's own controls only mean something on the task-level
@@ -5894,7 +6618,7 @@
     /* E2E is always a cross-rank comparison. Every deeper lens carries one
      * selected analysis rank; compiler / ISA keep that context even though
      * their dumped artifacts are shared rather than rank-specific. */
-    if (S.view !== 'e2e' && multiRank()) {
+    if (S.view !== 'e2e' && S.view !== 'compare' && multiRank()) {
       right.appendChild(field('分析 rank', select(Object.keys(D.ranks).map((r) => ({ id: r, label: r })), S.rank,
         (v) => {
           selectAnalysisRank(v);
@@ -5910,92 +6634,6 @@
   }
 
   function renderExplorer() {
-    const tree = $('#runTree');
-    tree.textContent = '';
-    const row = (depth, label, metaText, opts) => {
-      const o = opts || {};
-      const b = el('button', 'tc-tree-row' + (o.selected ? ' is-selected' : ''));
-      b.type = 'button';
-      b.dataset.depth = depth;
-      b.appendChild(el('span', 'n', label));
-      if (metaText) b.appendChild(el('span', 'm', metaText));
-      if (o.on) b.addEventListener('click', o.on);
-      else b.disabled = true;
-      tree.appendChild(b);
-      return b;
-    };
-    row(0, D.case.program, D.case.backend);
-    if (QW()) {
-      /* four captures of one graph, grouped the way the dataset is: two
-       * collectors, two stages. The armed one drives E2E / L2 / L1. */
-      const q = QW();
-      Object.keys(q.captures).forEach((cid) => {
-        const cap = q.captures[cid];
-        row(1, cap.label + ' / ' + cap.collector.replace(/^collect_|\.py$/g, ''),
-          cap.validated ? '已校验' : '未校验');
-        q.variants.filter((v) => v.capture === cid).forEach((v) => {
-          row(2, v.stage + (v.primary ? ' · 任务级' : ' · 聚合'), msOrUs(v.spanUs), {
-            selected: v.id === S.variant,
-            on: () => { S.variant = v.id; render(); },
-          });
-        });
-      });
-      row(2, 'host.*.log', '缺失');
-    } else {
-      Object.keys(D.ranks).forEach((rank) => {
-        const m = TRACE_MATCH[rank];
-        row(1, rank + ' / ' + D.case.device, us(D.ranks[rank].swimlane.spanUs, 0), {
-          selected: rank === S.rank,
-          on: () => {
-            S.rank = rank;
-            S.t0 = 0; S.t1 = R().swimlane.spanUs;
-            if (!tasksOf[S.rank][S.task]) S.task = R().tasks[0].tag;
-            render();
-          },
-        });
-        if (D.e2e && D.e2e[rank]) {
-          Object.keys(D.e2e[rank]).forEach((inv) => {
-            row(2, 'inv=' + inv + (m && m.inv === +inv ? ' · traced' : ''),
-              us(D.e2e[rank][inv]['chip.run.runner_run.device_wall'].us, 0), {
-                on: () => { S.rank = rank; S.view = 'e2e'; render(); },
-              });
-          });
-        } else {
-          row(2, 'host.*.log', '缺失');
-        }
-      });
-    }
-    if (QW()) {
-      const t = QW().torch[qwVariant().capture];
-      row(0, 'torch profiler', 'device ' + t.deviceId);
-      row(1, 'step_trace_time.csv', t.steps.length + ' step', {
-        on: () => { S.view = 'e2e'; S.e2ePanel = 'step'; render(); },
-      });
-      row(1, 'kernel_details.csv', t.kernelRows + ' 行', {
-        on: () => { S.view = 'l1'; S.l1Panel = 'pmu'; render(); },
-      });
-      row(1, 'op_statistic.csv', t.ops.length + ' OP', {
-        on: () => { S.view = 'e2e'; S.e2ePanel = 'ops'; render(); },
-      });
-      row(1, 'api_statistic.csv', t.apiHost.rows + ' API', {
-        on: () => { S.view = 'e2e'; S.e2ePanel = 'api'; render(); },
-      });
-    }
-    row(0, 'artifacts', D.passes.length + ' passes');
-    if (D.case.compileSource) {
-      row(1, '↑ 来自 ' + D.case.compileSource.runDir.replace(/^_jit_/, '').slice(0, 22),
-        D.case.compileSource.capturedAt.slice(0, 10));
-    }
-    row(1, 'report/perf_hints.log', D.hints.length, {
-      on: () => { S.view = 'compiler'; S.compilerTab = 'depth'; render(); },
-    });
-    row(1, 'passes_dump/', D.passes.length, {
-      on: () => { S.view = 'compiler'; S.compilerTab = 'passes'; render(); },
-    });
-    row(1, 'binary_context.json', D.case.toolchain.platform, {
-      on: () => { S.view = 'isa'; render(); },
-    });
-
     $('[data-bind="explorerMeta"]').textContent = D.case.runDir.slice(0, 18) + '…';
 
     /* findings queue */
@@ -6009,13 +6647,13 @@
       (f.queueLevels || f.levels || [f.level])
         .forEach((lv) => { counts[lv] = (counts[lv] || 0) + 1; });
     });
-    [{ id: 'all', label: '全部' }].concat(LEVELS.filter((l) => counts[l.id]).map((l) => ({ id: l.id, label: l.label })))
-      .forEach((o) => {
-        filterHost.appendChild(btn(o.label + ' ' + (counts[o.id] || 0), {
-          size: 'sm', selected: S.findingLevel === o.id,
-          on: () => { S.findingLevel = o.id; render(); },
-        }));
-      });
+    const filter = select([{ id: 'all', label: '全部瓶颈 · ' + counts.all }]
+      .concat(LEVELS.filter((l) => counts[l.id]).map((l) => ({ id: l.id, label: l.label + ' · ' + counts[l.id] }))),
+    S.findingLevel, (v) => { S.findingLevel = v; render(); });
+    filter.className = 'tc-finding-filter';
+    const filterField = field('筛选', filter);
+    filterField.classList.add('tc-finding-filter-field');
+    filterHost.appendChild(filterField);
 
     const list = $('#findingList');
     list.textContent = '';
@@ -6113,7 +6751,54 @@
         + ' us · 与 makespan 有时间重叠，不可相加'
       : '本层无', chains);
     group('体检项', hyg.length ? '无 makespan 归因' : '本层无', hyg);
-    $('[data-bind="findingCount"]').textContent = shown.length + ' / ' + D.findings.length;
+    const findingCount = $('[data-bind="findingCount"]');
+    if (findingCount) findingCount.textContent = shown.length + ' / ' + D.findings.length;
+  }
+
+  /* Keep only the run identity and the controls needed at entry. Detailed
+   * artifact evidence stays in its layer view. */
+  function renderRunGuide(stage) {
+    const guide = el('details', 'tc-run-guide');
+    const count = D.case.ranks.length;
+    const summary = el('summary');
+    summary.appendChild(el('strong', null, '运行信息'));
+    summary.appendChild(el('span', 'tc-run-guide-meta', D.case.program + ' · ' + count + ' 个执行单元'));
+    guide.appendChild(summary);
+
+    const body = el('div', 'tc-run-guide-body');
+    const runText = isServingBenchmark()
+      ? D.case.model + ' · ' + D.benchmark.completed + '/' + D.benchmark.requests + ' 请求完成'
+      : (D.case.model || D.case.device) + ' · ' + (D.case.capturedAt || '采集时间未记录')
+        + ' · ' + count + ' rank · ' + D.case.numCores + ' 核/卡';
+    body.appendChild(el('p', 'tc-run-guide-facts', runText));
+
+    if (!QW() && count > 1) {
+      const rankField = field('执行单元', select(D.case.ranks.map((r) => ({ id: r, label: r })), S.rank, (v) => {
+        selectAnalysisRank(v);
+        render();
+      }));
+      rankField.classList.add('tc-run-rank');
+      body.appendChild(rankField);
+    } else if (QW()) {
+      const variants = el('div', 'tc-run-variants');
+      QW().variants.forEach((v) => variants.appendChild(btn(v.label, {
+        size: 'sm', selected: v.id === S.variant,
+        on: () => { S.variant = v.id; render(); },
+      })));
+      body.appendChild(variants);
+    }
+
+    const artifacts = D.case.artifacts || {};
+    const artifactText = isServingBenchmark()
+      ? '请求级数据 · ' + (D.benchmark.trace.bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB trace'
+      : [D.hints.length ? D.hints.length + ' 条性能提示' : null,
+        D.passes.length ? D.passes.length + ' 个 Pass dump' : null,
+        artifacts.hostSpans ? '含 Host 采集' : '无 Host 采集',
+        artifacts.binaryContext ? '含工具链信息' : null].filter(Boolean).join(' · ');
+    body.appendChild(el('p', 'tc-run-guide-artifacts', artifactText || '暂无附加产物'));
+    body.appendChild(el('p', 'tc-run-instruction', '先定界瓶颈，再按证据下钻 L2 调度或 L1 算子。'));
+    guide.appendChild(body);
+    stage.appendChild(guide);
   }
 
   /* Activating a finding puts the stage where its evidence lives and turns on
@@ -6429,18 +7114,9 @@
   }
 
   function renderServingBenchmarkExplorer() {
-    const b = D.benchmark;
-    const tree = $('#runTree');
-    tree.textContent = '';
-    [['GBS256 压测', 'DP4 / TP4 / EP16'], ['请求', b.completed + ' / ' + b.requests + ' completed'], ['输入 / 输出', b.inputTokens + ' / ' + b.outputTokens + ' tokens'], ['原始 trace', (b.trace.bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB']].forEach((item, i) => {
-      const row = el('div', 'tc-tree-row');
-      row.dataset.depth = i ? '1' : '0';
-      row.appendChild(el('span', 'n', item[0]));
-      row.appendChild(el('span', 'm', item[1]));
-      tree.appendChild(row);
-    });
     $('[data-bind="explorerMeta"]').textContent = 'benchmark';
-    $('[data-bind="findingCount"]').textContent = '采集范围';
+    const findingCount = $('[data-bind="findingCount"]');
+    if (findingCount) findingCount.textContent = '采集范围';
     $('#findingFilter').textContent = '';
     const list = $('#findingList');
     list.textContent = '';
@@ -6448,23 +7124,21 @@
   }
 
   function renderServingBenchmarkInspector() {
-    const b = D.benchmark;
-    $('[data-bind="inspectorTitle"]').textContent = 'Benchmark';
-    $('[data-bind="inspectorMeta"]').textContent = 'request-level';
     const host = $('#inspector');
     host.textContent = '';
-    const summary = inspectorSection('负载指纹', '真实压测');
-    summary.appendChild(kv([
-      ['模型', D.case.model],
-      ['并发', b.concurrency + ' requests'],
-      ['输入 / 输出', '256 / 64 tokens per request'],
-      ['完成率', b.completed + ' / ' + b.requests],
-      ['Trace', b.trace.raw],
-    ]));
-    host.appendChild(summary);
-    const caveat = inspectorSection('不能推断', b.trace.missing.length + ' 项');
-    b.trace.missing.forEach((item) => caveat.appendChild(el('div', 'inspector-soft-card is-warning', item)));
-    host.appendChild(caveat);
+    renderRunObjectInspector(host, $('[data-bind="inspectorTitle"]'), $('[data-bind="inspectorMeta"]'));
+  }
+
+  function renderContextPanel() {
+    const detail = S.contextPanel === 'detail';
+    $('#contextQueue').hidden = detail;
+    $('#contextDetail').hidden = !detail;
+    const queueButton = $('[data-act="show-context-queue"]');
+    queueButton.setAttribute('aria-expanded', String(!detail));
+    queueButton.setAttribute('aria-pressed', String(!detail));
+    queueButton.setAttribute('aria-label', detail ? '返回定位' : '显示定位面板');
+    queueButton.title = detail ? '返回定位' : '定位';
+    queueButton.classList.toggle('is-selected', !detail);
   }
 
   function renderServingBenchmarkDock() {
@@ -6521,25 +7195,32 @@
       renderTabs();
       renderToolbar();
       renderServingBenchmarkExplorer();
+      renderRunGuide(stage);
       viewServingBenchmark(stage);
       renderServingBenchmarkInspector();
+      renderContextPanel();
       renderServingBenchmarkStatus();
       $('[data-bind="caseChip"]').textContent = D.case.program + ' · request-level';
       return;
     }
 
+    if (S.focus && S.focus !== 'run') S.contextPanel = 'detail';
+
     renderTabs();
     renderToolbar();
     renderExplorer();
+    if (S.view === 'e2e') renderRunGuide(stage);
     findingBar(stage);
 
     if (S.view === 'e2e') viewE2E(stage);
     else if (S.view === 'l2') viewL2(stage);
     else if (S.view === 'l1') viewL1(stage);
     else if (S.view === 'compiler') viewCompiler(stage);
+    else if (S.view === 'compare') viewCompare(stage);
     else viewISA(stage);
 
     renderInspector();
+    renderContextPanel();
     renderStatus();
     $('[data-bind="caseChip"]').textContent = D.case.program + ' · '
       + (QW() ? qwVariant().id : S.rank);
@@ -6625,10 +7306,31 @@
       render();
     });
     document.querySelector('[data-act="focus-search"]').addEventListener('click', () => $('#searchInput').focus());
+    document.querySelector('[data-act="back-context-queue"]').addEventListener('click', () => {
+      S.contextPanel = 'queue';
+      S.focus = null;
+      render();
+    });
+    document.querySelector('[data-act="show-context-queue"]').addEventListener('click', () => {
+      S.contextPanel = 'queue';
+      renderContextPanel();
+    });
     document.querySelector('[data-act="show-ledger"]').addEventListener('click', () => {
-      const btnEl = document.querySelector('[data-ide-toggle="inspector"]');
-      if (btnEl && btnEl.getAttribute('aria-expanded') === 'false') btnEl.click();
-      $('#inspector').scrollTop = $('#inspector').scrollHeight;
+      const last = S.ledger[S.ledger.length - 1];
+      if (last && last.findingId && findingById[last.findingId]) {
+        S.finding = last.findingId;
+        S.focus = 'finding';
+        applyFocus(findingById[last.findingId]);
+        render();
+        $('#contextDetail').scrollTop = $('#contextDetail').scrollHeight;
+      } else if (S.focus && S.focus !== 'run') {
+        S.contextPanel = 'detail';
+        renderContextPanel();
+        $('#contextDetail').scrollTop = $('#contextDetail').scrollHeight;
+      } else {
+        S.contextPanel = 'queue';
+        renderContextPanel();
+      }
     });
 
     const input = $('#searchInput');
@@ -6655,10 +7357,10 @@
         e.preventDefault(); scopeBack(); return;
       }
       if (e.key === '/' && document.activeElement !== input) { e.preventDefault(); input.focus(); }
-      if (e.key >= '1' && e.key <= '5' && !e.metaKey && !e.ctrlKey
+      if (e.key >= '1' && e.key <= '6' && !e.metaKey && !e.ctrlKey
         && document.activeElement !== input && document.activeElement.tagName !== 'INPUT'
         && document.activeElement.tagName !== 'TEXTAREA') {
-        S.view = LEVELS[+e.key - 1].id;
+        S.view = e.key === '6' ? 'compare' : LEVELS[+e.key - 1].id;
         render();
       }
     });
