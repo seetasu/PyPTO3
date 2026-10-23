@@ -190,33 +190,62 @@ function buildRank(src, compile) {
   });
 
   // ---- critical path over the task DAG ------------------------------------
-  // Longest chain by measured span. Tasks with no measured blocks (host-side waits that never
-  // reach a core) contribute 0, so they stay on the path without inflating it.
-  const spanOfTask = new Map();
-  launches.forEach((l) => spanOfTask.set(l.taskId, Math.max(spanOfTask.get(l.taskId) || 0, l.spanUs)));
+  // Select the dependency chain with the largest observed time envelope. Task spans can overlap,
+  // so adding their durations would exceed the trace window and misstate wall-clock time.
+  const intervalOfTask = new Map();
+  launches.forEach((l) => {
+    const interval = intervalOfTask.get(l.taskId) || { startUs: Infinity, endUs: -Infinity };
+    interval.startUs = Math.min(interval.startUs, l.startUs);
+    interval.endUs = Math.max(interval.endUs, l.endUs);
+    intervalOfTask.set(l.taskId, interval);
+  });
   const preds = new Map(deps.tasks.map((t) => [String(t.task_id), []]));
   deps.edges.forEach((e) => {
     const s = String(e.succ);
     if (preds.has(s)) preds.get(s).push(String(e.pred));
   });
-  const memo = new Map();
-  const earliestFinish = (id) => {
+  const memo = new Map(), bestPred = new Map();
+  const envelopeUs = (envelope) => envelope ? Math.max(0, envelope.endUs - envelope.startUs) : 0;
+  const combineEnvelope = (a, b) => {
+    if (!a) return b ? { ...b } : null;
+    if (!b) return { ...a };
+    return { startUs: Math.min(a.startUs, b.startUs), endUs: Math.max(a.endUs, b.endUs) };
+  };
+  const bestEnvelope = (id, visiting = new Set()) => {
     if (memo.has(id)) return memo.get(id);
-    memo.set(id, 0); // guards a cycle; none observed in this run
-    const v = Math.max(0, ...(preds.get(id) || []).map(earliestFinish)) + (spanOfTask.get(id) || 0);
-    memo.set(id, v);
-    return v;
+    if (visiting.has(id)) return null;
+    visiting.add(id);
+    const own = intervalOfTask.get(id) || null;
+    let best = own ? { ...own } : null, bestParent = null;
+    for (const pred of (preds.get(id) || [])) {
+      const parent = bestEnvelope(pred, visiting);
+      const candidate = combineEnvelope(parent, own);
+      const score = envelopeUs(candidate), bestScore = envelopeUs(best);
+      if (score > bestScore || (candidate && parent && score === bestScore && bestParent === null)) {
+        best = candidate; bestParent = pred;
+      }
+    }
+    visiting.delete(id);
+    memo.set(id, best);
+    bestPred.set(id, bestParent);
+    return best;
   };
   const allTaskIds = [...preds.keys()];
-  allTaskIds.forEach(earliestFinish);
-  let last = allTaskIds.reduce((a, b) => (earliestFinish(a) >= earliestFinish(b) ? a : b));
+  allTaskIds.forEach((id) => bestEnvelope(id));
+  let last = allTaskIds.reduce((a, b) => (envelopeUs(memo.get(a)) >= envelopeUs(memo.get(b)) ? a : b));
   const path = [];
   for (let cur = last; cur; ) {
     path.unshift(cur);
-    const ps = preds.get(cur) || [];
-    cur = ps.length ? ps.reduce((a, b) => (earliestFinish(a) >= earliestFinish(b) ? a : b)) : null;
+    cur = bestPred.get(cur) || null;
   }
-  const pathUs = earliestFinish(last);
+  let pathEnvelope = null;
+  const pathContribution = new Map();
+  path.forEach((id) => {
+    const next = combineEnvelope(pathEnvelope, intervalOfTask.get(id) || null);
+    pathContribution.set(id, r1(Math.max(0, envelopeUs(next) - envelopeUs(pathEnvelope))));
+    pathEnvelope = next;
+  });
+  const pathUs = envelopeUs(pathEnvelope);
 
   // Name every task on the path, including the ones that never reached a core.
   const leafNamesOf = (id) => {
@@ -227,9 +256,13 @@ function buildRank(src, compile) {
   };
   const criticalPath = path.map((id) => {
     const rows = launches.filter((l) => l.taskId === id);
+    const interval = intervalOfTask.get(id) || null;
     return {
       taskId: id, name: leafNamesOf(id),
-      spanUs: r1(spanOfTask.get(id) || 0),
+      spanUs: r1(interval ? interval.endUs - interval.startUs : 0),
+      startUs: interval ? r1(interval.startUs) : null,
+      endUs: interval ? r1(interval.endUs) : null,
+      pathContributionUs: pathContribution.get(id) || 0,
       computeUs: r1(sum(rows, (l) => l.computeUs)),
       blockNum: depTask.get(id) ? depTask.get(id).block_num : null,
       onCore: rows.length > 0,
@@ -243,7 +276,13 @@ function buildRank(src, compile) {
   const slot = sum(launches, (l) => l.slotUs);
   const tailWaste = sum(launches, (l) => l.tailWasteUs);
   const capacity = windowUs * coreTypes.length;
-  const waitOnPath = criticalPath.filter((p) => !p.onCore || p.blockNum === 1).reduce((a, p) => a + p.spanUs, 0);
+  const singleBlockIntervals = criticalPath.filter((p) => p.onCore && p.blockNum === 1 && p.startUs !== null)
+    .map((p) => [p.startUs, p.endUs]).sort((a, b) => a[0] - b[0]);
+  let singleBlockOnPathUs = 0, singleBlockEnd = -Infinity;
+  singleBlockIntervals.forEach(([start, end]) => {
+    singleBlockOnPathUs += Math.max(0, end - Math.max(start, singleBlockEnd));
+    singleBlockEnd = Math.max(singleBlockEnd, end);
+  });
   const byType = {};
   for (const t of ["AIC", "AIV"]) {
     const cs = cores.filter((c) => c.ct === t);
@@ -259,7 +298,7 @@ function buildRank(src, compile) {
   const kpi = {
     windowUs: r1(windowUs),
     criticalPathUs: r1(pathUs), criticalPathTasks: criticalPath.length, totalTasks: allTaskIds.length,
-    waitOnPathUs: r1(waitOnPath), waitOnPathShare: pct(waitOnPath, pathUs),
+    singleBlockOnPathUs: r1(singleBlockOnPathUs), singleBlockOnPathShare: pct(singleBlockOnPathUs, pathUs),
     computeUs: r1(compute), setupUs: r1(setup), slotUs: r1(slot),
     tailWasteUs: r1(tailWaste), tailWasteRatio: pct(tailWaste, compute),
     capacityUs: r1(capacity), occupancy: pct(compute, capacity),
@@ -289,7 +328,7 @@ const doc = {
   ranks,
   caveats: [
     "时间口径有三层：槽位占用（duration-us，核被该任务占住的时长）、真正计算（kernel-duration-us）、启动（local_setup_us）。三者之差记为「槽内等待」——数据只能给出等了多久，给不出等的是搬运、跨核同步还是上游依赖。",
-    "关键路径按任务实测跨度做最长链，长度 5.55 ms 略大于窗口 4.83 ms：相邻任务在设备上有重叠，链式相加会略微高估。用它排序，不要当作绝对耗时。",
+    "关键路径在任务依赖图上选择实际起止时间包络最大的链；展示的是链覆盖的设备时间范围（包含链间空档），不会把并行重叠重复相加。单次 trace 的路径归属仍是分析线索。",
     "尾块浪费 =（本次提交最慢块 − 平均块）× 块数，是假设所有块同时启动的核时损失上界。块之间若有流水，实际损失小于这个数。",
     "搬运量按 deps.json 里每个 task 的 tensor shape × dtype 求和，是声明的张量大小，不是实际 GM 读写量（不计重复读、不计片上命中）。等效带宽 = 字节 ÷ 实测算时，只能用于排序。",
     "编译期一侧来自 Design/parallel-lane 的 pass dump 解析；64 个叶子 kernel 与设备 name_map 完全对应，86 个 task 的 block_num 与编译期 core_num 全部一致。",
@@ -319,7 +358,7 @@ if (unknownDtypes.size) console.log(`WARN 未知 dtype（按 4 字节计）: ${[
 ranks.forEach((r) => {
   const k = r.kpi;
   console.log(`\n${r.rank}  窗口 ${(k.windowUs / 1000).toFixed(2)} ms  launches=${r.launches.length}  tasks=${k.totalTasks}`);
-  console.log(`  关键路径 ${(k.criticalPathUs / 1000).toFixed(2)} ms / ${k.criticalPathTasks} 任务   其中单块等待 ${(k.waitOnPathUs / 1000).toFixed(2)} ms (${(k.waitOnPathShare * 100).toFixed(0)}%)`);
+  console.log(`  关键路径时间跨度 ${(k.criticalPathUs / 1000).toFixed(2)} ms / ${k.criticalPathTasks} 任务   其中单块Task区间 ${(k.singleBlockOnPathUs / 1000).toFixed(2)} ms (${(k.singleBlockOnPathShare * 100).toFixed(0)}%)`);
   console.log(`  算 ${(k.computeUs / 1000).toFixed(1)} ms   setup ${(k.setupUs / 1000).toFixed(1)} ms (${(k.setupShare * 100).toFixed(1)}%)   尾块浪费 ${(k.tailWasteUs / 1000).toFixed(1)} ms (${(k.tailWasteRatio * 100).toFixed(0)}%)`);
   ["AIC", "AIV"].forEach((t) => {
     const b = k.byType[t];
