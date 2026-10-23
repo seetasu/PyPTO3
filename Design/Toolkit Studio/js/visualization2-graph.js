@@ -35,13 +35,27 @@
     scene.classList.add('has-semantic-overlays');
     scene.dataset.overlayControl='false';
     const inspector = host.querySelector('aside'), tooltip = host.querySelector('[role="tooltip"]');
+    function staticExecutionData(g){
+      if(adapter?.executionData)return adapter.executionData(g);
+      const scenario=selection?.task!=null?{task:selection.task,seqLen:execution?.seqLens?.[Math.floor(selection.task/model.constants.NUM_KV_HEADS.value)]}:global.PtoPagedAttentionContext?.scenario;
+      return global.PtoPagedAttentionExecution?.derive(model,global.PtoPagedAttentionIntro?.model,scenario);
+    }
     function rebuild(){
       scene.innerHTML='';labels?.remove();
       const overview=!adapter && !layers.data;
       const visibleModel=overview?global.PtoComputationVisibility.overview(model):model;
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:overview});
+      // Reserve the same visual footprint in Structure and Weight so switching
+      // decoration never moves nodes. Front card dimensions remain unchanged.
+      const counts=staticExecutionData(graph);
+      const executionFootprints=Object.fromEntries(graph.nodes.flatMap(node=>{
+        const entry=global.PtoPagedAttentionExecution.decoration(node,counts);
+        return entry?[[node.id,global.PtoPagedAttentionExecution.deckOffset(entry.count)]]:[];
+      }));
+      const layoutOptions={flowLayout:true,overviewLayout:overview,executionFootprints};
+      graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,layoutOptions);
       scene.dataset.stateExpanded=String([...expanded].some(id=>visibleModel.nodes.find(node=>node.id===id)?.composite?.subgraph?.stateEvolution));
-      if(adapter&&!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,{flowLayout:true});
+      if(adapter&&!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,layoutOptions);
       Object.entries(layers).forEach(([key,value])=>{scene.dataset[`overlay${key[0].toUpperCase()+key.slice(1)}`]=String(value);});
     rendered = global.PtoStudioComputationGraph.renderScene(scene, graph, {
       view:'compute', expandedStages:expanded, synchronizations:true, compactNodes:!adapter, markerPrefix:'viz2-graph',
@@ -83,13 +97,10 @@
     });
     }
     function paintExecution(){
-      const context=global.PtoPagedAttentionContext?.scenario;
-      const id=selection?.task??context?.task;
-      const scenario=selection?.task!=null?{task:id,seqLen:execution?.seqLens?.[Math.floor(id/model.constants.NUM_KV_HEADS.value)]}:context;
-      const data=layers.execution?(adapter?.executionData?adapter.executionData(graph):global.PtoPagedAttentionExecution?.derive(model,global.PtoPagedAttentionIntro?.model,scenario)):null;
+      const data=layers.execution?staticExecutionData(graph):null;
       global.PtoStudioComputationGraph.applyExecution(scene,nodes,graph,data);
       adapter?.decorate?.(scene,nodes,graph,data);
-      nodeLabels.forEach(({node,label})=>{const entry=data?.nodes[node.id],name=label.querySelector('[data-viz2-graph-name]');name.dataset.fullName=node.title+(adapter&&entry&&adapter.showExecutionCount?.(node)!==false?' ×'+entry.count:(node.expandedGroup||node.childOperation)&&entry?' '+entry.label:'');name.textContent=name.dataset.fullName;});
+      nodeLabels.forEach(({node,label})=>{const entry=global.PtoPagedAttentionExecution.decoration(node,data),name=label.querySelector('[data-viz2-graph-name]');name.dataset.fullName=node.title;name.textContent=node.title;label.querySelector('[data-viz2-execution-instances]')?.remove();if(entry){const badge=document.createElement('button');badge.type='button';badge.className='viz2-graph-floating-count';badge.dataset.viz2ExecutionInstances=node.id;badge.textContent=`×${entry.count}`;badge.title=`${entry.unit} · 查看逻辑实例`;label.append(badge);}});
     }
 
     function paintLabels(){
@@ -170,7 +181,15 @@
       const primary=primaryOrder.map(title=>sections.find(section=>section.title===title)).filter(Boolean);
       const advanced=sections.filter(section=>!primary.includes(section));
       const sectionHtml=section=>`<section><h3>${escape(section.title)}</h3><dl>${section.rows.map(row=>`<dt>${escape(row.label)}</dt><dd>${escape(row.value)}</dd>`).join('')}</dl></section>`;
-      return primary.map(sectionHtml).join('')+(advanced.length?`<details><summary>更多属性</summary>${advanced.map(sectionHtml).join('')}</details>`:'');
+      let instances='';
+      if(view.instancesNode===node.id){
+        const data=staticExecutionData(graph),root=node.id.split('/')[0];
+        if(data&&['qk','pv'].includes(root))instances=`<section><h3>Page Instances · ${data.pages}</h3><p>Task ${data.task} · Per AIC / Task · 源码静态推导；物理 Cache Page ID 未知。</p>${data.stacksDetail.map(stack=>`<div class="viz2-page-instance-group"><b>S${stack.id}</b><div>${stack.pages.map((page,index)=>`<button class="btn btn-ghost btn-sm" data-viz2-instance-page="${page.id}">P${page.id}</button>`).join('')}</div></div>`).join('')}${data.stacksDetail.flatMap(stack=>stack.pages.map((page,index)=>({page,stack,index}))).filter(item=>item.page.id===view.instancePage).map(({page,stack,index})=>`<p>P${page.id} · S${stack.id} · ${page.validTokens}/${data.pageTokens} Tokens · ${root==='pv'&&index?'pl.matmul_acc':'pl.matmul'}<br>输入：${root==='qk'?'Q Tile + K Cache Page':'Probability + V Cache Page'}<br>输出：${root==='qk'?'FP32 Scores Page':'FP32 Partial Context'}</p>`).join('')}</section>`;
+        else instances='<section><h3>静态逻辑实例</h3><p>执行单位与源码依据见下方；不同统计单位不能直接相加为硬件成本。</p></section>';
+      }
+      const executionEntry=staticExecutionData(graph)?.nodes[node.id],root=node.id.split('/')[0];
+      const scope=executionEntry?`<section><h3>静态 Execution Weight</h3><p>×${executionEntry.count} · ${['qk','pv'].includes(root)?'Per Page / Per AIC / Per Task':root==='output-norm'?'Per AIV Lane / Per Task':'Per Stack / Per AIV Lane / Per Task'}${root==='pv'?' · 每 Stack 首 Page matmul，其余 matmul_acc；合计为 Page 贡献。':''}</p><p>依据：${escape(executionEntry.formula||executionEntry.label)}。不同统计单位不可直接比较为硬件执行成本。</p></section>`:'';
+      return instances+scope+primary.map(sectionHtml).join('')+(advanced.length?`<details><summary>更多属性</summary>${advanced.map(sectionHtml).join('')}</details>`:'');
     }
     function relatedPath(id,oneHop=false){
       if(!id)return [];
@@ -212,7 +231,7 @@
       if(nextModel!==model){model=nextModel;layoutKey='';executionKey='';first=true;}
       selection=nextSelection;view=nextView;active=!!options.active;camera=view.camera;
       const nextLayers={data:!!adapter,shape:false,precision:false,memory:false,control:false,sync:false,execution:false,...view.overlays};
-      const nextExpanded=new Set(view.expanded||[]),nextKey=JSON.stringify([{...nextLayers,execution:undefined},[...nextExpanded]]);
+      const nextExpanded=new Set(view.expanded||[]),nextKey=JSON.stringify([{...nextLayers,execution:undefined},[...nextExpanded],selection?.task,global.PtoPagedAttentionContext?.scenario?.seqLen]);
       if(layers.execution!==nextLayers.execution)executionKey='';
       layers=nextLayers;scene.dataset.overlayExecution=String(layers.execution);
       if(nextKey!==layoutKey){layoutKey=nextKey;layers=nextLayers;expanded=nextExpanded;rebuild();inspectorKey='';}
@@ -235,10 +254,10 @@
       const node=nodeMap.get(focus.nodeId),edge=graph.edges.find(e=>e.id===view.edgeId&&['state','feedback'].includes(e.type));
       const sync=model.synchronizations?.find(s=>s.id===view.syncId),show=!!(node||edge||sync||adapter?.hasInspector?.())&&view.inspectorOpen===true,inspectorWasHidden=inspector.hidden;inspector.hidden=!show;
       if(options.restore)lastSize={width:viewport.clientWidth,height:viewport.clientHeight};
-      const ikey=show?(adapter?JSON.stringify([selection,view.nodeId,view.syncId]):edge?'edge:'+edge.id:sync?'sync:'+sync.id:node.id):'';
+      const ikey=show?(adapter?JSON.stringify([selection,view.nodeId,view.syncId]):edge?'edge:'+edge.id:sync?'sync:'+sync.id:JSON.stringify([node.id,view.instancesNode,view.instancePage])):'';
       if(ikey!==inspectorKey){const detailBody=host.querySelector('[data-viz2-graph-detail]'),previousTitle=host.querySelector('[data-viz2-graph-title]').textContent,openDetails=[...detailBody.querySelectorAll('details[open]')].map(el=>el.querySelector('summary')?.textContent);inspectorKey=ikey;if(adapter&&show){const detail=adapter.inspector(node,sync,graph);host.querySelector('[data-viz2-graph-title]').textContent=detail.title;detailBody.innerHTML=detail.html;if(previousTitle===detail.title)detailBody.querySelectorAll('details').forEach(el=>{if(openDetails.includes(el.querySelector('summary')?.textContent))el.open=true;});}else if(edge&&show){host.querySelector('[data-viz2-graph-title]').textContent=edge.type==='feedback'?'跨 Stack 反馈':'状态依赖';detailBody.innerHTML=global.PTO_COMPUTATION_PRESENTATION.inspectorEdge(edge,{model}).map(section=>`<section><h3>${escape(section.title)}</h3><dl>${section.rows.map(row=>`<dt>${escape(row.label)}</dt><dd>${escape(row.value)}</dd>`).join('')}</dl></section>`).join('');}else if(sync&&show){host.querySelector('[data-viz2-graph-title]').textContent=sync.name;detailBody.innerHTML=`<dl>${[['Buffer',sync.buffer],['Dtype',sync.dtype],['Producer',`${sync.producer.coreType} SET · ${sync.producer.pipe}`],['Consumer',`${sync.consumer.coreType} WAIT · ${sync.consumer.pipe}`]].map(([k,v])=>`<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join('')}</dl><p>源码静态 READY 关系，不表示运行耗时。</p>`;}else if(node&&show){host.querySelector('[data-viz2-graph-title]').textContent=node.title;detailBody.innerHTML=inspectorHtml(node);}}
       const context=selection?.kind==='task'?`Task ${selection.task} · Batch ${selection.batch} · KV Head ${selection.kvHead}`:selection?.block!=null?`Block ${String(selection.block).padStart(2,'0')}${selection.kind==='lane'?` · AIV Lane ${selection.lane}`:''}`:'完整计算图';
-      host.querySelector('[data-viz2-graph-context]').textContent=adapter?.context?.() || context;
+      host.querySelector('[data-viz2-graph-context]').textContent=layers.execution?'线宽 = 静态逻辑传输 / 贡献频次 · 非数据量、带宽或耗时':adapter?.context?.() || context;
       if(!active||!viewport.clientWidth||!viewport.clientHeight)return;
       if(first||(entering&&adapter&&!camera)){first=false;pendingFocus=false;onView({camera:initialCamera()});return;}
       if(!camera){onView({camera:initialCamera()});return;}
@@ -269,6 +288,9 @@
       event.stopPropagation(); tooltip.hidden=true;
       const layer=event.target.closest('[data-viz2-graph-layer]');
       if(layer){const key=layer.dataset.viz2GraphLayer;onView({overlays:{...layers,[key]:!layers[key]}});return;}
+      const instances=event.target.closest('[data-pypa-execution-count],[data-pypa-execution-stack],[data-viz2-execution-instances]');
+      if(instances){const id=instances.dataset.pypaExecutionCount||instances.dataset.pypaExecutionStack||instances.dataset.viz2ExecutionInstances;if(adapter)adapter.onInstances?.(id);else onView({nodeId:id,instancesNode:id,inspectorOpen:true});return;}
+      const page=event.target.closest('[data-viz2-instance-page]');if(page){onView({instancePage:Number(page.dataset.viz2InstancePage)});return;}
       const block=event.target.closest('[data-viz2-graph-block]');
       if(block){const id=Number(block.dataset.viz2GraphBlock);if(onBlockEnter)onBlockEnter(id);else onSelect({kind:'block',block:id,task:null});return;}
       const toggle=event.target.closest('[data-pypa-expand-toggle]')||(event.detail===0?event.target.closest('[data-pypa-expand]'):null);
@@ -284,10 +306,10 @@
       const id=target.dataset.pypaNode||target.dataset.viz2GraphLabel;
       if(event.detail===1)lastNodeClick={id,time:performance.now(),view:{camera:view.camera,nodeId:view.nodeId,inspectorOpen:view.inspectorOpen}};
       if(adapter){adapter.onNode(id);return;}
-      if(nodeMap.get(id)?.expandable){toggleExpanded(id,true);return;}
-      skipFocusOnce=true;onView({nodeId:id,edgeId:null,syncId:null,inspectorOpen:true});
+      skipFocusOnce=true;onView({nodeId:id,edgeId:null,syncId:null,instancesNode:null,instancePage:null,inspectorOpen:true});
       if(selection?.block!=null)onSelect({...selection,graphNodeId:id});
     });
+    host.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;const target=event.target.closest('[data-pypa-execution-count],[data-pypa-execution-stack]');if(target){event.preventDefault();event.stopPropagation();target.click();}});
     viewport.addEventListener('wheel',event=>{
       event.preventDefault();tooltip.hidden=true;const rect=viewport.getBoundingClientRect(),unit=event.deltaMode===1?16:event.deltaMode===2?rect.height:1;
       zoom(Math.exp(Math.max(-.22,Math.min(.22,-event.deltaY*unit*.003))),{x:event.clientX-rect.left,y:event.clientY-rect.top});

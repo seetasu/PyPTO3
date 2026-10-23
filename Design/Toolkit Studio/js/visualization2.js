@@ -313,10 +313,12 @@
     root.querySelectorAll('[data-viz2-scope]').forEach(button=>{const selected=(button.dataset.viz2Scope==='intra')===inner;button.classList.toggle('is-selected',selected);button.setAttribute('aria-pressed',String(selected));if(button.dataset.viz2Scope==='intra')button.disabled=!inner&&(assignment.phase!=='attention'||state.selection?.kind!=='task');});
     const detailFocus=inner?assignment.anatomyFocus?.[assignment.anatomyTask]:null;
     const detailName=detailFocus?({q:'Q Tile',output:'Attention Output'}[detailFocus.kind]||`${{page:'Page',stack:'Stack',slot:'Slot'}[detailFocus.kind]} ${detailFocus.index}`):'';
-    root.querySelector('[data-viz2-breadcrumb]').textContent=state.selection?.task!=null?`Assignment / Block ${String(state.selection.block).padStart(2,'0')} / Task ${state.selection.task}${detailName?` / ${detailName}`:''}`:'Assignment';
+    const breadcrumb=root.querySelector('[data-viz2-breadcrumb]');
+    breadcrumb.hidden=!!state.selection;
+    breadcrumb.textContent=state.selection?.task!=null?`Assignment / Block ${String(state.selection.block).padStart(2,'0')} / Task ${state.selection.task}${detailName?` / ${detailName}`:''}`:'Assignment';
     if(assignment.phase==='phase0'&&!inner){
       const s=state.selection,item=s?.kind==='task'?phase0Model.itemFor(s.batch,s.kvHead):null;
-      root.querySelector('[data-viz2-breadcrumb]').textContent=item?`Assignment / Phase0 / Block ${String(item.block).padStart(2,'0')} / AIV${item.lane} / G${item.gIndex}`:s?`Assignment / Phase0 / Block ${String(s.block).padStart(2,'0')}${s.lane==null?'':` / AIV${s.lane}`}`:'Assignment / Phase0';
+      breadcrumb.textContent=item?`Assignment / Phase0 / Block ${String(item.block).padStart(2,'0')} / AIV${item.lane} / G${item.gIndex}`:s?`Assignment / Phase0 / Block ${String(s.block).padStart(2,'0')}${s.lane==null?'':` / AIV${s.lane}`}`:'Assignment / Phase0';
     }
     if(inner){
       assignmentMorph?.update(state.selection,false);

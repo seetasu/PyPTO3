@@ -66,7 +66,7 @@ function semanticModel(task){
  edge('l','output-norm','final l_sum','data','default','final');edge('o','output-norm','final o','data','default','final');
  const region=(id,name,members)=>({id,type:'region',name,description:name,members,source:{file:'paged_attention_pypto.py',ranges:[{start:759,end:873}],symbols:[]},provenance:[{kind:'resolved',origin:'source',fields:['members'],note:'Task-local semantic regions; not runtime timing.'}]});
  const graph={schemaVersion:2,id:`attention-task-${task.id}`,sourceFiles:base.sourceFiles,constants:base.constants,runtimeDims:base.runtimeDims,nodes,edges,
-  groups:[region('task-inputs','Task Inputs',['q','k-cache','v-cache']),region('task-compute',`Page Loop ×${task.pageCount} · Stack Loop ×${task.stackCount}`,['qk','scores','scale-mask','softmax','probability','pv','partial','context-acc','m','l','rescale','o']),region('task-output','Task Output',['output-norm','output'])],
+  groups:[region('task-inputs','Task Inputs',['q','k-cache','v-cache']),region('task-compute',`${task.stackCount} Stacks · ${task.pageCount} Pages total`,['qk','scores','scale-mask','softmax','probability','pv','partial','context-acc','m','l','rescale','o']),region('task-output','Task Output',['output-norm','output'])],
   synchronizations:copy(base.synchronizations)};
  // The root Q is the current Task tile, not the full Q projection tensor.
  const q=byId.get('q');q.name='Q Tile';q.data.shape={allocated:task.q.shape,valid:task.q.validShape};
@@ -86,6 +86,16 @@ function stackEvolution(task,index){
   fifo:{versions:fifo.versions,source:fifo.source,explanation:fifo.explanation},
   stateEdges:dependencies.edges.filter(e=>e.kind==='state'&&(e.to===`s${index}:softmax`||e.to===`s${index}:accumulate`)),
   dataEdges:dependencies.edges.filter(e=>e.kind==='data'&&e.id.startsWith(`data:s${index}:`))};
+}
+// Project existing logical Pages; no runtime values or physical IDs are synthesized.
+function pageInstances(task,nodeId){
+ const root=nodeId?.split('/')[0];
+ if(!['qk','pv'].includes(root))return [];
+ return task.stacks.map(stack=>({index:stack.index,pages:stack.pages.map((id,offset)=>{
+  const page=task.pages[id];
+  const full=stack.pages.length===(task.pagesPerStack||4),sourceSymbol=root==='qk'?(full?'qk_score_page':`qk_tail${offset}`):(full?`pv${offset}`:stack.pages.length===1?'pv_tail1':`pv_tail${stack.pages.length}_${offset}`);
+  return {index:page.index,stack:stack.index,tokens:page.tokens,sourceSymbol,api:root==='pv'&&offset>0?'pl.matmul_acc':'pl.matmul',input:root==='qk'?'Q Tile + K Cache Page':'Probability Page + V Cache Page',output:root==='qk'?'FP32 Scores 的当前 Page 区间':'当前 Stack 的 FP32 Partial Context'};
+ })}));
 }
 function evolutionMarkup(e){
  if(!e)return '';
@@ -128,7 +138,7 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
    const count=['qk','pv'].includes(root)?(n.semantic?.data?.granularity==='stack'?task.stackCount:task.pageCount):['output-norm'].includes(root)?1:task.stackCount;
    data.nodes[n.id]=entry(count,['qk','pv'].includes(root)?'AIC / Task':'每 AIV Lane / Task','source loop granularity',n.source);
   });
-  graph.edges.forEach(e=>{const root=(e.semanticSource||e.s).split('/')[0],producer=data.nodes[e.semanticSource||e.s]||data.nodes[root];if(!producer)return;const count=producer.count,unit=producer.unit.replace(/^(AIC|每 AIV Lane)( stores| store| load)? \/ Task$/,'$1 / Task');data.edges[e.id]={...entry(count,`逻辑传输 · ${unit}`,`生产者 ${e.semanticSource||e.s}：${producer.formula}`,producer.source),width:Math.min(5,1.5+3.5*Math.log1p(count-1)/Math.log1p(Math.max(1,task.pageCount-1)))};});
+  graph.edges.forEach(e=>{const root=(e.semanticSource||e.s).split('/')[0],producer=data.nodes[e.semanticSource||e.s]||data.nodes[root];if(!producer)return;const count=producer.count,unit=producer.unit.replace(/^(AIC|每 AIV Lane)( stores| store| load)? \/ Task$/,'$1 / Task');data.edges[e.id]={...entry(count,`逻辑传输 · ${unit}`,`生产者 ${e.semanticSource||e.s}：${producer.formula}`,producer.source),width:global.PtoPagedAttentionExecution.width(count)};});
   return data;
  }
  function resolveFocus(graph,selection,v){
@@ -169,6 +179,15 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
   if(e){const weight=executionData(graph)?.edges[e.id];if(weight)rows.push(['逻辑传输',`${weight.label}；${weight.formula}`]);}
   return {title,line,rows};
  }
+ function instancesMarkup(node){
+  if(!focus?.instances||!node)return '';
+  const groups=pageInstances(task,node.id),root=node.id.split('/')[0];
+  if(!groups.length)return `<section><h3>静态逻辑实例</h3><p>统计口径：${esc(task.nodes.find(item=>semanticId(item.id)===root)?.unit||'源码循环粒度')}。各 AIV Lane 独立执行；不同单位不表示统一硬件成本。</p>${task.stacks.map(stack=>`<button class="btn btn-ghost btn-sm" data-compute-instance-stack="${stack.index}">S${stack.index}</button>`).join('')}</section>`;
+  const selected=groups.flatMap(group=>group.pages).find(page=>page.index===focus.instancePage);
+  const needle=selected?`${selected.sourceSymbol} = ${selected.api}`:root==='qk'?'qk_score_page = pl.matmul':'pv0 = pl.matmul';
+  const line=model.source.split('\n').findIndex(value=>value.includes(needle))+1;
+  return `<section class="viz2-page-instances"><h3>Page Instances · ${task.pageCount}</h3><p>Per Task / AIC · 每 Page 一次逻辑贡献；源码静态推导，物理 Cache Page ID 未知。</p>${groups.map(group=>`<div class="viz2-page-instance-group"><b>S${group.index}</b><div>${group.pages.map(page=>`<button class="btn btn-ghost btn-sm ${selected?.index===page.index?'is-selected':''}" data-compute-instance-page="${page.index}" aria-pressed="${selected?.index===page.index}" title="${esc(page.api)}">P${page.index}${root==='pv'?` · ${page.api.replace('pl.','')}`:''}</button>`).join('')}</div></div>`).join('')}${selected?`<section><h3>P${selected.index} · S${selected.stack}</h3><dl>${[['Page Index',selected.index],['有效 Token',`${selected.tokens} / ${task.pageTokens}`],['输入',selected.input],['计算',selected.api],['输出',selected.output]].map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl><button class="btn btn-ghost btn-sm" data-compute-source="${line}">PyPTO 源码 :${line}</button><pre data-compute-code hidden></pre></section>`:''}</section>`;
+ }
  const shared=global.PtoVisualization2Graph.mount(canvas,{onView:patch=>{if(patch.overlays){const {execution,...overlays}=patch.overlays;onView({intraOverlays:overlays,intraMode:execution?'weight':'structure'});return;}const mapped={};for(const [k,v] of Object.entries(patch))mapped[{camera:'intraCamera',expanded:'intraExpanded',overlays:'intraOverlays',inspectorOpen:'intraInspectorOpen',relationMode:'intraRelationMode'}[k]||k]=v;onView(mapped);},adapter:{
   getModel:()=>task.graph,resolveFocus,executionData,showExecutionCount:node=>node.type==='operation'||node.type==='composite',
   stageLabel:g=>`<b>${esc(g.label)}</b>`,
@@ -193,8 +212,9 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
    const ready=related.length?`<section class="viz2-inspector-related"><h3>关联 READY</h3>${related.map(item=>`<button class="btn btn-ghost btn-sm" data-compute-ready="${item.id}">${esc(item.name)}</button>`).join('')}</section>`:'';
    const detailRows=d.rows.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('');
    const detailSections=semantic.map(section=>`<section><h3>${esc(section.title)}</h3><dl>${section.rows.map(r=>`<dt>${esc(r.label)}</dt><dd>${esc(r.value)}</dd>`).join('')}</dl></section>`).join('');
-   return {title:d.title,html:`${core}${sync?syncHtml(sync):''}${ready}${evolution}<details class="viz2-inspector-details"><summary>详细信息</summary><dl>${detailRows}</dl>${detailSections}<section><button class="btn btn-ghost btn-sm" data-compute-source="${d.line}">PyPTO 源码 :${d.line}</button><pre data-compute-code hidden></pre></section></details>`};
+   return {title:d.title,html:`${instancesMarkup(node)}${core}${sync?syncHtml(sync):''}${ready}${evolution}<details class="viz2-inspector-details"><summary>详细信息</summary><dl>${detailRows}</dl>${detailSections}<section><button class="btn btn-ghost btn-sm" data-compute-source="${d.line}">PyPTO 源码 :${d.line}</button><pre data-compute-code hidden></pre></section></details>`};
   },
+  onInstances(id){onFocus({kind:'graph',node:id,instances:true,index:stackIndex()??0,stackIndex:stackIndex()});},
   onNode(id){const root=localId(id.split('/')[0]),stage=['qk','softmax','pv','accumulate'].includes(root)?root:null;onFocus({kind:stage?'stage':root==='output'?'output':'graph',node:id,index:stackIndex()??0,stackIndex:stackIndex(),...(stage?{stage}:{})});},
   onEdge(id,graph){onFocus({kind:'graph-edge',edge:id,index:stackIndex()??0,stackIndex:stackIndex()});},
   onSync(id){const sync=syncFor(id),index=stackIndex()??0;onFocus({kind:'event',syncId:sync.id,event:sync.name+'_EVENT',index,stackIndex:index});},
@@ -203,7 +223,8 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
   decorate(scene,nodes,graph,data){scene.dataset.executionWeight=String(!!data);nodes.forEach(n=>{const el=scene.querySelector(`[data-pypa-node="${n.id}"]`),entry=data?.nodes[n.id];if(el)el.style.setProperty('--execution-weight',entry&&n.type==='operation'?String(Math.min(1,entry.count/Math.max(task.pageCount,task.tickCount))):'0');});}
  }});
  host.addEventListener('change',e=>{if(e.target.matches('[data-compute-task]'))onTask(Number(e.target.value));});
- toolbar.addEventListener('click',e=>{const b=e.target.closest('[data-compute-mode],[data-compute-stack],[data-compute-page]');if(!b)return;if(b.dataset.computeMode)onView({intraMode:b.dataset.computeMode});else if(b.dataset.computeStack!==undefined){const index=Number(b.dataset.computeStack);onFocus(focus?.node||focus?.edge?{...focus,index,stackIndex:index}:{kind:'stack',index,stackIndex:index});}else onFocus({kind:'page',index:Number(b.dataset.computePage)});});
+ canvas.addEventListener('click',e=>{const button=e.target.closest('[data-compute-instance-page],[data-compute-instance-stack]');if(!button)return;e.stopPropagation();const page=button.dataset.computeInstancePage!==undefined?Number(button.dataset.computeInstancePage):undefined,index=page!==undefined?task.pages[page].stack:Number(button.dataset.computeInstanceStack);onFocus({...focus,instancePage:page,index,stackIndex:index});},true);
+ toolbar.addEventListener('click',e=>{const b=e.target.closest('[data-compute-mode],[data-compute-stack],[data-compute-page]');if(!b)return;if(b.dataset.computeMode)onView({intraMode:b.dataset.computeMode});else if(b.dataset.computeStack!==undefined){const index=Number(b.dataset.computeStack);onFocus(focus?.node||focus?.edge?{...focus,index,stackIndex:index,instancePage:undefined}:{kind:'stack',index,stackIndex:index});}else onFocus({kind:'page',index:Number(b.dataset.computePage)});});
  // Shared controller stops legacy document-level graph handlers; source actions
  // are handled in capture so their Inspector remains local to this Task.
  canvas.addEventListener('click',e=>{const ready=e.target.closest('[data-compute-ready]');if(ready){e.stopPropagation();const sync=syncFor(ready.dataset.computeReady),index=stackIndex()??0;onFocus({kind:'event',syncId:sync.id,event:sync.name+'_EVENT',index,stackIndex:index});return;}if(e.target.closest('[data-compute-pipeline-ready]')){e.stopPropagation();onNavigate?.();return;}const b=e.target.closest('[data-compute-source],[data-compute-sync-source]');if(!b)return;e.stopPropagation();let line=Number(b.dataset.computeSource);if(b.dataset.computeSyncSource){const sync=syncFor(b.dataset.computeSyncSource),end=b.dataset.computeSyncEnd;const edge=global.PtoPagedAttentionStackDependencyModel.build(global.PtoPagedAttentionIntro.model.pipelineFor(task.seqLen),task.graph.synchronizations).edges.find(item=>item.id===`sync:s${stackIndex()??0}:${sync.id}`);const ranges=end==='consumer'?(edge?.consumerSource?.ranges||sync.consumer.source.ranges):sync.producer.source.ranges;line=ranges[Number(b.dataset.computeSyncRange)]?.start;}const code=b.closest('section')?.querySelector('[data-compute-code]')||canvas.querySelector('[data-compute-code]');if(!code||!line)return;code.hidden=false;code.textContent=model.source.split('\n').slice(Math.max(0,line-3),line+12).map((v,i)=>`${Math.max(1,line-2)+i}  ${v}`).join('\n');},true);
@@ -217,5 +238,5 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
   shared.update({kind:'task',task:task.id,block:task.block,batch:task.batch,kvHead:task.kvHead,subobject:f},{camera:v.intraCamera,nodeId:currentNode(),syncId:sync?.id,expanded:v.intraExpanded||[],overlays:{control:true,...v.intraOverlays,sync:!!sync||!!v.intraOverlays?.sync,execution:v.intraMode==='weight'},relationMode:v.intraRelationMode,inspectorOpen:v.intraInspectorOpen},{active});
  },hideTooltip:shared.hideTooltip,getTransitionRect:shared.getTransitionRect};
 }
-global.PtoVisualization2GraphIntra=Object.freeze({createModel,stackEvolution,mount});
+global.PtoVisualization2GraphIntra=Object.freeze({createModel,stackEvolution,pageInstances,mount});
 })(window);

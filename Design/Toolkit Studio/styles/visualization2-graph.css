@@ -96,3 +96,12 @@
 .viz2-compute .viz2-graph-scene[data-execution-weight="true"] .kf-pypa-graph__node {filter:brightness(calc(1 + var(--execution-weight,0) * .25));}
 .viz2-compute .viz2-graph-scene [data-pypa-edge] {transition:stroke-width .25s;}
 @media(prefers-reduced-motion:reduce){.viz2-compute .viz2-graph-scene .kf-pypa-graph__node,.viz2-compute .viz2-graph-scene [data-pypa-edge] {transition:none;}}
+
+/* Weight labels have their own hit target; only one density representation lives. */
+.viz2-graph-floating-count {position:absolute;right:0;bottom:calc(100% + 3px);padding:0 var(--space-1);border:0;border-radius:var(--radius-sm);background:var(--surface-3);color:var(--foreground);font:var(--type-mono);cursor:pointer;}
+.viz2-graph-scene[data-density="compact"] [data-pypa-execution-count] {visibility:hidden;pointer-events:none;}
+.viz2-graph .has-semantic-overlays .kf-pypa-graph__node.has-execution-badge .kf-pypa-graph__node-head > b {padding-right:0;white-space:normal;overflow:visible;text-overflow:clip;}
+.viz2-graph .has-semantic-overlays .kf-pypa-graph__node.has-execution-badge > .viz2-graph-compact-title {padding-right:48px;}
+.viz2-graph .has-semantic-overlays .kf-pypa-graph__node.has-execution-badge .viz2-graph-compact-title > .kf-pypa-graph__node-expand {position:absolute;right:var(--space-2);bottom:var(--space-2);}
+.viz2-page-instance-group {display:flex;align-items:baseline;gap:var(--space-2);margin-block:var(--space-2);}
+.viz2-page-instance-group > div {display:flex;flex-wrap:wrap;gap:var(--space-1);}

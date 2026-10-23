@@ -28,7 +28,8 @@
 .viz2-am-seq-encoding .kf-pa-map__seq-fill { fill:var(--primary); fill-opacity:.72; }
 .viz2-am-task.is-assigned .kf-pa-map__cell { fill:var(--state-selected); }
 .viz2-am-task.is-selected .kf-pa-map__cell, .viz2-am-task:hover .kf-pa-map__cell { fill:var(--state-focus); stroke:var(--primary); stroke-width:2; }
-.viz2-am-footer { display:flex; gap:15px; align-items:center; padding:8px 26px 13px 200px; min-height:43px; color:var(--foreground-muted); font:var(--type-body-sm); }
+.viz2-am-footer { display:flex; gap:15px; align-items:center; padding:var(--space-3) var(--space-5); min-height:43px; color:var(--foreground-muted); font:var(--type-body-sm); }
 .viz2-am-footer p { margin:0; color:var(--foreground-secondary); }
 .viz2-am-footer span { margin-left:auto; }
+.viz2-am-footer > .kf-pa-map__tools { flex:none; margin-left:auto; }
 @media(max-width:1100px) { .viz2-am-head { flex-wrap:wrap; } .viz2-am-footer { flex-wrap:wrap; } }

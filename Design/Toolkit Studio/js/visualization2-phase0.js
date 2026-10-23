@@ -79,9 +79,9 @@
   function mount(host, { model, seqLens = [], onSelect, onCamera }) {
     const layout = createLayout(model);
     host.classList.add('viz2-p0-morph');
-    host.innerHTML = `<div class="viz2-am-head"><div><h2 data-p0-title-state></h2><p data-p0-formula></p></div><div class="viz2-am-controls"><button class="btn btn-ghost btn-sm" data-p0-play>暂停</button><button class="btn btn-ghost btn-sm" data-p0-replay>重播</button><div class="segmented-control segmented-control-muted"><button class="btn btn-sm" data-p0-state="generation">Work Generation</button><button class="btn btn-sm" data-p0-state="assignment">Block Assignment</button></div><label><input type="checkbox" data-p0-loop checked> 循环播放</label><button class="btn btn-ghost btn-sm" data-p0-fit>适应</button></div></div>
+    host.innerHTML = `<div class="viz2-am-head"><div><h2 data-p0-title-state></h2><p data-p0-formula></p></div><div class="viz2-am-controls"><button class="btn btn-ghost btn-sm" data-p0-play>暂停</button><button class="btn btn-ghost btn-sm" data-p0-replay>重播</button><div class="segmented-control segmented-control-muted"><button class="btn btn-sm" data-p0-state="generation">Work Generation</button><button class="btn btn-sm" data-p0-state="assignment">Block Assignment</button></div><label><input type="checkbox" data-p0-loop checked> 循环播放</label></div></div>
       <div class="viz2-p0-viewport viz2-am-viewport" tabindex="0" role="group" aria-label="Phase0 工作项生成与 Block 分配画布"><svg class="viz2-p0-svg" aria-label="Phase0 Batch × KV Head 与 AIV Lane 分配"><g data-p0-scene><g data-p0-columns></g><g data-p0-generation></g><g data-p0-board></g><g data-p0-items></g></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
-      <footer class="viz2-am-footer"><p data-p0-selection aria-live="polite">${model.total} 个工作项 · 每项 ${model.qPerKv}Q + K + V</p><span>Q/K Norm → RoPE → KV Cache Append · 静态分配，不表示执行时序</span></footer>
+      <footer class="viz2-am-footer"><p data-p0-selection aria-live="polite">${model.total} 个工作项 · 每项 ${model.qPerKv}Q + K + V</p><span>Q/K Norm → RoPE → KV Cache Append · 静态分配，不表示执行时序</span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-p0-zoom="0.8" aria-label="缩小 Assignment">−</button><output data-p0-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-p0-zoom="1.25" aria-label="放大 Assignment">＋</button><button class="btn btn-ghost btn-sm" type="button" data-p0-fit>适应</button></div></footer>
       <aside class="pto-ide-frame__pane viz2-p0-inspector" aria-label="Phase0 分配详情" hidden><header class="pto-ide-frame__pane-header"><b data-p0-title></b><button class="btn btn-ghost btn-sm" data-p0-clear aria-label="关闭 Phase0 详情">×</button></header><div class="pto-ide-frame__pane-body" data-p0-detail></div></aside>`;
     const viewport = host.querySelector('.viz2-p0-viewport'), scene = host.querySelector('[data-p0-scene]'), tooltip = host.querySelector('[role="tooltip"]');
     const columns = host.querySelector('[data-p0-columns]'), generation = host.querySelector('[data-p0-generation]'), board = host.querySelector('[data-p0-board]'), itemLayer = host.querySelector('[data-p0-items]');
@@ -139,6 +139,7 @@
     };
     function paintCamera() {
       const c = camera || fitted();
+      host.querySelector('[data-p0-scale]').textContent = `${Math.round(c.scale / fitted().scale * 100)}%`;
       scene.setAttribute('transform', `translate(${c.x} ${c.y}) scale(${c.scale})`);
       scene.style.setProperty('--p0-label-size', `${Math.max(12, 11 / c.scale)}px`);
     }
@@ -198,13 +199,15 @@
       player.setActive(active); paintSelection(); paintCamera();
       if (selectionChanged || changed || !active) detail();
     }
-    function fit() { pause(); if (viewport.clientWidth && viewport.clientHeight) onCamera(fitted()); }
+    function fit() { if (viewport.clientWidth && viewport.clientHeight) onCamera(fitted()); }
     host.addEventListener('click', event => {
       if (suppressClick) { suppressClick = false; return; }
       if (event.target.closest('[data-p0-play]')) { player.toggle(); return; }
       if (event.target.closest('[data-p0-replay]')) { player.replay(); return; }
       const state = event.target.closest('[data-p0-state]'); if (state) { player.goTo(state.dataset.p0State === 'assignment' ? 1 : 0); return; }
       if (event.target.closest('[data-p0-fit]')) { fit(); return; }
+      const zoomButton = event.target.closest('[data-p0-zoom]');
+      if (zoomButton) { const c = camera || fitted(), scale = Math.max(.08, Math.min(6, c.scale * Number(zoomButton.dataset.p0Zoom))), ratio = scale / c.scale, x = viewport.clientWidth / 2, y = viewport.clientHeight / 2; onCamera({ scale, x: x - (x - c.x) * ratio, y: y - (y - c.y) * ratio }); return; }
       if (event.target.closest('[data-p0-clear]')) { pause(); inspectorOpen = false; detail(); return; }
       const item = event.target.closest('[data-p0-item],[data-p0-pick-item]');
       if (item) { selectItem(Number(item.dataset.p0Item ?? item.dataset.p0PickItem)); return; }
