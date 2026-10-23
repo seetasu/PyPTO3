@@ -29,6 +29,39 @@
     return {stacks,slots,pages:stacks.flatMap(index=>task.stacks[index].pages),
       shared:task.stacks.filter(stack=>slots.includes(stack.slot)).map(stack=>stack.index)};
   }
+  // Browser wheel events have no portable gesture ID. Keep recognition independent
+  // from animation, with one pending command rather than a cooldown/scroll lock.
+  function createPagingInput({isAnimating,onPage}){
+    const config={threshold:30,noise:2,quiet:180,notchGap:35,restartGap:45,restartGain:1.8,decay:.55};
+    let phase='Ready',direction=0,sum=0,lastTime=-Infinity,lastMagnitude=0,peak=0,trough=Infinity,reverseSum=0,pending=0;
+    function resetGesture(){phase='Ready';direction=0;sum=0;peak=0;trough=Infinity;reverseSum=0;}
+    function request(sign){if(isAnimating())pending=sign;else onPage(sign);}
+    function input({delta,time,discrete=false}){
+      const magnitude=Math.abs(delta),sign=Math.sign(delta),gap=time-lastTime;
+      if(magnitude<config.noise)return;
+      if(gap>=config.quiet)resetGesture();
+      if(phase!=='Ready'){
+        reverseSum=sign!==direction?reverseSum+magnitude:0;
+        const reversal=reverseSum>=config.threshold;
+        const notch=discrete&&gap>=config.notchGap;
+        const acceleration=magnitude>=Math.max(12,trough*config.restartGain);
+        const strongImpulse=magnitude>=Math.max(30,trough*3,peak*.65);
+        const restart=sign===direction&&phase==='Momentum'&&trough<=peak*config.decay&&
+          acceleration&&(gap>=config.restartGap||strongImpulse);
+        if(reversal||notch||restart)resetGesture();
+        else if(magnitude<lastMagnitude*.85||magnitude<=peak*config.decay)phase='Momentum';
+      }
+      lastTime=time;lastMagnitude=magnitude;
+      if(phase==='Ready'){
+        if(sign!==direction){direction=sign;sum=0;}
+        sum+=magnitude;peak=Math.max(peak,magnitude);
+        if(sum>=config.threshold||discrete){phase='Triggered';trough=magnitude;request(sign);}
+      }else{peak=Math.max(peak,magnitude);trough=Math.min(trough,magnitude);}
+    }
+    return {input,flush(){const sign=pending;pending=0;if(sign)onPage(sign);},
+      reset(){resetGesture();lastTime=-Infinity;lastMagnitude=0;pending=0;},
+      getState(){return {phase,pending};}};
+  }
   function mount(host,{model,onTask,onFocus,onCamera,onInspector,onExit}){
     const esc=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
     const media=global.matchMedia('(prefers-reduced-motion: reduce)');
@@ -41,7 +74,11 @@
         <footer class="viz2-anatomy-footer"><span>有效数据 <i class="viz2-anatomy-key"></i>未用容量 <i class="viz2-anatomy-key is-capacity"></i><small>横向浏览 Task · 卡片内纵向浏览 Stacks</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-anatomy-prev aria-label="上一个 Task">←</button><output data-anatomy-position></output><button class="btn btn-ghost btn-sm" data-anatomy-next aria-label="下一个 Task">→</button><button class="btn btn-ghost btn-sm" data-anatomy-zoom="0.8" aria-label="缩小 KV Cache">−</button><output data-anatomy-scale>100%</output><button class="btn btn-ghost btn-sm" data-anatomy-zoom="1.25" aria-label="放大 KV Cache">＋</button><button class="btn btn-ghost btn-sm" data-anatomy-fit>适应</button></div></footer></div>
         <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="Task 数据详情" hidden><header class="pto-ide-frame__pane-header"><b data-anatomy-title></b><button class="btn btn-ghost btn-sm" data-anatomy-close aria-label="关闭数据详情">×</button></header><div class="pto-ide-frame__pane-body" data-anatomy-detail></div></aside></div>`;
     const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-anatomy-track]'),query=host.querySelector('[data-anatomy-query]'),inspector=host.querySelector('aside'),tooltip=host.querySelector('[role="tooltip"]');
-    let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,wheelTimer=0,suppressClick=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,wheelGesture=null;
+    let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,suppressClick=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null;
+    const paging=createPagingInput({isAnimating:()=>!!frame,onPage:direction=>{
+      const next=clamp(target+direction);
+      if(next!==target){pendingFocus=null;tooltip.hidden=true;snap(next,true);}
+    }});
     const clamp=index=>Math.max(0,Math.min(tasks.length-1,index));
     const rect=(x,y,w,h,attrs='')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" ${attrs}/>`;
     const text=(x,y,value,cls='')=>`<text x="${x}" y="${y}" class="${cls}">${esc(value)}</text>`;
@@ -90,16 +127,17 @@
       host.querySelector('[data-anatomy-next]').disabled=target>=tasks.length-1;
       host.querySelector('[data-anatomy-scale]').textContent=`${Math.round(scale*100)}%`;
     }
-    function stop(){cancelAnimationFrame(frame);frame=0;clearTimeout(wheelTimer);wheelTimer=0;wheelGesture=null;drag=null;pendingFocus=null;tooltip.hidden=true;}
+    function stop(){cancelAnimationFrame(frame);frame=0;paging.reset();drag=null;pendingFocus=null;tooltip.hidden=true;}
     function commit(){
       const next=tasks[target];if(!next)return;
       if(next.id!==task.id)onTask(next.id);
       if(pendingFocus){const nextFocus=pendingFocus;pendingFocus=null;onFocus(nextFocus);}
     }
-    function snap(index){
+    function snap(index,fromWheel=false){
+      if(!fromWheel)paging.reset();
       cancelAnimationFrame(frame);target=clamp(Math.round(index));velocity=0;
       const origin=position,duration=400;let started=null;
-      if(media.matches){position=target;frame=0;paint();commit();return;}
+      if(media.matches){position=target;frame=0;paint();commit();paging.flush();return;}
       function tick(now){
         if(!active){frame=0;return;}
         if(started===null)started=now;
@@ -107,7 +145,7 @@
         // A bounded full-page move, with zero velocity at both endpoints.
         const eased=progress*progress*progress*(progress*(progress*6-15)+10);
         position=origin+(target-origin)*eased;paint();
-        if(progress===1){position=target;frame=0;paint();commit();}
+        if(progress===1){position=target;frame=0;paint();commit();paging.flush();}
         else frame=requestAnimationFrame(tick);
       }
       frame=requestAnimationFrame(tick);
@@ -177,30 +215,9 @@
         if(event.buttons&1)return;
         endDrag(true);
       }
-      const now=performance.now(),delta=horizontal*unit,magnitude=Math.abs(delta);
-      const gap=wheelGesture?now-wheelGesture.lastEvent:Infinity;
-      // Re-arm from event timestamps too: a new gesture must not depend on a
-      // timer callback (or a pointer click) clearing the previous session.
-      const renewedIntent=wheelGesture?.fired&&!frame&&gap>=80&&
-        wheelGesture.lastMagnitude<=8&&magnitude>=30&&magnitude>=wheelGesture.lastMagnitude*4;
-      if(!wheelGesture||gap>=260||renewedIntent){
-        wheelGesture={sum:0,fired:false,lastEvent:now,lastMagnitude:magnitude};
-      }
-      wheelGesture.lastEvent=now;wheelGesture.lastMagnitude=magnitude;
-      clearTimeout(wheelTimer);
-      wheelTimer=setTimeout(()=>{
-        wheelTimer=0;
-        if(wheelGesture&&performance.now()-wheelGesture.lastEvent>=260)wheelGesture=null;
-      },270);
-      // Input during a page move is consumed by that move. Once both the move
-      // and gesture have ended, the next event can start a fresh page command.
-      if(frame){wheelGesture.fired=true;return;}
-      if(wheelGesture.fired)return;
-      wheelGesture.sum+=horizontal*unit;
-      const threshold=event.deltaMode===1?1:30;
-      if(Math.abs(wheelGesture.sum)<threshold)return;
-      wheelGesture.fired=true;pendingFocus=null;tooltip.hidden=true;
-      snap(target+Math.sign(wheelGesture.sum));
+      paging.input({delta:horizontal*unit,time:performance.now(),
+        discrete:event.deltaMode===1||event.deltaMode===2||
+          (event.shiftKey&&event.deltaX===0&&Number.isInteger(event.deltaY)&&Math.abs(event.deltaY)>=40)});
     },{passive:false});
     viewport.addEventListener('pointerdown',event=>{
       if(event.button!==0||event.target.closest('button'))return;
@@ -227,7 +244,8 @@
       }else if(Math.abs(position-current.index)>.001)snap(current.index);
     }
 
-    window.addEventListener('pointerup',()=>endDrag());
+    const releasePointer=()=>endDrag();
+    window.addEventListener('pointerup',releasePointer);
     viewport.addEventListener('pointercancel',()=>endDrag(true));viewport.addEventListener('lostpointercapture',()=>endDrag(true));
     host.addEventListener('pointermove',event=>{
       if(drag||frame){tooltip.hidden=true;return;}
@@ -250,14 +268,16 @@
       else if(['+','=','-','0'].includes(event.key)){event.preventDefault();if(event.key==='0')host.querySelector('[data-anatomy-fit]').click();else zoom(event.key==='-'?.8:1.25);}
       else if(['Enter',' '].includes(event.key)&&event.target.closest('[data-anatomy-kind]')){event.preventDefault();event.target.closest('[data-anatomy-kind]').dispatchEvent(new MouseEvent('click',{bubbles:true}));}
     });
-    new ResizeObserver(()=>{if(active)paint();}).observe(viewport);
-    media.addEventListener('change',()=>{if(frame||wheelTimer){stop();position=target;velocity=0;paint();commit();}});
+    const resizeObserver=new ResizeObserver(()=>{if(active)paint();});resizeObserver.observe(viewport);
+    const motionChanged=()=>{paging.reset();if(frame){stop();position=target;velocity=0;paint();commit();}};
+    media.addEventListener('change',motionChanged);
     const screenRect=element=>{const r=element.getBoundingClientRect();return {x:r.left,y:r.top,width:r.width,height:r.height};};
     function getTransitionSnapshot(){
       if(!task||!active)return null;const element=cards.find(c=>Number(c.dataset.anatomyTask)===task.id);if(!element)return null;
       return {task:task.id,model:task,frame:screenRect(element),title:screenRect(element.querySelector('h3')),qRows:[...query.querySelectorAll('[data-anatomy-q-row]')].map(screenRect),cells:[...element.querySelectorAll('[data-anatomy-cell]')].map(cell=>({key:cell.dataset.anatomyCell,rect:screenRect(cell)}))};
     }
-    return {update,model,getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;}};
+    return {update,model,getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;},
+      destroy(){active=false;stop();resizeObserver.disconnect();media.removeEventListener('change',motionChanged);window.removeEventListener('pointerup',releasePointer);host.replaceChildren();}};
   }
-  global.PtoVisualization2Anatomy=Object.freeze({createModel,related,mount});
+  global.PtoVisualization2Anatomy=Object.freeze({createModel,related,mount,createPagingInput});
 })(window);
