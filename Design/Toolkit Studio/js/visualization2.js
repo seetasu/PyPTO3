@@ -18,7 +18,8 @@
         if(['tab','close','select','pipeline-intra-task','pipeline-intra-focus'].includes(action.type)||(action.type==='view'&&pipelineZoom?.animating))pipelineZoom?.cancel();
         if(['tab','close','select','graph-intra-focus','graph-intra-task'].includes(action.type)||(action.type==='view'&&graphZoomJob?.running))cancelGraphZoom();
         if(action.type==='tab')semanticZoom?.cancel();
-        if(action.type==='tab' && state.activeTab==='assignment' && state.views.assignment.phase==='attention') assignmentMorph?.settle();
+        if(action.type==='tab' && state.activeTab==='assignment' && state.views.assignment.phase==='attention') assignmentMorph?.settle(action.id==='pipeline'?1:undefined);
+        if(action.type==='tab' && state.activeTab==='pipeline' && action.id==='assignment') assignmentMorph?.settle(1);
         const transition = action.type === 'tab' ? tabTransition?.prepare(state,action.id) : null;
         if (['tab','close','phase','select','anatomy-focus','anatomy-task'].includes(action.type)) semanticZoom?.cancel();
         if (['close','phase','select'].includes(action.type) || (action.type === 'view' && tabTransition?.animating)) tabTransition?.cancel();

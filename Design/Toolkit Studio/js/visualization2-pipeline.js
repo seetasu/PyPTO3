@@ -213,7 +213,14 @@
         blocks:model.lanes.map(lane=>({id:lane.block,rect:rect(layout.labelX,layout.header+lane.block*layout.row,30,layout.row)})),
         tasks:positions().map(p=>({id:p.task.id,batch:p.task.batch,task:p.task,rect:rect(p.x,p.y,p.width,p.height),output:rect(p.outputX,p.y,p.outputWidth,p.height)}))};
     }
-    return {update,getTransitionSnapshot,setSemanticTaskMask(id){semanticTaskMask=id;paint();},setTransitionMasked(value){transitionMasked=value;paint();},hideTooltip:()=>pattern.hideTooltip(tooltip),model,destroy:()=>tooltipController.destroy()};
+    function ensureTransitionBlockVisible(block) {
+      if (!layout || !active || !model.lanes[block]?.tasks.length) return false;
+      const top = layout.header + block * layout.row, bottom = top + layout.row;
+      if (top < viewport.scrollTop + layout.header || bottom > viewport.scrollTop + viewport.clientHeight)
+        viewport.scrollTop = Math.max(0, top - Math.max(layout.header, (viewport.clientHeight - layout.row) / 2));
+      return true;
+    }
+    return {update,getTransitionSnapshot,ensureTransitionBlockVisible,setSemanticTaskMask(id){semanticTaskMask=id;paint();},setTransitionMasked(value){transitionMasked=value;paint();},hideTooltip:()=>pattern.hideTooltip(tooltip),model,destroy:()=>tooltipController.destroy()};
   }
   global.PtoVisualization2Pipeline=Object.freeze({createModel,mount});
 })(window);

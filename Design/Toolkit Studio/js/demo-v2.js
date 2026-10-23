@@ -2589,11 +2589,12 @@ def rmsnorm_large_h(x, gamma, out, H=32768):
       button.style.minHeight = `${node.h}px`;
       button.setAttribute('aria-label', `${node.badge}，${node.title}，${node.sub}${node.meta?.length ? '，' + node.meta.join('，') : ''}`);
       if (compactNodes) {
-        // The viewport owns full-size labels. Keep the scene node's DOM box
-        // identical to the dimensions used by layout and edge routing.
+        // Native text shares the viewport labels' density switch; geometry
+        // remains identical to the dimensions used by layout and routing.
         button.classList.add('is-compact-node');
         button.style.height = `${node.h}px`;
         button.style.padding = '0';
+        button.innerHTML = `<span class="kf-pypa-graph__node-head viz2-graph-compact-title"><b>${pypaEscape(node.title)}</b>${node.expandable ? `<span class="kf-pypa-graph__node-expand" data-pypa-expand-toggle="${pypaEscape(node.id)}" aria-hidden="true">${expandedStages.has(node.id) ? '−' : '+'}</span>` : ''}</span>`;
         scene.appendChild(button);
         return;
       }

@@ -45,8 +45,15 @@
 .viz2-graph-node-title { position: absolute; left: 0; top: 0; box-sizing: border-box; max-width: 300px; padding: 0 var(--space-1); font: var(--type-body); line-height: 20px; color: var(--foreground); background: var(--surface-2); border-radius: var(--radius-sm); cursor: pointer; pointer-events: auto; }
 .viz2-graph-node-title > [data-viz2-graph-name] { min-width: 0; overflow-wrap: anywhere; }
 .viz2-graph-node-title.is-compact { font-size: 13px; line-height: 18px; }
-.viz2-graph-scene[data-density="compact"] .kf-pypa-graph__node-head em,
+.viz2-graph-labels[data-density="comfortable"] .viz2-graph-node-title {display:none;pointer-events:none;}
+.viz2-graph .viz2-graph-scene.has-semantic-overlays .kf-pypa-graph__node.is-compact-node .viz2-graph-compact-title {display:flex;align-items:center;justify-content:center;gap:var(--space-2);width:100%;height:100%;box-sizing:border-box;padding:var(--space-2) var(--space-3);font:var(--type-body);text-align:center;}
+.viz2-graph .viz2-graph-scene.has-semantic-overlays .kf-pypa-graph__node.is-compact-node .viz2-graph-compact-title > b {grid-area:auto;overflow:visible;text-overflow:clip;font:var(--type-body);min-width:0;white-space:normal;overflow-wrap:break-word;line-height:1.2;font-weight:500;}
+.viz2-graph .viz2-graph-scene.has-semantic-overlays .kf-pypa-graph__node.is-compact-node .viz2-graph-compact-title > .kf-pypa-graph__node-expand {grid-area:auto;position:static;flex:none;margin:0;}
+.viz2-graph-scene[data-density="compact"] .viz2-graph-compact-title {visibility:hidden;pointer-events:none;}
+.viz2-graph-scene[data-density="compact"] .kf-pypa-graph__node-head,
 .viz2-graph-scene[data-density="compact"] [data-pypa-card],
+.viz2-graph-scene[data-density="compact"] .kf-pypa-graph__node-meta,
+.viz2-graph-scene[data-density="compact"] .kf-pypa-graph__detail-source,
 .viz2-graph-scene[data-density="compact"] .kf-pypa-graph__node-expand { visibility: hidden; }
 .viz2-graph-node-title.is-selected { color: var(--foreground); background: var(--surface-2); }
 .viz2-graph-node-title.is-viz2-related { color: var(--foreground); }

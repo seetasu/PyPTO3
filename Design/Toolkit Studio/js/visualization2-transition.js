@@ -21,8 +21,19 @@
     return {blocks:pipeline.blocks.filter(b=>blocks.has(b.id)).map(b=>({source:blocks.get(b.id),target:b})),
       tasks:pipeline.tasks.filter(t=>tasks.has(t.id)).map(t=>({source:tasks.get(t.id),target:t}))};
   }
+  function focusBlock(snapshot,selected){
+    const tasksByBlock=new Map();
+    snapshot.tasks.forEach(task=>{
+      const block=task.task?.block??task.block;
+      tasksByBlock.set(block,(tasksByBlock.get(block)||0)+1);
+    });
+    const visible=block=>block.rect.y>=snapshot.clip.y&&
+      block.rect.y+block.rect.height<=snapshot.clip.y+snapshot.clip.height;
+    const choice=snapshot.blocks.find(block=>block.id===selected&&tasksByBlock.has(block.id)&&visible(block));
+    return choice?.id??snapshot.blocks.find(block=>tasksByBlock.has(block.id)&&visible(block))?.id??null;
+  }
   function create({root,getPipeline,getGraph,getIntraTask}){
-    let job=null,serial=0;
+    let job=null,serial=0,lastFocus=null;
     const intra=global.PtoVisualization2IntraMorph.create({root,getTask:getIntraTask});
     const media=global.matchMedia('(prefers-reduced-motion: reduce)');
     const originRect=()=>{
@@ -32,6 +43,7 @@
     const el=(tag,attrs={},parent)=>{const n=document.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v));parent?.append(n);return n;};
     function assignmentSnapshot(){
       const host=root.querySelector('#viz2-attention'), viewport=host.querySelector('.kf-pa-map__viewport');
+      const blockCount=host.querySelectorAll('[data-pa-block]').length;
       return {clip:rect(viewport.getBoundingClientRect()),
         blocks:[...host.querySelectorAll('[data-pa-block]')].map(button=>{
           const frame=button.querySelector('.viz2-am-block-frame'),label=button.querySelector('.viz2-am-block-label');
@@ -41,7 +53,7 @@
         }),
         tasks:[...host.querySelectorAll('[data-pa-task]')].map(task=>{
           const frame=task.querySelector('.kf-pa-map__cell'),r=rect(frame.getBoundingClientRect());
-          return {id:Number(task.dataset.paTask),rect:r,clone:task.cloneNode(true),
+          return {id:Number(task.dataset.paTask),block:Number(task.dataset.paTask)%blockCount,rect:r,clone:task.cloneNode(true),
             segments:Array.from({length:7},(_,i)=>({x:r.x+i*r.width/7,y:r.y,width:r.width/7,height:r.height}))};
         })};
     }
@@ -54,6 +66,7 @@
       intra.cancel();
       if(!job)return;
       cancelAnimationFrame(job.frame);job.animations?.forEach(animation=>animation.cancel());job.overlay?.remove();job.hold?.remove();
+      root.querySelector(`#viz2-${job.to}`)?.style.removeProperty('opacity');
       mask(job.to,false);root.classList.remove('viz2-morph-preparing');delete root.dataset.morphDestination;job=null;
     }
     function prepare(state,to){
@@ -65,9 +78,11 @@
       const pipelineGraph=from==='pipeline'&&to==='graph';
       if(!assignmentPipeline&&!pipelineGraph)return null;
       if(assignmentPipeline&&state.views.assignment.phase!=='attention')return null;
+      const focus=assignmentPipeline&&from==='pipeline'?(state.selection?.block??lastFocus??0):null;
+      if(focus!==null)getPipeline()?.ensureTransitionBlockVisible(focus);
       const source=from==='assignment'?assignmentSnapshot():getPipeline()?.getTransitionSnapshot();
       if(!source)return null;
-      job={id:++serial,from,to,source,selection:state.selection,frame:0,phase:'preparing'};
+      job={id:++serial,from,to,source,selection:state.selection,focus,frame:0,phase:'preparing'};
       // Keep a frozen source visible while the destination measures itself. Canvas
       // pixels must be copied explicitly: cloneNode alone leaves them empty.
       const pane=root.querySelector(`#viz2-${from}`), bounds=pane.getBoundingClientRect(), origin=originRect();
@@ -126,75 +141,73 @@
     function start(current){
       if(job!==current)return;
       if(current.from==='pipeline'&&current.to==='graph'){startPipelineGraph(current);return;}
-      const target=current.to==='assignment'?assignmentSnapshot():getPipeline()?.getTransitionSnapshot();
-      if(!target){cancel();return;}
-      const forward=current.to==='pipeline', assignment=forward?current.source:target, pipeline=forward?target:current.source;
-      const mapping=pairs(assignment,pipeline), origin=originRect();
-      const style=getComputedStyle(root), color=n=>style.getPropertyValue(n).trim();
-      const overlay=el('svg',{class:'viz2-transition-overlay',width:origin.width,height:origin.height,'aria-hidden':'true','data-direction':forward?'forward':'reverse'});
-      current.overlay=overlay;root.append(overlay);
-      const defs=el('defs',{},overlay), clip=el('clipPath',{id:`viz2-morph-clip-${current.id}`},defs), clipRect=el('rect',{},clip);
-      const taskLayer=el('g',{'clip-path':`url(#viz2-morph-clip-${current.id})`},overlay);
-      const blocks=mapping.blocks.map(pair=>{
-        const selected=pair.source.id===current.selection?.block;
-        const group=el('g',{'data-morph-block':pair.source.id},overlay);
-        const background=el('rect',{rx:3,fill:selected?color('--state-selected'):'transparent',stroke:selected?color('--primary'):'none'},group);
-        const icon=pair.source.icon;group.append(icon);icon.removeAttribute('class');icon.style.color=selected?color('--primary'):color('--foreground-secondary');
-        const label=el('text',{'text-anchor':'middle','dominant-baseline':'central',fill:selected?color('--foreground'):color('--foreground-secondary'),'font-family':color('--font-mono'),'font-size':12},group);label.textContent=String(pair.source.id).padStart(2,'0');
-        return {...pair,group,background,icon,label};
-      });
-      const tasks=mapping.tasks.map(pair=>{
-        // Each Batch strip is actually cloned eight times, then bound by Task.batch.
-        const group=pair.source.clone.cloneNode(true);group.removeAttribute('class');group.setAttribute('data-morph-task',pair.target.id);group.setAttribute('data-morph-batch',pair.target.batch);taskLayer.append(group);
-        group.replaceChildren();
-        const segments=Array.from({length:Math.max(pair.source.segments.length,pair.target.task.stacks)},()=>({track:el('rect',{fill:color('--surface-4'),rx:1},group),fill:el('rect',{fill:color('--primary'),rx:1},group),pages:Array.from({length:pair.target.task.segments[0].pages.length-1},()=>el('line',{stroke:color('--surface-2'),'stroke-width':.7},group))}));
-        const line=el('rect',{fill:'none',stroke:pair.target.id===current.selection?.task?color('--foreground'):color('--primary'),'stroke-width':pair.target.id===current.selection?.task?2:1},group);
-        const backing=el('rect',{fill:color('--surface-2')},group);
-        const label=el('text',{'text-anchor':'middle','dominant-baseline':'central',fill:color('--foreground'),'font-family':color('--font-mono')},group);label.textContent=pair.target.id;
-        return {...pair,group,segments,line,backing,label};
-      });
-      current.hold?.remove();mask(current.to,true);root.classList.remove('viz2-morph-preparing');current.phase='animating';
-      const attrRect=(node,r)=>{for(const k of ['x','y','width','height'])node.setAttribute(k,r[k]);};
-      const local=r=>({...r,x:r.x-origin.left,y:r.y-origin.top});
-      const started=performance.now(), duration=700, stagger=22;
+      const forward=current.to==='pipeline';
+      let focus=forward?focusBlock(current.source,current.selection?.block):current.focus;
+      if(forward && focus!==null) getPipeline()?.ensureTransitionBlockVisible(focus);
+      const target=forward?getPipeline()?.getTransitionSnapshot():assignmentSnapshot();
+      const destination=root.querySelector(`#viz2-${current.to}`);
+      if(!target || !destination){cancel();return;}
+      const assignment=forward?current.source:target, pipeline=forward?target:current.source;
+      if(!forward && focus===null) focus=focusBlock(assignment,current.selection?.block);
+      const sourceTasks=new Map(assignment.tasks.map(task=>[task.id,task]));
+      const targetTasks=new Map(pipeline.tasks.map(task=>[task.id,task]));
+      const focusPipelineTasks=focus===null?[]:pipeline.tasks.filter(task=>task.task.block===focus);
+      const focusAssignmentTasks=focus===null?[]:assignment.tasks.filter(task=>task.block===focus);
+      const taskIds=focusPipelineTasks.filter(task=>sourceTasks.has(task.id)).map(task=>task.id);
+      const valid=taskIds.length>0 && taskIds.length===focusPipelineTasks.length && taskIds.length===focusAssignmentTasks.length &&
+        taskIds.every(id=>targetTasks.has(id) && sourceTasks.get(id).rect.width>0 && targetTasks.get(id).rect.width>0) &&
+        assignment.blocks.some(block=>block.id===focus) && pipeline.blocks.some(block=>block.id===focus) &&
+        (forward?assignment: pipeline).clip.width>0 && target.clip.width>0;
+      if(valid)lastFocus=focus;
+      const origin=originRect(), style=getComputedStyle(root), color=name=>style.getPropertyValue(name).trim();
+      const overlay=el('svg',{class:'viz2-transition-overlay',width:origin.width,height:origin.height,'aria-hidden':'true',
+        'data-direction':forward?'forward':'reverse','data-focus-block':focus??''},root);
+      current.overlay=overlay;
+      const focusSource=valid?(forward?assignment:pipeline).blocks.find(block=>block.id===focus):null;
+      const focusFrame=focusSource?el('rect',{'data-morph-focus-block':focus,rx:3,fill:'none',
+        stroke:color('--primary'),'stroke-width':1.5},overlay):null;
+      if(focusFrame){const r=focusSource.rect;focusFrame.setAttribute('x',r.x-origin.left);focusFrame.setAttribute('y',r.y-origin.top);
+        focusFrame.setAttribute('width',r.width);focusFrame.setAttribute('height',r.height);}
+      const shapes=valid?taskIds.map(id=>{
+        const source=sourceTasks.get(id), target=targetTasks.get(id);
+        const group=el('g',{'data-morph-task':id,'data-morph-block':focus},overlay);
+        const bar=el('rect',{rx:2,fill:color('--surface-4')},group);
+        const fill=el('rect',{rx:1,fill:color('--primary')},group);
+        const label=el('text',{'text-anchor':'middle','dominant-baseline':'central',fill:color('--foreground'),
+          'font-family':color('--font-mono'),'font-size':11},group);label.textContent=String(id);
+        return {source,target,group,bar,fill,label};
+      }):[];
+      destination.style.opacity='0';
+      current.hold.style.opacity='1';
+      root.classList.remove('viz2-morph-preparing');
+      current.phase='animating';
+      const started=performance.now(),duration=valid?850:350;
+      const fromClip=forward?assignment.clip:pipeline.clip,toClip=forward?pipeline.clip:assignment.clip;
+      const local=r=>({x:r.x-origin.left,y:r.y-origin.top,width:r.width,height:r.height});
       function frame(now){
         if(job!==current)return;
-        const elapsed=now-started, progress=Math.min(1,elapsed/(duration+7*stagger));
-        // Clip interpolates between real viewport bounds, including horizontal pan and vertical scroll.
-        attrRect(clipRect,local(lerp(forward?assignment.clip:pipeline.clip,forward?pipeline.clip:assignment.clip,ease(progress))));
-        blocks.forEach((item,index)=>{
-          const t=ease(Math.max(0,Math.min(1,(elapsed-index*4)/duration))), p=forward?t:1-t;
-          const r=local(lerp(item.source.rect,item.target.rect,p));attrRect(item.background,r);
-          const ir=item.source.iconRect,sr=item.source.rect, factor=1-p;
-          item.icon.setAttribute('x',r.x+(ir.x-sr.x)*factor);item.icon.setAttribute('y',r.y+(ir.y-sr.y)*factor);
-          item.icon.setAttribute('width',Math.max(.01,ir.width*factor));item.icon.setAttribute('height',Math.max(.01,ir.height*factor));item.icon.style.opacity=String(1-p);
-          const labelY=item.source.labelRect.y+item.source.labelRect.height/2-item.source.rect.y;
-          item.label.setAttribute('x',r.x+r.width/2);item.label.setAttribute('y',r.y+mix(labelY,r.height/2,p));
-        });
-        tasks.forEach(item=>{
-          const delay=item.target.task.kvHead*stagger, t=ease(Math.max(0,Math.min(1,(elapsed-delay)/duration))),p=forward?t:1-t;
-          const r=local(lerp(item.source.rect,item.target.rect,p)), n=item.target.task.stacks;
-          const destUnit=r.width/n;
-          item.segments.forEach((segment,index)=>{
-            const sourceSegment=item.source.segments[index];
-            const startX=sourceSegment?r.width*(sourceSegment.x-item.source.rect.x)/item.source.rect.width:r.width;
-            const sourceWidth=sourceSegment?r.width*sourceSegment.width/item.source.rect.width:0;
-            const endX=Math.min(index,n)*destUnit;
-            const w=Math.max(0,mix(sourceWidth,index<n?destUnit-Math.min(2,destUnit*.1):0,p));
-            const sr={x:r.x+mix(startX,endX,p),y:r.y,width:w,height:r.height};attrRect(segment.track,sr);
-            const fraction=item.target.task.segments[index]?.fraction||0;attrRect(segment.fill,{...sr,width:w*fraction});
-            segment.pages.forEach((line,page)=>{
-              const x=sr.x+w*(page+1)/(segment.pages.length+1);
-              line.setAttribute('x1',x);line.setAttribute('x2',x);line.setAttribute('y1',sr.y);line.setAttribute('y2',sr.y+sr.height);
-              line.style.opacity=String(index<n&&destUnit>=28?p:0);
-            });
+        const t=Math.max(0,Math.min(1,(now-started)/duration));
+        const fadeOut=valid?Math.min(1,t/.2):t;
+        const reveal=valid?Math.max(0,Math.min(1,(t-.7)/.3)):t;
+        current.hold.style.opacity=String(1-fadeOut);
+        destination.style.opacity=String(reveal);
+        if(valid){
+          const morph=ease(Math.max(0,Math.min(1,(t-.2)/.5)));
+          const alpha=t<.2?t/.2:t>.7?1-reveal:1;
+          focusFrame.style.opacity=String(Math.max(0,1-t/.35));
+          shapes.forEach(({source,target,group,bar,fill,label})=>{
+            const from=forward?source.rect:target.rect, to=forward?target.rect:source.rect;
+            const r=local(lerp(from,to,morph));
+            for(const key of ['x','y','width','height'])bar.setAttribute(key,r[key]);
+            fill.setAttribute('x',r.x);fill.setAttribute('y',r.y+r.height-3);
+            fill.setAttribute('width',r.width);fill.setAttribute('height',3);
+            label.setAttribute('x',r.x+r.width/2);label.setAttribute('y',r.y+r.height/2);
+            group.style.opacity=String(alpha);
           });
-          const selected=item.target.id===current.selection?.task, related=item.target.task.block===current.selection?.block;
-          attrRect(item.line,{x:r.x+1,y:r.y+1,width:Math.max(0,r.width-2),height:Math.max(0,r.height-2)});item.line.style.opacity=String((selected||related)?p:0);
-          item.label.setAttribute('x',r.x+r.width/2);item.label.setAttribute('y',r.y+r.height/2);item.label.setAttribute('font-size',Math.min(11,Math.max(7,(r.width-3)/String(item.target.id).length/.62)));item.label.style.opacity=String(p);
-          const bw=Math.min(r.width,String(item.target.id).length*7+4),bh=Math.min(13,r.height);attrRect(item.backing,{x:r.x+(r.width-bw)/2,y:r.y+(r.height-bh)/2,width:bw,height:bh});item.backing.style.opacity=String(p);
-        });
-        if(progress<1)current.frame=requestAnimationFrame(frame);else cancel();
+          const clip=lerp(fromClip,toClip,morph);
+          overlay.style.clipPath=`inset(${Math.max(0,clip.y-origin.top)}px ${Math.max(0,origin.left+origin.width-clip.x-clip.width)}px ${Math.max(0,origin.top+origin.height-clip.y-clip.height)}px ${Math.max(0,clip.x-origin.left)}px)`;
+        }
+        if(t<1)current.frame=requestAnimationFrame(frame);else cancel();
       }
       frame(started);
     }
@@ -202,5 +215,5 @@
     root.addEventListener('scroll',event=>{if(job?.phase==='animating'&&!job.hold?.contains(event.target))cancel();},true);
     return {prepare,play,cancel,get active(){return !!job||intra.active;},get animating(){return job?.phase==='animating'||intra.animating;}};
   }
-  global.PtoVisualization2Transition=Object.freeze({create,pairs});
+  global.PtoVisualization2Transition=Object.freeze({create,pairs,focusBlock});
 })(window);

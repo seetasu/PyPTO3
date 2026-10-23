@@ -48,7 +48,7 @@
       }, progress < .5 ? timing.generationHold : timing.assignmentHold);
       notify();
     }
-    function settle() { if (disposed) return; clear(); paint(progress < .5 ? 0 : 1); notify(); }
+    function settle(next = progress < .5 ? 0 : 1) { if (disposed) return; clear(); paint(next); notify(); }
     function setActive(next) {
       if (disposed || active === next) return;
       if (!next) { clear(); active = false; paint(progress < .5 ? 0 : 1); if (seen && pauseOnReturn) held = true; notify(); return; }

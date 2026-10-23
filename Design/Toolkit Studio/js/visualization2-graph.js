@@ -51,6 +51,7 @@
     // Labels live in viewport coordinates, independently of scene scale. At low
     // zoom, callouts avoid overlaps without changing the shared graph geometry.
     labels = document.createElement('div');labels.className='viz2-graph-labels';
+    labels.dataset.nodeRendering=adapter?'card':'compact';
     viewport.append(labels);
     nodeLabels=nodes.map(node=>{
       const label=document.createElement('span');label.className='viz2-graph-node-title';
