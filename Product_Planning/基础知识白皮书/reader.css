@@ -35,3 +35,5 @@ main.is-home{padding-left:clamp(24px,7vw,112px);padding-right:clamp(24px,7vw,112
 .home-note{margin:36px 0 0;color:#626262;font-size:10px}
 @media(max-width:1180px){.learning-path{grid-template-columns:repeat(3,minmax(0,1fr))}.path-card:not(:last-child):after{display:none}.home-audience{grid-template-columns:repeat(2,minmax(0,1fr))}.home-audience>div{grid-column:1/-1}}
 @media(max-width:760px){main.is-home{padding:var(--nav) 16px 0}.home-guide{padding:38px 0 44px}.home-heading h1{font-size:39px}.home-lead{font-size:13px}.home-path-label{margin-top:38px}.learning-path{grid-template-columns:1fr;gap:8px}.path-card{min-height:0;padding:15px}.path-title{margin-top:12px}.path-summary{margin-top:7px}.path-next{padding-top:11px}.home-explainer{grid-template-columns:1fr;gap:18px;margin-top:30px;padding:22px 0}.home-outcome{justify-content:flex-start;gap:9px}.home-audience{grid-template-columns:1fr 1fr;gap:7px}.home-audience button{padding:11px}}
+.toc a{display:flex;align-items:flex-start;gap:8px}
+.toc-index{flex:0 0 22px;color:#666;font-variant-numeric:tabular-nums}

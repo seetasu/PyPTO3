@@ -7,6 +7,7 @@
   let current = 0, visualIndex = 0, headings = [], activeObserver;
   const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const slug = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-|-$/g,'');
+  const headingLabel = h => h.textContent.trim().replace(/^\d+\.\s*/, '');
   function inline(s) {
     let x = esc(s);
     x = x.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,(_,alt,url) => `<figure class="diagram"><img src="${url}" alt="${alt}" loading="lazy"><figcaption>${alt}</figcaption></figure>`);
@@ -43,10 +44,10 @@
     $('#cover-meta').innerHTML=p.tags.map(t=>`<span>${esc(t)}</span>`).join(''); $('#rail-title').textContent=p.shortTitle;
     article.innerHTML=renderMarkdown(p.markdown);
     headings=[...article.querySelectorAll('h2,h3')].filter(h=>h.textContent.trim());
-    toc.innerHTML=headings.map((h,i)=>`<a href="#${h.id}" data-heading="${h.id}" class="${h.tagName==='H3'?'sub':''}"><span>${String(i+1).padStart(2,'0')}</span>${esc(h.textContent)}</a>`).join('');
+    toc.innerHTML=headings.map((h,i)=>`<a href="#${h.id}" data-heading="${h.id}" class="${h.tagName==='H3'?'sub':''}"><span class="toc-index">${String(i+1).padStart(2,'0')}</span><span>${esc(headingLabel(h))}</span></a>`).join('');
     $('#read-count').textContent=`0 / ${headings.length}`;
     const guideMap=$('#guide-map'); guideMap.className='guide-links';
-    guideMap.innerHTML=headings.slice(0,8).map((h,i)=>`<a href="#${h.id}"><b>${String(i+1).padStart(2,'0')}</b> ${esc(h.textContent)}</a>`).join('');
+    guideMap.innerHTML=headings.slice(0,8).map((h,i)=>`<a href="#${h.id}"><b>${String(i+1).padStart(2,'0')}</b> ${esc(headingLabel(h))}</a>`).join('');
     drawVisual(); setupObserver(); $('#search').value=''; clearSearch();
     if(hash&&location.hash) requestAnimationFrame(()=>document.querySelector(location.hash)?.scrollIntoView()); else { if(location.hash) history.replaceState(null,'',location.pathname+location.search); window.scrollTo({top:0,behavior:'smooth'}); }
   }
