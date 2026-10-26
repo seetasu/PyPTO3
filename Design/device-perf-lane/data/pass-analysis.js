@@ -15,8 +15,8 @@ window.PERF_PASS_ANALYSIS = {
           "next": "下一步查看 P30 如何把循环展开为两个迭代阶段。",
           "sources": [
             {
-              "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/29_after_LowerPipelineToSlots.py",
-              "label": "P29 · 流水请求与 tile 大小",
+              "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/28_after_SkewCrossCorePipeline.py",
+              "label": "P28 · 输入循环",
               "lines": [
                 {
                   "line": 297,
@@ -25,6 +25,36 @@ window.PERF_PASS_ANALYSIS = {
                 {
                   "line": 301,
                   "text": "                    m_cur_oi_inline1216__tile: pl.Tile[[16, 512], pl.FP32, pl.Mem.Vec] = pl.tile.load(sparse_blk_oi_inline1233__ssa_v0, [m_row_inline1218__ssa_v0, 0], [16, 512], [16, 512], target_memory=pl.Mem.Vec)"
+                },
+                {
+                  "line": 333,
+                  "text": "                    t__tile_5: pl.Tile[[16, 512], pl.FP32, pl.Mem.Vec] = pl.tile.row_expand_mul(m_cur_oi_inline1216__tile, m_beta_inline1213__tile)"
+                },
+                {
+                  "line": 334,
+                  "text": "                    m_oi_inline1220__tile_1: pl.Tile[[16, 512], pl.FP32, pl.Mem.Vec] = pl.tile.add(t__tile_4, t__tile_5)"
+                }
+              ]
+            },
+            {
+              "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/29_after_LowerPipelineToSlots.py",
+              "label": "P29 · 输出循环",
+              "lines": [
+                {
+                  "line": 297,
+                  "text": "                for m_sb_inline1219__idx_v0, (m_li_inline1302__iter_v1, m_mi_inline1221__iter_v1, m_oi_inline1220__iter_v1) in pl.pipeline(1, 5, stage=2, init_values=(m_li_inline1302__tile, m_mi_inline1221__tile, m_oi_inline1220__tile)):"
+                },
+                {
+                  "line": 301,
+                  "text": "                    m_cur_oi_inline1216__tile: pl.Tile[[16, 512], pl.FP32, pl.Mem.Vec] = pl.tile.load(sparse_blk_oi_inline1233__ssa_v0, [m_row_inline1218__ssa_v0, 0], [16, 512], [16, 512], target_memory=pl.Mem.Vec)"
+                },
+                {
+                  "line": 333,
+                  "text": "                    t__tile_5: pl.Tile[[16, 512], pl.FP32, pl.Mem.Vec] = pl.tile.row_expand_mul(m_cur_oi_inline1216__tile, m_beta_inline1213__tile)"
+                },
+                {
+                  "line": 334,
+                  "text": "                    m_oi_inline1220__tile_1: pl.Tile[[16, 512], pl.FP32, pl.Mem.Vec] = pl.tile.add(t__tile_4, t__tile_5)"
                 }
               ]
             }
@@ -178,7 +208,7 @@ window.PERF_PASS_ANALYSIS = {
           "name": "InsertCommFence",
           "title": "确认通信 Fence 插入",
           "summary": "两处 Put 后各新增一条 fence；两份 staging tile 使用同一缓冲区间。",
-          "finding": "已确认：P49 尚无这两条 Fence，P50 在两个 Put 后插入。两处 staging 都使用 mem_vec_66、偏移 99584、大小 65536B。缓冲复用与通信同步是需要联合检查的线索；快照不能单独证明 Fence 冗余或确定其全部插入原因。",
+          "finding": "已确认：P50 在两个 Put 后分别插入 GM Fence。两处 staging 复用同一区间，但 Fence 的用途是满足通信发布的数据先可见、再通知契约；不能将插入原因归为缓冲复用。最终 PTO 与 C++ 可见 GM Fence / DDR 屏障。",
           "next": "分析方向：结合通信完成语义检查同步要求，再用事件计时确认成本；不能直接删除 Fence。此分支与流水缓冲约束都作用于同一 kernel，不表示前者必然导致后者。",
           "sources": [
             {
@@ -236,7 +266,1349 @@ window.PERF_PASS_ANALYSIS = {
           ]
         }
       ],
-      "boundary": "归因边界：以下为同一 kernel 的编译证据，尚未证明流水串行化或 Fence 造成了高 Setup；需核实 local_setup_us 计时边界并做运行对照。"
+      "boundary": "核内分析：流水缓冲与通信 Fence 均发生在 kernel 执行窗口内，不能用它们解释本次主要由执行前等待构成的高 Setup。优化效果需重编译并做运行对照。",
+      "setupAnalysis": {
+        "ranks": {
+          "rank0": {
+            "blocks": [
+              {
+                "core": 24,
+                "receive": 3084.84,
+                "start": 3466.5,
+                "end": 3625.52,
+                "setup": 381.66,
+                "kernel": 159.02,
+                "previousEnd": 3084.6,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 1770
+              },
+              {
+                "core": 25,
+                "receive": 2994.52,
+                "start": 3466.32,
+                "end": 3624.26,
+                "setup": 471.8,
+                "kernel": 157.94,
+                "previousEnd": 2994.3,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 1818
+              },
+              {
+                "core": 26,
+                "receive": 3111.72,
+                "start": 3466.6,
+                "end": 3627.06,
+                "setup": 354.88,
+                "kernel": 160.46,
+                "previousEnd": 3111.52,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 1860
+              },
+              {
+                "core": 27,
+                "receive": 3027.9,
+                "start": 3466.36,
+                "end": 3623.32,
+                "setup": 438.46,
+                "kernel": 156.96,
+                "previousEnd": 3027.64,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 1906
+              },
+              {
+                "core": 28,
+                "receive": 3082.04,
+                "start": 3466.56,
+                "end": 3578.14,
+                "setup": 384.52,
+                "kernel": 111.58,
+                "previousEnd": 3081.8,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 1944
+              },
+              {
+                "core": 29,
+                "receive": 2991.6,
+                "start": 3466.4,
+                "end": 3583.22,
+                "setup": 474.8,
+                "kernel": 116.82,
+                "previousEnd": 2991.36,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 1987
+              },
+              {
+                "core": 30,
+                "receive": 3454.1,
+                "start": 3466.6,
+                "end": 3652.9,
+                "setup": 12.5,
+                "kernel": 186.3,
+                "previousEnd": 3453.78,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 2031
+              },
+              {
+                "core": 31,
+                "receive": 3406.54,
+                "start": 3466.46,
+                "end": 3661.88,
+                "setup": 59.92,
+                "kernel": 195.42,
+                "previousEnd": 3406.3,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 2078
+              },
+              {
+                "core": 32,
+                "receive": 3428.38,
+                "start": 3466.68,
+                "end": 3669.74,
+                "setup": 38.3,
+                "kernel": 203.06,
+                "previousEnd": 3428.12,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 2126
+              },
+              {
+                "core": 33,
+                "receive": 3378.5,
+                "start": 3466.64,
+                "end": 3664.92,
+                "setup": 88.14,
+                "kernel": 198.28,
+                "previousEnd": 3378.22,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 2173
+              },
+              {
+                "core": 34,
+                "receive": 3464.76,
+                "start": 3466.66,
+                "end": 3613,
+                "setup": 1.9,
+                "kernel": 146.34,
+                "previousEnd": 3464.4,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 2212
+              },
+              {
+                "core": 35,
+                "receive": 3412.98,
+                "start": 3466.42,
+                "end": 3600.06,
+                "setup": 53.44,
+                "kernel": 133.64,
+                "previousEnd": 3412.72,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 2252
+              },
+              {
+                "core": 36,
+                "receive": 3069.3,
+                "start": 3466.62,
+                "end": 3635.38,
+                "setup": 397.32,
+                "kernel": 168.76,
+                "previousEnd": 3069.08,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 2302
+              },
+              {
+                "core": 37,
+                "receive": 2969.28,
+                "start": 3466.42,
+                "end": 3629.7,
+                "setup": 497.14,
+                "kernel": 163.28,
+                "previousEnd": 2969.04,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 2352
+              },
+              {
+                "core": 38,
+                "receive": 3117.2,
+                "start": 3466.6,
+                "end": 3631.78,
+                "setup": 349.4,
+                "kernel": 165.18,
+                "previousEnd": 3116.92,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 2402
+              },
+              {
+                "core": 39,
+                "receive": 3032.92,
+                "start": 3466.44,
+                "end": 3628.42,
+                "setup": 433.52,
+                "kernel": 161.98,
+                "previousEnd": 3032.64,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 2452
+              },
+              {
+                "core": 40,
+                "receive": 3065.52,
+                "start": 3466.64,
+                "end": 3577.84,
+                "setup": 401.12,
+                "kernel": 111.2,
+                "previousEnd": 3065,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 2494
+              },
+              {
+                "core": 41,
+                "receive": 2962.24,
+                "start": 3466.68,
+                "end": 3578.34,
+                "setup": 504.44,
+                "kernel": 111.66,
+                "previousEnd": 2962.02,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 2540
+              },
+              {
+                "core": 42,
+                "receive": 3447.76,
+                "start": 3466.66,
+                "end": 3656.32,
+                "setup": 18.9,
+                "kernel": 189.66,
+                "previousEnd": 3447.5,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 2590
+              },
+              {
+                "core": 43,
+                "receive": 3398.08,
+                "start": 3466.44,
+                "end": 3671.58,
+                "setup": 68.36,
+                "kernel": 205.14,
+                "previousEnd": 3397.84,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 2641
+              },
+              {
+                "core": 44,
+                "receive": 3454.76,
+                "start": 3466.64,
+                "end": 3666.04,
+                "setup": 11.88,
+                "kernel": 199.4,
+                "previousEnd": 3454.48,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 2694
+              },
+              {
+                "core": 45,
+                "receive": 3404.06,
+                "start": 3466.46,
+                "end": 3665.26,
+                "setup": 62.4,
+                "kernel": 198.8,
+                "previousEnd": 3403.78,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 2745
+              },
+              {
+                "core": 46,
+                "receive": 3445.4,
+                "start": 3466.64,
+                "end": 3613.66,
+                "setup": 21.24,
+                "kernel": 147.02,
+                "previousEnd": 3445.04,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 2789
+              },
+              {
+                "core": 47,
+                "receive": 3394.32,
+                "start": 3466.48,
+                "end": 3603.54,
+                "setup": 72.16,
+                "kernel": 137.06,
+                "previousEnd": 3394.04,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 2835
+              },
+              {
+                "core": 48,
+                "receive": 3106.74,
+                "start": 3466.74,
+                "end": 3636.64,
+                "setup": 360,
+                "kernel": 169.9,
+                "previousEnd": 3106.54,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 2887
+              },
+              {
+                "core": 49,
+                "receive": 3026.56,
+                "start": 3466.66,
+                "end": 3626.72,
+                "setup": 440.1,
+                "kernel": 160.06,
+                "previousEnd": 3026.32,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 2942
+              },
+              {
+                "core": 50,
+                "receive": 3153.16,
+                "start": 3466.48,
+                "end": 3630.58,
+                "setup": 313.32,
+                "kernel": 164.1,
+                "previousEnd": 3152.9,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 2992
+              },
+              {
+                "core": 51,
+                "receive": 3084.92,
+                "start": 3466.68,
+                "end": 3629.56,
+                "setup": 381.76,
+                "kernel": 162.88,
+                "previousEnd": 3084.68,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 3042
+              },
+              {
+                "core": 52,
+                "receive": 3149.74,
+                "start": 3466.72,
+                "end": 3579.5,
+                "setup": 316.98,
+                "kernel": 112.78,
+                "previousEnd": 3149.5,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 3069
+              },
+              {
+                "core": 53,
+                "receive": 3078.3,
+                "start": 3466.5,
+                "end": 3586.02,
+                "setup": 388.2,
+                "kernel": 119.52,
+                "previousEnd": 3078.04,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 3118
+              },
+              {
+                "core": 54,
+                "receive": 3420.26,
+                "start": 3466.68,
+                "end": 3660.48,
+                "setup": 46.42,
+                "kernel": 193.8,
+                "previousEnd": 3420.02,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 3168
+              },
+              {
+                "core": 55,
+                "receive": 3369.84,
+                "start": 3466.5,
+                "end": 3672.9,
+                "setup": 96.66,
+                "kernel": 206.4,
+                "previousEnd": 3369.62,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 3222
+              },
+              {
+                "core": 56,
+                "receive": 3412.76,
+                "start": 3466.68,
+                "end": 3670.74,
+                "setup": 53.92,
+                "kernel": 204.06,
+                "previousEnd": 3412.52,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 3273
+              },
+              {
+                "core": 57,
+                "receive": 3360.74,
+                "start": 3466.72,
+                "end": 3668.04,
+                "setup": 105.98,
+                "kernel": 201.32,
+                "previousEnd": 3360.48,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 3323
+              },
+              {
+                "core": 58,
+                "receive": 3443.94,
+                "start": 3466.74,
+                "end": 3615.14,
+                "setup": 22.8,
+                "kernel": 148.4,
+                "previousEnd": 3443.72,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 3370
+              },
+              {
+                "core": 59,
+                "receive": 3392.56,
+                "start": 3466.54,
+                "end": 3594.12,
+                "setup": 73.98,
+                "kernel": 127.58,
+                "previousEnd": 3392.28,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 3419
+              },
+              {
+                "core": 60,
+                "receive": 3137.5,
+                "start": 3466.72,
+                "end": 3635.96,
+                "setup": 329.22,
+                "kernel": 169.24,
+                "previousEnd": 3137.18,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 3470
+              },
+              {
+                "core": 61,
+                "receive": 3062.58,
+                "start": 3466.52,
+                "end": 3627.74,
+                "setup": 403.94,
+                "kernel": 161.22,
+                "previousEnd": 3062.36,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 3523
+              },
+              {
+                "core": 62,
+                "receive": 3090.82,
+                "start": 3466.72,
+                "end": 3626.86,
+                "setup": 375.9,
+                "kernel": 160.14,
+                "previousEnd": 3090.58,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 3577
+              },
+              {
+                "core": 63,
+                "receive": 2999,
+                "start": 3466.58,
+                "end": 3626.44,
+                "setup": 467.58,
+                "kernel": 159.86,
+                "previousEnd": 2998.76,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 3629
+              },
+              {
+                "core": 64,
+                "receive": 3121.38,
+                "start": 3466.9,
+                "end": 3582.12,
+                "setup": 345.52,
+                "kernel": 115.22,
+                "previousEnd": 3120.94,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 3678
+              },
+              {
+                "core": 65,
+                "receive": 3040.3,
+                "start": 3466.94,
+                "end": 3589.18,
+                "setup": 426.64,
+                "kernel": 122.24,
+                "previousEnd": 3040.08,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 3726
+              },
+              {
+                "core": 66,
+                "receive": 3454.36,
+                "start": 3466.9,
+                "end": 3663.5,
+                "setup": 12.54,
+                "kernel": 196.6,
+                "previousEnd": 3454.14,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 3777
+              },
+              {
+                "core": 67,
+                "receive": 3406.36,
+                "start": 3467.22,
+                "end": 3668.68,
+                "setup": 60.86,
+                "kernel": 201.46,
+                "previousEnd": 3406.14,
+                "previousTask": "8589934645",
+                "dispatch": 2599.1,
+                "recordIndex": 3831
+              },
+              {
+                "core": 68,
+                "receive": 3459.64,
+                "start": 3467.26,
+                "end": 3672.26,
+                "setup": 7.62,
+                "kernel": 205,
+                "previousEnd": 3459.38,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 3885
+              },
+              {
+                "core": 69,
+                "receive": 3407.24,
+                "start": 3467.12,
+                "end": 3671.42,
+                "setup": 59.88,
+                "kernel": 204.3,
+                "previousEnd": 3406.98,
+                "previousTask": "8589934645",
+                "dispatch": 2598.48,
+                "recordIndex": 3938
+              },
+              {
+                "core": 70,
+                "receive": 3459.06,
+                "start": 3466.94,
+                "end": 3617.1,
+                "setup": 7.88,
+                "kernel": 150.16,
+                "previousEnd": 3458.84,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 3985
+              },
+              {
+                "core": 71,
+                "receive": 3407.82,
+                "start": 3466.98,
+                "end": 3607.6,
+                "setup": 59.16,
+                "kernel": 140.62,
+                "previousEnd": 3407.34,
+                "previousTask": "8589934645",
+                "dispatch": 2600.5,
+                "recordIndex": 4033
+              }
+            ],
+            "predEnd": 3464.4,
+            "predFinish": 3465.16,
+            "setup": 10755.059999999998,
+            "beforeEnd": 10647.259999999998,
+            "overlapShare": 0.9899768109150484,
+            "residualMean": 1.4933333333334247,
+            "rawPath": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank0/d0/chip_swimlane_records.json",
+            "depsPath": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank0/d0/deps.json",
+            "pickupGapMin": 0.1999999999998181,
+            "pickupGapMax": 0.5199999999999818
+          },
+          "rank1": {
+            "blocks": [
+              {
+                "core": 24,
+                "receive": 3035.94,
+                "start": 3062.76,
+                "end": 3205.14,
+                "setup": 26.82,
+                "kernel": 142.38,
+                "previousEnd": 3035.7,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 1758
+              },
+              {
+                "core": 25,
+                "receive": 2978.5,
+                "start": 3062.96,
+                "end": 3210.72,
+                "setup": 84.46,
+                "kernel": 147.76,
+                "previousEnd": 2978.28,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 1797
+              },
+              {
+                "core": 26,
+                "receive": 3021.54,
+                "start": 3062.96,
+                "end": 3267.5,
+                "setup": 41.42,
+                "kernel": 204.54,
+                "previousEnd": 3021.32,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 1844
+              },
+              {
+                "core": 27,
+                "receive": 2952.42,
+                "start": 3062.94,
+                "end": 3262.7,
+                "setup": 110.52,
+                "kernel": 199.76,
+                "previousEnd": 2952.18,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 1891
+              },
+              {
+                "core": 28,
+                "receive": 3022.06,
+                "start": 3062.74,
+                "end": 3237.56,
+                "setup": 40.68,
+                "kernel": 174.82,
+                "previousEnd": 3021.86,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 1937
+              },
+              {
+                "core": 29,
+                "receive": 2948.12,
+                "start": 3062.78,
+                "end": 3256.96,
+                "setup": 114.66,
+                "kernel": 194.18,
+                "previousEnd": 2947.88,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 1983
+              },
+              {
+                "core": 30,
+                "receive": 2632.22,
+                "start": 3062.98,
+                "end": 3174.54,
+                "setup": 430.76,
+                "kernel": 111.56,
+                "previousEnd": 2631.9,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 2024
+              },
+              {
+                "core": 31,
+                "receive": 2546.62,
+                "start": 3062.76,
+                "end": 3176.22,
+                "setup": 516.14,
+                "kernel": 113.46,
+                "previousEnd": 2546.24,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 2063
+              },
+              {
+                "core": 32,
+                "receive": 2589.78,
+                "start": 3062.96,
+                "end": 3228.8,
+                "setup": 473.18,
+                "kernel": 165.84,
+                "previousEnd": 2589.5,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 2109
+              },
+              {
+                "core": 33,
+                "receive": 2496.98,
+                "start": 3063,
+                "end": 3226.48,
+                "setup": 566.02,
+                "kernel": 163.48,
+                "previousEnd": 2496.76,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 2160
+              },
+              {
+                "core": 34,
+                "receive": 2589.3,
+                "start": 3062.98,
+                "end": 3230.86,
+                "setup": 473.68,
+                "kernel": 167.88,
+                "previousEnd": 2589.04,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 2204
+              },
+              {
+                "core": 35,
+                "receive": 2490.5,
+                "start": 3063.18,
+                "end": 3227.7,
+                "setup": 572.68,
+                "kernel": 164.52,
+                "previousEnd": 2490.26,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 2249
+              },
+              {
+                "core": 36,
+                "receive": 3048.2,
+                "start": 3063.22,
+                "end": 3198.46,
+                "setup": 15.02,
+                "kernel": 135.24,
+                "previousEnd": 3047.84,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 2290
+              },
+              {
+                "core": 37,
+                "receive": 2995.74,
+                "start": 3063.22,
+                "end": 3209.6,
+                "setup": 67.48,
+                "kernel": 146.38,
+                "previousEnd": 2995.24,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 2329
+              },
+              {
+                "core": 38,
+                "receive": 3058.62,
+                "start": 3063.02,
+                "end": 3255.34,
+                "setup": 4.4,
+                "kernel": 192.32,
+                "previousEnd": 3058.08,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 2381
+              },
+              {
+                "core": 39,
+                "receive": 3007.3,
+                "start": 3063.02,
+                "end": 3248.9,
+                "setup": 55.72,
+                "kernel": 185.88,
+                "previousEnd": 3006.98,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 2434
+              },
+              {
+                "core": 40,
+                "receive": 3041.32,
+                "start": 3063.22,
+                "end": 3252.76,
+                "setup": 21.9,
+                "kernel": 189.54,
+                "previousEnd": 3041.08,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 2484
+              },
+              {
+                "core": 41,
+                "receive": 2989.28,
+                "start": 3063.26,
+                "end": 3264.8,
+                "setup": 73.98,
+                "kernel": 201.54,
+                "previousEnd": 2989.04,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 2535
+              },
+              {
+                "core": 42,
+                "receive": 2580.06,
+                "start": 3063.18,
+                "end": 3176.9,
+                "setup": 483.12,
+                "kernel": 113.72,
+                "previousEnd": 2579.84,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 2578
+              },
+              {
+                "core": 43,
+                "receive": 2487.76,
+                "start": 3063.44,
+                "end": 3173.46,
+                "setup": 575.68,
+                "kernel": 110.02,
+                "previousEnd": 2487.54,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 2620
+              },
+              {
+                "core": 44,
+                "receive": 2589.46,
+                "start": 3063.4,
+                "end": 3225.82,
+                "setup": 473.94,
+                "kernel": 162.42,
+                "previousEnd": 2589.24,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 2672
+              },
+              {
+                "core": 45,
+                "receive": 2493.32,
+                "start": 3063.16,
+                "end": 3225.36,
+                "setup": 569.84,
+                "kernel": 162.2,
+                "previousEnd": 2493.06,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 2726
+              },
+              {
+                "core": 46,
+                "receive": 2584.36,
+                "start": 3063.34,
+                "end": 3226.86,
+                "setup": 478.98,
+                "kernel": 163.52,
+                "previousEnd": 2584.08,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 2779
+              },
+              {
+                "core": 47,
+                "receive": 2486.44,
+                "start": 3063.18,
+                "end": 3230.66,
+                "setup": 576.74,
+                "kernel": 167.48,
+                "previousEnd": 2486.22,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 2831
+              },
+              {
+                "core": 48,
+                "receive": 3045.28,
+                "start": 3063.4,
+                "end": 3211.42,
+                "setup": 18.12,
+                "kernel": 148.02,
+                "previousEnd": 3045.04,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 2874
+              },
+              {
+                "core": 49,
+                "receive": 2990.26,
+                "start": 3063.42,
+                "end": 3209.34,
+                "setup": 73.16,
+                "kernel": 145.92,
+                "previousEnd": 2989.96,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 2917
+              },
+              {
+                "core": 50,
+                "receive": 3061.2,
+                "start": 3063.64,
+                "end": 3270.86,
+                "setup": 2.44,
+                "kernel": 207.22,
+                "previousEnd": 3060.9,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 2970
+              },
+              {
+                "core": 51,
+                "receive": 3007.32,
+                "start": 3063.66,
+                "end": 3268.48,
+                "setup": 56.34,
+                "kernel": 204.82,
+                "previousEnd": 3007.04,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 3021
+              },
+              {
+                "core": 52,
+                "receive": 3046.36,
+                "start": 3063.42,
+                "end": 3250.84,
+                "setup": 17.06,
+                "kernel": 187.42,
+                "previousEnd": 3045.94,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 3075
+              },
+              {
+                "core": 53,
+                "receive": 2995.64,
+                "start": 3063.58,
+                "end": 3261.62,
+                "setup": 67.94,
+                "kernel": 198.04,
+                "previousEnd": 2995.28,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 3131
+              },
+              {
+                "core": 54,
+                "receive": 2577.44,
+                "start": 3063.44,
+                "end": 3175.3,
+                "setup": 486,
+                "kernel": 111.86,
+                "previousEnd": 2577.2,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 3172
+              },
+              {
+                "core": 55,
+                "receive": 2487.54,
+                "start": 3063.64,
+                "end": 3177.98,
+                "setup": 576.1,
+                "kernel": 114.34,
+                "previousEnd": 2487.24,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 3218
+              },
+              {
+                "core": 56,
+                "receive": 2565.14,
+                "start": 3063.46,
+                "end": 3226.1,
+                "setup": 498.32,
+                "kernel": 162.64,
+                "previousEnd": 2564.76,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 3273
+              },
+              {
+                "core": 57,
+                "receive": 2473.94,
+                "start": 3063.66,
+                "end": 3228.46,
+                "setup": 589.72,
+                "kernel": 164.8,
+                "previousEnd": 2473.68,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 3326
+              },
+              {
+                "core": 58,
+                "receive": 2573.26,
+                "start": 3063.6,
+                "end": 3231.02,
+                "setup": 490.34,
+                "kernel": 167.42,
+                "previousEnd": 2573,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 3377
+              },
+              {
+                "core": 59,
+                "receive": 2474.12,
+                "start": 3063.78,
+                "end": 3230.24,
+                "setup": 589.66,
+                "kernel": 166.46,
+                "previousEnd": 2473.9,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 3431
+              },
+              {
+                "core": 60,
+                "receive": 3048.8,
+                "start": 3063.8,
+                "end": 3210.28,
+                "setup": 15,
+                "kernel": 146.48,
+                "previousEnd": 3048.56,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 3477
+              },
+              {
+                "core": 61,
+                "receive": 2995.98,
+                "start": 3063.7,
+                "end": 3207.4,
+                "setup": 67.72,
+                "kernel": 143.7,
+                "previousEnd": 2995.72,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 3523
+              },
+              {
+                "core": 62,
+                "receive": 3052.44,
+                "start": 3063.88,
+                "end": 3258.56,
+                "setup": 11.44,
+                "kernel": 194.68,
+                "previousEnd": 3052.06,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 3577
+              },
+              {
+                "core": 63,
+                "receive": 2998.5,
+                "start": 3063.7,
+                "end": 3266.42,
+                "setup": 65.2,
+                "kernel": 202.72,
+                "previousEnd": 2998.24,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 3629
+              },
+              {
+                "core": 64,
+                "receive": 3045.7,
+                "start": 3064.08,
+                "end": 3266.8,
+                "setup": 18.38,
+                "kernel": 202.72,
+                "previousEnd": 3045.38,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 3675
+              },
+              {
+                "core": 65,
+                "receive": 2994.16,
+                "start": 3064.04,
+                "end": 3260.82,
+                "setup": 69.88,
+                "kernel": 196.78,
+                "previousEnd": 2993.8,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 3731
+              },
+              {
+                "core": 66,
+                "receive": 2641.56,
+                "start": 3066.34,
+                "end": 3181.08,
+                "setup": 424.78,
+                "kernel": 114.74,
+                "previousEnd": 2641.34,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 3777
+              },
+              {
+                "core": 67,
+                "receive": 2557.76,
+                "start": 3066.56,
+                "end": 3180.7,
+                "setup": 508.8,
+                "kernel": 114.14,
+                "previousEnd": 2557.52,
+                "previousTask": "8589934645",
+                "dispatch": 2133.94,
+                "recordIndex": 3822
+              },
+              {
+                "core": 68,
+                "receive": 2618.72,
+                "start": 3065.88,
+                "end": 3231.4,
+                "setup": 447.16,
+                "kernel": 165.52,
+                "previousEnd": 2618.26,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 3875
+              },
+              {
+                "core": 69,
+                "receive": 2538.84,
+                "start": 3064.24,
+                "end": 3230.48,
+                "setup": 525.4,
+                "kernel": 166.24,
+                "previousEnd": 2538.5,
+                "previousTask": "8589934645",
+                "dispatch": 2126.94,
+                "recordIndex": 3928
+              },
+              {
+                "core": 70,
+                "receive": 2652.78,
+                "start": 3064.04,
+                "end": 3227.32,
+                "setup": 411.26,
+                "kernel": 163.28,
+                "previousEnd": 2652.52,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 3978
+              },
+              {
+                "core": 71,
+                "receive": 2564.58,
+                "start": 3064.02,
+                "end": 3231.18,
+                "setup": 499.44,
+                "kernel": 167.16,
+                "previousEnd": 2564.32,
+                "previousTask": "8589934645",
+                "dispatch": 2128.32,
+                "recordIndex": 4031
+              }
+            ],
+            "predEnd": 3060.9,
+            "predFinish": 3061.72,
+            "setup": 13377.479999999998,
+            "beforeEnd": 13250.340000000004,
+            "overlapShare": 0.9904959678504476,
+            "residualMean": 1.835000000000188,
+            "rawPath": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank1/d0/chip_swimlane_records.json",
+            "depsPath": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/rank1/d0/deps.json",
+            "pickupGapMin": 0.1999999999998181,
+            "pickupGapMax": 0.5399999999999636
+          }
+        },
+        "boundary": "归因边界：约 99% 是 Setup 区间与前驱执行区间的重叠比例，结合运行时门控机制支持依赖等待解释；归档没有独立 doorbell 时间戳。Pass 可定位依赖来源，不能独立确定运行时等待耗时。",
+        "steps": [
+          {
+            "pass": "实测",
+            "name": "receive → kernel start → end",
+            "title": "对齐各核执行时序",
+            "summary": "泳道左端是领取时间，真实 kernel 开始时间在 Setup 区间之后。选择任意 block，对照同核前驱结束和整体前驱完成。",
+            "finding": "两个 rank 的 48 个核都在自己的 qk_pv block 结束后很快领取当前任务，随后集中在 qk_pv 整体完成后进入 kernel。提前领取的核，记录到更长的 Setup。",
+            "visual": "blocks",
+            "next": "继续量化 Setup 中有多少区间发生在前驱完成之前。",
+            "sources": []
+          },
+          {
+            "pass": "归因",
+            "name": "时段重叠 ≠ 精确等待计数",
+            "title": "区分等待与本地准备",
+            "summary": "local_setup_us = kernel_start − receive；提前派发路径中，领取后等待依赖的区间也会进入该字段。",
+            "finding": "本次约 99% 的 Setup 核时位于 qk_pv 最后一个 block 执行结束之前。剩余时段包含通知、轮询与本地准备，不能全部认作初始化。流水缓冲和通信 Fence 位于 kernel 执行窗口内。",
+            "visual": "totals",
+            "next": "下一步追溯：当前任务为什么需要等待整个 qk_pv？运行时源码为本仓库参考镜像，归档尚未绑定采集二进制的确切版本，需与原始时序交叉验证。",
+            "sources": [
+              {
+                "path": "repo/simpler/simpler_setup/tools/swimlane_converter.py",
+                "label": "转换脚本 · 字段计算公式",
+                "lines": [
+                  {
+                    "line": 961,
+                    "text": "            receive_us = _to_us(start_cycles - r2s_cycles)"
+                  },
+                  {
+                    "line": 962,
+                    "text": "            local_setup_us = start_us - receive_us"
+                  }
+                ]
+              },
+              {
+                "path": "repo/simpler/src/a2a3/runtime/tensormap_and_ringbuffer/aicore/aicore_executor.cpp",
+                "label": "运行时参考实现 · 领取、门控与执行计时",
+                "lines": [
+                  {
+                    "line": 165,
+                    "text": "            uint64_t receive_time = chip_swimlane_enabled ? get_sys_cnt_aicore() : 0;"
+                  },
+                  {
+                    "line": 177,
+                    "text": "            dcci(exec_payload, ENTIRE_DATA_CACHE);"
+                  },
+                  {
+                    "line": 189,
+                    "text": "            if (exec_payload->src_payload != 0) {"
+                  },
+                  {
+                    "line": 215,
+                    "text": "                    if (read_dmb_high32() == task_id) {"
+                  },
+                  {
+                    "line": 248,
+                    "text": "            uint64_t start_time = chip_swimlane_enabled ? get_sys_cnt_aicore() : 0;"
+                  },
+                  {
+                    "line": 250,
+                    "text": "            execute_task(exec_payload);"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "pass": "P00–P40",
+            "name": "frontend → Outline → Dependencies",
+            "title": "追溯 Pass 中的依赖",
+            "summary": "前端已显式写入 deps=[qk_tid, attn_rope_tid]；外提与提交降低后仍保留整任务依赖。",
+            "finding": "已确认：P09 外提 kernel，P10 形成 spmd_submit；P39 / P40 对照仍保留显式 deps。不能把既有的全任务等待归因于 P40 新增。creator / tensormap 等实际依赖还需与 deps.json 联合解释。",
+            "next": "优化问题：是否存在安全的分片依赖空间？这需要校验数据范围、通知语义和消费者一致性，并重新运行验证。",
+            "sources": [
+              {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py",
+                "label": "前端 · 原有显式依赖",
+                "lines": [
+                  {
+                    "line": 1707,
+                    "text": "            attn_rope_tid: pl.Scalar[pl.TASK_ID] = _tuple_tmp_3[7]"
+                  },
+                  {
+                    "line": 1710,
+                    "text": "            with pl.spmd(48, name_hint=\"csa_merge_pack_publish_spmd\", deps=[qk_tid, attn_rope_tid]) as publish_tid:"
+                  }
+                ]
+              },
+              {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/09_after_OutlineIncoreScopes.py",
+                "label": "P09 · 前驱与外提调用",
+                "lines": [
+                  {
+                    "line": 2739,
+                    "text": "            with pl.spmd(24, name_hint=\"qk_pv_spmd\", deps=[qk_plan_tid_inline2387__ssa_v0, cache_ready_dep_inline1304__ssa_v0], allow_early_resolve=True) as qk_tid_inline2349__ssa_v0:"
+                  },
+                  {
+                    "line": 2758,
+                    "text": "            qk_tid_inline1229__ssa_v0: pl.Scalar[pl.TASK_ID] = qk_tid_inline2349__ssa_v0"
+                  },
+                  {
+                    "line": 2759,
+                    "text": "            attn_rope_tid_inline1294__ssa_v0: pl.Scalar[pl.TASK_ID] = rope_tid_inline2402__ssa_v0"
+                  },
+                  {
+                    "line": 2762,
+                    "text": "            with pl.spmd(48, name_hint=\"csa_merge_pack_publish_spmd\", deps=[qk_tid_inline1229__ssa_v0, attn_rope_tid_inline1294__ssa_v0]) as publish_tid_inline1260__ssa_v0:"
+                  },
+                  {
+                    "line": 2763,
+                    "text": "                self.csa_merge_pack_publish(attention_grouped_inline1276__ssa_v0, pack_work_count_inline1228__ssa_v0, sparse_blk_mi_inline1234__ssa_v0, sparse_blk_li_inline1283__ssa_v0, sparse_blk_oi_inline1233__ssa_v0, attn_sink__ssa_v0, rope_cos_il_inline1232__ssa_v0, rope_sin_signed_inline1231__ssa_v0, rope_swap_idx_inline1230__ssa_v0, tp_rank__ssa_v0, attention_window__ssa_v0, group_base__ssa_v0, attention_signal__ssa_v0)"
+                  }
+                ]
+              },
+              {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/10_after_OutlineClusterScopes.py",
+                "label": "P10 · 降为提交",
+                "lines": [
+                  {
+                    "line": 2973,
+                    "text": "            ret__tmp_v0_45: pl.Tuple[pl.Scalar[pl.TASK_ID]] = pl.spmd_submit(self.csa_merge_pack_publish_spmd, attention_grouped_inline1276__ssa_v0, pack_work_count_inline1228__ssa_v0, sparse_blk_mi_inline1234__ssa_v0, sparse_blk_li_inline1283__ssa_v0, sparse_blk_oi_inline1233__ssa_v0, attn_sink__ssa_v0, rope_cos_il_inline1232__ssa_v0, rope_sin_signed_inline1231__ssa_v0, rope_swap_idx_inline1230__ssa_v0, tp_rank__ssa_v0, attention_window__ssa_v0, group_base__ssa_v0, attention_signal__ssa_v0, deps=[qk_tid_inline1229__ssa_v0, attn_rope_tid_inline1294__ssa_v0], core_num=48)"
+                  }
+                ]
+              },
+              {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/39_after_DeriveCallDirections.py",
+                "label": "P39 · 依赖推导前",
+                "lines": [
+                  {
+                    "line": 5030,
+                    "text": "            ret__tmp_v0_45: pl.Tuple[pl.Scalar[pl.TASK_ID]] = pl.spmd_submit(self.csa_merge_pack_publish_spmd, attention_grouped_inline1276__ssa_v0, pack_work_count_inline1228__ssa_v0, sparse_blk_mi_inline1234__ssa_v0, sparse_blk_li_inline1283__ssa_v0, sparse_blk_oi_inline1233__ssa_v0, attn_sink__ssa_v0, rope_cos_il_inline1232__ssa_v0, rope_sin_signed_inline1231__ssa_v0, rope_swap_idx_inline1230__ssa_v0, tp_rank__ssa_v0, attention_window__ssa_v0, group_base__ssa_v0, attention_signal__ssa_v0, deps=[qk_tid_inline1229__ssa_v0, attn_rope_tid_inline1294__ssa_v0], core_num=48, attrs={\"arg_directions\": [pl.adir.inout, pl.adir.scalar, pl.adir.input, pl.adir.input, pl.adir.input, pl.adir.input, pl.adir.input, pl.adir.input, pl.adir.input, pl.adir.scalar, pl.adir.output_existing, pl.adir.scalar, pl.adir.inout]})"
+                  }
+                ]
+              },
+              {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/40_after_AutoDeriveTaskDependencies.py",
+                "label": "P40 · 显式依赖保留",
+                "lines": [
+                  {
+                    "line": 5030,
+                    "text": "            ret__tmp_v0_45: pl.Tuple[pl.Scalar[pl.TASK_ID]] = pl.spmd_submit(self.csa_merge_pack_publish_spmd, attention_grouped_inline1276__ssa_v0, pack_work_count_inline1228__ssa_v0, sparse_blk_mi_inline1234__ssa_v0, sparse_blk_li_inline1283__ssa_v0, sparse_blk_oi_inline1233__ssa_v0, attn_sink__ssa_v0, rope_cos_il_inline1232__ssa_v0, rope_sin_signed_inline1231__ssa_v0, rope_swap_idx_inline1230__ssa_v0, tp_rank__ssa_v0, attention_window__ssa_v0, group_base__ssa_v0, attention_signal__ssa_v0, deps=[qk_tid_inline1229__ssa_v0, attn_rope_tid_inline1294__ssa_v0], core_num=48, attrs={\"arg_directions\": [pl.adir.inout, pl.adir.scalar, pl.adir.input, pl.adir.input, pl.adir.input, pl.adir.input, pl.adir.input, pl.adir.input, pl.adir.input, pl.adir.scalar, pl.adir.output_existing, pl.adir.scalar, pl.adir.inout]})"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "pass": "联动",
+            "name": "前驱收尾 / 依赖粒度",
+            "title": "返回泳道追查前驱",
+            "summary": "继续追查 qk_pv 收尾与依赖粒度。",
+            "finding": "当前时序支持前驱依赖等待；调整依赖粒度需要校验数据范围与消费者一致性，并以运行对照验证。",
+            "visual": "actions",
+            "next": "在泳道中查看 qk_pv 的执行与当前任务的开始时间。",
+            "sources": []
+          }
+        ]
+      }
     },
     "qr_hadamard_matmul": {
       "kernel": "qr_hadamard_matmul",
@@ -933,6 +2305,656 @@ window.PERF_PASS_ANALYSIS = {
               ]
             }
           ]
+        }
+      ]
+    }
+  },
+  "independentCases": {
+    "memoryReuse": {
+      "id": "memoryreuse-depth",
+      "title": "P35 MemoryReuse · 流水隔离深度退化",
+      "kernel": "csa_merge_pack_publish",
+      "requested": 2,
+      "achieved": 1,
+      "group": 0,
+      "space": "Vec",
+      "stageBytes": 32768,
+      "availableBytes": 188416,
+      "buffers": [
+        {
+          "id": "mem_vec_15",
+          "bytes": 32768,
+          "values": [
+            {
+              "id": "m_cur_oi_inline1216__tile",
+              "stage": 0,
+              "op": "load",
+              "label": "载入 oi 分片",
+              "bytes": 32768,
+              "beforeBuffer": "mem_vec_15",
+              "afterBuffer": "mem_vec_15",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 561,
+                    "text": "                    m_cur_oi_inline1216__tile: pl.Tile[[16, 512], pl.FP32, pl.MemRef(mem_vec_15, pl.const(0, pl.INT64), 32768), pl.Mem.Vec] = pl.tile.load(sparse_blk_oi_inline1233__ssa_v0, [m_row_inline1218__ssa_v0, 0], [16, 512], [16, 512], target_memory=pl.Mem.Vec, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 400,
+                    "text": "                    m_cur_oi_inline1216__tile: pl.Tile[[16, 512], pl.FP32, pl.MemRef(mem_vec_15, pl.const(0, pl.INT64), 32768), pl.Mem.Vec] = pl.tile.load(sparse_blk_oi_inline1233__ssa_v0, [m_row_inline1218__ssa_v0, 0], [16, 512], [16, 512], target_memory=pl.Mem.Vec)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "t__tile_5",
+              "stage": 0,
+              "op": "row_expand_mul",
+              "label": "新分片加权",
+              "bytes": 32768,
+              "beforeBuffer": "mem_vec_28",
+              "afterBuffer": "mem_vec_15",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 597,
+                    "text": "                    t__tile_5: pl.Tile[[16, 512], pl.FP32, pl.MemRef(mem_vec_28, pl.const(0, pl.INT64), 32768), pl.Mem.Vec] = pl.tile.row_expand_mul(m_cur_oi_inline1216__tile, m_beta_inline1213__tile, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 436,
+                    "text": "                    t__tile_5: pl.Tile[[16, 512], pl.FP32, pl.MemRef(mem_vec_15, pl.const(0, pl.INT64), 32768), pl.Mem.Vec] = pl.tile.row_expand_mul(m_cur_oi_inline1216__tile, m_beta_inline1213__tile)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "m_oi_inline1220__tile_1",
+              "stage": 0,
+              "op": "add",
+              "label": "更新累积结果",
+              "bytes": 32768,
+              "beforeBuffer": "mem_vec_29",
+              "afterBuffer": "mem_vec_15",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 598,
+                    "text": "                    m_oi_inline1220__tile_1: pl.Tile[[16, 512], pl.FP32, pl.MemRef(mem_vec_29, pl.const(0, pl.INT64), 32768), pl.Mem.Vec] = pl.tile.add(t__tile_4, t__tile_5, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 437,
+                    "text": "                    m_oi_inline1220__tile_1: pl.Tile[[16, 512], pl.FP32, pl.MemRef(mem_vec_15, pl.const(0, pl.INT64), 32768), pl.Mem.Vec] = pl.tile.add(t__tile_4, t__tile_5)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "t__tile_10",
+              "stage": 1,
+              "op": "row_expand_mul",
+              "label": "上轮结果加权",
+              "bytes": 32768,
+              "beforeBuffer": "mem_vec_38",
+              "afterBuffer": "mem_vec_15",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 630,
+                    "text": "                    t__tile_10: pl.Tile[[16, 512], pl.FP32, pl.MemRef(mem_vec_38, pl.const(0, pl.INT64), 32768), pl.Mem.Vec] = pl.tile.row_expand_mul(m_oi_inline1220__tile_1, m_alpha_inline1214__tile_1, attrs={\"pipeline_membership\": \"0:1\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 469,
+                    "text": "                    t__tile_10: pl.Tile[[16, 512], pl.FP32, pl.MemRef(mem_vec_15, pl.const(0, pl.INT64), 32768), pl.Mem.Vec] = pl.tile.row_expand_mul(m_oi_inline1220__tile_1, m_alpha_inline1214__tile_1)"
+                  }
+                ]
+              }
+            }
+          ],
+          "totalMappedValues": 4,
+          "allocation": {
+            "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+            "label": "P35 · 物理缓冲声明",
+            "lines": [
+              {
+                "line": 367,
+                "text": "        mem_vec_15: pl.Ptr = pl.tile.alloc(pl.Mem.Vec, 32768)"
+              }
+            ]
+          }
+        },
+        {
+          "id": "mem_vec_27",
+          "bytes": 32768,
+          "values": [
+            {
+              "id": "m_cur_mi_inline1217__tile",
+              "stage": 0,
+              "op": "load",
+              "label": "load",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_13",
+              "afterBuffer": "mem_vec_27",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 559,
+                    "text": "                    m_cur_mi_inline1217__tile: pl.Tile[[16, 1], pl.FP32, pl.MemRef(mem_vec_13, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.load(sparse_blk_mi_inline1234__ssa_v0, [m_row_inline1218__ssa_v0, 0], [16, 1], [16, 1], target_memory=pl.Mem.Vec, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 398,
+                    "text": "                    m_cur_mi_inline1217__tile: pl.Tile[[16, 1], pl.FP32, pl.MemRef(mem_vec_27, 0, 64), pl.Mem.Vec] = pl.tile.load(sparse_blk_mi_inline1234__ssa_v0, [m_row_inline1218__ssa_v0, 0], [16, 1], [16, 1], target_memory=pl.Mem.Vec)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "t__row_major_tmp_v10",
+              "stage": 0,
+              "op": "sub",
+              "label": "sub",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_22",
+              "afterBuffer": "mem_vec_27",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 579,
+                    "text": "                    t__row_major_tmp_v10: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_22, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.sub(t__rm_a0_tmp_v8, t__rm_a1_tmp_v9, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 418,
+                    "text": "                    t__row_major_tmp_v10: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_27, 0, 64), pl.Mem.Vec] = pl.tile.sub(t__rm_a0_tmp_v8, t__rm_a1_tmp_v9)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "t__row_major_tmp_v15",
+              "stage": 0,
+              "op": "mul",
+              "label": "mul",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_24",
+              "afterBuffer": "mem_vec_27",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 586,
+                    "text": "                    t__row_major_tmp_v15: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_24, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.mul(t__rm_a0_tmp_v13, t__rm_a1_tmp_v14, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 425,
+                    "text": "                    t__row_major_tmp_v15: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_27, 0, 64), pl.Mem.Vec] = pl.tile.mul(t__rm_a0_tmp_v13, t__rm_a1_tmp_v14)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "t__tile_4",
+              "stage": 0,
+              "op": "row_expand_mul",
+              "label": "row_expand_mul",
+              "bytes": 32768,
+              "beforeBuffer": "mem_vec_27",
+              "afterBuffer": "mem_vec_27",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 596,
+                    "text": "                    t__tile_4: pl.Tile[[16, 512], pl.FP32, pl.MemRef(mem_vec_27, pl.const(0, pl.INT64), 32768), pl.Mem.Vec] = pl.tile.row_expand_mul(m_oi_inline1220__iter_v1, m_alpha_inline1214__tile, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 435,
+                    "text": "                    t__tile_4: pl.Tile[[16, 512], pl.FP32, pl.MemRef(mem_vec_27, pl.const(0, pl.INT64), 32768), pl.Mem.Vec] = pl.tile.row_expand_mul(m_oi_inline1220__iter_v1, m_alpha_inline1214__tile)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "m_mi_new_inline1215__row_major_tmp_v2_1",
+              "stage": 1,
+              "op": "maximum",
+              "label": "maximum",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_30",
+              "afterBuffer": "mem_vec_27",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 601,
+                    "text": "                    m_mi_new_inline1215__row_major_tmp_v2_1: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_30, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.maximum(m_mi_new_inline1215__rm_a0_tmp_v0_1, m_mi_new_inline1215__rm_a1_tmp_v1_1, attrs={\"pipeline_membership\": \"0:1\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 440,
+                    "text": "                    m_mi_new_inline1215__row_major_tmp_v2_1: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_27, 0, 64), pl.Mem.Vec] = pl.tile.maximum(m_mi_new_inline1215__rm_a0_tmp_v0_1, m_mi_new_inline1215__rm_a1_tmp_v1_1)"
+                  }
+                ]
+              }
+            }
+          ],
+          "totalMappedValues": 14,
+          "allocation": {
+            "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+            "label": "P35 · 物理缓冲声明",
+            "lines": [
+              {
+                "line": 373,
+                "text": "        mem_vec_27: pl.Ptr = pl.tile.alloc(pl.Mem.Vec, 32768)"
+              }
+            ]
+          }
+        },
+        {
+          "id": "mem_vec_56",
+          "bytes": 256,
+          "values": [
+            {
+              "id": "m_cur_li_inline1293__tile",
+              "stage": 0,
+              "op": "load",
+              "label": "load",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_14",
+              "afterBuffer": "mem_vec_56",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 560,
+                    "text": "                    m_cur_li_inline1293__tile: pl.Tile[[16, 1], pl.FP32, pl.MemRef(mem_vec_14, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.load(sparse_blk_li_inline1283__ssa_v0, [m_row_inline1218__ssa_v0, 0], [16, 1], [16, 1], target_memory=pl.Mem.Vec, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 399,
+                    "text": "                    m_cur_li_inline1293__tile: pl.Tile[[16, 1], pl.FP32, pl.MemRef(mem_vec_56, 0, 64), pl.Mem.Vec] = pl.tile.load(sparse_blk_li_inline1283__ssa_v0, [m_row_inline1218__ssa_v0, 0], [16, 1], [16, 1], target_memory=pl.Mem.Vec)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "t__row_major_tmp_v18",
+              "stage": 0,
+              "op": "mul",
+              "label": "mul",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_25",
+              "afterBuffer": "mem_vec_56",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 590,
+                    "text": "                    t__row_major_tmp_v18: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_25, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.mul(t__rm_a0_tmp_v16, t__rm_a1_tmp_v17, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 429,
+                    "text": "                    t__row_major_tmp_v18: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_56, 0, 64), pl.Mem.Vec] = pl.tile.mul(t__rm_a0_tmp_v16, t__rm_a1_tmp_v17)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "m_li_inline1302__row_major_tmp_v21",
+              "stage": 0,
+              "op": "add",
+              "label": "add",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_26",
+              "afterBuffer": "mem_vec_56",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 594,
+                    "text": "                    m_li_inline1302__row_major_tmp_v21: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_26, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.add(m_li_inline1302__rm_a0_tmp_v19, m_li_inline1302__rm_a1_tmp_v20, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 433,
+                    "text": "                    m_li_inline1302__row_major_tmp_v21: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_56, 0, 64), pl.Mem.Vec] = pl.tile.add(m_li_inline1302__rm_a0_tmp_v19, m_li_inline1302__rm_a1_tmp_v20)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "t__row_major_tmp_v15_1",
+              "stage": 1,
+              "op": "mul",
+              "label": "mul",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_35",
+              "afterBuffer": "mem_vec_56",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 620,
+                    "text": "                    t__row_major_tmp_v15_1: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_35, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.mul(t__rm_a0_tmp_v13_1, t__rm_a1_tmp_v14_1, attrs={\"pipeline_membership\": \"0:1\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 459,
+                    "text": "                    t__row_major_tmp_v15_1: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_56, 0, 64), pl.Mem.Vec] = pl.tile.mul(t__rm_a0_tmp_v13_1, t__rm_a1_tmp_v14_1)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "m_li_inline1302__row_major_tmp_v21_1",
+              "stage": 1,
+              "op": "add",
+              "label": "add",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_37",
+              "afterBuffer": "mem_vec_56",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 628,
+                    "text": "                    m_li_inline1302__row_major_tmp_v21_1: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_37, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.add(m_li_inline1302__rm_a0_tmp_v19_1, m_li_inline1302__rm_a1_tmp_v20_1, attrs={\"pipeline_membership\": \"0:1\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 467,
+                    "text": "                    m_li_inline1302__row_major_tmp_v21_1: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_56, 0, 64), pl.Mem.Vec] = pl.tile.add(m_li_inline1302__rm_a0_tmp_v19_1, m_li_inline1302__rm_a1_tmp_v20_1)"
+                  }
+                ]
+              }
+            }
+          ],
+          "totalMappedValues": 13,
+          "allocation": {
+            "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+            "label": "P35 · 物理缓冲声明",
+            "lines": [
+              {
+                "line": 376,
+                "text": "        mem_vec_56: pl.Ptr = pl.tile.alloc(pl.Mem.Vec, 256)"
+              }
+            ]
+          }
+        },
+        {
+          "id": "mem_vec_19",
+          "bytes": 64,
+          "values": [
+            {
+              "id": "m_mi_new_inline1215__row_major_tmp_v2",
+              "stage": 0,
+              "op": "maximum",
+              "label": "maximum",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_19",
+              "afterBuffer": "mem_vec_19",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 567,
+                    "text": "                    m_mi_new_inline1215__row_major_tmp_v2: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_19, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.maximum(m_mi_new_inline1215__rm_a0_tmp_v0, m_mi_new_inline1215__rm_a1_tmp_v1, attrs={\"pipeline_membership\": \"0:0\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 406,
+                    "text": "                    m_mi_new_inline1215__row_major_tmp_v2: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_19, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.maximum(m_mi_new_inline1215__rm_a0_tmp_v0, m_mi_new_inline1215__rm_a1_tmp_v1)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "t__row_major_tmp_v5_1",
+              "stage": 1,
+              "op": "sub",
+              "label": "sub",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_31",
+              "afterBuffer": "mem_vec_19",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 606,
+                    "text": "                    t__row_major_tmp_v5_1: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_31, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.sub(t__rm_a0_tmp_v3_1, t__rm_a1_tmp_v4_1, attrs={\"pipeline_membership\": \"0:1\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 445,
+                    "text": "                    t__row_major_tmp_v5_1: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_19, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.sub(t__rm_a0_tmp_v3_1, t__rm_a1_tmp_v4_1)"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "m_alpha_inline1214__row_major_tmp_v7_1",
+              "stage": 1,
+              "op": "exp",
+              "label": "exp",
+              "bytes": 64,
+              "beforeBuffer": "mem_vec_32",
+              "afterBuffer": "mem_vec_19",
+              "before": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/34_after_MaterializeSemanticAliases.py",
+                "label": "P34 · 复用前",
+                "lines": [
+                  {
+                    "line": 609,
+                    "text": "                    m_alpha_inline1214__row_major_tmp_v7_1: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_32, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.exp(m_alpha_inline1214__rm_a0_tmp_v6_1, attrs={\"pipeline_membership\": \"0:1\"})"
+                  }
+                ]
+              },
+              "after": {
+                "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+                "label": "P35 · 复用后",
+                "lines": [
+                  {
+                    "line": 448,
+                    "text": "                    m_alpha_inline1214__row_major_tmp_v7_1: pl.Tile[[1, 16], pl.FP32, pl.MemRef(mem_vec_19, pl.const(0, pl.INT64), 64), pl.Mem.Vec] = pl.tile.exp(m_alpha_inline1214__rm_a0_tmp_v6_1)"
+                  }
+                ]
+              }
+            }
+          ],
+          "totalMappedValues": 12,
+          "allocation": {
+            "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/35_after_MemoryReuse.py",
+            "label": "P35 · 物理缓冲声明",
+            "lines": [
+              {
+                "line": 370,
+                "text": "        mem_vec_19: pl.Ptr = pl.tile.alloc(pl.Mem.Vec, 64)"
+              }
+            ]
+          }
+        }
+      ],
+      "warning": {
+        "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/report/perf_hints.log",
+        "label": "PH-MR-001 · 原始编译诊断",
+        "lines": [
+          {
+            "line": 1,
+            "text": "[perf_hint PH-MR-001] MemoryReuse: software pipelining requested depth 2 for pipeline group 0 in Vec, but only 1 of 2 buffers fit (32768 B per stage, 188416 B free) — stages 1 apart share storage and serialize. The operand would fit depth 2 on its own, but co-resident buffers / other pipeline groups over-subscribe the space; relieve the co-residents (smaller or fewer co-live tiles) or reduce the pipeline depth to 1. at /data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py:397:9"
+          }
+        ]
+      },
+      "mapping": {
+        "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/ptoas/csa_merge_pack_publish.pto",
+        "label": "最终 PTO · 诊断源码位置对应",
+        "lines": [
+          {
+            "line": 59,
+            "text": "  %attention_grouped_inline1276__ssa_v0_view = pto.make_tensor_view %arg0, shape = [%c2048_index, %c4096_index], strides = [%c4096_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xbf16> loc(\"/data/w00949750/wzh_pypto_github/pypto/pypto-lib/models/deepseek_v4_flash_dspark/decode_csa.py\":397:9)"
+          }
+        ]
+      },
+      "boundary": "这是资源约束下的编译退化案例，尚未认定为编译器缺陷。图中结构与映射来自快照；没有独立的指令级停顿计时，也未测得恢复深度 2 的收益。",
+      "steps": [
+        {
+          "pass": "请求",
+          "name": "stage=2 → PH-MR-001",
+          "title": "确认 2 → 1 的诊断",
+          "visual": "memory-request",
+          "sources": [
+            {
+              "path": "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/29_after_LowerPipelineToSlots.py",
+              "label": "P29 · 请求两阶段流水",
+              "lines": [
+                {
+                  "line": 297,
+                  "text": "                for m_sb_inline1219__idx_v0, (m_li_inline1302__iter_v1, m_mi_inline1221__iter_v1, m_oi_inline1220__iter_v1) in pl.pipeline(1, 5, stage=2, init_values=(m_li_inline1302__tile, m_mi_inline1221__tile, m_oi_inline1220__tile)):"
+                },
+                {
+                  "line": 301,
+                  "text": "                    m_cur_oi_inline1216__tile: pl.Tile[[16, 512], pl.FP32, pl.Mem.Vec] = pl.tile.load(sparse_blk_oi_inline1233__ssa_v0, [m_row_inline1218__ssa_v0, 0], [16, 512], [16, 512], target_memory=pl.Mem.Vec)"
+                }
+              ]
+            }
+          ],
+          "finding": "已确认：同一 kernel 的 group 0 在 Vec 请求深度 2，MemoryReuse 报告只满足 1。effective depth 是阶段存储隔离能力，不是 kernel 的总缓冲数。",
+          "next": "追踪跨阶段的具体存储映射。"
+        },
+        {
+          "pass": "P34 → P35",
+          "name": "SSA value → MemRef",
+          "title": "哪些缓冲被跨阶段复用",
+          "visual": "memory-map",
+          "sources": [],
+          "finding": "按 SSA 名称匹配 P34/P35，阶段来源取自 P34 的 pipeline_membership。只展示计算值，reshape/view 别名不重复列出；同址复用事实不等于每个复用都是可去除的假依赖。",
+          "next": "查看同驻空间约束为什么使隔离深度下降。"
+        },
+        {
+          "pass": "P35",
+          "name": "Global Vec capacity pressure",
+          "title": "为什么不能维持深度 2",
+          "visual": "memory-capacity",
+          "sources": [],
+          "finding": "PH-MR-001 明确区分：单组本身可以容纳两阶段，失败来自同驻缓冲 / 其他流水组的整体空间竞争。184 KiB 是扣保留区后的可规划容量，不是剩余空闲量；终态缓冲声明不能代替峰值存活分析。",
+          "next": "核对已经确认的结构与尚未验证的性能影响。"
+        },
+        {
+          "pass": "边界",
+          "name": "Confirmed / needs verification",
+          "title": "证据与影响分开看",
+          "visual": "memory-verification",
+          "sources": [],
+          "finding": "已确认的是流水请求、诊断、阶段来源与存储复用映射。尚未确认容量临界的具体存活集合、哪条等待限制执行、以及任何加速比例。",
+          "next": "需要内存规划的峰值 / 冲突输出、指令级轨迹和相同输入的编译运行对照。"
         }
       ]
     }
