@@ -146,7 +146,7 @@
       return {scale,x:(viewport.clientWidth-box.w*scale)/2-box.x*scale,y:(viewport.clientHeight-box.h*scale)/2-box.y*scale};
     };
     const initialCamera = () => {
-      if(!adapter)return fitted();
+      if(!adapter||adapter.fitOnEnter)return fitted();
       const rail=!adapter?184:0,available=Math.max(120,viewport.clientWidth-rail);
       const scale=Math.max(.35,Math.min(.82,(available-48)/rendered.sceneWidth));
       return {scale,x:rail+(available-rendered.sceneWidth*scale)/2,y:16};
@@ -286,6 +286,8 @@
     host.addEventListener('click',event=>{
       // Graph owns these node events; the legacy page has document-level selectors.
       event.stopPropagation(); tooltip.hidden=true;
+      const sourceButton=event.target.closest('[data-viz2-graph-source]');
+      if(sourceButton&&adapter?.onSource){adapter.onSource(sourceButton.dataset.viz2GraphSource);return;}
       const layer=event.target.closest('[data-viz2-graph-layer]');
       if(layer){const key=layer.dataset.viz2GraphLayer;onView({overlays:{...layers,[key]:!layers[key]}});return;}
       const instances=event.target.closest('[data-pypa-execution-count],[data-pypa-execution-stack],[data-viz2-execution-instances]');

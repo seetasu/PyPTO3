@@ -29,3 +29,9 @@
 .csa-unadapted h2 { margin:0; font:var(--type-title-3); }
 .csa-unadapted p { max-width:440px; margin:0; color:var(--foreground-muted); font:var(--type-body-sm); }
 @media(max-width:1000px){.csa-inspector{flex-basis:260px;}.csa-toolbar,.csa-focusbar{padding-inline:var(--space-3)}.csa-legend{font:var(--type-micro)}}
+
+/* CSA uses the shared semantic Graph scene and its original card/edge skins. */
+.csa-semantic-stage.viz2-graph { display:flex; flex-direction:column; }
+.csa-semantic-stage .viz2-graph-body { flex:1; min-height:0; }
+.csa-semantic-stage [data-viz2-graph-layer="execution"] { display:none; }
+.csa-semantic-stage .viz2-graph-inspector [data-csa-source] { white-space:normal; height:auto; }
