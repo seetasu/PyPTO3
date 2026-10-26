@@ -134,9 +134,9 @@
     root.addEventListener('click',event=>{
       const b=event.target.closest('button');if(!b)return;
       if(b.hasAttribute('data-csa-back'))return close();
-      if(b.dataset.csaTab){saveCamera();const previous=state.views[state.tab];state.tab=b.dataset.csaTab;if(state.tab!=='graph'&&previous.scope==='local'){state.views[state.tab].camera=null;state.views[state.tab].scope='local';state.views[state.tab].topic=selectedTopic(previous.topic);}if(state.tab==='assignment'&&state.selection)state.views.assignment.topic=selectedTopic(previous.topic);render();return;}
-      if(b.dataset.csaScope){saveCamera();const v=state.views[state.tab];v.scope=b.dataset.csaScope;if(state.tab==='graph'){v.expanded=b.dataset.csaScope==='local'?[v.nodeId?.split('/')[0]||'input']:[];}else if(state.selection)v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
-      if(b.hasAttribute('data-csa-return')){state.views[state.tab].scope='overall';state.views[state.tab].expanded=[];state.views[state.tab].camera=null;render();return;}
+      if(b.dataset.csaTab){saveCamera();state.tab=b.dataset.csaTab;if(state.tab==='assignment'&&state.selection)state.views.assignment.topic=selectedTopic(state.views.assignment.topic);render();return;}
+      if(b.dataset.csaScope){saveCamera();const v=state.views[state.tab];if(state.tab==='graph'){if((v.expanded.length?'local':'overall')===b.dataset.csaScope)return;if(b.dataset.csaScope==='local'&&!v.bookmarkedNodeId&&semanticController){semanticController.toggleExpanded(v.nodeId?.split('/')[0]||'input',true);return;}setGraphScope(b.dataset.csaScope);render();return;}if(v.scope===b.dataset.csaScope)return;v.scope=b.dataset.csaScope;if(state.selection)v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
+      if(b.hasAttribute('data-csa-return')){if(state.tab==='graph')setGraphScope('overall');else{state.views[state.tab].scope='overall';state.views[state.tab].camera=null;}render();return;}
       if(b.dataset.csaFocus){const topic=b.dataset.csaFocus,v=state.views[state.tab];v.topic=topic;v.camera=null;state.selection={object:{gather:'gather',cache:'ready',output:'publish'}[topic],rank:state.rank};render();return;}
       if(b.hasAttribute('data-csa-clear')){state.selection=null;controller?.clearSelection();details();chrome();return;}
       if(b.hasAttribute('data-csa-drill')){const v=state.views[state.tab];v.scope='local';v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
@@ -147,13 +147,29 @@
     root.querySelector('[role="tablist"]').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const at=tabs.indexOf(state.tab),i=e.key==='Home'?0:e.key==='End'?2:(at+(e.key==='ArrowRight'?1:2))%3;root.querySelector('[data-csa-tab="'+tabs[i]+'"]').click();root.querySelector('[data-csa-tab="'+tabs[i]+'"]').focus();});
   }
   function selectedTopic(fallback){return state.selection?.object==='rank'?(fallback||'gather'):objects[state.selection?.object]?.topic||(fallback||'gather');}
+  function setGraphScope(scope){
+    const v=state.views.graph;
+    if(scope==='overall'){
+      if(v.expanded.length&&v.camera)v.localCamera={root:v.expanded[0].split('/')[0],camera:v.camera};
+      if(v.nodeId?.includes('/')){v.bookmarkedNodeId=v.nodeId;v.nodeId=v.nodeId.split('/')[0];}
+      v.expanded=[];
+    }else{
+      const target=v.bookmarkedNodeId||v.nodeId||v.expanded[0]||'input';
+      const path=target.split('/');
+      v.expanded=[...new Set([...v.expanded,...path.slice(0,-1).map((_,i)=>path.slice(0,i+1).join('/')),path[0]])];
+      if(v.bookmarkedNodeId){v.nodeId=v.bookmarkedNodeId;v.bookmarkedNodeId=null;}
+    }
+    v.scope=v.expanded.length?'local':'overall';
+    v.camera=scope==='local'&&v.localCamera?.root===v.expanded[0]?.split('/')[0]?v.localCamera.camera:null;
+  }
   function saveCamera(){if(controller&&state.tab!=='graph')state.views[state.tab].camera=controller.getTransform();}
   function chrome(){
     root.querySelectorAll('[data-csa-tab]').forEach(b=>{const active=b.dataset.csaTab===state.tab;b.classList.toggle('is-selected',active);b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});
     root.querySelector('#csa-panel').setAttribute('aria-labelledby','csa-tab-'+state.tab);
-    root.querySelectorAll('[data-csa-scope]').forEach(b=>{const active=b.dataset.csaScope===state.views[state.tab].scope;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
-    root.querySelector('[data-csa-return]').hidden=state.views[state.tab].scope!=='local';
-    root.querySelector('[data-csa-breadcrumb]').textContent=titles[state.tab]+(state.tab==='graph'?' / '+(state.views.graph.scope==='local'?'局部':'整体'):' / '+(state.views[state.tab].scope==='local'?model.topics[state.views[state.tab].topic]+' / 局部':'整体'))+(state.tab!=='graph'&&state.selection?' / Rank '+state.selection.rank+' / '+objects[state.selection.object].label:'');
+    const scope=state.tab==='graph'?(state.views.graph.expanded.length?'local':'overall'):state.views[state.tab].scope;
+    root.querySelectorAll('[data-csa-scope]').forEach(b=>{const active=b.dataset.csaScope===scope;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
+    root.querySelector('[data-csa-return]').hidden=scope!=='local';
+    root.querySelector('[data-csa-breadcrumb]').textContent=titles[state.tab]+(state.tab==='graph'?' / '+(scope==='local'?'局部':'整体'):' / '+(scope==='local'?model.topics[state.views[state.tab].topic]+' / 局部':'整体'))+(state.tab!=='graph'&&state.selection?' / Rank '+state.selection.rank+' / '+objects[state.selection.object].label:'');
     const drill=root.querySelector('[data-csa-drill]');if(drill)drill.disabled=state.tab==='graph';
   }
   function details(){
@@ -166,7 +182,7 @@
     }).join('')+'</section><p class="csa-note">源码事实与静态依赖示意。布局为简化示意，不代表实际调度、耗时或通信带宽。</p>';host.scrollTop=0;
   }
   function render(){
-    controller?.destroy();controller=null;semanticController=null;const stage=root.querySelector('.csa-stage'),view=state.views[state.tab];stage.replaceChildren();
+    controller?.destroy();controller=null;semanticController?.destroy();semanticController=null;const stage=root.querySelector('.csa-stage'),view=state.views[state.tab];stage.replaceChildren();
     root.querySelector('.csa-focusbar').innerHTML=state.tab==='graph'?'':Object.entries(model.topics).map(([key,label])=>'<button class="btn btn-ghost btn-sm '+(view.topic===key?'is-selected':'')+'" data-csa-focus="'+key+'" aria-pressed="'+(view.topic===key)+'">'+label+'</button>').join('');
     if(state.tab==='graph'){
       root.querySelector('.csa-footer').hidden=true;
@@ -175,31 +191,69 @@
       stage.classList.add('csa-semantic-stage');
       const semantic=global.PTO_CSA_SEMANTIC_GRAPH;
       semanticController=global.PtoVisualization2Graph.mount(stage,{onSelect:()=>{},onView:patch=>{
+        if(patch.expanded){const opened=new Set(patch.expanded);patch.expanded=patch.expanded.filter(id=>id.split('/').slice(0,-1).every((_,i)=>opened.has(id.split('/').slice(0,i+1).join('/'))));}
+        if(patch.nodeId)state.views.graph.edgeId=null;
         Object.assign(state.views.graph,patch);
         if(!semanticController)return;
         if(patch.expanded)state.views.graph.scope=patch.expanded.length?'local':'overall';
         semanticController.update(null,state.views.graph,{active:true});chrome();
       },adapter:{
-        getModel:()=>semantic,executionData:()=>null,fitOnEnter:true,stageLabel:g=>'<b>'+esc(g.label)+'</b>',
+        getModel:()=>semantic,executionData:()=>null,fitOnEnter:true,layoutOptions:{rootLayerGap:44},labelMinWidth:96,expandedScaleFloor:.62,focusExpandedTop:true,stageLabel:g=>'<b>'+esc(g.label)+'</b>',
         context:()=> '源码静态数据、状态和 Task ID 依赖；Stage 不表示严格串行。',
         resolveFocus:(g,selection,v)=>({nodeId:v.nodeId,edgeId:v.edgeId,related:v.nodeId?[v.nodeId]:[],kind:'node'}),
         hasInspector:()=>!!(state.views.graph.nodeId||state.views.graph.edgeId),
-        onNode:id=>{state.views.graph.nodeId=id;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});},
-        onEdge:id=>{state.views.graph.edgeId=id;state.views.graph.nodeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});},
+        onNode:id=>{state.views.graph.nodeId=id;state.views.graph.bookmarkedNodeId=null;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});},
+        onEdge:id=>{state.views.graph.edgeId=id;state.views.graph.nodeId=null;state.views.graph.bookmarkedNodeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});},
         onSync:()=>{},
-        onSource:range=>{const [a,z]=range.split(':').map(Number);global.PtoComputeIDE.showSource(a,z);},
+        onSource:range=>{const [file,a,z]=range.split(':');global.PtoComputeIDE.showSourceFile(file,Number(a),Number(z));},
         inspector:(node,sync,g)=>{
-          const e=g.edges.find(item=>item.id===state.views.graph.edgeId),item=node?.semantic||semantic.nodes.find(n=>n.id===node?.id?.split('/')[0]);
-          const key=node?.id?.split('/')[0],fact=objects[key],src=item?.source||semantic.nodes.find(n=>n.id===key)?.source;
-          const incoming=node?g.edges.filter(x=>x.t===node.id).map(x=>g.nodes.find(n=>n.id===x.s)?.title||x.s):[];
-          const outgoing=node?g.edges.filter(x=>x.s===node.id).map(x=>g.nodes.find(n=>n.id===x.t)?.title||x.t):[];
-          const rows=e?[["类型",e.type],["来源",e.s],["目标",e.t],["依赖",e.label||'静态关系']]:[["说明",fact?.what||node?.detail||'源码静态关系'],["输入依赖",incoming.join('、')||'上层输入'],["输出依赖",outgoing.join('、')||'上层输出']];
-          const loc=src?.ranges?.[0];
-          return {title:e?(e.label||'依赖'):node?.title||'CSA',html:'<section><h3>源码静态关系</h3><dl>'+rows.map(([a,b])=>'<dt>'+esc(a)+'</dt><dd>'+esc(b)+'</dd>').join('')+'</dl></section>'+(loc?'<section><h3>Source</h3><button class="btn btn-ghost btn-sm" data-viz2-graph-source="'+loc.start+':'+loc.end+'">decode_csa.py : '+loc.start+'–'+loc.end+' ↗</button></section>':'')};
+          const selectedEdge=g.edges.find(edge=>edge.id===state.views.graph.edgeId);
+          const semanticNode=node?.semantic||semantic.nodes.find(item=>item.id===node?.id?.split('/')[0]);
+          const byId=new Map(g.nodes.map(item=>[item.id,item]));
+          const label=id=>byId.get(id)?.title||id;
+          const semanticLabel=id=>g.nodes.find(item=>item.id===id||item.id.endsWith('/'+id))?.title||id;
+          const kind=edge=>edge.communication?'跨 Rank Communication':({data:'Data',state:'State',feedback:'跨 Decode Step State',control:'Control',computation:'Computation'}[edge.type]||edge.type);
+          const connection=edge=>`${label(edge.s)} → ${label(edge.t)} · ${kind(edge)}${edge.label?' · '+edge.label:''}`;
+          const section=(title,rows)=>rows.length?'<section><h3>'+esc(title)+'</h3><dl>'+rows.map(([key,value])=>'<dt>'+esc(key)+'</dt><dd>'+esc(value)+'</dd>').join('')+'</dl></section>':'';
+          if(selectedEdge){
+            const sourceNode=byId.get(selectedEdge.s)?.semantic,targetNode=byId.get(selectedEdge.t)?.semantic;
+            const html=section('Dependency',[["Type",kind(selectedEdge)],["What",selectedEdge.label||'源码静态关系'],["Producer",label(selectedEdge.s)],["Consumer",label(selectedEdge.t)]])+
+              section('Source',[["Producer",sourceNode?.source?.file+' : '+(sourceNode?.source?.ranges||[]).map(range=>range.start+'–'+range.end).join('、')],["Consumer",targetNode?.source?.file+' : '+(targetNode?.source?.ranges||[]).map(range=>range.start+'–'+range.end).join('、')]].filter(([,value])=>value&&!value.startsWith('undefined')));
+            return {title:selectedEdge.label||'依赖',html};
+          }
+          const item=semanticNode,payload=item?.[item.type]||{},incoming=node?g.edges.filter(edge=>edge.t===node.id):[],outgoing=node?g.edges.filter(edge=>edge.s===node.id):[];
+          const loc=item?.source?.ranges?.[0],file=item?.source?.file;
+          const shape=payload.shape?.allocated?.length?'['+payload.shape.allocated.join(', ')+']':null;
+          const facts=(item?.provenance||[]).filter(entry=>entry.kind==='fact');
+          const resolved=(item?.provenance||[]).filter(entry=>entry.kind==='resolved');
+          const rows=[['What',item?.description||node?.detail||'源码静态关系'],['Kind',item?.type||node?.type]];
+          const io=section('Inputs / Outputs',[
+            ['Inputs',incoming.length?incoming.map(connection).join('；'):'外部输入或当前展开层级未显示'],
+            ['Outputs',outgoing.length?outgoing.map(connection).join('；'):'当前展开层级未显示下游'],
+            ...(payload.producer?[['Producer',semanticLabel(payload.producer)]]:[]),...(payload.consumers?.length?[['Consumers',payload.consumers.map(semanticLabel).join('、')]]:[])
+          ]);
+          const metrics=section('Shape / Dtype / Storage',[
+            ...(shape?[['Shape',shape]]:[]),...(payload.dtype?[['Dtype',payload.dtype]]:[]),
+            ...(payload.storage?.space?[['Storage',payload.storage.space]]:[]),...(payload.symbol?[['Symbol',payload.symbol]]:[])
+          ]);
+          const dependencies=section('Dependencies',[...incoming,...outgoing].filter(edge=>['state','feedback','control'].includes(edge.type)||edge.communication).map(edge=>[kind(edge),connection(edge)]));
+          const lifecycle=item?.type==='state'?section('State lifecycle',[
+            ...(payload.initial?[['跨 Step / 调用前',payload.initial]]:[]),
+            ...(payload.update?[['当前调用更新',payload.update]]:[]),
+            ...(payload.feedback?[['后续 Decode Step',payload.feedback]]:[])
+          ]):'';
+          const sourceText=file==='decode_csa.py'?global.PTO_CSA_SOURCE.text:global.PTO_CSA_SOURCE.dependencies[file];
+          const excerpt=loc&&sourceText?sourceText.split('\n').slice(loc.start-1,loc.end).map((line,index)=>`${loc.start+index}  ${line}`).join('\n'):'';
+          const sourceHtml=loc?'<section><h3>Source</h3><button class="btn btn-ghost btn-sm" data-viz2-graph-source="'+esc(file)+':'+loc.start+':'+loc.end+'">'+esc(file)+' : '+loc.start+'–'+loc.end+' ↗</button>'+
+            (excerpt?'<details><summary>查看本地源码行段</summary><pre>'+esc(excerpt)+'</pre></details>':'')+'</section>':'';
+          const provenance=section('Evidence',[
+            ...facts.map(entry=>['源码事实',entry.origin+(entry.fields.length?' · '+entry.fields.join('、'): '')]),
+            ...resolved.map(entry=>['静态推导',entry.origin+(entry.note?' · '+entry.note:'')])
+          ]);
+          return {title:node?.title||item?.name||'CSA',html:section('What',rows)+io+metrics+lifecycle+dependencies+sourceHtml+provenance};
         },tooltip:(id,edgeId,syncId,g)=>id?(g.nodes.find(n=>n.id===id)?.detail||id):(g.edges.find(e=>e.id===edgeId)?.label||'依赖')
       }});
       semanticController.update(null,view,{active:true});
-      if(view.camera)semanticController.update(null,view,{active:true});
     }else{
       stage.classList.remove('csa-semantic-stage','viz2-graph');
       root.querySelector('.csa-inspector').hidden=false;
@@ -217,7 +271,7 @@
     if(state.tab!=='graph')details();chrome();
   }
   function open(button){if(!root)mount();if(state.open)return;trigger=button;state.open=true;root.hidden=false;const area=document.getElementById('ideWorkarea');area.dataset.visualization2='open';previousInert=[...area.children].filter(el=>el!==root).map(el=>[el,el.inert]);previousInert.forEach(([el])=>el.inert=true);render();root.querySelector('[data-csa-tab="'+state.tab+'"]').focus();}
-  function close(){if(!state.open)return;saveCamera();state.open=false;root.hidden=true;delete document.getElementById('ideWorkarea').dataset.visualization2;previousInert.forEach(([el,inert])=>el.inert=inert);previousInert=[];trigger?.isConnected&&trigger.focus({preventScroll:true});}
+  function close(){if(!state.open)return;saveCamera();semanticController?.destroy();semanticController=null;state.open=false;root.hidden=true;delete document.getElementById('ideWorkarea').dataset.visualization2;previousInert.forEach(([el,inert])=>el.inert=inert);previousInert=[];trigger?.isConnected&&trigger.focus({preventScroll:true});}
   document.addEventListener('click',e=>{const b=e.target.closest('[data-visualization2-open]');if(b&&global.PtoComputeIDE.getScene()==='csa')open(b);});
   global.PtoCsaExplorer=Object.freeze({open,close,getState:()=>structuredClone(state)});
 })(window);

@@ -97,7 +97,7 @@
     const side = childScope ? BASE.childX : BASE.rootX;
     const top = childScope ? BASE.childTop : options.overviewLayout ? 58 : BASE.rootTop;
     const columnGap = childScope ? BASE.childColumnGap : BASE.columnGap;
-    const layerGap = childScope ? BASE.childLayerGap : options.overviewLayout ? 16 : BASE.layerGap;
+    const layerGap = childScope ? (options.childLayerGap ?? BASE.childLayerGap) : options.overviewLayout ? 16 : (options.rootLayerGap ?? BASE.layerGap);
     const rowWidth = (row) => row.reduce((sum, item) => sum + item.boxW, 0) + Math.max(0, row.length - 1) * columnGap;
     const widest = Math.max(0, ...levels.map((rank) => rowWidth(ranks.get(rank))));
     let width = widest + side * 2;
@@ -324,6 +324,17 @@
       const sx = source.x + source.w / 2, sy = source.y + source.h;
       const tx = target.x + target.w / 2, ty = target.y;
       if (edge.type === 'feedback' || ty <= sy + (options.overviewLayout ? 4 : 22)) {
+        if(source.y > target.y + target.h + 20){
+          const laneY=(target.y + target.h + source.y)/2;
+          const points=[{x:sx,y:source.y},{x:sx,y:laneY},{x:tx,y:laneY},{x:tx,y:target.y+target.h}];
+          if(clear(points,source,target))return {points,path:roundedPath(points,EDGE_CORNER_RADIUS),labelX:tx+10,labelY:laneY-8,labelAnchor:'start',maxX:Math.max(sx,tx)};
+        }
+        if(edge.type==='feedback'&&source.y>target.y){
+          const exitY=source.y-24,lanes=[target.x-24,target.x+target.w+24,source.x-24,source.x+source.w+24,rightBound+32+returnLane*18,Math.min(...nodes.map(node=>node.x))-32];
+          const candidates=lanes.map(lane=>{const end={x:lane<tx?target.x:target.x+target.w,y:target.y+target.h/2};return [{x:sx,y:source.y},{x:sx,y:exitY},{x:lane,y:exitY},{x:lane,y:end.y},end];});
+          const valid=candidates.filter(points=>clear(points,source,target));
+          if(valid.length){const points=valid.sort((a,b)=>Math.abs(a[2].x-sx)-Math.abs(b[2].x-sx))[0];returnLane++;return {points,path:roundedPath(points,EDGE_CORNER_RADIUS),labelX:points[2].x-10,labelY:(exitY+points[4].y)/2,labelAnchor:'end',maxX:Math.max(...points.map(point=>point.x))};}
+        }
         const parentId = source.parentId && source.parentId === target.parentId ? source.parentId : null;
         const frame = parentId && byId.get(parentId);
         const left = frame?.expandedGroup && target.x - frame.x < frame.x + frame.groupWidth - target.x - target.w;

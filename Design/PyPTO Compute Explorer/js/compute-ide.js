@@ -221,6 +221,13 @@ bar.addEventListener('click',e=>{if(e.target.closest('[data-source-region-toggle
 scroller.addEventListener('scroll',()=>{if(programmatic)return;selected=null;if(current()!==lastRegion)renderBar();},{passive:true});
 editor.addEventListener('click',e=>{const row=e.target.closest('[data-paged-attention-line]');if(!row)return;selected=row.dataset.pagedAttentionFocus;editor.querySelectorAll('[data-paged-attention-focus]').forEach(el=>el.classList.toggle('is-paged-attention-line-active',el.dataset.pagedAttentionFocus===selected));renderBar();});
 document.addEventListener('click',e=>{const f=e.target.closest('[data-file],[data-source-file]');if(f)openFile(f.dataset.file||f.dataset.sourceFile);const folder=e.target.closest('[data-tree-toggle]');if(folder){const group=document.querySelector('[data-tree-group="'+folder.dataset.treeToggle+'"]');if(group){group.hidden=!group.hidden;folder.setAttribute('aria-expanded',String(!group.hidden));}}});
-window.PtoComputeIDE=Object.freeze({getActiveFile:()=>activeFile,getScene:()=>files[activeFile].scene,openFile,showSource(start,end){window.PtoCsaExplorer?.close();showLine(start,end);editor.focus({preventScroll:true});}});
+function showSourceFile(name,start,end=start){
+ const dependency=window.PTO_CSA_SOURCE.dependencies?.[name];
+ if(!files[name]&&dependency){const count=dependency.split('\n').length;files[name]={scene:'csa',source:dependency,regions:{source:{label:name,lines:'1–'+count,detail:'CSA 子函数源码'}},description:'DeepSeek V4 CSA · '+name+' 源码。'};}
+ if(!files[name])throw new Error('CSA 源码快照缺少 '+name);
+ if(activeFile!==name)openFile(name);
+ showLine(start,end);editor.focus({preventScroll:true});
+}
+window.PtoComputeIDE=Object.freeze({getActiveFile:()=>activeFile,getScene:()=>files[activeFile].scene,openFile,showSource(start,end){showSourceFile(activeFile,start,end);},showSourceFile});
 openFile(activeFile);
 })();
