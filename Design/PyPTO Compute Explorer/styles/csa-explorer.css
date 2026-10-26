@@ -34,4 +34,13 @@
 .csa-semantic-stage.viz2-graph { display:flex; flex-direction:column; }
 .csa-semantic-stage .viz2-graph-body { flex:1; min-height:0; }
 .csa-semantic-stage [data-viz2-graph-layer="execution"] { display:none; }
-.csa-semantic-stage .viz2-graph-inspector [data-csa-source] { white-space:normal; height:auto; }
+.csa-semantic-stage .viz2-graph-inspector [data-viz2-graph-source] { white-space:normal; height:auto; }
+.csa-semantic-stage .viz2-graph-inspector pre { white-space:pre; overflow:auto; max-height:320px; padding:var(--space-3); color:var(--foreground-secondary); background:var(--surface-1); font:var(--type-mono); }
+.csa-semantic-stage [data-pypa-edge*="跨 Rank"] { stroke:var(--primary); stroke-dasharray:5 4; }
+.csa-semantic-stage [data-overlay-sync="true"] .kf-pypa-graph__edge.is-control { stroke:var(--warning); stroke-width:3.5; opacity:1; }
+.csa-semantic-stage [data-overlay-sync="true"] [data-pypa-edge*="跨 Rank"] { stroke:var(--primary); stroke-width:3.5; opacity:1; }
+.csa-semantic-stage .viz2-graph-node-title { justify-content:center; text-align:center; line-height:16px; font-size:12px; white-space:normal; }
+.csa-semantic-stage .viz2-graph-node-title > [data-viz2-graph-name] { overflow-wrap:break-word; }
+.csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node:not(.is-expanded-head) { height:auto; }
+.csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head { flex-wrap:wrap; }
+.csa-semantic-stage .has-semantic-overlays .kf-pypa-graph__node.is-computation .kf-pypa-graph__node-head b { flex-basis:100%; font-size:15px; white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:break-word; line-height:1.15; }
