@@ -330,4 +330,55 @@ main.qk-inspection.analysis-collapsed{grid-template-columns:minmax(0,1fr) 0px}
 #qk-analysis .qk-pass-frame.qk-skew-motion h4{display:flex;align-items:center;justify-content:space-between;gap:8px}
 #qk-analysis .qk-pass-frame.qk-skew-motion h4 button{font-size:10px;padding:4px 8px;min-height:24px}
 #qk-analysis .qk-pass-node{transform-box:view-box;transform-origin:0 0}
+#qk-analysis #residency-main{max-height:42%}
+#qk-analysis .qk-compute-details{margin-top:7px;font-size:10px}
+#qk-analysis .qk-compute-details>summary{width:fit-content;padding:3px 0;color:var(--text-3);cursor:pointer}
+#qk-analysis .qk-journey{padding-top:4px}
+#qk-analysis .qk-context-label{font-size:9px;letter-spacing:.04em;color:var(--text-3);margin:5px 0 6px}
+#qk-analysis .qk-journey .qk-linked-selection{margin:0 0 12px}
+#qk-analysis .qk-focus-story{border-left:2px solid #777;padding:2px 0 2px 9px;margin:0 0 14px}
+#qk-analysis .qk-focus-story>div{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#qk-analysis .qk-focus-story h3{margin:0;font-size:12px;font-weight:500;color:var(--text)}
+#qk-analysis .qk-focus-story span{font-size:9px;color:var(--text-3)}
+#qk-analysis .qk-focus-story p{margin:5px 0 0;font-size:10px;line-height:1.6;color:var(--text-3)}
+#qk-analysis .qk-journey .qk-pass-chain{margin:0 0 12px}
+#qk-analysis .qk-journey .qk-pass-chain small{font-size:8px;line-height:1.4}
+#qk-analysis .qk-journey .qk-pass-change{align-items:center;margin:0 0 8px}
+#qk-analysis .qk-journey .qk-pass-change h3{font-size:11px;font-weight:500;margin:0}
+#qk-analysis .qk-journey .qk-pass-change .qk-replay{font-size:10px;padding:4px 8px}
+#qk-analysis .qk-pipeline-passes.compact .qk-pass-premise{display:none}
+#qk-analysis .qk-journey-checks{border-top:1px solid var(--divider);margin-top:12px;padding-top:8px;color:var(--text-3);font-size:10px}
+#qk-analysis .qk-journey-checks summary{cursor:pointer;padding:3px 0}
+#qk-analysis .qk-journey-checks ul{padding-left:17px;line-height:1.8;margin:8px 0}
+#qk-analysis .qk-compute-details>summary:focus-visible,#qk-analysis .qk-journey-checks>summary:focus-visible{outline:1px solid #aaa;outline-offset:2px}
 #qk-analysis .qk-pass-dependency.qk-skew-linked,.qk-inline-pipeline .qk-dependency-link.qk-skew-linked{stroke:#ddd;stroke-width:1.4}
+#qk-analysis .evo-transport{display:flex;align-items:center;gap:7px;margin:9px 0}
+#qk-analysis .evo-transport button{font-size:10px;padding:5px 9px;min-height:28px}
+#qk-analysis .evo-position-label{margin-left:auto;font:10px var(--mono);color:var(--text-3)}
+#qk-analysis .evo-scrubber{width:100%;margin:6px 0;accent-color:#aaa;cursor:ew-resize}
+#qk-analysis .evo-stages{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+#qk-analysis .evo-stages button{min-width:0;padding:7px 2px;background:var(--surface);border:1px solid var(--divider);border-radius:3px;color:var(--text-3);cursor:pointer}
+#qk-analysis .evo-stages button[aria-pressed=true]{border-color:#aaa;color:var(--text);background:#252525}
+#qk-analysis .evo-stages b{display:block;font:10px var(--mono)}
+#qk-analysis .evo-stages small{display:block;font-size:8px;line-height:1.5;margin-top:3px}
+#qk-analysis .evo-stage-description{margin:12px 0 5px}
+#qk-analysis .evo-stage-description strong{font-size:11px;font-weight:500;color:var(--text)}
+#qk-analysis .evo-stage-description>span{float:right;font-size:9px;color:var(--text-3)}
+#qk-analysis .evo-stage-description p{font-size:10px;line-height:1.65;color:var(--text-3);margin:5px 0}
+#qk-analysis .qk-evolution-canvas{display:block;width:100%;height:auto;font-family:var(--mono)}
+#qk-analysis .evo-comparison,#qk-analysis .evo-source{border-top:1px solid var(--divider);padding-top:8px;margin-top:10px;color:var(--text-3);font-size:10px}
+#qk-analysis .evo-comparison summary,#qk-analysis .evo-source summary{cursor:pointer;padding:3px 0}
+#qk-analysis .evo-comparison-body{display:grid;gap:9px;margin-top:8px}
+#qk-analysis .evo-comparison-body article{border:1px solid var(--divider);padding:7px;border-radius:3px}
+#qk-analysis .evo-comparison-body h4{font-size:10px;font-weight:500;margin:0}
+#qk-analysis .evo-source a{display:block;font:9px var(--mono);overflow-wrap:anywhere;margin-top:8px}
+#qk-analysis .evo-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+#qk-analysis .evo-playback-state{font-style:normal;font-size:9px;color:var(--text-3);margin-left:8px}
+#qk-analysis [data-holding] .evo-playback-state{color:var(--text);border:1px solid #666;border-radius:3px;padding:2px 5px}
+#qk-analysis [data-holding] .evo-stage-description p{color:var(--text-2)}
+#qk-analysis .evo-stage-description p{min-height:33px}
+#qk-analysis .evo-focus-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:8px;color:var(--text-3);margin:3px 0 8px}
+#qk-analysis .evo-node[data-evo-emphasis=context]:hover,#qk-analysis .evo-node[data-evo-emphasis=context]:focus-visible{opacity:.8}
+.qk-inline-pipeline .qk-pipe-event[data-qk-stage].qk-skew-linked:not(.evo-primary-link):not(.selected){opacity:.65}
+.qk-inline-pipeline .qk-pipe-event.evo-primary-link>rect:first-child{stroke:#f0f0f0;stroke-width:2.3}
+#qk-analysis .evo-stages button:focus-visible,#qk-analysis .evo-scrubber:focus-visible{outline:2px solid #aaa;outline-offset:2px}

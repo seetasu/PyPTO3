@@ -40,7 +40,7 @@ window.QK_RESIDENCY = (() => {
   const opStage={q:'qk',kv:'qk',l0:'qk',mm:'qk',loop:'qk',pv:'pv',softmax:'softmax',scale:'softmax',exp:'softmax',reduce:'softmax',send_score:'dependency',wait_p:'dependency',recv_p:'dependency',send_p:'returnp',write_o:'ooutput',write_ml:'output'};
   const stageFor=op=>state.leaf==='qk_pv_aic'&&['scale','exp','reduce','send_p','write_ml'].includes(op)?'dependency':opStage[op]||'qk';
   const steps=['问题对象','计算过程','Pass 分析','检查条件','待验证项'];
-  const passFor=op=>['q','kv','loop'].includes(op)?'memory':['l0','write_o'].includes(op)?'lower':['mm','pv','wait_p'].includes(op)?'skew':'split';
+  const passFor=op=>['q','kv','loop'].includes(op)?'memory':['l0','write_o'].includes(op)?'lower':['mm','pv','wait_p'].includes(op)?'skew':['send_score','recv_p','send_p'].includes(op)?'exchange':'split';
   const beforeCode=[['loop','for query, head in fixed_query_heads:'],['loop','    for kv_panel in range(32):'],['q','        qk_q_tile = load(q_flat, [head_row, 0], Mat)'],['kv','        qk_kv = load(current_kv_panel, ..., Mat)'],['l0','        q_left = extract(qk_q_tile, ..., Left)'],['mm','        qk_raw = matmul(q_left, kv_right)']];
   const afterCode=[['loop','for query, head in fixed_query_heads:'],['q','    qk_q_tile = load(q_flat, [head_row, 0], Mat)'],['loop','    for kv_panel in range(32):'],['kv','        qk_kv = load(current_kv_panel, ..., Mat)'],['l0','        q_left = extract(qk_q_tile, ..., Left)'],['mm','        qk_raw = matmul(q_left, kv_right)']];
   function pair(){const original=ctx.raw.launches.find(t=>t.leaf===state.leaf);if(!original)return null;let b=original.blocks.items.find(b=>b.core===state.core);if(!b)b=original.blocks.items.reduce((a,b)=>a.computeUs>b.computeUs?a:b);state.core=b.core;return{original,b};}
@@ -50,7 +50,7 @@ window.QK_RESIDENCY = (() => {
     const names={q:'MTE2 · Q 加载',kv:'MTE2 · KV 加载',l0:'MTE1 · L0 提取',mm:'CUBE · QK 计算',pv:'CUBE · PV 计算',softmax:'VEC · Softmax',scale:'VEC · 缩放',exp:'VEC · exp',reduce:'VEC · 行归约',send_score:'AIC → AIV · 发送分数',wait_p:'AIC · 等待 P',recv_p:'AIC ← AIV · 接收 P',send_p:'AIV → AIC · 返回 P',write_o:'AIC · O 写回',write_ml:'AIV · m、l 写回',loop:'循环作用域'};
     const matches=inlineEvents(p.b,state.leaf).filter(ev=>ev.iter===state.iter&&(ev.op===state.object||state.object==='softmax'&&ev.stage==='softmax'));
     const event=matches.length?{startUs:matches[0].startUs,endUs:matches.at(-1).endUs}:null;
-    return '<button type="button" class="qk-linked-selection '+(state.object==='q'&&state.iter>0?'is-repeat':'')+'" data-qk-reveal aria-label="定位核内流水中选中的搬运或计算事件"><span class="qk-selection-dot"></span><span><b>'+names[state.object]+' · 第 '+(state.iter+1)+' 轮</b><small>'+(matches[0]?.related?'关联 AIV':'Core '+p.b.core)+(event?' · '+us(event.startUs)+'–'+us(event.endUs):'')+'</small></span><em>↗ 泳道</em></button>';
+    return '<button type="button" class="qk-linked-selection '+(state.object==='q'&&state.iter>0?'is-repeat':'')+'" data-qk-reveal title="'+(event?us(event.startUs)+'–'+us(event.endUs):'循环作用域')+'" aria-label="定位核内流水中选中的搬运或计算事件"><span class="qk-selection-dot"></span><span><b>'+names[state.object]+'</b><small>分片 '+state.iter+' · 第 '+(state.iter+1)+' 轮'+(matches[0]?.related?' · 关联 AIV':'')+'</small></span><em>↗ 泳道</em></button>';
   }
   function blockSummary(p){
     const aic=state.leaf==='qk_pv_aic',b=p.b;
@@ -60,11 +60,11 @@ window.QK_RESIDENCY = (() => {
     const core='<label>Core <select class="ctl" data-qk-core aria-label="选择观测 block">'+p.original.blocks.items.map(item=>'<option value="'+item.core+'"'+(item.core===state.core?' selected':'')+'>'+item.core+'</option>').join('')+'</select></label>';
     const stages=flow.map(([key,name,math,device],i)=>'<button type="button" data-qk-stage="'+key+'" aria-pressed="'+(state.stage===key)+'" title="'+name+' · '+math+' · '+device+'" class="qk-compute-stage '+(state.stage===key?'current':'')+'"><b>'+name+'</b><small>'+math+'</small></button>'+(i<flow.length-1?'<span aria-hidden="true">→</span>':'')).join('');
     const tileLabel=state.stage==='dependency'?'分片传递':state.stage==='ooutput'||state.stage==='output'?'写回 tile':state.stage==='pv'?'PV 输入 tile':aic?'QK 输入 tile':'Softmax 输入 / 输出 tile';
-    return '<section class="qk-block-summary" aria-label="所选 block 的计算与耗时"><div class="qk-block-scope">'+core+'<div class="qk-block-duration"><span>执行</span><strong>'+us(b.computeUs)+'</strong></div></div><div class="qk-compute-flow" aria-label="当前 block 计算过程">'+stages+'</div><details class="qk-summary-details"><summary>详细信息</summary><div class="qk-summary-context">'+ctx.rank.rank+' · Task #'+id+'</div><dl class="qk-block-metrics">'+[['Setup',us(b.setupUs)],['同组均值',us(p.original.blocks.mean)]].map(([label,value])=>'<div><dt>'+label+'</dt><dd>'+value+'</dd></div>').join('')+'</dl><div class="qk-block-range">设备时间 <span>'+us(b.startUs)+' → '+us(b.endUs)+'</span></div><div class="qk-summary-label">'+tileLabel+'</div><div class="qk-inputs">'+inputs+'</div></details></section>';
+    return '<section class="qk-block-summary" aria-label="所选 block 的计算与耗时"><div class="qk-block-scope">'+core+'<div class="qk-block-duration"><span>执行</span><strong>'+us(b.computeUs)+'</strong></div></div><details class="qk-compute-details" data-qk-section="compute"><summary>计算过程</summary><div class="qk-compute-flow" aria-label="当前 block 计算过程">'+stages+'</div></details><details class="qk-summary-details"><summary>详细信息</summary><div class="qk-summary-context">'+ctx.rank.rank+' · Task #'+id+'</div><dl class="qk-block-metrics">'+[['Setup',us(b.setupUs)],['同组均值',us(p.original.blocks.mean)]].map(([label,value])=>'<div><dt>'+label+'</dt><dd>'+value+'</dd></div>').join('')+'</dl><div class="qk-block-range">设备时间 <span>'+us(b.startUs)+' → '+us(b.endUs)+'</span></div><div class="qk-summary-label">'+tileLabel+'</div><div class="qk-inputs">'+inputs+'</div></details></section>';
 
   }
   function stopHoist(){
-    window.QK_PIPELINE_PASSES?.stop();
+    window.QK_PIPELINE_PASSES?.stop();window.QK_PASS_EVOLUTION?.stop();
     const run=hoistRun;if(!run)return;hoistRun=null;
     if(run.frame)cancelAnimationFrame(run.frame);
     for(const animation of run.animations){animation.onfinish=null;animation.cancel();}
@@ -106,7 +106,7 @@ window.QK_RESIDENCY = (() => {
   }
   function chooseStage(stage){
     const info=stageInfo[stage];if(!info||info.leaf!==state.leaf)return;
-    state.stage=stage;state.object=info.op;state.pipelinePass=passFor(info.op);state.step=1;
+    state.stage=stage;state.object=info.op;state.pipelinePass=passFor(info.op);state.step=state.leaf==='qk_pv_aic'?2:1;
     callbacks.redraw();panel.scrollTop=0;
   }
   const subscript=n=>String(n).replace(/\d/g,d=>'₀₁₂₃₄₅₆₇₈₉'[Number(d)]);
@@ -134,7 +134,7 @@ window.QK_RESIDENCY = (() => {
   }
   function memoryEvidence(p){const aic=state.leaf==='qk_pv_aic';if(!aic)return'<div class="rc-inspector"><h4>改动落点：qk_pv_aic 的固定 Q 加载</h4><p>本侧的向量计算与 PV 处理不套用同一 load 外提。AIV 的执行数据保持原值；可以切换到 AIC，观察单个长 block 的搬运与优化。</p><button type="button" class="ctl" data-qk-leaf="qk_pv_aic" data-qk-open-pass>查看 AIC 的 Pass 前后对照 →</button></div>';
       const facts={q:'同一 query / head 的 qk_q_tile：从 KV 循环内移至循环前；不同 head_row 不能共用这次加载。',kv:'qk_kv 随 KV 分片改变，继续逐轮加载。',l0:'Left / L0 的提取留在循环内，不把 L0 生命周期一并外提。',mm:'QK 数学计算保持一致。',loop:'固定 query / head，循环遍历 KV 分片。'};
-      return '<div class="qk-pass-change"><h3>InferTileMemorySpace</h3><button type="button" class="ctl qk-replay" data-qk-replay aria-label="重播 Q 加载外提">↻ 重播外提</button><p>Q 加载：KV 循环内 → 循环外</p></div>'+loopDiagram()+'<div class="qk-operation-note">'+(facts[state.object]||'Q 驻留不改变 PV 计算与跨核数据依赖。')+'</div><details class="qk-code-detail"><summary>代码位置与外提条件</summary><div class="rc-two">'+code(beforeCode,'Pass 前 · 循环内加载')+code(afterCode,'候选 Pass 后 · 循环外加载')+'</div></details>';}
+      return '<div class="qk-pass-change"><h3>加载从循环内移到循环外</h3><button type="button" class="ctl qk-replay" data-qk-replay aria-label="重播 Q 加载外提">↻ 重播外提</button></div>'+loopDiagram()+'<div class="qk-operation-note">'+(facts[state.object]||'Q 驻留不改变 PV 计算与跨核数据依赖。')+'</div><details class="qk-code-detail"><summary>实现与代码依据</summary><div class="rc-two">'+code(beforeCode,'Pass 前 · 循环内加载')+code(afterCode,'候选 Pass 后 · 循环外加载')+'</div><a target="_blank" rel="noopener" href="'+reference.pr+'">#2080 参考来源 ↗</a></details>';}
 
   function evidence(p){
     if(state.step===2&&state.leaf==='qk_pv_aic')return selectedEvent(p)+window.QK_PIPELINE_PASSES.navigation(state.pipelinePass)+(state.pipelinePass==='memory'?memoryEvidence(p):window.QK_PIPELINE_PASSES.render({iter:state.iter,object:state.object,pass:state.pipelinePass}));
@@ -146,14 +146,18 @@ window.QK_RESIDENCY = (() => {
     if(state.step===3)return'<div class="rc-gate-options">'+[['safe','固定 query/head · 规则通过'],['head','head_row 发生变化'],['alias','别名或可写源未知']].map(([id,label])=>'<button type="button" class="ctl '+(state.gate===id?'on':'')+'" data-qk-gate="'+id+'">'+label+'</button>').join('')+'</div><div class="rc-decision '+(state.gate==='safe'?'':'decline')+'"><h3>'+(state.gate==='safe'?'允许外提':'拒绝外提')+'</h3><p>'+(state.gate==='safe'?'只有在固定 query/head、源只读且可证明不别名、无顺序边界并满足 Mat 容量时，才把 Q 加载外提。':'head_row 变化或存储安全性不能证明时，保留原始加载；不能跨不同头组复用 Q。')+'</p></div>'+next(4,'查看尚需验证的项目');
     return '<div class="rc-validation"><article class="rc-card"><small>已知锚点</small><h4>任务身份、block 时长与 Q 形状</h4><p>Q 为 32×512 BF16，32 KiB。</p></article><article class="rc-card"><small>需要验证</small><h4>该 Q 是否真的循环不变</h4><p>核对 query/head、只读和别名关系，检查 Mat 容量及实际 Pass dump。</p></article><article class="rc-card"><small>需要编译</small><h4>外提是否生效</h4><p>对比加载的循环归属，确认 KV 与 L0 仍逐轮执行。</p></article><article class="rc-card"><small>需要上板</small><h4>耗时与数值对照</h4><p>核对数值、MTE2 字节及执行时长。</p></article></div><details class="rc-sources"><summary>#2080 参考案例</summary><a href="'+reference.pr+'" target="_blank" rel="noopener">PR #2080 ↗</a></details>';
   }
-  function render(){if(!ctx)return;stopHoist();const codeOpen=panel.querySelector('.qk-code-detail')?.hasAttribute('open'),detailsOpen=header.querySelector('.qk-summary-details')?.hasAttribute('open'),p=pair();
-    header.innerHTML='<div class="qk-compact-title"><strong>Block 分析</strong><button type="button" class="ctl" data-qk-locate>定位</button><button type="button" class="ctl" data-qk-dismiss>返回</button></div>'+(p?blockSummary(p):'');
+  function analysisJourney(p){
+    if(state.leaf!=='qk_pv_aic')return '<div class="qk-journey">'+stageEvidence(p)+'</div>';
+    return '<div class="qk-journey"><div class="qk-context-label">当前事件</div>'+selectedEvent(p)+window.QK_PASS_EVOLUTION.render({iter:state.iter,object:state.object,pass:state.pipelinePass})+'<details class="qk-journey-checks" data-qk-section="checks"><summary>检查条件与待验证项</summary><ul><li>P19：确认固定 query/head、只读、别名和 Mat 容量条件</li><li>后续阶段：同一分片保持 QK → AIV → P → PV，检查槽位释放</li><li>实际搬运、重叠及等待长度需要编译与设备验证</li></ul></details></div>';
+  }
+  function render(){if(!ctx)return;stopHoist();state.step=state.leaf==='qk_pv_aic'?2:1;const openSections=[...header.querySelectorAll('[data-qk-section][open]'),...panel.querySelectorAll('[data-qk-section][open]')].map(n=>n.dataset.qkSection);const codeOpen=panel.querySelector('.qk-code-detail')?.hasAttribute('open'),detailsOpen=header.querySelector('.qk-summary-details')?.hasAttribute('open'),p=pair();
+    header.innerHTML='<div class="qk-compact-title"><strong>Block 分析</strong><button type="button" class="ctl" data-qk-dismiss>返回</button></div>'+(p?blockSummary(p):'');
     if(detailsOpen)header.querySelector('.qk-summary-details')?.setAttribute('open','');
     if(state.step===0)state.step=1;
-    panel.innerHTML=(p?'<nav class="rc-steps qk-content-tabs" role="tablist" aria-label="Block 分析内容">'+steps.slice(1).map((label,index)=>{const tab=index+1,active=state.step===tab;return '<button type="button" role="tab" id="qk-tab-'+tab+'" aria-controls="qk-tab-content" aria-selected="'+active+'" tabindex="'+(active?0:-1)+'" data-qk-step="'+tab+'"'+(active?' aria-current="step"':'')+'>'+label+'</button>';}).join('')+'</nav><section id="qk-tab-content" class="rc-evidence" role="tabpanel" tabindex="0" aria-labelledby="qk-tab-'+state.step+'">'+evidence(p)+'</section>':'<div class="rc-empty"><h3>选择一个 block</h3></div>')+'<details class="rc-sources"><summary>来源</summary><a target="_blank" rel="noopener" href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py">前端定义 ↗</a> · <a target="_blank" rel="noopener" href="'+reference.pr+'">#2080 ↗</a></details>';
+    panel.innerHTML=p?analysisJourney(p):'<div class="rc-empty"><h3>选择一个 block</h3></div>';
+    for(const key of openSections){header.querySelector('[data-qk-section="'+key+'"]')?.setAttribute('open','');panel.querySelector('[data-qk-section="'+key+'"]')?.setAttribute('open','');}
     if(codeOpen)panel.querySelector('.qk-code-detail')?.setAttribute('open','');
-    const skewKey=state.step===2&&state.pipelinePass==='skew'&&state.leaf==='qk_pv_aic'?[ctx.rank.rank,state.core,Math.floor(state.iter/2)].join(':'):'';
-    if(skewKey&&skewKey!==lastSkewKey)window.QK_PIPELINE_PASSES.play(panel,{iter:state.iter});lastSkewKey=skewKey;
+    if(p&&state.leaf==='qk_pv_aic')window.QK_PASS_EVOLUTION.mount(panel,{iter:state.iter,object:state.object,pass:state.pipelinePass},id=>{state.pipelinePass=id;});
   }
   function update(raw,rank,selected){
     ctx={raw,rank};if(isTarget(selected)){if(state.leaf!==selected.leaf){state.leaf=selected.leaf;state.core=null;state.stage=selected.leaf==='qk_pv_aic'?'qk':'softmax';state.object=selected.leaf==='qk_pv_aic'?'q':'softmax';state.pipelinePass=passFor(state.object);state.step=selected.leaf==='qk_pv_aic'?2:1;}}else state.leaf=null;
