@@ -1,5 +1,5 @@
 /* A single canvas pane inside the existing shared IDE frame. */
-#ideWorkarea[data-visualization2="open"] > :not(#visualization2) { display: none !important; }
+#ideWorkarea[data-visualization2="open"] > :not(.viz2) { display: none !important; }
 .viz2[hidden], .viz2 [hidden] { display: none !important; }
 .viz2 { flex: 1; min-width: 0; min-height: 0; width: 100%; }
 .viz2-header { flex: none; gap: var(--space-3); }
