@@ -372,7 +372,7 @@
     previousInert.forEach(([el,inert])=>{el.inert=inert;}); previousInert=[];
     if (trigger?.isConnected) trigger.focus();
   }
-  document.addEventListener('click',event=>{ const button=event.target.closest('[data-visualization2-open]'); if(button) open(button); });
+  document.addEventListener('click',event=>{ const button=event.target.closest('[data-visualization2-open]'); if(button && window.PtoComputeIDE?.getScene() !== 'csa') open(button); });
   // Read-only snapshots + explicit actions keep future subviews and shared selection extensible.
-  window.PtoVisualization2=Object.freeze({getState:store.getState,subscribe:store.subscribe,dispatch:store.dispatch});
+  window.PtoVisualization2=Object.freeze({getState:store.getState,subscribe:store.subscribe,dispatch:store.dispatch,close});
 })();

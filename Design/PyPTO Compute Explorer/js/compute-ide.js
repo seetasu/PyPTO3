@@ -1,5 +1,5 @@
 (function(){'use strict';
-const source=window.PTO_PAGED_ATTENTION_PYPTO_SOURCE;
+
 const editor=document.getElementById('dslEditor'), bar=document.getElementById('sourceRegionBar'), scroller=document.querySelector('.kf-main-body');
   const pagedAttentionPyptoFocusMeta = {
     constants: { label: '模块常量与静态断言', lines: '9–65', detail: 'BATCH / HEAD_DIM / BLOCK_SIZE / STACK_* 等编译期常量与 8 条 assert 自检' },
@@ -182,18 +182,45 @@ const editor=document.getElementById('dslEditor'), bar=document.getElementById('
   }
 
 
-const entries=Object.entries(pagedAttentionPyptoFocusMeta), lines=source.split('\n'), colored=highlightPythonLines(source);
-const escape=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const focusForLine=n=>entries.find(([,v])=>{const [a,b]=v.lines.split('–').map(Number);return n>=a&&n<=b;})?.[0]||null;
-editor.innerHTML=lines.map((line,i)=>'<div data-paged-attention-line="'+(i+1)+'" data-paged-attention-focus="'+(focusForLine(i+1)||'')+'"><i>'+(i+1)+'</i><code style="--kf-code-indent:'+(line.match(/^\s*/)||[''])[0].length+'ch">'+(colored[i]||' ')+'</code></div>').join('');
-let selected=null, expanded=false, programmatic=false;
-function current(){const rows=editor.children,top=scroller.getBoundingClientRect().top+8;let lo=0,hi=rows.length-1,at=0;while(lo<=hi){const mid=(lo+hi)>>1;if(rows[mid].getBoundingClientRect().bottom>top){at=mid;hi=mid-1;}else lo=mid+1;}return rows[at]?.dataset.pagedAttentionFocus||null;}
-function render(){const active=selected||current(),index=entries.findIndex(([k])=>k===active),item=index>=0?entries[index][1]:{label:'文件头',lines:'1–8',detail:'许可证声明与模块说明'};
-bar.hidden=false;
-bar.innerHTML='<div class="kf-source-region__bar"><button type="button" class="kf-source-region__head" data-source-region-toggle aria-expanded="'+expanded+'"><span class="kf-source-region__pos">'+(index>=0?index+1:'—')+'/'+entries.length+'</span><b>'+item.label+'</b><i>'+item.lines+'</i><small>'+item.detail+'</small><em>'+(expanded?'收起':'全部')+'</em></button><button type="button" class="btn btn-sm" data-visualization2-open aria-controls="visualization2">Compute Explorer</button></div><div class="kf-source-region__list" '+(expanded?'':'hidden')+'>'+entries.map(([key,value],n)=>'<button type="button" class="'+(key===active?'is-active':'')+'" data-source-region="'+key+'"><span>'+String(n+1).padStart(2,'0')+'</span><b>'+value.label+'</b><i>'+value.lines+'</i><small>'+value.detail+'</small></button>').join('')+'</div>';}
-bar.addEventListener('click',e=>{if(e.target.closest('[data-source-region-toggle]')){expanded=!expanded;render();return;}const button=e.target.closest('[data-source-region]');if(!button)return;selected=button.dataset.sourceRegion;expanded=false;programmatic=true;render();const [start]=pagedAttentionPyptoFocusMeta[selected].lines.split('–').map(Number);const target=editor.querySelector('[data-paged-attention-line="'+start+'"]');if(target){scroller.style.scrollBehavior='auto';scroller.scrollTop+=target.getBoundingClientRect().top-scroller.getBoundingClientRect().top-bar.offsetHeight;requestAnimationFrame(()=>{scroller.style.scrollBehavior='';});}editor.querySelectorAll('[data-paged-attention-focus]').forEach(el=>el.classList.toggle('is-paged-attention-line-active',el.dataset.pagedAttentionFocus===selected));render();setTimeout(()=>{programmatic=false;},300);});
-scroller.addEventListener('scroll',()=>{if(programmatic)return;selected=null;render();},{passive:true});
-editor.addEventListener('click',e=>{const row=e.target.closest('[data-paged-attention-line]');if(!row)return;selected=row.dataset.pagedAttentionFocus;editor.querySelectorAll('[data-paged-attention-focus]').forEach(el=>el.classList.toggle('is-paged-attention-line-active',el.dataset.pagedAttentionFocus===selected));render();});
-document.getElementById('projectTree').addEventListener('click',e=>{const folder=e.target.closest('[data-tree-toggle]');if(folder){const group=document.querySelector('[data-tree-group="'+folder.dataset.treeToggle+'"]');if(group){group.hidden=!group.hidden;folder.setAttribute('aria-expanded',String(!group.hidden));}return;}if(e.target.closest('[data-file="paged_attention_pypto.py"]')){document.querySelector('.kf-main-body').scrollTop=0;editor.focus({preventScroll:true});}});
-render();
+
+const csaRegions = {
+ config:{label:'TP 与 Shape 配置',lines:'17–154',detail:'TP=2；本地 query 与 gathered KV 两条动态轴'},
+ contract:{label:'decode_csa · 输入与窗口',lines:'157–215',detail:'Rank-local 输入、Cache 状态和 DistributedTensor'},
+ pre:{label:'HC Pre / RMSNorm / RoPE',lines:'216–274',detail:'本地 token 预处理与 rope_tid'},
+ gather:{label:'Token AllGather',lines:'275–288',detail:'本地 x_normed_t 汇聚为 rank-major x_normed_full'},
+ projection:{label:'Q / KV Projection',lines:'290–321',detail:'Q 读取本地行；KV 读取整组行'},
+ cache:{label:'Cache / Compressor / Indexer',lines:'322–381',detail:'三类 Cache、两路压缩状态和显式 TaskID 依赖'},
+ attention:{label:'Sparse Attention',lines:'383–393',detail:'本地 Q 查询 Original / Compressed KV 与 Top-k'},
+ publish:{label:'Merge / Pack / Publish',lines:'395–479',detail:'按 Attention Group 向目标 Rank 的窗口发布'},
+ output:{label:'All-to-All / O / ReduceScatter',lines:'481–501',detail:'收齐本地 Group 的整组 token，再按 token owner 归约'},
+ launch:{label:'l3_decode_csa · 多设备启动',lines:'624–751',detail:'窗口分配、rank 切片和 device=rank'},
+ fixtures:{label:'TP1 / 数据构造 / Reference',lines:'754–2079',detail:'单卡路径、分布式输入构造与 Golden / CLI'}
+};
+const files={
+ 'paged_attention_pypto.py':{scene:'paged-attention',source:window.PTO_PAGED_ATTENTION_PYPTO_SOURCE,regions:pagedAttentionPyptoFocusMeta,description:'Paged Attention · Task / Block / AIV 的映射与计算关系。'},
+ 'decode_csa.py':{scene:'csa',source:window.PTO_CSA_SOURCE.text,regions:csaRegions,description:'DeepSeek V4 CSA · TP=2 的数据分布、跨 Rank 通信与任务依赖。'}
+};
+let activeFile='paged_attention_pypto.py',entries=[],selected=null,expanded=false,programmatic=false,lastRegion;
+const sessions=new Map();
+const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function focusForLine(n){return entries.filter(([,v])=>n>=Number(v.lines.split('–')[0])).at(-1)?.[0]||null;}
+function current(){const rows=editor.children,top=scroller.getBoundingClientRect().top+bar.offsetHeight+8;let lo=0,hi=rows.length-1,at=0;while(lo<=hi){const mid=(lo+hi)>>1;if(rows[mid].getBoundingClientRect().bottom>top){at=mid;hi=mid-1;}else lo=mid+1;}return rows[at]?.dataset.pagedAttentionFocus||null;}
+function renderBar(){const active=selected||current(),index=entries.findIndex(([k])=>k===active),item=index>=0?entries[index][1]:{label:'文件头',lines:'1–'+(Number(entries[0][1].lines.split('–')[0])-1),detail:'许可证声明与模块说明'};lastRegion=active;bar.hidden=false;
+ bar.innerHTML='<div class="kf-source-region__bar"><button type="button" class="kf-source-region__head" data-source-region-toggle aria-expanded="'+expanded+'"><span class="kf-source-region__pos">'+(index>=0?index+1:'—')+'/'+entries.length+'</span><b>'+item.label+'</b><i>'+item.lines+'</i><small>'+item.detail+'</small><em>'+(expanded?'收起':'全部')+'</em></button><button type="button" class="btn btn-sm" data-visualization2-open aria-controls="'+(files[activeFile].scene==='csa'?'csaExplorer':'visualization2')+'">Compute Explorer</button></div><div class="kf-source-region__list" '+(expanded?'':'hidden')+'>'+entries.map(([key,v],i)=>'<button type="button" class="'+(key===active?'is-active':'')+'" data-source-region="'+key+'"><span>'+String(i+1).padStart(2,'0')+'</span><b>'+v.label+'</b><i>'+v.lines+'</i><small>'+v.detail+'</small></button>').join('')+'</div>';
+}
+function showLine(start,end=start){programmatic=true;expanded=false;selected=focusForLine(start);renderBar();const target=editor.children[start-1];if(target){scroller.scrollTo({top:scroller.scrollTop+target.getBoundingClientRect().top-scroller.getBoundingClientRect().top-bar.offsetHeight,behavior:'instant'});editor.querySelectorAll('[data-paged-attention-line]').forEach((el,i)=>el.classList.toggle('is-paged-attention-line-active',i+1>=start&&i+1<=end));}setTimeout(()=>{programmatic=false;},150);}
+function openFile(name){if(!files[name])return;if(editor.children.length)sessions.set(activeFile,{scroll:scroller.scrollTop,selected});window.PtoCsaExplorer?.close();if(document.querySelector('#ideWorkarea').dataset.visualization2)window.PtoVisualization2?.close();activeFile=name;entries=Object.entries(files[name].regions);selected=sessions.get(name)?.selected||null;expanded=false;
+ const lines=files[name].source.split('\n'),colored=highlightPythonLines(files[name].source);
+ editor.innerHTML=lines.map((line,i)=>'<div data-paged-attention-line="'+(i+1)+'" data-paged-attention-focus="'+(focusForLine(i+1)||'')+'"><i>'+(i+1)+'</i><code style="--kf-code-indent:'+(line.match(/^\s*/)||[''])[0].length+'ch">'+(colored[i]||' ')+'</code></div>').join('');
+ editor.setAttribute('aria-label',name+' 全量源码');document.querySelector('.kf-source-stage').setAttribute('aria-label',name+' 全量源码');
+ document.querySelectorAll('[data-current-file]').forEach(el=>el.textContent=name);document.querySelectorAll('[data-file]').forEach(el=>el.classList.toggle('is-selected',el.dataset.file===name));
+ document.getElementById('tabs').innerHTML=Object.keys(files).map(file=>'<button data-source-file="'+file+'" class="'+(file===name?'is-active':'')+'">'+file+'</button>').join('');
+ document.getElementById('inspector').innerHTML='<div class="kf-inspector-card"><b>'+escape(name)+'</b><p>'+files[name].description+'</p><button class="btn btn-sm" type="button" data-visualization2-open>Compute Explorer</button></div>';
+ document.body.dataset.computeScene=files[name].scene;renderBar();scroller.scrollTo({top:sessions.get(name)?.scroll||0,behavior:'instant'});document.dispatchEvent(new CustomEvent('compute-file-change',{detail:{file:name,scene:files[name].scene}}));}
+bar.addEventListener('click',e=>{if(e.target.closest('[data-source-region-toggle]')){expanded=!expanded;renderBar();return;}const b=e.target.closest('[data-source-region]');if(b){const[a,z]=files[activeFile].regions[b.dataset.sourceRegion].lines.split('–').map(Number);showLine(a,z);}});
+scroller.addEventListener('scroll',()=>{if(programmatic)return;selected=null;if(current()!==lastRegion)renderBar();},{passive:true});
+editor.addEventListener('click',e=>{const row=e.target.closest('[data-paged-attention-line]');if(!row)return;selected=row.dataset.pagedAttentionFocus;editor.querySelectorAll('[data-paged-attention-focus]').forEach(el=>el.classList.toggle('is-paged-attention-line-active',el.dataset.pagedAttentionFocus===selected));renderBar();});
+document.addEventListener('click',e=>{const f=e.target.closest('[data-file],[data-source-file]');if(f)openFile(f.dataset.file||f.dataset.sourceFile);const folder=e.target.closest('[data-tree-toggle]');if(folder){const group=document.querySelector('[data-tree-group="'+folder.dataset.treeToggle+'"]');if(group){group.hidden=!group.hidden;folder.setAttribute('aria-expanded',String(!group.hidden));}}});
+window.PtoComputeIDE=Object.freeze({getActiveFile:()=>activeFile,getScene:()=>files[activeFile].scene,openFile,showSource(start,end){window.PtoCsaExplorer?.close();showLine(start,end);editor.focus({preventScroll:true});}});
+openFile(activeFile);
 })();
