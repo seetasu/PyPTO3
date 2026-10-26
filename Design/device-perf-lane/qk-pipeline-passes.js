@@ -29,50 +29,59 @@ window.QK_PIPELINE_PASSES=(()=>{
       if(kind==='lower'&&['mm','pv'].includes(ev.op))for(let k=1;k<4;k++)svg+='<line x1="'+(x(ev.start)+w*k/4)+'" x2="'+(x(ev.start)+w*k/4)+'" y1="'+(y+1)+'" y2="'+(y+17)+'" stroke="#252525"/>';
       svg+='</g>';
     }
-    for(const iter of [first,first+1])for(const [from,to] of [['mm','send_score'],['send_score','scale'],['send_p','recv_p'],['recv_p','pv']]){const a=events.find(e=>e.iter===iter&&e.op===from),b=events.find(e=>e.iter===iter&&e.op===to);svg+='<path class="qk-pass-dependency '+(iter===state.iter?'on':'')+'" data-pass-fragment="'+iter+'" d="M'+x(a.end)+' '+(39+a.row*25)+' L'+x(b.start)+' '+(39+b.row*25)+'" fill="none" stroke="'+(iter===state.iter?'#ccc':'#555')+'" stroke-dasharray="3 2" marker-end="url(#qk-pass-arrow-'+side+')" pointer-events="none"/>';}
+    for(const iter of [first,first+1])for(const [from,to] of [['mm','send_score'],['send_score','scale'],['send_p','recv_p'],['recv_p','pv']]){const a=events.find(e=>e.iter===iter&&e.op===from),b=events.find(e=>e.iter===iter&&e.op===to);svg+='<path class="qk-pass-dependency '+(iter===state.iter?'on':'')+'" data-pass-fragment="'+iter+'" data-dependency-from="'+from+'" data-dependency-to="'+to+'" d="M'+x(a.end)+' '+(39+a.row*25)+' L'+x(b.start)+' '+(39+b.row*25)+'" fill="none" stroke="'+(iter===state.iter?'#ccc':'#555')+'" stroke-dasharray="3 2" marker-end="url(#qk-pass-arrow-'+side+')" pointer-events="none"/>';}
     svg+='<text x="100" y="222" fill="#888" font-size="9">'+(kind==='lower'?'主顺序保持 · CUBE 内细线表示 L0 计算展开':'分片 '+first+' / '+(first+1)+' · '+(kind==='skew'?'QK₁ 提前，分片依赖不变':'每个分片等待自己的 P'))+'</text></svg>';
     const order=events.filter(e=>e.op==='mm'||e.op==='pv').sort((a,b)=>a.start-b.start).map(e=>'<button type="button" data-qk-object="'+e.op+'" data-qk-iter="'+e.iter+'" class="'+(e.op===state.object&&e.iter===state.iter?'on':'')+'">'+labels[e.op]+sub(e.iter)+'</button>').join('<span>→</span>');
     return svg+'<div class="qk-pass-order">'+order+'</div>';
   }
 
-  function motionDiagram(state){
-    const first=Math.floor(state.iter/2)*2,second=first+1;
-    const node=(op,iter,x,label)=>'<g class="qk-skew-token" data-skew-token="'+op+'-'+iter+'" data-qk-object="'+op+'" data-qk-iter="'+iter+'" role="button" tabindex="0" aria-label="'+label+' 分片 '+iter+'"><rect x="'+x+'" y="28" width="78" height="24" rx="3" fill="#282828" stroke="#888"/><text x="'+(x+39)+'" y="44" text-anchor="middle" fill="#ddd" font-size="11">'+label+sub(iter)+'</text></g>';
-    return '<section class="qk-skew-motion" aria-label="P28 跨分片重排演示"><div class="qk-skew-title"><span>QK'+sub(second)+' 提前至 PV'+sub(first)+' 前</span><button type="button" class="ctl" data-qk-skew-replay>↻ 重播重排</button></div><div class="qk-skew-phases"><span>原顺序</span><span>QK 提前</span><span>跨分片交叠</span></div><svg viewBox="0 0 560 136" class="qk-skew-motion-svg" role="group" aria-label="QK 重排与 AIV、P 返回依赖"><defs><marker id="qk-skew-tip" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 L6 3 L0 6" fill="#bbb"/></marker></defs><text x="8" y="44" fill="#999" font-size="10">AIC</text><line x1="65" x2="496" y1="40" y2="40" stroke="#444"/>'+node('mm',first,76,'QK')+node('mm',second,180,'QK')+node('pv',first,284,'PV')+node('pv',second,388,'PV')+'<g class="qk-skew-aiv"><rect x="100" y="85" width="148" height="24" rx="3" fill="#222" stroke="#777"/><text x="174" y="101" text-anchor="middle" fill="#ccc" font-size="10">AIV'+sub(first)+' · 缩放 / exp / 归约</text></g><g class="qk-skew-return"><rect x="266" y="85" width="62" height="24" rx="3" fill="#222" stroke="#888"/><text x="297" y="101" text-anchor="middle" fill="#ddd" font-size="10">P'+sub(first)+' 返回</text></g><path class="qk-skew-old-link" d="M328 97 L342 97 L342 68 L219 68 L219 53" fill="none" stroke="#888" stroke-dasharray="3 3" marker-end="url(#qk-skew-tip)" opacity="0"/><g class="qk-skew-final-links" fill="none" stroke="#bbb" stroke-dasharray="3 3" marker-end="url(#qk-skew-tip)"><path d="M115 53 L115 84"/><path d="M249 97 L265 97"/><path d="M297 84 L297 68 L323 68 L323 53"/></g><text x="8" y="101" fill="#999" font-size="10">关联 AIV</text><text x="280" y="129" fill="#999" font-size="9" text-anchor="middle">QK'+sub(second)+' 与 AIV'+sub(first)+' 交叠；PV'+sub(first)+' 仍等待 P'+sub(first)+'</text></svg><span class="qk-skew-status" role="status" aria-live="polite"></span></section>';
-  }
   let motionRun=null;
   function stop(){
     const run=motionRun;if(!run)return;motionRun=null;
     if(run.frame)cancelAnimationFrame(run.frame);
     for(const animation of run.animations){animation.onfinish=null;animation.cancel();}
     for(const node of run.linked)node.classList.remove('qk-skew-linked');
+    for(const ghost of run.ghosts||[])ghost.remove();
     run.host.removeAttribute('aria-busy');run.host.classList.remove('is-playing');
   }
   function play(panel,state){
-    stop();const host=panel.querySelector('.qk-skew-motion');if(!host)return;
+    stop();const host=panel.querySelector('[data-pass-version="after"].qk-skew-motion'),before=panel.querySelector('[data-pass-version="before"]');if(!host||!before)return;
     const first=Math.floor(state.iter/2)*2,second=first+1,linked=[];
-    const pairs=[['mm',second],['scale',first],['exp',first],['reduce',first],['send_p',first],['recv_p',first],['pv',first]];
+    const pairs=[['mm',first],['send_score',first],['mm',second],['scale',first],['exp',first],['reduce',first],['send_p',first],['recv_p',first],['pv',first]];
     for(const [op,iter] of pairs)for(const node of document.querySelectorAll('#lane [data-qk-version][data-qk-inline-event="'+op+'"][data-qk-inline-iter="'+iter+'"],.qk-pass-node[data-qk-object="'+op+'"][data-qk-iter="'+iter+'"]')){node.classList.add('qk-skew-linked');linked.push(node);}
-    const run={host,linked,animations:[],frame:0};motionRun=run;
-    const qk=host.querySelector('[data-skew-token="mm-'+second+'"]'),pv=host.querySelector('[data-skew-token="pv-'+first+'"]'),status=host.querySelector('.qk-skew-status');
-    const complete=()=>{if(motionRun!==run)return;host.removeAttribute('aria-busy');host.classList.remove('is-playing');status.textContent='QK'+sub(second)+' 已提前；PV'+sub(first)+' 保持等待 P'+sub(first);};
+    for(const path of document.querySelectorAll('.qk-pass-dependency[data-pass-fragment="'+first+'"],#lane .qk-dependency-link[data-dependency-iter="'+first+'"]')){path.classList.add('qk-skew-linked');linked.push(path);}
+    const run={host,linked,animations:[],ghosts:[],frame:0};motionRun=run;
+    const status=host.querySelector('.qk-skew-status'),qk=host.querySelector('.qk-pass-node[data-qk-object="mm"][data-qk-iter="'+second+'"]');
+    const complete=()=>{if(motionRun!==run)return;host.removeAttribute('aria-busy');host.classList.remove('is-playing');status.textContent='QK'+sub(second)+' 已提前；PV'+sub(first)+' 仍依赖 P'+sub(first);};
     if(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches||typeof qk?.animate!=='function'){complete();return;}
     host.setAttribute('aria-busy','true');host.classList.add('is-playing');
     run.frame=requestAnimationFrame(()=>{
       run.frame=0;if(motionRun!==run)return;
       const options={duration:1800,easing:'linear',fill:'both'},animate=(node,frames)=>{if(!node)return null;const animation=node.animate(frames,options);run.animations.push(animation);return animation;};
-      const flight=animate(qk,[{transform:'translate(104px,0)',offset:0},{transform:'translate(104px,0)',offset:.2,easing:'ease-in-out'},{transform:'translate(52px,-17px)',offset:.48,easing:'ease-out'},{transform:'translate(0,0)',offset:.72},{transform:'translate(0,0)',offset:1}]);
-      animate(pv,[{transform:'translate(-104px,0)',offset:0},{transform:'translate(-104px,0)',offset:.2,easing:'ease-in-out'},{transform:'translate(-52px,12px)',offset:.48,easing:'ease-out'},{transform:'translate(0,0)',offset:.72},{transform:'translate(0,0)',offset:1}]);
-      animate(host.querySelector('.qk-skew-old-link'),[{opacity:1,offset:0},{opacity:1,offset:.2},{opacity:0,offset:.6},{opacity:0,offset:1}]);
-      animate(host.querySelector('.qk-skew-final-links'),[{opacity:.15,offset:0},{opacity:.15,offset:.35},{opacity:1,offset:.75},{opacity:1,offset:1}]);
-      for(const selector of ['.qk-skew-aiv','.qk-skew-return'])animate(host.querySelector(selector),[{opacity:.35,offset:0},{opacity:1,offset:.35},{opacity:1,offset:.82},{opacity:1,offset:1}]);
-      [...host.querySelectorAll('.qk-skew-phases span')].forEach((node,i)=>animate(node,[{opacity:.35},{opacity:1,offset:[.12,.48,.86][i]},{opacity:1}]));
+      let flight=null;
+      // Both SVGs share one viewBox. Start each after-node at its before coordinates.
+      // Rect/text geometry stays intact while transform maps the full event width.
+      for(const target of host.querySelectorAll('.qk-pass-node')){
+        const op=target.dataset.qkObject,iter=Number(target.dataset.qkIter),source=before.querySelector('.qk-pass-node[data-qk-object="'+op+'"][data-qk-iter="'+iter+'"]');if(!source)continue;
+        const from=source.querySelector('rect'),to=target.querySelector('rect'),sx=Number(from.getAttribute('width'))/Number(to.getAttribute('width')),dx=Number(from.getAttribute('x'))-sx*Number(to.getAttribute('x')),dy=Number(from.getAttribute('y'))-Number(to.getAttribute('y'));
+        const start='matrix('+sx+',0,0,1,'+dx+','+dy+')',arc=op==='mm'&&iter===second?-15:op==='pv'&&iter===first?12:0,middle='matrix('+((sx+1)/2)+',0,0,1,'+(dx/2)+','+(dy/2+arc)+')';
+        const animation=animate(target,[{transform:start,offset:0},{transform:start,offset:.2,easing:'ease-in-out'},{transform:middle,offset:.48,easing:'ease-out'},{transform:'matrix(1,0,0,1,0,0)',offset:.76},{transform:'matrix(1,0,0,1,0,0)',offset:1}]);
+        if(op==='mm'&&iter===second)flight=animation;
+      }
+      const graph=host.querySelector('.qk-pass-graph');
+      // Keep the old edges while events are still in their original positions.
+      // Fade them during travel; reveal final edges only after all endpoints land.
+      for(const path of before.querySelectorAll('.qk-pass-dependency')){const ghost=path.cloneNode(true);ghost.classList.add('qk-skew-old-dependency');ghost.setAttribute('aria-hidden','true');ghost.setAttribute('marker-end','url(#qk-pass-arrow-after)');graph.append(ghost);run.ghosts.push(ghost);animate(ghost,[{opacity:1,offset:0},{opacity:1,offset:.2},{opacity:0,offset:.56},{opacity:0,offset:1}]);}
+      for(const path of host.querySelectorAll('.qk-pass-dependency:not(.qk-skew-old-dependency)'))animate(path,[{opacity:0,offset:0},{opacity:0,offset:.76},{opacity:1,offset:.94},{opacity:1,offset:1}]);
+      // The compact execution-order strip belongs to this same after chart.
+      for(const target of host.querySelectorAll('.qk-pass-order button')){const source=before.querySelector('.qk-pass-order [data-qk-object="'+target.dataset.qkObject+'"][data-qk-iter="'+target.dataset.qkIter+'"]');if(!source)continue;const dx=source.getBoundingClientRect().left-target.getBoundingClientRect().left;animate(target,[{transform:'translateX('+dx+'px)',offset:0},{transform:'translateX('+dx+'px)',offset:.2},{transform:'translateX(0)',offset:.76},{transform:'translateX(0)',offset:1}]);}
       for(const node of linked)animate(node,[{opacity:.5},{opacity:1,offset:.35},{opacity:1}]);
-      flight.onfinish=()=>{if(motionRun!==run)return;for(const animation of run.animations){animation.onfinish=null;animation.cancel();}run.animations=[];complete();};
+      if(flight)flight.onfinish=()=>{if(motionRun!==run)return;for(const animation of run.animations){animation.onfinish=null;animation.cancel();}run.animations=[];for(const ghost of run.ghosts)ghost.remove();run.ghosts=[];complete();};else complete();
     });
   }
+  function navigation(active){return '<nav class="qk-pass-chain" aria-label="Pass 分析阶段">'+[{id:'memory',label:'P19',name:'Q 驻留'},...stages].map((item,i)=>'<button type="button" data-qk-pipeline-pass="'+item.id+'" aria-pressed="'+(item.id===active)+'"><b>'+item.label+'</b><small>'+item.name+'</small></button>'+(i<3?'<span>→</span>':'')).join('')+'</nav>';}
   function render(state){const current=stages.find(s=>s.id===state.pass)||stages[1];
-    return '<div class="qk-pipeline-passes"><nav class="qk-pass-chain" aria-label="流水 Pass 阶段">'+stages.map((s,i)=>'<button type="button" data-qk-pipeline-pass="'+s.id+'" aria-pressed="'+(s===current)+'"><b>'+s.label+'</b><small>'+s.name+'</small></button>'+(i<2?'<span>→</span>':'')).join('')+'</nav><div class="qk-pass-change-caption"><strong>'+current.name+'</strong><span>结构证据 · 模拟排布</span></div>'+(current.id==='skew'?motionDiagram(state):'')+'<div class="qk-pass-comparison">'+[['before',current.before,current.left],['after',current.after,current.right]].map(([side,title,kind])=>'<article class="qk-pass-frame" data-pass-version="'+side+'"><h4>'+title+'</h4>'+diagram(kind,side,state)+(current.id==='split'&&side==='after'?'<div class="qk-vector-split"><span>AIC<b>QK / PV</b></span><span>AIV · subblock 0<b>有效 VEC 计算</b></span><span class="masked">AIV · subblock 1<b>valid_shape = 0</b></span></div>':'')+'</article>').join('')+'</div><p class="qk-pass-delta">'+current.change+'</p><div class="qk-pass-premise"><span>固定 Q 分片</span><b>重复加载保持</b><span>→</span><button type="button" data-qk-step="2" data-qk-object="q">P19 · 驻留分析 ↗</button></div><details class="rc-sources"><summary>Pass 证据</summary>'+current.sources.map(([file,label])=>'<a href="'+root+file+'" target="_blank" rel="noopener">'+label+' ↗</a>').join('<br>')+'</details></div>';
+    return '<div class="qk-pipeline-passes"><div class="qk-pass-change-caption"><strong>'+current.name+'</strong><span>结构证据 · 模拟排布</span></div>'+'<div class="qk-pass-comparison">'+[['before',current.before,current.left],['after',current.after,current.right]].map(([side,title,kind])=>'<article class="qk-pass-frame '+(current.id==='skew'&&side==='after'?'qk-skew-motion':'')+'" data-pass-version="'+side+'"><h4>'+title+(current.id==='skew'&&side==='after'?'<button type="button" class="ctl" data-qk-skew-replay>↻ 重播重排</button>':'')+'</h4>'+diagram(kind,side,state)+(current.id==='skew'&&side==='after'?'<span class="qk-skew-status" role="status" aria-live="polite"></span>':'')+(current.id==='split'&&side==='after'?'<div class="qk-vector-split"><span>AIC<b>QK / PV</b></span><span>AIV · subblock 0<b>有效 VEC 计算</b></span><span class="masked">AIV · subblock 1<b>valid_shape = 0</b></span></div>':'')+'</article>').join('')+'</div><p class="qk-pass-delta">'+current.change+'</p><div class="qk-pass-premise"><span>固定 Q 分片</span><b>重复加载保持</b><span>→</span><button type="button" data-qk-step="2" data-qk-object="q">P19 · 驻留分析 ↗</button></div><details class="rc-sources"><summary>Pass 证据</summary>'+current.sources.map(([file,label])=>'<a href="'+root+file+'" target="_blank" rel="noopener">'+label+' ↗</a>').join('<br>')+'</details></div>';
   }
-  return {render,model,play,stop};
+  return {render,model,play,stop,navigation};
 })();

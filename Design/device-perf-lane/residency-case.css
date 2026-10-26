@@ -297,13 +297,6 @@ main.qk-inspection.analysis-collapsed{grid-template-columns:minmax(0,1fr) 0px}
 #qk-analysis .qk-vector-split>span{padding:6px;border:1px solid #555;border-radius:3px;color:var(--text-3)}
 #qk-analysis .qk-vector-split b{display:block;font-size:9px;font-weight:400;color:var(--text-2);margin-top:4px}
 #qk-analysis .qk-vector-split .masked{opacity:.5;border-style:dashed}
-#qk-analysis .qk-skew-motion{border:1px solid var(--divider);border-radius:3px;padding:8px;margin:10px 0;background:var(--surface)}
-#qk-analysis .qk-skew-title{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:var(--text-2)}
-#qk-analysis .qk-skew-title button{font-size:10px;padding:4px 8px;min-height:24px}
-#qk-analysis .qk-skew-phases{display:flex;gap:16px;margin-top:8px;font-size:9px;color:var(--text-3)}
-#qk-analysis .qk-skew-motion-svg{display:block;width:100%;height:auto;font-family:var(--mono);overflow:visible}
-#qk-analysis .qk-skew-token{cursor:pointer;transform-box:view-box;transform-origin:0 0;outline:none}
-#qk-analysis .qk-skew-token:hover rect,#qk-analysis .qk-skew-token:focus-visible rect{stroke:#fff;stroke-width:2}
 #qk-analysis .qk-skew-status{display:block;font-size:9px;color:var(--text-3);min-height:13px}
 #qk-analysis .qk-pass-node.qk-skew-linked>rect{stroke:#e0e0e0;stroke-width:1.7}
 .qk-inline-pipeline .qk-pipe-event[data-qk-stage].qk-skew-linked{opacity:1}
@@ -333,3 +326,8 @@ main.qk-inspection.analysis-collapsed{grid-template-columns:minmax(0,1fr) 0px}
   main.is-panel-resizing .main-column,main.is-panel-resizing .analysis-panel{pointer-events:none}
 }
 @media(max-width:1100px){main.qk-inspection{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(220px,43dvh)}.qk-inspection .main-column{grid-column:1;grid-row:1}.qk-inspection .analysis-panel{grid-column:1;grid-row:2;border-left:0;border-top:1px solid var(--divider);max-height:none}main.qk-inspection.analysis-collapsed{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 0px}}
+
+#qk-analysis .qk-pass-frame.qk-skew-motion h4{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#qk-analysis .qk-pass-frame.qk-skew-motion h4 button{font-size:10px;padding:4px 8px;min-height:24px}
+#qk-analysis .qk-pass-node{transform-box:view-box;transform-origin:0 0}
+#qk-analysis .qk-pass-dependency.qk-skew-linked,.qk-inline-pipeline .qk-dependency-link.qk-skew-linked{stroke:#ddd;stroke-width:1.4}
