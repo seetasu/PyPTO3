@@ -3,9 +3,9 @@
   'use strict';
   const model=global.PtoCsaModel, objects=model.objects;
   const state={open:false,tab:'assignment',selection:null,rank:0,
-    views:{assignment:{scope:'overall',topic:'gather',camera:null},pipeline:{scope:'overall',topic:'gather',camera:null},graph:{scope:'overall'}}};
+    views:{assignment:{scope:'overall',topic:'gather',camera:null},pipeline:{scope:'overall',topic:'gather',camera:null},graph:{scope:'overall',camera:null,expanded:[],overlays:{data:true},nodeId:null,edgeId:null,inspectorOpen:false}}};
   const tabs=['assignment','pipeline','graph'];
-  let root, controller, trigger, previousInert=[], graph;
+  let root, controller, semanticController, trigger, previousInert=[], graph;
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const titles={assignment:'Rank / Data Assignment',pipeline:'Distributed Execution',graph:'CSA Graph'};
   const alias={rows0:'full',rows1:'full',group0:'publish',group1:'publish',mainstate:'main',innerstate:'idxcomp',gather:'push',local:'pre',full:'gather',original:'write',compressed:'main',indexcache:'idxcomp',window:'publish',group:'publish',push:'gather',payload:'gather',readback:'gather',rope:'ready'};
@@ -135,8 +135,8 @@
       const b=event.target.closest('button');if(!b)return;
       if(b.hasAttribute('data-csa-back'))return close();
       if(b.dataset.csaTab){saveCamera();const previous=state.views[state.tab];state.tab=b.dataset.csaTab;if(state.tab!=='graph'&&previous.scope==='local'){state.views[state.tab].camera=null;state.views[state.tab].scope='local';state.views[state.tab].topic=selectedTopic(previous.topic);}if(state.tab==='assignment'&&state.selection)state.views.assignment.topic=selectedTopic(previous.topic);render();return;}
-      if(b.dataset.csaScope){saveCamera();const v=state.views[state.tab];v.scope=b.dataset.csaScope;if(state.selection)v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
-      if(b.hasAttribute('data-csa-return')){state.views[state.tab].scope='overall';state.views[state.tab].camera=null;render();return;}
+      if(b.dataset.csaScope){saveCamera();const v=state.views[state.tab];v.scope=b.dataset.csaScope;if(state.tab==='graph'){v.expanded=b.dataset.csaScope==='local'?[v.nodeId?.split('/')[0]||'input']:[];}else if(state.selection)v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
+      if(b.hasAttribute('data-csa-return')){state.views[state.tab].scope='overall';state.views[state.tab].expanded=[];state.views[state.tab].camera=null;render();return;}
       if(b.dataset.csaFocus){const topic=b.dataset.csaFocus,v=state.views[state.tab];v.topic=topic;v.camera=null;state.selection={object:{gather:'gather',cache:'ready',output:'publish'}[topic],rank:state.rank};render();return;}
       if(b.hasAttribute('data-csa-clear')){state.selection=null;controller?.clearSelection();details();chrome();return;}
       if(b.hasAttribute('data-csa-drill')){const v=state.views[state.tab];v.scope='local';v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
@@ -151,9 +151,9 @@
   function chrome(){
     root.querySelectorAll('[data-csa-tab]').forEach(b=>{const active=b.dataset.csaTab===state.tab;b.classList.toggle('is-selected',active);b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});
     root.querySelector('#csa-panel').setAttribute('aria-labelledby','csa-tab-'+state.tab);
-    root.querySelectorAll('[data-csa-scope]').forEach(b=>{b.disabled=state.tab==='graph';const active=b.dataset.csaScope===state.views[state.tab].scope;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
-    root.querySelector('[data-csa-return]').hidden=state.tab==='graph'||state.views[state.tab].scope!=='local';
-    root.querySelector('[data-csa-breadcrumb]').textContent=titles[state.tab]+(state.tab==='graph'?'':' / '+(state.views[state.tab].scope==='local'?model.topics[state.views[state.tab].topic]+' / 局部':'整体'))+(state.selection?' / Rank '+state.selection.rank+' / '+objects[state.selection.object].label:'');
+    root.querySelectorAll('[data-csa-scope]').forEach(b=>{const active=b.dataset.csaScope===state.views[state.tab].scope;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
+    root.querySelector('[data-csa-return]').hidden=state.views[state.tab].scope!=='local';
+    root.querySelector('[data-csa-breadcrumb]').textContent=titles[state.tab]+(state.tab==='graph'?' / '+(state.views.graph.scope==='local'?'局部':'整体'):' / '+(state.views[state.tab].scope==='local'?model.topics[state.views[state.tab].topic]+' / 局部':'整体'))+(state.tab!=='graph'&&state.selection?' / Rank '+state.selection.rank+' / '+objects[state.selection.object].label:'');
     const drill=root.querySelector('[data-csa-drill]');if(drill)drill.disabled=state.tab==='graph';
   }
   function details(){
@@ -166,12 +166,43 @@
     }).join('')+'</section><p class="csa-note">源码事实与静态依赖示意。布局为简化示意，不代表实际调度、耗时或通信带宽。</p>';host.scrollTop=0;
   }
   function render(){
-    controller?.destroy();controller=null;const stage=root.querySelector('.csa-stage'),view=state.views[state.tab];stage.replaceChildren();
+    controller?.destroy();controller=null;semanticController=null;const stage=root.querySelector('.csa-stage'),view=state.views[state.tab];stage.replaceChildren();
     root.querySelector('.csa-focusbar').innerHTML=state.tab==='graph'?'':Object.entries(model.topics).map(([key,label])=>'<button class="btn btn-ghost btn-sm '+(view.topic===key?'is-selected':'')+'" data-csa-focus="'+key+'" aria-pressed="'+(view.topic===key)+'">'+label+'</button>').join('');
     if(state.tab==='graph'){
-      stage.innerHTML='<div class="csa-unadapted"><h2>CSA Graph 尚未适配</h2><p>本阶段先探索 Assignment 与 Pipeline。可切回查看 Rank 数据分布和通信依赖。</p><p>当前文件：decode_csa.py</p></div>';
-      root.querySelector('.csa-caption').textContent='CSA 场景 · Graph';root.querySelector('.csa-footer').hidden=true;
+      root.querySelector('.csa-footer').hidden=true;
+      root.querySelector('.csa-inspector').hidden=true;
+      root.querySelector('.csa-caption').innerHTML='<b>CSA Compute Graph</b><span>Stage 是语义分组；点击 Module 的 + 展开源码支持的内部关系。</span>';
+      stage.classList.add('csa-semantic-stage');
+      const semantic=global.PTO_CSA_SEMANTIC_GRAPH;
+      semanticController=global.PtoVisualization2Graph.mount(stage,{onSelect:()=>{},onView:patch=>{
+        Object.assign(state.views.graph,patch);
+        if(!semanticController)return;
+        if(patch.expanded)state.views.graph.scope=patch.expanded.length?'local':'overall';
+        semanticController.update(null,state.views.graph,{active:true});chrome();
+      },adapter:{
+        getModel:()=>semantic,executionData:()=>null,fitOnEnter:true,stageLabel:g=>'<b>'+esc(g.label)+'</b>',
+        context:()=> '源码静态数据、状态和 Task ID 依赖；Stage 不表示严格串行。',
+        resolveFocus:(g,selection,v)=>({nodeId:v.nodeId,edgeId:v.edgeId,related:v.nodeId?[v.nodeId]:[],kind:'node'}),
+        hasInspector:()=>!!(state.views.graph.nodeId||state.views.graph.edgeId),
+        onNode:id=>{state.views.graph.nodeId=id;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});},
+        onEdge:id=>{state.views.graph.edgeId=id;state.views.graph.nodeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});},
+        onSync:()=>{},
+        onSource:range=>{const [a,z]=range.split(':').map(Number);global.PtoComputeIDE.showSource(a,z);},
+        inspector:(node,sync,g)=>{
+          const e=g.edges.find(item=>item.id===state.views.graph.edgeId),item=node?.semantic||semantic.nodes.find(n=>n.id===node?.id?.split('/')[0]);
+          const key=node?.id?.split('/')[0],fact=objects[key],src=item?.source||semantic.nodes.find(n=>n.id===key)?.source;
+          const incoming=node?g.edges.filter(x=>x.t===node.id).map(x=>g.nodes.find(n=>n.id===x.s)?.title||x.s):[];
+          const outgoing=node?g.edges.filter(x=>x.s===node.id).map(x=>g.nodes.find(n=>n.id===x.t)?.title||x.t):[];
+          const rows=e?[["类型",e.type],["来源",e.s],["目标",e.t],["依赖",e.label||'静态关系']]:[["说明",fact?.what||node?.detail||'源码静态关系'],["输入依赖",incoming.join('、')||'上层输入'],["输出依赖",outgoing.join('、')||'上层输出']];
+          const loc=src?.ranges?.[0];
+          return {title:e?(e.label||'依赖'):node?.title||'CSA',html:'<section><h3>源码静态关系</h3><dl>'+rows.map(([a,b])=>'<dt>'+esc(a)+'</dt><dd>'+esc(b)+'</dd>').join('')+'</dl></section>'+(loc?'<section><h3>Source</h3><button class="btn btn-ghost btn-sm" data-viz2-graph-source="'+loc.start+':'+loc.end+'">decode_csa.py : '+loc.start+'–'+loc.end+' ↗</button></section>':'')};
+        },tooltip:(id,edgeId,syncId,g)=>id?(g.nodes.find(n=>n.id===id)?.detail||id):(g.edges.find(e=>e.id===edgeId)?.label||'依赖')
+      }});
+      semanticController.update(null,view,{active:true});
+      if(view.camera)semanticController.update(null,view,{active:true});
     }else{
+      stage.classList.remove('csa-semantic-stage','viz2-graph');
+      root.querySelector('.csa-inspector').hidden=false;
       root.querySelector('.csa-footer').hidden=false;
       graph=view.scope==='local'?(state.tab==='assignment'?anatomy(view.topic):localGraph(view.topic)):state.tab==='assignment'?assignment(view.topic):pipeline();
       root.querySelector('.csa-caption').innerHTML='<b>'+esc(view.scope==='local'?(state.tab==='assignment'?'Tensor / Cache Anatomy · ':'Task / Communication Dependency · ')+model.topics[view.topic]:titles[state.tab])+'</b><span>'+esc(state.tab==='assignment'?'T 为本地 token 行；数据块仅示意归属与分组。':'主要静态依赖 · 分支不保证同时执行 · 拖拽平移 / Ctrl 或 ⌘ 滚轮缩放')+'</span>';
@@ -183,7 +214,7 @@
         onClearSelection:()=>{state.selection=null;details();chrome();}});
     }
     if(controller){controller.svg.ptoModelGraphviz.metadata.clusterEntries.forEach(({el,cluster})=>{if(cluster.id.startsWith('rank-')){const label=el.querySelector('.pto-model-graphviz-cluster-label');if(label){label.style.pointerEvents='auto';label.style.cursor='pointer';}}});controller.svg.ptoModelGraphviz.metadata.edgeEntries.forEach(({el,edge})=>{if(edge.type==='communication')el.style.stroke='var(--primary)';});}
-    details();chrome();
+    if(state.tab!=='graph')details();chrome();
   }
   function open(button){if(!root)mount();if(state.open)return;trigger=button;state.open=true;root.hidden=false;const area=document.getElementById('ideWorkarea');area.dataset.visualization2='open';previousInert=[...area.children].filter(el=>el!==root).map(el=>[el,el.inert]);previousInert.forEach(([el])=>el.inert=true);render();root.querySelector('[data-csa-tab="'+state.tab+'"]').focus();}
   function close(){if(!state.open)return;saveCamera();state.open=false;root.hidden=true;delete document.getElementById('ideWorkarea').dataset.visualization2;previousInert.forEach(([el,inert])=>el.inert=inert);previousInert=[];trigger?.isConnected&&trigger.focus({preventScroll:true});}
