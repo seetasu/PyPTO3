@@ -248,7 +248,11 @@
       active:state.open && state.activeTab==='assignment' && state.views.assignment.phase==='phase0' && state.views.assignment.subview!=='block',
       selectionChanged:action.type!=='view',
     });
-    if (!state.open) { assignmentMorph?.update(state.selection,false); return; }
+    if (!state.open) {
+      assignmentMorph?.update(state.selection,false);
+      pipelineIntraController?.update(null,null,null,{active:false});
+      return;
+    }
     tabs.forEach(id => { const active=id===state.activeTab, tab=root.querySelector(`[data-viz2-tab="${id}"]`); tab.classList.toggle('is-selected',active); tab.setAttribute('aria-selected',String(active)); tab.tabIndex=active?0:-1; root.querySelector(`#viz2-${id}`).hidden=!active; });
     if (action.type === 'tab') {
       tooltip.hidden = true; phase0Controller.hideTooltip(); pipelineController?.hideTooltip(); graphController?.hideTooltip();
@@ -285,6 +289,7 @@
     if(state.activeTab==='pipeline'&&pipelineInner&&!pipelineIntraController){
       pipelineIntraController=window.PtoVisualization2PipelineIntra.mount(root.querySelector('#viz2-pipeline-intra'),{model:pipelineIntraModel,
         onTask:id=>store.dispatch({type:'pipeline-intra-task',id}),onFocus:focus=>store.dispatch({type:'pipeline-intra-focus',focus}),
+        onExit:exitPipelineIntra,
         onNavigate:()=>{store.dispatch({type:'tab',id:'graph'});store.dispatch({type:'view',id:'graph',patch:{intraInspectorOpen:true}});},
         onCamera:(id,camera)=>store.dispatch({type:'view',id:'pipeline',patch:{intraCameras:{...store.getState().views.pipeline.intraCameras,[id]:camera}}}),
         onInspector:open=>store.dispatch({type:'view',id:'pipeline',patch:{intraInspectorOpen:open}})});

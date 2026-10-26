@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="300" viewBox="0 0 960 300" role="img" aria-labelledby="title desc">
+<title id="title">SSA 变量版本与 Pass dump 快照</title><desc id="desc">普通赋值变为唯一版本变量，并通过多个阶段快照观察结构变化。</desc>
+<defs><style>.bg{fill:#101411}.card{fill:#191f1b;stroke:#354039;stroke-width:1.5}.lime{fill:#b6f36b}.blue{fill:#8cc8ff}.text{fill:#f1f5ef;font:600 17px system-ui,sans-serif}.small{fill:#aab6ac;font:14px system-ui,sans-serif}.code{fill:#d9f3be;font:15px ui-monospace,monospace}.line{stroke:#71806f;stroke-width:2;fill:none;marker-end:url(#arrow)}</style><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="#71806f"/></marker></defs>
+<rect class="bg" width="960" height="300" rx="20"/>
+<text class="text" x="30" y="38">一次赋值更新，怎样变得容易追踪？</text>
+<rect class="card" x="30" y="65" width="250" height="120" rx="14"/><text class="small" x="50" y="94">源表达</text><text class="code" x="50" y="126">x = a + b</text><text class="code" x="50" y="153">x = x * 2</text>
+<path class="line" d="M290 125H345"/>
+<rect class="card" x="355" y="65" width="260" height="120" rx="14"/><text class="small" x="375" y="94">SSA 形式</text><text class="code" x="375" y="126">x₀ = a + b</text><text class="code" x="375" y="153">x₁ = x₀ * 2</text>
+<path class="line" d="M625 125H680"/>
+<rect class="card" x="690" y="65" width="240" height="120" rx="14"/><text class="small" x="710" y="94">阶段快照</text><text class="code" x="710" y="126">Pass 前 → Pass 后</text><text class="small" x="710" y="153">对比首次结构变化</text>
+<text class="lime" x="31" y="230" style="font:600 15px system-ui,sans-serif">类比：给每次改写的变量贴上批次标签，旧值来源不会被覆盖。</text><text class="small" x="31" y="260">Dump 像工序前后的工作台照片：帮助定位变化，不单独证明结果正确。</text>
+</svg>

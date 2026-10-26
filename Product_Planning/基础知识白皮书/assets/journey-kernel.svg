@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 380" role="img" aria-labelledby="title desc">
+ <title id="title">从模型子图到可信 PyPTO Kernel 的用户旅程</title><desc id="desc">任务契约、算子设计、编译检查、正确性验证、性能实验、模型集成六个阶段。</desc>
+ <defs><style>.bg{fill:#141414}.t{fill:#e8e8e8;font:14px Inter,'Microsoft YaHei',sans-serif}.s{fill:#999;font:11px Inter,'Microsoft YaHei',sans-serif}.h{fill:#b1ef6b;font:700 11px ui-monospace,monospace}.box{fill:#1d1d1d;stroke:#515151}.first{stroke:#72934d}.last{stroke:#4e7480}.line{stroke:#777;stroke-width:2;fill:none;marker-end:url(#a)}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="none" stroke="#777"/></marker></defs>
+ <rect class="bg" width="1100" height="380" rx="12"/><text class="h" x="32" y="38">TYPICAL JOURNEY A · FROM MODEL SUBGRAPH TO TRUSTED KERNEL</text>
+ <g><rect class="box first" x="28" y="94" width="155" height="110" rx="7"/><text class="h" x="45" y="121">01 · DEFINE</text><text class="t" x="45" y="150">任务契约</text><text class="s" x="45" y="175">语义 / shape / 精度</text>
+ <rect class="box" x="210" y="94" width="155" height="110" rx="7"/><text class="h" x="227" y="121">02 · DESIGN</text><text class="t" x="227" y="150">Kernel 设计</text><text class="s" x="227" y="175">Tile / 并行 / 内存</text>
+ <rect class="box" x="392" y="94" width="155" height="110" rx="7"/><text class="h" x="409" y="121">03 · COMPILE</text><text class="t" x="409" y="150">编译检查</text><text class="s" x="409" y="175">IR / 资源 / 代码生成</text>
+ <rect class="box" x="574" y="94" width="155" height="110" rx="7"/><text class="h" x="591" y="121">04 · VERIFY</text><text class="t" x="591" y="150">正确性验证</text><text class="s" x="591" y="175">边界 / golden / 误差</text>
+ <rect class="box" x="756" y="94" width="155" height="110" rx="7"/><text class="h" x="773" y="121">05 · MEASURE</text><text class="t" x="773" y="150">性能实验</text><text class="s" x="773" y="175">基线 / profile / A/B</text>
+ <rect class="box last" x="938" y="94" width="135" height="110" rx="7"/><text class="h" x="953" y="121">06 · INTEGRATE</text><text class="t" x="953" y="150">模型集成</text><text class="s" x="953" y="175">端到端确认</text></g>
+ <path class="line" d="M183 149h20M365 149h20M547 149h20M729 149h20M911 149h20"/>
+ <text class="s" x="32" y="250">主要交接</text><text class="t" x="150" y="250">模型/算法 → 算子开发 → 编译与 Runtime 协作者 → 性能工程师 → 模型集成/推理工程师</text>
+ <text class="s" x="32" y="286">阶段门</text><text class="t" x="150" y="286">规格可测 → 能编译 → 数值正确 → 收益可复现 → 目标 workload 下可用</text>
+ <text class="s" x="32" y="326">失败回路</text><text class="t" x="150" y="326">编译失败回到设计；数值分歧回到语义/数据路径；性能无改善回到测量口径与瓶颈假设。</text>
+</svg>

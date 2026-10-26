@@ -13,6 +13,7 @@
       const r=pane.getBoundingClientRect(),o=root.getBoundingClientRect(),hold=pane.cloneNode(true);hold.removeAttribute('id');hold.inert=true;hold.setAttribute('aria-hidden','true');
       Object.assign(hold.style,{position:'absolute',left:`${r.left-o.left-root.clientLeft}px`,top:`${r.top-o.top-root.clientTop}px`,width:`${r.width}px`,height:`${r.height}px`,margin:0,zIndex:12,pointerEvents:'none'});
       const originals=pane.querySelectorAll('canvas');hold.querySelectorAll('canvas').forEach((canvas,i)=>canvas.getContext('2d').drawImage(originals[i],0,0));root.append(hold);
+      const descendants=hold.querySelectorAll('*');pane.querySelectorAll('*').forEach((element,index)=>{descendants[index].scrollTop=element.scrollTop;descendants[index].scrollLeft=element.scrollLeft;});
       job={direction,id,source,hold,animations:[],frame:0,phase:'preparing'};return job;
     }
     function play(current){if(!current||current!==job)return;current.frame=requestAnimationFrame(()=>{current.frame=requestAnimationFrame(()=>start(current));});}
@@ -35,7 +36,7 @@
         context.clearRect((a.rect.x-r.left)*scale,(a.rect.y-r.top)*scale,(a.rect.width+a.output.width)*scale,a.rect.height*scale);
       }else{
         getOuter().setSemanticTaskMask(current.id);
-        current.hold.querySelectorAll('[data-intra-frame],[data-intra-kind="output"],[data-intra-operation$=":qk"]').forEach(el=>el.style.visibility='hidden');
+        current.hold.querySelector(`[data-intra-task="${current.id}"]`)?.querySelectorAll('[data-intra-frame],[data-intra-kind="output"],[data-intra-operation$=":qk"],.viz2-intra-heading').forEach(el=>el.style.visibility='hidden');
       }
       current.phase='animating';
       const destination=root.querySelector(entering?'#viz2-pipeline-intra':'#viz2-pipeline-inter');
@@ -45,8 +46,8 @@
       const set=(el,r)=>Object.entries({...r,x:r.x-o.left-root.clientLeft,y:r.y-o.top-root.clientTop}).forEach(([k,v])=>el.setAttribute(k,v));
       const start=performance.now();function tick(now){if(job!==current)return;const raw=Math.min(1,(now-start)/780),e=raw<.5?4*raw**3:1-(-2*raw+2)**3/2,p=entering?e:1-e;
         const bounds=lerp(a.rect,b.frame,p);set(frame,bounds);frame.style.opacity=String(1-p*.7);set(output,lerp(a.output,b.output,p));set(outputFill,lerp(a.output,b.output,p));outputFill.style.opacity=String(1-p);frame.setAttribute('stroke-opacity',1-p);
-        const titleWidth=b.title.width*(`Task ${current.id}`).length/(`Task ${current.id} · Stack × Tick`).length;
-        label.setAttribute('x',mix(a.rect.x+a.rect.width/2,b.title.x+titleWidth/2,p)-o.left-root.clientLeft);label.setAttribute('y',mix(a.rect.y+a.rect.height/2,b.title.y+b.title.height/2,p)-o.top-root.clientTop);label.setAttribute('font-size',mix(12,b.title.height*.85,p));
+        label.setAttribute('text-anchor',p>.95?'start':'middle');
+        label.setAttribute('x',mix(a.rect.x+a.rect.width/2,b.title.x,p)-o.left-root.clientLeft);label.setAttribute('y',mix(a.rect.y+a.rect.height/2,b.title.y+b.title.height/2,p)-o.top-root.clientTop);label.setAttribute('font-size',mix(12,b.title.height*.7,p));
         segments.forEach(s=>{const r=lerp(s.source,s.target,p);set(s.track,r);set(s.fill,{...r,width:r.width*s.fraction});s.fill.style.opacity=String(1-p);});
         if(raw<1)current.frame=requestAnimationFrame(tick);else cancel();
       }tick(start);

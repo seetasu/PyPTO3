@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111111">
+  <title>PyPTO 基础知识白皮书</title>
+  <link rel="stylesheet" href="reader.css">
+</head>
+<body>
+  <div class="reading-progress" id="reading-progress"></div>
+  <header class="topbar">
+    <a class="brand" href="#home-guide" id="brand-home" aria-label="回到白皮书阅读导览"><span class="brand-mark">P</span><span>PyPTO <em>FIELD GUIDE</em></span></a>
+    <nav class="paper-tabs" id="paper-tabs" aria-label="选择白皮书"></nav>
+    <label class="search-box"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="检索本篇内容…" aria-label="检索本篇内容"><kbd>Ctrl K</kbd></label>
+  </header>
+  <aside class="rail" aria-label="本篇章节">
+    <div class="rail-label">READING PATH</div>
+    <div class="rail-title" id="rail-title"></div>
+    <nav id="toc" class="toc"></nav>
+    <div class="rail-foot"><span id="read-count">0 / 0</span><span>章节</span></div>
+  </aside>
+  <main id="top" class="is-home">
+    <section class="home-guide" id="home-guide" aria-labelledby="home-title">
+      <div class="home-heading">
+        <div class="eyebrow">PYPTO FIELD GUIDE · 阅读导览</div>
+        <p class="home-kicker">一条从用户问题走到设备执行的学习路径</p>
+        <h1 id="home-title">先理解问题，再看编译，最后动手实现。</h1>
+        <p class="home-lead">这五份白皮书不是五个孤立主题。它们依次回答：推理系统要达成什么、PyPTO 如何表达程序、硬件事实怎样约束实现、编译器如何改写程序，以及怎样把这些知识用于开发和验证算子。</p>
+      </div>
+      <div class="home-path-label"><span>RECOMMENDED READING PATH</span><span>01 → 05</span></div>
+      <nav class="learning-path" aria-label="推荐阅读顺序">
+        <button class="path-card" data-paper="1"><span class="path-step">01 · 目标</span><span class="path-title">模型推理</span><span class="path-question">系统最终要优化什么？</span><span class="path-summary">从请求阶段、Prefill/Decode 走到 TTFT、TPOT、吞吐与端到端指标。</span><span class="path-next">先建立 workload 视角 <b>↗</b></span></button>
+        <button class="path-card" data-paper="0"><span class="path-step">02 · 表达</span><span class="path-title">PyPTO 基础</span><span class="path-question">程序是怎样被描述的？</span><span class="path-summary">理解 Tensor、Tile、Scope、Kernel、Task 与设备执行的关系。</span><span class="path-next">建立编程模型 <b>↗</b></span></button>
+        <button class="path-card" data-paper="3"><span class="path-step">03 · 约束</span><span class="path-title">Hardware-Native</span><span class="path-question">目标硬件为何影响写法？</span><span class="path-summary">把存储、布局、计算单元、同步、流水和多卡通信放回设计中。</span><span class="path-next">理解硬件事实 <b>↗</b></span></button>
+        <button class="path-card" data-paper="4"><span class="path-step">04 · 转换</span><span class="path-title">Pass 流水线</span><span class="path-question">源码如何变成设备任务？</span><span class="path-summary">沿 IR Pass 追踪规范化、Tile 下沉、后端合法化、内存分配与 Runtime。</span><span class="path-next">跟踪编译过程 <b>↗</b></span></button>
+        <button class="path-card" data-paper="2"><span class="path-step">05 · 实践</span><span class="path-title">算子开发</span><span class="path-question">怎样交付可信的 Kernel？</span><span class="path-summary">将数学规格、分块、内存、正确性测试与性能验收串成可执行流程。</span><span class="path-next">综合并应用 <b>↗</b></span></button>
+      </nav>
+      <section class="home-explainer" aria-label="白皮书之间的关系">
+        <div><span class="explainer-index">学习逻辑</span><h2>从“为什么”到“怎么做”</h2><p>推理白皮书给出用户体验与性能目标；PyPTO 基础提供描述程序的共同语言；Hardware-Native 补充目标设备的事实与限制；Pass 流水线解释这些表达怎样被逐步改写；算子开发则把前四篇收敛为规格、实现、验证和优化的工作方法。</p></div>
+        <div class="home-outcome"><span>读完后，你可以</span><strong>定义目标</strong><i>→</i><strong>读懂表达</strong><i>→</i><strong>解释变换</strong><i>→</i><strong>验证实现</strong></div>
+      </section>
+      <section class="home-audience" aria-label="按目标选择起点">
+        <div><span class="explainer-index">按目标开始</span><h2>不必每次都从头读</h2></div>
+        <button data-paper="0">刚接触 PyPTO <span>先看编程模型 →</span></button>
+        <button data-paper="2">正在开发算子 <span>从算子实践开始 →</span></button>
+        <button data-paper="4">在排查编译变化 <span>从 Pass 流水线开始 →</span></button>
+        <button data-paper="1">正在分析推理性能 <span>从请求与指标开始 →</span></button>
+      </section>
+      <p class="home-note">各篇中的芯片事实、API 和 Pass 顺序以对应仓库版本为准；图示用于建立概念关系，不代表固定编译结果或性能承诺。</p>
+    </section>
+    <div id="reader-view" hidden>
+    <section class="cover" id="cover">
+      <div class="cover-copy">
+        <div class="eyebrow" id="cover-eyebrow">FOUNDATION SERIES · 2026</div>
+        <div class="cover-number" id="cover-number">01 / 05</div>
+        <h1 id="cover-title">PyPTO 基础知识白皮书</h1>
+        <p class="cover-lead" id="cover-lead"></p>
+        <div class="cover-meta" id="cover-meta"></div>
+        <a class="start-link" href="#article-start">开始阅读 <span>↓</span></a>
+      </div>
+      <div class="cover-visual" aria-label="本篇主题概念图">
+        <div class="visual-caption"><span>CONCEPT MAP</span><span id="visual-step">01 — 04</span></div>
+        <div class="concept-map" id="concept-map"></div>
+        <div class="visual-controls"><button id="visual-prev" aria-label="上一个概念阶段">←</button><div class="visual-dots" id="visual-dots"></div><button id="visual-next" aria-label="下一个概念阶段">→</button></div>
+        <div class="visual-note" id="visual-note" aria-live="polite"></div>
+      </div>
+    </section>
+    <section class="intro-strip" id="intro-strip">
+      <span class="strip-label">IN THIS GUIDE</span><div id="guide-map"></div>
+    </section>
+    <article class="article" id="article-start"></article>
+    <footer class="footer"><span>PyPTO FIELD GUIDE</span><span>内容来源与版本边界见各篇参考资料</span><a href="#top">回到顶部 ↑</a></footer>
+    </div>
+  </main>
+  <button class="back-top" id="back-top" aria-label="回到顶部">↑</button>
+  <div class="search-status" id="search-status" role="status" aria-live="polite"></div>
+  <script src="reader-data.js"></script>
+  <script src="reader.js"></script>
+</body>
+</html>

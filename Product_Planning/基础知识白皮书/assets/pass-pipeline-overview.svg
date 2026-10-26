@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 350" role="img" aria-labelledby="t d">
+<title id="t">PyPTO Pass 流水线总体路径</title><desc id="d">Python DSL 与 Tensor 语义经有序 IR 变换，形成 Tile、Kernel、内存和 Runtime Task，再由目标设备执行。</desc>
+<defs><style>text{font-family:'Microsoft YaHei','PingFang SC',sans-serif;fill:#e8e8e8}.muted{fill:#aaa;font-size:12px}.head{font-size:14px;font-weight:700}.box{fill:#191919;stroke:#444}.arr{stroke:#777;stroke-width:2;fill:none}.lime{fill:#b1ef6b}.violet{fill:#bca0f3}.blue{fill:#79d4f2}.amber{fill:#f2c45f}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8Z" fill="#777"/></marker></defs>
+<rect width="1040" height="350" rx="12" fill="#111"/><text x="34" y="36" class="lime" font-size="11" letter-spacing="2">PYPTO COMPILATION · CONCEPTUAL PATH</text>
+<g><rect class="box" x="34" y="92" width="160" height="106" rx="9"/><rect class="box" x="228" y="92" width="160" height="106" rx="9"/><rect class="box" x="422" y="92" width="176" height="106" rx="9"/><rect class="box" x="632" y="92" width="176" height="106" rx="9"/><rect class="box" x="842" y="92" width="160" height="106" rx="9"/></g>
+<text x="54" y="125" class="lime head">Python DSL</text><text x="54" y="153" class="muted">Tensor · Scope</text><text x="54" y="175" class="muted">函数 · 控制流</text>
+<text x="248" y="125" class="violet head">规范 IR</text><text x="248" y="153" class="muted">Inline · SSA</text><text x="248" y="175" class="muted">Scope 提取</text>
+<text x="442" y="125" class="blue head">Tile / 设备 IR</text><text x="442" y="153" class="muted">Tensor → Tile</text><text x="442" y="175" class="muted">布局 · 后端合法化</text>
+<text x="652" y="125" class="amber head">存储 / 执行结构</text><text x="652" y="153" class="muted">流水 · MemRef</text><text x="652" y="175" class="muted">地址 · 依赖</text>
+<text x="862" y="125" class="lime head">运行时</text><text x="862" y="153" class="muted">Kernel · Task</text><text x="862" y="175" class="muted">设备执行</text>
+<path d="M197 145 H220 M391 145 H414 M601 145 H624 M811 145 H834" class="arr" marker-end="url(#a)"/>
+<path d="M246 243 H805" stroke="#444" stroke-width="1"/><path d="M246 243 V230 M805 243 V230" stroke="#444"/><text x="347" y="272" class="muted">每个 Pass：输入 IR → 分析 / 变换 → 输出 IR / 诊断</text><text x="270" y="311" class="muted">静态编译结构与动态运行实例有关联，但不是一对一对象</text>
+</svg>

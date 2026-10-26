@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 345" role="img" aria-labelledby="t d">
+<title id="t">两个容易忽略的硬件原生边界案例</title><desc id="d">尾部 Tile 的填充值会影响数值，跨核交接必须保证数据写好并发布后消费者才读取。</desc>
+<defs><style>text{font-family:'Microsoft YaHei','PingFang SC',sans-serif;fill:#e8e8e8}.muted{fill:#aaa;font-size:12px}.small{fill:#888;font-size:10px}.head{font-size:14px;font-weight:700}.panel{fill:#171717;stroke:#393939}.valid{fill:#23321b;stroke:#668347}.bad{fill:#2c2418;stroke:#806a39}.green{fill:#b1ef6b}.amber{fill:#f2c45f}.blue{fill:#79d4f2}.arr{stroke:#888;stroke-width:2;fill:none}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8Z" fill="#888"/></marker></defs>
+<rect width="1040" height="345" rx="12" fill="#111"/><text x="32" y="34" class="green" font-size="11" letter-spacing="2">TWO BOUNDARIES · CORRECTNESS FIRST</text>
+<rect class="panel" x="30" y="58" width="478" height="254" rx="9"/><rect class="panel" x="532" y="58" width="478" height="254" rx="9"/>
+<text x="52" y="87" class="head">A · 尾块与规约填充</text><text x="52" y="112" class="muted">有效值 [-8, -3] + 两个无效槽</text>
+<rect class="valid" x="60" y="135" width="75" height="52" rx="5"/><rect class="valid" x="144" y="135" width="75" height="52" rx="5"/><rect class="bad" x="228" y="135" width="75" height="52" rx="5"/><rect class="bad" x="312" y="135" width="75" height="52" rx="5"/>
+<text x="83" y="168" class="green">-8</text><text x="167" y="168" class="green">-3</text><text x="250" y="168" class="amber">0</text><text x="334" y="168" class="amber">0</text><path d="M393 160 H421" class="arr" marker-end="url(#a)"/><text x="426" y="164" class="amber">max=0</text>
+<text x="52" y="220" class="muted">零填充进入 max 后变成最大值。</text><text x="52" y="243" class="small">边界值必须与 reduce 语义一致，并屏蔽无效槽。</text><text x="52" y="277" class="green">正确答案：max([-8, -3]) = -3</text>
+<text x="554" y="87" class="head">B · 生产者与消费者</text><text x="554" y="112" class="muted">先写数据，再发布，再读取</text>
+<rect x="557" y="141" width="108" height="52" rx="6" fill="#1a2024" stroke="#4b6671"/><text x="573" y="163" class="blue">生产者写入</text><text x="578" y="183" class="small">buffer / value</text>
+<rect x="705" y="141" width="105" height="52" rx="6" fill="#222017" stroke="#76643c"/><text x="723" y="163" class="amber">发布 / 同步</text><text x="729" y="183" class="small">依赖满足</text>
+<rect x="849" y="141" width="121" height="52" rx="6" fill="#1d2119" stroke="#5d7643"/><text x="868" y="163" class="green">消费者读取</text><text x="874" y="183" class="small">得到新数据</text>
+<path d="M668 167 H697 M813 167 H841" class="arr" marker-end="url(#a)"/><text x="554" y="230" class="muted">接力赛类比：拿到交接棒后再起跑。</text><text x="554" y="255" class="small">只有通知、没有可见性/顺序保证，并不构成完整交接。</text><text x="554" y="280" class="blue">核对写入、同步、读取的同一地址与依赖</text>
+</svg>

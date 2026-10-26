@@ -1,5 +1,5 @@
-/* Static loop semantics from paged_attention_pypto.py. Tick columns are logical
- * iterations, never measured durations. Slot ribbons are modulo reuse, not edges. */
+/* Static loop semantics from paged_attention_pypto.py. Tick rows are logical
+ * iterations, never measured durations. Slot ribbons are modulo reuse, not data dependencies. */
 (function(global){
   'use strict';
   const stages={qk:'QK',softmax:'Softmax',pv:'PV',accumulate:'Context Accumulate'};
@@ -20,80 +20,158 @@
         operations:stacks.flatMap(s=>Object.keys(stages).map(stage=>({stack:s.index,stage,tick:['qk','softmax'].includes(stage)?s.produceTick:s.consumeTick,slot:s.slot,...buffers[stage]})))};
     })};
   }
-  function mount(host,{model,onTask,onFocus,onCamera,onInspector,onNavigate}){
-    host.classList.add('viz2-anatomy','viz2-intra');
-    host.innerHTML=`<div class="viz2-anatomy-taskbar"><span>同一 Block</span><div role="group" aria-label="切换流水线 Task" data-intra-tasks></div><span data-intra-context></span></div><div class="viz2-anatomy-body"><div class="viz2-anatomy-stage"><div class="viz2-anatomy-viewport" tabindex="0" role="group" aria-label="Stack 与 Tick 逻辑流水线，滚轮缩放，拖拽平移"><svg class="viz2-intra-svg" aria-label="Stack × Tick × Stage"><g data-intra-scene></g></svg><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div><footer class="viz2-anatomy-footer"><span><small>细箭头 = 数据依赖 · 粗弧线 = 同 Buffer Slot 复用 · 无时间比例</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>Fit to View</button></div></footer></div><aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="流水线对象详情" hidden><header class="pto-ide-frame__pane-header"><b data-intra-title></b><button class="btn btn-ghost btn-sm" data-intra-close aria-label="关闭流水线详情">×</button></header><div class="pto-ide-frame__pane-body" data-intra-detail></div></aside></div>`;
-    const viewport=host.querySelector('.viz2-anatomy-viewport'),scene=host.querySelector('[data-intra-scene]'),inspector=host.querySelector('aside'),tooltip=host.querySelector('[role="tooltip"]');
-    let task=null,focus=null,camera=null,active=false,drag=null,suppress=false,width=0,height=0,inspectorOpen=false;
-    const X=116,COL=124,W=94,H=44,rows={qk:150,softmax:234,pv:350,accumulate:434};
+  function mount(host,{model,onTask,onFocus,onCamera,onInspector,onNavigate,onExit}){
+    const media=global.matchMedia('(prefers-reduced-motion: reduce)'),listeners=new AbortController();
     const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const syncFor=f=>global.PTO_PYPA_SEMANTIC_GRAPH.synchronizations.find(item=>item.name+'_EVENT'===f?.event||item.id===f?.syncId);
-    const eventEdge=f=>global.PtoPagedAttentionStackDependencyModel.build(global.PtoPagedAttentionIntro.model.pipelineFor(task.seqLen),global.PTO_PYPA_SEMANTIC_GRAPH.synchronizations).edges.find(item=>item.id===`sync:s${f.index}:${syncFor(f)?.id}`);
+    const listen=(element,type,fn,options={})=>element.addEventListener(type,fn,{...options,signal:listeners.signal});
+    host.classList.add('viz2-anatomy','viz2-intra');
+    host.innerHTML=`<div class="viz2-anatomy-taskbar"><h2 data-intra-block></h2><span data-intra-kv></span><nav class="viz2-anatomy-task-nav" aria-label="Block 内流水线 Task 快捷导航" data-intra-tasks></nav><button class="btn btn-ghost btn-sm" data-intra-back>← 返回 Block 间</button></div>
+      <div class="viz2-anatomy-body"><div class="viz2-anatomy-stage"><div class="viz2-anatomy-workspace">
+        <div class="viz2-anatomy-viewport" id="viz2-intra-carousel" role="region" aria-roledescription="轮播" tabindex="0" aria-label="Block 内 Task 流水线，左右方向键切换，卡片内纵向浏览 Tick"><div class="viz2-anatomy-track" data-intra-track></div></div>
+        <div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
+        <footer class="viz2-anatomy-footer"><span class="viz2-intra-legend"><i class="viz2-intra-flow-key"></i>数据依赖<i class="viz2-intra-event-key"></i>READY<i class="viz2-intra-reuse-key"></i>Slot 复用<small>横向切换 Task · 纵向浏览 Tick</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-prev aria-label="上一个 Task">←</button><output data-intra-position aria-live="polite"></output><button class="btn btn-ghost btn-sm" data-intra-next aria-label="下一个 Task">→</button><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>适应</button></div></footer></div>
+        <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="流水线对象详情" hidden><header class="pto-ide-frame__pane-header"><b data-intra-title></b><button class="btn btn-ghost btn-sm" data-intra-close aria-label="关闭流水线详情">×</button></header><div class="pto-ide-frame__pane-body" data-intra-detail></div></aside></div>`;
+    const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-intra-track]'),workspace=host.querySelector('.viz2-anatomy-workspace'),inspector=host.querySelector('aside'),tooltip=host.querySelector('[role="tooltip"]');
+    let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,suppress=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,inspectorOpen=false;
+    const scrollStates=new Map(),scales=new Map();
+    const clamp=index=>Math.max(0,Math.min(tasks.length-1,index));
+    const paging=global.PtoVisualization2Anatomy.createPagingInput({isAnimating:()=>!!frame,onPage:direction=>{
+      const next=clamp(target+direction);if(next!==target){pendingFocus=null;tooltip.hidden=true;snap(next,true);}
+    }});
+    // Diagram coordinates are Task-local. Tick grows vertically; four Stage columns stay fixed.
+    const WIDTH=608,TOP=12,ROW=100,W=108,H=46,columns={qk:56,softmax:184,pv:312,accumulate:440};
+    const stagePosition=(s,stage)=>({x:columns[stage],y:TOP+(['qk','softmax'].includes(stage)?s.produceTick:s.consumeTick)*ROW});
     const text=(x,y,s,cls='')=>`<text x="${x}" y="${y}" class="${cls}">${esc(s)}</text>`;
     const rect=(x,y,w,h,cls,extra='')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" class="${cls}" ${extra}/>`;
     const object=(kind,index,content,attrs='')=>`<g tabindex="0" role="button" data-intra-kind="${kind}" data-intra-index="${index}" ${attrs} aria-pressed="false">${content}</g>`;
-    const stagePosition=(s,stage)=>({x:X+(['qk','softmax'].includes(stage)?s.produceTick:s.consumeTick)*COL,y:rows[stage]});
     const stroke=slot=>`style="--slot-color:var(--intra-slot-${slot%3})"`;
-    function dependencyGeometry(link){
-      const a=stagePosition(task.stacks[link.stack],link.producer),b=stagePosition(task.stacks[link.stack],link.consumer);
-      const x=a.x+W/2,y=a.y+H,tx=b.x+W/2,ty=b.y;
-      return {d:link.producer==='softmax'?`M ${x} ${y} C ${x} ${y+34}, ${tx} ${ty-34}, ${tx} ${ty}`:`M ${x} ${y} V ${ty}`,
-        event:{x:(x+tx)/2,y:(y+ty)/2}};
+    const currentCard=()=>cards.find(c=>Number(c.dataset.intraTask)===task?.id);
+    const currentScene=()=>currentCard()?.querySelector('[data-intra-scene]');
+    const syncFor=f=>global.PTO_PYPA_SEMANTIC_GRAPH.synchronizations.find(item=>item.name+'_EVENT'===f?.event||item.id===f?.syncId);
+    const eventEdge=f=>global.PtoPagedAttentionStackDependencyModel.build(global.PtoPagedAttentionIntro.model.pipelineFor(task.seqLen),global.PTO_PYPA_SEMANTIC_GRAPH.synchronizations).edges.find(item=>item.id===`sync:s${f.index}:${syncFor(f)?.id}`);
+    function dependencyGeometry(t,link){
+      const a=stagePosition(t.stacks[link.stack],link.producer),b=stagePosition(t.stacks[link.stack],link.consumer);
+      const x=a.x+W,y=a.y+H/2,tx=b.x,ty=b.y+H/2,cx=(x+tx)/2;
+      return {d:`M ${x} ${y} C ${cx} ${y}, ${cx} ${ty}, ${tx} ${ty}`,event:{x:cx,y:(y+ty)/2}};
     }
-    function reuseGeometry(link){
-      const a=stagePosition(task.stacks[link.from],link.consumer),b=stagePosition(task.stacks[link.to],link.producer);
+    function reuseGeometry(t,link){
+      const a=stagePosition(t.stacks[link.from],link.consumer),b=stagePosition(t.stacks[link.to],link.producer);
       if(link.buffer==='score_transfer'){
-        const top=80-link.slot*17,channel=a.x-13;
-        return `M ${a.x} ${a.y+H/2} C ${channel} ${a.y+H/2}, ${channel} ${top}, ${a.x+12} ${top} H ${b.x+W-28} Q ${b.x+W-10} ${top} ${b.x+W-10} ${top+18} V ${b.y}`;
+        const x=38-link.slot*7;
+        return `M ${a.x+W/2} ${a.y+H} V ${a.y+H+12} H ${x} V ${b.y+H/2} H ${b.x}`;
       }
       if(link.buffer==='probability_transfer'){
-        const channel=304+link.slot*10;
-        return `M ${a.x+W/2} ${a.y} C ${a.x+W/2} ${channel}, ${b.x+W/2} ${channel}, ${b.x+W/2} ${b.y+H}`;
+        const x=306-link.slot*4;
+        return `M ${a.x} ${a.y+H/2} H ${x} V ${b.y+H/2} H ${b.x+W}`;
       }
-      const bottom=518+link.slot*17;
-      return `M ${a.x+W/2} ${a.y+H} V ${bottom-12} Q ${a.x+W/2} ${bottom} ${a.x+W/2+12} ${bottom} H ${b.x+W+1} Q ${b.x+W+13} ${bottom} ${b.x+W+13} ${bottom-12} V ${b.y+H/2+12} Q ${b.x+W+13} ${b.y+H/2} ${b.x+W} ${b.y+H/2}`;
+      const x=568+link.slot*7;
+      return `M ${a.x+W} ${a.y+H/2} H ${x} V ${b.y-14} H ${b.x+W/2} V ${b.y}`;
     }
-    function draw(){
-      const last=task.stacks.at(-1),lastX=last?stagePosition(last,'accumulate').x:X;
-      const outputX=lastX+W+34,outputY=rows.accumulate;
-      width=outputX+210;height=590;
-      host.querySelector('[data-intra-tasks]').innerHTML=model.tasks.filter(t=>t.block===task.block).map(t=>`<button class="btn btn-ghost btn-sm ${t.id===task.id?'is-selected':''}" data-intra-task="${t.id}" aria-pressed="${t.id===task.id}">Task ${t.id}</button>`).join('');
-      host.querySelector('[data-intra-context]').textContent=`Batch ${task.batch} · KV ${task.kvHead} · ${task.pages.length} Pages · ${task.stacks.length} Stacks · ${task.ticks.length} Ticks`;
-      scene.innerHTML=`<defs><marker id="intra-dependency-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>`+
-        rect(16,12,width-32,height-24,'viz2-intra-frame','data-intra-frame')+text(30,35,`Task ${task.id} · Stack × Tick`,'viz2-intra-heading')+
-        Object.entries(rows).map(([stage,y])=>text(24,y+27,stage==='accumulate'?'Accumulate':stages[stage],'viz2-intra-row-title')).join('')+
-        task.ticks.map(t=>object('tick',t.index,rect(X+t.index*COL,113,W,24,'viz2-intra-tick-hit')+text(X+t.index*COL+W/2,130,`T${t.index}`,'viz2-intra-tick-label'),`aria-label="Tick ${t.index}"`)).join('')+
-        task.reuse.map(link=>`<path tabindex="0" role="button" aria-pressed="false" aria-label="${link.buffer} Slot ${link.slot}，Stack ${link.from} 到 ${link.to} 复用" data-intra-kind="slot" data-intra-index="${link.slot}" data-intra-buffer="${link.buffer}" data-intra-from="${link.from}" data-intra-to="${link.to}" data-intra-reuse="${link.buffer}:${link.from}:${link.to}" class="viz2-intra-reuse" ${stroke(link.slot)} d="${reuseGeometry(link)}"/>`).join('')+
-        task.stacks.map(stack=>`<g data-intra-stack-path="${stack.index}" ${stroke(stack.slot)}>`+
-          task.dependencies.filter(link=>link.stack===stack.index).map(link=>{const g=dependencyGeometry(link);return `<path class="viz2-intra-flow" data-intra-dependency="${stack.index}:${link.buffer}" d="${g.d}" marker-end="url(#intra-dependency-arrow)"/>`+
-            object('event',stack.index,`<circle cx="${g.event.x}" cy="${g.event.y}" r="6" class="viz2-intra-event"/>`,`data-intra-event="${link.event}" data-intra-buffer="${link.buffer}" aria-label="Stack ${stack.index} ${link.event}"`);}).join('')+
+    function card(t){
+      const height=TOP+t.ticks.length*ROW+100,outputY=TOP+t.ticks.length*ROW;
+      const arrow=`intra-dependency-arrow-${host.id||'pipeline'}-${t.id}`;
+      const last=t.stacks.at(-1),lastPosition=last?stagePosition(last,'accumulate'):null;
+      const diagram=`<defs><marker id="${arrow}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>`+
+        rect(0,0,WIDTH,height,'viz2-intra-frame','data-intra-frame')+
+        t.ticks.map(tick=>object('tick',tick.index,rect(0,TOP+tick.index*ROW,WIDTH,ROW,'viz2-intra-tick-hit')+text(7,TOP+tick.index*ROW+28,`T${tick.index}`,'viz2-intra-tick-label'),`aria-label="逻辑 Tick ${tick.index}"`)).join('')+
+        t.reuse.map(link=>`<path tabindex="0" role="button" aria-pressed="false" aria-label="${link.buffer} Slot ${link.slot}，Stack ${link.from} 到 ${link.to} 复用" data-intra-kind="slot" data-intra-index="${link.slot}" data-intra-buffer="${link.buffer}" data-intra-from="${link.from}" data-intra-to="${link.to}" data-intra-reuse="${link.buffer}:${link.from}:${link.to}" class="viz2-intra-reuse" ${stroke(link.slot)} d="${reuseGeometry(t,link)}"/>`).join('')+
+        t.stacks.map(stack=>`<g data-intra-stack-path="${stack.index}" ${stroke(stack.slot)}>`+
+          t.dependencies.filter(link=>link.stack===stack.index).map(link=>{const g=dependencyGeometry(t,link);return `<path class="viz2-intra-flow" data-intra-dependency="${stack.index}:${link.buffer}" d="${g.d}" marker-end="url(#${arrow})"/>`+
+            object('event',stack.index,`<circle cx="${g.event.x}" cy="${g.event.y}" r="13" class="viz2-intra-event-hit"/><circle cx="${g.event.x}" cy="${g.event.y}" r="5" class="viz2-intra-event"/>`,`data-intra-event="${link.event}" data-intra-buffer="${link.buffer}" aria-label="Stack ${stack.index} ${link.event}"`);}).join('')+
           Object.keys(stages).map(stage=>{const n=stagePosition(stack,stage);return object('stage',stack.index,
-            rect(n.x,n.y,W,H,'viz2-intra-operation',`data-intra-operation="${stack.index}:${stage}"`)+text(n.x+10,n.y+18,`S${stack.index}`)+text(n.x+10,n.y+35,`Slot ${stack.slot}`,'viz2-intra-node-slot'),
+            rect(n.x,n.y,W,H,'viz2-intra-operation',`data-intra-operation="${stack.index}:${stage}"`)+text(n.x+10,n.y+19,`S${stack.index}`)+text(n.x+10,n.y+36,`Slot ${stack.slot}`,'viz2-intra-node-slot'),
             `data-intra-stage="${stage}" aria-label="Stack ${stack.index} ${stages[stage]}，Slot ${stack.slot}"`);}).join('')+`</g>`).join('')+
-        `<path class="viz2-intra-output-link" d="M ${lastX+W} ${outputY+H/2} H ${outputX}" marker-end="url(#intra-dependency-arrow)"/>`+
-        object('output',0,rect(outputX,outputY,198,H,'viz2-intra-output-hit','data-intra-output')+rect(outputX,outputY,90,H,'viz2-intra-output')+text(outputX+9,outputY+18,'Output','viz2-intra-small')+text(outputX+9,outputY+35,'Normalize','viz2-intra-small')+
-          `<path class="viz2-intra-output-link" d="M ${outputX+90} ${outputY+H/2} H ${outputX+108}" marker-end="url(#intra-dependency-arrow)"/>`+rect(outputX+108,outputY,90,H,'viz2-intra-output')+text(outputX+119,outputY+18,'BF16','viz2-intra-small')+text(outputX+119,outputY+35,'Store','viz2-intra-small'),`aria-label="全部 Stack 完成后的 Output Normalize 与 BF16 Store"`);
+        // A compact Stack navigator gives Stack selection a distinct hit target.
+        t.stacks.map(stack=>object('stack',stack.index,rect(columns.qk,TOP+stack.produceTick*ROW+H+8,W,22,'viz2-intra-stack-hit')+text(columns.qk+8,TOP+stack.produceTick*ROW+H+23,`Stack ${stack.index}`,'viz2-intra-small'),`aria-label="检查 Stack ${stack.index} 的完整路径"`)).join('')+
+        (lastPosition?`<path class="viz2-intra-output-link" d="M ${lastPosition.x+W/2} ${lastPosition.y+H} V ${outputY-16} H 260 V ${outputY}" marker-end="url(#${arrow})"/>`:'')+
+        object('output',0,rect(166,outputY,290,H,'viz2-intra-output-hit','data-intra-output')+rect(166,outputY,132,H,'viz2-intra-output')+text(178,outputY+19,'Normalize','viz2-intra-small')+text(178,outputY+36,'o / l_sum','viz2-intra-small')+`<path class="viz2-intra-output-link" d="M 298 ${outputY+H/2} H 324" marker-end="url(#${arrow})"/>`+rect(324,outputY,132,H,'viz2-intra-output')+text(336,outputY+19,'BF16 Store','viz2-intra-small')+text(336,outputY+36,'全部 Stack 完成','viz2-intra-small'),`aria-label="全部 Stack 完成后的 Output Normalize 与 BF16 Store"`);
+      return `<article class="viz2-anatomy-card viz2-intra-card" data-intra-task="${t.id}" role="group" aria-roledescription="幻灯片" aria-label="Task ${t.id}，Batch ${t.batch}，${t.seqLen} tokens"><header><h3 class="viz2-intra-heading">Task ${t.id}</h3><p>Batch ${t.batch} · KV Head ${t.kvHead} · ${t.seqLen} tokens</p><p>${t.stacks.length} Stacks · ${t.ticks.length} Ticks</p></header><div class="viz2-anatomy-cache-scroll viz2-intra-tick-scroll" tabindex="0" aria-label="Task ${t.id} 的全部逻辑 Tick"><svg class="viz2-intra-svg viz2-intra-columns" viewBox="0 0 ${WIDTH} 36" aria-hidden="true">${Object.entries(columns).map(([stage,x])=>text(x+W/2,25,stage==='accumulate'?'Accumulate':stages[stage],'viz2-intra-column-title')).join('')}</svg><svg class="viz2-intra-svg" viewBox="0 0 ${WIDTH} ${height}" data-intra-height="${height}" aria-label="纵向逻辑 Tick × 横向四个 Stage"><g data-intra-scene>${diagram}</g></svg></div></article>`;
     }
-    function objectFocus(el){return el?{kind:el.dataset.intraKind,index:Number(el.dataset.intraIndex),...(el.dataset.intraStage?{stage:el.dataset.intraStage}:{}),...(el.dataset.intraEvent?{event:el.dataset.intraEvent}:{}),...(el.dataset.intraBuffer?{buffer:el.dataset.intraBuffer}:{}),...(el.dataset.intraFrom?{from:Number(el.dataset.intraFrom),to:Number(el.dataset.intraTo)}:{})}:null;}
-    function effective(f){if(f?.kind==='page')return {kind:'stack',index:task.pages[f.index]?.stack};return f;}
-    function paintFocus(current=focus){
-      const f=effective(current),fixed=effective(focus),chosen=f&&['stack','stage','event'].includes(f.kind)?task.stacks[f.index]:null;
-      const slot=f?.kind==='slot'?f.index:chosen?.slot;
-      const relevantBuffers=f?.buffer?[f.buffer]:f?.stage?Object.values(buffers[f.stage]):transfers.map(t=>t.buffer);
-      scene.querySelectorAll('[data-intra-reuse]').forEach(el=>el.classList.toggle('is-highlighted',Number(el.dataset.intraIndex)===slot&&relevantBuffers.includes(el.dataset.intraBuffer)));
-      scene.querySelectorAll('[data-intra-stack-path]').forEach(el=>{
-        const s=task.stacks[Number(el.dataset.intraStackPath)];el.classList.toggle('is-related',f?.kind!=='event'&&s.index===chosen?.index);el.classList.toggle('is-shared',slot!=null&&s.slot===slot&&s.index!==chosen?.index);
+    function saveScroll(){cards.forEach(card=>{const scroller=card.querySelector('.viz2-intra-tick-scroll');scrollStates.set(Number(card.dataset.intraTask),{top:scroller.scrollTop,left:scroller.scrollLeft});});}
+    function buildBlock(){
+      block=task.block;tasks=model.tasks.filter(t=>t.block===block).sort((a,b)=>a.id-b.id);
+      host.querySelector('[data-intra-block]').textContent=`Block ${String(block).padStart(2,'0')}`;
+      host.querySelector('[data-intra-kv]').textContent=`KV Head ${[...new Set(tasks.map(t=>t.kvHead))].join(', ')}`;
+      const navigation=host.querySelector('[data-intra-tasks]');
+      navigation.innerHTML=tasks.map(t=>`<button type="button" class="btn btn-ghost btn-sm" data-intra-task-go="${t.id}" aria-current="false" aria-controls="viz2-intra-carousel">Task ${t.id}</button>`).join('');
+      navButtons=[...navigation.children];navTask=null;
+      track.innerHTML=tasks.map(card).join('');cards=[...track.children];
+      cards.forEach(card=>{const saved=scrollStates.get(Number(card.dataset.intraTask));if(saved){const s=card.querySelector('.viz2-intra-tick-scroll');s.scrollTop=saved.top;s.scrollLeft=saved.left;}});
+      position=target=tasks.findIndex(t=>t.id===task.id);velocity=0;
+    }
+    function paint(){
+      if(!active||!task||!viewport.clientWidth)return;
+      // Same card width, pitch, opacity and center anchoring as Assignment.
+      const width=Math.max(200,Math.min(520,viewport.clientWidth*.68));pitch=width+24;
+      track.style.transform=`translate3d(${viewport.clientWidth/2-width/2-position*pitch}px,0,0)`;
+      cards.forEach((element,index)=>{
+        const current=Number(element.dataset.intraTask)===task.id;
+        element.style.width=`${width}px`;element.style.left=`${index*pitch}px`;
+        element.style.opacity=String(Math.max(.25,1-Math.abs(index-position)*.48));
+        element.classList.toggle('is-current',current);element.classList.toggle('is-before',index<position-.5);element.setAttribute('aria-current',String(current));
+        const localScale=current?scale:scales.get(tasks[index].id)||1,svg=element.querySelector('svg[data-intra-height]'),labels=element.querySelector('.viz2-intra-columns');
+        const scroller=element.querySelector('.viz2-intra-tick-scroll');
+        const diagramWidth=Math.max(1,scroller.clientWidth-8)*localScale;
+        labels.style.width=`${diagramWidth}px`;labels.style.height=`${36*diagramWidth/WIDTH}px`;
+        svg.style.width=`${diagramWidth}px`;svg.style.height=`${Number(svg.dataset.intraHeight)*diagramWidth/WIDTH}px`;
       });
+      if(navTask!==task.id){navTask=task.id;navButtons.forEach(button=>{const selected=Number(button.dataset.intraTaskGo)===task.id;button.classList.toggle('is-selected',selected);button.setAttribute('aria-current',String(selected));});navButtons.find(button=>Number(button.dataset.intraTaskGo)===task.id)?.scrollIntoView({block:'nearest',inline:'nearest'});}
+      host.querySelector('[data-intra-position]').textContent=`${tasks.findIndex(t=>t.id===task.id)+1} / ${tasks.length}`;
+      host.querySelector('[data-intra-prev]').disabled=target<=0;host.querySelector('[data-intra-next]').disabled=target>=tasks.length-1;
+      host.querySelector('[data-intra-scale]').textContent=`${Math.round(scale*100)}%`;
+    }
+    function stop(){cancelAnimationFrame(frame);frame=0;paging.reset();if(drag&&viewport.hasPointerCapture(drag.id))viewport.releasePointerCapture(drag.id);drag=null;pendingFocus=null;tooltip.hidden=true;}
+    function commit(){
+      const next=tasks[target];if(!next)return;
+      if(next.id!==task.id)onTask(next.id);
+      if(pendingFocus){const nextFocus=pendingFocus;pendingFocus=null;onFocus(nextFocus);}
+    }
+    function snap(index,fromWheel=false){
+      if(!fromWheel)paging.reset();cancelAnimationFrame(frame);target=clamp(Math.round(index));velocity=0;tooltip.hidden=true;
+      const origin=position,duration=400;let started=null;
+      if(media.matches||Math.abs(origin-target)<.001){position=target;frame=0;paint();commit();paging.flush();return;}
+      function tick(now){
+        if(!active){frame=0;return;}if(started===null)started=now;
+        const progress=Math.min(1,(now-started)/duration),eased=progress**3*(progress*(progress*6-15)+10);
+        position=origin+(target-origin)*eased;paint();
+        if(progress===1){position=target;frame=0;paint();commit();paging.flush();}else frame=requestAnimationFrame(tick);
+      }
+      frame=requestAnimationFrame(tick);
+    }
+    const resistance=value=>{const bound=clamp(value);return bound+(value-bound)*.22;};
+    function objectFocus(el){return el?{kind:el.dataset.intraKind,index:Number(el.dataset.intraIndex),...(el.dataset.intraStage?{stage:el.dataset.intraStage}:{}),...(el.dataset.intraEvent?{event:el.dataset.intraEvent}:{}),...(el.dataset.intraBuffer?{buffer:el.dataset.intraBuffer}:{}),...(el.dataset.intraFrom!=null?{from:Number(el.dataset.intraFrom),to:Number(el.dataset.intraTo)}:{})}:null;}
+    function effective(f){if(f?.kind==='page')return {kind:'stack',index:task.pages[f.index]?.stack};return f;}
+    function validFocus(f){
+      if(!f)return false;const e=effective(f);
+      if(e.kind==='output')return true;
+      if(e.kind==='tick')return !!task.ticks[e.index];
+      if(e.kind==='slot')return !!task.slots[e.index]&&(!e.buffer||transfers.some(t=>t.buffer===e.buffer))&&(e.from==null||task.reuse.some(r=>r.buffer===e.buffer&&r.from===e.from&&r.to===e.to));
+      return !!task.stacks[e.index]&&(['stack'].includes(e.kind)||e.kind==='stage'&&!!stages[e.stage]||e.kind==='event'&&!!events[e.event]);
+    }
+    function paintFocus(current=focus){
+      const scene=currentScene();if(!scene)return;
+      const f=effective(current),fixed=effective(focus),chosen=f&&['stack','stage','event'].includes(f.kind)?task.stacks[f.index]:null,slot=f?.kind==='slot'?f.index:chosen?.slot;
+      const relevantBuffers=f?.buffer?[f.buffer]:f?.stage?Object.values(buffers[f.stage]):transfers.map(t=>t.buffer);
+      track.querySelectorAll('.is-selected,.is-related,.is-shared,.is-highlighted').forEach(el=>{el.classList.remove('is-selected','is-related','is-shared','is-highlighted');if(el.hasAttribute('aria-pressed'))el.setAttribute('aria-pressed','false');});
+      scene.querySelectorAll('[data-intra-reuse]').forEach(el=>el.classList.toggle('is-highlighted',Number(el.dataset.intraIndex)===slot&&relevantBuffers.includes(el.dataset.intraBuffer)));
+      scene.querySelectorAll('[data-intra-stack-path]').forEach(el=>{const s=task.stacks[Number(el.dataset.intraStackPath)];el.classList.toggle('is-related',f?.kind!=='event'&&s.index===chosen?.index);el.classList.toggle('is-shared',slot!=null&&s.slot===slot&&s.index!==chosen?.index);});
       scene.querySelectorAll('[data-intra-kind]').forEach(el=>{
         const item=objectFocus(el),s=task.stacks[item.index];let related=false;
         if(f?.kind==='tick')related=item.kind==='tick'?item.index===f.index:item.kind==='stage'&&(['qk','softmax'].includes(item.stage)?s.produceTick:s.consumeTick)===f.index;
         if(f?.kind==='event')related=item.kind==='stage'&&item.index===f.index&&events[f.event]?.includes(item.stage);
         if(f?.kind==='slot')related=['stack','stage'].includes(item.kind)&&s?.slot===f.index;
         const selected=!!fixed&&item.kind===fixed.kind&&item.index===fixed.index&&item.stage===fixed.stage&&item.event===fixed.event&&item.buffer===fixed.buffer&&(item.kind!=='slot'||item.from===fixed.from);
-        el.classList.toggle('is-selected',selected);el.classList.toggle('is-related',related);el.setAttribute('aria-pressed',String(selected));
-        if(fixed?.kind==='stack'&&item.kind==='stage'&&item.index===fixed.index)el.classList.add('is-selected');
+        el.classList.toggle('is-selected',selected||fixed?.kind==='stack'&&item.kind==='stage'&&item.index===fixed.index);el.classList.toggle('is-related',related);el.setAttribute('aria-pressed',String(selected));
         if(item.kind==='slot')el.classList.toggle('is-related',item.index===slot&&relevantBuffers.includes(item.buffer));
       });
+    }
+    function revealFocus(){
+      if(!validFocus(focus))return;
+      const scene=currentScene(),f=effective(focus);if(!scene)return;
+      const el=[...scene.querySelectorAll('[data-intra-kind]')].find(el=>{const item=objectFocus(el);return item.kind===f.kind&&item.index===f.index&&(!f.stage||item.stage===f.stage)&&(!f.event||item.event===f.event)&&(!f.buffer||item.buffer===f.buffer)&&(f.from==null||item.from===f.from);});
+      if(!el)return;const scroller=currentCard().querySelector('.viz2-intra-tick-scroll'),r=el.getBoundingClientRect(),v=scroller.getBoundingClientRect();
+      if(r.top<v.top||r.bottom>v.bottom)scroller.scrollTop+=r.top-v.top-(v.height-Math.min(r.height,v.height))/2;
+      if(r.left<v.left||r.right>v.right)scroller.scrollLeft+=r.left-v.left-(v.width-Math.min(r.width,v.width))/2;
     }
     function describe(f){
       f=effective(f);if(!f)return {title:`Task ${task.id}`,facts:[]};
@@ -103,7 +181,7 @@
       if(f.kind==='output')return {title:'Attention Output',facts:[['开始条件',`全部 ${task.stacks.length} Stacks 完成累加`],['Normalize','ctx = BF16(o / l_sum)'],['Store',`out2d rows ${task.output.rowStart}–${task.output.rowEnd}`],['Shape',task.output.shape.join(' × ')]]};
       if(f.kind==='slot'){
         const transfer=transfers.find(t=>t.buffer===f.buffer);
-        return {title:`${f.buffer||'Transfer buffers'} · Slot ${slot}`,facts:[['Slot ID',slot],['前次 Stack / 后次 Stack',f.from!=null?`S${f.from} → S${f.to}`:reuse.map(i=>`S${i}`).join(' → ')],['Buffer',f.buffer||transfers.map(t=>t.buffer).join(' / ')],['Producer / Consumer',transfer?`${stages[transfer.producer]} / ${stages[transfer.consumer]}`:'按各 Buffer 分别映射'],['READY Event',transfer?.event||'按 Buffer 区分'],['复用端点',transfer?`S${f.from} ${stages[transfer.consumer]} → S${f.to} ${stages[transfer.producer]}`:'前次消费 → 后次写入'],['produce_row / consume_row',`${task.transferBase+slot*model.rowTile} / ${task.transferBase+slot*model.rowTile}`]]};
+        return {title:`${f.buffer||'Transfer buffers'} · Slot ${slot}`,facts:[['Slot ID',slot],['前次 Stack / 后次 Stack',f.from!=null?`S${f.from} → S${f.to}`:reuse.map(i=>`S${i}`).join(' → ')],['Buffer',f.buffer||transfers.map(t=>t.buffer).join(' / ')],['Producer / Consumer',transfer?`${stages[transfer.producer]} / ${stages[transfer.consumer]}`:'按各 Buffer 分别映射'],['READY Event',transfer?.event||'按 Buffer 区分'],['复用端点',transfer&&f.from!=null?`S${f.from} ${stages[transfer.consumer]} → S${f.to} ${stages[transfer.producer]}`:'前次消费 → 后次写入'],['produce_row / consume_row',`${task.transferBase+slot*model.rowTile} / ${task.transferBase+slot*model.rowTile}`]]};
       }
       const pairs=f.kind==='event'?events[f.event]:null,stage=f.stage,ready=f.kind==='event'?syncFor(f):null;
       const producerTick=pairs?task.operations.find(item=>item.stack===s.index&&item.stage===pairs[0])?.tick:null;
@@ -116,27 +194,99 @@
         ...(pairs?[['生产者 / 消费者',`${stages[pairs[0]]} → ${consumerName}`],['Transfer buffer',buffers[pairs[0]].write]]:stage?[['写入',buffers[stage].write||'—'],['读取',buffers[stage].read||'—']]:[['QK → Softmax','写入 / 读取 score_transfer'],['Softmax → PV','写入 / 读取 probability_transfer'],['PV → Accumulate','写入 / 读取 pv_transfer']]),
         ['row 区间',`${s.produceRow}–${s.produceRow+model.rowTile-1}（AIV 按 lane_row 切分）`]]};
     }
-    function inspect(){inspector.hidden=!inspectorOpen||!focus;if(inspector.hidden)return;const d=describe(focus),sync=focus.kind==='event'?syncFor(focus):null;host.querySelector('[data-intra-title]').textContent=d.title;const detail=sync?global.PTO_COMPUTATION_PRESENTATION.synchronization(sync,global.PTO_PYPA_SEMANTIC_GRAPH):null,edge=sync?eventEdge(focus):null,waitRanges=edge?.consumerSource?.ranges||sync?.consumer.source.ranges||[];host.querySelector('[data-intra-detail]').innerHTML=`<dl>${d.facts.map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl>${detail?`<section><h3>READY 同步证据</h3><dl>${detail.rows.map(row=>`<dt>${esc(row.label)}</dt><dd>${esc(row.value)}</dd>`).join('')}</dl><div class="viz2-ready-source-links">${[...sync.producer.source.ranges.map((range,index)=>({end:'producer',index,range})),...waitRanges.map((range,index)=>({end:'consumer',index,range}))].map(item=>`<button class="btn btn-ghost btn-sm" data-intra-sync-source="${item.end}" data-intra-sync-range="${item.index}">${item.end==='producer'?'SET':'WAIT'} · :${item.range.start}–${item.range.end}</button>`).join('')}</div><button class="btn btn-sm" data-intra-graph-ready>在 Graph 中查看</button><pre data-intra-source-preview hidden></pre></section>`:''}<p>静态逻辑映射；Tick 不表示实测时长，READY WAIT 不表示已发生 Stall；Slot 复用与 State Feedback 是不同依赖。</p>`;}
-    function fitted(){const scale=Math.max(.05,Math.min((viewport.clientWidth-32)/width,(viewport.clientHeight-24)/height,1.2));return {scale,x:(viewport.clientWidth-width*scale)/2,y:(viewport.clientHeight-height*scale)/2};}
-    function paint(){if(!active||!task||!viewport.clientWidth)return;if(!camera){camera=fitted();onCamera(task.id,camera);}scene.setAttribute('transform',`translate(${camera.x} ${camera.y}) scale(${camera.scale})`);scene.style.setProperty('--intra-font',`${Math.max(12,11/camera.scale)}px`);scene.style.setProperty('--intra-small-font',`${Math.max(11,10/camera.scale)}px`);host.querySelector('[data-intra-scale]').textContent=`${Math.round(camera.scale*100)}%`;paintFocus();}
-    function zoom(factor,point={x:viewport.clientWidth/2,y:viewport.clientHeight/2}){if(!camera)return;const scale=Math.max(.05,Math.min(8,camera.scale*factor)),ratio=scale/camera.scale;onCamera(task.id,{scale,x:point.x-(point.x-camera.x)*ratio,y:point.y-(point.y-camera.y)*ratio});}
-    host.addEventListener('click',event=>{if(suppress){suppress=false;return;}if(event.target.closest('[data-intra-graph-ready]')){onNavigate?.();return;}const sourceButton=event.target.closest('[data-intra-sync-source]');if(sourceButton){const sync=syncFor(focus),edge=eventEdge(focus),ranges=sourceButton.dataset.intraSyncSource==='producer'?sync.producer.source.ranges:(edge?.consumerSource?.ranges||sync.consumer.source.ranges),line=ranges[Number(sourceButton.dataset.intraSyncRange)]?.start,preview=host.querySelector('[data-intra-source-preview]');if(line&&preview){preview.hidden=false;preview.textContent=global.PTO_PAGED_ATTENTION_PYPTO_SOURCE.split('\n').slice(Math.max(0,line-3),line+12).map((text,i)=>`${Math.max(1,line-2)+i}  ${text}`).join('\n');}return;}const target=event.target.closest('[data-intra-kind]');if(target){tooltip.hidden=true;onFocus(objectFocus(target));return;}const button=event.target.closest('[data-intra-task]');if(button){onTask(Number(button.dataset.intraTask));return;}if(event.target.closest('[data-intra-close]')){onInspector(false);return;}if(event.target.closest('[data-intra-fit]')){onCamera(task.id,fitted());return;}const z=event.target.closest('[data-intra-zoom]');if(z)zoom(Number(z.dataset.intraZoom));});
-    viewport.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)&&event.target.closest('[data-intra-kind]')){event.preventDefault();onFocus(objectFocus(event.target.closest('[data-intra-kind]')));}if(event.key==='Escape'){tooltip.hidden=true;onInspector(false);}});
-    viewport.addEventListener('wheel',event=>{event.preventDefault();tooltip.hidden=true;const r=viewport.getBoundingClientRect(),unit=event.deltaMode===1?16:event.deltaMode===2?r.height:1;zoom(Math.exp(Math.max(-.22,Math.min(.22,-event.deltaY*unit*.003))),{x:event.clientX-r.left,y:event.clientY-r.top});},{passive:false});
-    viewport.addEventListener('pointerdown',event=>{if(event.button===0){suppress=false;drag={id:event.pointerId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};}});
-    viewport.addEventListener('pointermove',event=>{if(drag){if(!drag.moved&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<=4)return;drag.moved=true;viewport.setPointerCapture(drag.id);tooltip.hidden=true;onCamera(task.id,{...camera,x:camera.x+event.clientX-drag.x,y:camera.y+event.clientY-drag.y});drag.x=event.clientX;drag.y=event.clientY;return;}const el=event.target.closest('[data-intra-kind]');if(!el){tooltip.hidden=true;paintFocus();return;}const f=objectFocus(el),d=describe(f);paintFocus(f);tooltip.innerHTML=`<b>${esc(d.title)}</b><br>${d.facts.filter(([key])=>['Slot ID','阶段','Buffer','Producer / Consumer','READY Event','前后复用 Stack','前次 Stack / 后次 Stack','复用端点','活跃阶段','开始条件','Normalize','Store'].includes(key)).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join('<br>')}<br>静态逻辑映射 · 非 runtime 实测占用`;tooltip.hidden=false;const r=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+16,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+18,r.height-tooltip.offsetHeight-8))}px`;});
-    const end=()=>{suppress=!!drag?.moved;drag=null;};['pointerup','pointercancel','lostpointercapture'].forEach(type=>viewport.addEventListener(type,end));viewport.addEventListener('pointerleave',()=>{tooltip.hidden=true;paintFocus();});
-    let lastSize=null;
-    new ResizeObserver(()=>{if(!active||!task||!viewport.clientWidth||!viewport.clientHeight)return;
-      const size={width:viewport.clientWidth,height:viewport.clientHeight};
-      if(camera&&lastSize&&(size.width!==lastSize.width||size.height!==lastSize.height))
-        onCamera(task.id,{...camera,x:camera.x+(size.width-lastSize.width)/2,y:camera.y+(size.height-lastSize.height)/2});
-      else paint();
-      lastSize=size;
-    }).observe(viewport);
-    return {update(id,nextFocus,nextCamera,options={}){active=!!options.active;if(!active){tooltip.hidden=true;return;}if(task?.id!==id){task=model.tasks[id];draw();}focus=nextFocus;inspectorOpen=options.inspectorOpen;camera=nextCamera;inspect();paint();},hideTooltip(){tooltip.hidden=true;},
-      getTransitionSnapshot(){if(!active||!task)return null;const r=el=>{const b=el.getBoundingClientRect();return {x:b.left,y:b.top,width:b.width,height:b.height};};return {task:task.id,model:task,frame:r(scene.querySelector('[data-intra-frame]')),title:r(scene.querySelector('.viz2-intra-heading')),output:r(scene.querySelector('[data-intra-output]')),stacks:task.stacks.map(s=>({index:s.index,rect:r(scene.querySelector(`[data-intra-operation="${s.index}:qk"]`))}))};},
-      setTransitionMasked(value){host.classList.toggle('viz2-intra-masked',value);}};
+    function inspect(){inspector.hidden=!inspectorOpen||!focus;if(inspector.hidden)return;const d=describe(focus),sync=focus.kind==='event'?syncFor(focus):null;host.querySelector('[data-intra-title]').textContent=d.title;const detail=sync?global.PTO_COMPUTATION_PRESENTATION.synchronization(sync,global.PTO_PYPA_SEMANTIC_GRAPH):null,edge=sync?eventEdge(focus):null,waitRanges=edge?.consumerSource?.ranges||sync?.consumer.source.ranges||[];host.querySelector('[data-intra-detail]').innerHTML=`<p>Task ${task.id} · Batch ${task.batch} · KV Head ${task.kvHead}</p><dl>${d.facts.map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl>${detail?`<section><h3>READY 同步证据</h3><dl>${detail.rows.map(row=>`<dt>${esc(row.label)}</dt><dd>${esc(row.value)}</dd>`).join('')}</dl><div class="viz2-ready-source-links">${[...sync.producer.source.ranges.map((range,index)=>({end:'producer',index,range})),...waitRanges.map((range,index)=>({end:'consumer',index,range}))].map(item=>`<button class="btn btn-ghost btn-sm" data-intra-sync-source="${item.end}" data-intra-sync-range="${item.index}">${item.end==='producer'?'SET':'WAIT'} · :${item.range.start}–${item.range.end}</button>`).join('')}</div><button class="btn btn-sm" data-intra-graph-ready>在 Graph 中查看</button><pre data-intra-source-preview hidden></pre></section>`:''}<p>静态逻辑映射；Tick 不表示实测时长，READY WAIT 不表示已发生 Stall；Slot 复用与 State Feedback 是不同依赖。</p>`;}
+
+    function update(id,nextFocus,nextCamera,options={}){
+      const entering=!!options.active&&!active;active=!!options.active;
+      if(!active){saveScroll();stop();host.classList.remove('viz2-intra-masked');return;}
+      const next=model.tasks[id];if(!next)return;
+      const changed=task?.id!==id,focusChanged=JSON.stringify(focus)!==JSON.stringify(nextFocus);task=next;
+      focus=validFocus(nextFocus)?nextFocus:null;inspectorOpen=!!options.inspectorOpen;
+      scale=Math.max(.6,Math.min(2,nextCamera?.scale||scales.get(id)||1));scales.set(id,scale);
+      if(block!==task.block){saveScroll();stop();buildBlock();}
+      else if(entering){stop();position=target=tasks.findIndex(t=>t.id===id);velocity=0;}
+      else if(changed){const index=tasks.findIndex(t=>t.id===id);if(Math.abs(position-index)>.001)snap(index);else target=index;}
+      inspect();paint();paintFocus();if(entering||changed||focusChanged)revealFocus();
+    }
+    function zoom(factor){
+      paging.reset();const next=Math.max(.6,Math.min(2,scale*factor));
+      if(factor<1&&scale<=.6){stop();onExit?.();return;}
+      onCamera(task.id,{scale:next,x:0,y:0});
+    }
+    function manualPage(index,nextFocus=null){pendingFocus=nextFocus;snap(index);}
+    listen(host,'click',event=>{
+      if(suppress){suppress=false;event.preventDefault();return;}tooltip.hidden=true;
+      if(event.target.closest('[data-intra-graph-ready]')){stop();onNavigate?.();return;}
+      const sourceButton=event.target.closest('[data-intra-sync-source]');
+      if(sourceButton){const sync=syncFor(focus),edge=eventEdge(focus);if(!sync)return;const ranges=sourceButton.dataset.intraSyncSource==='producer'?sync.producer.source.ranges:(edge?.consumerSource?.ranges||sync.consumer.source.ranges),line=ranges[Number(sourceButton.dataset.intraSyncRange)]?.start,preview=host.querySelector('[data-intra-source-preview]');if(line&&preview){preview.hidden=false;preview.textContent=global.PTO_PAGED_ATTENTION_PYPTO_SOURCE.split('\n').slice(Math.max(0,line-3),line+12).map((text,i)=>`${Math.max(1,line-2)+i}  ${text}`).join('\n');}return;}
+      const taskButton=event.target.closest('[data-intra-task-go]');if(taskButton){manualPage(tasks.findIndex(t=>t.id===Number(taskButton.dataset.intraTaskGo)));return;}
+      if(event.target.closest('[data-intra-back]')){stop();onExit?.();return;}
+      if(event.target.closest('[data-intra-close]')){paging.reset();onInspector(false);return;}
+      if(event.target.closest('[data-intra-fit]')){paging.reset();onCamera(task.id,{scale:1,x:0,y:0});manualPage(tasks.findIndex(t=>t.id===task.id));return;}
+      const z=event.target.closest('[data-intra-zoom]');if(z){zoom(Number(z.dataset.intraZoom));return;}
+      if(event.target.closest('[data-intra-prev]')){manualPage(target-1);return;}
+      if(event.target.closest('[data-intra-next]')){manualPage(target+1);return;}
+      const card=event.target.closest('[data-intra-task]'),el=event.target.closest('[data-intra-kind]'),nextFocus=objectFocus(el);
+      if(card&&Number(card.dataset.intraTask)!==task.id){manualPage(tasks.findIndex(t=>t.id===Number(card.dataset.intraTask)),nextFocus);return;}
+      if(nextFocus){paging.reset();onFocus(nextFocus);}
+    });
+    listen(viewport,'wheel',event=>{
+      const unit=event.deltaMode===1?16:event.deltaMode===2?viewport.clientWidth:1;
+      if(event.ctrlKey||event.metaKey){event.preventDefault();zoom(Math.exp(-event.deltaY*unit*.002));return;}
+      const horizontal=event.shiftKey&&event.deltaX===0?event.deltaY:event.deltaX;
+      if(!horizontal||(!event.shiftKey&&Math.abs(horizontal)<=Math.abs(event.deltaY)))return;
+      event.preventDefault();if(drag){if(event.buttons&1)return;endDrag(true);}
+      paging.input({delta:horizontal*unit,time:performance.now(),discrete:event.deltaMode===1||event.deltaMode===2||(event.shiftKey&&event.deltaX===0&&Number.isInteger(event.deltaY)&&Math.abs(event.deltaY)>=40)});
+    },{passive:false});
+    listen(viewport,'pointerdown',event=>{
+      if(event.button!==0||event.target.closest('button'))return;
+      stop();suppress=false;velocity=0;drag={id:event.pointerId,x:event.clientX,y:event.clientY,lastX:event.clientX,lastTime:performance.now(),index:clamp(Math.round(position)),moved:false};
+    });
+    listen(viewport,'pointermove',event=>{
+      if(!drag)return;if(!(event.buttons&1)){endDrag(true);return;}
+      const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
+      if(!drag.moved){if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>6){drag=null;return;}if(Math.abs(dx)<5)return;drag.moved=true;viewport.setPointerCapture(drag.id);}
+      event.preventDefault();tooltip.hidden=true;const now=performance.now(),dt=Math.max(8,now-drag.lastTime);velocity=.65*velocity+.35*(drag.lastX-event.clientX)/pitch/dt*1000;
+      const offset=-dx/pitch;position=resistance(drag.index+Math.sign(offset)*Math.min(.92,Math.abs(offset)));drag.lastX=event.clientX;drag.lastTime=now;paint();
+    });
+    function endDrag(cancelled=false){
+      if(!drag)return;const current=drag;drag=null;suppress=current.moved;
+      if(viewport.hasPointerCapture(current.id))viewport.releasePointerCapture(current.id);
+      if(current.moved){if(performance.now()-current.lastTime>100)velocity=0;const offset=position-current.index,direction=Math.abs(offset)>.18?Math.sign(offset):Math.abs(velocity)>.55?Math.sign(velocity):0;snap(current.index+(cancelled?0:direction));}
+      else if(Math.abs(position-current.index)>.001)snap(current.index);
+    }
+    listen(global,'pointerup',()=>endDrag());listen(viewport,'pointercancel',()=>endDrag(true));listen(viewport,'lostpointercapture',()=>endDrag(true));
+    listen(host,'pointermove',event=>{
+      if(!active||drag||frame){tooltip.hidden=true;return;}
+      const el=event.target.closest('[data-intra-kind]'),card=el?.closest('[data-intra-task]');
+      if(!el||Number(card?.dataset.intraTask)!==task.id){tooltip.hidden=true;paintFocus();return;}
+      const f=objectFocus(el),d=describe(f);paintFocus(f);
+      tooltip.innerHTML=`<b>${esc(d.title)}</b><br>${d.facts.filter(([key])=>['Slot ID','阶段','Buffer','Producer / Consumer','READY Event','前后复用 Stack','前次 Stack / 后次 Stack','复用端点','活跃阶段','开始条件','Normalize','Store'].includes(key)).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join('<br>')}<br>静态逻辑映射 · Tick 无时间比例`;
+      tooltip.hidden=false;const r=workspace.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+16,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+18,r.height-tooltip.offsetHeight-8))}px`;
+    });
+    listen(host,'pointerleave',()=>{tooltip.hidden=true;paintFocus();});
+    listen(viewport,'focusin',event=>{const card=event.target.closest('[data-intra-task]');if(card&&Number(card.dataset.intraTask)!==task.id)manualPage(tasks.findIndex(t=>t.id===Number(card.dataset.intraTask)));});
+    listen(host,'keydown',event=>{
+      if(!active)return;const button=event.target.closest('[data-intra-task-go]');
+      if(button&&['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const index=navButtons.indexOf(button),next=event.key==='Home'?0:event.key==='End'?tasks.length-1:clamp(index+(event.key==='ArrowLeft'?-1:1));navButtons[next].focus();manualPage(next);return;}
+      if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();manualPage(target+(event.key==='ArrowLeft'?-1:1));}
+      else if(event.key==='Escape'){tooltip.hidden=true;paging.reset();onInspector(false);}
+      else if(['+','=','-','0'].includes(event.key)){event.preventDefault();if(event.key==='0')host.querySelector('[data-intra-fit]').click();else zoom(event.key==='-'?.8:1.25);}
+      else if(['Enter',' '].includes(event.key)&&event.target.closest('[data-intra-kind]')){event.preventDefault();event.target.closest('[data-intra-kind]').dispatchEvent(new MouseEvent('click',{bubbles:true}));}
+    });
+    listen(viewport,'scroll',()=>{tooltip.hidden=true;saveScroll();},{capture:true});
+    const resizeObserver=new ResizeObserver(()=>{if(active){if(frame||drag){stop();position=target=tasks.findIndex(t=>t.id===task.id);}paint();}});resizeObserver.observe(viewport);
+    listen(media,'change',()=>{paging.reset();if(frame){const index=target;stop();position=target=index;paint();commit();}});
+    const screenRect=element=>{const r=element.getBoundingClientRect();return {x:r.left,y:r.top,width:r.width,height:r.height};};
+    function getTransitionSnapshot(){
+      if(!active||!task)return null;const card=currentCard(),scene=currentScene();if(!card||!scene)return null;
+      const scroller=card.querySelector('.viz2-intra-tick-scroll'),clip=screenRect(scroller);
+      // Offscreen rows collapse onto the nearest visible edge during outer morph.
+      const visibleRect=element=>{const r=screenRect(element),x=Math.max(clip.x,Math.min(r.x,clip.x+clip.width-1)),y=Math.max(clip.y,Math.min(r.y,clip.y+clip.height-1));return {x,y,width:Math.max(1,Math.min(r.width,clip.x+clip.width-x)),height:Math.max(1,Math.min(r.height,clip.y+clip.height-y))};};
+      return {task:task.id,model:task,clip,frame:screenRect(card),title:screenRect(card.querySelector('h3')),output:visibleRect(scene.querySelector('[data-intra-output]')),stacks:task.stacks.map(s=>({index:s.index,rect:visibleRect(scene.querySelector(`[data-intra-operation="${s.index}:qk"]`))}))};
+    }
+    return {update,model,getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;},setTransitionMasked(value){host.classList.toggle('viz2-intra-masked',value);},
+      destroy(){active=false;saveScroll();stop();resizeObserver.disconnect();listeners.abort();host.classList.remove('viz2-intra-masked');host.replaceChildren();}};
   }
   global.PtoVisualization2PipelineIntra=Object.freeze({createModel,mount});
 })(window);
