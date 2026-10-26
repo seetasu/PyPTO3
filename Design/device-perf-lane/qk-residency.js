@@ -33,8 +33,8 @@ window.QK_RESIDENCY = (() => {
     return rank;
   }
   let header,panel,micro,reference,callbacks,ctx,pendingCore=null;
-  let hoistRun=null;
-  const state={step:0,iter:0,object:'q',stage:'qk',core:null,leaf:null,gate:'safe'};
+  let hoistRun=null,lastSkewKey='';
+  const state={step:0,iter:0,object:'q',stage:'qk',core:null,leaf:null,gate:'safe',pipelinePass:'skew'};
   
   const stageInfo={qk:{label:'QK',leaf:'qk_pv_aic',op:'mm'},softmax:{label:'Softmax',leaf:'qk_pv_aiv',op:'softmax'},pv:{label:'PV',leaf:'qk_pv_aic',op:'pv'},dependency:{label:'跨核协作',leaf:'qk_pv_aic',op:'wait_p'},ooutput:{label:'O 写回',leaf:'qk_pv_aic',op:'write_o'},returnp:{label:'P 返回',leaf:'qk_pv_aiv',op:'send_p'},output:{label:'m、l 写回',leaf:'qk_pv_aiv',op:'write_ml'}};
   const opStage={q:'qk',kv:'qk',l0:'qk',mm:'qk',loop:'qk',pv:'pv',softmax:'softmax',scale:'softmax',exp:'softmax',reduce:'softmax',send_score:'dependency',wait_p:'dependency',recv_p:'dependency',send_p:'returnp',write_o:'ooutput',write_ml:'output'};
@@ -63,6 +63,7 @@ window.QK_RESIDENCY = (() => {
 
   }
   function stopHoist(){
+    window.QK_PIPELINE_PASSES?.stop();
     const run=hoistRun;if(!run)return;hoistRun=null;
     if(run.frame)cancelAnimationFrame(run.frame);
     for(const animation of run.animations){animation.onfinish=null;animation.cancel();}
@@ -117,7 +118,7 @@ window.QK_RESIDENCY = (() => {
     const trace='<div class="qk-dependency-steps">'+nodes.map(([op,side,label])=>'<button type="button" class="'+(state.object===op?'on':'')+'" data-qk-object="'+op+'"><small>'+side+'</small><b>'+label+'</b></button>').join('<span aria-hidden="true">→</span>')+'</div>';
     const outputs='<div class="qk-output-branches"><span>分别写回</span><button type="button" class="ctl" data-qk-object="write_o">AIC · O</button><button type="button" class="ctl" data-qk-object="write_ml">AIV · m、l</button></div>';
     const wait='<button type="button" class="ctl qk-wait-selection '+(state.object==='wait_p'?'on':'')+'" data-qk-object="wait_p">等待 P · 对应分片返回后才能执行 PV</button>';
-    if(state.step===1||state.step===2)return selectedEvent(p)+'<div class="qk-stage-analysis"><h3>第 '+(state.iter+1)+' 轮 · AIC / AIV 分片依赖</h3>'+pairOrder()+wait+trace+outputs+'<dl><div><dt>分数</dt><dd>AIC → AIV · 32 × 128 FP32 · 16 KiB</dd></div><div><dt>P</dt><dd>AIV → AIC · exp 权重 32 × 128 BF16 · 8 KiB</dd></div><div><dt>写回</dt><dd>AIC：局部 O · AIV：局部 m、l</dd></div></dl><a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/kernels/aic/qk_pv_aic.cpp" target="_blank" rel="noopener">最终代码 · QK / PV 与 push / pop ↗</a></div>';
+    if(state.step===1||state.step===2)return selectedEvent(p)+'<div class="qk-stage-analysis"><h3>第 '+(state.iter+1)+' 轮 · AIC / AIV 分片依赖</h3>'+pairOrder()+'<button type="button" class="ctl" data-qk-step="5">流水 Pass · P23/P25 → P28 → P30 ↗</button>'+wait+trace+outputs+'<dl><div><dt>分数</dt><dd>AIC → AIV · 32 × 128 FP32 · 16 KiB</dd></div><div><dt>P</dt><dd>AIV → AIC · exp 权重 32 × 128 BF16 · 8 KiB</dd></div><div><dt>写回</dt><dd>AIC：局部 O · AIV：局部 m、l</dd></div></dl><a href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/next_levels/decode_csa_test/kernels/aic/qk_pv_aic.cpp" target="_blank" rel="noopener">最终代码 · QK / PV 与 push / pop ↗</a></div>';
     return '<div class="qk-stage-analysis"><h3>'+(state.step===3?'依赖检查':'待验证项')+'</h3><ul><li>QK 分数发送后，AIV 才能消费对应分片</li><li>P 返回且 AIC 接收后，PV 才能消费</li><li>tfree 释放管道槽位，检查槽位复用顺序</li><li>采集真实 push / pop 及等待事件，确认等待时长与物理核对应</li></ul></div>';
   }
   function stageEvidence(p){
@@ -131,6 +132,7 @@ window.QK_RESIDENCY = (() => {
     return '<div class="qk-stage-analysis"><h3>'+info.label+' · '+(state.step===3?'检查项':'待验证项')+'</h3><ul>'+(soft?'<li>核对缩放、bias、row_max、exp、row_sum 和 BF16 转换位置</li><li>P 为局部 exp 权重，最终归一化在后续合并阶段完成</li>':o||output?'<li>核对写回张量、分块行索引与所属计算侧</li><li>检查写回完成与后继读取依赖</li>':ret?'<li>检查 P 的 push / pop 顺序及管道槽位释放</li>':'<li>核对 M=32、N=512、K=128</li><li>检查 P 接收完成后再执行 PV</li><li>检查 P / KV 的 L0 提取与布局</li>')+'<li>采集实际执行、搬运和等待事件</li></ul></div>';
   }
   function evidence(p){
+    if(state.step===5&&state.leaf==='qk_pv_aic')return selectedEvent(p)+window.QK_PIPELINE_PASSES.render({iter:state.iter,object:state.object,pass:state.pipelinePass});
     if(state.stage!=='qk')return stageEvidence(p);
     const aic=state.leaf==='qk_pv_aic';
     if(state.step===0)return '<div class="rc-finding"><div><small>'+ctx.rank.rank+' · Task #'+id+'</small><h3>'+e(state.leaf)+'</h3></div></div><div class="rc-two"><article class="rc-card"><h4>所选 block</h4><strong>'+us(p.b.computeUs)+'</strong><p>Core '+p.b.core+' · Setup '+us(p.b.setupUs)+'</p></article><article class="rc-card"><h4>当前任务</h4><strong>'+us(p.original.spanUs)+'</strong><p>'+p.original.blocks.n+' blocks</p></article></div>'+next(aic?1:2,aic?'定位重复 Q 搬运':'查看 AIC 生产者');
@@ -138,7 +140,7 @@ window.QK_RESIDENCY = (() => {
       return selectedEvent(p)+pairOrder()+'<div class="qk-stage-analysis"><h3>QK · Q × Kᵀ</h3><div class="qk-stage-sequence"><button type="button" class="ctl" data-qk-object="q">Q 加载</button>→<button type="button" class="ctl" data-qk-object="kv">KV 加载</button>→<button type="button" class="ctl" data-qk-object="l0">L0 提取</button>→<button type="button" class="ctl" data-qk-object="mm">QK 计算</button></div><dl><div><dt>输出</dt><dd>32 × 128 · FP32</dd></div></dl></div><div class="rc-verdict">固定 Q 面板：32 × 512 × BF16 = <b>32 KiB</b><br>KV 循环：32 轮 · Q 加载：32 次 → 1 次</div><div class="rc-two">'+[false,true].map(after=>'<article class="rc-card"><h4>'+(after?'候选结构：一次加载，其余复用':'待分析：每轮从 GM 加载')+'</h4><div class="rc-cells">'+Array.from({length:32},(_,i)=>'<button type="button" class="'+(after?'resident':'stationary')+(i===state.iter?' selected':'')+'" data-qk-iter="'+i+'" aria-pressed="'+(i===state.iter)+'">'+(i+1)+'<small>'+(after?(i===0?'加载':'复用'):'加载')+'</small></button>').join('')+'</div></article>').join('')+'</div>'+next(2,'联动这条 qk_q_tile 加载的 Pass 位置');}
     if(state.step===2){if(!aic)return'<div class="rc-inspector"><h4>改动落点：qk_pv_aic 的固定 Q 加载</h4><p>本侧的向量计算与 PV 处理不套用同一 load 外提。AIV 的执行数据保持原值；可以切换到 AIC，观察单个长 block 的搬运与优化。</p><button type="button" class="ctl" data-qk-leaf="qk_pv_aic" data-qk-open-pass>查看 AIC 的 Pass 前后对照 →</button></div>';
       const facts={q:'同一 query / head 的 qk_q_tile：从 KV 循环内移至循环前；不同 head_row 不能共用这次加载。',kv:'qk_kv 随 KV 分片改变，继续逐轮加载。',l0:'Left / L0 的提取留在循环内，不把 L0 生命周期一并外提。',mm:'QK 数学计算保持一致。',loop:'固定 query / head，循环遍历 KV 分片。'};
-      return selectedEvent(p)+'<div class="qk-pass-change"><h3>InferTileMemorySpace</h3><button type="button" class="ctl qk-replay" data-qk-replay aria-label="重播 Q 加载外提">↻ 重播外提</button><p>Q 加载：KV 循环内 → 循环外</p></div>'+loopDiagram()+'<div class="qk-operation-note">'+facts[state.object]+'</div><details class="qk-code-detail"><summary>代码位置与外提条件</summary><div class="rc-two">'+code(beforeCode,'Pass 前 · 循环内加载')+code(afterCode,'候选 Pass 后 · 循环外加载')+'</div></details>';}
+      return selectedEvent(p)+'<div class="qk-pass-change"><h3>InferTileMemorySpace</h3><button type="button" class="ctl qk-replay" data-qk-replay aria-label="重播 Q 加载外提">↻ 重播外提</button><p>Q 加载：KV 循环内 → 循环外</p><button type="button" class="ctl" data-qk-step="5">后续流水 Pass ↗</button></div>'+loopDiagram()+'<div class="qk-operation-note">'+facts[state.object]+'</div><details class="qk-code-detail"><summary>代码位置与外提条件</summary><div class="rc-two">'+code(beforeCode,'Pass 前 · 循环内加载')+code(afterCode,'候选 Pass 后 · 循环外加载')+'</div></details>';}
     if(state.step===3)return'<div class="rc-gate-options">'+[['safe','固定 query/head · 规则通过'],['head','head_row 发生变化'],['alias','别名或可写源未知']].map(([id,label])=>'<button type="button" class="ctl '+(state.gate===id?'on':'')+'" data-qk-gate="'+id+'">'+label+'</button>').join('')+'</div><div class="rc-decision '+(state.gate==='safe'?'':'decline')+'"><h3>'+(state.gate==='safe'?'允许外提':'拒绝外提')+'</h3><p>'+(state.gate==='safe'?'只有在固定 query/head、源只读且可证明不别名、无顺序边界并满足 Mat 容量时，才把 Q 加载外提。':'head_row 变化或存储安全性不能证明时，保留原始加载；不能跨不同头组复用 Q。')+'</p></div>'+next(4,'查看尚需验证的项目');
     return '<div class="rc-validation"><article class="rc-card"><small>已知锚点</small><h4>任务身份、block 时长与 Q 形状</h4><p>Q 为 32×512 BF16，32 KiB。</p></article><article class="rc-card"><small>需要验证</small><h4>该 Q 是否真的循环不变</h4><p>核对 query/head、只读和别名关系，检查 Mat 容量及实际 Pass dump。</p></article><article class="rc-card"><small>需要编译</small><h4>外提是否生效</h4><p>对比加载的循环归属，确认 KV 与 L0 仍逐轮执行。</p></article><article class="rc-card"><small>需要上板</small><h4>耗时与数值对照</h4><p>核对数值、MTE2 字节及执行时长。</p></article></div><details class="rc-sources"><summary>#2080 参考案例</summary><a href="'+reference.pr+'" target="_blank" rel="noopener">PR #2080 ↗</a></details>';
   }
@@ -146,16 +148,20 @@ window.QK_RESIDENCY = (() => {
     header.innerHTML='<div class="qk-compact-title"><strong>Block 分析</strong><button type="button" class="ctl" data-qk-locate>定位</button><button type="button" class="ctl" data-qk-dismiss>返回</button></div>'+(p?blockSummary(p):'');
     if(detailsOpen)header.querySelector('.qk-summary-details')?.setAttribute('open','');
     if(state.step===0)state.step=1;
-    panel.innerHTML=(p?'<nav class="rc-steps qk-content-tabs" role="tablist" aria-label="Block 分析内容">'+steps.slice(1).map((label,index)=>{if(state.stage!=='qk')label=['计算过程','计算路径','检查条件','待验证项'][index];const tab=index+1,active=state.step===tab;return '<button type="button" role="tab" id="qk-tab-'+tab+'" aria-controls="qk-tab-content" aria-selected="'+active+'" tabindex="'+(active?0:-1)+'" data-qk-step="'+tab+'"'+(active?' aria-current="step"':'')+'>'+label+'</button>';}).join('')+'</nav><section id="qk-tab-content" class="rc-evidence" role="tabpanel" tabindex="0" aria-labelledby="qk-tab-'+state.step+'">'+evidence(p)+'</section>':'<div class="rc-empty"><h3>选择一个 block</h3></div>')+'<details class="rc-sources"><summary>来源</summary><a target="_blank" rel="noopener" href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py">前端定义 ↗</a> · <a target="_blank" rel="noopener" href="'+reference.pr+'">#2080 ↗</a></details>';
+    panel.innerHTML=(p?'<nav class="rc-steps qk-content-tabs" role="tablist" aria-label="Block 分析内容">'+steps.slice(1).concat(state.leaf==='qk_pv_aic'?['流水 Pass']:[]).map((label,index)=>{if(state.stage!=='qk'&&index<4)label=['计算过程','计算路径','检查条件','待验证项'][index];const tab=index+1,active=state.step===tab;return '<button type="button" role="tab" id="qk-tab-'+tab+'" aria-controls="qk-tab-content" aria-selected="'+active+'" tabindex="'+(active?0:-1)+'" data-qk-step="'+tab+'"'+(active?' aria-current="step"':'')+'>'+label+'</button>';}).join('')+'</nav><section id="qk-tab-content" class="rc-evidence" role="tabpanel" tabindex="0" aria-labelledby="qk-tab-'+state.step+'">'+evidence(p)+'</section>':'<div class="rc-empty"><h3>选择一个 block</h3></div>')+'<details class="rc-sources"><summary>来源</summary><a target="_blank" rel="noopener" href="../../Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/passes_dump/00_frontend.py">前端定义 ↗</a> · <a target="_blank" rel="noopener" href="'+reference.pr+'">#2080 ↗</a></details>';
     if(codeOpen)panel.querySelector('.qk-code-detail')?.setAttribute('open','');
+    const skewKey=state.step===5&&state.pipelinePass==='skew'&&state.leaf==='qk_pv_aic'?[ctx.rank.rank,state.core,Math.floor(state.iter/2)].join(':'):'';
+    if(skewKey&&skewKey!==lastSkewKey)window.QK_PIPELINE_PASSES.play(panel,{iter:state.iter});lastSkewKey=skewKey;
   }
   function update(raw,rank,selected){
     ctx={raw,rank};if(isTarget(selected)){if(state.leaf!==selected.leaf){state.leaf=selected.leaf;state.core=null;state.stage=selected.leaf==='qk_pv_aic'?'qk':'softmax';state.object=selected.leaf==='qk_pv_aic'?'q':'softmax';state.step=selected.leaf==='qk_pv_aic'?2:1;}}else state.leaf=null;
     if(pendingCore!==null){state.core=pendingCore;pendingCore=null;}render();
   }
-  function click(event){const b=event.target.closest('[data-qk-stage],[data-qk-replay],[data-qk-reveal],[data-qk-leaf],[data-qk-step],[data-qk-iter],[data-qk-object],[data-qk-gate],[data-qk-locate],[data-qk-dismiss]');if(!b)return;const d=b.dataset,scroll=panel.scrollTop,host=header.contains(b)?header:panel;
-    const selector=[...b.attributes].filter(a=>a.name.startsWith('data-qk-')).map(a=>'['+a.name+'="'+a.value+'"]').join('');
+  function click(event){const b=event.target.closest('[data-qk-skew-replay],[data-qk-pipeline-pass],[data-qk-stage],[data-qk-replay],[data-qk-reveal],[data-qk-leaf],[data-qk-step],[data-qk-iter],[data-qk-object],[data-qk-gate],[data-qk-locate],[data-qk-dismiss]');if(!b)return;const d=b.dataset,scroll=panel.scrollTop,host=header.contains(b)?header:panel;
+    const selector=[...b.attributes].filter(a=>a.name.startsWith('data-qk-')||a.name==='data-pass-side').map(a=>'['+a.name+'="'+a.value+'"]').join('');
     const refocus=()=>host.querySelector(selector)?.focus({preventScroll:true});
+    if(b.hasAttribute('data-qk-skew-replay')){window.QK_PIPELINE_PASSES.play(panel,{iter:state.iter});return;}
+    if(d.qkPipelinePass){if(d.qkPipelinePass==='skew')lastSkewKey='';state.pipelinePass=d.qkPipelinePass;state.step=5;callbacks.redraw();panel.scrollTop=scroll;refocus();return;}
     if(d.qkStage){chooseStage(d.qkStage);refocus();return;}
     if(b.hasAttribute('data-qk-replay')){state.object='q';state.stage='qk';state.step=2;callbacks.redraw();playHoist();refocus();return;}
     if(b.hasAttribute('data-qk-reveal')){callbacks.showMicro?.();const op=state.object==='softmax'?'scale':state.object;document.querySelector('#lane [data-qk-version][data-qk-inline-event="'+op+'"][data-qk-inline-iter="'+state.iter+'"]')?.focus({preventScroll:true});return;}
@@ -168,6 +174,7 @@ window.QK_RESIDENCY = (() => {
     header=h;panel=p;reference=ref;callbacks=cb;window.addEventListener('resize',stopHoist);
     for(const node of [h,p]){node.addEventListener('click',click);node.addEventListener('change',ev=>{if(ev.target.matches('[data-qk-core]'))callbacks.core(Number(ev.target.value));});}
     panel.addEventListener('keydown',ev=>{
+      const node=ev.target.closest('.qk-pass-node,.qk-skew-token');if(node&&['Enter',' '].includes(ev.key)){ev.preventDefault();click({target:node});return;}
       const tab=ev.target.closest('[role="tab"]');if(!tab||!['ArrowLeft','ArrowRight','Home','End'].includes(ev.key))return;ev.preventDefault();
       const tabs=[...panel.querySelectorAll('[role="tab"]')],at=tabs.indexOf(tab),next=ev.key==='Home'?0:ev.key==='End'?tabs.length-1:(at+(ev.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length,id=tabs[next].id;
       click({target:tabs[next]});panel.querySelector('#'+id)?.focus({preventScroll:true});
@@ -291,7 +298,7 @@ window.QK_RESIDENCY = (() => {
     }
     return g;
   }
-  function chooseInline(op,iter){if(op){state.object=op;state.stage=stageFor(op);state.step=state.stage==='qk'?2:1;}state.iter=Math.max(0,Math.min(31,Number(iter)));callbacks.redraw(!!op);if(op)panel.scrollTop=0;if(op==='q'&&state.iter>0)playHoist();}
+  function chooseInline(op,iter){if(op){state.object=op;state.stage=stageFor(op);if(state.step!==5)state.step=state.stage==='qk'?2:1;}state.iter=Math.max(0,Math.min(31,Number(iter)));callbacks.redraw(!!op);if(op)panel.scrollTop=0;if(op==='q'&&state.iter>0&&state.step===2)playHoist();}
   function openPass(){state.step=2;callbacks.redraw();}
   return{init,update,isTarget,selectCore,hero,withLongBlock,inlineEvents,renderInline,chooseInline,stopHoist,openPass,selectionCore:()=>pendingCore??state.core};
 })();
