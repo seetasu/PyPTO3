@@ -8,6 +8,9 @@ on:
       - "Design/**"
       - "inference/**"
       - "Insight/**"
+      - "Product_Planning/基础知识白皮书/**"
+      - "Product_Planning/PyPTO3.0_Toolkit_产品功能规划.md"
+      - "Product_Planning/PyPTO3.0_建设必要性与核心价值分析.md"
       - "Data/DeepSeek-V4-Flash-Official/**"
       - "Data/DeepseekV4/deepseek_v4_flash_dspark/**"
       - "Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617/dfx_outputs/**/merged_swimlane_*.json"
@@ -46,6 +49,10 @@ jobs:
           cp -R Design _site/Design
           cp -R inference _site/inference
           cp -R Insight _site/Insight
+          mkdir -p _site/Product_Planning
+          cp -R "Product_Planning/基础知识白皮书" _site/Product_Planning/
+          cp "Product_Planning/PyPTO3.0_Toolkit_产品功能规划.md" _site/Product_Planning/
+          cp "Product_Planning/PyPTO3.0_建设必要性与核心价值分析.md" _site/Product_Planning/
           mkdir -p _site/Data/DeepseekV4
           cp -R Data/DeepSeek-V4-Flash-Official _site/Data/DeepSeek-V4-Flash-Official
           cp -R Data/DeepseekV4/deepseek_v4_flash_dspark _site/Data/DeepseekV4/deepseek_v4_flash_dspark

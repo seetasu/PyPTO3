@@ -31,6 +31,7 @@
       <footer class="viz2-graph-footer"><span data-viz2-graph-context>完整计算图</span><div class="viz2-graph-footer__controls"><button class="btn btn-ghost btn-sm" data-viz2-graph-layer="data" aria-pressed="${layers.data}">${layerNames.data}</button><details class="viz2-graph-layer-menu"><summary>图层</summary><div class="viz2-graph-layer-menu__content" role="group" aria-label="信息叠加">${Object.entries(layerNames).filter(([key])=>key!=='data').map(([key,label])=>`<button class="btn btn-ghost btn-sm" data-viz2-graph-layer="${key}" aria-pressed="${layers[key]}">${label}</button>`).join('')}</div></details><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="0.8" aria-label="缩小 Graph">−</button><output data-viz2-graph-scale>100%</output><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-zoom="1.25" aria-label="放大 Graph">＋</button><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-fit>Fit to View</button></div></div></footer>
       </div><aside class="pto-ide-frame__pane viz2-graph-inspector" aria-label="Graph 节点详情" hidden><header class="pto-ide-frame__pane-header"><b data-viz2-graph-title></b><button class="btn btn-ghost btn-sm" type="button" data-viz2-graph-close aria-label="关闭 Graph 详情">×</button></header><div class="pto-ide-frame__pane-body" data-viz2-graph-detail></div></aside></div>`;
     const viewport = host.querySelector('.viz2-graph-viewport'), scene = host.querySelector('[data-viz2-graph-scene]');
+    const events=new AbortController();
     // Reuse only the original node skin; no legacy pane chrome is mounted.
     scene.classList.add('has-semantic-overlays');
     scene.dataset.overlayControl='false';
@@ -44,7 +45,7 @@
       scene.innerHTML='';labels?.remove();
       const overview=!adapter && !layers.data;
       const visibleModel=overview?global.PtoComputationVisibility.overview(model):model;
-      graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:overview});
+      graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:overview,...adapter?.layoutOptions});
       // Reserve the same visual footprint in Structure and Weight so switching
       // decoration never moves nodes. Front card dimensions remain unchanged.
       const counts=staticExecutionData(graph);
@@ -52,7 +53,7 @@
         const entry=global.PtoPagedAttentionExecution.decoration(node,counts);
         return entry?[[node.id,global.PtoPagedAttentionExecution.deckOffset(entry.count)]]:[];
       }));
-      const layoutOptions={flowLayout:true,overviewLayout:overview,executionFootprints};
+      const layoutOptions={flowLayout:true,overviewLayout:overview,executionFootprints,...adapter?.layoutOptions};
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,layoutOptions);
       scene.dataset.stateExpanded=String([...expanded].some(id=>visibleModel.nodes.find(node=>node.id===id)?.composite?.subgraph?.stateEvolution));
       if(adapter&&!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,layoutOptions);
@@ -121,7 +122,7 @@
         if(!visible)return;
         const name=label.querySelector('[data-viz2-graph-name]');
         name.textContent=name.dataset.fullName||node.title;
-        const labelWidth=Math.min(300,Math.max(196,box.w-8));
+        const labelWidth=Math.min(300,Math.max(adapter?.labelMinWidth ?? 196,box.w-8));
         label.style.maxWidth=`${labelWidth}px`;
         label.classList.toggle('is-compact',scale<.55);
         label.classList.toggle('is-selected',node.id===(selection?.graphNodeId||view.nodeId));
@@ -259,7 +260,7 @@
       const context=selection?.kind==='task'?`Task ${selection.task} · Batch ${selection.batch} · KV Head ${selection.kvHead}`:selection?.block!=null?`Block ${String(selection.block).padStart(2,'0')}${selection.kind==='lane'?` · AIV Lane ${selection.lane}`:''}`:'完整计算图';
       host.querySelector('[data-viz2-graph-context]').textContent=layers.execution?'线宽 = 静态逻辑传输 / 贡献频次 · 非数据量、带宽或耗时':adapter?.context?.() || context;
       if(!active||!viewport.clientWidth||!viewport.clientHeight)return;
-      if(first||(entering&&adapter&&!camera)){first=false;pendingFocus=false;onView({camera:initialCamera()});return;}
+      if(first||(entering&&adapter&&!camera)){first=false;pendingFocus=false;if(!adapter||!camera){onView({camera:initialCamera()});return;}}
       if(!camera){onView({camera:initialCamera()});return;}
       if(pendingFocus){pendingFocus=false;if(!adapter&&focus.related.length){focusRelated(focus);return;}}
       const ensureSelected=show&&node&&(inspectorWasHidden||lastVisibleNodeId!==node.id);
@@ -278,9 +279,10 @@
       onView({expanded:[...next],...(select?{nodeId:id,syncId:null,inspectorOpen:true}:{})});
       const node=nodeMap.get(id);
       if(node&&next.has(id)&&node.expandedGroup){
-        const scale=Math.min(before?.scale||1,(viewport.clientWidth-72)/node.groupWidth,(viewport.clientHeight-72)/node.groupHeight);
+        const fitScale=Math.min((viewport.clientWidth-72)/node.groupWidth,(viewport.clientHeight-72)/node.groupHeight);
+        const scale=adapter?.expandedScaleFloor?Math.max(adapter.expandedScaleFloor,Math.min(fitScale,.9)):Math.min(before?.scale||1,fitScale);
         onView({camera:{scale,x:viewport.clientWidth/2-(node.x+node.groupWidth/2)*scale,
-          y:viewport.clientHeight/2-(node.y+node.groupHeight/2)*scale}});
+          y:adapter?.focusExpandedTop?24-node.y*scale:viewport.clientHeight/2-(node.y+node.groupHeight/2)*scale}});
       }else if(point&&node)onView({camera:{...before,x:point.x-(node.x+node.w/2)*before.scale,y:point.y-(node.y+node.h/2)*before.scale}});
     }
     host.addEventListener('click',event=>{
@@ -310,25 +312,25 @@
       if(adapter){adapter.onNode(id);return;}
       skipFocusOnce=true;onView({nodeId:id,edgeId:null,syncId:null,instancesNode:null,instancePage:null,inspectorOpen:true});
       if(selection?.block!=null)onSelect({...selection,graphNodeId:id});
-    });
-    host.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;const target=event.target.closest('[data-pypa-execution-count],[data-pypa-execution-stack]');if(target){event.preventDefault();event.stopPropagation();target.click();}});
+    },{signal:events.signal});
+    host.addEventListener('keydown',event=>{if(!['Enter',' '].includes(event.key))return;const target=event.target.closest('[data-pypa-execution-count],[data-pypa-execution-stack]');if(target){event.preventDefault();event.stopPropagation();target.click();}},{signal:events.signal});
     viewport.addEventListener('wheel',event=>{
       event.preventDefault();tooltip.hidden=true;const rect=viewport.getBoundingClientRect(),unit=event.deltaMode===1?16:event.deltaMode===2?rect.height:1;
       zoom(Math.exp(Math.max(-.22,Math.min(.22,-event.deltaY*unit*.003))),{x:event.clientX-rect.left,y:event.clientY-rect.top});
-    },{passive:false});
-    viewport.addEventListener('pointerdown',event=>{if(event.button!==0)return;suppressClick=false;drag={id:event.pointerId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};});
+    },{passive:false,signal:events.signal});
+    viewport.addEventListener('pointerdown',event=>{if(event.button!==0)return;suppressClick=false;drag={id:event.pointerId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false};},{signal:events.signal});
     viewport.addEventListener('pointermove',event=>{
       if(drag){if(!drag.moved&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<=4)return;drag.moved=true;viewport.setPointerCapture(drag.id);tooltip.hidden=true;const c=camera||fitted();onView({camera:{...c,x:c.x+event.clientX-drag.x,y:c.y+event.clientY-drag.y}});drag.x=event.clientX;drag.y=event.clientY;return;}
       const target=event.target.closest('[data-pypa-node], [data-viz2-graph-label]'),node=target?nodeMap.get(target.dataset.pypaNode||target.dataset.viz2GraphLabel):null;tooltip.hidden=!node;
       if(!adapter&&hoverNodeId!==node?.id){hoverNodeId=node?.id||null;paintFocus(resolveFocus({...model,nodes},selection,view.nodeId));}
       if(adapter){const el=event.target.closest('[data-pypa-edge],[data-pypa-edge-label],[data-pypa-sync]');adapter.onHover?.(node?.id,el?.dataset.pypaEdge||el?.dataset.pypaEdgeLabel,el?.dataset.pypaSync,graph);paintFocus(adapter.resolveFocus(graph,selection,view));if(!node&&el){tooltip.hidden=false;tooltip.textContent=adapter.tooltip?.(null,el.dataset.pypaEdge||el.dataset.pypaEdgeLabel,el.dataset.pypaSync,graph)||'';const r=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+14,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;}}
       if(node){tooltip.textContent=adapter?.tooltip?.(node.id,null,null,graph)||`${node.title} · ${node.detail.length>100?node.detail.slice(0,100)+'…':node.detail}`;const rect=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-rect.left+14,rect.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-rect.top+16,rect.height-tooltip.offsetHeight-8))}px`;}
-    });
-    const endDrag=()=>{if(drag?.moved)suppressClick=true;drag=null;};['pointerup','pointercancel','lostpointercapture'].forEach(type=>viewport.addEventListener(type,endDrag));
-    viewport.addEventListener('pointerleave',()=>{tooltip.hidden=true;hoverNodeId=null;adapter?.onHover?.(null,null,null,graph);paintFocus(adapter?adapter.resolveFocus(graph,selection,view):resolveFocus({...model,nodes},selection,view.nodeId));});
-    viewport.addEventListener('dblclick',event=>{if(adapter){if(!event.target.closest('[data-pypa-node],[data-viz2-graph-label]'))fit();return;}const target=event.target.closest('[data-pypa-node],[data-viz2-graph-label]');const id=lastNodeClick&&performance.now()-lastNodeClick.time<700?lastNodeClick.id:target?.dataset.pypaNode||target?.dataset.viz2GraphLabel;const region=model.groups.find(g=>g.id==='paged-attention');if(region?.members.includes(id?.split('/')[0])||event.target.closest('[data-pypa-group="paged-attention"]')){event.stopPropagation();onEnter?.(lastNodeClick?.view);}else if(!target)fit();});
-    viewport.addEventListener('keydown',event=>{if(event.key==='Escape'){onView({inspectorOpen:false});viewport.focus();}else if(['+','=','-','0'].includes(event.key)){event.preventDefault();if(event.key==='0')fit();else zoom(event.key === '-' ? .8 : 1.25);}});
-    new ResizeObserver(()=>{
+    },{signal:events.signal});
+    const endDrag=()=>{if(drag?.moved)suppressClick=true;drag=null;};['pointerup','pointercancel','lostpointercapture'].forEach(type=>viewport.addEventListener(type,endDrag,{signal:events.signal}));
+    viewport.addEventListener('pointerleave',()=>{tooltip.hidden=true;hoverNodeId=null;adapter?.onHover?.(null,null,null,graph);paintFocus(adapter?adapter.resolveFocus(graph,selection,view):resolveFocus({...model,nodes},selection,view.nodeId));},{signal:events.signal});
+    viewport.addEventListener('dblclick',event=>{if(adapter){if(!event.target.closest('[data-pypa-node],[data-viz2-graph-label]'))fit();return;}const target=event.target.closest('[data-pypa-node],[data-viz2-graph-label]');const id=lastNodeClick&&performance.now()-lastNodeClick.time<700?lastNodeClick.id:target?.dataset.pypaNode||target?.dataset.viz2GraphLabel;const region=model.groups.find(g=>g.id==='paged-attention');if(region?.members.includes(id?.split('/')[0])||event.target.closest('[data-pypa-group="paged-attention"]')){event.stopPropagation();onEnter?.(lastNodeClick?.view);}else if(!target)fit();},{signal:events.signal});
+    viewport.addEventListener('keydown',event=>{if(event.key==='Escape'){onView({inspectorOpen:false});viewport.focus();}else if(['+','=','-','0'].includes(event.key)){event.preventDefault();if(event.key==='0')fit();else zoom(event.key === '-' ? .8 : 1.25);}},{signal:events.signal});
+    const resizeObserver=new ResizeObserver(()=>{
       if(!active||!viewport.clientWidth||!viewport.clientHeight)return;
       const width=viewport.clientWidth,height=viewport.clientHeight;
       if(first||!camera){first=false;onView({camera:initialCamera()});}
@@ -336,8 +338,8 @@
         onView({camera:{...camera,x:camera.x+(width-lastSize.width)/2,y:camera.y+(height-lastSize.height)/2}});
       }
       lastSize={width,height};
-    }).observe(viewport);
-    return {update,getTransitionRect:()=>viewport.getBoundingClientRect(),getBlockTransitionSnapshot:()=>({
+    });resizeObserver.observe(viewport);
+    return {update,toggleExpanded,destroy:()=>{events.abort();resizeObserver.disconnect();labels?.remove();},getTransitionRect:()=>viewport.getBoundingClientRect(),getBlockTransitionSnapshot:()=>({
       clip:viewport.getBoundingClientRect(),
       blocks:[...host.querySelectorAll('[data-viz2-graph-block]')].filter(button=>button.getBoundingClientRect().width&&button.closest('.viz2-graph-block-rail')?.style.visibility!=='hidden').map(button=>({
         id:Number(button.dataset.viz2GraphBlock),stage:button.closest('[data-viz2-stage]')?.dataset.viz2Stage,
