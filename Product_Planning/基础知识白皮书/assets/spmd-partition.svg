@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 420" role="img" aria-labelledby="title desc">
+ <title id="title">SPMD 三分片覆盖十个元素</title><desc id="desc">三个逻辑 block 分别处理索引 0 到 3、4 到 7、8 到 9，最后一个 block 有两个有效元素。</desc>
+ <defs><style>.bg{fill:#141414}.t{fill:#e8e8e8;font:16px Inter,'Microsoft YaHei',sans-serif}.s{fill:#999;font:12px Inter,'Microsoft YaHei',sans-serif}.m{fill:#b1ef6b;font:700 13px ui-monospace,monospace}.c0{fill:#202c1a;stroke:#78974e}.c1{fill:#202832;stroke:#547c8a}.c2{fill:#302718;stroke:#907544}.invalid{fill:#261d1d;stroke:#865a5a;stroke-dasharray:4 4}.arrow{stroke:#737373;stroke-width:1.5}</style></defs>
+ <rect class="bg" width="1000" height="420" rx="12"/><text class="t" x="34" y="42">例：N=10，3 个逻辑 block，每块最大容量 4</text><text class="s" x="34" y="72">逻辑并行数用于切分工作；不等于设备同时运行的物理核数</text>
+ <g class="s" text-anchor="middle"><text x="280" y="108">0</text><text x="340" y="108">1</text><text x="400" y="108">2</text><text x="460" y="108">3</text><text x="520" y="108">4</text><text x="580" y="108">5</text><text x="640" y="108">6</text><text x="700" y="108">7</text><text x="760" y="108">8</text><text x="820" y="108">9</text></g>
+ <text class="m" x="42" y="155">block 0</text><rect class="c0" x="250" y="122" width="240" height="54" rx="7"/><text class="t" x="370" y="155" text-anchor="middle">offset=0 · valid=4</text>
+ <text class="m" x="42" y="245">block 1</text><rect class="c1" x="490" y="212" width="240" height="54" rx="7"/><text class="t" x="610" y="245" text-anchor="middle">offset=4 · valid=4</text>
+ <text class="m" x="42" y="335">block 2</text><rect class="c2" x="730" y="302" width="120" height="54" rx="7"/><text class="t" x="790" y="335" text-anchor="middle">offset=8 · valid=2</text><rect class="invalid" x="850" y="302" width="120" height="54" rx="7"/><text class="s" x="910" y="335" text-anchor="middle">unused</text>
+ <path class="arrow" d="M250 190h720M250 280h720"/><text class="s" x="250" y="390">必须检查：覆盖完整 · 无遗漏 · 无重叠写入 · 尾块只更新有效区</text>
+</svg>

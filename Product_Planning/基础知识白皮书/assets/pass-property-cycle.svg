@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 300" role="img" aria-labelledby="t d">
+<title id="t">Pass 属性合同循环</title><desc id="d">Pass 声明所需属性、执行变换、产生或失效属性，验证器根据实际 IR 检查承诺。</desc>
+<defs><style>text{font-family:'Microsoft YaHei','PingFang SC',sans-serif;fill:#e8e8e8}.muted{fill:#aaa;font-size:13px}.head{font-size:15px;font-weight:700}.box{fill:#191919;stroke:#444}.arr{stroke:#888;stroke-width:2;fill:none}.green{fill:#b1ef6b}.violet{fill:#bca0f3}.blue{fill:#79d4f2}.amber{fill:#f2c45f}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8Z" fill="#888"/></marker></defs>
+<rect width="1040" height="300" rx="12" fill="#111"/><text x="34" y="36" class="green" font-size="11" letter-spacing="2">PASS PROPERTY CONTRACT</text>
+<rect class="box" x="48" y="95" width="205" height="104" rx="9"/><rect class="box" x="307" y="95" width="205" height="104" rx="9"/><rect class="box" x="566" y="95" width="205" height="104" rx="9"/><rect class="box" x="825" y="95" width="170" height="104" rx="9"/>
+<text x="68" y="128" class="blue head">required</text><text x="68" y="158" class="muted">前置条件成立？</text><text x="68" y="180" class="muted">例如：SSAForm</text>
+<text x="327" y="128" class="violet head">Pass 执行</text><text x="327" y="158" class="muted">分析或变换 IR</text><text x="327" y="180" class="muted">输入 → 输出</text>
+<text x="586" y="128" class="green head">produced</text><text x="586" y="158" class="muted">Pass 承诺的产物</text><text x="586" y="180" class="muted">例如：NoNestedCalls</text>
+<text x="845" y="128" class="amber head">invalidated</text><text x="845" y="158" class="muted">哪些旧保证失效</text><text x="845" y="180" class="muted">需要后续重建</text>
+<path d="M257 147 H298 M516 147 H557 M775 147 H816" class="arr" marker-end="url(#a)"/><path d="M910 207 V244 H146 V207" class="arr" marker-end="url(#a)"/><text x="392" y="273" class="muted">Verifier 检查 IR 实际是否满足被声明的性质；覆盖范围取决于已注册规则与运行配置</text>
+</svg>

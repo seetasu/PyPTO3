@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 325" role="img" aria-labelledby="t d">
+<title id="t">矩阵乘的 Hardware-Native 路径</title><desc id="d">从逻辑 Tensor 与契约开始，经过布局和片上存储、矩阵单元和累加，再验证尾块并观察编译与执行证据。</desc>
+<defs><style>text{font-family:'Microsoft YaHei','PingFang SC',sans-serif;fill:#e8e8e8}.muted{fill:#aaa;font-size:12px}.title{font-size:14px;font-weight:700}.box{fill:#191919;stroke:#444}.lime{fill:#b1ef6b}.blue{fill:#79d4f2}.violet{fill:#bca0f3}.amber{fill:#f2c45f}.arr{stroke:#888;stroke-width:2;fill:none}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8Z" fill="#888"/></marker></defs>
+<rect width="1040" height="325" rx="12" fill="#111"/><text x="32" y="35" fill="#b1ef6b" font-size="11" letter-spacing="2">MATMUL · HARDWARE FACTS BECOME CHECKPOINTS</text>
+<g><rect class="box" x="32" y="82" width="175" height="104" rx="9"/><rect class="box" x="248" y="82" width="175" height="104" rx="9"/><rect class="box" x="464" y="82" width="175" height="104" rx="9"/><rect class="box" x="680" y="82" width="145" height="104" rx="9"/><rect class="box" x="866" y="82" width="145" height="104" rx="9"/></g>
+<text x="52" y="112" class="lime title">Tensor / 规格</text><text x="52" y="139" class="muted">shape · dtype · 容差</text><text x="52" y="163" class="muted">逻辑结果 Y = X × W</text>
+<text x="268" y="112" class="blue title">布局 / 片上空间</text><text x="268" y="139" class="muted">Tensor → Tile</text><text x="268" y="163" class="muted">对齐 · 搬运路径</text>
+<text x="484" y="112" class="violet title">Cube / 累加</text><text x="484" y="139" class="muted">矩阵乘与部分和</text><text x="484" y="163" class="muted">结果写回前处理尾块</text>
+<text x="698" y="112" class="amber title">边界验证</text><text x="698" y="139" class="muted">valid shape</text><text x="698" y="163" class="muted">mask · pad · store</text>
+<text x="884" y="112" class="blue title">证据复核</text><text x="884" y="139" class="muted">IR · 内存报告</text><text x="884" y="163" class="muted">Trace · 基准</text>
+<path d="M210 134 H241 M426 134 H457 M642 134 H673 M828 134 H859" class="arr" marker-end="url(#a)"/>
+<path d="M951 197 V244 H108" class="arr" marker-end="url(#a)"/><rect x="32" y="235" width="978" height="58" rx="8" fill="#1b1b1b" stroke="#333"/><text x="54" y="270" class="amber title">闭环：</text><text x="124" y="270" class="muted">测到问题 → 找到首次偏离 → 对照硬件约束 → 修复 → 数值与目标 workload 复验</text>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 420" role="img" aria-labelledby="title desc">
+ <title id="title">函数耗时与关键路径的区别</title><desc id="desc">较慢的并行分支不一定决定总时长，较短但在依赖链上的任务可能决定完成时间。</desc>
+ <defs><style>.bg{fill:#141414}.t{fill:#e8e8e8;font:15px Inter,'Microsoft YaHei',sans-serif}.s{fill:#999;font:12px Inter,'Microsoft YaHei',sans-serif}.m{fill:#b1ef6b;font:700 12px ui-monospace,monospace}.axis{stroke:#555;stroke-width:1}.slow{fill:#28221a;stroke:#8e7040}.path{fill:#1d2a19;stroke:#89a75c}.idle{fill:#1d1d1d;stroke:#4a4a4a;stroke-dasharray:5 4}.line{stroke:#9b9b9b;stroke-width:2;fill:none;marker-end:url(#a)}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="none" stroke="#9b9b9b"/></marker></defs>
+ <rect class="bg" width="1000" height="420" rx="12"/><text class="t" x="34" y="42">两条并行分支：函数自身耗时不等于它对完成时间的贡献</text>
+ <text class="m" x="42" y="133">branch A</text><rect class="slow" x="195" y="103" width="430" height="58" rx="6"/><text class="t" x="410" y="138" text-anchor="middle">A · 100 μs（长，但较早完成）</text>
+ <text class="m" x="42" y="236">关键路径</text><rect class="path" x="195" y="205" width="250" height="58" rx="6"/><text class="t" x="320" y="240" text-anchor="middle">B · 60 μs</text><path class="line" d="M445 234h85"/><rect class="path" x="540" y="205" width="210" height="58" rx="6"/><text class="t" x="645" y="240" text-anchor="middle">Join / 输出</text>
+ <rect class="idle" x="755" y="205" width="100" height="58" rx="6"/><text class="s" x="805" y="229" text-anchor="middle">等待 A</text><text class="s" x="805" y="247" text-anchor="middle">已完成</text>
+ <path class="axis" d="M195 300h660"/><path class="axis" d="M195 293v14M445 293v14M540 293v14M750 293v14M855 293v14"/><g class="s" text-anchor="middle"><text x="195" y="326">0</text><text x="445" y="326">60 μs</text><text x="540" y="326">关键路径继续</text><text x="750" y="326">完成</text><text x="855" y="326">时间</text></g>
+ <text class="s" x="195" y="375">A 的长度吸引眼球，但缩短 A 可能不改变 join 时刻；先确认真实依赖和观测时间，再验证优化。</text>
+</svg>

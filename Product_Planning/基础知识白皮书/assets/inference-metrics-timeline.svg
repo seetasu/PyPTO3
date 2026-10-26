@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 305" role="img" aria-labelledby="t d">
+<title id="t">推理生成指标的时间边界</title><desc id="d">TTFT从请求提交到首 token；TPOT或ITL描述后续token间隔；请求完成时间覆盖整个响应过程。</desc>
+<defs><style>text{font-family:'Microsoft YaHei','PingFang SC',sans-serif;fill:#e8e8e8}.muted{fill:#aaa;font-size:12px}.small{fill:#888;font-size:11px}.box{fill:#191919;stroke:#444}.green{fill:#b1ef6b}.blue{fill:#79d4f2}.violet{fill:#bca0f3}.amber{fill:#f2c45f}</style></defs>
+<rect width="1040" height="305" rx="12" fill="#111"/><text x="32" y="34" class="green" font-size="11" letter-spacing="2">MEASURE THE USER-VISIBLE TIMELINE</text>
+<line x1="90" y1="139" x2="946" y2="139" stroke="#555" stroke-width="2"/><path d="M946 139 l-10 -6 v12 z" fill="#777"/>
+<g><circle cx="100" cy="139" r="7" fill="#bca0f3"/><circle cx="350" cy="139" r="7" fill="#b1ef6b"/><circle cx="510" cy="139" r="7" fill="#79d4f2"/><circle cx="665" cy="139" r="7" fill="#79d4f2"/><circle cx="815" cy="139" r="7" fill="#79d4f2"/><circle cx="935" cy="139" r="7" fill="#f2c45f"/></g>
+<text x="69" y="114" class="small">提交请求</text><text x="321" y="114" class="green">首 token</text><text x="485" y="114" class="blue">token 2</text><text x="640" y="114" class="blue">token 3</text><text x="790" y="114" class="blue">token 4</text><text x="908" y="114" class="amber">结束</text>
+<path d="M100 170 V187 H350 V170" stroke="#b1ef6b" stroke-width="2" fill="none"/><text x="190" y="210" class="green">TTFT · 首个 token 前等待</text>
+<path d="M350 225 V239 H815 V225" stroke="#79d4f2" stroke-width="2" fill="none"/><text x="440" y="263" class="blue">TPOT / ITL · 后续 token 的生成间隔</text>
+<path d="M100 78 V64 H935 V78" stroke="#f2c45f" stroke-width="1.5" fill="none"/><text x="440" y="57" class="amber">端到端请求延迟 · 边界取决于计时定义</text>
+<text x="32" y="289" class="small">例：TTFT 120 ms；后续间隔 30 / 40 / 35 / 45 ms。数字仅用于说明指标区间。</text>
+</svg>

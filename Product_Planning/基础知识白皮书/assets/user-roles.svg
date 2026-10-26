@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 520" role="img" aria-labelledby="title desc">
+ <title id="title">PyPTO 开发中的协作角色</title><desc id="desc">模型与算法、模型集成、算子开发、性能、编译器、Runtime 与 DFX 角色围绕同一算子任务协作。</desc>
+ <defs><style>.bg{fill:#141414}.t{fill:#e8e8e8;font:15px Inter,'Microsoft YaHei',sans-serif}.s{fill:#999;font:12px Inter,'Microsoft YaHei',sans-serif}.h{fill:#b1ef6b;font:700 12px ui-monospace,monospace}.c{fill:#1d1d1d;stroke:#484848}.a{stroke:#777;stroke-width:1.5;fill:none}.center{fill:#1d2a19;stroke:#88a85b}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="none" stroke="#777"/></marker></defs>
+ <rect class="bg" width="1000" height="520" rx="12"/><text class="h" x="35" y="38">ROLE IS A HAT · PICK BY CURRENT TASK</text>
+ <path class="a" marker-end="url(#a)" d="M295 120L430 220M705 120L570 220M295 260h135M705 260H570M295 400L430 300M705 400L570 300"/>
+ <rect class="c" x="45" y="76" width="250" height="92" rx="7"/><text class="t" x="65" y="107">模型 / 算法工程师</text><text class="s" x="65" y="134">模型语义 · shape · 精度边界</text>
+ <rect class="c" x="705" y="76" width="250" height="92" rx="7"/><text class="t" x="725" y="107">模型集成 / 推理工程师</text><text class="s" x="725" y="134">算子接入 · 环境 · 端到端验证</text>
+ <rect class="c" x="45" y="214" width="250" height="92" rx="7"/><text class="t" x="65" y="245">算子开发工程师</text><text class="s" x="65" y="272">DSL · Tile · 内存 · 正确性</text>
+ <rect class="center" x="365" y="205" width="270" height="110" rx="9"/><text class="h" x="500" y="239" text-anchor="middle">SHARED WORK ITEM</text><text class="t" x="500" y="270" text-anchor="middle">同一算子 · 同一 Run · 证据链</text><text class="s" x="500" y="294" text-anchor="middle">人可兼任多个角色，按问题切换视角</text>
+ <rect class="c" x="705" y="214" width="250" height="92" rx="7"/><text class="t" x="725" y="245">性能工程师</text><text class="s" x="725" y="272">基线 · 关键路径 · A/B 归因</text>
+ <rect class="c" x="45" y="352" width="250" height="92" rx="7"/><text class="t" x="65" y="383">编译器工程师</text><text class="s" x="65" y="410">IR · Pass · lowering · codegen</text>
+ <rect class="c" x="705" y="352" width="250" height="92" rx="7"/><text class="t" x="725" y="383">Runtime / DFX 工程师</text><text class="s" x="725" y="410">Task · 依赖 · 调度 · trace</text>
+ <text class="s" x="45" y="488">边界提示：这是按常见责任归纳的角色模型，不意味着团队必须按岗位拆分。</text>
+</svg>

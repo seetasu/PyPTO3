@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 430" role="img" aria-labelledby="title desc">
+ <title id="title">从异常现象到定位和跨团队交接</title><desc id="desc">固定现场后分成正确性、执行故障和性能三条证据路径，再定位责任层、验证修复并交付证据。</desc>
+ <defs><style>.bg{fill:#141414}.t{fill:#e8e8e8;font:14px Inter,'Microsoft YaHei',sans-serif}.s{fill:#999;font:11px Inter,'Microsoft YaHei',sans-serif}.h{fill:#b1ef6b;font:700 11px ui-monospace,monospace}.box{fill:#1d1d1d;stroke:#515151}.green{stroke:#72934d}.violet{stroke:#716092}.amber{stroke:#8b713e}.line{stroke:#777;stroke-width:1.7;fill:none;marker-end:url(#a)}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="none" stroke="#777"/></marker></defs>
+ <rect class="bg" width="1100" height="430" rx="12"/><text class="h" x="32" y="38">TYPICAL JOURNEY B · SYMPTOM → EVIDENCE → OWNER → VERIFIED FIX</text>
+ <rect class="box" x="32" y="153" width="180" height="82" rx="7"/><text class="t" x="122" y="184" text-anchor="middle">固定现场</text><text class="s" x="122" y="208" text-anchor="middle">版本 / 输入 / 环境 / Run</text>
+ <path class="line" d="M212 194h55M267 194V95h45M267 194h45M267 194v100h45"/>
+ <rect class="box green" x="317" y="58" width="225" height="75" rx="7"/><text class="h" x="334" y="83">数值不符</text><text class="t" x="334" y="108">找首个分歧 Tensor / shape</text>
+ <rect class="box amber" x="317" y="157" width="225" height="75" rx="7"/><text class="h" x="334" y="182">hang / 运行失败</text><text class="t" x="334" y="207">找首发错误 / 依赖 / 调度阶段</text>
+ <rect class="box violet" x="317" y="256" width="225" height="75" rx="7"/><text class="h" x="334" y="281">性能退化</text><text class="t" x="334" y="306">先锁口径，再看关键路径</text>
+ <path class="line" d="M542 95h64M542 194h64M542 294h64"/>
+ <rect class="box" x="612" y="58" width="215" height="75" rx="7"/><text class="t" x="630" y="89">模型 / 算子语义？</text><text class="s" x="630" y="113">回到规格、mask、布局和边界</text>
+ <rect class="box" x="612" y="157" width="215" height="75" rx="7"/><text class="t" x="630" y="188">编译 / Runtime / 硬件？</text><text class="s" x="630" y="212">带 Pass、Task、trace 证据交接</text>
+ <rect class="box" x="612" y="256" width="215" height="75" rx="7"/><text class="t" x="630" y="287">Host / 依赖 / Kernel？</text><text class="s" x="630" y="311">证据决定优化责任层</text>
+ <path class="line" d="M827 95h44v99h35M827 194h79M827 294h44v-99"/>
+ <rect class="box green" x="914" y="153" width="154" height="82" rx="7"/><text class="t" x="991" y="184" text-anchor="middle">最小验证</text><text class="s" x="991" y="208" text-anchor="middle">回归 / A-B / 交接包</text>
+ <text class="s" x="32" y="385">不要先猜责任人：先把同一次 Run 的源码、编译、Task、Tensor 和测量证据连起来。</text>
+</svg>

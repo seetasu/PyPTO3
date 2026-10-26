@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 345" role="img" aria-labelledby="t d">
+<title id="t">Pass 案例：MatMul 编译追踪</title><desc id="d">同一矩阵乘从高层 Tensor 和 Scope 转为 Tile 操作，随后布局与后端合法化、流水结构、内存分配及 Runtime Task 图。</desc>
+<defs><style>text{font-family:'Microsoft YaHei','PingFang SC',sans-serif;fill:#e8e8e8}.muted{fill:#aaa;font-size:12px}.head{font-size:14px;font-weight:700}.box{fill:#191919;stroke:#444}.arr{stroke:#777;stroke-width:2;fill:none}.lime{fill:#b1ef6b}.violet{fill:#bca0f3}.blue{fill:#79d4f2}.amber{fill:#f2c45f}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8Z" fill="#777"/></marker></defs>
+<rect width="1040" height="345" rx="12" fill="#111"/><text x="34" y="36" class="lime" font-size="11" letter-spacing="2">WALK A SINGLE OPERATOR THROUGH THE COMPILER</text>
+<g><rect class="box" x="34" y="88" width="168" height="108" rx="9"/><rect class="box" x="230" y="88" width="168" height="108" rx="9"/><rect class="box" x="426" y="88" width="168" height="108" rx="9"/><rect class="box" x="622" y="88" width="168" height="108" rx="9"/><rect class="box" x="818" y="88" width="188" height="108" rx="9"/></g>
+<text x="54" y="120" class="lime head">Tensor + Scope</text><text x="54" y="150" class="muted">Y = X × W</text><text x="54" y="174" class="muted">函数与循环</text>
+<text x="250" y="120" class="violet head">提取 + SSA</text><text x="250" y="150" class="muted">函数边界清晰</text><text x="250" y="174" class="muted">定义 / 使用</text>
+<text x="446" y="120" class="blue head">Tile MatMul</text><text x="446" y="150" class="muted">load · matmul</text><text x="446" y="174" class="muted">valid shape</text>
+<text x="642" y="120" class="amber head">目标合法化</text><text x="642" y="150" class="muted">布局 · 内存 · split</text><text x="642" y="174" class="muted">流水 / 同步</text>
+<text x="838" y="120" class="lime head">MemRef + Task</text><text x="838" y="150" class="muted">地址与生命周期</text><text x="838" y="174" class="muted">依赖与调度</text>
+<path d="M205 142 H222 M401 142 H418 M597 142 H614 M793 142 H810" class="arr" marker-end="url(#a)"/>
+<path d="M110 222 H935" stroke="#333"/><circle cx="190" cy="222" r="4" fill="#b1ef6b"/><circle cx="550" cy="222" r="4" fill="#79d4f2"/><circle cx="870" cy="222" r="4" fill="#f2c45f"/>
+<text x="48" y="258" class="muted">正确性观察：数学语义 → 有效区域 / 布局 → 地址 / 依赖</text><text x="48" y="287" class="muted">性能观察：目标变换是否命中 → 资源与并行结构 → 运行 Trace 的关键路径</text><text x="48" y="318" class="muted">每个箭头都应由相邻 IR 快照或运行证据解释；图中为教学路径，不是固定 Pass 清单。</text>
+</svg>

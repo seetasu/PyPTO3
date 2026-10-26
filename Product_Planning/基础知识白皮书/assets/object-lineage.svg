@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 440" role="img" aria-labelledby="title desc">
+ <title id="title">从源码到运行时对象的关系</title><desc id="desc">源码 scope 编译为函数和 kernel；重复调用会形成多个运行时任务，SPMD 任务展开为多个逻辑 block。</desc>
+ <defs><style>.bg{fill:#141414}.t{fill:#e8e8e8;font:17px Inter,'Microsoft YaHei',sans-serif}.s{fill:#999;font:13px Inter,'Microsoft YaHei',sans-serif}.h{fill:#b1ef6b;font:700 12px ui-monospace,monospace}.box{fill:#202020;stroke:#484848}.b1{stroke:#718d52}.b2{stroke:#65578a}.b3{stroke:#77613a}.line{stroke:#858585;stroke-width:2;fill:none;marker-end:url(#a)}.dash{stroke-dasharray:6 5}</style><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="none" stroke="#858585"/></marker></defs>
+ <rect class="bg" width="1000" height="440" rx="12"/><text class="h" x="34" y="38">COMPILE TIME</text><text class="h" x="700" y="38">ONE RUN · DYNAMIC IDS</text>
+ <rect class="box" x="36" y="80" width="180" height="72" rx="7"/><text class="t" x="126" y="111" text-anchor="middle">scope "qk"</text><text class="s" x="126" y="134" text-anchor="middle">源码区域 / 意图</text>
+ <rect class="box b1" x="285" y="80" width="180" height="72" rx="7"/><text class="t" x="375" y="111" text-anchor="middle">IR Function</text><text class="s" x="375" y="134" text-anchor="middle">编译期可调用单元</text>
+ <rect class="box b2" x="535" y="80" width="180" height="72" rx="7"/><text class="t" x="625" y="111" text-anchor="middle">Kernel code</text><text class="s" x="625" y="134" text-anchor="middle">设备侧代码</text>
+ <path class="line" d="M216 116h60M465 116h60"/>
+ <rect class="box b3" x="754" y="70" width="205" height="50" rx="7"/><text class="t" x="856" y="101" text-anchor="middle">Task 17 · call 0</text><rect class="box b3" x="754" y="142" width="205" height="50" rx="7"/><text class="t" x="856" y="173" text-anchor="middle">Task 18 · call 1</text>
+ <path class="line" d="M715 116h20M735 116v-21h10M735 116v51h10"/>
+ <text class="s" x="751" y="220">复用编译产物会生成不同的运行时 Task ID</text>
+ <path d="M856 195v50" class="line"/>
+ <rect class="box" x="600" y="266" width="370" height="126" rx="8"/><text class="h" x="620" y="290">SPMD TASK · core_num=3（逻辑并行度示意）</text>
+ <rect class="box b1" x="620" y="310" width="110" height="52" rx="6"/><text class="t" x="675" y="342" text-anchor="middle">block 0</text><rect class="box b1" x="760" y="310" width="110" height="52" rx="6"/><text class="t" x="815" y="342" text-anchor="middle">block 1</text><rect class="box b1" x="900" y="310" width="70" height="52" rx="6"/><text class="t" x="935" y="342" text-anchor="middle">…</text>
+ <path class="line dash" d="M695 265v37M815 265v37M935 265v37"/><text class="s" x="35" y="330">不同层级对象</text><text class="s" x="35" y="355">通过血缘关联，</text><text class="s" x="35" y="380">但不保证一一对应。</text>
+</svg>
