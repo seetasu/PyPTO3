@@ -918,7 +918,11 @@
         description: "支持 DeepSeek Decode / Paged Attention 数据场景切换；Paged Attention 按一个 Task、两个计算侧展示 72 条真实核记录，解释 24 个逻辑 block ×（1 AIC + 2 AIV）的结构关系。点击 block 原位展开 AIC/AIV 指令仿真参考并联动真实 Pass 前后结构，区分硬件实测、指令仿真与编译结构。一次 decode 上板执行的性能工具，在默认 DeepSeek 泳道中突出 qk_pv_aic 的真实长 block，点击后在该核行下原位展开 MTE2/MTE1/CUBE 流水，联动 #2080 Pass 改编，无需切换场景。核内事件为模拟，红色标出重复 Q 搬运并联动 Pass 循环结构图；分析阶段只展示待分析流水与候选外提结构，无优化后时长或收益预览。主泳道、KPI 和关键路径始终保留归档数据。四个优化视角（关键路径等待、尾块浪费、启动开销、并行波次）各给出前 5 个候选任务。设备泳道两种视图：按 Task 把 86 次提交装箱压成 12 轨，条宽 = 跨度、条高 = 占用核数，长而细的条一眼认出「跑得久但只占一个核」的通信等待；按物理核则摊开 72 行 4038 个 block。两个视图共用一层叠加：并行宽度曲线、低并行竖带、时间地标。rank0 有 28.3% 的时间全机只有 ≤2 核在跑、关键路径上 39% 在等 rank 间数据，rank1 对应 11.5% 和 3%。",
         href: "Design/device-perf-lane/index.html",
         preview: "Design/assets/launch-previews/device-perf-lane.jpg",
-        tags: ["DFX", "Critical Path", "AIC / AIV", "Swimlane"]
+        tags: ["DFX", "Critical Path", "AIC / AIV", "Swimlane"],
+        variants: [
+          { label: "当前版本", href: "Design/device-perf-lane/index.html" },
+          { label: "低保真设计 · 10 月 26 日", href: "Design/device-perf-lane-20261026/index.html" }
+        ]
       },
       {
         title: "Pass Lane · 并行结构线",
