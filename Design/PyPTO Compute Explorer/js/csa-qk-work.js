@@ -25,7 +25,7 @@
   const DEFAULT_SELECTION = 11;              // Token 2 / Sparse Block 1
 
   const MODES = Object.freeze({
-    teaching: Object.freeze({ tokens: TOKENS, blocks: NUM_QK_CORES, button: 'Teaching Example', badge: '5 Query 教学窗口 · Synthetic idx_topk' }),
+    teaching: Object.freeze({ tokens: TOKENS, blocks: 4, button: 'Teaching', badge: '5 Query · 4 Lane 教学配置' }),
     source: Object.freeze({ tokens: SOURCE_TOKENS, blocks: NUM_QK_CORES, button: 'Source-scale Example', badge: '默认规模 · Synthetic idx_topk · 非 Runtime Trace' })
   });
 
@@ -50,7 +50,8 @@
     const items = [];
     for (let token = 0; token < count; token++) {
       const requestIndex = Math.floor(token / TOKENS_PER_REQUEST);
-      const positionId = legacyMask ? null : input.position + token % TOKENS_PER_REQUEST;
+      const basePosition = input.workload === 'mixed' && input.mode === 'source' ? POSITIONS[requestIndex % POSITIONS.length] : input.position;
+      const positionId = legacyMask ? null : basePosition + token % TOKENS_PER_REQUEST;
       const indices = legacyMask ? null : syntheticTopk(positionId);
       const upper = positionId == null ? null : Math.floor((positionId + 1) / COMPRESS_RATIO);
       for (let sparseBlock = 0; sparseBlock < SPARSE_BLOCKS; sparseBlock++) {
@@ -66,7 +67,7 @@
           requestIndex,
           positionId,
           rank: legacyMask ? null : input.rank,
-          scenarioId: legacyMask ? 'legacy' : input.mode + '-position-' + input.position,
+          scenarioId: legacyMask ? 'legacy' : input.mode + '-' + (input.workload === 'mixed' ? 'mixed' : 'position-' + input.position),
           sparseBlock,
           valid,
           validKvCount,
@@ -80,9 +81,10 @@
 
   function deriveScenario(input) {
     const items = buildWorkItems(input), queue = buildQueue(items), byId = new Map(items.map(item => [item.id, item]));
-    const blocks = assignToBlocks(queue, NUM_QK_CORES);
+    const blockCount = MODES[input.mode]?.blocks ?? NUM_QK_CORES;
+    const blocks = assignToBlocks(queue, blockCount);
     blocks.forEach(block => { block.validCount = block.entries.filter(entry => byId.get(entry.id).valid).length; block.invalidCount = block.entries.length - block.validCount; });
-    return { items, queue, blocks, blockCount: NUM_QK_CORES, byId, validCount: items.filter(item => item.valid).length, input };
+    return { items, queue, blocks, blockCount, byId, validCount: items.filter(item => item.valid).length, input };
   }
 
   // qk_plan: pass 1 writes valid tiles in token-major order, pass 2 appends the rest.
@@ -154,366 +156,130 @@
     return out;
   }
 
-  /* -------------------------------------------------------------- rendering */
-
-  const CHAIN_VALID = ['KV Gather', 'QK Matmul', 'Scale / Bias / Softmax', 'PV Matmul', 'Save m/l/o'];
-  const CHAIN_INVALID = ['Write Neutral m/l/o'];
-
+  /* ----------------------------------------------------- Canvas-first view */
+  const PHASES = ['generation', 'ordering', 'assignment'];
+  const PHASE_LABELS = {generation:'Work Generation',ordering:'Work Ordering',assignment:'SPMD Lane Assignment'};
   function create(host, options = {}) {
-    const onSource = options.onSource || (() => {});
-    const onSelection = options.onSelection || (() => {});
-    const onContext = options.onContext || (() => {});
-    const state = {
-      mode: options.mode || 'source',
-      position: options.position ?? 8192,
-      rank: options.rank ?? 0,
-      requestIndex: 0,
-      selectedToken: null,
-      overrides: new Map(),
-      advanced: false,
-      selection: options.selection === undefined ? null : options.selection,
-      openLane: null,
-      queueStart: 0,
-      depOpen: true
-    };
-    let pendingFocus = null;
-    function scenarioId() { return state.mode + '-position-' + state.position; }
-    function select(selection) {
-      const d = derive(); state.selection = selection;
-      if (selection.type === 'item') {
-        const item = d.byId.get(selection.id), details = getWorkItemDetails(selection.id, d.queue, d.blockCount);
-        state.requestIndex = item.requestIndex; state.selectedToken = item.token; state.openLane = details.block;
-        state.queueStart = Math.max(0, details.queuePosition - 12);
-        onSelection({ ...selection, rank: state.rank, scenarioId: scenarioId(), requestIndex: item.requestIndex, tokenIndex: item.token, positionId: item.positionId, sparseBlockIndex: item.sparseBlock, valid: item.valid, validKvCount: item.validKvCount, queuePosition: details.queuePosition, laneId: details.block, laneIteration: details.iteration });
-      } else { state.selectedToken = null; onSelection({ ...selection, rank: state.rank, scenarioId: scenarioId(), laneId: selection.block }); }
-      render();
-    }
-
-    const blockCount = () => NUM_QK_CORES;
-
-    function derive() {
-      return deriveScenario({mode:state.mode,position:state.position,rank:state.rank,overrides:state.overrides});
-    }
-
-    /* --- A. Work matrix ------------------------------------------------- */
-
-    function matrixCell(item, ctx) {
-      const classes = ['csa-qk-cell', item.valid ? 'is-valid' : 'is-invalid'];
-      if (ctx.selectedId === item.id) classes.push('is-selected');
-      else if (ctx.relatedIds.has(item.id)) classes.push('is-related');
-      const label = 'Work Item ' + item.id + ' · Request ' + item.requestIndex + ' · Query ' + item.token + ' · Position ' + item.positionId + ' · SB' + item.sparseBlock + ' · ' + (item.valid ? 'valid' : 'invalid');
-      const hover = 'Work Item ' + item.id + ' · T' + item.token + ' / SB' + item.sparseBlock + ' · ' + (item.valid ? 'valid' : 'invalid');
-      const control = item.sparseBlock === WINDOW_SB
-        ? '<span class="csa-qk-cell__lock" title="SB0 = Sliding Window，恒为 valid，不可切换" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9"><rect x="2" y="5.2" width="8" height="5.6" rx="1.2" fill="currentColor" opacity=".6"/><path d="M4 5.2V4a2 2 0 0 1 4 0v1.2" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".6"/></svg></span>'
-        : state.advanced ? '<button class="csa-qk-cell__toggle" type="button" data-qk-toggle="' + item.id + '" aria-pressed="' + item.valid + '" aria-label="Advanced Simulation：切换 Work Item ' + item.id + ' 的 valid / invalid 状态" title="Advanced Simulation：手动覆盖 valid / invalid"><span></span></button>' : '';
-      return '<div class="' + classes.join(' ') + '" role="gridcell">' +
-        '<button class="csa-qk-cell__select" type="button" data-qk-item="' + item.id + '" title="' + esc(hover) + '" aria-label="' + esc(label) + '" aria-pressed="' + (ctx.selectedId === item.id) + '"><b>' + item.id + '</b></button>' +
-        control + '</div>';
-    }
-
-    function matrixSection(d, ctx) {
-      let head = '<div class="csa-qk-matrix__corner" aria-hidden="true"></div>';
-      for (let sb = 0; sb < SPARSE_BLOCKS; sb++) {
-        head += '<div class="csa-qk-matrix__head' + (sb === WINDOW_SB ? ' is-window' : '') + '"><b>SB' + sb + '</b><span>' + (sb === WINDOW_SB ? 'Original KV' : 'Compressed KV') + '</span></div>';
+    const onSource = options.onSource || (() => {}), onSelection = options.onSelection || (() => {}), onContext = options.onContext || (() => {});
+    const state = {mode:options.mode || 'source', workload:'mixed', position:8192, rank:options.rank ?? 0,
+      requestIndex:0, selection:options.selection || null, phase:'assignment', playing:false, loop:false,
+      scale:1, panX:0, panY:0, advanced:false, overrides:new Map()};
+    const reduced = !!global.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    let timer=null, drag=null, suppressClick=false;
+    const scenarioId=()=>state.mode+'-'+(state.workload==='mixed'?'mixed':'position-'+state.position);
+    const derive=()=>deriveScenario({mode:state.mode,workload:state.workload,position:state.position,rank:state.rank,overrides:state.overrides});
+    const itemDetails=(d,id)=>getWorkItemDetails(id,d.queue,d.blockCount);
+    function stop(){if(timer)global.clearInterval(timer);timer=null;state.playing=false;const b=host.querySelector('[data-qk-play]');if(b)b.textContent='播放';}
+    function start(){stop();state.playing=true;const b=host.querySelector('[data-qk-play]');if(b)b.textContent='暂停';timer=global.setInterval(()=>{const next=PHASES.indexOf(state.phase)+1;if(next>=PHASES.length){if(state.loop)updatePhase('generation');else stop();}else updatePhase(PHASES[next]);},1800);}
+    function viewportPositions(d,phase){
+      const positions=new Map(),source=state.mode==='source';
+      if(phase==='generation'){
+        const cols=source?4:1, groupW=source?322:1100, groupH=source?87:610;
+        d.items.forEach(item=>{const group=source?item.requestIndex:0,baseX=42+(group%cols)*groupW,baseY=58+Math.floor(group/cols)*groupH;
+          const row=source?item.token%8:item.token,stepX=source?29:172,stepY=source?8:95;
+          positions.set(item.id,{x:baseX+90+item.sparseBlock*stepX,y:baseY+12+row*stepY,w:source?22:120,h:source?6:65});});
+      }else if(phase==='ordering'){
+        const cols=source?64:5,cellW=source?19:218,cellH=source?29:87,offsetX=source?98:140,offsetY=source?90:92;
+        d.queue.forEach((id,p)=>positions.set(id,{x:offsetX+p%cols*cellW,y:offsetY+Math.floor(p/cols)*cellH,w:source?15:170,h:source?20:66}));
+      }else{
+        const cols=source?8:4,laneW=source?164:320,laneH=source?240:540;
+        d.blocks.forEach(block=>block.entries.forEach(entry=>{const x=36+(block.index%cols)*laneW,y=52+Math.floor(block.index/cols)*laneH;
+          const cellCol=source?entry.iteration%9:entry.iteration%3,cellRow=source?Math.floor(entry.iteration/9):Math.floor(entry.iteration/3);
+          positions.set(entry.id,{x:x+10+cellCol*(source?16:92),y:y+40+cellRow*(source?25:92),w:source?12:70,h:source?19:70});}));
       }
-      let rows = '';
-      const start=state.mode==='source'?state.requestIndex*TOKENS_PER_REQUEST:0;
-      const end=Math.min(start+(state.mode==='source'?TOKENS_PER_REQUEST:TOKENS),d.items.length/SPARSE_BLOCKS);
-      for (let token = start; token < end; token++) {
-        rows += '<button class="csa-qk-matrix__row'+(state.selectedToken===token?' is-selected':'')+'" type="button" data-qk-token="'+token+'" aria-pressed="'+(state.selectedToken===token)+'" title="选择 Query '+token+' · Position '+d.byId.get(token*SPARSE_BLOCKS).positionId+'">Q'+token+'</button>';
-        for (let sb = 0; sb < SPARSE_BLOCKS; sb++) rows += matrixCell(d.byId.get(token * SPARSE_BLOCKS + sb), ctx);
+      return positions;
+    }
+    function backdrop(d){
+      const source=state.mode==='source',phase=state.phase;
+      if(phase==='generation'){
+        const cols=source?4:1,groupW=source?322:1100,groupH=source?87:610;
+        return Array.from({length:source?32:1},(_,group)=>{const x=42+(group%cols)*groupW,y=58+Math.floor(group/cols)*groupH;
+          return '<g class="csa-qk-canvas-group'+(source&&group===state.requestIndex?' is-focused':'')+'"><rect x="'+x+'" y="'+y+'" width="'+(groupW-12)+'" height="'+(groupH-5)+'" rx="5"/><text x="'+(x+8)+'" y="'+(y+14)+'">'+(source?'Request '+group+' · Q'+(group*8)+'–'+(group*8+7):'Teaching · 5 Queries')+'</text></g>';}).join('')+
+          (source?'':'<text class="csa-qk-canvas-axis" x="140" y="57">SB0 · Window　　 SB1　　　　SB2　　　　SB3　　　　SB4</text>');
       }
-      return '<section class="csa-qk-card csa-qk-card--matrix" aria-label="A · Work Generation">' +
-        '<header><span class="csa-qk-step">A</span><h3>Work Generation · Request '+state.requestIndex+'</h3>' +
-        '<p>每行一个 Query，每列一个 128 行 KV Sparse Block；格内数字是原始 Work Item ID。'+(state.mode==='source'?'当前显示 32 个 Request 中的 1 个，共 8 个 Query。':'教学窗口显示 5 个 Query。')+'</p></header>' +
-        '<div class="csa-qk-matrix" role="grid" aria-label="'+(end-start)*SPARSE_BLOCKS+' 个可见 Work Item">' + head + rows + '</div>' +
-        '<p class="csa-qk-hint">SB0 读取 Sliding Window / Original KV，固定有效；SB1–SB4 读取 Indexer 选出的 Compressed KV 索引。'+(state.advanced?' 当前为 Advanced Simulation，可手动覆盖有效性。':' 有效性由 Synthetic idx_topk 和 Position 推导。')+'</p>' +
-        '</section>';
-    }
-
-    /* --- B. Reordered queue --------------------------------------------- */
-
-    function chip(item, position, ctx, cls) {
-      const classes = ['csa-qk-chip', item.valid ? 'is-valid' : 'is-invalid'];
-      if (ctx.selectedId === item.id) classes.push('is-selected');
-      else if (ctx.relatedIds.has(item.id)) classes.push('is-related');
-      const label = '队列位置 ' + position + ' · Work Item ' + item.id + ' · Token ' + item.token + ' · SB' + item.sparseBlock + ' · ' + (item.valid ? 'valid' : 'invalid');
-      const hover = 'queue position ' + position + ' · Work Item ' + item.id + ' · T' + item.token + ' / SB' + item.sparseBlock + ' · ' + (item.valid ? 'valid' : 'invalid');
-      return '<button class="' + classes.join(' ') + (cls ? ' ' + cls : '') + '" type="button" data-qk-item="' + item.id + '" title="' + esc(hover) + '" aria-label="' + esc(label) + '" aria-pressed="' + (ctx.selectedId === item.id) + '">' +
-        '<i>' + position + '</i><b>' + item.id + '</b></button>';
-    }
-
-    function queueSection(d, ctx) {
-      const pageSize = state.mode === 'source' ? 48 : d.queue.length;
-      const start = Math.min(state.queueStart, Math.max(0, d.queue.length - pageSize));
-      const end = Math.min(d.queue.length, start + pageSize);
-      const boundary = d.validCount;
-      const visible = d.queue.slice(start, end);
-      const chips = visible.map((id, offset) => chip(d.byId.get(id), start + offset, ctx)).join('');
-      return '<section class="csa-qk-card csa-qk-card--queue" aria-label="B · qk_order">' +
-        '<header><span class="csa-qk-step">B</span><h3>qk_order · valid 优先</h3>' +
-        '<p>qk_plan 第一轮按原始顺序写 valid，第二轮追加 invalid；两类工作项都保留。</p></header>' +
-        '<div class="csa-qk-queue-summary"><span class="is-valid">valid · ' + (boundary ? '0–' + (boundary - 1) : '空') + ' · ' + boundary + ' 项</span><span class="is-invalid">invalid · ' + (boundary < d.queue.length ? boundary + '–' + (d.queue.length - 1) : '空') + ' · ' + (d.queue.length - boundary) + ' 项</span></div>' +
-        '<div class="csa-qk-queue-nav"><button type="button" data-qk-queue-step="-48"' + (start === 0 ? ' disabled' : '') + '>上一段</button><span>队列位置 ' + start + '–' + (end - 1) + ' / ' + d.queue.length + '</span><button type="button" data-qk-queue-step="48"' + (end === d.queue.length ? ' disabled' : '') + '>下一段</button></div>' +
-        '<div class="csa-qk-lane__chips">' + chips + '</div>' +
-        '<p class="csa-qk-hint">小字是 queue position，大字是 Work Item ID。选择 A 或 C 中的工作项会定位到这里。</p></section>';
-    }
-
-    /* --- C. Block assignment ------------------------------------------- */
-
-    function blockSection(d, ctx) {
-      const rows = d.blocks.map(block => {
-        const selected = ctx.selectedBlock === block.index;
-        const open = state.openLane === block.index;
-        const first = block.entries[0], last = block.entries[block.entries.length - 1];
-        const entries = open ? '<div class="csa-qk-block__lane">' + block.entries.map(entry =>
-          '<span class="csa-qk-it">it ' + entry.iteration + '</span>' + chip(d.byId.get(entry.id), entry.queuePosition, ctx, 'csa-qk-chip--lane')).join('') + '</div>' : '';
-        return '<div class="csa-qk-block' + (selected ? ' is-selected' : '') + (open ? ' is-open' : '') + '">' +
-          '<button class="csa-qk-block__head" type="button" data-qk-block="' + block.index + '" aria-expanded="' + open + '" aria-pressed="' + selected + '"><b>Lane ' + block.index + '</b><i>' + block.entries.length + ' 项 · ' + block.validCount + ' valid / ' + block.invalidCount + ' invalid</i><small>qk_order[' + first.queuePosition + '] … [' + last.queuePosition + '] · ' + (open ? '收起' : '展开') + '</small></button>' + entries + '</div>';
-      }).join('');
-      return '<section class="csa-qk-card csa-qk-card--blocks" aria-label="C · SPMD Lane Assignment">' +
-        '<header><span class="csa-qk-step">C</span><h3>SPMD Lane Assignment · 24 lanes</h3>' +
-        '<p>一次 qk_pv Dispatch 展开 24 个逻辑 SPMD Block。Lane k 依次领取 qk_order[k + iteration × 24]。</p></header>' +
-        '<div class="csa-qk-blocks">' + rows + '</div>' +
-        '<p class="csa-qk-hint">Work Item 不是独立 Runtime Task；Iteration 是同一 Lane 循环领取的序号。</p></section>';
-    }
-
-    /* --- Inspector ------------------------------------------------------ */
-
-    function itemInspector(d, details) {
-      const item = d.byId.get(details.id), n = d.blockCount;
-      const facts = [
-        ['Scenario / Rank', item.scenarioId + ' / Rank ' + item.rank],
-        ['Request / Query', 'Request ' + item.requestIndex + ' / Q' + item.token],
-        ['Position ID', String(item.positionId)],
-        ['Work Item / Sparse Block', item.id + ' / SB' + item.sparseBlock],
-        ['KV 来源', item.sparseBlock === WINDOW_SB ? 'Original KV · Sliding Window' : 'Compressed KV · idx_topk slots ' + ((item.sparseBlock - 1) * ATTN_K_TILE) + '–' + (item.sparseBlock * ATTN_K_TILE - 1)],
-        ['有效索引数', String(item.validKvCount)],
-        ['Validity', item.valid ? 'valid' : 'invalid'],
-        ['判定依据', item.validityReason],
-        ['原始位置', String(item.originalPosition)],
-        ['qk_order 位置', String(details.queuePosition) + '（qk_order[' + details.queuePosition + '] = ' + item.id + '）'],
-        ['SPMD Lane / Iteration', details.block + ' / ' + details.iteration]
-      ];
-      const formula = [
-        'workItemId = query × 5 + sb = ' + item.token + ' × 5 + ' + item.sparseBlock + ' = ' + item.id,
-        'queuePosition = qk_order.indexOf(' + item.id + ') = ' + details.queuePosition,
-        'lane = queuePosition % ' + n + ' = ' + details.block,
-        'iteration = ⌊queuePosition / ' + n + '⌋ = ' + details.iteration,
-        'qk_flat = lane + iteration × ' + n + ' = ' + details.qkFlat
-      ].join('\n');
-      return '<span class="csa-eyebrow">WORK ITEM ' + item.id + ' · ' + (item.valid ? 'VALID' : 'INVALID') + '</span>' +
-        '<h2>Q' + item.token + ' · SB' + item.sparseBlock + '</h2>' +
-        '<dl class="csa-qk-facts">' + facts.map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>' +
-        '<h3 class="csa-qk-subhead">A → B → C · 同一 Work Item</h3><pre class="csa-qk-formula">' + esc(formula) + '</pre>' +
-        (state.advanced && item.sparseBlock !== WINDOW_SB ? '<button class="btn btn-sm" type="button" data-qk-toggle="' + item.id + '">Advanced Simulation：切换为 ' + (item.valid ? 'invalid' : 'valid') + '</button>' : '') + pathBlock(item);
-    }
-
-    function pathBlock(item) {
-      const chain = item.valid ? CHAIN_VALID : CHAIN_INVALID;
-      const nodes = chain.map((step, i) => (i ? '<em>→</em>' : '') + '<span' + (item.valid ? '' : ' class="is-neutral"') + '>' + esc(step) + '</span>').join('');
-      return '<h3 class="csa-qk-subhead">Block 内执行路径</h3>' +
-        '<div class="csa-qk-chain">' + nodes + '</div>' +
-        (item.valid
-          ? '<p class="csa-qk-hint">含 <code>pl.pipeline(H // QK_M_TILE, stage=2)</code>（L281）· 源码声明的软件流水结构，不表示硬件时间、重叠时长或性能。</p>'
-          : '<p class="csa-qk-hint">invalid 分支（L305–313）写入中性统计量：<code>mi = -3.0e38</code>、<code>li = 0</code>、<code>oi = 0</code>，不走 QK / PV 计算。</p>');
-    }
-
-    function blockInspector(d, details) {
-      const positions = details.entries.map(entry => entry.queuePosition).join(', ') || '—';
-      const ids = details.entries.map(entry => entry.id).join(', ') || '—';
-      return '<span class="csa-eyebrow">SPMD BLOCK ' + details.index + ' · 共 ' + details.blockCount + '</span>' +
-        '<h2>Block ' + details.index + '</h2>' +
-        '<dl class="csa-qk-facts">' +
-        [['领取的 Queue Position', positions],
-         ['领取的 Work Items', ids],
-         ['Iterations', String(details.entries.length) + '（qk_lane_iters = ' + details.laneIterations + '）'],
-         ['valid / invalid', details.validCount + ' / ' + details.invalidCount]].map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') +
-        '</dl>' +
-        '<h3 class="csa-qk-subhead">采用的规则</h3><pre class="csa-qk-formula">' + esc([
-          'block   = queuePosition % ' + details.blockCount,
-          'iteration = ⌊queuePosition / ' + details.blockCount + '⌋',
-          'qk_flat = qk_core + qk_it × ' + details.blockCount,
-          'qk_lane_iters = (qk_items - qk_core + ' + details.blockCount + ' - 1) // ' + details.blockCount
-        ].join('\n')) + '</pre>' +
-        '<p class="csa-qk-hint">valid 数量可以数出来，但不能用来估算真实执行时间：invalid 项同样领取、同样写结果。</p>';
-    }
-
-    function evidence(d, details) {
-      const isItem = state.selection?.type === 'item';
-      const valid = isItem ? d.byId.get(state.selection.id).valid : true;
-      const ranges = [
-        [134, 196, 'qk_plan · 有效性、qk_order 两轮写入'],
-        [208, 224, 'qk_pv 派发、显式依赖、Block 领取'],
-        [224, 314, isItem ? (valid ? '内部计算路径 · valid 分支（224–304）' : '内部计算路径 · invalid 分支（305–313）') : '内部计算路径 · valid / invalid 两个分支']
-      ];
-      return '<h3 class="csa-qk-subhead">Source Evidence · 真实源码行段</h3>' +
-        ranges.map(([a, z, note]) =>
-          '<details class="csa-qk-source"><summary><span>' + SUB_FILE + ' : ' + a + '–' + z + '</span><i>' + esc(note) + '</i></summary>' +
-          '<pre>' + esc(excerpt(SUB_FILE, a, z)) + '</pre>' +
-          '<button class="csa-qk-node__link" type="button" data-qk-source="' + SUB_FILE + ':' + a + ':' + z + '">在编辑器中打开 ' + a + '–' + z + ' ↗</button></details>').join('') +
-        '<a class="csa-qk-link" href="' + REPO_BLOB + SUB_FILE + '#L134-L196" target="_blank" rel="noopener noreferrer">在 GitHub 查看 ' + SUB_FILE + ' ↗</a>';
-    }
-
-    function terms(d) {
-      return '<h3 class="csa-qk-subhead">术语</h3><dl class="csa-qk-facts csa-qk-facts--terms">' +
-        [['Dispatch', 'qk_pv 的一次 pl.spmd 派发（逻辑任务）'],
-         ['SPMD Block', '该派发展开的逻辑执行块 · 当前 ' + d.blockCount],
-         ['Work Item', '(token, sparseBlock)，不是独立 Runtime Task'],
-         ['Iteration', '某个 Block 领取工作项的第几次循环']]
-          .map(([k, v]) => '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>').join('') + '</dl>';
-    }
-
-    function inspector(d, ctx) {
-      const body = !state.selection
-        ? '<h3>qk_pv Work Assignment</h3><p class="csa-qk-hint">选择 Work Item 或 SPMD Block，查看 qk_order 中的位置与分配关系。</p>'
-        : state.selection.type === 'block'
-        ? blockInspector(d, getBlockDetails(state.selection.block, d.items, d.queue, d.blockCount))
-        : itemInspector(d, getWorkItemDetails(state.selection.id, d.queue, d.blockCount));
-      const dispatch = '<p class="csa-qk-dispatch"><b>DISPATCH</b> qk_pv · ' + d.blockCount + ' SPMD Blocks' +
-        (state.mode === 'teaching' ? ' · 教学示意配置' : ' · NUM_QK_CORES = 24') + '</p>';
-      return '<aside class="csa-qk-inspector" aria-label="QK Work 对象详情">' + dispatch + body + evidence(d) + terms(d) + '</aside>';
-    }
-
-    /* --- Dependency context -------------------------------------------- */
-
-    function sourceLink(label, file, a, z) {
-      return '<button class="csa-qk-srclink" type="button" data-qk-source="' + file + ':' + a + ':' + z + '">' + esc(label) + '</button>';
-    }
-
-    function dependencyBar() {
-      return '<section class="csa-qk-depbar" aria-label="Dependency Context">' +
-        '<span class="csa-qk-depbar__label"><b>显式任务依赖</b><i>静态源码模型</i></span>' +
-        '<div class="csa-qk-pill"><b>qk_plan_tid</b><small>csa_slots_build_valid_qk_plan · L143</small></div>' +
-        '<em class="csa-qk-arrow">→</em>' +
-        '<div class="csa-qk-pill is-target"><b>qk_pv</b><small>pl.spmd · 一次 Dispatch</small></div>' +
-        '<em class="csa-qk-arrow">←</em>' +
-        '<div class="csa-qk-pill"><b>cache_ready_dep</b><small>pl.system.task_dummy · L361</small></div>' +
-        '<button class="csa-qk-depbar__toggle" type="button" data-qk-dep-toggle aria-expanded="' + state.depOpen + '">' +
-        (state.depOpen ? '收起 2 个输入 ▴' : '展开 2 个输入 ▾') + '</button>' +
-        sourceLink('decode_csa.py : 384–393 · 调用处 ↗', 'decode_csa.py', 384, 393) +
-        '<div class="csa-qk-depbar__detail"' + (state.depOpen ? '' : ' hidden') + '>' +
-        '<span class="csa-qk-depbar__sub"><b>cache_ready_dep</b> = task_dummy(deps=[<b>ori_cache_write_tid</b>, <b>cmp_cache_write_tid</b>])</span>' +
-        sourceLink('L361 ↗', 'decode_csa.py', 361, 361) +
-        '<span class="csa-qk-depbar__sub">ori_cache_write_tid · csa_cache_writeback</span>' +
-        sourceLink('L323 ↗', 'decode_csa.py', 323, 333) +
-        '<span class="csa-qk-depbar__sub">cmp_cache_write_tid · compressor_ratio4</span>' +
-        sourceLink('L353 ↗', 'decode_csa.py', 353, 360) +
-        '</div>' +
-        '<p class="csa-qk-hint">只画本段源码显式声明的依赖，不是完整 Runtime Task Dependency Graph；indexer cache 的写入走 idx_cache_write_tid，不并入 cache_ready_dep。箭头长度与位置不代表耗时。</p>' +
-        '</section>';
-    }
-
-    /* --- shell ---------------------------------------------------------- */
-
-    function controls(d) {
-      const buttons = Object.entries(MODES).map(([key, mode]) =>
-        '<button class="btn btn-sm' + (state.mode === key ? ' is-selected' : '') + '" type="button" data-qk-mode="' + key + '" aria-pressed="' + (state.mode === key) + '">' + esc(mode.button) + '</button>').join('');
-      const positions = POSITIONS.map(position => '<button class="btn btn-sm' + (state.position === position ? ' is-selected' : '') + '" type="button" data-qk-position="' + position + '" aria-pressed="' + (state.position === position) + '">' + position + '</button>').join('');
-      const requests = state.mode === 'source' ? '<label>Request <select data-qk-request>' + Array.from({length:32},(_,i)=>'<option value="'+i+'"'+(state.requestIndex===i?' selected':'')+'>'+i+' · Q'+(i*8)+'–'+(i*8+7)+'</option>').join('')+'</select></label>' : '';
-      const first=d.byId.get(state.requestIndex*TOKENS_PER_REQUEST*SPARSE_BLOCKS) || d.items[0];
-      const visibleCompressed=Math.floor((first.positionId+1)/COMPRESS_RATIO);
-      const firstMask=Array.from({length:SPARSE_BLOCKS},(_,sb)=>Number(d.byId.get(first.id+sb).valid)).join(' ');
-      return '<div class="csa-qk-controls">' +
-        '<div class="segmented-control segmented-control-muted" role="group" aria-label="Query 规模">' + buttons + '</div>' +
-        '<span class="csa-qk-badge">' + esc(MODES[state.mode].badge) + '</span>' +
-        '<div class="csa-qk-control-row"><span>Position 起点</span>' + positions + '<span>Rank</span>' + [0,1].map(rank=>'<button class="btn btn-sm'+(state.rank===rank?' is-selected':'')+'" type="button" data-qk-rank="'+rank+'" aria-pressed="'+(state.rank===rank)+'">'+rank+'</button>').join('') + requests + '</div>' +
-        '<span class="csa-qk-meta">' + (d.items.length/SPARSE_BLOCKS) + ' Queries × 5 Sparse Blocks = ' + d.items.length + ' Work Items · ' + d.validCount + ' valid / ' + (d.items.length-d.validCount) + ' invalid · 1 Dispatch → 24 SPMD Lanes</span>' +
-        '<span class="csa-qk-meta">模型配置：TP=2，H=64；Workload / Runtime 输入示例：DECODE_BATCH=64、DECODE_SEQ=8、Position；算子常量：WIN=128、IDX_TOPK=512、ATTN_K_TILE=128、QK_M_TILE=32、NUM_QK_CORES=24。</span>' +
-        '<span class="csa-qk-meta">推导：64 / 2 = 32 Requests / Rank；32 × 8 = 256 Queries / Rank；(128 + 512) / 128 = 5 SB；' + (d.items.length/SPARSE_BLOCKS) + ' × 5 = ' + d.items.length + ' Work Items。T 随 Runtime 输入变化。</span>' +
-        '<span class="csa-qk-meta">Position ' + first.positionId + ' → 可用压缩位置 ' + visibleCompressed + ' → Synthetic idx_topk 有效槽 ' + Math.min(IDX_TOPK,visibleCompressed) + ' → Q' + first.token + ' mask [' + firstMask + '] → qk_order ' + d.validCount + ' valid / ' + (d.items.length-d.validCount) + ' invalid → 24 Lane 分配。</span>' +
-        '<span class="csa-qk-meta">idx_topk 为可复现 Synthetic Example：有效槽依次使用确定性范围内索引，其余填 -1。真实索引由 Indexer 相关性计算产生；-1 表示无索引，不是 KV 值 0 或低相关性。这里不是 Runtime Trace。</span>' +
-        '<button class="btn btn-ghost btn-sm" type="button" data-qk-advanced aria-pressed="'+state.advanced+'">Advanced Simulation '+(state.advanced?'开':'关')+'</button>' +
-        (state.advanced?'<button class="btn btn-ghost btn-sm" type="button" data-qk-reset>清除手动覆盖</button>':'') + '</div>';
-    }
-
-    function render() {
-      const d = derive();
-      const details = state.selection?.type === 'item' ? getWorkItemDetails(state.selection.id, d.queue, d.blockCount) : null;
-      const selectedBlock = state.selection?.type === 'block' ? state.selection.block : details?.block;
-      // Selecting a block highlights all of its items; selecting an item only itself.
-      const relatedIds = new Set(state.selection?.type === 'block' && d.blocks[selectedBlock]
-        ? d.blocks[selectedBlock].entries.map(entry => entry.id) : []);
-      const ctx = { selectedId: state.selection?.type === 'item' ? state.selection.id : null, selectedBlock, relatedIds };
-
-      const scroller = host.querySelector('.csa-qk-analysis');
-      const scrollTop = scroller ? scroller.scrollTop : 0;
-
-      host.innerHTML = '<div class="csa-qk">' +
-        '<div class="csa-qk-analysis">' + dependencyBar() +
-        '<div class="csa-qk-top">' + matrixSection(d, ctx) + queueSection(d, ctx) + '</div>' +
-        blockSection(d, ctx) + '</div>' +
-        '<div class="csa-qk-side">' + inspector(d, ctx) + '</div>' +
-        '</div>';
-      host.insertAdjacentHTML('afterbegin', controls(d));
-
-      const nextScroller = host.querySelector('.csa-qk-analysis');
-      if (nextScroller) nextScroller.scrollTop = scrollTop;
-      if (pendingFocus) {
-        const target = host.querySelector(pendingFocus);
-        if (target) target.focus({ preventScroll: true });
-        pendingFocus = null;
+      if(phase==='ordering'){
+        const boundary=d.validCount,cols=source?64:5,cellH=source?29:87;
+        return '<rect class="csa-qk-order-valid" x="86" y="75" width="1230" height="'+(Math.ceil(boundary/cols)*cellH+12)+'" rx="5"/>'+
+          '<text class="csa-qk-canvas-axis" x="98" y="64">Pass 1 · valid '+boundary+' 项　　Pass 2 · invalid '+(d.items.length-boundary)+' 项（保留在队列尾部）</text>';
       }
+      const cols=source?8:4,laneW=source?164:320,laneH=source?240:540;
+      return d.blocks.map(block=>{const x=36+(block.index%cols)*laneW,y=52+Math.floor(block.index/cols)*laneH;
+        return '<g class="csa-qk-canvas-lane'+(state.selection?.type==='block'&&state.selection.block===block.index?' is-selected':'')+'" data-qk-lane="'+block.index+'" role="button" tabindex="0" aria-label="Lane '+block.index+' · '+block.entries.length+' Work Items"><rect x="'+x+'" y="'+y+'" width="'+(laneW-8)+'" height="'+(laneH-8)+'" rx="5"/><text x="'+(x+10)+'" y="'+(y+21)+'">Lane '+String(block.index).padStart(2,'0')+'</text><text class="csa-qk-canvas-count" x="'+(x+laneW-17)+'" y="'+(y+21)+'" text-anchor="end">'+block.entries.length+' · '+block.validCount+' / '+block.invalidCount+'</text></g>';}).join('');
     }
-
-    /* --- interaction ---------------------------------------------------- */
-
-    function toggleValid(id) {
-      if (!state.advanced || id % SPARSE_BLOCKS === WINDOW_SB) return;
-      const item = derive().byId.get(id);
-      state.overrides.set(id, !item.valid);
-      pendingFocus = '[data-qk-item="' + id + '"]';
-      if (state.selection?.type === 'item' && state.selection.id === id) select(state.selection);
-      else render();
+    function itemMarkup(d,positions){return d.items.map(item=>{const p=positions.get(item.id),selected=state.selection?.type==='item'&&state.selection.id===item.id;
+      const related=state.selection?.type==='block'&&d.blocks[state.selection.block]?.entries.some(entry=>entry.id===item.id);
+      const label=state.mode==='teaching'?'<text data-qk-item-label x="7" y="24">'+(state.phase==='ordering'?item.id+' · q'+d.queue.indexOf(item.id):item.id)+'</text>':'';
+      return '<g class="csa-qk-canvas-item '+(item.valid?'is-valid':'is-invalid')+(selected?' is-selected':'')+(related?' is-related':'')+'" data-qk-item="'+item.id+'" tabindex="'+(selected||(!state.selection&&item.id===0)?'0':'-1')+'" role="button" aria-label="Work Item '+item.id+' · Q'+item.token+' SB'+item.sparseBlock+' · '+(item.valid?'valid':'invalid')+'" style="transform:translate('+p.x+'px,'+p.y+'px)"><rect width="'+p.w+'" height="'+p.h+'" rx="2"/>'+label+'<title>Work Item '+item.id+' · Q'+item.token+' / SB'+item.sparseBlock+' · '+(item.valid?'valid':'invalid')+'</title></g>';}).join('');}
+    function inspector(d){if(!state.selection)return '';
+      const selection=state.selection,block=selection.type==='block'?getBlockDetails(selection.block,d.items,d.queue,d.blockCount):null;
+      let title='',facts=[],formula='';
+      if(block){title='SPMD Lane '+block.index;facts=[['Rank / Scenario',state.rank+' / '+scenarioId()],['Work Items',block.entries.length],['valid / invalid',block.validCount+' / '+block.invalidCount],['Queue Position',block.entries[0]?.queuePosition+' → '+block.entries.at(-1)?.queuePosition]];
+        formula='queuePosition = laneId + iteration × '+d.blockCount+'\n'+block.entries.map(e=>'it '+e.iteration+' → qk_order['+e.queuePosition+'] = '+e.id).join('\n');
+      }else{const item=d.byId.get(selection.id);if(!item)return '';const info=itemDetails(d,item.id);title='Work Item '+item.id;
+        facts=[['Rank / Scenario',item.rank+' / '+item.scenarioId],['Request / Query',item.requestIndex+' / Q'+item.token],['Position',item.positionId],['Sparse Block','SB'+item.sparseBlock],['KV 来源',item.sparseBlock===0?'Window / Original KV':'Selected Compressed KV'],['有效索引',item.validKvCount],['Validity',item.valid?'valid':'invalid'],['qk_order 位置',info.queuePosition],['Lane / Iteration',info.block+' / '+info.iteration]];
+        formula='workItemId = '+item.token+' × 5 + '+item.sparseBlock+' = '+item.id+'\nqueuePosition = '+info.queuePosition+'\nlane = '+info.queuePosition+' % '+d.blockCount+' = '+info.block+'\niteration = floor('+info.queuePosition+' / '+d.blockCount+') = '+info.iteration;
+      }
+      const path=selection.type==='item'?(d.byId.get(selection.id).valid?'KV Gather → QK Matmul → Scale / Bias / Softmax → PV Matmul → Save m/l/o':'invalid 分支 → 写入中性 m/l/o；不进行 QK / PV 计算'):'';
+      return '<aside class="csa-qk-drawer" aria-label="当前计算对象详情"><div class="csa-qk-drawer-head"><h2>'+esc(title)+'</h2><button type="button" data-qk-close aria-label="关闭详情">×</button></div><dl>'+facts.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd>').join('')+'</dl>'+
+        '<details><summary>计算规则与来源</summary><pre>'+esc(formula)+'</pre>'+(selection.type==='item'?'<p>'+esc(d.byId.get(selection.id).validityReason)+'</p><p>'+esc(path)+'</p>':'')+'<p>模型配置 TP=2、H=64；Workload 输入 DECODE_BATCH=64、DECODE_SEQ=8、Position；算子常量 WIN=128、IDX_TOPK=512、ATTN_K_TILE=128、QK_M_TILE=32、NUM_QK_CORES=24。64 / 2 × 8 = 256 Query；(128 + 512) / 128 = 5 SB。T 随 Runtime 输入变化。</p><p>Synthetic idx_topk：每个 Query 最多 512 槽，前 min(512, floor((position+1)/4)) 槽使用确定性范围内索引，其余填 -1；真实索引由 Indexer 产生，-1 不表示 KV 值 0。</p></details>'+
+        '<details><summary>qk_plan / qk_pv · Source Evidence</summary>'+[[134,196,'有效性与 qk_order'],[208,224,'Dispatch 与 Lane 领取'],[224,314,'valid / invalid 路径']].map(([a,z,label])=>'<p><button type="button" data-qk-source="'+SUB_FILE+':'+a+':'+z+'">'+label+' · '+SUB_FILE+' : '+a+'–'+z+' ↗</button></p><pre>'+esc(excerpt(SUB_FILE,a,z))+'</pre>').join('')+'</details>'+
+        '<details><summary>显式任务依赖</summary><p>qk_plan_tid → qk_pv ← cache_ready_dep。这里是源码中的静态依赖，不是 Runtime Timeline。</p><button type="button" data-qk-source="decode_csa.py:384:393">查看调用处 ↗</button></details>'+
+        (selection.type==='item'?'<details><summary>Advanced Simulation · 手动覆盖</summary><p>仅用于观察规则变化，不代表 Indexer 真实输出。SB0 固定有效。</p><button type="button" data-qk-advanced>'+(state.advanced?'关闭手动覆盖':'启用手动覆盖')+'</button>'+(state.advanced&&d.byId.get(selection.id).sparseBlock!==0?'<button type="button" data-qk-toggle="'+selection.id+'">切换当前 Work Item 有效性</button><button type="button" data-qk-reset>清除覆盖</button>':'')+'</details>':'')+'</aside>';
     }
-    function changeContext() {
-      state.overrides.clear(); state.selection = null; state.selectedToken = null;
-      state.openLane = null; state.queueStart = 0; state.requestIndex = 0;
-      onContext({rank:state.rank,scenarioId:scenarioId()}); render();
+    function shell(d){const count=d.items.length,mode=state.mode,positions=viewportPositions(d,state.phase);
+      const requests=mode==='source'?'<label>Request <select data-qk-request>'+Array.from({length:32},(_,i)=>'<option value="'+i+'"'+(i===state.requestIndex?' selected':'')+'>'+i+'</option>').join('')+'</select></label>':'';
+      return '<div class="csa-qk-canvas-shell"><div class="csa-qk-scenario"><div class="segmented-control segmented-control-muted"><button type="button" data-qk-mode="teaching" class="btn btn-sm'+(mode==='teaching'?' is-selected':'')+'" aria-pressed="'+(mode==='teaching')+'">Teaching</button><button type="button" data-qk-mode="source" class="btn btn-sm'+(mode==='source'?' is-selected':'')+'" aria-pressed="'+(mode==='source')+'">Source-scale</button></div><label>场景 <select data-qk-workload><option value="mixed"'+(state.workload==='mixed'?' selected':'')+(mode==='teaching'?' disabled':'')+'>Mixed Context · Synthetic</option><option value="uniform"'+(state.workload==='uniform'?' selected':'')+'>Uniform Context · Synthetic</option></select></label>'+
+        (state.workload==='uniform'||mode==='teaching'?'<label>Position <select data-qk-position>'+POSITIONS.map(p=>'<option value="'+p+'"'+(p===state.position?' selected':'')+'>'+p+'</option>').join('')+'</select></label>':'')+
+        '<label>Rank <select data-qk-rank><option value="0"'+(state.rank===0?' selected':'')+'>0</option><option value="1"'+(state.rank===1?' selected':'')+'>1</option></select></label>'+requests+'<span class="csa-qk-scenario-count">'+(count/SPARSE_BLOCKS)+' Queries · '+count+' Work Items · '+d.blockCount+' Lanes</span></div>'+
+        '<div class="csa-qk-canvas-head"><div><h2 data-qk-title>'+PHASE_LABELS[state.phase]+'</h2><p data-qk-subtitle>'+subtitle(d)+'</p></div><div class="csa-qk-canvas-controls"><button type="button" class="btn btn-ghost btn-sm" data-qk-play>播放</button><button type="button" class="btn btn-ghost btn-sm" data-qk-replay>重播</button><div class="segmented-control segmented-control-muted">'+PHASES.map(p=>'<button type="button" class="btn btn-sm'+(state.phase===p?' is-selected':'')+'" data-qk-phase="'+p+'" aria-pressed="'+(state.phase===p)+'">'+({generation:'Generation',ordering:'Ordering',assignment:'Assignment'}[p])+'</button>').join('')+'</div><label><input type="checkbox" data-qk-loop'+(state.loop?' checked':'')+'> 循环</label></div></div>'+
+        '<div class="csa-qk-canvas-viewport" tabindex="0" role="group" aria-label="QK/PV Work Assignment 画布"><svg viewBox="0 0 1400 790" preserveAspectRatio="xMidYMid meet"><g data-qk-scene><g data-qk-backdrop>'+backdrop(d)+'</g><g data-qk-items>'+itemMarkup(d,positions)+'</g></g></svg></div>'+
+        '<footer class="csa-qk-canvas-footer"><span data-qk-summary>'+summary(d)+'</span><span class="csa-qk-legend"><i class="is-valid"></i>valid <i class="is-invalid"></i>invalid</span><span>静态 Work Assignment · 动效仅表示结构变换</span><div class="csa-qk-zoom"><button type="button" class="btn btn-ghost btn-sm" data-qk-zoom="0.8" aria-label="缩小">−</button><output data-qk-scale>'+Math.round(state.scale*100)+'%</output><button type="button" class="btn btn-ghost btn-sm" data-qk-zoom="1.25" aria-label="放大">＋</button><button type="button" class="btn btn-ghost btn-sm" data-qk-fit>适应</button></div></footer>'+inspector(d)+'</div>';
     }
-    host.addEventListener('click', event => {
-      const target = event.target;
-      const toggle = target.closest('[data-qk-toggle]');
-      if (toggle) { toggleValid(Number(toggle.dataset.qkToggle)); return; }
-      const source = target.closest('[data-qk-source]');
-      if (source) { const [file,a,z] = source.dataset.qkSource.split(':'); onSource(file,Number(a),Number(z)); return; }
-      if (target.closest('[data-qk-dep-toggle]')) { state.depOpen = !state.depOpen; render(); return; }
-      if (target.closest('[data-qk-reset]')) { state.overrides.clear(); if(state.selection?.type==='item')select(state.selection);else render(); return; }
-      if (target.closest('[data-qk-advanced]')) { state.advanced = !state.advanced; if (!state.advanced) state.overrides.clear(); if(state.selection?.type==='item')select(state.selection);else render(); return; }
-      const mode = target.closest('[data-qk-mode]');
-      if (mode) { if(state.mode!==mode.dataset.qkMode){state.mode=mode.dataset.qkMode;changeContext();} return; }
-      const position = target.closest('[data-qk-position]');
-      if (position) { const value=Number(position.dataset.qkPosition); if(state.position!==value){state.position=value;changeContext();} return; }
-      const rank = target.closest('[data-qk-rank]');
-      if (rank) { const value=Number(rank.dataset.qkRank); if(state.rank!==value){state.rank=value;changeContext();} return; }
-      const page = target.closest('[data-qk-queue-step]');
-      if (page) { state.queueStart=Math.max(0,Math.min(derive().queue.length-48,state.queueStart+Number(page.dataset.qkQueueStep)));render();return; }
-      const token = target.closest('[data-qk-token]');
-      if (token) { state.selectedToken=Number(token.dataset.qkToken); state.requestIndex=Math.floor(state.selectedToken/TOKENS_PER_REQUEST); render(); return; }
-      const block = target.closest('[data-qk-block]');
-      if (block) { const id=Number(block.dataset.qkBlock); state.openLane=state.openLane===id?null:id; select({type:'block',block:id}); return; }
-      const item = target.closest('[data-qk-item]');
-      if (item) { select({type:'item',id:Number(item.dataset.qkItem)}); }
+    function subtitle(d){if(state.phase==='generation')return (d.items.length/SPARSE_BLOCKS)+' Queries × 5 Sparse Blocks → '+d.items.length+' Work Items';if(state.phase==='ordering')return d.validCount+' valid 优先 · '+(d.items.length-d.validCount)+' invalid 追加';return d.items.length+' 个 Work Items → '+d.blockCount+' 条逻辑 Lane · 固定步长领取';}
+    function summary(d){if(state.selection?.type==='item'){const item=d.byId.get(state.selection.id),info=itemDetails(d,item.id);return 'Work Item '+item.id+' · Q'+item.token+' / SB'+item.sparseBlock+' → qk_order['+info.queuePosition+'] → Lane '+info.block+' / it '+info.iteration;}
+      if(state.selection?.type==='block'){const b=d.blocks[state.selection.block];return 'Lane '+b.index+' · '+b.entries.length+' 项 · '+b.validCount+' valid / '+b.invalidCount+' invalid';}
+      return d.validCount+' valid / '+(d.items.length-d.validCount)+' invalid · 点击 Work Item 或 Lane 查看';}
+    function camera(){const scene=host.querySelector('[data-qk-scene]');if(scene)scene.setAttribute('transform','translate('+state.panX+' '+state.panY+') translate(700 395) scale('+state.scale+') translate(-700 -395)');const out=host.querySelector('[data-qk-scale]');if(out)out.textContent=Math.round(state.scale*100)+'%';}
+    function render(){const d=derive();host.innerHTML=shell(d);camera();}
+    function updatePhase(phase){if(!PHASES.includes(phase))return;state.phase=phase;const d=derive(),positions=viewportPositions(d,phase);
+      const bg=host.querySelector('[data-qk-backdrop]');if(bg)bg.innerHTML=backdrop(d);
+      host.querySelectorAll('[data-qk-item]').forEach(node=>{const id=Number(node.dataset.qkItem),p=positions.get(id);if(!p)return;node.style.transform='translate('+p.x+'px,'+p.y+'px)';const rect=node.querySelector('rect');rect.setAttribute('width',p.w);rect.setAttribute('height',p.h);const label=node.querySelector('[data-qk-item-label]');if(label)label.textContent=phase==='ordering'?id+' · q'+d.queue.indexOf(id):String(id);});
+      const title=host.querySelector('[data-qk-title]');if(title)title.textContent=PHASE_LABELS[phase];const sub=host.querySelector('[data-qk-subtitle]');if(sub)sub.textContent=subtitle(d);
+      host.querySelectorAll('[data-qk-phase]').forEach(b=>{const active=b.dataset.qkPhase===phase;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});camera();}
+    function select(selection){stop();state.selection=selection;const d=derive();if(selection?.type==='item'){const item=d.byId.get(selection.id);if(!item)return;const info=itemDetails(d,item.id);state.requestIndex=item.requestIndex;
+      onSelection({type:'item',id:item.id,rank:state.rank,scenarioId:scenarioId(),requestIndex:item.requestIndex,tokenIndex:item.token,positionId:item.positionId,sparseBlockIndex:item.sparseBlock,valid:item.valid,validKvCount:item.validKvCount,queuePosition:info.queuePosition,laneId:info.block,laneIteration:info.iteration});
+    }else if(selection?.type==='block')onSelection({type:'block',block:selection.block,rank:state.rank,scenarioId:scenarioId(),laneId:selection.block});render();}
+    function changeContext(){stop();state.selection=null;state.requestIndex=0;state.overrides.clear();state.scale=1;state.panX=state.panY=0;onContext({rank:state.rank,scenarioId:scenarioId()});render();}
+    host.addEventListener('click',event=>{const b=event.target.closest('button,[data-qk-item],[data-qk-lane]');if(!b)return;
+      if(b.dataset.qkItem!=null){if(suppressClick){suppressClick=false;return;}select({type:'item',id:Number(b.dataset.qkItem)});return;}
+      if(b.dataset.qkLane!=null){select({type:'block',block:Number(b.dataset.qkLane)});return;}
+      if(b.dataset.qkMode){if(state.mode!==b.dataset.qkMode){state.mode=b.dataset.qkMode;if(state.mode==='teaching')state.workload='uniform';else state.workload='mixed';changeContext();}return;}
+      if(b.dataset.qkPhase){stop();updatePhase(b.dataset.qkPhase);return;}
+      if(b.hasAttribute('data-qk-play')){state.playing?stop():start();return;}
+      if(b.hasAttribute('data-qk-replay')){stop();updatePhase('generation');start();return;}
+      if(b.hasAttribute('data-qk-close')){state.selection=null;onContext({rank:state.rank,scenarioId:scenarioId()});render();return;}
+      if(b.hasAttribute('data-qk-advanced')){state.advanced=!state.advanced;if(!state.advanced)state.overrides.clear();select(state.selection);return;}
+      if(b.hasAttribute('data-qk-toggle')){const id=Number(b.dataset.qkToggle);if(state.advanced&&id%SPARSE_BLOCKS!==0){state.overrides.set(id,!derive().byId.get(id).valid);select(state.selection);}return;}
+      if(b.hasAttribute('data-qk-reset')){state.overrides.clear();select(state.selection);return;}
+      if(b.dataset.qkZoom){state.scale=Math.max(.7,Math.min(3,state.scale*Number(b.dataset.qkZoom)));camera();return;}
+      if(b.hasAttribute('data-qk-fit')){state.scale=1;state.panX=state.panY=0;camera();return;}
+      if(b.dataset.qkSource){const [file,a,z]=b.dataset.qkSource.split(':');stop();onSource(file,Number(a),Number(z));}
     });
-    host.addEventListener('change', event=>{
-      if(event.target.matches('[data-qk-request]')){state.requestIndex=Number(event.target.value);state.selectedToken=null;render();}
+    host.addEventListener('change',event=>{const t=event.target;
+      if(t.matches('[data-qk-workload]')){state.workload=t.value;changeContext();}
+      if(t.matches('[data-qk-position]')){state.position=Number(t.value);changeContext();}
+      if(t.matches('[data-qk-rank]')){state.rank=Number(t.value);changeContext();}
+      if(t.matches('[data-qk-request]')){state.requestIndex=Number(t.value);render();}
+      if(t.matches('[data-qk-loop]'))state.loop=t.checked;
     });
-
+    host.addEventListener('keydown',event=>{if(event.key==='Escape'&&state.selection){state.selection=null;onContext({rank:state.rank,scenarioId:scenarioId()});render();}else if(event.key==='Enter'&&event.target.dataset.qkItem!=null)select({type:'item',id:Number(event.target.dataset.qkItem)});else if(event.key==='Enter'&&event.target.dataset.qkLane!=null)select({type:'block',block:Number(event.target.dataset.qkLane)});else if(['ArrowRight','ArrowLeft','ArrowDown','ArrowUp'].includes(event.key)&&event.target.dataset.qkItem!=null){event.preventDefault();const step=event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:event.key==='ArrowDown'?5:-5;const id=Math.max(0,Math.min(derive().items.length-1,Number(event.target.dataset.qkItem)+step));select({type:'item',id});host.querySelector('[data-qk-item="'+id+'"]').focus();}});
+    host.addEventListener('wheel',event=>{if(!event.target.closest('.csa-qk-canvas-viewport'))return;event.preventDefault();stop();state.scale=Math.max(.7,Math.min(3,state.scale*Math.exp(-event.deltaY*.001)));camera();},{passive:false});
+    host.addEventListener('pointerover',event=>{if(state.playing&&event.target.closest('[data-qk-item],[data-qk-lane]'))stop();});
+    host.addEventListener('pointerdown',event=>{if(event.button!==0||!event.target.closest('.csa-qk-canvas-viewport')||event.target.closest('[data-qk-item],[data-qk-lane]'))return;drag={x:event.clientX,y:event.clientY,panX:state.panX,panY:state.panY};});
+    host.addEventListener('pointermove',event=>{if(!drag)return;const viewport=host.querySelector('.csa-qk-canvas-viewport'),r=viewport.getBoundingClientRect();state.panX=drag.panX+(event.clientX-drag.x)*1400/r.width;state.panY=drag.panY+(event.clientY-drag.y)*790/r.height;camera();});
+    host.addEventListener('pointerup',()=>{drag=null;});
     render();
-
-    return {
-      render,
-      setSelection: selection => {
-        if (JSON.stringify(selection) === JSON.stringify(state.selection)) return;
-        state.selection = selection ? {...selection} : null;
-        if (selection?.type === 'item') {
-          const d=derive(), item=d.byId.get(selection.id);
-          if(item){ const details=getWorkItemDetails(selection.id,d.queue,d.blockCount);state.requestIndex=item.requestIndex;state.selectedToken=item.token;state.openLane=details.block;state.queueStart=Math.max(0,details.queuePosition-12); }
-        } else if (selection?.type === 'block') state.openLane=selection.block;
-        render();
-      },
-      getState: () => ({mode:state.mode,position:state.position,rank:state.rank,requestIndex:state.requestIndex,selection:state.selection?{...state.selection}:null})
-    };
+    return {render,pause:stop,setSelection:selection=>{if(JSON.stringify(selection)===JSON.stringify(state.selection))return;state.selection=selection?{...selection}:null;render();},getState:()=>({mode:state.mode,workload:state.workload,position:state.position,rank:state.rank,requestIndex:state.requestIndex,phase:state.phase,selection:state.selection?{...state.selection}:null})};
   }
 
   global.PtoCsaQkWork = Object.freeze({
