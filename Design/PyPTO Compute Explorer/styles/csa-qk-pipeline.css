@@ -34,3 +34,33 @@
 .csa-qp-bottom{display:flex;align-items:center;gap:12px 24px;flex-wrap:wrap;justify-content:space-between;padding:10px 20px;border-top:1px solid var(--border-subtle);color:var(--foreground-muted);font:var(--type-micro)}.csa-qp-bottom code{font:inherit;color:var(--foreground-secondary)}
 @media(max-width:1100px){.csa-qp-lane-list{width:160px}.csa-qp-work-list{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.csa-qp-context,.csa-qp-item-top{padding-inline:12px}.csa-qp-bottom{gap:7px}}
 @media(max-width:800px){.csa-qp-lane-canvas{flex-direction:column;padding:10px}.csa-qp-lane-list{width:100%;display:flex;overflow:auto}.csa-qp-lane-list .btn{flex:none}.csa-qp-inspector{width:min(320px,70%)}}
+/* P4.1: keep the inspector beside the canvas and expose actual batch-local data paths. */
+.csa-qp-batch-nav{display:flex;gap:8px;padding:6px 20px;flex-wrap:wrap;border-bottom:1px solid var(--border-subtle)}
+.csa-qp-batch-nav .btn.is-selected{background:var(--surface-3);color:var(--foreground)}
+.csa-qp-stage{display:flex}
+.csa-qp-stage-inner{min-width:0;flex:1;justify-content:flex-start}
+.csa-qp-svg{flex:none;width:max(100%,1050px);height:auto;min-height:0;max-height:none;aspect-ratio:1240/970}
+.csa-qp-inspector{position:static;flex:0 0 286px;width:286px;max-width:33%;height:auto;border-radius:0;box-shadow:none;border-top:0;border-right:0;border-bottom:0}
+.csa-qp-inspector-scope{display:block;margin-top:12px;color:var(--primary);font:var(--type-micro)}
+.csa-qp-svg text{pointer-events:none}
+.csa-qp-title{fill:var(--foreground);font-size:16px;font-weight:600}
+.csa-qp-sub{fill:var(--foreground-secondary);font-size:13px}
+.csa-qp-label,.csa-qp-section{fill:var(--foreground-secondary);font-size:15px}
+.csa-qp-section{font-weight:600}
+.csa-qp-step,.csa-qp-segment{fill:var(--foreground-secondary);font-size:13px}
+.csa-qp-edge-note{fill:var(--foreground-muted);font-size:12px}
+.csa-qp-symbol{fill:var(--foreground-secondary);font-size:17px}
+.csa-qp-batch-header{cursor:pointer}.csa-qp-batch-header rect{fill:var(--surface-3)}.csa-qp-batch-title{fill:var(--foreground);font-size:14px;font-weight:600}
+.csa-qp-batch.is-dimmed{opacity:.22}
+.csa-qp-node.is-dimmed{opacity:.25}
+.csa-qp-matrix{pointer-events:none}.csa-qp-matrix rect{fill:var(--surface-3);stroke:var(--primary);stroke-width:1.2}.csa-qp-matrix path{stroke:var(--border-subtle);stroke-width:.5}.csa-qp-matrix-caption{fill:var(--foreground-muted);font-size:10px;text-anchor:middle}
+.csa-qp-input-flow,.csa-qp-reuse-flow,.csa-qp-stat-flow,.csa-qp-output-flow,.csa-qp-branch-flow{stroke:var(--primary);stroke-width:1.6;fill:none;opacity:.7}
+.csa-qp-reuse-flow{stroke-dasharray:4 4;opacity:.55}
+.csa-qp-stat-flow{stroke:var(--foreground-secondary);opacity:.6}
+.csa-qp-output-flow{stroke:var(--success)}
+.csa-qp-skipped{opacity:.16}
+.csa-qp-svg[data-selected-operation="qk"] .csa-qp-node[data-qp-operation="kv"] rect,.csa-qp-svg[data-selected-operation="pv"] .csa-qp-node[data-qp-operation="kv"] rect{stroke:var(--primary);stroke-width:2.5}
+.csa-qp-svg[data-selected-operation="qk"][data-selected-batch="0"] .csa-qp-batch[data-qp-batch-row="0"] .csa-qp-node[data-qp-operation="query"] rect,.csa-qp-svg[data-selected-operation="qk"][data-selected-batch="1"] .csa-qp-batch[data-qp-batch-row="1"] .csa-qp-node[data-qp-operation="query"] rect{stroke:var(--primary);stroke-width:2.5}
+.csa-qp-svg[data-selected-operation="qk"] .csa-qp-batch:not(.is-dimmed) .csa-qp-node:not([data-qp-operation="qk"]):not([data-qp-operation="query"]),.csa-qp-svg[data-selected-operation="pv"] .csa-qp-batch:not(.is-dimmed) .csa-qp-node:not([data-qp-operation="pv"]):not([data-qp-operation="stats"]){opacity:.35}
+@media(max-width:1100px){.csa-qp-inspector{flex-basis:235px;width:235px}.csa-qp-batch-nav{padding-inline:12px}}
+@media(max-width:800px){.csa-qp-inspector{max-width:40%}}
