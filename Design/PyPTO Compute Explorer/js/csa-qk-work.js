@@ -162,7 +162,7 @@
   function create(host, options = {}) {
     const onSource = options.onSource || (() => {}), onSelection = options.onSelection || (() => {}), onContext = options.onContext || (() => {});
     const state = {mode:options.mode || 'source', workload:'mixed', position:8192, rank:options.rank ?? 0,
-      requestIndex:0, selection:options.selection || null, inspectorOpen:!!options.selection&&['item','block'].includes(options.selection.type), phase:'assignment', playing:false, loop:false,
+      requestIndex:0, selection:options.selection || null, inspectorOpen:false, phase:'assignment', playing:false, loop:false,
       scale:1, panX:0, panY:0, manualCamera:false, advanced:false, overrides:new Map()};
     if(options.selection?.type==='request'||options.selection?.type==='query')state.requestIndex=options.selection.requestIndex;
     else if(options.selection?.type==='item')state.requestIndex=Math.floor(options.selection.id/(SPARSE_BLOCKS*TOKENS_PER_REQUEST));
@@ -306,7 +306,7 @@
         morphCameraTimer=global.setTimeout(()=>{morphCameraTimer=null;if(state.phase!==phase||JSON.stringify(state.selection)!==identity)return;state.scale=saved.scale;state.manualCamera=saved.manualCamera;focusCamera(derive());},reduced?0:530);
       }else refreshSelection(d,!!state.selection);
     }
-    function select(selection){stop();if(morphCameraTimer){global.clearTimeout(morphCameraTimer);morphCameraTimer=null;}state.selection=selection;state.inspectorOpen=!!selection&&['item','block'].includes(selection.type);const d=derive();
+    function select(selection){stop();if(morphCameraTimer){global.clearTimeout(morphCameraTimer);morphCameraTimer=null;}state.selection=selection;state.inspectorOpen=false;const d=derive();
       if(selection?.type==='item'){const item=d.byId.get(selection.id);if(!item)return;const info=itemDetails(d,item.id);state.requestIndex=item.requestIndex;
         onSelection({type:'item',id:item.id,rank:state.rank,scenarioId:scenarioId(),requestIndex:item.requestIndex,tokenIndex:item.token,positionId:item.positionId,sparseBlockIndex:item.sparseBlock,valid:item.valid,validKvCount:item.validKvCount,queuePosition:info.queuePosition,laneId:info.block,laneIteration:info.iteration});
       }else if(selection?.type==='block')onSelection({type:'block',block:selection.block,rank:state.rank,scenarioId:scenarioId(),laneId:selection.block});
@@ -350,7 +350,7 @@
     host.addEventListener('pointerup',()=>{drag=null;});
     render();
     if(global.ResizeObserver)new global.ResizeObserver(()=>{if(!host.hidden){if(state.selection&&!state.manualCamera)focusCamera(derive());else camera();}}).observe(host);
-    return {render,pause:()=>{stop();if(morphCameraTimer){global.clearTimeout(morphCameraTimer);morphCameraTimer=null;}},setSelection:selection=>{if(JSON.stringify(selection)===JSON.stringify(state.selection))return;state.selection=selection?{...selection}:null;state.inspectorOpen=!!selection&&['item','block'].includes(selection.type);if(selection?.type==='request'||selection?.type==='query')state.requestIndex=selection.requestIndex;else if(selection?.type==='item')state.requestIndex=Math.floor(selection.id/(SPARSE_BLOCKS*TOKENS_PER_REQUEST));refreshSelection(derive());},getState:()=>({mode:state.mode,workload:state.workload,position:state.position,rank:state.rank,requestIndex:state.requestIndex,phase:state.phase,selection:state.selection?{...state.selection}:null,inspectorOpen:state.inspectorOpen}),getScenario:derive};
+    return {render,pause:()=>{stop();if(morphCameraTimer){global.clearTimeout(morphCameraTimer);morphCameraTimer=null;}},setSelection:selection=>{if(JSON.stringify(selection)===JSON.stringify(state.selection))return;state.selection=selection?{...selection}:null;state.inspectorOpen=false;if(selection?.type==='request'||selection?.type==='query')state.requestIndex=selection.requestIndex;else if(selection?.type==='item')state.requestIndex=Math.floor(selection.id/(SPARSE_BLOCKS*TOKENS_PER_REQUEST));refreshSelection(derive());},getState:()=>({mode:state.mode,workload:state.workload,position:state.position,rank:state.rank,requestIndex:state.requestIndex,phase:state.phase,selection:state.selection?{...state.selection}:null,inspectorOpen:state.inspectorOpen}),getScenario:derive};
   }
 
   global.PtoCsaQkWork = Object.freeze({
