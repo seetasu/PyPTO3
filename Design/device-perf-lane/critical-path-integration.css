@@ -55,3 +55,43 @@
 .cpi-center{position:relative;padding:0 12px;box-sizing:border-box}
 .cpi-center:before,.cpi-center:after{content:"";position:absolute;top:50%;width:6px;height:6px;border-radius:50%;background:#999;transform:translateY(-50%)}
 .cpi-center:before{left:-3px}.cpi-center:after{right:-3px}
+
+/* Expand dependencies at their path selection without resizing device rows. */
+#path-analysis-lane{position:relative}
+#path-analysis-lane .cpi-drawer{top:100%;bottom:auto;left:0;right:0;height:120px;border:1px solid #444;box-shadow:0 8px 18px #0005;z-index:12}
+#path-analysis-lane .cpi-drawer header{height:28px;box-sizing:border-box;padding:4px 12px;font-size:12px}
+#path-analysis-lane .cpi-drawer header button{padding:3px 8px}
+#path-analysis-lane .cpi-detail{height:90px;padding:4px 16px 10px;column-gap:48px;grid-template-columns:minmax(0,1fr) minmax(180px,300px) minmax(0,1fr)}
+#path-analysis-lane .cpi-center strong{margin:0 0 4px;font-size:13px;overflow-wrap:anywhere}
+#path-analysis-lane .cpi-center b{font-size:22px}
+#path-analysis-lane .cpi-center p{margin:2px 0;font-size:11px}
+#path-analysis-lane .cpi-neighbors{max-height:76px;overflow:auto;gap:4px}
+#path-analysis-lane .cpi-neighbors button{padding:6px 8px;font-size:12px}
+#path-analysis-lane .cpi-neighbors small{margin-bottom:3px;font-size:11px}
+.cpi-host:has(#path-analysis-lane .cpi-drawer:not([hidden])) .lane-toolbar,.cpi-host:has(#path-analysis-lane .cpi-drawer:not([hidden])) .canvas-tools{translate:none}
+
+#path-analysis-lane .cpi-detail{background:linear-gradient(#777,#777) center / calc(100% - 48px) 1px no-repeat}
+#path-analysis-lane .cpi-center{background:#191919}
+#path-analysis-lane .cpi-neighbors:before,#path-analysis-lane .cpi-neighbors:after,#path-analysis-lane .cpi-neighbors button:after{display:none}
+
+/* Continue the path surface downward, like the execution-window disclosure. */
+#path-analysis-lane .cpi-drawer{border:0;border-bottom:1px solid #303030;background:var(--bg,#111);box-shadow:none;animation:cpi-unfold .15s ease-out}
+#path-analysis-lane .cpi-drawer header{position:absolute;right:4px;top:0;height:24px;padding:0;z-index:2}
+#path-analysis-lane .cpi-drawer header button{display:grid;place-items:center;background:none;width:24px;height:24px;padding:0;color:#aaa;font-size:18px}
+#path-analysis-lane .cpi-detail{height:100%;padding:22px 20px 18px;column-gap:40px;background:linear-gradient(#777,#777) center / calc(100% - 60px) 1px no-repeat}
+#path-analysis-lane .cpi-center{background:var(--bg,#111);padding:8px 12px}
+#path-analysis-lane .cpi-neighbors{display:flex;flex-wrap:wrap;align-items:center;align-content:center;gap:6px;max-height:80px;overflow:auto;background:var(--bg,#111);padding:4px}
+#path-analysis-lane .cpi-neighbors:first-child{justify-content:flex-end}
+#path-analysis-lane .cpi-neighbors button{border:0;border-radius:14px;padding:6px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;background:#303030;color:#ddd;line-height:18px}
+#path-analysis-lane .cpi-neighbors button:hover,#path-analysis-lane .cpi-neighbors button.is-linked-hover{background:#484848;outline:1px solid #aaa;outline-offset:-1px}
+#path-analysis-lane .cpi-center.is-linked-hover{outline:1px solid #aaa;border-radius:6px}
+@keyframes cpi-unfold{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){#path-analysis-lane .cpi-drawer{animation:none}}
+
+/* Equal columns and content-driven height keep every dependency visible. */
+#path-analysis-lane .cpi-drawer{height:auto;overflow:visible}
+#path-analysis-lane .cpi-detail{height:auto;min-height:120px;overflow:visible;align-items:center}
+#path-analysis-lane .cpi-neighbors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-height:none;overflow:visible;align-content:center;gap:6px;padding:0;min-width:0}
+#path-analysis-lane .cpi-neighbors button{width:100%;min-width:0;box-sizing:border-box;height:30px;padding:5px 10px;text-align:left;font-size:12px;line-height:20px}
+#path-analysis-lane .cpi-neighbors button:only-child{grid-column:1 / -1}
+@media(max-width:800px){#path-analysis-lane .cpi-neighbors{grid-template-columns:minmax(0,1fr)}#path-analysis-lane .cpi-detail{column-gap:20px;grid-template-columns:minmax(0,1fr) minmax(140px,200px) minmax(0,1fr)}}

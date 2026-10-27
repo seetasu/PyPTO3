@@ -186,6 +186,12 @@ window.QK_RESIDENCY = (() => {
       click({target:tabs[next]});panel.querySelector('#'+id)?.focus({preventScroll:true});
     });
   }
+  // Bind the shared inline renderer without mounting the original page's inspector.
+  function bindInline(rank,task,core,redraw){
+    ctx={raw:rank,rank};panel=document.createElement('div');callbacks={redraw};
+    if(state.leaf!==task.leaf){state.iter=0;state.object=task.leaf==='qk_pv_aic'?'q':'softmax';state.stage=task.leaf==='qk_pv_aic'?'qk':'softmax';}
+    state.leaf=task.leaf;state.core=core;
+  }
   function selectCore(core){pendingCore=core;}
   function inlineEvents(original,leaf='qk_pv_aic') {
     const out=[];let cursor=original.startUs+original.setupUs;
@@ -235,21 +241,21 @@ window.QK_RESIDENCY = (() => {
     for(const ty of [y+6,y+height-14])make('line',{x1:16,x2:W-16,y1:ty,y2:ty,stroke:'#383838'},g);
     const middle=(value,x,ty,color,size,parent=g)=>{const node=text(value,x,ty,color,size,parent);node.setAttribute('dominant-baseline','middle');return node;};
     middle('↳',branch-4,y+28,'#8a8a8a',16);
-    middle('Core '+original.core+' · 核内流水',inset,y+28,'#e8e8e8',12);
+    middle('Core '+original.core+' · 核内流水',inset,y+28,'#e8e8e8',13);
     make('path',{d:'M'+branch+' '+(y+37)+' V'+(y+90+(leaf==='qk_pv_aic'?10:5)*26),fill:'none',stroke:'#383838'},g);
-    const control=(label,attrs,x,width=64)=>{const segment=attrs['data-qk-nav'],disabled=attrs['aria-disabled']==='true';const b=make('g',{'role':'button',tabindex:disabled?-1:0,'aria-label':label,...attrs,class:'qk-inline-control'},g);make('rect',{x,y:y+14,width,height:28,rx:14,fill:segment?'transparent':'#1a1a1a',stroke:segment?'none':'#404040'},b);const t=middle(label,x+width/2,y+28,disabled?'#505050':'#b0b0b0',segment?17:11,b);t.setAttribute('text-anchor','middle');return b;};
+    const control=(label,attrs,x,width=64)=>{const segment=attrs['data-qk-nav'],disabled=attrs['aria-disabled']==='true';const b=make('g',{'role':'button',tabindex:disabled?-1:0,'aria-label':label,...attrs,class:'qk-inline-control'},g);make('rect',{x,y:y+14,width,height:28,rx:14,fill:segment?'transparent':'#303030',stroke:'none'},b);const t=middle(label,x+width/2,y+28,disabled?'#666666':'#e0e0e0',segment?18:12,b);t.setAttribute('text-anchor','middle');return b;};
     const navX=W-272;
     control('Pass 分析',{'data-qk-inline-pass':'true'},navX-94,82);
-    make('rect',{class:'qk-round-control',x:navX,y:y+14,width:160,height:28,rx:14,fill:'#151515',stroke:'#383838'},g);
+    make('rect',{class:'qk-round-control',x:navX,y:y+14,width:160,height:28,rx:14,fill:'#292929',stroke:'none'},g);
     for(const x of [navX+34,navX+126])make('line',{x1:x,x2:x,y1:y+20,y2:y+36,stroke:'#303030'},g);
     control('‹',{'data-qk-nav':'previous','data-qk-inline-iter':Math.max(0,state.iter-1),'aria-label':'上一轮','aria-disabled':String(state.iter===0)},navX,28);
-    const roundText=middle('轮次 '+String(state.iter+1).padStart(2,'0')+' / 32',navX+80,y+28,'#e8e8e8',11);roundText.setAttribute('text-anchor','middle');roundText.setAttribute('class','qk-round-label');
+    const roundText=middle('轮次 '+String(state.iter+1).padStart(2,'0')+' / 32',navX+80,y+28,'#e8e8e8',12);roundText.setAttribute('text-anchor','middle');roundText.setAttribute('class','qk-round-label');
     control('›',{'data-qk-nav':'next','data-qk-inline-iter':Math.min(31,state.iter+1),'aria-label':'下一轮','aria-disabled':String(state.iter===31)},navX+132,28);
     control('收起',{'data-qk-collapse':'true'},W-96,64);
     if(aic){
       const problem=make('g',{role:'button',tabindex:0,class:'qk-pipe-event qk-repeat-summary','data-qk-inline-event':'q','data-qk-inline-iter':Math.max(1,state.iter),'aria-label':'31 次重复 Q 搬运，查看 InferTileMemorySpace 前后变化'},g);
       make('rect',{x:inset,y:y+50,width:400,height:24,rx:3,fill:'#221817'},problem);
-      middle('同一 Q 搬运 32 次 · 其中 31 次重复 → 查看 Pass',inset+10,y+62,'#f28b80',11,problem);
+      middle('同一 Q 搬运 32 次 · 其中 31 次重复 → 查看 Pass',inset+10,y+62,'#f28b80',12,problem);
     }else middle('AIV · 缩放 → exp → 归约 → 返回 P · 写回 m、l',inset,y+62,'#b0b0b0',11);
     const start=original.startUs+original.setupUs,before=inlineEvents(original,leaf);
     const rows=aic?[['q','MTE2 · 固定 Q','#b0b0b0'],['kv','MTE2 · KV','#8e8e8e'],['l0','MTE1 · L0','#7a7a7a'],['mm','CUBE · QK/PV','#b0b0b0'],['send_score','AIC → 分数','#a0a0a0'],['wait_p','AIC · 等待 P','#444444'],['related_vec','关联 AIV · VEC','#9a9a9a'],['recv_p','AIC ← P','#b0b0b0'],['write_o','AIC · O 写回','#9a9a9a'],['write_ml','关联 AIV · m、l','#7a7a7a']]:[['scale','VEC · 缩放','#8e8e8e'],['exp','VEC · exp','#b0b0b0'],['reduce','VEC · 归约','#8e8e8e'],['send_p','AIV → P','#a0a0a0'],['write_ml','AIV · m、l 写回','#7a7a7a']];
@@ -265,10 +271,10 @@ window.QK_RESIDENCY = (() => {
     const sections=[{version:'before',label:'执行引擎',base:82,events:before,end:original.endUs}];
     sections.forEach(({version,label,base,events,end})=>{
       const color='#8a8a8a';
-      text(label,inset,y+base,color,10);
+      text(label,inset,y+base,color,11);
       rows.forEach(([op,rowLabel,normal],index)=>{
         const rowY=y+96+index*26;
-        const rowText=text(rowLabel,LEFT-10,rowY+12,'#b0b0b0',11);rowText.setAttribute('text-anchor','end');
+        const rowText=text(rowLabel,LEFT-10,rowY+12,'#c4c4c4',12);rowText.setAttribute('text-anchor','end');
         for(const ev of events.filter(ev=>ev.op===op||op==='mm'&&ev.op==='pv'||op==='related_vec'&&ev.related&&['scale','exp','reduce','send_p'].includes(ev.op))){
           const from=Math.max(viewStart,ev.startUs),to=Math.min(viewEnd,ev.endUs);if(to<=from)continue;
           const paired=aic&&Math.floor(ev.iter/2)===Math.floor(state.iter/2);
@@ -291,8 +297,8 @@ window.QK_RESIDENCY = (() => {
       [['mm',first],['mm',first+1],['pv',first],['pv',first+1]].forEach(([op,iter],i)=>{
         const x=pairX+44+i*66,active=state.object===op&&state.iter===iter;
         const button=make('g',{class:'qk-inline-control qk-pair-control',role:'button',tabindex:0,'data-qk-inline-event':op,'data-qk-inline-iter':iter,'aria-label':(op==='mm'?'QK':'PV')+' 分片 '+iter,'aria-pressed':active},g);
-        make('rect',{x,y:y+18,width:52,height:20,rx:2,fill:active?'#303030':'#191919',stroke:active?'#aaaaaa':'#333333'},button);
-        const caption=middle((op==='mm'?'QK':'PV')+subscript(iter),x+26,y+28,active?'#ededed':'#a0a0a0',10,button);caption.setAttribute('text-anchor','middle');
+        make('rect',{x,y:y+14,width:52,height:28,rx:14,fill:active?'#e0e0e0':'#303030',stroke:'none'},button);
+        const caption=middle((op==='mm'?'QK':'PV')+subscript(iter),x+26,y+28,active?'#111111':'#d0d0d0',12,button);caption.setAttribute('text-anchor','middle');
         if(i<3)middle('→',x+56,y+28,'#666666',9);
       });
       const rowOf=op=>op==='mm'||op==='pv'?3:['scale','exp','reduce','send_p'].includes(op)?6:rows.findIndex(row=>row[0]===op);
@@ -306,5 +312,5 @@ window.QK_RESIDENCY = (() => {
   }
   function chooseInline(op,iter){if(op){state.object=op;state.stage=stageFor(op);state.pipelinePass=passFor(op);state.step=state.leaf==='qk_pv_aic'?2:1;}state.iter=Math.max(0,Math.min(31,Number(iter)));callbacks.redraw(!!op);if(op)panel.scrollTop=0;if(op==='q'&&state.iter>0&&state.step===2&&state.pipelinePass==='memory')playHoist();}
   function openPass(){state.step=2;state.pipelinePass=passFor(state.object);callbacks.redraw();if(state.pipelinePass==='memory'&&state.object==='q')playHoist();}
-  return{init,update,isTarget,selectCore,hero,withLongBlock,inlineEvents,renderInline,chooseInline,stopHoist,openPass,selectionCore:()=>pendingCore??state.core};
+  return{init,update,bindInline,isTarget,selectCore,hero,withLongBlock,inlineEvents,renderInline,chooseInline,stopHoist,openPass,selectionCore:()=>pendingCore??state.core};
 })();
