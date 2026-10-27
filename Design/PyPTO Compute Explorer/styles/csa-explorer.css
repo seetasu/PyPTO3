@@ -2,6 +2,12 @@
 .csa-explorer { display:flex; flex-direction:column; }
 .csa-toolbar,.csa-focusbar { display:flex; align-items:center; flex-wrap:wrap; gap:var(--space-3); padding:var(--space-2) var(--space-5); flex:none; }
 .csa-toolbar nav { color:var(--foreground-secondary); font:var(--type-body-sm); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.csa-crumb { display:inline-flex; align-items:center; gap:var(--space-2); }
+.csa-crumb-separator { color:var(--foreground-muted); margin:0 var(--space-2); }
+.csa-crumb button { border:0; background:none; color:var(--foreground-secondary); font:inherit; padding:2px 0; cursor:pointer; }
+.csa-crumb button:hover,.csa-crumb button:focus-visible { color:var(--primary); text-decoration:underline; }
+.csa-crumb [aria-current] { color:var(--foreground); font-weight:var(--font-weight-semibold); }
+.csa-scope-context { margin-left:var(--space-3); padding-left:var(--space-3); border-left:1px solid var(--border-subtle); color:var(--foreground-muted); }
 .csa-focusbar { padding-top:0; }
 .csa-workspace { display:flex; flex:1; min-height:0; min-width:0; }
 .csa-canvas-column { flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; }

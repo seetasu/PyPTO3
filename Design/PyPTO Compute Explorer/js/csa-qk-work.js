@@ -128,7 +128,7 @@
     const state = {
       mode: 'teaching',
       mask: DEFAULT_MASK.map(row => row.slice()),
-      selection: options.selection || { type: 'item', id: DEFAULT_SELECTION },
+      selection: options.selection === undefined ? { type: 'item', id: DEFAULT_SELECTION } : options.selection,
       depOpen: true
     };
     let pendingFocus = null;
@@ -301,7 +301,7 @@
     }
 
     function evidence(d, details) {
-      const isItem = state.selection.type === 'item';
+      const isItem = state.selection?.type === 'item';
       const valid = isItem ? d.byId.get(state.selection.id).valid : true;
       const ranges = [
         [134, 196, 'qk_plan · 有效性、qk_order 两轮写入'],
@@ -326,7 +326,9 @@
     }
 
     function inspector(d, ctx) {
-      const body = state.selection.type === 'block'
+      const body = !state.selection
+        ? '<h3>qk_pv Work Assignment</h3><p class="csa-qk-hint">选择 Work Item 或 SPMD Block，查看 qk_order 中的位置与分配关系。</p>'
+        : state.selection.type === 'block'
         ? blockInspector(d, getBlockDetails(state.selection.block, d.items, d.queue, d.blockCount))
         : itemInspector(d, getWorkItemDetails(state.selection.id, d.queue, d.blockCount));
       const dispatch = '<p class="csa-qk-dispatch"><b>DISPATCH</b> qk_pv · ' + d.blockCount + ' SPMD Blocks' +
@@ -379,12 +381,12 @@
 
     function render() {
       const d = derive();
-      const details = state.selection.type === 'item' ? getWorkItemDetails(state.selection.id, d.queue, d.blockCount) : null;
-      const selectedBlock = state.selection.type === 'block' ? state.selection.block : details.block;
+      const details = state.selection?.type === 'item' ? getWorkItemDetails(state.selection.id, d.queue, d.blockCount) : null;
+      const selectedBlock = state.selection?.type === 'block' ? state.selection.block : details?.block;
       // Selecting a block highlights all of its items; selecting an item only itself.
-      const relatedIds = new Set(state.selection.type === 'block' && d.blocks[selectedBlock]
+      const relatedIds = new Set(state.selection?.type === 'block' && d.blocks[selectedBlock]
         ? d.blocks[selectedBlock].entries.map(entry => entry.id) : []);
-      const ctx = { selectedId: state.selection.type === 'item' ? state.selection.id : null, selectedBlock, relatedIds };
+      const ctx = { selectedId: state.selection?.type === 'item' ? state.selection.id : null, selectedBlock, relatedIds };
 
       const scroller = host.querySelector('.csa-qk-analysis');
       const scrollTop = scroller ? scroller.scrollTop : 0;
@@ -440,7 +442,7 @@
       if (mode) {
         state.mode = mode.dataset.qkMode;
         // A block selection cannot survive into a mode with fewer blocks.
-        if (state.selection.type === 'block' && state.selection.block >= blockCount()) { state.selection = { type: 'block', block: blockCount() - 1 }; onSelection({ ...state.selection }); }
+        if (state.selection?.type === 'block' && state.selection.block >= blockCount()) { state.selection = { type: 'block', block: blockCount() - 1 }; onSelection({ ...state.selection }); }
         render();
         return;
       }
@@ -454,8 +456,8 @@
 
     return {
       render,
-      setSelection: selection => { if (selection && (selection.type !== state.selection.type || selection.id !== state.selection.id || selection.block !== state.selection.block)) { state.selection = { ...selection }; render(); } },
-      getState: () => ({ mode: state.mode, mask: state.mask.map(row => row.slice()), selection: { ...state.selection } })
+      setSelection: selection => { if (JSON.stringify(selection) !== JSON.stringify(state.selection)) { state.selection = selection ? { ...selection } : null; render(); } },
+      getState: () => ({ mode: state.mode, mask: state.mask.map(row => row.slice()), selection: state.selection ? { ...state.selection } : null })
     };
   }
 

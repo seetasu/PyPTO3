@@ -3,7 +3,7 @@
   'use strict';
   const model=global.PtoCsaModel, objects=model.objects;
   const state={open:false,tab:'assignment',focus:null,rank:0,qkMode:false,
-    views:{assignment:{scope:'overall',topic:'gather',camera:null},pipeline:{scope:'overall',topic:'gather',camera:null},graph:{scope:'overall',camera:null,expanded:[],overlays:{data:true},nodeId:null,edgeId:null,inspectorOpen:false}}};
+    views:{assignment:{scope:'overall',topic:'gather',camera:null},pipeline:{scope:'overall',topic:'gather',camera:null},graph:{scope:'overall',camera:null,expanded:[],overlays:{data:true,control:true},nodeId:null,edgeId:null,inspectorOpen:false,projectedFocusKey:null}}};
   const tabs=['assignment','pipeline','graph'];
   let root, controller, semanticController, qkController, trigger, previousInert=[], graph;
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -16,13 +16,16 @@
   const semanticNodes=new Map();
   function indexSemantic(nodes,parentId=null){for(const n of nodes){const id=parentId?parentId+'/'+n.id:n.id;semanticNodes.set(id,{...n,parentId});if(n.composite?.subgraph)indexSemantic(n.composite.subgraph.nodes,id);}}
   indexSemantic(semantic.nodes);
+  const qkPvId='sparse/attention/qk-pv';
+  function nearestObject(id){while(id){if(graphToObject[id])return graphToObject[id];id=id.slice(0,id.lastIndexOf('/'));}return null;}
   function setFocus(focus){state.focus=focus;state.rank=focus?.rank??state.rank;if(!focus||!['work-item','lane'].includes(focus.kind))state.qkMode=false;state.views.graph.nodeId=null;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=false;if(qkController&&qkSelection())qkController.setSelection(qkSelection());}
   function qkSelection(){const f=state.focus;return f?.kind==='work-item'?{type:'item',id:f.workItemId}:f?.kind==='lane'?{type:'block',block:f.blockId}:null;}
-  function graphIdForFocus(){const f=state.focus;if(!f||f.kind==='rank')return null;if(f.kind==='work-item'||f.kind==='lane')return 'sparse/attention/dispatch';if(f.semanticId)return f.semanticId;return objectToGraph[f.objectId]||null;}
-  function objectForFocus(){const f=state.focus;if(!f)return null;if(f.kind==='rank')return 'rank';if(f.kind==='work-item'||f.kind==='lane')return 'attention';return f.objectId||graphToObject[f.semanticId]||graphToObject[f.moduleId]||null;}
-  function graphFocus(id){const n=semanticNodes.get(id);if(!n)return null;const parent=n.parentId&&semanticNodes.get(n.parentId);const moduleId=n.composite?.category==='module'?id:parent?.composite?.category==='module'?n.parentId:null;return {kind:n.composite?.category==='stage'?'stage':n.type==='composite'?'module':n.type==='operation'?'operation':n.type==='data'?'data':n.type==='state'?'state':'module',rank:null,semanticId:id,moduleId,objectId:graphToObject[id]||graphToObject[moduleId]||null};}
+  function graphIdForFocus(){const f=state.focus;if(!f||f.kind==='rank')return null;if(f.kind==='work-item'||f.kind==='lane')return qkPvId;if(f.semanticId)return f.semanticId;return objectToGraph[f.objectId]||null;}
+  function focusKey(){const f=state.focus;return f?JSON.stringify([f.kind,f.semanticId,f.objectId,f.workItemId,f.blockId,f.rank]):null;}
+  function objectForFocus(){const f=state.focus;if(!f)return null;if(f.kind==='rank')return 'rank';if(f.kind==='work-item'||f.kind==='lane')return 'attention';return f.objectId||nearestObject(f.semanticId)||nearestObject(f.moduleId);}
+  function graphFocus(id){const n=semanticNodes.get(id);if(!n)return null;const parent=n.parentId&&semanticNodes.get(n.parentId);const moduleId=n.composite?.category==='module'?id:parent?.composite?.category==='module'?n.parentId:null;return {kind:n.composite?.category==='stage'?'stage':n.type==='composite'?'module':n.type==='operation'?'operation':n.type==='data'?'data':n.type==='state'?'state':'module',rank:null,semanticId:id,moduleId,objectId:nearestObject(id)};}
   function legacyFocus(object,rank){return object==='rank'?{kind:'rank',rank}:{kind:['tensor','state'].includes(objects[object]?.kind)?'data':'module',rank,objectId:object,moduleId:objectToGraph[object]||null};}
-  function focusLabel(){const f=state.focus;if(!f)return 'Decode CSA';const parts=['Decode CSA'];if(f.kind==='rank')return parts.concat('Rank '+f.rank).join(' / ');const id=graphIdForFocus(),path=id?.split('/')||[],stage=semanticNodes.get(path[0]),selected=semanticNodes.get(id);if(f.rank!=null)parts.push('Rank '+f.rank);if(stage)parts.push(stage.name);if(path.length>1&&f.kind!=='stage')parts.push(semanticNodes.get(path.slice(0,2).join('/'))?.name||path[1]);if(path.length>2&&!['work-item','lane'].includes(f.kind))parts.push(selected?.name||path.at(-1));if(f.kind==='work-item')parts.push('qk_pv','Work Item '+f.workItemId);if(f.kind==='lane')parts.push('qk_pv','SPMD Block '+f.blockId);if(!stage&&f.objectId)parts.push(objects[f.objectId]?.label||f.objectId);return parts.join(' / ');}
+  function focusCrumbs(){const f=state.focus,items=[{id:'',label:'Decode CSA'}];if(!f)return items;if(f.kind==='rank')return [...items,{label:'Rank '+f.rank}];if(f.rank!=null)items.push({label:'Rank '+f.rank});const id=graphIdForFocus(),path=id?.split('/')||[];path.forEach((_,index)=>{const key=path.slice(0,index+1).join('/'),node=semanticNodes.get(key);if(node&&!(key==='sparse/attention'))items.push({id:key,label:node.name});});if(f.kind==='work-item')items.push({label:'Work Item '+f.workItemId});if(f.kind==='lane')items.push({label:'SPMD Block '+f.blockId});if(path.length===0&&f.objectId)items.push({label:objects[f.objectId]?.label||f.objectId});return items;}
   function node(g,object,rank,x,y,label){const o=objects[object],id='r'+rank+':'+object;
     g.nodes.push({id,object,rank,x,y,width:242,height:62,label:label||o.label,kind:['tensor','state'].includes(o.kind)?'tensor':'module',typeLabel:model.kindLabels[o.kind],colorKey:o.sem,parent:'rank-'+rank});
     return id;
@@ -149,10 +152,11 @@
     root.addEventListener('click',event=>{
       const b=event.target.closest('button');if(!b)return;
       if(b.hasAttribute('data-csa-back'))return close();
-      if(b.hasAttribute('data-csa-qk')){state.qkMode=!state.qkMode;if(state.qkMode&&!qkSelection())setFocus({kind:'work-item',rank:null,moduleId:'sparse/attention',operationId:'sparse/attention/dispatch',workItemId:11,tokenIndex:2,sparseBlockIndex:1});render();return;}
-      if(b.dataset.csaTab){saveCamera();state.tab=b.dataset.csaTab;if(state.tab==='assignment'&&state.focus)state.views.assignment.topic=selectedTopic(state.views.assignment.topic);render();return;}
+      if(b.hasAttribute('data-csa-qk')){const entering=!state.qkMode;if(entering&&!graphIdForFocus()?.startsWith(qkPvId))setFocus({kind:'module',rank:null,semanticId:qkPvId,moduleId:qkPvId,objectId:'attention'});state.qkMode=entering;render();return;}
+      if(b.hasAttribute('data-csa-crumb')){const id=b.dataset.csaCrumb;setFocus(id?graphFocus(id):null);const v=state.views.graph;v.expanded=id?id.split('/').slice(0,-1).map((_,i)=>id.split('/').slice(0,i+1).join('/')):[];v.scope=v.expanded.length?'local':'overall';v.camera=null;render();return;}
+      if(b.dataset.csaTab){saveCamera();state.tab=b.dataset.csaTab;if(state.tab==='assignment'&&state.focus)state.views.assignment.topic=selectedTopic(state.views.assignment.topic);if(state.tab==='graph'){const v=state.views.graph,key=focusKey();if(key&&key!==v.projectedFocusKey){const path=graphIdForFocus()?.split('/')||[],ancestors=path.slice(0,-1).map((_,i)=>path.slice(0,i+1).join('/'));v.expanded=[...new Set([...v.expanded,...ancestors])];v.scope=v.expanded.length?'local':'overall';v.projectedFocusKey=key;}}render();return;}
       if(b.dataset.csaScope){saveCamera();const v=state.views[state.tab];if(state.tab==='graph'){if((v.expanded.length?'local':'overall')===b.dataset.csaScope)return;if(b.dataset.csaScope==='local'&&!v.bookmarkedNodeId&&semanticController){semanticController.toggleExpanded((graphIdForFocus()||v.nodeId||'input').split('/')[0],true);return;}setGraphScope(b.dataset.csaScope);render();return;}if(v.scope===b.dataset.csaScope)return;v.scope=b.dataset.csaScope;if(state.focus)v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
-      if(b.hasAttribute('data-csa-return')){if(state.tab==='graph')setGraphScope('overall');else{state.views[state.tab].scope='overall';state.views[state.tab].camera=null;}render();return;}
+      if(b.hasAttribute('data-csa-return')){if(state.tab==='graph'){const v=state.views.graph,focusId=graphIdForFocus()||'';const branch=v.expanded.filter(id=>focusId.startsWith(id)).sort((a,b)=>b.length-a.length);const last=branch[0]||v.expanded.at(-1);v.expanded=v.expanded.filter(id=>id!==last&&!id.startsWith(last+'/'));const parent=last?.slice(0,last.lastIndexOf('/'));if(parent&&semanticNodes.get(parent)?.name===semanticNodes.get(last)?.name)v.expanded=v.expanded.filter(id=>id!==parent&&!id.startsWith(parent+'/'));v.scope=v.expanded.length?'local':'overall';v.camera=null;}else{state.views[state.tab].scope='overall';state.views[state.tab].camera=null;}render();return;}
       if(b.dataset.csaFocus){const topic=b.dataset.csaFocus,v=state.views[state.tab];v.topic=topic;v.camera=null;setFocus(legacyFocus({gather:'gather',cache:'ready',output:'publish'}[topic],state.rank));render();return;}
       if(b.hasAttribute('data-csa-clear')){setFocus(null);state.views.graph.nodeId=null;controller?.clearSelection();details();chrome();return;}
       if(b.hasAttribute('data-csa-drill')){const v=state.views[state.tab];v.scope='local';v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
@@ -188,10 +192,11 @@
     root.querySelectorAll('[data-csa-scope]').forEach(b=>{const active=b.dataset.csaScope===scope;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
     const scopeGroup=root.querySelector('[data-csa-scopegroup]');if(scopeGroup)scopeGroup.hidden=qk;
     const focusbar=root.querySelector('.csa-focusbar');if(focusbar)focusbar.hidden=qk;
-    root.querySelector('[data-csa-return]').hidden=qk||scope!=='local';
+    root.querySelector('[data-csa-return]').hidden=qk||scope!=='local';root.querySelector('[data-csa-return]').textContent=state.tab==='graph'?'← 返回上级':'← 返回整体';
     const qkButton=root.querySelector('[data-csa-qk]');
-    if(qkButton){qkButton.hidden=state.tab!=='assignment';qkButton.classList.toggle('is-selected',qk);qkButton.textContent=qk?'← 返回 Assignment':'QK Work Assignment';qkButton.setAttribute('aria-pressed',String(qk));}
-    root.querySelector('[data-csa-breadcrumb]').textContent=focusLabel();
+    if(qkButton){qkButton.hidden=state.tab!=='assignment';qkButton.classList.toggle('is-selected',qk);qkButton.textContent=qk?'← 返回 Assignment':graphIdForFocus()?.startsWith(qkPvId)?'查看 qk_pv Work Assignment':'QK Work Assignment';qkButton.setAttribute('aria-pressed',String(qk));}
+    const crumbs=focusCrumbs(),scopeId=state.views.graph.expanded.at(-1),scopeName=semanticNodes.get(scopeId)?.name;
+    root.querySelector('[data-csa-breadcrumb]').innerHTML=crumbs.map((item,index)=>'<span class="csa-crumb">'+(index?'<span class="csa-crumb-separator" aria-hidden="true">/</span>':'')+(item.id!==undefined&&index<crumbs.length-1?'<button type="button" data-csa-crumb="'+esc(item.id)+'">'+esc(item.label)+'</button>':'<span aria-current="location">'+esc(item.label)+'</span>')+'</span>').join('')+(state.tab==='graph'&&scopeName?'<span class="csa-scope-context">视图层级：'+esc(scopeName)+'</span>':'');
     const drill=root.querySelector('[data-csa-drill]');if(drill)drill.disabled=state.tab==='graph';
   }
   // Jumping to a source line only reads correctly once the explorer releases the workarea,
@@ -216,9 +221,9 @@
     root.querySelector('.csa-workspace').hidden=qkActive;qkHost.hidden=!qkActive;
     if(qkActive){
       if(qkController){qkController.setSelection(qkSelection());qkController.render();}
-      else qkController=global.PtoCsaQkWork.create(qkHost,{onSource:qkSource,selection:qkSelection()||undefined,onSelection:selection=>{
-        if(selection.type==='item')setFocus({kind:'work-item',rank:null,moduleId:'sparse/attention',operationId:'sparse/attention/dispatch',workItemId:selection.id,tokenIndex:Math.floor(selection.id/5),sparseBlockIndex:selection.id%5});
-        else setFocus({kind:'lane',rank:null,moduleId:'sparse/attention',operationId:'sparse/attention/dispatch',blockId:selection.block});
+      else qkController=global.PtoCsaQkWork.create(qkHost,{onSource:qkSource,selection:qkSelection(),onSelection:selection=>{
+        if(selection.type==='item')setFocus({kind:'work-item',rank:null,moduleId:qkPvId,operationId:qkPvId+'/dispatch',workItemId:selection.id,tokenIndex:Math.floor(selection.id/5),sparseBlockIndex:selection.id%5});
+        else setFocus({kind:'lane',rank:null,moduleId:qkPvId,operationId:qkPvId+'/dispatch',blockId:selection.block});
         chrome();
       }});
       chrome();return;
@@ -227,10 +232,11 @@
     if(state.tab==='graph'){
       root.querySelector('.csa-footer').hidden=true;
       root.querySelector('.csa-inspector').hidden=true;
-      root.querySelector('.csa-caption').innerHTML='<b>CSA Compute Graph</b><span>Stage 是语义分组；点击 Module 的 + 展开源码支持的内部关系。</span>';
+      root.querySelector('.csa-caption').innerHTML='<b>CSA Compute Graph</b><span>Stage 为语义分组；Module 可用 + 逐层展开。Tensor / Cache 表示数据与状态；连线区分数据与 Task / Control 依赖，不表示执行时长。</span>';
       stage.classList.add('csa-semantic-stage');
       semanticController=global.PtoVisualization2Graph.mount(stage,{onSelect:()=>{},onView:patch=>{
         if(patch.expanded){const opened=new Set(patch.expanded);patch.expanded=patch.expanded.filter(id=>id.split('/').slice(0,-1).every((_,i)=>opened.has(id.split('/').slice(0,i+1).join('/'))));}
+        if(patch.expanded){delete patch.nodeId;delete patch.inspectorOpen;}
         if(patch.nodeId)state.views.graph.edgeId=null;
         Object.assign(state.views.graph,patch);
         if(!semanticController)return;
@@ -241,7 +247,7 @@
         context:()=> '源码静态数据、状态和 Task ID 依赖；Stage 不表示严格串行。',
         resolveFocus:(g,selection,v)=>{const path=graphIdForFocus()?.split('/')||[];let nodeId=null;while(path.length&&!nodeId){const candidate=path.join('/');if(g.nodes.some(n=>n.id===candidate))nodeId=candidate;else path.pop();}return {nodeId,edgeId:v.edgeId,related:nodeId?[nodeId]:[],kind:'node'};},
         hasInspector:()=>!!(state.views.graph.nodeId||state.views.graph.edgeId),
-        onNode:id=>{setFocus(graphFocus(id));state.views.graph.nodeId=id;state.views.graph.bookmarkedNodeId=null;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});chrome();},
+        onNode:id=>{setFocus(graphFocus(id));state.views.graph.projectedFocusKey=focusKey();state.views.graph.nodeId=id;state.views.graph.bookmarkedNodeId=null;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});chrome();},
         onEdge:id=>{setFocus(null);state.views.graph.edgeId=id;state.views.graph.bookmarkedNodeId=null;state.views.graph.inspectorOpen=true;semanticController.update(null,state.views.graph,{active:true});chrome();},
         onSync:()=>{},
         onSource:range=>{const [file,a,z]=range.split(':');global.PtoComputeIDE.showSourceFile(file,Number(a),Number(z));},
@@ -299,7 +305,8 @@
       root.querySelector('.csa-inspector').hidden=false;
       root.querySelector('.csa-footer').hidden=false;
       graph=view.scope==='local'?(state.tab==='assignment'?anatomy(view.topic):localGraph(view.topic)):state.tab==='assignment'?assignment(view.topic):pipeline();
-      root.querySelector('.csa-caption').innerHTML='<b>'+esc(view.scope==='local'?(state.tab==='assignment'?'Tensor / Cache Anatomy · ':'Task / Communication Dependency · ')+model.topics[view.topic]:titles[state.tab])+'</b><span>'+esc(state.tab==='assignment'?'T 为本地 token 行；数据块仅示意归属与分组。':'主要静态依赖 · 分支不保证同时执行 · 拖拽平移 / Ctrl 或 ⌘ 滚轮缩放')+'</span>';
+      const qkContext=graphIdForFocus()?.startsWith(qkPvId);
+      root.querySelector('.csa-caption').innerHTML='<b>'+esc(qkContext?'qk_pv · '+titles[state.tab]:view.scope==='local'?(state.tab==='assignment'?'Tensor / Cache Anatomy · ':'Task / Communication Dependency · ')+model.topics[view.topic]:titles[state.tab])+'</b><span>'+esc(qkContext?(state.tab==='assignment'?'当前图显示 Sparse Attention 所属 Rank 与数据归属；通过上方入口查看 qk_order、Work Item 和 SPMD Block 分配。':'当前图以 Sparse Attention 定位 qk_pv 所属静态依赖；qk_plan 与 cache_ready_dep 是派发前置条件，图形位置不表示执行时间。'):state.tab==='assignment'?'T 为本地 token 行；数据块仅示意归属与分组。':'主要静态依赖 · 分支不保证同时执行 · 拖拽平移 / Ctrl 或 ⌘ 滚轮缩放')+'</span>';
       const object=objectForFocus(),focusRank=state.focus?.rank??state.rank;let selectedId=object&&object!=='rank'?'r'+focusRank+':'+object:null;
       if(selectedId&&!graph.nodes.some(n=>n.id===selectedId)){let mapped=object;for(let i=0;i<4&&!graph.nodes.some(n=>n.id==='r'+focusRank+':'+mapped);i++)mapped=alias[mapped];selectedId=mapped?'r'+focusRank+':'+mapped:null;}
       if(state.focus?.kind==='rank')selectedId='rank-'+state.focus.rank;
