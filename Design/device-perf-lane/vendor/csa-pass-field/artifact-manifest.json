@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "csa-pass-field.artifact.v1",
+  "runId": "_jit_l3_decode_csa_20260903_010617",
+  "htmlSha256": "adbff6a865e8d34490f5a6f67acb226e752f8559c6d8696cd9bcbda19e21e141",
+  "generatorSha256": "d176cb92187bd1f005aac5e1bae4591f6542d1a03a08247144f9e8eb00ef02fe",
+  "inputHashes": {
+    "selectedSnapshots": "2c398b380b50150ef1a776473d8fbd73127889177a125a9145991aefa55851e4"
+  },
+  "sourceRepository": "PyPTO3-main",
+  "sourcePath": "Design/csa-pass-field",
+  "sourceFingerprint": "2b78ff57445ed07f679171091e976af9e377dfef097087df5604e05bbf7debea",
+  "collectionPolicy": "generated-only; edit the source checkout and rebuild",
+  "documentationHashes": {
+    "docs/callable-explorer-rules.html": "8c1b053ccf4eb3b520310eb0abbcecc91be4d7b47797d67a7bb9952d16e3e6e8",
+    "docs/callable-explorer-rules.md": "1f906a76888b45423b07b58134c6a44a9eb0d7726478ae36e79d6a9117595610",
+    "docs/cross-callable-validation.html": "a6fdf08b465df54d7adb12861c04a2832d3d8811324d4adbd449d33c83480f9e",
+    "docs/cross-callable-validation.md": "febd1b1b3c732bb9e1692f3cb4369d31a54d779f3c9932b55de98005d33b24d1",
+    "docs/validation/cross-callable-audit.json": "b3d82406bd65db292fbb9297f9db48eef10527e2389e54d2ae2728625ee44058"
+  }
+}

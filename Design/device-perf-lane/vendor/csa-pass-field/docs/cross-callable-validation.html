@@ -1,0 +1,42 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>跨 callable 源码与数据验证</title><style>:root{color-scheme:dark;font-family:Arial,"PingFang SC",sans-serif;background:#151515;color:#ddd}body{margin:0}main{max-width:920px;margin:auto;padding:40px 28px 80px}nav{display:flex;gap:24px;margin-bottom:32px;font-size:13px}a{color:#9ac7ed;text-underline-offset:4px}h1{font-size:30px;line-height:1.4;color:#fff}h2{font-size:21px;margin-top:36px;color:#eee}p,li{font-size:15px;line-height:1.9}li{margin:8px 0}code{font:13px ui-monospace,monospace;color:#c7d8e5}pre{padding:20px;border-radius:10px;background:#242424;overflow:auto;line-height:1.7}.table-scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:14px;line-height:1.7}th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #383838}th{color:#fff;background:#222}strong{color:#fff}@media(max-width:600px){main{padding:24px 18px}h1{font-size:25px}}</style></head><body><main><nav><a href="../index.html">返回 Callable Explorer</a><a href="./cross-callable-validation.md" download>下载 Markdown</a></nav><h1>跨 callable 源码与数据验证</h1>
+<p>日期：2026-10-16。输入：<code>Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617</code>。全部来自同一真实编译运行，读取原始 52 份 passes_dump 和各自 PTO 文件，未执行输入 Python。</p>
+<h2>验证范围</h2>
+<p>两个已有样本作为回归基线，五个其他 callable 用作结构反例，共 7 × 52 = 364 个阶段。此处验证 callable 发现、阶段源码变化、核装饰器、全操作清单、分配及通信信息；不是新样本 UI 接入或浏览器验收。</p>
+<div class="table-scroll"><table><thead><tr><th>Callable</th><th>P23 执行归属</th><th>P33 → P35 显式分配数</th><th>P35 已知分配字节和</th><th>对通用化的约束</th></tr></thead><tbody>
+<tr><td>qk_pv（基线）</td><td>AIC + AIV，含 Group/SPMD 包装</td><td>53 → 12</td><td>361216 B</td><td>分核、多个空间和跨核关系；不能只取家族第一函数</td></tr>
+<tr><td>csa_merge_pack_publish（基线）</td><td>AIV + SPMD 包装</td><td>53 → 12</td><td>165120 B</td><td>CommCtx、put、notify、两个 fence</td></tr>
+<tr><td>csa_cache_writeback</td><td>AIV + SPMD 包装</td><td>1 → 1</td><td>1024 B</td><td>访存样本不应套六个计算业务阶段</td></tr>
+<tr><td>idx_qr_proj_matmul</td><td>AIC + SPMD 包装</td><td>23 → 11</td><td>405504 B</td><td>Acc/Mat/Left/Right 四空间，没有 Vec；不得生成 UB</td></tr>
+<tr><td>cp_token_allgather_payload_wait</td><td>AIV</td><td>0 → 0</td><td>0 B（无显式本地分配）</td><td>等待同步，PTO 含 twait；无分配不代表无行为</td></tr>
+<tr><td>comb_sinkhorn</td><td>AIV + SPMD 包装</td><td>132 → 18</td><td>4608 B</td><td>大量分配身份与复用；不应按节点数量任意改变容量纹理</td></tr>
+<tr><td>csa_rope_interleave</td><td>AIV</td><td>34 → 6</td><td>4096 B</td><td>gather、视图、多个循环；不应套 merge 样本区域分类</td></tr>
+</tbody></table></div>
+<p>字节和按家族各函数声明求和，不能解释为同时占用、芯片容量、峰值或性能收益。qk_pv 的不同核/空间必须分开解释。PTO 的 alloc_tile 与 Python IR 的显式 allocation 处于不同抽象层，数量不要求相等。</p>
+<h2>实际发现与修复</h2>
+<p>第一次审计发现 idx_qr_proj_matmul 和 comb_sinkhorn 在 P0–8 为空。核查 frontend 后发现它们存在明确 name_hint，但写作 <code>for ... in pl.spmd(...)</code>。原 probe 只识别 <code>With</code>，漏掉 <code>For</code>。</p>
+<p>已在 probe 和审计脚本中共同补充 For.iter 的 name_hint 识别，并重新读取全部快照。七个样本最终均在 52 个阶段有候选 scope/function，且附函数名、装饰器、行号、原始文件摘要。该结果只证明当前七个样本的发现覆盖，不证明前缀匹配就是可靠跨 Pass lineage。</p>
+<p>新增回归测试使用最小 For scope → AIV 函数的两阶段输入，验证早期发现、outline 转换、保留 fence、读取 twait。真实数据断言同时覆盖单 AIC 四空间、零分配等待、132→18 分配复用和 P50 两个 fence。</p>
+<h2>规则得到的验证</h2>
+<ol>
+<li><strong>核归属必须来自输入。</strong> 同一运行里同时存在单 AIC、单 AIV、混合核；固定 AIV 框或 UB 无法通用。</li>
+<li><strong>需要通用操作库存与专用显示分层。</strong> twait、fence、CommCtx 即使没有算术或本地分配也有重要语义，不能被 tensor/tile 白名单过滤。</li>
+<li><strong>输入发现必须覆盖不同 scope 语法。</strong> 同一个 name_hint 可以出现在 With 或 For 中；解析失败/缺失要报告，不能默认为 no-op。</li>
+<li><strong>内存表达不能固定为 UB。</strong> 单 AIC 样本同时使用 Acc/Mat/Left/Right；等待样本没有本地显式分配，应不出现虚构的内存面板。</li>
+<li><strong>变化稀疏是允许的，但需证据。</strong> JSON 中 changedPasses 仅是去掉位置属性的 AST 家族变化，不是主图变化，绝不可直接用于下划线/播放。</li>
+<li><strong>聚合数量不足以验证图。</strong> 本次尚未重建这些样本完整定义/使用、CFG、视图重叠和跨阶段 lineage；不将统计审计当成图结构正确。</li>
+</ol>
+<h2>尚未通过的通用化验收</h2>
+<ul>
+<li>scene builder 仍按 merge 的六业务区、固定布局和显式源码范围配置。这五个新样本没有被其真正接入，因此“只换输入、不改 renderer”的验收尚未通过。</li>
+<li>新审计脚本记录全部 pl/pld 调用，但尚无完整语义 IR 与未知节点覆盖率；操作库存不是语义解析。</li>
+<li>家族前缀候选可能误收兄弟函数；本次未证明稳定对象匹配或所有作用域边界。</li>
+<li>多样本来自同一 run，未验证其他模型/编译器版本/不完整输入包。</li>
+<li>未做新样本的浏览器默认、展开、hover、选择及播放验收。</li>
+</ul>
+<p>因此实施优先级仍是统一 IR → 模型驱动布局与交互 → 多样本只换数据接入 → 上传入口。原页面与其运行数据未替换。</p>
+<h2>复现</h2>
+<p>在仓库根目录执行：</p>
+<pre><code>rtk proxy python3 Design/csa-callable-explorer/scripts/validate-other-callables.py --run Data/DeepseekV4/_jit_l3_decode_csa_20260903_010617 --output Design/csa-callable-explorer/docs/validation/cross-callable-audit.json
+rtk proxy python3 Design/csa-callable-explorer/scripts/test-callable-audit.py
+rtk proxy npm --prefix Design/csa-callable-explorer run test:callable</code></pre>
+<p>机器结果：<a href="validation/cross-callable-audit.json">cross-callable-audit.json</a>。规则：<a href="callable-explorer-rules.html">callable-explorer-rules.md</a>。JSON 包含逐阶段文件摘要、函数范围、装饰器、参数、全部操作计数及 MemRef/分配信息，可定位到原始源码复核。</p></main></body></html>
