@@ -146,7 +146,42 @@
     ['qk-scores','row-max','scores'],['row-max','qk-mi','block max'],['qk-scores','exp','scores'],['qk-mi','exp','subtract max'],['exp','qk-exp','unnormalized exp'],['qk-exp','row-sum','exponentials'],['row-sum','qk-li','block sum'],['qk-exp','cast','FP32 exp'],['cast','qk-exp-bf16','BF16 exp'],
     ['qk-exp-bf16','pv','unnormalized weight'],['qk-kv','pv','same KV Tile'],['pv','qk-oi','FP32 PV'],['qk-mi','partial-write','mi','data','default','mi'],['qk-li','partial-write','li','data','default','li'],['qk-oi','partial-write','oi','data','default','oi'],['invalid-block','partial-write','neutral mi/li/oi','control','default','invalid']
   ],{q:m('q-view','q'),original:m('window','cache'),compressed:m('selected','cache'),positions:m('plan','positions'),ready:m('dispatch','ready','control')},{mi:m('partial-write','mi'),li:m('partial-write','li'),oi:m('partial-write','oi'),rope:m('rope'),qk_tid:m('dispatch','tid','control'),rope_tid:m('rope','default','control')});
-  const publish=mod('publish','Merge / Pack / Publish','同一 Publish 任务中合并 partial、处理 Sink 与 inverse RoPE、按目标 Rank 打包并 Put / Notify。',factSrc('publish'),[
+  // qk_plan and rope_cs remain siblings of the qk_pv SPMD scope. Move the
+  // existing block computation nodes without inventing dependencies.
+  const qkScope=new Set(['dispatch','window','selected','qk-kv','q-view','qk-q-tile','qk','qk-raw','score','qk-scores','row-max','qk-mi','exp','qk-exp','row-sum','qk-li','cast','qk-exp-bf16','pv','qk-oi','invalid-block','partial-write']);
+  const attentionGraph=attention.composite.subgraph;
+  const inside=attentionGraph.nodes.filter(node=>qkScope.has(node.id));
+  const outside=attentionGraph.nodes.filter(node=>!qkScope.has(node.id));
+  const internalEdges=attentionGraph.edges.filter(edge=>qkScope.has(edge.s)&&qkScope.has(edge.t));
+  const outerEdges=attentionGraph.edges.filter(edge=>!qkScope.has(edge.s)&&!qkScope.has(edge.t));
+  const boundaryEdges=attentionGraph.edges.filter(edge=>qkScope.has(edge.s)!==qkScope.has(edge.t));
+  const qkInputs={},qkOutputs={};
+  for(const [name,map] of Object.entries(attention.composite.portMappings.inputs))if(qkScope.has(map.node)){
+    qkInputs[name]=map;attention.composite.portMappings.inputs[name]=m('qk-pv',name,map.relation);
+  }
+  for(const [name,map] of Object.entries(attention.composite.portMappings.outputs))if(qkScope.has(map.node)){
+    qkOutputs[name]=map;attention.composite.portMappings.outputs[name]=m('qk-pv',name,map.relation);
+  }
+  boundaryEdges.forEach((edge,index)=>{
+    if(qkScope.has(edge.t)){
+      const port='boundary-in-'+index;qkInputs[port]=m(edge.t,edge.targetPort,edge.type==='control'?'control':'view');
+      outerEdges.push({...edge,t:'qk-pv',targetPort:port});
+    }else{
+      const port='boundary-out-'+index;qkOutputs[port]=m(edge.s,edge.sourcePort,edge.type==='control'?'control':'view');
+      outerEdges.push({...edge,s:'qk-pv',sourcePort:port});
+    }
+  });
+  for(const node of outside)if(node.type==='data'){
+    if(qkScope.has(node.data.producer))node.data.producer='qk-pv';
+    if(node.data.consumers)node.data.consumers=[...new Set(node.data.consumers.map(id=>qkScope.has(id)?'qk-pv':id))];
+  }
+  const qkPv=mod('qk-pv','qk_pv','一次 pl.spmd(NUM_QK_CORES) 派发；各 SPMD Block 按 qk_order 领取 Work Item，在有效或无效分支写出 partial m/l/o。',A(208,313),inside,[],qkInputs,qkOutputs);
+  qkPv.composite.subgraph.edges=internalEdges;
+  qkPv.provenance=[{kind:'fact',origin:'decode_sparse_attn_csa.py:208–313',fields:[],note:'qk_pv 的派发范围和循环分支由源码确定；Work Item 不等于 Runtime Task。'}];
+  attentionGraph.nodes=[...outside,qkPv];attentionGraph.edges=outerEdges;
+  attention.description='qk_plan 生成候选与 qk_order；qk_pv 在独立 SPMD 范围计算 partial；rope_cs 在该范围外生成合并元数据。算法的 Merge & Normalize 位于下游 csa_merge_pack_publish 任务，与 Pack / Publish 融合。';
+  attention.composite.semantics=attention.description;
+  const publish=mod('publish','Merge / Pack / Publish','同一 csa_merge_pack_publish 任务中对 partial 执行 Merge & Normalize、处理 Sink 与 inverse RoPE、按目标 Rank 打包并 Put / Notify。',factSrc('publish'),[
     op('merge','Merge statistics','合并稀疏块结果与统计量。',S(root,411,427),['mi','li','oi','tid']),
     op('sink','Sink contribution','加入 Sink 分支。',S(root,429,433)),
     op('inverse-rope','Inverse RoPE','对合并输出执行 inverse RoPE。',S(root,435,441),['context','rope']),
@@ -259,6 +294,6 @@
     return n;
   });
   const cross=edges.filter(e=>owner[e.s]!==owner[e.t]).map(e=>({...e,id:'stage:'+e.id,s:owner[e.s],t:owner[e.t],sourcePort:`s:${e.id}`,targetPort:`t:${e.id}`}));
-  global.PTO_CSA_SEMANTIC_GRAPH={schemaVersion:2,id:'csa-compute',sourceFiles:Object.fromEntries(Object.entries(ranges).map(([file,lineCount])=>[file,{lineCount}])),constants:{QK_M_TILE:{value:32,line:65},ATTN_K_TILE:{value:128,line:66},HEAD_DIM:{value:512,line:40},H_TILE:{value:16,line:64}},runtimeDims:['T_DYN','KV_T_DYN'],nodes:stageNodes,edges:cross,groups:[]};
+  global.PTO_CSA_SEMANTIC_GRAPH={schemaVersion:2,id:'csa-compute',sourceFiles:Object.fromEntries(Object.entries(ranges).map(([file,lineCount])=>[file,{lineCount}])),constants:{H:{value:64,line:39},WIN:{value:128,line:44},IDX_TOPK:{value:512,line:46},QK_M_TILE:{value:32,line:65},ATTN_K_TILE:{value:128,line:66},NUM_QK_CORES:{value:24,line:67},SPARSE_BLOCKS:{value:5,line:79},HEAD_DIM:{value:512,line:40},H_TILE:{value:16,line:64}},runtimeDims:['T_DYN','KV_T_DYN'],nodes:stageNodes,edges:cross,groups:[]};
   global.PTO_SEMANTIC_COMPUTATION_GRAPH.validate(global.PTO_CSA_SEMANTIC_GRAPH);
 })(window);
