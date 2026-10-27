@@ -2,10 +2,10 @@
 (function (global) {
   'use strict';
   const model=global.PtoCsaModel, objects=model.objects;
-  const state={open:false,tab:'assignment',selection:null,rank:0,
+  const state={open:false,tab:'assignment',selection:null,rank:0,qkMode:false,
     views:{assignment:{scope:'overall',topic:'gather',camera:null},pipeline:{scope:'overall',topic:'gather',camera:null},graph:{scope:'overall',camera:null,expanded:[],overlays:{data:true},nodeId:null,edgeId:null,inspectorOpen:false}}};
   const tabs=['assignment','pipeline','graph'];
-  let root, controller, semanticController, trigger, previousInert=[], graph;
+  let root, controller, semanticController, qkController, trigger, previousInert=[], graph;
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const titles={assignment:'Rank / Data Assignment',pipeline:'Distributed Execution',graph:'CSA Graph'};
   const alias={rows0:'full',rows1:'full',group0:'publish',group1:'publish',mainstate:'main',innerstate:'idxcomp',gather:'push',local:'pre',full:'gather',original:'write',compressed:'main',indexcache:'idxcomp',window:'publish',group:'publish',push:'gather',payload:'gather',readback:'gather',rope:'ready'};
@@ -126,14 +126,16 @@
     root.setAttribute('aria-label','DeepSeek V4 CSA Compute Explorer');
     root.innerHTML='<header class="pto-ide-frame__pane-header viz2-header"><button class="btn btn-ghost btn-sm" data-csa-back>← 返回代码</button><span class="pto-ide-frame__pane-title">Compute Explorer</span><span class="pto-ide-frame__pane-meta">decode_csa.py · TP=2</span></header>'+
     '<div class="pto-ide-frame__tabstrip viz2-tabs"><div class="tab-control" role="tablist" aria-label="CSA 可视化视图">'+tabs.map(id=>'<button class="tab-control-item" role="tab" id="csa-tab-'+id+'" data-csa-tab="'+id+'" aria-controls="csa-panel"><span class="viz2-tab-icon viz2-tab-icon--'+id+'"></span>'+id[0].toUpperCase()+id.slice(1)+'</button>').join('')+'</div></div>'+
-    '<div class="csa-toolbar"><div class="segmented-control segmented-control-muted" role="group" aria-label="CSA 观察层次"><button class="btn btn-sm" data-csa-scope="overall">整体</button><button class="btn btn-sm" data-csa-scope="local">局部</button></div><nav data-csa-breadcrumb aria-label="当前对象"></nav><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回整体</button></div>'+
+    '<div class="csa-toolbar"><div class="segmented-control segmented-control-muted" role="group" aria-label="CSA 观察层次" data-csa-scopegroup><button class="btn btn-sm" data-csa-scope="overall">整体</button><button class="btn btn-sm" data-csa-scope="local">局部</button></div><nav data-csa-breadcrumb aria-label="当前对象"></nav><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回整体</button><button class="btn btn-sm" data-csa-qk hidden>QK Work Assignment</button></div>'+
     '<div class="csa-focusbar" aria-label="关键路径焦点"></div>'+
     '<div class="csa-workspace" id="csa-panel" role="tabpanel"><div class="csa-canvas-column"><div class="csa-caption"></div><div class="csa-stage pto-model-graphviz-pattern-page" role="group" aria-label="CSA 数据与任务关系，拖拽平移，按住 Command 或 Ctrl 滚轮缩放"></div><footer class="csa-footer"><div class="csa-legend"><span>中性矩形 · Tensor / Cache</span><span>彩色模块 · 计算 / 通信 / 同步</span><span>实线 · 数据</span><span class="csa-comm-legend">蓝线 · 跨 Rank</span><span>虚线 · 控制 / 同步</span></div><button class="btn btn-ghost btn-sm" data-csa-fit>全览</button><button class="btn btn-ghost btn-sm" data-csa-read>阅读</button><button class="btn btn-ghost btn-sm" data-csa-zoom="0.8" aria-label="缩小 CSA">−</button><button class="btn btn-ghost btn-sm" data-csa-zoom="1.25" aria-label="放大 CSA">＋</button></footer></div>'+
-    '<aside class="pto-ide-frame__pane csa-inspector" aria-label="CSA 对象详情"><header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">对象详情</span><button class="btn btn-ghost btn-sm" data-csa-clear>清除选择</button></header><div class="pto-ide-frame__pane-body csa-detail"></div></aside></div>';
+    '<aside class="pto-ide-frame__pane csa-inspector" aria-label="CSA 对象详情"><header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">对象详情</span><button class="btn btn-ghost btn-sm" data-csa-clear>清除选择</button></header><div class="pto-ide-frame__pane-body csa-detail"></div></aside></div>'+
+    '<div class="csa-qk-host" hidden></div>';
     document.getElementById('ideWorkarea').append(root);
     root.addEventListener('click',event=>{
       const b=event.target.closest('button');if(!b)return;
       if(b.hasAttribute('data-csa-back'))return close();
+      if(b.hasAttribute('data-csa-qk')){state.qkMode=!state.qkMode;render();return;}
       if(b.dataset.csaTab){saveCamera();state.tab=b.dataset.csaTab;if(state.tab==='assignment'&&state.selection)state.views.assignment.topic=selectedTopic(state.views.assignment.topic);render();return;}
       if(b.dataset.csaScope){saveCamera();const v=state.views[state.tab];if(state.tab==='graph'){if((v.expanded.length?'local':'overall')===b.dataset.csaScope)return;if(b.dataset.csaScope==='local'&&!v.bookmarkedNodeId&&semanticController){semanticController.toggleExpanded(v.nodeId?.split('/')[0]||'input',true);return;}setGraphScope(b.dataset.csaScope);render();return;}if(v.scope===b.dataset.csaScope)return;v.scope=b.dataset.csaScope;if(state.selection)v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
       if(b.hasAttribute('data-csa-return')){if(state.tab==='graph')setGraphScope('overall');else{state.views[state.tab].scope='overall';state.views[state.tab].camera=null;}render();return;}
@@ -166,11 +168,22 @@
   function chrome(){
     root.querySelectorAll('[data-csa-tab]').forEach(b=>{const active=b.dataset.csaTab===state.tab;b.classList.toggle('is-selected',active);b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});
     root.querySelector('#csa-panel').setAttribute('aria-labelledby','csa-tab-'+state.tab);
+    const qk=state.tab==='assignment'&&state.qkMode;
     const scope=state.tab==='graph'?(state.views.graph.expanded.length?'local':'overall'):state.views[state.tab].scope;
     root.querySelectorAll('[data-csa-scope]').forEach(b=>{const active=b.dataset.csaScope===scope;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
-    root.querySelector('[data-csa-return]').hidden=scope!=='local';
-    root.querySelector('[data-csa-breadcrumb]').textContent=titles[state.tab]+(state.tab==='graph'?' / '+(scope==='local'?'局部':'整体'):' / '+(scope==='local'?model.topics[state.views[state.tab].topic]+' / 局部':'整体'))+(state.tab!=='graph'&&state.selection?' / Rank '+state.selection.rank+' / '+objects[state.selection.object].label:'');
+    const scopeGroup=root.querySelector('[data-csa-scopegroup]');if(scopeGroup)scopeGroup.hidden=qk;
+    const focusbar=root.querySelector('.csa-focusbar');if(focusbar)focusbar.hidden=qk;
+    root.querySelector('[data-csa-return]').hidden=qk||scope!=='local';
+    const qkButton=root.querySelector('[data-csa-qk]');
+    if(qkButton){qkButton.hidden=state.tab!=='assignment';qkButton.classList.toggle('is-selected',qk);qkButton.textContent=qk?'← 返回 Assignment':'QK Work Assignment';qkButton.setAttribute('aria-pressed',String(qk));}
+    root.querySelector('[data-csa-breadcrumb]').textContent=qk?titles.assignment+' / QK Work Assignment':titles[state.tab]+(state.tab==='graph'?' / '+(scope==='local'?'局部':'整体'):' / '+(scope==='local'?model.topics[state.views[state.tab].topic]+' / 局部':'整体'))+(state.tab!=='graph'&&state.selection?' / Rank '+state.selection.rank+' / '+objects[state.selection.object].label:'');
     const drill=root.querySelector('[data-csa-drill]');if(drill)drill.disabled=state.tab==='graph';
+  }
+  // Jumping to a source line only reads correctly once the explorer releases the workarea,
+  // so leave the local scene first and then scroll the editor to the range.
+  function qkSource(file,a,z){
+    const go=()=>{if(file==='decode_csa.py')global.PtoComputeIDE.showSource(a,z);else global.PtoComputeIDE.showSourceFile(file,a,z);};
+    if(state.open){close();requestAnimationFrame(go);}else go();
   }
   function details(){
     const host=root.querySelector('.csa-detail'),selection=state.selection,o=selection&&objects[selection.object];
@@ -183,6 +196,13 @@
   }
   function render(){
     controller?.destroy();controller=null;semanticController?.destroy();semanticController=null;const stage=root.querySelector('.csa-stage'),view=state.views[state.tab];stage.replaceChildren();
+    const qkHost=root.querySelector('.csa-qk-host'),qkActive=state.tab==='assignment'&&state.qkMode;
+    root.querySelector('.csa-workspace').hidden=qkActive;qkHost.hidden=!qkActive;
+    if(qkActive){
+      // Local experiment: it owns only its own host and keeps its own selection state.
+      if(qkController)qkController.render();else qkController=global.PtoCsaQkWork.create(qkHost,{onSource:qkSource});
+      chrome();return;
+    }
     root.querySelector('.csa-focusbar').innerHTML=state.tab==='graph'?'':Object.entries(model.topics).map(([key,label])=>'<button class="btn btn-ghost btn-sm '+(view.topic===key?'is-selected':'')+'" data-csa-focus="'+key+'" aria-pressed="'+(view.topic===key)+'">'+label+'</button>').join('');
     if(state.tab==='graph'){
       root.querySelector('.csa-footer').hidden=true;
@@ -198,7 +218,7 @@
         if(patch.expanded)state.views.graph.scope=patch.expanded.length?'local':'overall';
         semanticController.update(null,state.views.graph,{active:true});chrome();
       },adapter:{
-        getModel:()=>semantic,executionData:()=>null,fitOnEnter:true,layoutOptions:{rootLayerGap:44},labelMinWidth:96,expandedScaleFloor:.62,focusExpandedTop:true,stageLabel:g=>'<b>'+esc(g.label)+'</b>',
+        getModel:()=>semantic,executionData:()=>null,fitOnEnter:true,layoutOptions:{rootLayerGap:44},labelMinWidth:96,expandedScaleFloor:node=>node.parentId?.62:0,expandedXOffset:node=>node.id==='cache'?140:0,focusExpandedTop:true,stageLabel:g=>'<b>'+esc(g.label)+'</b>',
         context:()=> '源码静态数据、状态和 Task ID 依赖；Stage 不表示严格串行。',
         resolveFocus:(g,selection,v)=>({nodeId:v.nodeId,edgeId:v.edgeId,related:v.nodeId?[v.nodeId]:[],kind:'node'}),
         hasInspector:()=>!!(state.views.graph.nodeId||state.views.graph.edgeId),
