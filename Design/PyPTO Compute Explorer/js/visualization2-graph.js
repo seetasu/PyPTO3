@@ -280,8 +280,9 @@
       const node=nodeMap.get(id);
       if(node&&next.has(id)&&node.expandedGroup){
         const fitScale=Math.min((viewport.clientWidth-72)/node.groupWidth,(viewport.clientHeight-72)/node.groupHeight);
-        const scale=adapter?.expandedScaleFloor?Math.max(adapter.expandedScaleFloor,Math.min(fitScale,.9)):Math.min(before?.scale||1,fitScale);
-        onView({camera:{scale,x:viewport.clientWidth/2-(node.x+node.groupWidth/2)*scale,
+        const floor=typeof adapter?.expandedScaleFloor==='function'?adapter.expandedScaleFloor(node):adapter?.expandedScaleFloor;
+        const scale=floor?Math.max(floor,Math.min(fitScale,.9)):Math.min(before?.scale||1,fitScale*(adapter?.expandedFitInset?.(node)||1));
+        onView({camera:{scale,x:(adapter?.focusExpandedTop&&node.groupWidth*scale>viewport.clientWidth-48?24-node.x*scale:viewport.clientWidth/2-(node.x+node.groupWidth/2)*scale)+(adapter?.expandedXOffset?.(node)||0),
           y:adapter?.focusExpandedTop?24-node.y*scale:viewport.clientHeight/2-(node.y+node.groupHeight/2)*scale}});
       }else if(point&&node)onView({camera:{...before,x:point.x-(node.x+node.w/2)*before.scale,y:point.y-(node.y+node.h/2)*before.scale}});
     }
