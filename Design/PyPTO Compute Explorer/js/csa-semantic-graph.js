@@ -102,15 +102,50 @@
     op('weight','Weight projection','由本地输入生成 Indexer 权重。',S('decode_indexer.py',761,797)),
     topk
   ],[['q-proj','q-rope','query'],['q-rope','q-rotate','rotated query'],['q-rotate','topk','quantized query','data','default','query'],['weight','topk','weights','data','default','weight']],{qr:m('q-proj','qr'),qr_scale:m('q-proj','scale'),local:m('weight'),cache:m('topk','cache'),scale:m('topk','scale'),cache_tid:m('topk','ready','control')},{positions:m('topk','positions')});
-  const attention=mod('attention','Sparse Attention','准备候选，分别读取 Original 窗口和 Compressed KV；QK、Softmax、PV 得到 partial result。',factSrc('attention'),[
-    op('plan','Candidate index preparation','整理 Top-k 候选和窗口索引。',S('decode_sparse_attn_csa.py',143,194),['positions']),
-    op('window','Window KV Read','从 Original Cache 读取最近窗口 KV。',S('decode_sparse_attn_csa.py',226,265),['cache','plan']),
-    op('selected','Compressed KV Read','从 Compressed Cache 读取候选 KV。',S('decode_sparse_attn_csa.py',266,281),['cache','plan']),
-    op('qk','QK','Q 与两路 KV 计算分数并应用 mask。',S('decode_sparse_attn_csa.py',280,292),['q','window','selected','plan','ready']),
-    op('softmax','Softmax','归一化注意力分数。',S('decode_sparse_attn_csa.py',291,297)),
-    op('pv','PV / partial','加权聚合 V 并写出 partial result。',S('decode_sparse_attn_csa.py',298,313),['default'],['mi','li','oi','tid']),
-    op('rope','Inverse RoPE metadata','生成后续合并使用的 RoPE 元数据。',S('decode_sparse_attn_csa.py',315,345))
-  ],[['plan','window','window positions','data','default','plan'],['plan','selected','selected positions','data','default','plan'],['window','qk','window KV','data','default','window'],['selected','qk','compressed KV','data','default','selected'],['plan','qk','attention mask','data','default','plan'],['qk','softmax','scores'],['softmax','pv','probabilities']],{q:m('qk','q'),original:m('window','cache'),compressed:m('selected','cache'),positions:m('plan','positions'),ready:m('qk','ready','control')},{mi:m('pv','mi'),li:m('pv','li'),oi:m('pv','oi'),rope:m('rope'),qk_tid:m('pv','tid','control'),rope_tid:m('rope','default','control')});
+  const A=(start,end)=>S('decode_sparse_attn_csa.py',start,end);
+  const attention=mod('attention','Sparse Attention','候选规划和有效块先行；两路 Cache 填充同一 L1 KV Tile，再计算块级 QK、Softmax 与 PV partial。',factSrc('attention'),[
+    data('window-indices','Window indices','窗口 KV 的页映射和有效位置输入。',A(108,108),['T_DYN','WIN'],'INT32',{symbol:'window_swa_indices',role:'input',storage:'GM',consumers:['plan','window']}),
+    data('position-ids','Position IDs','当前 token 位置用于候选有效性和窗口边界。',A(112,112),['T_DYN',1],'INT32',{symbol:'position_ids',role:'input',storage:'GM',consumers:['plan','window']}),
+    data('cmp-block-table','Compressed block table','将压缩槽位映射到物理 Cache 页。',A(110,110),['B_DYN','CMP_MAX_BLOCKS'],'INT32',{symbol:'cmp_block_table',role:'input',storage:'GM',consumers:['selected']}),
+    op('plan','Candidate planning','校验 Top-k 压缩槽位、生成窗口与压缩位置 bias，以及每块有效标记。',A(138,180),['positions','default']),
+    data('cmp-sparse-indices','cmp_sparse_indices','有效压缩槽位，-1 表示无效。',A(139,158),['T_DYN','CMP_TOPK'],'INT32',{symbol:'cmp_sparse_indices',storage:'GM',producer:'plan',consumers:['selected']}),
+    data('valid-block-mask','valid_block_mask','窗口块恒有效；压缩块由候选 mask 决定。',A(140,167),['T_DYN','SPARSE_BLOCKS'],'INT32',{symbol:'valid_block_mask',storage:'GM',producer:'plan',consumers:['order','dispatch','invalid-block']}),
+    data('sparse-bias','sparse_bias','有效位置加 0、无效位置加 NEG_INF 的 QK bias。',A(138,180),['T_DYN','PADDED_TOPK'],'FP32',{symbol:'sparse_bias',storage:'GM',producer:'plan',consumers:['score']}),
+    op('order','Valid-first ordering','先将非空块写入 qk_order，再追加空块。',A(182,196)),
+    data('qk-order','qk_order','按有效块优先的 token × sparse-block 工作顺序。',A(141,196),['QK_ITEMS'],'INT32',{symbol:'qk_order',storage:'GM',producer:'order',consumers:['dispatch']}),
+    state('qk-plan-tid','qk_plan_tid','Candidate planning 完成后，qk_pv 才可读取规划结果。',A(143,143),{initial:'规划任务未完成',granularity:'task'}),
+    op('dispatch','qk_pv task','qk_pv 依赖 qk_plan_tid 与 cache_ready_dep；按 qk_order 处理有效或无效块。',A(208,224),['ready','plan-tid','order','valid','default'],['tid','default']),
+    op('window','Window KV Read','从 Original Cache 按窗口索引和页边界读取行，填充 qk_kv。',A(229,262),['cache','plan','default']),
+    op('selected','Compressed KV Read','对剩余行按有效压缩槽位读取 Compressed Cache；无效槽位使用 Original 行 0。',A(263,276),['cache','plan','default']),
+    data('qk-kv','qk_kv','Window 与 Compressed 两条条件路径填充同一个 L1 KV Tile。',A(224,276),['ATTN_K_TILE','HEAD_DIM'],'BF16',{symbol:'qk_kv',storage:'L1',consumers:['qk','pv']}),
+    op('q-view','Q Tile view','从 BF16 Q heads 取 QK_M_TILE 行视图。',A(203,284),['q','default']),
+    data('qk-q-tile','qk_q_tile','Q heads 的 BF16 Tensor View。',A(284,284),['QK_M_TILE','HEAD_DIM'],'BF16',{symbol:'qk_q_tile',role:'input-view',producer:'q-view',consumers:['qk']}),
+    op('qk','QK Matmul','Q Tile 与同一个 KV Tile 转置相乘，得到 FP32 原始分数。',A(285,285)),
+    data('qk-raw','qk_raw','QK Matmul 的 FP32 块分数。',A(285,285),['QK_M_TILE','ATTN_K_TILE'],'FP32',{symbol:'qk_raw',producer:'qk',consumers:['score']}),
+    op('score','Scale + Bias','乘 SOFTMAX_SCALE 后广播加 sparse_bias 当前块。',A(286,289)),
+    data('qk-scores','qk_scores','缩放且加无效位置 bias 的 FP32 块分数。',A(289,289),['QK_M_TILE','ATTN_K_TILE'],'FP32',{symbol:'qk_scores',producer:'score',consumers:['row-max','exp']}),
+    op('row-max','Row Max','逐行求当前块的最大值。',A(290,290)),
+    data('qk-mi','qk_mi','当前块的逐行 softmax 最大值。',A(290,290),['QK_M_TILE',1],'FP32',{symbol:'qk_mi',producer:'row-max',consumers:['exp','partial-write']}),
+    op('exp','Exponential','计算 exp(qk_scores - qk_mi)，尚未除以行和。',A(293,293)),
+    data('qk-exp','qk_exp','块内未归一化 FP32 指数权重。',A(293,293),['QK_M_TILE','ATTN_K_TILE'],'FP32',{symbol:'qk_exp',producer:'exp',consumers:['row-sum','cast']}),
+    op('row-sum','Row Sum','逐行求未归一化指数权重之和。',A(294,294)),
+    data('qk-li','qk_li','当前块的逐行指数和。',A(294,294),['QK_M_TILE',1],'FP32',{symbol:'qk_li',producer:'row-sum',consumers:['partial-write']}),
+    op('cast','BF16 cast','将未归一化指数权重舍入为 BF16。',A(295,295)),
+    data('qk-exp-bf16','qk_exp_bf16','未进行最终归一化的块内指数权重，不是最终 Probability。',A(295,295),['QK_M_TILE','ATTN_K_TILE'],'BF16',{symbol:'qk_exp_bf16',producer:'cast',consumers:['pv']}),
+    op('pv','PV Matmul','BF16 指数权重与同一个 qk_kv 相乘，输出 FP32 块 partial。',A(296,296)),
+    data('qk-oi','qk_oi','PV Matmul 的未合并 FP32 块输出。',A(296,296),['QK_M_TILE','HEAD_DIM'],'FP32',{symbol:'qk_oi',producer:'pv',consumers:['partial-write']}),
+    op('invalid-block','Invalid Block neutral','无效块跳过 QK/PV，直接写入 mi=-3e38、li=0、oi=0。',A(305,313)),
+    op('partial-write','H_TILE partial stores','按 H_TILE 切片写入父图现有 sparse_blk_mi / li / oi；无效块写中性值。',A(297,313),['mi','li','oi','invalid','default'],['mi','li','oi']),
+    op('rope','Inverse RoPE metadata','独立生成后续合并使用的 RoPE 元数据和 rope_tid。',A(315,346))
+  ],[
+    ['window-indices','plan','window validity'],['position-ids','plan','compressed bound'],['plan','cmp-sparse-indices','candidate slots'],['plan','valid-block-mask','block validity'],['plan','sparse-bias','additive bias'],
+    ['valid-block-mask','order','valid first'],['order','qk-order','work ordering'],['order','qk-plan-tid','qk_plan_tid','control'],['qk-plan-tid','dispatch','plan ready','control','default','plan-tid'],['qk-order','dispatch','planned items','data','default','order'],['valid-block-mask','dispatch','validity','data','default','valid'],
+    ['dispatch','window','valid block','control'],['dispatch','selected','valid block','control'],['dispatch','q-view','valid block','control'],['dispatch','invalid-block','invalid block','control'],['valid-block-mask','invalid-block','empty block'],
+    ['window-indices','window','window rows'],['position-ids','window','window length'],['cmp-sparse-indices','selected','selected slots'],['cmp-block-table','selected','physical page'],['window','qk-kv','window rows'],['selected','qk-kv','compressed rows'],
+    ['q-view','qk-q-tile','Q view'],['qk-q-tile','qk','Q Tile'],['qk-kv','qk','shared KV Tile'],['qk','qk-raw','FP32 QK'],['qk-raw','score','raw scores'],['sparse-bias','score','additive bias'],['score','qk-scores','scaled biased scores'],
+    ['qk-scores','row-max','scores'],['row-max','qk-mi','block max'],['qk-scores','exp','scores'],['qk-mi','exp','subtract max'],['exp','qk-exp','unnormalized exp'],['qk-exp','row-sum','exponentials'],['row-sum','qk-li','block sum'],['qk-exp','cast','FP32 exp'],['cast','qk-exp-bf16','BF16 exp'],
+    ['qk-exp-bf16','pv','unnormalized weight'],['qk-kv','pv','same KV Tile'],['pv','qk-oi','FP32 PV'],['qk-mi','partial-write','mi','data','default','mi'],['qk-li','partial-write','li','data','default','li'],['qk-oi','partial-write','oi','data','default','oi'],['invalid-block','partial-write','neutral mi/li/oi','control','default','invalid']
+  ],{q:m('q-view','q'),original:m('window','cache'),compressed:m('selected','cache'),positions:m('plan','positions'),ready:m('dispatch','ready','control')},{mi:m('partial-write','mi'),li:m('partial-write','li'),oi:m('partial-write','oi'),rope:m('rope'),qk_tid:m('dispatch','tid','control'),rope_tid:m('rope','default','control')});
   const publish=mod('publish','Merge / Pack / Publish','同一 Publish 任务中合并 partial、处理 Sink 与 inverse RoPE、按目标 Rank 打包并 Put / Notify。',factSrc('publish'),[
     op('merge','Merge statistics','合并稀疏块结果与统计量。',S(root,411,427),['mi','li','oi','tid']),
     op('sink','Sink contribution','加入 Sink 分支。',S(root,429,433)),
@@ -224,6 +259,6 @@
     return n;
   });
   const cross=edges.filter(e=>owner[e.s]!==owner[e.t]).map(e=>({...e,id:'stage:'+e.id,s:owner[e.s],t:owner[e.t],sourcePort:`s:${e.id}`,targetPort:`t:${e.id}`}));
-  global.PTO_CSA_SEMANTIC_GRAPH={schemaVersion:2,id:'csa-compute',sourceFiles:Object.fromEntries(Object.entries(ranges).map(([file,lineCount])=>[file,{lineCount}])),constants:{},runtimeDims:['T_DYN','KV_T_DYN'],nodes:stageNodes,edges:cross,groups:[]};
+  global.PTO_CSA_SEMANTIC_GRAPH={schemaVersion:2,id:'csa-compute',sourceFiles:Object.fromEntries(Object.entries(ranges).map(([file,lineCount])=>[file,{lineCount}])),constants:{QK_M_TILE:{value:32,line:65},ATTN_K_TILE:{value:128,line:66},HEAD_DIM:{value:512,line:40},H_TILE:{value:16,line:64}},runtimeDims:['T_DYN','KV_T_DYN'],nodes:stageNodes,edges:cross,groups:[]};
   global.PTO_SEMANTIC_COMPUTATION_GRAPH.validate(global.PTO_CSA_SEMANTIC_GRAPH);
 })(window);

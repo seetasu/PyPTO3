@@ -59,3 +59,25 @@ js/decode-csa-source.js 保存上述源码的本地快照，主文件包含原�
 
 实现：`js/csa-qk-work.js`（纯函数 `buildWorkItems` / `buildQueue` / `assignToBlocks` / `getWorkItemDetails` / `getBlockDetails` + 自带选择状态的渲染器）、`styles/csa-qk-work.css`（`csa-qk-` 前缀）。`csa-explorer.js` 只增加 `qkMode` 状态、工具栏入口、`render()` 分支与源码跳转；QK 视图有独立 host，切换主 Tab 不丢选择。
 
+
+## Project Explorer 与多文件源码导航
+
+文件树从 2 个文件扩展为两个可折叠分组：`Paged Attention`（1 个文件）与 `DeepSeek V4 / Decode CSA`（`decode_csa.py` + 12 个真实模块，共 13 个）。默认打开的仍是 `paged_attention_pypto.py`。
+
+| 层 | 实现 |
+|---|---|
+| 文件身份 | `js/project-files.js`：`fileId`（`csa/<name>`、`paged-attention/<name>`）、`name`、`sourcePath`、`scene`、`content` |
+| 源码来源 | 主文件 `PTO_CSA_SOURCE.text`；11 个模块 `PTO_CSA_SOURCE.dependencies`；`utils.py` 单独快照 `js/csa-utils-source.js`（与仓库文件逐字节一致） |
+| 文件树 | `renderTree()` 写 `#projectTree`，沿用既有 `.kf-tree-row` / `kf-caret` / `kf-file-icon` 样式，`depth-2` 缩进、长名省略、分组计数徽标 |
+| Source Tab | 只列已打开文件，同一文件重复打开不新增 Tab；切回旧 Tab 恢复该文件上次滚动位置与区域选中 |
+| 文件级导航 | `PtoComputeIDE.openSource({file,start,end})`，`file` 接受 fileId 或文件名；`showSource(start,end)` 仍定位“当前文件”，`showSourceFile(name,start,end)` 保留兼容 |
+| 跨文件符号 | 扫描真实 `from x import y` / `import x` 与目标文件顶格 `def` / `class` / `NAME =`；解析不到的名字保持普通文本，不猜测跳转 |
+| Source Region | 两个主文件沿用人工编写的区域表；12 个子文件按真实 `def` / `class` 自动分区，区域行号由源码行生成 |
+
+工程口径：
+
+- `decode_csa.py` 的 `from decode_sparse_attn_csa import sparse_attn_csa` 与所有调用点可点击，落到 `decode_sparse_attn_csa.py` L105 `def sparse_attn_csa(`。
+- 子文件仍属 `csa` 场景，从子文件点 `Compute Explorer` 进入的仍是 Decode CSA，不会切到 Paged Attention。
+- `csa-explorer.js` 的源码跳转统一走 `openSource({file,...})`：QK Work Assignment 与 Graph / Assignment Inspector 都按各自真实文件名定位，不再假设当前打开的是主文件。
+- 全部为本地快照，无 GitHub API / Raw / CDN 依赖，GitHub Pages 直接可用。
+- `golden.py` 在仓库中不存在，未注册、未伪造；外部库（`pypto` / `torch` / `sys` 等）不进入文件树。

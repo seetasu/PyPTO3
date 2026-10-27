@@ -196,38 +196,122 @@ const csaRegions = {
  launch:{label:'l3_decode_csa · 多设备启动',lines:'624–751',detail:'窗口分配、rank 切片和 device=rank'},
  fixtures:{label:'TP1 / 数据构造 / Reference',lines:'754–2079',detail:'单卡路径、分布式输入构造与 Golden / CLI'}
 };
-const files={
- 'paged_attention_pypto.py':{scene:'paged-attention',source:window.PTO_PAGED_ATTENTION_PYPTO_SOURCE,regions:pagedAttentionPyptoFocusMeta,description:'Paged Attention · Task / Block / AIV 的映射与计算关系。'},
- 'decode_csa.py':{scene:'csa',source:window.PTO_CSA_SOURCE.text,regions:csaRegions,description:'DeepSeek V4 CSA · TP=2 的数据分布、跨 Rank 通信与任务依赖。'}
+// 两个主文件保留人工编写的 Source Region；其余文件由 project-files.js 依据真实 def / class 自动分区。
+const regionMeta={
+ 'paged_attention_pypto.py':pagedAttentionPyptoFocusMeta,
+ 'decode_csa.py':csaRegions
 };
+const files={};
+(window.PtoProjectFiles?.files||[]).forEach(file=>{
+  files[file.name]={
+    id:file.id,name:file.name,scene:file.scene,role:file.role,sourcePath:file.sourcePath,origin:file.origin,
+    source:file.content,
+    regions:regionMeta[file.name]||file.regions,
+    description:file.scene==='csa'
+      ?'DeepSeek V4 CSA · '+file.name+'（'+file.role+'）· 共 '+file.lineCount+' 行'
+      :'Paged Attention · Task / Block / AIV 的映射与计算关系。'
+  };
+});
+// 注册表缺失时的最小兜底，保证两个原有场景仍可打开。
+if(!files['paged_attention_pypto.py'])files['paged_attention_pypto.py']={scene:'paged-attention',source:window.PTO_PAGED_ATTENTION_PYPTO_SOURCE,regions:pagedAttentionPyptoFocusMeta,description:'Paged Attention · Task / Block / AIV 的映射与计算关系。'};
+if(!files['decode_csa.py'])files['decode_csa.py']={scene:'csa',source:window.PTO_CSA_SOURCE.text,regions:csaRegions,description:'DeepSeek V4 CSA · TP=2 的数据分布、跨 Rank 通信与任务依赖。'};
 let activeFile='paged_attention_pypto.py',entries=[],selected=null,expanded=false,programmatic=false,lastRegion;
+const opened=[activeFile];
 const sessions=new Map();
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function focusForLine(n){return entries.filter(([,v])=>n>=Number(v.lines.split('–')[0])).at(-1)?.[0]||null;}
 function current(){const rows=editor.children,top=scroller.getBoundingClientRect().top+bar.offsetHeight+8;let lo=0,hi=rows.length-1,at=0;while(lo<=hi){const mid=(lo+hi)>>1;if(rows[mid].getBoundingClientRect().bottom>top){at=mid;hi=mid-1;}else lo=mid+1;}return rows[at]?.dataset.pagedAttentionFocus||null;}
-function renderBar(){const active=selected||current(),index=entries.findIndex(([k])=>k===active),item=index>=0?entries[index][1]:{label:'文件头',lines:'1–'+(Number(entries[0][1].lines.split('–')[0])-1),detail:'许可证声明与模块说明'};lastRegion=active;bar.hidden=false;
- bar.innerHTML='<div class="kf-source-region__bar"><button type="button" class="kf-source-region__head" data-source-region-toggle aria-expanded="'+expanded+'"><span class="kf-source-region__pos">'+(index>=0?index+1:'—')+'/'+entries.length+'</span><b>'+item.label+'</b><i>'+item.lines+'</i><small>'+item.detail+'</small><em>'+(expanded?'收起':'全部')+'</em></button><button type="button" class="btn btn-sm" data-visualization2-open aria-controls="'+(files[activeFile].scene==='csa'?'csaExplorer':'visualization2')+'">Compute Explorer</button></div><div class="kf-source-region__list" '+(expanded?'':'hidden')+'>'+entries.map(([key,v],i)=>'<button type="button" class="'+(key===active?'is-active':'')+'" data-source-region="'+key+'"><span>'+String(i+1).padStart(2,'0')+'</span><b>'+v.label+'</b><i>'+v.lines+'</i><small>'+v.detail+'</small></button>').join('')+'</div>';
+function renderBar(){const active=selected||current(),index=entries.findIndex(([k])=>k===active),item=index>=0?entries[index][1]:(entries.length?{label:'文件头',lines:'1–'+(Number(entries[0][1].lines.split('–')[0])-1),detail:'许可证声明与模块说明'}:{label:'全量源码',lines:'1–'+files[activeFile].source.split('\n').length,detail:'该文件没有模块级 def / class 索引，按行浏览'});lastRegion=active;bar.hidden=false;
+ bar.innerHTML='<div class="kf-source-region__bar"><button type="button" class="kf-source-region__head" data-source-region-toggle aria-expanded="'+expanded+'"><span class="kf-source-region__pos">'+(entries.length?(index>=0?index+1:'—')+'/'+entries.length:'—')+'</span><b>'+item.label+'</b><i>'+item.lines+'</i><small>'+item.detail+'</small><em>'+(expanded?'收起':'全部')+'</em></button><button type="button" class="btn btn-sm" data-visualization2-open aria-controls="'+(files[activeFile].scene==='csa'?'csaExplorer':'visualization2')+'">Compute Explorer</button></div><div class="kf-source-region__list" '+(expanded?'':'hidden')+'>'+entries.map(([key,v],i)=>'<button type="button" class="'+(key===active?'is-active':'')+'" data-source-region="'+key+'"><span>'+String(i+1).padStart(2,'0')+'</span><b>'+v.label+'</b><i>'+v.lines+'</i><small>'+v.detail+'</small></button>').join('')+'</div>';
 }
 function showLine(start,end=start){programmatic=true;expanded=false;selected=focusForLine(start);renderBar();const target=editor.children[start-1];if(target){scroller.scrollTo({top:scroller.scrollTop+target.getBoundingClientRect().top-scroller.getBoundingClientRect().top-bar.offsetHeight,behavior:'instant'});editor.querySelectorAll('[data-paged-attention-line]').forEach((el,i)=>el.classList.toggle('is-paged-attention-line-active',i+1>=start&&i+1<=end));}setTimeout(()=>{programmatic=false;},150);}
-function openFile(name){if(!files[name])return;if(editor.children.length)sessions.set(activeFile,{scroll:scroller.scrollTop,selected});window.PtoCsaExplorer?.close();if(document.querySelector('#ideWorkarea').dataset.visualization2)window.PtoVisualization2?.close();activeFile=name;entries=Object.entries(files[name].regions);selected=sessions.get(name)?.selected||null;expanded=false;
+// --- 跨文件符号链接 ---------------------------------------------------------
+// 只根据 project-files.js 的静态 import → 定义行索引建立链接；解析不到的名字保持普通文本。
+const linkCache=new Map();
+let currentLinks=null;
+function linkContext(name){
+  if(linkCache.has(name))return linkCache.get(name);
+  const links=window.PtoProjectFiles?.linksFor?.(files[name]?.id);
+  const ctx={re:null,symbols:{},modules:{},importRanges:[],list:[],index:new Map()};
+  if(links){
+    ctx.symbols=links.symbols||{};ctx.modules=links.modules||{};ctx.importRanges=links.importLines||[];
+    const names=[...new Set([...Object.keys(ctx.symbols),...Object.keys(ctx.modules)])].sort((a,b)=>b.length-a.length);
+    if(names.length)ctx.re=new RegExp('\\b(?:'+names.map(n=>n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')\\b','g');
+  }
+  linkCache.set(name,ctx);return ctx;
+}
+const PROTECTED_TOKENS=new Set(['tok-str','tok-doc','tok-com','tok-interp']);
+function linkifyLine(html,lineNo,ctx){
+  if(!ctx.re)return html;
+  const inImport=ctx.importRanges.some(range=>lineNo>=range[0]&&lineNo<=range[1]);
+  const swap=text=>text.replace(ctx.re,match=>{
+    const target=ctx.symbols[match]||(inImport?ctx.modules[match]:null);
+    if(!target)return match;
+    const key=target.file+':'+target.line;
+    if(!ctx.index.has(key)){ctx.index.set(key,ctx.list.length);ctx.list.push({file:target.file,line:target.line});}
+    const label=(target.file.split('/')[1]||target.file)+' : '+target.line;
+    return '<button type="button" class="pf-link" data-pf-link="'+ctx.index.get(key)+'" title="跳转 · '+escape(label)+'">'+match+'</button>';
+  });
+  const parts=html.split(/(<span class="tok-[a-z]+">|<\/span>)/);
+  let token=null;
+  let out='';
+  for(const part of parts){
+    if(part.startsWith('<span class="tok-')){token=/tok-([a-z]+)/.exec(part)?.[1]||null;out+=part;continue;}
+    if(part==='</span>'){token=null;out+=part;continue;}
+    out+=token&&PROTECTED_TOKENS.has('tok-'+token)?part:swap(part);
+  }
+  return out;
+}
+function renderTabs(){
+  const host=document.getElementById('tabs');
+  if(!host)return;
+  host.innerHTML=opened.map(file=>'<button data-source-file="'+escape(file)+'" title="'+escape(files[file]?.sourcePath||file)+'" class="'+(file===activeFile?'is-active':'')+'">'+escape(file)+'</button>').join('');
+}
+function openFile(name){if(!files[name])return;if(editor.children.length)sessions.set(activeFile,{scroll:scroller.scrollTop,selected});window.PtoCsaExplorer?.close();if(document.querySelector('#ideWorkarea').dataset.visualization2)window.PtoVisualization2?.close();activeFile=name;entries=Object.entries(files[name].regions||{});selected=sessions.get(name)?.selected||null;expanded=false;
+ if(!opened.includes(name))opened.push(name);
+ const links=linkContext(name);currentLinks=links;
  const lines=files[name].source.split('\n'),colored=highlightPythonLines(files[name].source);
- editor.innerHTML=lines.map((line,i)=>'<div data-paged-attention-line="'+(i+1)+'" data-paged-attention-focus="'+(focusForLine(i+1)||'')+'"><i>'+(i+1)+'</i><code style="--kf-code-indent:'+(line.match(/^\s*/)||[''])[0].length+'ch">'+(colored[i]||' ')+'</code></div>').join('');
+ editor.innerHTML=lines.map((line,i)=>'<div data-paged-attention-line="'+(i+1)+'" data-paged-attention-focus="'+(focusForLine(i+1)||'')+'"><i>'+(i+1)+'</i><code style="--kf-code-indent:'+(line.match(/^\s*/)||[''])[0].length+'ch">'+(colored[i]?linkifyLine(colored[i],i+1,links):' ')+'</code></div>').join('');
  editor.setAttribute('aria-label',name+' 全量源码');document.querySelector('.kf-source-stage').setAttribute('aria-label',name+' 全量源码');
  document.querySelectorAll('[data-current-file]').forEach(el=>el.textContent=name);document.querySelectorAll('[data-file]').forEach(el=>el.classList.toggle('is-selected',el.dataset.file===name));
- document.getElementById('tabs').innerHTML=Object.keys(files).map(file=>'<button data-source-file="'+file+'" class="'+(file===name?'is-active':'')+'">'+file+'</button>').join('');
- document.getElementById('inspector').innerHTML='<div class="kf-inspector-card"><b>'+escape(name)+'</b><p>'+files[name].description+'</p><button class="btn btn-sm" type="button" data-visualization2-open>Compute Explorer</button></div>';
+ renderTabs();
+ document.getElementById('inspector').innerHTML='<div class="kf-inspector-card"><b>'+escape(name)+'</b><p>'+escape(files[name].description)+'</p>'+(files[name].sourcePath?'<p class="pf-source-meta">'+escape(files[name].sourcePath)+'</p>':'')+'<button class="btn btn-sm" type="button" data-visualization2-open>Compute Explorer</button></div>';
  document.body.dataset.computeScene=files[name].scene;renderBar();scroller.scrollTo({top:sessions.get(name)?.scroll||0,behavior:'instant'});document.dispatchEvent(new CustomEvent('compute-file-change',{detail:{file:name,scene:files[name].scene}}));}
 bar.addEventListener('click',e=>{if(e.target.closest('[data-source-region-toggle]')){expanded=!expanded;renderBar();return;}const b=e.target.closest('[data-source-region]');if(b){const[a,z]=files[activeFile].regions[b.dataset.sourceRegion].lines.split('–').map(Number);showLine(a,z);}});
 scroller.addEventListener('scroll',()=>{if(programmatic)return;selected=null;if(current()!==lastRegion)renderBar();},{passive:true});
-editor.addEventListener('click',e=>{const row=e.target.closest('[data-paged-attention-line]');if(!row)return;selected=row.dataset.pagedAttentionFocus;editor.querySelectorAll('[data-paged-attention-focus]').forEach(el=>el.classList.toggle('is-paged-attention-line-active',el.dataset.pagedAttentionFocus===selected));renderBar();});
+editor.addEventListener('click',e=>{const link=e.target.closest('[data-pf-link]');if(link&&currentLinks){const target=currentLinks.list[Number(link.dataset.pfLink)];if(target){e.stopPropagation();openSource({file:target.file,start:target.line,end:target.line});return;}}
+ const row=e.target.closest('[data-paged-attention-line]');if(!row)return;selected=row.dataset.pagedAttentionFocus;editor.querySelectorAll('[data-paged-attention-focus]').forEach(el=>el.classList.toggle('is-paged-attention-line-active',el.dataset.pagedAttentionFocus===selected));renderBar();});
 document.addEventListener('click',e=>{const f=e.target.closest('[data-file],[data-source-file]');if(f)openFile(f.dataset.file||f.dataset.sourceFile);const folder=e.target.closest('[data-tree-toggle]');if(folder){const group=document.querySelector('[data-tree-group="'+folder.dataset.treeToggle+'"]');if(group){group.hidden=!group.hidden;folder.setAttribute('aria-expanded',String(!group.hidden));}}});
-function showSourceFile(name,start,end=start){
- const dependency=window.PTO_CSA_SOURCE.dependencies?.[name];
- if(!files[name]&&dependency){const count=dependency.split('\n').length;files[name]={scene:'csa',source:dependency,regions:{source:{label:name,lines:'1–'+count,detail:'CSA 子函数源码'}},description:'DeepSeek V4 CSA · '+name+' 源码。'};}
- if(!files[name])throw new Error('CSA 源码快照缺少 '+name);
- if(activeFile!==name)openFile(name);
- showLine(start,end);editor.focus({preventScroll:true});
+// --- 文件级源码导航 ---------------------------------------------------------
+function resolveEntry(key){
+  if(!key)return files[activeFile]?files[activeFile]:null;
+  if(files[key])return files[key];
+  const entry=window.PtoProjectFiles?.get?.(key);
+  return entry&&files[entry.name]?files[entry.name]:null;
 }
-window.PtoComputeIDE=Object.freeze({getActiveFile:()=>activeFile,getScene:()=>files[activeFile].scene,openFile,showSource(start,end){showSourceFile(activeFile,start,end);},showSourceFile});
+// 打开源码前先退出可视化覆盖层，避免跳转结果被 Explorer 遮住。
+function leaveVisualization(){
+  if(window.PtoCsaExplorer?.getState?.().open)window.PtoCsaExplorer.close();
+  if(window.PtoVisualization2?.getState?.().open)window.PtoVisualization2.close();
+}
+function openSource(options){
+  const request=typeof options==='string'?{file:options}:(options||{});
+  const entry=resolveEntry(request.file||activeFile);
+  if(!entry)throw new Error('未注册的源码文件 '+request.file);
+  if(entry.name!==activeFile)openFile(entry.name);else leaveVisualization();
+  const start=Math.max(1,Number(request.start)||1),end=Math.max(start,Number(request.end)||start);
+  showLine(start,end);editor.focus({preventScroll:true});
+  return entry.name;
+}
+function showSourceFile(name,start,end=start){return openSource({file:name,start,end});}
+window.PtoComputeIDE=Object.freeze({
+  getActiveFile:()=>activeFile,
+  getScene:()=>files[activeFile].scene,
+  openFile,
+  openSource,
+  showSource(start,end){return openSource({file:activeFile,start,end});},
+  showSourceFile,
+  listFiles:()=>Object.keys(files)
+});
 openFile(activeFile);
 })();
