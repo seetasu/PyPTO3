@@ -50,5 +50,16 @@ window.CriticalPathIntegration = (() => {
     drawer.style.height=height+'px';document.body.style.setProperty('--cpi-drawer-height',height+'px');drawer.querySelector('header').innerHTML=`局部依赖 · ${selected<0?'路径外任务':(selected+1)+' / '+p.length}<button data-close="1" aria-label="关闭依赖面板">关闭 ×</button>`;
     drawer.querySelector('.cpi-detail').innerHTML=`<div class="cpi-neighbors">${side(true)}</div><div class="cpi-center"><span class="cpi-badge ${wait(v)?'wait':''}">${selected<0?'—':selected+1}</span><strong>${esc(v.name||v.leaf)}</strong><b>${ms(v.spanUs??v.endUs-v.startUs)} <small>ms</small></b><p>实测跨度 · ${wait(v)?'等待任务':'计算任务'} · ${v.blockNum??v.blocks?.n??'—'} 块</p>${v.pathContributionUs!=null?`<p>路径新增时间 ${ms(v.pathContributionUs)} ms</p>`:''}</div><div class="cpi-neighbors">${side(false)}</div>`;
   }
-  return {mount,refresh};
+  function hover(id){
+    if(!nav)return;
+    nav.querySelectorAll('.cpi-hover').forEach(n=>n.classList.remove('cpi-hover'));
+    nav.querySelectorAll('[data-hover-preview]').forEach(n=>n.remove());
+    if(id==null)return;
+    const existing=[...nav.querySelectorAll('[data-task]')].find(n=>n.dataset.task===String(id));
+    if(existing){existing.classList.add('cpi-hover');return;}
+    const s=api.state(),i=s.rank.criticalPath.findIndex(p=>String(p.taskId)===String(id));if(i<0)return;
+    const p=s.rank.criticalPath[i],range=s.range||[0,s.rank.kpi.windowUs],track=nav.querySelector('.cpi-track'),width=track.clientWidth;
+    const tag=document.createElement('button');tag.className='cpi-tag cpi-hover';tag.dataset.hoverPreview='true';tag.dataset.task=String(id);tag.textContent='#'+String(i+1).padStart(2,'0');tag.style.left=Math.max(24,Math.min(width-24,(p.startUs-range[0])/(range[1]-range[0])*width))+'px';tag.dataset.tooltip=p.name;track.append(tag);
+  }
+  return {mount,refresh,choose,hover};
 })();
