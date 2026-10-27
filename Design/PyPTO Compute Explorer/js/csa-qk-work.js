@@ -124,13 +124,15 @@
 
   function create(host, options = {}) {
     const onSource = options.onSource || (() => {});
+    const onSelection = options.onSelection || (() => {});
     const state = {
       mode: 'teaching',
       mask: DEFAULT_MASK.map(row => row.slice()),
-      selection: { type: 'item', id: DEFAULT_SELECTION },
+      selection: options.selection || { type: 'item', id: DEFAULT_SELECTION },
       depOpen: true
     };
     let pendingFocus = null;
+    function select(selection) { state.selection = selection; onSelection({ ...selection }); render(); }
 
     const blockCount = () => MODES[state.mode].blocks;
 
@@ -309,7 +311,8 @@
       return '<h3 class="csa-qk-subhead">Source Evidence · 真实源码行段</h3>' +
         ranges.map(([a, z, note]) =>
           '<details class="csa-qk-source"><summary><span>' + SUB_FILE + ' : ' + a + '–' + z + '</span><i>' + esc(note) + '</i></summary>' +
-          '<pre>' + esc(excerpt(SUB_FILE, a, z)) + '</pre></details>').join('') +
+          '<pre>' + esc(excerpt(SUB_FILE, a, z)) + '</pre>' +
+          '<button class="csa-qk-node__link" type="button" data-qk-source="' + SUB_FILE + ':' + a + ':' + z + '">在编辑器中打开 ' + a + '–' + z + ' ↗</button></details>').join('') +
         '<a class="csa-qk-link" href="' + REPO_BLOB + SUB_FILE + '#L134-L196" target="_blank" rel="noopener noreferrer">在 GitHub 查看 ' + SUB_FILE + ' ↗</a>';
     }
 
@@ -428,6 +431,7 @@
       if (event.target.closest('[data-qk-reset]')) {
         state.mask = DEFAULT_MASK.map(row => row.slice());
         state.selection = { type: 'item', id: DEFAULT_SELECTION };
+        onSelection({ ...state.selection });
         pendingFocus = '[data-qk-item="' + DEFAULT_SELECTION + '"]';
         render();
         return;
@@ -436,20 +440,21 @@
       if (mode) {
         state.mode = mode.dataset.qkMode;
         // A block selection cannot survive into a mode with fewer blocks.
-        if (state.selection.type === 'block' && state.selection.block >= blockCount()) state.selection = { type: 'block', block: blockCount() - 1 };
+        if (state.selection.type === 'block' && state.selection.block >= blockCount()) { state.selection = { type: 'block', block: blockCount() - 1 }; onSelection({ ...state.selection }); }
         render();
         return;
       }
       const block = event.target.closest('[data-qk-block]');
-      if (block) { state.selection = { type: 'block', block: Number(block.dataset.qkBlock) }; pendingFocus = '[data-qk-block="' + block.dataset.qkBlock + '"]'; render(); return; }
+      if (block) { pendingFocus = '[data-qk-block="' + block.dataset.qkBlock + '"]'; select({ type: 'block', block: Number(block.dataset.qkBlock) }); return; }
       const item = event.target.closest('[data-qk-item]');
-      if (item) { state.selection = { type: 'item', id: Number(item.dataset.qkItem) }; pendingFocus = '[data-qk-item="' + item.dataset.qkItem + '"]'; render(); }
+      if (item) { pendingFocus = '[data-qk-item="' + item.dataset.qkItem + '"]'; select({ type: 'item', id: Number(item.dataset.qkItem) }); }
     });
 
     render();
 
     return {
       render,
+      setSelection: selection => { if (selection && (selection.type !== state.selection.type || selection.id !== state.selection.id || selection.block !== state.selection.block)) { state.selection = { ...selection }; render(); } },
       getState: () => ({ mode: state.mode, mask: state.mask.map(row => row.slice()), selection: { ...state.selection } })
     };
   }
