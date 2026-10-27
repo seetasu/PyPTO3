@@ -18,7 +18,8 @@
   indexSemantic(semantic.nodes);
   const qkPvId='sparse/attention/qk-pv';
   function nearestObject(id){while(id){if(graphToObject[id])return graphToObject[id];id=id.slice(0,id.lastIndexOf('/'));}return null;}
-  function setFocus(focus){state.focus=focus;state.rank=focus?.rank??state.rank;if(!focus||!['work-item','lane'].includes(focus.kind))state.qkMode=false;state.views.graph.nodeId=null;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=false;if(qkController&&qkSelection())qkController.setSelection(qkSelection());}
+  function isQkFocus(focus){return !!focus&&(focus.kind==='work-item'||focus.kind==='lane'||focus.semanticId===qkPvId);}
+  function setFocus(focus){state.focus=focus;state.rank=focus?.rank??state.rank;if(!isQkFocus(focus))state.qkMode=false;state.views.graph.nodeId=null;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=false;if(qkController)qkController.setSelection(qkSelection());}
   function qkSelection(){const f=state.focus;return f?.kind==='work-item'?{type:'item',id:f.workItemId}:f?.kind==='lane'?{type:'block',block:f.blockId}:null;}
   function graphIdForFocus(){const f=state.focus;if(!f||f.kind==='rank')return null;if(f.kind==='work-item'||f.kind==='lane')return qkPvId;if(f.semanticId)return f.semanticId;return objectToGraph[f.objectId]||null;}
   function focusKey(){const f=state.focus;return f?JSON.stringify([f.kind,f.semanticId,f.objectId,f.workItemId,f.blockId,f.rank]):null;}
@@ -154,7 +155,7 @@
       if(b.hasAttribute('data-csa-back'))return close();
       if(b.hasAttribute('data-csa-qk')){const entering=!state.qkMode;if(entering&&!graphIdForFocus()?.startsWith(qkPvId))setFocus({kind:'module',rank:null,semanticId:qkPvId,moduleId:qkPvId,objectId:'attention'});state.qkMode=entering;render();return;}
       if(b.hasAttribute('data-csa-crumb')){const id=b.dataset.csaCrumb;setFocus(id?graphFocus(id):null);const v=state.views.graph;v.expanded=id?id.split('/').slice(0,-1).map((_,i)=>id.split('/').slice(0,i+1).join('/')):[];v.scope=v.expanded.length?'local':'overall';v.camera=null;render();return;}
-      if(b.dataset.csaTab){saveCamera();state.tab=b.dataset.csaTab;if(state.tab==='assignment'&&state.focus)state.views.assignment.topic=selectedTopic(state.views.assignment.topic);if(state.tab==='graph'){const v=state.views.graph,key=focusKey();if(key&&key!==v.projectedFocusKey){const path=graphIdForFocus()?.split('/')||[],ancestors=path.slice(0,-1).map((_,i)=>path.slice(0,i+1).join('/'));v.expanded=[...new Set([...v.expanded,...ancestors])];v.scope=v.expanded.length?'local':'overall';v.projectedFocusKey=key;}}render();return;}
+      if(b.dataset.csaTab){saveCamera();state.tab=b.dataset.csaTab;if(state.tab==='assignment'){if(isQkFocus(state.focus))state.qkMode=true;if(state.focus)state.views.assignment.topic=selectedTopic(state.views.assignment.topic);}if(state.tab==='graph'){const v=state.views.graph,key=focusKey();if(key&&key!==v.projectedFocusKey){const path=graphIdForFocus()?.split('/')||[],ancestors=path.slice(0,-1).map((_,i)=>path.slice(0,i+1).join('/'));v.expanded=[...new Set([...v.expanded,...ancestors])];v.scope=v.expanded.length?'local':'overall';v.projectedFocusKey=key;}}render();return;}
       if(b.dataset.csaScope){saveCamera();const v=state.views[state.tab];if(state.tab==='graph'){if((v.expanded.length?'local':'overall')===b.dataset.csaScope)return;if(b.dataset.csaScope==='local'&&!v.bookmarkedNodeId&&semanticController){semanticController.toggleExpanded((graphIdForFocus()||v.nodeId||'input').split('/')[0],true);return;}setGraphScope(b.dataset.csaScope);render();return;}if(v.scope===b.dataset.csaScope)return;v.scope=b.dataset.csaScope;if(state.focus)v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
       if(b.hasAttribute('data-csa-return')){if(state.tab==='graph'){const v=state.views.graph,focusId=graphIdForFocus()||'';const branch=v.expanded.filter(id=>focusId.startsWith(id)).sort((a,b)=>b.length-a.length);const last=branch[0]||v.expanded.at(-1);v.expanded=v.expanded.filter(id=>id!==last&&!id.startsWith(last+'/'));const parent=last?.slice(0,last.lastIndexOf('/'));if(parent&&semanticNodes.get(parent)?.name===semanticNodes.get(last)?.name)v.expanded=v.expanded.filter(id=>id!==parent&&!id.startsWith(parent+'/'));v.scope=v.expanded.length?'local':'overall';v.camera=null;}else{state.views[state.tab].scope='overall';state.views[state.tab].camera=null;}render();return;}
       if(b.dataset.csaFocus){const topic=b.dataset.csaFocus,v=state.views[state.tab];v.topic=topic;v.camera=null;setFocus(legacyFocus({gather:'gather',cache:'ready',output:'publish'}[topic],state.rank));render();return;}
@@ -221,9 +222,11 @@
     root.querySelector('.csa-workspace').hidden=qkActive;qkHost.hidden=!qkActive;
     if(qkActive){
       if(qkController){qkController.setSelection(qkSelection());qkController.render();}
-      else qkController=global.PtoCsaQkWork.create(qkHost,{onSource:qkSource,selection:qkSelection(),onSelection:selection=>{
-        if(selection.type==='item')setFocus({kind:'work-item',rank:null,moduleId:qkPvId,operationId:qkPvId+'/dispatch',workItemId:selection.id,tokenIndex:Math.floor(selection.id/5),sparseBlockIndex:selection.id%5});
-        else setFocus({kind:'lane',rank:null,moduleId:qkPvId,operationId:qkPvId+'/dispatch',blockId:selection.block});
+      else qkController=global.PtoCsaQkWork.create(qkHost,{onSource:qkSource,rank:state.focus?.rank??state.rank,selection:qkSelection(),onContext:context=>{
+        setFocus({kind:'module',rank:context.rank,scenarioId:context.scenarioId,semanticId:qkPvId,moduleId:qkPvId,objectId:'attention'});state.qkMode=true;chrome();
+      },onSelection:selection=>{
+        if(selection.type==='item')setFocus({kind:'work-item',rank:selection.rank,scenarioId:selection.scenarioId,moduleId:qkPvId,operationId:qkPvId+'/dispatch',workItemId:selection.id,requestIndex:selection.requestIndex,tokenIndex:selection.tokenIndex,positionId:selection.positionId,sparseBlockIndex:selection.sparseBlockIndex,valid:selection.valid,validKvCount:selection.validKvCount,queuePosition:selection.queuePosition,laneId:selection.laneId,laneIteration:selection.laneIteration});
+        else setFocus({kind:'lane',rank:selection.rank,scenarioId:selection.scenarioId,moduleId:qkPvId,operationId:qkPvId+'/dispatch',blockId:selection.block,laneId:selection.laneId});
         chrome();
       }});
       chrome();return;
