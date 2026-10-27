@@ -5,7 +5,7 @@
   const state={open:false,tab:'assignment',focus:null,rank:0,qkMode:false,
     views:{assignment:{scope:'overall',topic:'gather',camera:null},pipeline:{scope:'overall',topic:'gather',camera:null},graph:{scope:'overall',camera:null,expanded:[],overlays:{data:true,control:true},nodeId:null,edgeId:null,inspectorOpen:false,projectedFocusKey:null}}};
   const tabs=['assignment','pipeline','graph'];
-  let root, controller, semanticController, qkController, trigger, previousInert=[], graph;
+  let root, controller, semanticController, qkController, qkPipelineController, trigger, previousInert=[], graph;
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const titles={assignment:'Rank / Data Assignment',pipeline:'Distributed Execution',graph:'CSA Graph'};
   const alias={rows0:'full',rows1:'full',group0:'publish',group1:'publish',mainstate:'main',innerstate:'idxcomp',gather:'push',local:'pre',full:'gather',original:'write',compressed:'main',indexcache:'idxcomp',window:'publish',group:'publish',push:'gather',payload:'gather',readback:'gather',rope:'ready'};
@@ -148,7 +148,7 @@
     '<div class="csa-focusbar" aria-label="关键路径焦点"></div>'+
     '<div class="csa-workspace" id="csa-panel" role="tabpanel"><div class="csa-canvas-column"><div class="csa-caption"></div><div class="csa-stage pto-model-graphviz-pattern-page" role="group" aria-label="CSA 数据与任务关系，拖拽平移，按住 Command 或 Ctrl 滚轮缩放"></div><footer class="csa-footer"><div class="csa-legend"><span>中性矩形 · Tensor / Cache</span><span>彩色模块 · 计算 / 通信 / 同步</span><span>实线 · 数据</span><span class="csa-comm-legend">蓝线 · 跨 Rank</span><span>虚线 · 控制 / 同步</span></div><button class="btn btn-ghost btn-sm" data-csa-fit>全览</button><button class="btn btn-ghost btn-sm" data-csa-read>阅读</button><button class="btn btn-ghost btn-sm" data-csa-zoom="0.8" aria-label="缩小 CSA">−</button><button class="btn btn-ghost btn-sm" data-csa-zoom="1.25" aria-label="放大 CSA">＋</button></footer></div>'+
     '<aside class="pto-ide-frame__pane csa-inspector" aria-label="CSA 对象详情"><header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">对象详情</span><button class="btn btn-ghost btn-sm" data-csa-clear>清除选择</button></header><div class="pto-ide-frame__pane-body csa-detail"></div></aside></div>'+
-    '<div class="csa-qk-host" hidden></div>';
+    '<div class="csa-qk-host" hidden></div><div class="csa-qk-pipeline-host" hidden></div>';
     document.getElementById('ideWorkarea').append(root);
     root.addEventListener('click',event=>{
       const b=event.target.closest('button');if(!b)return;
@@ -188,12 +188,12 @@
   function chrome(){
     root.querySelectorAll('[data-csa-tab]').forEach(b=>{const active=b.dataset.csaTab===state.tab;b.classList.toggle('is-selected',active);b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});
     root.querySelector('#csa-panel').setAttribute('aria-labelledby','csa-tab-'+state.tab);
-    const qk=state.tab==='assignment'&&state.qkMode;
+    const qk=state.tab==='assignment'&&state.qkMode,qkPipeline=state.tab==='pipeline'&&isQkFocus(state.focus);
     const scope=state.tab==='graph'?(state.views.graph.expanded.length?'local':'overall'):state.views[state.tab].scope;
     root.querySelectorAll('[data-csa-scope]').forEach(b=>{const active=b.dataset.csaScope===scope;b.classList.toggle('is-selected',active);b.setAttribute('aria-pressed',String(active));});
-    const scopeGroup=root.querySelector('[data-csa-scopegroup]');if(scopeGroup)scopeGroup.hidden=qk;
-    const focusbar=root.querySelector('.csa-focusbar');if(focusbar)focusbar.hidden=qk;
-    root.querySelector('[data-csa-return]').hidden=qk||scope!=='local';root.querySelector('[data-csa-return]').textContent=state.tab==='graph'?'← 返回上级':'← 返回整体';
+    const scopeGroup=root.querySelector('[data-csa-scopegroup]');if(scopeGroup)scopeGroup.hidden=qk||qkPipeline;
+    const focusbar=root.querySelector('.csa-focusbar');if(focusbar)focusbar.hidden=qk||qkPipeline;
+    root.querySelector('[data-csa-return]').hidden=qk||qkPipeline||scope!=='local';root.querySelector('[data-csa-return]').textContent=state.tab==='graph'?'← 返回上级':'← 返回整体';
     const qkButton=root.querySelector('[data-csa-qk]');
     if(qkButton){qkButton.hidden=state.tab!=='assignment';qkButton.classList.toggle('is-selected',qk);qkButton.textContent=qk?'← 返回 Assignment':graphIdForFocus()?.startsWith(qkPvId)?'查看 qk_pv Work Assignment':'QK Work Assignment';qkButton.setAttribute('aria-pressed',String(qk));}
     const crumbs=focusCrumbs(),scopeId=state.views.graph.expanded.at(-1),scopeName=semanticNodes.get(scopeId)?.name;
@@ -219,8 +219,9 @@
   function render(){
     controller?.destroy();controller=null;semanticController?.destroy();semanticController=null;const stage=root.querySelector('.csa-stage'),view=state.views[state.tab];stage.replaceChildren();
     const qkHost=root.querySelector('.csa-qk-host'),qkActive=state.tab==='assignment'&&state.qkMode;
+    const qkPipelineHost=root.querySelector('.csa-qk-pipeline-host'),qkPipelineActive=state.tab==='pipeline'&&isQkFocus(state.focus);
     if(!qkActive)qkController?.pause();
-    root.querySelector('.csa-workspace').hidden=qkActive;qkHost.hidden=!qkActive;
+    root.querySelector('.csa-workspace').hidden=qkActive||qkPipelineActive;qkHost.hidden=!qkActive;qkPipelineHost.hidden=!qkPipelineActive;
     if(qkActive){
       if(qkController){qkController.setSelection(qkSelection());qkController.render();}
       else qkController=global.PtoCsaQkWork.create(qkHost,{onSource:qkSource,rank:state.focus?.rank??state.rank,selection:qkSelection(),onContext:context=>{
@@ -233,6 +234,12 @@
         chrome();
       }});
       chrome();return;
+    }
+    if(qkPipelineActive){
+      const context=qkController?.getState()||{mode:'source',workload:'mixed',position:8192,rank:state.focus?.rank??state.rank};
+      if(!qkPipelineController)qkPipelineController=global.PtoCsaQkPipeline.create(qkPipelineHost,{onFocus:focus=>{setFocus(focus);chrome();},onSource:qkSource,moduleId:qkPvId});
+      qkPipelineController.update(state.focus,context,qkController?.getScenario());
+      root.querySelector('.csa-focusbar').innerHTML='';chrome();return;
     }
     root.querySelector('.csa-focusbar').innerHTML=state.tab==='graph'?'':Object.entries(model.topics).map(([key,label])=>'<button class="btn btn-ghost btn-sm '+(view.topic===key?'is-selected':'')+'" data-csa-focus="'+key+'" aria-pressed="'+(view.topic===key)+'">'+label+'</button>').join('');
     if(state.tab==='graph'){
