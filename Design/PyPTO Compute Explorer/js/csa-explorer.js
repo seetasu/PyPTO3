@@ -219,6 +219,7 @@
   function render(){
     controller?.destroy();controller=null;semanticController?.destroy();semanticController=null;const stage=root.querySelector('.csa-stage'),view=state.views[state.tab];stage.replaceChildren();
     const qkHost=root.querySelector('.csa-qk-host'),qkActive=state.tab==='assignment'&&state.qkMode;
+    if(!qkActive)qkController?.pause();
     root.querySelector('.csa-workspace').hidden=qkActive;qkHost.hidden=!qkActive;
     if(qkActive){
       if(qkController){qkController.setSelection(qkSelection());qkController.render();}
@@ -321,7 +322,7 @@
     if(state.tab!=='graph')details();chrome();
   }
   function open(button){if(!root)mount();if(state.open)return;trigger=button;state.open=true;root.hidden=false;const area=document.getElementById('ideWorkarea');area.dataset.visualization2='open';previousInert=[...area.children].filter(el=>el!==root).map(el=>[el,el.inert]);previousInert.forEach(([el])=>el.inert=true);render();root.querySelector('[data-csa-tab="'+state.tab+'"]').focus();}
-  function close(){if(!state.open)return;saveCamera();semanticController?.destroy();semanticController=null;state.open=false;root.hidden=true;delete document.getElementById('ideWorkarea').dataset.visualization2;previousInert.forEach(([el,inert])=>el.inert=inert);previousInert=[];trigger?.isConnected&&trigger.focus({preventScroll:true});}
+  function close(){if(!state.open)return;saveCamera();qkController?.pause();semanticController?.destroy();semanticController=null;state.open=false;root.hidden=true;delete document.getElementById('ideWorkarea').dataset.visualization2;previousInert.forEach(([el,inert])=>el.inert=inert);previousInert=[];trigger?.isConnected&&trigger.focus({preventScroll:true});}
   document.addEventListener('click',e=>{const b=e.target.closest('[data-visualization2-open]');if(b&&global.PtoComputeIDE.getScene()==='csa')open(b);});
   global.PtoCsaExplorer=Object.freeze({open,close,getState:()=>structuredClone(state)});
 })(window);
