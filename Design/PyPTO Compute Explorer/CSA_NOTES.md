@@ -31,3 +31,31 @@ js/decode-csa-source.js 保存上述源码的本地快照，主文件包含原�
 复用既有 IDE Frame、深色主题、按钮和 Tab；图形通过共享 model-graphviz.renderController 直接嵌入，使用其节点、选择、拖拽和缩放。CSA 的数据和状态独立于 Paged Attention 引擎。
 
 布局、连线和行段块为静态简化示意，不推断运行耗时、实际重叠、带宽、物理地址或 Tile 指令。Pipeline 全览密度较高，可用“阅读”、缩放及局部视图查看细节。未接入真实编译器或 Runtime，CSA Graph 复用共享语义 Graph 渲染器；未做 Morph、播放模拟或完整 Tile 级细节。
+
+## QK Work Assignment · 第二阶段局部场景
+
+入口：Decode CSA → Compute Explorer → Assignment → 工具栏 **QK Work Assignment**（再次点击返回 Assignment）。它是 Assignment 的一个局部模式，不新增主 Tab；退出后原有 Gather / Cache / Output 视图不变。
+
+用于解释 `decode_sparse_attn_csa.py` 的 `qk_plan → qk_pv`：
+
+| 区域 | 内容 |
+|---|---|
+| 显式任务依赖 | `qk_plan_tid → qk_pv`、`cache_ready_dep → qk_pv`；`cache_ready_dep` 可展开为 `ori_cache_write_tid` / `cmp_cache_write_tid`。只画本段源码显式声明的依赖 |
+| A · Original Work Matrix | 5 Tokens × 5 Sparse Blocks = 25 个 `(token, sparseBlock)` Work Item，格内为扁平 ID |
+| B · Reordered Work Queue | `qk_order`：valid 段在前，invalid 追加到尾部（不删除），两段之间有边界标记 |
+| C · SPMD Block Assignment | 每行一个逻辑 SPMD Block，按 Iteration 顺序列出领取的 Work Items |
+| 右侧 Inspector | Work Item / Block / Dispatch 三种粒度；含队列位置、Block、Iteration、规则公式、执行路径、真实源码行段 |
+| 术语 | 固定解释 Dispatch / SPMD Block / Work Item / Iteration 的区别 |
+
+工程口径：
+
+- `qk_pv` 是**一次** `pl.spmd(NUM_QK_CORES)` 派发，展开为 24 个逻辑 Block；不是 24 次 Submit。
+- Work Item 是 `(token, sparseBlock)`，不是独立 Runtime Task；`workItemId = token * SPARSE_BLOCKS + sb`，重排后 ID 不变。
+- 领取规则 `qk_flat = qk_core + qk_it * N`，因此 `block = queuePosition % N`、`iteration = ⌊queuePosition / N⌋`。
+- 底部教学示例（4 Blocks，非真实 CSA 配置）与顶部源码配置（24 Blocks，示例输入）共用同一组 25 个教学 Work Item，只切换 Block 数并重算分配。
+- SB0 恒为 valid（源码直接把 `valid_block_mask[*,0]` 写 1），不可切换；SB1–SB4 可切换，切换只改本地教学数据，不代表修改真实 `idx_topk` 或重跑算子。
+- 源码证据：`decode_sparse_attn_csa.py` L134–196 / 208–224 / 224–314 以本地快照行段展示；`decode_csa.py` L323、353、361、384–393 通过编辑器导航跳转（会先退出 Explorer 再滚动定位）。
+- 不出现 Runtime Duration、物理 Core 时间线、valid 数量换算的耗时；`pl.pipeline(..., stage=2)` 只作为源码声明的结构说明。
+
+实现：`js/csa-qk-work.js`（纯函数 `buildWorkItems` / `buildQueue` / `assignToBlocks` / `getWorkItemDetails` / `getBlockDetails` + 自带选择状态的渲染器）、`styles/csa-qk-work.css`（`csa-qk-` 前缀）。`csa-explorer.js` 只增加 `qkMode` 状态、工具栏入口、`render()` 分支与源码跳转；QK 视图有独立 host，切换主 Tab 不丢选择。
+

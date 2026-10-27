@@ -160,7 +160,7 @@
         rail.forEach((item, index) => { item.x = stateX + index * (item.boxW + columnGap); item.y = cursorY; });
         cursorY += Math.max(...row.map((item) => item.boxH)) + layerGap;
       });
-      width = Math.max(width, center + spineWidth / 2 + columnGap + rightWidth + side,
+      width = Math.max(width, ...nodes.map(item=>item.x+item.boxW+side), center + spineWidth / 2 + columnGap + rightWidth + side,
         stateX + Math.max(0, ...nodes.filter(isStateRail).map((item) => item.boxW)) + side,
         center + spineWidth / 2 + side);
     } else {
