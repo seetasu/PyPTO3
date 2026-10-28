@@ -8,16 +8,20 @@
   const transfers=[{buffer:'score_transfer',producer:'qk',consumer:'softmax',event:'QK_READY_EVENT'},
     {buffer:'probability_transfer',producer:'softmax',consumer:'pv',event:'SOFTMAX_READY_EVENT'},
     {buffer:'pv_transfer',producer:'pv',consumer:'accumulate',event:'PV_READY_EVENT'}];
+  const sourceVersion='sha256:4087a49cd0b6c6396d4fef859576a02f8c6b096e9b94f5b55560e1f4b238e843';
+  const sourceRanges={qk:[270,365],softmax:[758,823],pv:[512,724],accumulate:[828,874]};
+  const sourceRef=range=>({file:'paged_attention_pypto.py',range,version:sourceVersion,origin:'PTO_PAGED_ATTENTION_PYPTO_SOURCE'});
   function createModel({anatomy,preLaunch}){
     return {...anatomy,preLaunch,tasks:anatomy.tasks.map(task=>{
       const transferBase=task.block*anatomy.transferSlots*anatomy.rowTile;
       const stacks=task.stacks.map(stack=>({...stack,produceTick:stack.index,consumeTick:stack.index+preLaunch,
+        slotEvidence:{level:'model-derived',rule:'stack.index % TRANSFER_SLOTS',inputs:{stackIndex:stack.index,transferSlots:anatomy.transferSlots},source:sourceRef([31,32])},
         produceRow:transferBase+stack.slot*anatomy.rowTile,consumeRow:transferBase+stack.slot*anatomy.rowTile}));
-      const ticks=Array.from({length:stacks.length+preLaunch},(_,index)=>({index,
+      const ticks=Array.from({length:stacks.length+preLaunch},(_,index)=>({index,evidence:{level:'model-derived',rule:'pl.range(stack_count + PRE_LAUNCH)',inputs:{stackCount:stacks.length,preLaunch},source:sourceRef([758,833])},
         produce:index<stacks.length?index:null,consume:index>=preLaunch?index-preLaunch:null}));
-      return {...task,stacks,ticks,transferBase,dependencies:stacks.flatMap(s=>transfers.map(t=>({...t,stack:s.index,slot:s.slot}))),
-        reuse:stacks.filter(s=>s.index>=anatomy.transferSlots).flatMap(s=>transfers.map(t=>({...t,slot:s.slot,from:s.index-anatomy.transferSlots,to:s.index}))),
-        operations:stacks.flatMap(s=>Object.keys(stages).map(stage=>({stack:s.index,stage,tick:['qk','softmax'].includes(stage)?s.produceTick:s.consumeTick,slot:s.slot,...buffers[stage]})))};
+      return {...task,stacks,ticks,transferBase,dependencies:stacks.flatMap(s=>transfers.map(t=>({...t,kind:'data',synchronizationKind:'event',stack:s.index,slot:s.slot,evidence:{level:'source-confirmed',source:sourceRef([270,874])}}))),
+        reuse:stacks.filter(s=>s.index>=anatomy.transferSlots).flatMap(s=>transfers.map(t=>({...t,kind:'resource-reuse',slot:s.slot,from:s.index-anatomy.transferSlots,to:s.index,evidence:{level:'model-derived',rule:'stack.index % TRANSFER_SLOTS',inputs:{stackIndex:s.index,transferSlots:anatomy.transferSlots},source:sourceRef([31,32])}}))),
+        operations:stacks.flatMap(s=>Object.keys(stages).map(stage=>{const tick=['qk','softmax'].includes(stage)?s.produceTick:s.consumeTick;return {stack:s.index,stage,tick,slot:s.slot,...buffers[stage],computeUnitId:`paged/task/${task.id}`,iterationId:`paged/task/${task.id}/stack/${s.index}`,operationId:`paged/task/${task.id}/stack/${s.index}/${stage}`,operationType:stage,logicalPosition:{kind:'tick',index:tick},inputs:buffers[stage].read?[buffers[stage].read]:[],outputs:buffers[stage].write?[buffers[stage].write]:[],dependencies:transfers.filter(t=>t.consumer===stage).flatMap(t=>[{kind:'data',from:`paged/task/${task.id}/stack/${s.index}/${t.producer}`,buffer:t.buffer},{kind:'synchronization',from:`paged/task/${task.id}/stack/${s.index}/${t.producer}`,event:t.event}]),resourceRefs:[`paged/task/${task.id}/slot/${s.slot}`],evidence:{operation:{level:'source-confirmed',source:sourceRef(sourceRanges[stage])},logicalPosition:{level:'model-derived',rule:['qk','softmax'].includes(stage)?'stack.index':'stack.index + PRE_LAUNCH',inputs:{stackIndex:s.index,preLaunch},source:sourceRef([758,833])},visualSpacing:{level:'presentation-only'},runtimeDuration:{level:'unverified'}}};}))};
     })};
   }
   function mount(host,{model,onTask,onFocus,onCamera,onInspector,onNavigate,onExit}){
@@ -205,11 +209,15 @@
       }else if(f.kind==='output')upstream=[jump('stage',task.stacks.at(-1).index,'accumulate','最后一个 Stack · Accumulate')];
       const relation=(title,items)=>items.length?`<div class="viz2-intra-relation-group"><b>${title}</b>${items.join('')}</div>`:'';
       const detail=sync?global.PTO_COMPUTATION_PRESENTATION.synchronization(sync,global.PTO_PYPA_SEMANTIC_GRAPH):null,edge=sync?eventEdge(f):null,waitRanges=edge?.consumerSource?.ranges||sync?.consumer.source.ranges||[];
+      const positionEvidence=f.kind==='tick'?task.ticks[f.index]?.evidence:operation?.evidence.logicalPosition;
       host.querySelector('[data-intra-detail]').innerHTML=
         section('Inputs',operation?.read?[['Buffer',operation.read]]:f.kind==='event'?[['Producer',stages[events[f.event][0]]]]:[])+
         section('Computation',[['对象',f.kind==='stage'?stages[f.stage]:d.title]])+
         section('Outputs',operation?.write?[['Buffer',operation.write]]:f.kind==='event'?[['Consumer',stages[events[f.event][1]]]]:[])+
         `<section><h3>Dependencies</h3>${relation('Upstream',upstream)}${relation('Downstream',downstream)}${resource.length?`<p>Resource / Synchronization · ${esc(resource.join('；'))}</p>`:''}</section>`+
+        (positionEvidence?`<p>Logical Tick · Model-derived：${esc(positionEvidence.rule)}；输入 ${esc(JSON.stringify(positionEvidence.inputs))}。同 Tick 不代表真实并发或耗时。</p>`:'')+
+        (f.kind==='slot'?`<p>Slot · Model-derived：stack.index % TRANSFER_SLOTS；复用不表示同一数据值。</p>`:'')+
+        (operation?`<section><h3>Source Evidence</h3><button class="btn btn-ghost btn-sm" data-intra-operation-source="${operation.evidence.operation.source.range[0]}" data-intra-operation-end="${operation.evidence.operation.source.range[1]}">paged_attention_pypto.py · L${operation.evidence.operation.source.range.join('–')} ↗</button><p>计算关系：Source-confirmed（页面内源码快照）；操作位置：Model-derived。</p></section>`:'')+
         (detail?`<section><h3>Source Evidence</h3><dl>${detail.rows.map(row=>`<dt>${esc(row.label)}</dt><dd>${esc(row.value)}</dd>`).join('')}</dl><div class="viz2-ready-source-links">${[...sync.producer.source.ranges.map((range,index)=>({end:'producer',index,range})),...waitRanges.map((range,index)=>({end:'consumer',index,range}))].map(item=>`<button class="btn btn-ghost btn-sm" data-intra-sync-source="${item.end}" data-intra-sync-range="${item.index}">${item.end==='producer'?'SET':'WAIT'} · :${item.range.start}–${item.range.end}</button>`).join('')}</div><button class="btn btn-sm" data-intra-graph-ready>在 Graph 中查看</button><pre data-intra-source-preview hidden></pre></section>`:'')+
         '<p>静态逻辑映射；Tick 不表示实测时长，READY WAIT 不表示已发生 Stall。</p>';
     }
@@ -236,6 +244,7 @@
     listen(host,'click',event=>{
       if(suppress){suppress=false;event.preventDefault();return;}tooltip.hidden=true;
       if(event.target.closest('[data-intra-graph-ready]')){stop();onNavigate?.();return;}
+      const operationSource=event.target.closest('[data-intra-operation-source]');if(operationSource){global.PtoComputeIDE.openSource({file:'paged_attention_pypto.py',start:Number(operationSource.dataset.intraOperationSource),end:Number(operationSource.dataset.intraOperationEnd)});return;}
       const jump=event.target.closest('[data-intra-jump-task]');if(jump){if(Number(jump.dataset.intraJumpTask)!==task.id)return;onFocus({kind:jump.dataset.intraJumpKind,index:Number(jump.dataset.intraJumpIndex),...(jump.dataset.intraJumpStage?{stage:jump.dataset.intraJumpStage}:{})});return;}
       const sourceButton=event.target.closest('[data-intra-sync-source]');
       if(sourceButton){const sync=syncFor(focus),edge=eventEdge(focus);if(!sync)return;const ranges=sourceButton.dataset.intraSyncSource==='producer'?sync.producer.source.ranges:(edge?.consumerSource?.ranges||sync.consumer.source.ranges),line=ranges[Number(sourceButton.dataset.intraSyncRange)]?.start,preview=host.querySelector('[data-intra-source-preview]');if(line&&preview){preview.hidden=false;preview.textContent=global.PTO_PAGED_ATTENTION_PYPTO_SOURCE.split('\n').slice(Math.max(0,line-3),line+12).map((text,i)=>`${Math.max(1,line-2)+i}  ${text}`).join('\n');}return;}
@@ -311,7 +320,7 @@
       const visibleRect=element=>{const r=screenRect(element),x=Math.max(clip.x,Math.min(r.x,clip.x+clip.width-1)),y=Math.max(clip.y,Math.min(r.y,clip.y+clip.height-1));return {x,y,width:Math.max(1,Math.min(r.width,clip.x+clip.width-x)),height:Math.max(1,Math.min(r.height,clip.y+clip.height-y))};};
       return {task:task.id,model:task,clip,frame:screenRect(card),title:screenRect(card.querySelector('h3')),output:visibleRect(scene.querySelector('[data-intra-output]')),stacks:task.stacks.map(s=>({index:s.index,rect:visibleRect(scene.querySelector(`[data-intra-operation="${s.index}:qk"]`))}))};
     }
-    return {update,model,getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;},setTransitionMasked(value){host.classList.toggle('viz2-intra-masked',value);},
+    return {update,model,getOperationDescriptor(taskId,stack,stage){return model.tasks[taskId]?.operations.find(op=>op.stack===stack&&op.stage===stage)||null;},getTransitionSnapshot,hideTooltip(){tooltip.hidden=true;},setTransitionMasked(value){host.classList.toggle('viz2-intra-masked',value);},
       destroy(){active=false;saveScroll();stop();resizeObserver.disconnect();listeners.abort();host.classList.remove('viz2-intra-masked');host.replaceChildren();}};
   }
   global.PtoVisualization2PipelineIntra=Object.freeze({createModel,mount});
