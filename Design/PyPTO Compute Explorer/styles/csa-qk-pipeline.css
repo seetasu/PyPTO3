@@ -121,6 +121,10 @@
 .csa-qp-inspector section{margin-top:14px;padding-top:10px;border-top:1px solid var(--border-subtle)}
 .csa-qp-inspector h3{margin:0 0 6px;color:var(--foreground-secondary);font:var(--type-body-sm)}
 .csa-qp-inspector section p{margin:0;color:var(--foreground-secondary);line-height:1.45}
+.csa-qp-inspector header small{display:block;color:var(--foreground-muted);font:var(--type-micro);margin-top:4px}
+.csa-qp-relation{display:grid;gap:4px;margin-top:10px}
+.csa-qp-relation b{color:var(--foreground-secondary);font:var(--type-micro)}
+.csa-qp-relation button{justify-content:flex-start;text-align:left;white-space:normal}
 /* P5: 跨模块跳转入口只出现在 Inspector / Work Item 信息行，不占用画布。 */
 .csa-qp-nav-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border-subtle)}
 .csa-qp-nav{white-space:normal;text-align:left;height:auto;min-height:var(--button-height-sm)}
