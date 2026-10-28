@@ -14,7 +14,7 @@
   const WIN = 128, IDX_TOPK = 512, ATTN_K_TILE = 128, COMPRESS_RATIO = 4;
   const POSITIONS = [7, 1023, 2047, 8192];
 
-  // Fixed teaching mask (1 = valid). Rows are tokens, columns are sparse blocks.
+  // 旧版固定 mask（1 = valid），仅作 buildWorkItems 的数组入参兼容保留。
   const DEFAULT_MASK = Object.freeze([
     Object.freeze([1, 1, 0, 0, 0]),
     Object.freeze([1, 0, 0, 0, 0]),
@@ -25,8 +25,7 @@
   const DEFAULT_SELECTION = 11;              // Token 2 / Sparse Block 1
 
   const MODES = Object.freeze({
-    teaching: Object.freeze({ tokens: TOKENS, blocks: 4, button: 'Teaching', badge: '5 Query · 4 Lane 教学配置' }),
-    source: Object.freeze({ tokens: SOURCE_TOKENS, blocks: NUM_QK_CORES, button: 'Source-scale Example', badge: '默认规模 · Synthetic idx_topk · 非 Runtime Trace' })
+    source: Object.freeze({ tokens: SOURCE_TOKENS, blocks: NUM_QK_CORES })
   });
 
   const SUB_FILE = 'decode_sparse_attn_csa.py';
@@ -46,7 +45,7 @@
 
   function buildWorkItems(input) {
     const legacyMask = Array.isArray(input) ? input : null;
-    const count = legacyMask ? legacyMask.length : MODES[input.mode].tokens;
+    const count = legacyMask ? legacyMask.length : (MODES[input.mode] || MODES.source).tokens;
     const items = [];
     for (let token = 0; token < count; token++) {
       const requestIndex = Math.floor(token / TOKENS_PER_REQUEST);
@@ -221,9 +220,8 @@
     }
     function itemMarkup(d,positions){const relatedIds=selectionIds(d);return d.items.map(item=>{const p=positions.get(item.id),selected=state.selection?.type==='item'&&state.selection.id===item.id;
       const related=!selected&&relatedIds.has(item.id);
-      const label=state.mode==='teaching'?'<text data-qk-item-label x="7" y="24">'+(state.phase==='ordering'?item.id+' · q'+d.queue.indexOf(item.id):item.id)+'</text>':'';
       const info=itemDetails(d,item.id);
-      return '<g class="csa-qk-canvas-item '+(item.valid?'is-valid':'is-invalid')+(selected?' is-selected':'')+(related?' is-related':'')+(state.selection&&!related&&!selected?' is-dimmed':'')+'" data-qk-item="'+item.id+'" tabindex="'+(selected||(!state.selection&&item.id===0)?'0':'-1')+'" role="button" aria-label="Work Item '+item.id+' · Q'+item.token+' SB'+item.sparseBlock+' · qk_order['+info.queuePosition+'] · Lane '+info.block+' / it '+info.iteration+' · '+(item.valid?'valid':'invalid')+'" style="transform:translate('+p.x+'px,'+p.y+'px)"><rect width="'+p.w+'" height="'+p.h+'" rx="2"/>'+label+'</g>';}).join('');}
+      return '<g class="csa-qk-canvas-item '+(item.valid?'is-valid':'is-invalid')+(selected?' is-selected':'')+(related?' is-related':'')+(state.selection&&!related&&!selected?' is-dimmed':'')+'" data-qk-item="'+item.id+'" tabindex="'+(selected||(!state.selection&&item.id===0)?'0':'-1')+'" role="button" aria-label="Work Item '+item.id+' · Q'+item.token+' SB'+item.sparseBlock+' · qk_order['+info.queuePosition+'] · Lane '+info.block+' / it '+info.iteration+' · '+(item.valid?'valid':'invalid')+'" style="transform:translate('+p.x+'px,'+p.y+'px)"><rect width="'+p.w+'" height="'+p.h+'" rx="2"/></g>';}).join('');}
     function inspector(d){if(!state.selection||!state.inspectorOpen)return '';
       const selection=state.selection,block=selection.type==='block'?getBlockDetails(selection.block,d.items,d.queue,d.blockCount):null;
       let title='',facts=[],formula='';
@@ -248,10 +246,10 @@
         '<details><summary>显式任务依赖</summary><p>qk_plan_tid → qk_pv ← cache_ready_dep。这里是源码中的静态依赖，不是 Runtime Timeline。</p><button type="button" data-qk-source="decode_csa.py:384:393">查看调用处 ↗</button></details>'+
         (selection.type==='item'?'<details><summary>Advanced Simulation · 手动覆盖</summary><p>仅用于观察规则变化，不代表 Indexer 真实输出。SB0 固定有效。</p><button type="button" data-qk-advanced>'+(state.advanced?'关闭手动覆盖':'启用手动覆盖')+'</button>'+(state.advanced&&d.byId.get(selection.id).sparseBlock!==0?'<button type="button" data-qk-toggle="'+selection.id+'">切换当前 Work Item 有效性</button><button type="button" data-qk-reset>清除覆盖</button>':'')+'</details>':'')+'</aside>';
     }
-    function shell(d){const count=d.items.length,mode=state.mode,positions=viewportPositions(d,state.phase);
-      const requests=mode==='source'?'<label>Request <select data-qk-request>'+Array.from({length:32},(_,i)=>'<option value="'+i+'"'+(i===state.requestIndex?' selected':'')+'>'+i+'</option>').join('')+'</select></label>':'';
-      return '<div class="csa-qk-canvas-shell"><div class="csa-qk-scenario"><div class="segmented-control segmented-control-muted"><button type="button" data-qk-mode="teaching" class="btn btn-sm'+(mode==='teaching'?' is-selected':'')+'" aria-pressed="'+(mode==='teaching')+'">Teaching</button><button type="button" data-qk-mode="source" class="btn btn-sm'+(mode==='source'?' is-selected':'')+'" aria-pressed="'+(mode==='source')+'">Source-scale</button></div><label>场景 <select data-qk-workload><option value="mixed"'+(state.workload==='mixed'?' selected':'')+(mode==='teaching'?' disabled':'')+'>Mixed Context · Synthetic</option><option value="uniform"'+(state.workload==='uniform'?' selected':'')+'>Uniform Context · Synthetic</option></select></label>'+
-        (state.workload==='uniform'||mode==='teaching'?'<label>Position <select data-qk-position>'+POSITIONS.map(p=>'<option value="'+p+'"'+(p===state.position?' selected':'')+'>'+p+'</option>').join('')+'</select></label>':'')+
+    function shell(d){const count=d.items.length,positions=viewportPositions(d,state.phase);
+      const requests='<label>Request <select data-qk-request>'+Array.from({length:32},(_,i)=>'<option value="'+i+'"'+(i===state.requestIndex?' selected':'')+'>'+i+'</option>').join('')+'</select></label>';
+      return '<div class="csa-qk-canvas-shell"><div class="csa-qk-scenario"><label>场景 <select data-qk-workload><option value="mixed"'+(state.workload==='mixed'?' selected':'')+'>Mixed Context · Synthetic</option><option value="uniform"'+(state.workload==='uniform'?' selected':'')+'>Uniform Context · Synthetic</option></select></label>'+
+        (state.workload==='uniform'?'<label>Position <select data-qk-position>'+POSITIONS.map(p=>'<option value="'+p+'"'+(p===state.position?' selected':'')+'>'+p+'</option>').join('')+'</select></label>':'')+
         '<label>Rank <select data-qk-rank><option value="0"'+(state.rank===0?' selected':'')+'>0</option><option value="1"'+(state.rank===1?' selected':'')+'>1</option></select></label>'+requests+'<span class="csa-qk-scenario-count">'+(count/SPARSE_BLOCKS)+' Queries · '+count+' Work Items · '+d.blockCount+' Lanes</span></div>'+
         '<div class="csa-qk-canvas-head"><div><h2 data-qk-title>'+PHASE_LABELS[state.phase]+'</h2><p data-qk-subtitle>'+subtitle(d)+'</p></div><div class="csa-qk-canvas-controls"><button type="button" class="btn btn-ghost btn-sm" data-qk-play>播放</button><button type="button" class="btn btn-ghost btn-sm" data-qk-replay>重播</button><div class="segmented-control segmented-control-muted">'+PHASES.map(p=>'<button type="button" class="btn btn-sm'+(state.phase===p?' is-selected':'')+'" data-qk-phase="'+p+'" aria-pressed="'+(state.phase===p)+'">'+({generation:'Generation',ordering:'Ordering',assignment:'Assignment'}[p])+'</button>').join('')+'</div><label><input type="checkbox" data-qk-loop'+(state.loop?' checked':'')+'> 循环</label></div></div>'+
         '<div class="csa-qk-canvas-viewport" tabindex="0" role="group" aria-label="QK/PV Work Assignment 画布"><svg viewBox="0 0 1400 790" preserveAspectRatio="xMidYMid meet"><g data-qk-scene><g data-qk-backdrop>'+backdrop(d)+'</g><g data-qk-items>'+itemMarkup(d,positions)+'</g></g></svg><div class="csa-qk-tooltip" data-qk-tooltip hidden></div></div>'+
@@ -320,7 +318,6 @@
       if(b.dataset.qkItem!=null){select({type:'item',id:Number(b.dataset.qkItem)});return;}
       if(b.dataset.qkQuery!=null){const tokenIndex=Number(b.dataset.qkQuery);select({type:'query',tokenIndex,requestIndex:Math.floor(tokenIndex/TOKENS_PER_REQUEST)});return;}
       if(b.dataset.qkLane!=null){select({type:'block',block:Number(b.dataset.qkLane)});return;}
-      if(b.dataset.qkMode){if(state.mode!==b.dataset.qkMode){state.mode=b.dataset.qkMode;if(state.mode==='teaching')state.workload='uniform';else state.workload='mixed';changeContext();}return;}
       if(b.dataset.qkPhase){stop();updatePhase(b.dataset.qkPhase);return;}
       if(b.hasAttribute('data-qk-play')){state.playing?stop():start();return;}
       if(b.hasAttribute('data-qk-replay')){stop();updatePhase('generation');start();return;}

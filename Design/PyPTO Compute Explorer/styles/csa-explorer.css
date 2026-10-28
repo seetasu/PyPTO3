@@ -36,24 +36,16 @@
 .csa-unadapted p { max-width:440px; margin:0; color:var(--foreground-muted); font:var(--type-body-sm); }
 @media(max-width:1000px){.csa-inspector{flex-basis:260px;}.csa-toolbar,.csa-focusbar{padding-inline:var(--space-3)}.csa-legend{font:var(--type-micro)}}
 
-/* Assignment 一级页面：计算模块入口网格。Canvas-first，无默认 Inspector。 */
-.csa-module-host { flex:1; min-height:0; overflow:auto; }
-.csa-module-host[hidden] { display:none; }
-.csa-modules { max-width:1120px; margin:0 auto; padding:var(--space-6) var(--space-5); }
-.csa-modules-head { max-width:700px; margin-bottom:var(--space-5); }
-.csa-modules-head h2 { margin:var(--space-1) 0 var(--space-2); font:var(--type-title-1); }
-.csa-modules-head p { margin:0; color:var(--foreground-muted); font:var(--type-body-sm); }
-.csa-module-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(248px,1fr)); gap:var(--space-3); }
-.csa-module-card { display:flex; flex-direction:column; align-items:flex-start; gap:var(--space-1); min-height:136px; padding:var(--space-4); text-align:left; border:1px solid var(--border-subtle); border-radius:var(--radius-lg); background:var(--surface-1); color:var(--foreground); cursor:pointer; }
-.csa-module-index { color:var(--foreground-muted); font:var(--type-mono); }
-.csa-module-card b { font:var(--type-title-3); }
-.csa-module-card small { color:var(--foreground-muted); font:var(--type-micro); line-height:var(--line-height-body); }
-.csa-module-card em { margin-top:auto; font:var(--type-micro); font-style:normal; color:var(--foreground-muted); }
-.csa-module-card.is-ready { border-color:var(--border-strong); }
-.csa-module-card.is-ready em { color:var(--primary); }
-.csa-module-card.is-ready:hover,.csa-module-card.is-ready:focus-visible { border-color:var(--primary); outline:none; transform:translateY(-2px); }
-.csa-module-card.is-pending { opacity:.55; cursor:not-allowed; }
-@media(max-width:800px){.csa-modules{padding:var(--space-4) var(--space-3)}.csa-module-grid{grid-template-columns:1fr}}
+/* Assignment：Breadcrumb 下方一排紧凑的计算阶段 Tab，画布始终是主界面。 */
+.csa-stagebar { display:flex; flex:none; padding:0 var(--space-5) var(--space-2); overflow-x:auto; scrollbar-width:thin; }
+.csa-stagebar[hidden] { display:none; }
+.csa-stagebar > .segmented-control { flex:0 0 auto; max-width:none; }
+.csa-stagebar > .segmented-control > .btn { flex:0 0 auto; gap:var(--space-1); white-space:nowrap; }
+.csa-stagebar > .segmented-control > .btn.is-pending { color:var(--foreground-muted); }
+.csa-stage-todo { color:var(--foreground-muted); font:var(--type-micro); }
+.csa-stage-hold { flex:1; min-height:0; overflow:auto; }
+.csa-stage-hold[hidden] { display:none; }
+@media(max-width:1000px){.csa-stagebar{padding-inline:var(--space-3)}}
 
 /* CSA uses the shared semantic Graph scene and its original card/edge skins. */
 .csa-semantic-stage.viz2-graph { display:flex; flex-direction:column; }
