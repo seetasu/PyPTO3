@@ -897,16 +897,25 @@
         tags: ["Callable", "MemoryReuse", "Pass Dump", "Address Allocation"]
       },
       {
+        title: "Device Perf Lane · 编译联动实验",
+        subtitle: "Swimlane × Pass Graph × Instructions",
+        category: "内存与性能", status: "可体验", version: "独立副本", updatedAt: "2026-10-27",
+        description: "上下分屏复用 CSA Pass Field 图元、布局与阶段数据，支持 Pass 分析关注点、Tensor 分片与跨核交接标注，以及泳道 kernel 联动。",
+        href: "Design/device-perf-lane/index-compile-linked.html",
+        preview: "Design/assets/launch-previews/device-perf-lane-focus.png",
+        tags: ["Pass Graph", "指令", "泳道联动"]
+      },
+      {
         title: "Device Perf Lane · 高保真",
-        subtitle: "Critical Path × Physical Core Timeline",
+        subtitle: "Critical Path × Core Pipeline × Pass",
         category: "内存与性能",
         status: "可体验",
-        version: "关键路径时间导航",
-        updatedAt: "2026-10-26",
-        description: "关键路径融入泳道时间轴，通过胶囊节点、聚合展开和缩放定位任务；联动并行宽度、AIC/AIV 物理核泳道、任务筛选与 Pass 分析。点击路径节点打开可调高度的局部依赖抽屉，查看前驱、当前任务与后继。",
+        version: "核内 Pass 演变",
+        updatedAt: "2026-10-28",
+        description: "关键路径、物理核泳道与编译分析联动；展开核内流水后原位 zoom in 查看 P19–P30 连续变换，支持自动播放、阶段定位和返回，以独立科技绿突出当前 Pass 改动对象。",
         href: "Design/device-perf-lane/index-focus.html",
         preview: "Design/assets/launch-previews/device-perf-lane-focus.png",
-        tags: ["Critical Path", "AIC / AIV", "依赖分析", "Swimlane"]
+        tags: ["Critical Path", "AIC / AIV", "核内流水", "Pass 分析"]
       },
       {
         title: "Device Perf Lane · 上板性能分析",
