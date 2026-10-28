@@ -16,6 +16,10 @@
     partial:{title:'Partial Results',fact:'该 Work Item 写出当前 Sparse Block 的 m/l/o。两批共四个 16 Head 分段；同一 Query 的其他 Sparse Blocks 也写各自 Partial。',file:subSource,range:[204,206]},
     merge:{title:'csa_merge_pack_publish',fact:'TP=2 主流程中，该后续 Task 依赖 qk_tid 与 attn_rope_tid；合并同一 Query 多个 Sparse Blocks 的 Partial m/l/o，随后 Normalize、Attention Sink、Inverse RoPE、Pack、Publish。它不在 qk_pv SPMD 循环内。',file:mainSource,range:[395,477]}
   };
+  const sourceVersions={
+    [subSource]:'sha256:7e4afa5eefa4eebabe421cda6da6c32c49f5e200c1dc74dcc63b4c3b6aa8800b',
+    [mainSource]:'sha256:5376b4dbcda62b90f31c734ed533cecd4442f770cd7994f08350f08dfca69a0f'
+  };
   function create(host,options){
     let focus=null,context=null,scenario=null,lane=0,level='lane',selection=null,camera=null,drag=null,suppressBlankClick=false,mapMode='path',lastItemId=null,mapCamera=null,mapDrag=null;
     const bounds={x:0,y:0,width:1600,height:650},padding=24;
@@ -95,7 +99,13 @@
       const downstream={query:each('qk'),gather:[target('kv',null)],kv:[...each('qk'),...each('pv')],qk:[target('stats',batch)],stats:[target('pv',batch,'exp → PV'),target('write',batch,'m / l → Partial Write')],pv:[target('write',batch)],write:[target('partial',null)]}[op]||[];
       return {upstream,downstream,resource:op==='kv'?['同一 L1 KV Tile 被两个 Head Batch 共用；各自计算 QK / PV']:['qk','pv'].includes(op)?['共享已准备好的 L1 KV Tile；虚线表示资源关系']:[]};
     }
+    function operationDescriptor(operation=selection?.operation,batch=selection?.batchIndex){const item=currentItem(),info=evidence[operation];if(!item||!info)return null;
+      const step=item.valid?({query:0,gather:0,kv:1,qk:batch===1?6:2,stats:batch===1?7:3,pv:batch===1?8:4,write:batch===1?9:5,partial:10})[operation]:({mask:0,neutral:1,partial:2})[operation];
+      const unit=`csa/${scenarioId()}/rank/${context.rank}/work-item/${item.id}`,iteration=batch==null?null:`${unit}/head-batch/${batch}`,relations=directRelations(operation,batch,item.valid);
+      return {computeUnitId:unit,iterationId:iteration,operationId:`${iteration||unit}/${operation}`,operationType:operation,logicalPosition:step==null?null:{kind:'step',index:step},inputs:relations.upstream.map(r=>r.operation),outputs:relations.downstream.map(r=>r.operation),dependencies:relations.upstream.map(r=>({kind:r.operation==='kv'?'resource':'data',from:`${r.batchIndex==null?unit:unit+'/head-batch/'+r.batchIndex}/${r.operation}`})),resourceRefs:['kv','qk','pv'].includes(operation)?[`${unit}/l1-kv-tile`]:[],evidence:{computation:{level:'source-confirmed',source:{file:info.file,range:info.range,version:sourceVersions[info.file]}},shapeAndDtype:['qk','stats','pv','write','partial','neutral'].includes(operation)?{level:'source-confirmed',source:{file:subSource,range:info.range,version:sourceVersions[subSource]}}:null,logicalPosition:step==null?null:{level:'presentation-only',rule:'源码操作顺序按固定 Step 间距排列；stage=2 不给出真实调度位置'},headBatch:batch==null?null:{level:'model-derived',rule:'qk_h0 = qk_hb * QK_M_TILE',inputs:{qkHb:batch,qkMTile:32},source:{file:subSource,range:[278,304],version:sourceVersions[subSource]}},runtimeDuration:{level:'unverified'}}};
+    }
     function inspector(){if(!selection?.operation)return '';const info=evidence[selection.operation]||evidence.query,item=currentItem(),batch=selection.batchIndex,op=selection.operation;
+      const descriptor=operationDescriptor(op,batch);
       const logicalStep=item.valid?({query:0,gather:0,kv:1,qk:batch===1?6:2,stats:batch===1?7:3,pv:batch===1?8:4,write:batch===1?9:5,partial:10})[op]:({mask:0,neutral:1,partial:2})[op];
       const inputs={mask:'valid_block_mask',query:'Q heads',gather:item.sparseBlock===0?'Original KV Cache / Window':'Compressed KV Cache / Top-K indices',kv:'KV Gather',qk:'Q BF16 [32,512] · Kᵀ BF16 [512,128]',stats:'Scores FP32 [32,128] · From: HB'+batch+' / QK Matmul',pv:'exp BF16 [32,128] · V BF16 [128,512]',write:'m FP32 [32,1] · l FP32 [32,1] · Partial O FP32 [32,512]',neutral:'valid_block_mask',partial:'四个 H_TILE=16 分段'};
       const outputs={mask:'Valid / Invalid 分支',query:'Q Tile',gather:'KV Tile BF16 [128,512]',kv:'共享 L1 KV Tile',qk:'Scores FP32 [32,128] → Softmax',stats:'m FP32 [32,1] → Partial Write · exp [32,128] → PV · l FP32 [32,1] → Partial Write',pv:'Partial O FP32 [32,512] → Partial Write',write:'两个 16-Head Partial 分段 → Partial Results',neutral:'mi = −3.0e38 · li = 0 · oi = 0',partial:'sparse_blk_mi / li / oi → 下游 Merge Task'};
@@ -103,10 +113,10 @@
       const relation=directRelations(op,batch,item.valid);
       const section=(title,body)=>body?'<section><h3>'+title+'</h3><p>'+esc(body)+'</p></section>':'';
       const links=(title,items)=>items.length?'<div class="csa-qp-relation"><b>'+title+'</b>'+items.map(target=>'<button class="btn btn-ghost btn-sm" data-qp-jump="'+target.operation+'" data-qp-jump-batch="'+(target.batchIndex??'')+'" data-qp-jump-item="'+item.id+'">'+esc(target.label)+' ↗</button>').join('')+'</div>':'';
-      return '<header><div><b>'+esc(info.title)+'</b><small>Work Item '+item.id+(batch!=null?' · HB'+batch:'')+(logicalStep!=null?' · Step '+logicalStep:'')+'</small></div><button class="btn btn-ghost btn-sm" data-qp-close aria-label="关闭详情">×</button></header>'+
+      return '<header><div><b>'+esc(info.title)+'</b><small>Work Item '+item.id+(batch!=null?' · HB'+batch:'')+(logicalStep!=null?' · 展示 Step '+logicalStep:'')+'</small></div><button class="btn btn-ghost btn-sm" data-qp-close aria-label="关闭详情">×</button></header>'+
         section('Inputs',inputs[op])+section('Computation',computation[op]||info.title)+section('Outputs',outputs[op])+
         '<section><h3>Dependencies</h3>'+links('Upstream',relation.upstream)+links('Downstream',relation.downstream)+(relation.resource.length?'<p>Resource / Synchronization · '+esc(relation.resource.join('；'))+'</p>':'')+'</section>'+
-        '<section><h3>Source Evidence</h3><button class="btn btn-ghost btn-sm" data-qp-source="'+info.file+':'+info.range.join(':')+'">'+esc(info.file)+' · L'+info.range.join('–')+' ↗</button></section>'+navActions();
+        '<section><h3>Source Evidence</h3><button class="btn btn-ghost btn-sm" data-qp-source="'+info.file+':'+info.range.join(':')+'">'+esc(info.file)+' · L'+info.range.join('–')+' ↗</button><p>计算关系：Source-confirmed；'+(descriptor?.logicalPosition?'Step 位置：Presentation-only，依据源码操作顺序排列；':'')+'Compiler schedule not verified。</p></section>'+navActions();
     }
     function mapScale(){return scenario?scenario.blockCount+' Lanes × '+Math.max(...scenario.blocks.map(block=>block.entries.length))+' Iterations':'';}
     function mapToolbar(){if(!scenario)return '';
@@ -222,7 +232,7 @@
     const endPan=()=>{suppressBlankClick=!!drag?.moved;drag=null;viewport()?.classList.remove('is-panning');};host.addEventListener('pointerup',endPan);host.addEventListener('pointercancel',endPan);
     host.addEventListener('wheel',event=>{if(!event.target.closest('.csa-qp-stage-inner')||!camera)return;event.preventDefault();if(event.ctrlKey||event.metaKey){zoomCamera(Math.exp(-event.deltaY*.003),event.clientX,event.clientY);}else{const size=cameraSize();camera.x+=event.deltaX*camera.width/size.width;camera.y+=event.deltaY*camera.height/size.height;camera.mode='manual';clampCamera();applyCamera();}},{passive:false});
     if(global.ResizeObserver)new global.ResizeObserver(()=>resizeCamera()).observe(host);
-    return {update,getLocalSelection:()=>selection?{...selection}:null};
+    return {update,getLocalSelection:()=>selection?{...selection}:null,getOperationDescriptor:()=>operationDescriptor()};
   }
   global.PtoCsaQkPipeline=Object.freeze({create});
 })(window);
