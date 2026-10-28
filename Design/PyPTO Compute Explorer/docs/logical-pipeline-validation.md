@@ -36,6 +36,10 @@
 
 ## 修复及数据契约
 
+P7.5 核对：Paged Attention 的 PV 主路径位于快照 L364–503，Tail 分支位于 L504–718，PV_READY SET 位于 L719–724。原单段 L512–724 漏掉主路径；现在 QK、Softmax、PV、Accumulate 的 Operation Evidence 均支持多段源码范围，Inspector 可逐段跳转。`PRE_LAUNCH=2` 与 `TRANSFER_SLOTS=3` 仍由 L31–32 及各 produce/consume 索引规则支持；源码快照未变，SHA 保持原值。
+
+两种算子的 Descriptor `inputs`、`outputs` 统一为数据对象数组。Paged Attention 只列已证实的 transfer buffer；CSA 列有源码支持的 tensor、dtype 与 shape。上游 Operation 身份保留在 `dependencies.from`，并附 `to`；CSA 的 L1 KV Tile 对 QK/PV 同时提供数据输入和共享资源复用关系。缺少证据的 shape/dtype 省略，不推定 Runtime 时长。
+
 - **Incorrect（已修复）**：CSA Inspector 的 `decode_sparse_attn_csa.py` Source Evidence 指向未注册文件；已补同目录原始源码快照，使现有 IDE 源码跳转可解析。
 - **Unsupported（已澄清）**：将 CSA 的离散 Step、Paged 的 Tick 距离或 READY WAIT 解释为真实调度、时长、Stall；Inspector 现标注其证据等级。
 - **Presentation Choice（保留）**：两种 Timeline 的固定列宽、行距及 CSA 两批分开的 Step；不更改现有布局。
