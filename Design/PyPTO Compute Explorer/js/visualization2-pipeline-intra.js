@@ -1,4 +1,4 @@
-/* Static loop semantics from paged_attention_pypto.py. Tick rows are logical
+/* Static loop semantics from paged_attention_pypto.py. Ticks are logical
  * iterations, never measured durations. Slot ribbons are modulo reuse, not data dependencies. */
 (function(global){
   'use strict';
@@ -27,9 +27,9 @@
     host.classList.add('viz2-anatomy','viz2-intra');
     host.innerHTML=`<div class="viz2-anatomy-taskbar"><h2 data-intra-block></h2><span data-intra-kv></span><nav class="viz2-anatomy-task-nav" aria-label="Block 内流水线 Task 快捷导航" data-intra-tasks></nav><button class="btn btn-ghost btn-sm" data-intra-back>← 返回 Block 间</button></div>
       <div class="viz2-anatomy-body"><div class="viz2-anatomy-stage"><div class="viz2-anatomy-workspace">
-        <div class="viz2-anatomy-viewport" id="viz2-intra-carousel" role="region" aria-roledescription="轮播" tabindex="0" aria-label="Block 内 Task 流水线，左右方向键切换，卡片内纵向浏览 Tick"><div class="viz2-anatomy-track" data-intra-track></div></div>
+        <div class="viz2-anatomy-viewport" id="viz2-intra-carousel" role="region" aria-roledescription="轮播" tabindex="0" aria-label="Block 内 Task 流水线，左右方向键切换 Task，卡片内横向浏览 Logical Tick"><div class="viz2-anatomy-track" data-intra-track></div></div>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
-        <footer class="viz2-anatomy-footer"><span class="viz2-intra-legend"><i class="viz2-intra-flow-key"></i>数据依赖<i class="viz2-intra-event-key"></i>READY<i class="viz2-intra-reuse-key"></i>Slot 复用<small>横向切换 Task · 纵向浏览 Tick</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-prev aria-label="上一个 Task">←</button><output data-intra-position aria-live="polite"></output><button class="btn btn-ghost btn-sm" data-intra-next aria-label="下一个 Task">→</button><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>适应</button></div></footer></div>
+        <footer class="viz2-anatomy-footer"><span class="viz2-intra-legend"><i class="viz2-intra-flow-key"></i>数据依赖<i class="viz2-intra-event-key"></i>READY 事件<i class="viz2-intra-reuse-key"></i>Slot 复用<small>Logical Tick 为离散进度，不代表耗时</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-prev aria-label="上一个 Task">←</button><output data-intra-position aria-live="polite"></output><button class="btn btn-ghost btn-sm" data-intra-next aria-label="下一个 Task">→</button><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>适应</button></div></footer></div>
         <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="流水线对象详情" hidden><header class="pto-ide-frame__pane-header"><b data-intra-title></b><button class="btn btn-ghost btn-sm" data-intra-close aria-label="关闭流水线详情">×</button></header><div class="pto-ide-frame__pane-body" data-intra-detail></div></aside></div>`;
     const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-intra-track]'),workspace=host.querySelector('.viz2-anatomy-workspace'),inspector=host.querySelector('aside'),tooltip=host.querySelector('[role="tooltip"]');
     let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,suppress=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,inspectorOpen=false;
@@ -38,9 +38,10 @@
     const paging=global.PtoVisualization2Anatomy.createPagingInput({isAnimating:()=>!!frame,onPage:direction=>{
       const next=clamp(target+direction);if(next!==target){pendingFocus=null;tooltip.hidden=true;snap(next,true);}
     }});
-    // Diagram coordinates are Task-local. Tick grows vertically; four Stage columns stay fixed.
-    const WIDTH=608,TOP=12,ROW=100,W=108,H=46,columns={qk:56,softmax:184,pv:312,accumulate:440};
-    const stagePosition=(s,stage)=>({x:columns[stage],y:TOP+(['qk','softmax'].includes(stage)?s.produceTick:s.consumeTick)*ROW});
+    // Both operators use horizontal logical progress and fixed vertical stage rows.
+    const LEFT=118,TOP=82,STEP=150,ROW=104,W=124,H=56,stageRows={qk:0,softmax:1,pv:2,accumulate:3};
+    const diagramSize=t=>({width:LEFT+t.ticks.length*STEP+180,height:TOP+4*ROW+105});
+    const stagePosition=(t,s,stage)=>({x:LEFT+t.operations.find(op=>op.stack===s.index&&op.stage===stage).tick*STEP,y:TOP+stageRows[stage]*ROW});
     const text=(x,y,s,cls='')=>`<text x="${x}" y="${y}" class="${cls}">${esc(s)}</text>`;
     const rect=(x,y,w,h,cls,extra='')=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" class="${cls}" ${extra}/>`;
     const object=(kind,index,content,attrs='')=>`<g tabindex="0" role="button" data-intra-kind="${kind}" data-intra-index="${index}" ${attrs} aria-pressed="false">${content}</g>`;
@@ -50,42 +51,36 @@
     const syncFor=f=>global.PTO_PYPA_SEMANTIC_GRAPH.synchronizations.find(item=>item.name+'_EVENT'===f?.event||item.id===f?.syncId);
     const eventEdge=f=>global.PtoPagedAttentionStackDependencyModel.build(global.PtoPagedAttentionIntro.model.pipelineFor(task.seqLen),global.PTO_PYPA_SEMANTIC_GRAPH.synchronizations).edges.find(item=>item.id===`sync:s${f.index}:${syncFor(f)?.id}`);
     function dependencyGeometry(t,link){
-      const a=stagePosition(t.stacks[link.stack],link.producer),b=stagePosition(t.stacks[link.stack],link.consumer);
-      const x=a.x+W,y=a.y+H/2,tx=b.x,ty=b.y+H/2,cx=(x+tx)/2;
-      return {d:`M ${x} ${y} C ${cx} ${y}, ${cx} ${ty}, ${tx} ${ty}`,event:{x:cx,y:(y+ty)/2}};
+      const a=stagePosition(t,t.stacks[link.stack],link.producer),b=stagePosition(t,t.stacks[link.stack],link.consumer);
+      const x=a.x+W/2,y=a.y+H,tx=b.x+W/2,ty=b.y,mid=(y+ty)/2;
+      return {d:`M ${x} ${y} C ${x} ${mid}, ${tx} ${mid}, ${tx} ${ty}`,event:{x:(x+tx)/2,y:mid}};
     }
     function reuseGeometry(t,link){
-      const a=stagePosition(t.stacks[link.from],link.consumer),b=stagePosition(t.stacks[link.to],link.producer);
-      if(link.buffer==='score_transfer'){
-        const x=38-link.slot*7;
-        return `M ${a.x+W/2} ${a.y+H} V ${a.y+H+12} H ${x} V ${b.y+H/2} H ${b.x}`;
-      }
-      if(link.buffer==='probability_transfer'){
-        const x=306-link.slot*4;
-        return `M ${a.x} ${a.y+H/2} H ${x} V ${b.y+H/2} H ${b.x+W}`;
-      }
-      const x=568+link.slot*7;
-      return `M ${a.x+W} ${a.y+H/2} H ${x} V ${b.y-14} H ${b.x+W/2} V ${b.y}`;
+      const a=stagePosition(t,t.stacks[link.from],link.consumer),b=stagePosition(t,t.stacks[link.to],link.producer);
+      const band=link.buffer==='score_transfer'?TOP-22-link.slot*5:link.buffer==='probability_transfer'?TOP+ROW*2-18-link.slot*5:TOP+ROW*4-18+link.slot*5;
+      return `M ${a.x+W} ${a.y+H/2} H ${a.x+W+12} V ${band} H ${b.x-12} V ${b.y+H/2} H ${b.x}`;
     }
     function card(t){
-      const height=TOP+t.ticks.length*ROW+100,outputY=TOP+t.ticks.length*ROW;
+      const {width,height}=diagramSize(t),outputX=LEFT+t.ticks.length*STEP+10,outputY=TOP+stageRows.accumulate*ROW;
       const arrow=`intra-dependency-arrow-${host.id||'pipeline'}-${t.id}`;
-      const last=t.stacks.at(-1),lastPosition=last?stagePosition(last,'accumulate'):null;
+      const last=t.stacks.at(-1),lastPosition=last?stagePosition(t,last,'accumulate'):null;
       const diagram=`<defs><marker id="${arrow}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke"/></marker></defs>`+
-        rect(0,0,WIDTH,height,'viz2-intra-frame','data-intra-frame')+
-        t.ticks.map(tick=>object('tick',tick.index,rect(0,TOP+tick.index*ROW,WIDTH,ROW,'viz2-intra-tick-hit')+text(7,TOP+tick.index*ROW+28,`T${tick.index}`,'viz2-intra-tick-label'),`aria-label="逻辑 Tick ${tick.index}"`)).join('')+
+        rect(0,0,width,height,'viz2-intra-frame','data-intra-frame')+
+        text(LEFT,24,'Logical Tick →','viz2-intra-axis')+
+        Object.entries(stageRows).map(([stage,index])=>text(10,TOP+index*ROW+H/2+5,stage==='accumulate'?'Accumulate':stages[stage],'viz2-intra-row-title')).join('')+
+        t.ticks.map(tick=>object('tick',tick.index,rect(LEFT+tick.index*STEP-10,48,STEP,4*ROW+12,'viz2-intra-tick-hit')+text(LEFT+tick.index*STEP+W/2,66,`T${tick.index}`,'viz2-intra-tick-label'),`aria-label="逻辑 Tick ${tick.index}"`)).join('')+
         t.reuse.map(link=>`<path tabindex="0" role="button" aria-pressed="false" aria-label="${link.buffer} Slot ${link.slot}，Stack ${link.from} 到 ${link.to} 复用" data-intra-kind="slot" data-intra-index="${link.slot}" data-intra-buffer="${link.buffer}" data-intra-from="${link.from}" data-intra-to="${link.to}" data-intra-reuse="${link.buffer}:${link.from}:${link.to}" class="viz2-intra-reuse" ${stroke(link.slot)} d="${reuseGeometry(t,link)}"/>`).join('')+
         t.stacks.map(stack=>`<g data-intra-stack-path="${stack.index}" ${stroke(stack.slot)}>`+
           t.dependencies.filter(link=>link.stack===stack.index).map(link=>{const g=dependencyGeometry(t,link);return `<path class="viz2-intra-flow" data-intra-dependency="${stack.index}:${link.buffer}" d="${g.d}" marker-end="url(#${arrow})"/>`+
             object('event',stack.index,`<circle cx="${g.event.x}" cy="${g.event.y}" r="13" class="viz2-intra-event-hit"/><circle cx="${g.event.x}" cy="${g.event.y}" r="5" class="viz2-intra-event"/>`,`data-intra-event="${link.event}" data-intra-buffer="${link.buffer}" aria-label="Stack ${stack.index} ${link.event}"`);}).join('')+
-          Object.keys(stages).map(stage=>{const n=stagePosition(stack,stage);return object('stage',stack.index,
+          Object.keys(stages).map(stage=>{const n=stagePosition(t,stack,stage);return object('stage',stack.index,
             rect(n.x,n.y,W,H,'viz2-intra-operation',`data-intra-operation="${stack.index}:${stage}"`)+text(n.x+10,n.y+19,`S${stack.index}`)+text(n.x+10,n.y+36,`Slot ${stack.slot}`,'viz2-intra-node-slot'),
             `data-intra-stage="${stage}" aria-label="Stack ${stack.index} ${stages[stage]}，Slot ${stack.slot}"`);}).join('')+`</g>`).join('')+
         // A compact Stack navigator gives Stack selection a distinct hit target.
-        t.stacks.map(stack=>object('stack',stack.index,rect(columns.qk,TOP+stack.produceTick*ROW+H+8,W,22,'viz2-intra-stack-hit')+text(columns.qk+8,TOP+stack.produceTick*ROW+H+23,`Stack ${stack.index}`,'viz2-intra-small'),`aria-label="检查 Stack ${stack.index} 的完整路径"`)).join('')+
-        (lastPosition?`<path class="viz2-intra-output-link" d="M ${lastPosition.x+W/2} ${lastPosition.y+H} V ${outputY-16} H 260 V ${outputY}" marker-end="url(#${arrow})"/>`:'')+
-        object('output',0,rect(166,outputY,290,H,'viz2-intra-output-hit','data-intra-output')+rect(166,outputY,132,H,'viz2-intra-output')+text(178,outputY+19,'Normalize','viz2-intra-small')+text(178,outputY+36,'o / l_sum','viz2-intra-small')+`<path class="viz2-intra-output-link" d="M 298 ${outputY+H/2} H 324" marker-end="url(#${arrow})"/>`+rect(324,outputY,132,H,'viz2-intra-output')+text(336,outputY+19,'BF16 Store','viz2-intra-small')+text(336,outputY+36,'全部 Stack 完成','viz2-intra-small'),`aria-label="全部 Stack 完成后的 Output Normalize 与 BF16 Store"`);
-      return `<article class="viz2-anatomy-card viz2-intra-card" data-intra-task="${t.id}" role="group" aria-roledescription="幻灯片" aria-label="Task ${t.id}，Batch ${t.batch}，${t.seqLen} tokens"><header><h3 class="viz2-intra-heading">Task ${t.id}</h3><p>Batch ${t.batch} · KV Head ${t.kvHead} · ${t.seqLen} tokens</p><p>${t.stacks.length} Stacks · ${t.ticks.length} Ticks</p></header><div class="viz2-anatomy-cache-scroll viz2-intra-tick-scroll" tabindex="0" aria-label="Task ${t.id} 的全部逻辑 Tick"><svg class="viz2-intra-svg viz2-intra-columns" viewBox="0 0 ${WIDTH} 36" aria-hidden="true">${Object.entries(columns).map(([stage,x])=>text(x+W/2,25,stage==='accumulate'?'Accumulate':stages[stage],'viz2-intra-column-title')).join('')}</svg><svg class="viz2-intra-svg" viewBox="0 0 ${WIDTH} ${height}" data-intra-height="${height}" aria-label="纵向逻辑 Tick × 横向四个 Stage"><g data-intra-scene>${diagram}</g></svg></div></article>`;
+        t.stacks.map(stack=>{const n=stagePosition(t,stack,'qk');return object('stack',stack.index,rect(n.x,TOP+4*ROW+10,W,24,'viz2-intra-stack-hit')+text(n.x+8,TOP+4*ROW+27,`Stack ${stack.index}`,'viz2-intra-small'),`aria-label="检查 Stack ${stack.index} 的完整路径"`);}).join('')+
+        (lastPosition?`<path class="viz2-intra-output-link" d="M ${lastPosition.x+W} ${lastPosition.y+H/2} H ${outputX}" marker-end="url(#${arrow})"/>`:'')+
+        object('output',0,rect(outputX,outputY,142,H,'viz2-intra-output-hit','data-intra-output')+rect(outputX,outputY,142,H,'viz2-intra-output')+text(outputX+10,outputY+19,'Normalize / Store','viz2-intra-small')+text(outputX+10,outputY+38,'BF16 · 全部 Stack','viz2-intra-small'),`aria-label="全部 Stack 完成后的 Output Normalize 与 BF16 Store"`);
+      return `<article class="viz2-anatomy-card viz2-intra-card" data-intra-task="${t.id}" role="group" aria-roledescription="幻灯片" aria-label="Task ${t.id}，Batch ${t.batch}，${t.seqLen} tokens"><header><h3 class="viz2-intra-heading">Task ${t.id}</h3><p>Batch ${t.batch} · KV Head ${t.kvHead} · ${t.seqLen} tokens · ${t.stacks.length} Stacks</p></header><div class="viz2-anatomy-cache-scroll viz2-intra-tick-scroll" tabindex="0" aria-label="Task ${t.id} 的横向 Logical Tick"><svg class="viz2-intra-svg" viewBox="0 0 ${width} ${height}" data-intra-width="${width}" data-intra-height="${height}" aria-label="横向 Logical Tick × 纵向计算阶段"><g data-intra-scene>${diagram}</g></svg></div></article>`;
     }
     function saveScroll(){cards.forEach(card=>{const scroller=card.querySelector('.viz2-intra-tick-scroll');scrollStates.set(Number(card.dataset.intraTask),{top:scroller.scrollTop,left:scroller.scrollLeft});});}
     function buildBlock(){
@@ -109,11 +104,10 @@
         element.style.width=`${width}px`;element.style.left=`${index*pitch}px`;
         element.style.opacity=String(Math.max(.25,1-Math.abs(index-position)*.48));
         element.classList.toggle('is-current',current);element.classList.toggle('is-before',index<position-.5);element.setAttribute('aria-current',String(current));
-        const localScale=current?scale:scales.get(tasks[index].id)||1,svg=element.querySelector('svg[data-intra-height]'),labels=element.querySelector('.viz2-intra-columns');
+        const localScale=current?scale:scales.get(tasks[index].id)||1,svg=element.querySelector('svg[data-intra-height]');
         const scroller=element.querySelector('.viz2-intra-tick-scroll');
-        const diagramWidth=Math.max(1,scroller.clientWidth-8)*localScale;
-        labels.style.width=`${diagramWidth}px`;labels.style.height=`${36*diagramWidth/WIDTH}px`;
-        svg.style.width=`${diagramWidth}px`;svg.style.height=`${Number(svg.dataset.intraHeight)*diagramWidth/WIDTH}px`;
+        const diagramWidth=Number(svg.dataset.intraWidth)*localScale;
+        svg.style.width=`${diagramWidth}px`;svg.style.height=`${Number(svg.dataset.intraHeight)*localScale}px`;
       });
       if(navTask!==task.id){navTask=task.id;navButtons.forEach(button=>{const selected=Number(button.dataset.intraTaskGo)===task.id;button.classList.toggle('is-selected',selected);button.setAttribute('aria-current',String(selected));});navButtons.find(button=>Number(button.dataset.intraTaskGo)===task.id)?.scrollIntoView({block:'nearest',inline:'nearest'});}
       host.querySelector('[data-intra-position]').textContent=`${tasks.findIndex(t=>t.id===task.id)+1} / ${tasks.length}`;
@@ -151,14 +145,17 @@
     function paintFocus(current=focus){
       const scene=currentScene();if(!scene)return;
       const f=effective(current),fixed=effective(focus),chosen=f&&['stack','stage','event'].includes(f.kind)?task.stacks[f.index]:null,slot=f?.kind==='slot'?f.index:chosen?.slot;
+      scene.classList.toggle('has-selection',!!fixed);
       const relevantBuffers=f?.buffer?[f.buffer]:f?.stage?Object.values(buffers[f.stage]):transfers.map(t=>t.buffer);
       track.querySelectorAll('.is-selected,.is-related,.is-shared,.is-highlighted').forEach(el=>{el.classList.remove('is-selected','is-related','is-shared','is-highlighted');if(el.hasAttribute('aria-pressed'))el.setAttribute('aria-pressed','false');});
       scene.querySelectorAll('[data-intra-reuse]').forEach(el=>el.classList.toggle('is-highlighted',Number(el.dataset.intraIndex)===slot&&relevantBuffers.includes(el.dataset.intraBuffer)));
-      scene.querySelectorAll('[data-intra-stack-path]').forEach(el=>{const s=task.stacks[Number(el.dataset.intraStackPath)];el.classList.toggle('is-related',f?.kind!=='event'&&s.index===chosen?.index);el.classList.toggle('is-shared',slot!=null&&s.slot===slot&&s.index!==chosen?.index);});
+      scene.querySelectorAll('[data-intra-stack-path]').forEach(el=>{const s=task.stacks[Number(el.dataset.intraStackPath)];el.classList.toggle('is-related',f?.kind==='stack'&&s.index===chosen?.index);el.classList.toggle('is-shared',slot!=null&&s.slot===slot&&s.index!==chosen?.index);});
+      scene.querySelectorAll('[data-intra-dependency]').forEach(el=>{const [stack,buffer]=el.dataset.intraDependency.split(':');const link=transfers.find(item=>item.buffer===buffer);el.classList.toggle('is-related',Number(stack)===f?.index&&(f?.kind==='stage'&&(link?.producer===f.stage||link?.consumer===f.stage)||f?.kind==='event'&&link?.event===f.event));});
       scene.querySelectorAll('[data-intra-kind]').forEach(el=>{
         const item=objectFocus(el),s=task.stacks[item.index];let related=false;
         if(f?.kind==='tick')related=item.kind==='tick'?item.index===f.index:item.kind==='stage'&&(['qk','softmax'].includes(item.stage)?s.produceTick:s.consumeTick)===f.index;
         if(f?.kind==='event')related=item.kind==='stage'&&item.index===f.index&&events[f.event]?.includes(item.stage);
+        if(f?.kind==='stage')related=item.kind==='stage'&&item.index===f.index&&transfers.some(link=>(link.producer===f.stage&&link.consumer===item.stage)||(link.consumer===f.stage&&link.producer===item.stage));
         if(f?.kind==='slot')related=['stack','stage'].includes(item.kind)&&s?.slot===f.index;
         const selected=!!fixed&&item.kind===fixed.kind&&item.index===fixed.index&&item.stage===fixed.stage&&item.event===fixed.event&&item.buffer===fixed.buffer&&(item.kind!=='slot'||item.from===fixed.from);
         el.classList.toggle('is-selected',selected||fixed?.kind==='stack'&&item.kind==='stage'&&item.index===fixed.index);el.classList.toggle('is-related',related);el.setAttribute('aria-pressed',String(selected));
@@ -194,7 +191,19 @@
         ...(pairs?[['生产者 / 消费者',`${stages[pairs[0]]} → ${consumerName}`],['Transfer buffer',buffers[pairs[0]].write]]:stage?[['写入',buffers[stage].write||'—'],['读取',buffers[stage].read||'—']]:[['QK → Softmax','写入 / 读取 score_transfer'],['Softmax → PV','写入 / 读取 probability_transfer'],['PV → Accumulate','写入 / 读取 pv_transfer']]),
         ['row 区间',`${s.produceRow}–${s.produceRow+model.rowTile-1}（AIV 按 lane_row 切分）`]]};
     }
-    function inspect(){inspector.hidden=!inspectorOpen||!focus;if(inspector.hidden)return;const d=describe(focus),sync=focus.kind==='event'?syncFor(focus):null;host.querySelector('[data-intra-title]').textContent=d.title;const detail=sync?global.PTO_COMPUTATION_PRESENTATION.synchronization(sync,global.PTO_PYPA_SEMANTIC_GRAPH):null,edge=sync?eventEdge(focus):null,waitRanges=edge?.consumerSource?.ranges||sync?.consumer.source.ranges||[];host.querySelector('[data-intra-detail]').innerHTML=`<p>Task ${task.id} · Batch ${task.batch} · KV Head ${task.kvHead}</p><dl>${d.facts.map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl>${detail?`<section><h3>READY 同步证据</h3><dl>${detail.rows.map(row=>`<dt>${esc(row.label)}</dt><dd>${esc(row.value)}</dd>`).join('')}</dl><div class="viz2-ready-source-links">${[...sync.producer.source.ranges.map((range,index)=>({end:'producer',index,range})),...waitRanges.map((range,index)=>({end:'consumer',index,range}))].map(item=>`<button class="btn btn-ghost btn-sm" data-intra-sync-source="${item.end}" data-intra-sync-range="${item.index}">${item.end==='producer'?'SET':'WAIT'} · :${item.range.start}–${item.range.end}</button>`).join('')}</div><button class="btn btn-sm" data-intra-graph-ready>在 Graph 中查看</button><pre data-intra-source-preview hidden></pre></section>`:''}<p>静态逻辑映射；Tick 不表示实测时长，READY WAIT 不表示已发生 Stall；Slot 复用与 State Feedback 是不同依赖。</p>`;}
+    function inspect(){
+      inspector.hidden=!inspectorOpen||!focus;if(inspector.hidden)return;
+      const f=effective(focus),d=describe(focus),sync=f.kind==='event'?syncFor(f):null,operation=f.kind==='stage'?task.operations.find(op=>op.stack===f.index&&op.stage===f.stage):null;
+      host.querySelector('[data-intra-title]').textContent=d.title;
+      const section=(title,rows)=>rows.length?`<section><h3>${title}</h3><dl>${rows.map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl></section>`:'';
+      const detail=sync?global.PTO_COMPUTATION_PRESENTATION.synchronization(sync,global.PTO_PYPA_SEMANTIC_GRAPH):null,edge=sync?eventEdge(f):null,waitRanges=edge?.consumerSource?.ranges||sync?.consumer.source.ranges||[];
+      host.querySelector('[data-intra-detail]').innerHTML=section('Operation',[['对象',d.title]])+
+        section('Iteration / Stack',[['Task',task.id],['Batch / KV Head',`${task.batch} / ${task.kvHead}`],...(f.index!=null&&f.kind!=='output'?[['Stack',f.index]]:[]),...(operation?[['Logical Tick',operation.tick],['Buffer Slot',operation.slot]]:[])])+
+        section('Input Tensor / Buffer',operation?.read?[['读取',operation.read]]:[])+section('Output Tensor / Buffer',operation?.write?[['写入',operation.write]]:[])+
+        section('Dependencies',d.facts)+
+        (detail?`<section><h3>Source Evidence</h3><dl>${detail.rows.map(row=>`<dt>${esc(row.label)}</dt><dd>${esc(row.value)}</dd>`).join('')}</dl><div class="viz2-ready-source-links">${[...sync.producer.source.ranges.map((range,index)=>({end:'producer',index,range})),...waitRanges.map((range,index)=>({end:'consumer',index,range}))].map(item=>`<button class="btn btn-ghost btn-sm" data-intra-sync-source="${item.end}" data-intra-sync-range="${item.index}">${item.end==='producer'?'SET':'WAIT'} · :${item.range.start}–${item.range.end}</button>`).join('')}</div><button class="btn btn-sm" data-intra-graph-ready>在 Graph 中查看</button><pre data-intra-source-preview hidden></pre></section>`:'')+
+        '<p>静态逻辑映射；Tick 不表示实测时长，READY WAIT 不表示已发生 Stall；Slot 复用与 State Feedback 是不同依赖。</p>';
+    }
 
     function update(id,nextFocus,nextCamera,options={}){
       const entering=!!options.active&&!active;active=!!options.active;
@@ -202,15 +211,14 @@
       const next=model.tasks[id];if(!next)return;
       const changed=task?.id!==id,focusChanged=JSON.stringify(focus)!==JSON.stringify(nextFocus);task=next;
       focus=validFocus(nextFocus)?nextFocus:null;inspectorOpen=!!options.inspectorOpen;
-      scale=Math.max(.6,Math.min(2,nextCamera?.scale||scales.get(id)||1));scales.set(id,scale);
+      scale=Math.max(.05,Math.min(3,nextCamera?.scale||scales.get(id)||1));scales.set(id,scale);
       if(block!==task.block){saveScroll();stop();buildBlock();}
       else if(entering){stop();position=target=tasks.findIndex(t=>t.id===id);velocity=0;}
       else if(changed){const index=tasks.findIndex(t=>t.id===id);if(Math.abs(position-index)>.001)snap(index);else target=index;}
       inspect();paint();paintFocus();if(entering||changed||focusChanged)revealFocus();
     }
     function zoom(factor){
-      paging.reset();const next=Math.max(.6,Math.min(2,scale*factor));
-      if(factor<1&&scale<=.6){stop();onExit?.();return;}
+      paging.reset();const next=Math.max(.05,Math.min(3,scale*factor));
       onCamera(task.id,{scale:next,x:0,y:0});
     }
     function manualPage(index,nextFocus=null){pendingFocus=nextFocus;snap(index);}
@@ -222,7 +230,7 @@
       const taskButton=event.target.closest('[data-intra-task-go]');if(taskButton){manualPage(tasks.findIndex(t=>t.id===Number(taskButton.dataset.intraTaskGo)));return;}
       if(event.target.closest('[data-intra-back]')){stop();onExit?.();return;}
       if(event.target.closest('[data-intra-close]')){paging.reset();onInspector(false);return;}
-      if(event.target.closest('[data-intra-fit]')){paging.reset();onCamera(task.id,{scale:1,x:0,y:0});manualPage(tasks.findIndex(t=>t.id===task.id));return;}
+      if(event.target.closest('[data-intra-fit]')){paging.reset();const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task),fit=Math.max(.05,Math.min(1,(scroller?.clientWidth-12||size.width)/size.width,(scroller?.clientHeight-12||size.height)/size.height));onCamera(task.id,{scale:fit,x:0,y:0});if(scroller){scroller.scrollLeft=0;scroller.scrollTop=0;}return;}
       const z=event.target.closest('[data-intra-zoom]');if(z){zoom(Number(z.dataset.intraZoom));return;}
       if(event.target.closest('[data-intra-prev]')){manualPage(target-1);return;}
       if(event.target.closest('[data-intra-next]')){manualPage(target+1);return;}
@@ -233,6 +241,7 @@
     listen(viewport,'wheel',event=>{
       const unit=event.deltaMode===1?16:event.deltaMode===2?viewport.clientWidth:1;
       if(event.ctrlKey||event.metaKey){event.preventDefault();zoom(Math.exp(-event.deltaY*unit*.002));return;}
+      if(event.target.closest('.viz2-intra-tick-scroll'))return;
       const horizontal=event.shiftKey&&event.deltaX===0?event.deltaY:event.deltaX;
       if(!horizontal||(!event.shiftKey&&Math.abs(horizontal)<=Math.abs(event.deltaY)))return;
       event.preventDefault();if(drag){if(event.buttons&1)return;endDrag(true);}
@@ -240,11 +249,13 @@
     },{passive:false});
     listen(viewport,'pointerdown',event=>{
       if(event.button!==0||event.target.closest('button'))return;
-      stop();suppress=false;velocity=0;drag={id:event.pointerId,x:event.clientX,y:event.clientY,lastX:event.clientX,lastTime:performance.now(),index:clamp(Math.round(position)),moved:false};
+      const scroller=event.target.closest('.viz2-intra-card.is-current .viz2-intra-tick-scroll');
+      stop();suppress=false;velocity=0;drag={id:event.pointerId,x:event.clientX,y:event.clientY,lastX:event.clientX,lastTime:performance.now(),index:clamp(Math.round(position)),moved:false,scroller:scroller&&!event.target.closest('[data-intra-kind]')?scroller:null,left:scroller?.scrollLeft||0,top:scroller?.scrollTop||0};
     });
     listen(viewport,'pointermove',event=>{
       if(!drag)return;if(!(event.buttons&1)){endDrag(true);return;}
       const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
+      if(drag.scroller){if(Math.abs(dx)+Math.abs(dy)>5){drag.moved=true;event.preventDefault();drag.scroller.scrollLeft=drag.left-dx;drag.scroller.scrollTop=drag.top-dy;}return;}
       if(!drag.moved){if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>6){drag=null;return;}if(Math.abs(dx)<5)return;drag.moved=true;viewport.setPointerCapture(drag.id);}
       event.preventDefault();tooltip.hidden=true;const now=performance.now(),dt=Math.max(8,now-drag.lastTime);velocity=.65*velocity+.35*(drag.lastX-event.clientX)/pitch/dt*1000;
       const offset=-dx/pitch;position=resistance(drag.index+Math.sign(offset)*Math.min(.92,Math.abs(offset)));drag.lastX=event.clientX;drag.lastTime=now;paint();
@@ -252,6 +263,7 @@
     function endDrag(cancelled=false){
       if(!drag)return;const current=drag;drag=null;suppress=current.moved;
       if(viewport.hasPointerCapture(current.id))viewport.releasePointerCapture(current.id);
+      if(current.scroller)return;
       if(current.moved){if(performance.now()-current.lastTime>100)velocity=0;const offset=position-current.index,direction=Math.abs(offset)>.18?Math.sign(offset):Math.abs(velocity)>.55?Math.sign(velocity):0;snap(current.index+(cancelled?0:direction));}
       else if(Math.abs(position-current.index)>.001)snap(current.index);
     }
