@@ -286,7 +286,7 @@
     root.querySelector('[data-csa-return]').hidden=state.tab!=='graph'||scope!=='local';root.querySelector('[data-csa-return]').textContent='← 返回上级';
     const navReturn=root.querySelector('[data-csa-navreturn]');
     if(navReturn){navReturn.hidden=!navigationReturn;if(navigationReturn)navReturn.textContent=returnLabel(navigationReturn.focus);}
-    const crumbs=focusCrumbs(),scopeId=state.views.graph.expanded.at(-1),scopeName=semanticNodes.get(scopeId)?.name;
+    const crumbs=state.tab==='pipeline'&&state.pipelineStage===qkPvId&&state.focus?.kind==='work-item'?focusCrumbs().filter(item=>!/^Request |^Q\d+$|^Work Item /.test(item.label)):focusCrumbs(),scopeId=state.views.graph.expanded.at(-1),scopeName=semanticNodes.get(scopeId)?.name;
     root.querySelector('[data-csa-breadcrumb]').innerHTML=crumbs.map((item,index)=>'<span class="csa-crumb">'+(index?'<span class="csa-crumb-separator" aria-hidden="true">/</span>':'')+(item.id!==undefined&&index<crumbs.length-1?'<button type="button" data-csa-crumb="'+esc(item.id)+'">'+esc(item.label)+'</button>':'<span aria-current="location">'+esc(item.label)+'</span>')+'</span>').join('')+(state.tab==='graph'&&scopeName?'<span class="csa-scope-context">视图层级：'+esc(scopeName)+'</span>':'');
     const drill=root.querySelector('[data-csa-drill]');if(drill)drill.disabled=state.tab==='graph';
   }
