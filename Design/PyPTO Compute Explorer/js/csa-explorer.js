@@ -22,6 +22,14 @@
   function isQkFocus(focus){return !!focus&&(['request','query','work-item','lane'].includes(focus.kind)||focus.semanticId===qkPvId);}
   function setFocus(focus){state.focus=focus;state.rank=focus?.rank??state.rank;if(focus){const stage=stageForAssignment(focus);state.assignmentStage=stage;state.pipelineStage=stage;}state.views.graph.nodeId=null;state.views.graph.edgeId=null;state.views.graph.inspectorOpen=false;if(qkController)qkController.setSelection(qkSelection());}
   function qkSelection(){const f=state.focus;return f?.kind==='request'?{type:'request',requestIndex:f.requestIndex}:f?.kind==='query'?{type:'query',tokenIndex:f.tokenIndex,requestIndex:f.requestIndex}:f?.kind==='work-item'?{type:'item',id:f.workItemId}:f?.kind==='lane'?{type:'block',block:f.blockId}:null;}
+  // Pipeline 工具栏的 Rank 下拉：只改 Assignment 的 Scenario 状态（qkController.setRank），
+  // 由它的 onContext 回写 Shared Focus 的 rank，再按新 Context / Scenario 重渲染当前 Tab。
+  function qkSetRank(rank){
+    if(rank==null)return;
+    if(qkController)qkController.setRank(rank);
+    else{state.rank=rank;setFocus({kind:'module',rank,scenarioId:null,semanticId:qkPvId,moduleId:qkPvId,objectId:'attention'});}
+    render();
+  }
   function graphIdForFocus(){const f=state.focus;if(!f||f.kind==='rank')return null;if(['request','query','work-item','lane'].includes(f.kind))return qkPvId;if(f.semanticId)return f.semanticId;return objectToGraph[f.objectId]||null;}
   function focusKey(){const f=state.focus;return f?JSON.stringify([f.kind,f.semanticId,f.objectId,f.requestIndex,f.tokenIndex,f.workItemId,f.blockId,f.rank,f.scenarioId]):null;}
   function objectForFocus(){const f=state.focus;if(!f)return null;if(f.kind==='rank')return 'rank';if(['request','query','work-item','lane'].includes(f.kind))return 'attention';return f.objectId||nearestObject(f.semanticId)||nearestObject(f.moduleId);}
@@ -322,7 +330,7 @@
     }
     if(qkPipelineActive){
       const context=qkController?.getState()||{mode:'source',workload:'mixed',position:8192,rank:state.focus?.rank??state.rank};
-      if(!qkPipelineController)qkPipelineController=global.PtoCsaQkPipeline.create(qkPipelineHost,{onFocus:focus=>{navigationReturn=null;setFocus(focus);chrome();},onSource:qkSource,onNavigate:navigateToGraph,moduleId:qkPvId});
+      if(!qkPipelineController)qkPipelineController=global.PtoCsaQkPipeline.create(qkPipelineHost,{onFocus:focus=>{navigationReturn=null;setFocus(focus);chrome();},onSource:qkSource,onNavigate:navigateToGraph,onRankChange:qkSetRank,moduleId:qkPvId});
       qkPipelineController.update(isQkFocus(state.focus)?state.focus:null,context,qkController?.getScenario());
       root.querySelector('.csa-focusbar').innerHTML='';chrome();return;
     }

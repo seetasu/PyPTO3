@@ -313,6 +313,8 @@
       refreshSelection(d);
     }
     function changeContext(){stop();state.selection=null;state.inspectorOpen=false;state.requestIndex=0;state.overrides.clear();state.scale=1;state.panX=state.panY=0;state.manualCamera=false;onContext({rank:state.rank,scenarioId:scenarioId()});render();}
+    // 外部（Pipeline 的 Rank 下拉）切 Rank：走同一条 changeContext，保证 Scenario / Focus / 选择一起重算
+    function setRank(rank){if(rank==null||rank===state.rank)return;state.rank=rank;changeContext();}
     host.addEventListener('click',event=>{const b=event.target.closest('button,[data-qk-item],[data-qk-lane],[data-qk-query]');if(!b){if(event.target.closest('.csa-qk-canvas-viewport')&&state.selection)select(null);return;}
       if(b.dataset.qkItem!=null){select({type:'item',id:Number(b.dataset.qkItem)});return;}
       if(b.dataset.qkQuery!=null){const tokenIndex=Number(b.dataset.qkQuery);select({type:'query',tokenIndex,requestIndex:Math.floor(tokenIndex/TOKENS_PER_REQUEST)});return;}
@@ -346,7 +348,7 @@
     host.addEventListener('pointerup',()=>{drag=null;});
     render();
     if(global.ResizeObserver)new global.ResizeObserver(()=>{if(!host.hidden){if(state.selection&&!state.manualCamera)focusCamera(derive());else camera();}}).observe(host);
-    return {render,pause:()=>{stop();if(morphCameraTimer){global.clearTimeout(morphCameraTimer);morphCameraTimer=null;}},setSelection:selection=>{if(JSON.stringify(selection)===JSON.stringify(state.selection))return;state.selection=selection?{...selection}:null;state.inspectorOpen=false;if(selection?.type==='request'||selection?.type==='query')state.requestIndex=selection.requestIndex;else if(selection?.type==='item')state.requestIndex=Math.floor(selection.id/(SPARSE_BLOCKS*TOKENS_PER_REQUEST));refreshSelection(derive());},getState:()=>({mode:state.mode,workload:state.workload,position:state.position,rank:state.rank,requestIndex:state.requestIndex,phase:state.phase,selection:state.selection?{...state.selection}:null,inspectorOpen:state.inspectorOpen}),getScenario:derive};
+    return {render,pause:()=>{stop();if(morphCameraTimer){global.clearTimeout(morphCameraTimer);morphCameraTimer=null;}},setSelection:selection=>{if(JSON.stringify(selection)===JSON.stringify(state.selection))return;state.selection=selection?{...selection}:null;state.inspectorOpen=false;if(selection?.type==='request'||selection?.type==='query')state.requestIndex=selection.requestIndex;else if(selection?.type==='item')state.requestIndex=Math.floor(selection.id/(SPARSE_BLOCKS*TOKENS_PER_REQUEST));refreshSelection(derive());},getState:()=>({mode:state.mode,workload:state.workload,position:state.position,rank:state.rank,requestIndex:state.requestIndex,phase:state.phase,selection:state.selection?{...state.selection}:null,inspectorOpen:state.inspectorOpen}),getScenario:derive,setRank};
   }
 
   global.PtoCsaQkWork = Object.freeze({
