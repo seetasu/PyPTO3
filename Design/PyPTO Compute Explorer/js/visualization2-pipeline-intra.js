@@ -29,7 +29,7 @@
       <div class="viz2-anatomy-body"><div class="viz2-anatomy-stage"><div class="viz2-anatomy-workspace">
         <div class="viz2-anatomy-viewport" id="viz2-intra-carousel" role="region" tabindex="0" aria-label="当前 Task 逻辑流水线，方向键切换 Task，画布内可平移浏览 Logical Tick"><div class="viz2-anatomy-track" data-intra-track></div></div>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
-        <footer class="viz2-anatomy-footer"><span class="viz2-intra-legend"><i class="viz2-intra-flow-key"></i>数据依赖<i class="viz2-intra-event-key"></i>READY 事件<i class="viz2-intra-reuse-key"></i>Slot 复用<small>Logical Tick 为离散进度，不代表耗时</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-prev aria-label="上一个 Task">←</button><output data-intra-position aria-live="polite"></output><button class="btn btn-ghost btn-sm" data-intra-next aria-label="下一个 Task">→</button><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>适应</button></div></footer></div>
+        <footer class="viz2-anatomy-footer"><span class="viz2-intra-legend"><i class="viz2-intra-flow-key"></i>数据依赖<i class="viz2-intra-event-key"></i>READY 事件<i class="viz2-intra-reuse-key"></i>Slot 复用<small>Logical Tick 为离散进度，不代表耗时</small><small data-intra-dependency-summary aria-live="polite"></small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-prev aria-label="上一个 Task">←</button><output data-intra-position aria-live="polite"></output><button class="btn btn-ghost btn-sm" data-intra-next aria-label="下一个 Task">→</button><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>适应</button></div></footer></div>
         </div>`;
     const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-intra-track]'),workspace=host.querySelector('.viz2-anatomy-workspace'),inspector=host.querySelector('aside'),tooltip=host.querySelector('[role="tooltip"]');
     let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,suppress=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,inspectorOpen=false;
@@ -136,9 +136,9 @@
     function paintFocus(current=focus){
       const scene=currentScene();if(!scene)return;
       const f=effective(current),fixed=effective(focus),chosen=f&&['stack','stage','event'].includes(f.kind)?task.stacks[f.index]:null,slot=f?.kind==='slot'?f.index:chosen?.slot;
-      scene.classList.toggle('has-selection',!!fixed);
+      scene.classList.toggle('has-selection',!!f);
       const relevantBuffers=f?.buffer?[f.buffer]:f?.stage?Object.values(buffers[f.stage]):transfers.map(t=>t.buffer);
-      track.querySelectorAll('.is-selected,.is-related,.is-shared,.is-highlighted').forEach(el=>{el.classList.remove('is-selected','is-related','is-shared','is-highlighted');if(el.hasAttribute('aria-pressed'))el.setAttribute('aria-pressed','false');});
+      track.querySelectorAll('.is-selected,.is-related,.is-shared,.is-highlighted,.is-upstream,.is-downstream').forEach(el=>{el.classList.remove('is-selected','is-related','is-shared','is-highlighted','is-upstream','is-downstream');if(el.hasAttribute('aria-pressed'))el.setAttribute('aria-pressed','false');});
       scene.querySelectorAll('[data-intra-reuse]').forEach(el=>el.classList.toggle('is-highlighted',Number(el.dataset.intraIndex)===slot&&relevantBuffers.includes(el.dataset.intraBuffer)));
       scene.querySelectorAll('[data-intra-stack-path]').forEach(el=>{const s=task.stacks[Number(el.dataset.intraStackPath)];el.classList.toggle('is-related',f?.kind==='stack'&&s.index===chosen?.index);el.classList.toggle('is-shared',slot!=null&&s.slot===slot&&s.index!==chosen?.index);});
       scene.querySelectorAll('[data-intra-dependency]').forEach(el=>{const [stack,buffer]=el.dataset.intraDependency.split(':');const link=transfers.find(item=>item.buffer===buffer);el.classList.toggle('is-related',Number(stack)===f?.index&&(f?.kind==='stage'&&(link?.producer===f.stage||link?.consumer===f.stage)||f?.kind==='event'&&link?.event===f.event));});
@@ -146,12 +146,13 @@
         const item=objectFocus(el),s=task.stacks[item.index];let related=false;
         if(f?.kind==='tick')related=item.kind==='tick'?item.index===f.index:item.kind==='stage'&&(['qk','softmax'].includes(item.stage)?s.produceTick:s.consumeTick)===f.index;
         if(f?.kind==='event')related=item.kind==='stage'&&item.index===f.index&&events[f.event]?.includes(item.stage);
-        if(f?.kind==='stage')related=item.kind==='stage'&&item.index===f.index&&transfers.some(link=>(link.producer===f.stage&&link.consumer===item.stage)||(link.consumer===f.stage&&link.producer===item.stage));
+        if(f?.kind==='stage')related=item.kind==='stage'&&item.index===f.index&&transfers.some(link=>(link.producer===f.stage&&link.consumer===item.stage)||(link.consumer===f.stage&&link.producer===item.stage))||item.kind==='event'&&item.index===f.index&&transfers.some(link=>link.event===item.event&&(link.producer===f.stage||link.consumer===f.stage));
         if(f?.kind==='slot')related=['stack','stage'].includes(item.kind)&&s?.slot===f.index;
         const selected=!!fixed&&item.kind===fixed.kind&&item.index===fixed.index&&item.stage===fixed.stage&&item.event===fixed.event&&item.buffer===fixed.buffer&&(item.kind!=='slot'||item.from===fixed.from);
-        el.classList.toggle('is-selected',selected||fixed?.kind==='stack'&&item.kind==='stage'&&item.index===fixed.index);el.classList.toggle('is-related',related);el.setAttribute('aria-pressed',String(selected));
+        el.classList.toggle('is-selected',selected||fixed?.kind==='stack'&&item.kind==='stage'&&item.index===fixed.index);el.classList.toggle('is-upstream',related&&item.kind==='stage'&&f?.kind==='stage'&&transfers.some(link=>link.consumer===f.stage&&link.producer===item.stage));el.classList.toggle('is-downstream',related&&item.kind==='stage'&&f?.kind==='stage'&&transfers.some(link=>link.producer===f.stage&&link.consumer===item.stage));el.classList.toggle('is-related',related);el.setAttribute('aria-pressed',String(selected));
         if(item.kind==='slot')el.classList.toggle('is-related',item.index===slot&&relevantBuffers.includes(item.buffer));
       });
+      const summary=host.querySelector('[data-intra-dependency-summary]');if(summary){const link=transfers.filter(t=>f?.kind==='stage'&&(t.producer===f.stage||t.consumer===f.stage));summary.textContent=f?.kind==='stage'?`Task ${task.id} · Stack ${f.index} · ${stages[f.stage]} · 上游 ${link.filter(t=>t.consumer===f.stage).map(t=>stages[t.producer]).join(' / ')||'输入数据'} · 下游 ${link.filter(t=>t.producer===f.stage).map(t=>stages[t.consumer]).join(' / ')||'输出归一化'} · Slot ${task.stacks[f.index].slot}`:f?.kind==='event'?`Stack ${f.index} · ${f.event} · ${events[f.event]?.map(stage=>stages[stage]).join(' → ')} · 静态同步关系`:f?.kind==='slot'?`Slot ${f.index} · ${f.buffer||'Transfer buffers'} · Stack ${f.from??task.stacks.find(s=>s.slot===f.index)?.index} → ${f.to??task.stacks.filter(s=>s.slot===f.index).at(-1)?.index} · 资源复用`:f?.kind==='stack'?`Stack ${f.index} · Slot ${task.stacks[f.index].slot} · QK → Softmax → PV → Accumulate`:'';}
     }
     function revealFocus(){
       if(!validFocus(focus))return;
@@ -231,6 +232,7 @@
       const card=event.target.closest('[data-intra-task]'),el=event.target.closest('[data-intra-kind]'),nextFocus=objectFocus(el);
       if(card&&Number(card.dataset.intraTask)!==task.id){manualPage(tasks.findIndex(t=>t.id===Number(card.dataset.intraTask)),nextFocus);return;}
       if(nextFocus){paging.reset();onFocus(nextFocus);}
+      else if(card&&Number(card.dataset.intraTask)===task.id&&focus){onFocus(null);}
     });
     listen(viewport,'wheel',event=>{
       const unit=event.deltaMode===1?16:event.deltaMode===2?viewport.clientWidth:1;

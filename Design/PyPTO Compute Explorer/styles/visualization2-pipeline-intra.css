@@ -27,8 +27,12 @@
 .viz2-intra-svg .is-related .viz2-intra-operation,.viz2-intra-svg .is-shared .viz2-intra-operation { fill:var(--surface-4); stroke-opacity:1; }
 .viz2-intra-svg .is-related .viz2-intra-flow,.viz2-intra-svg .is-shared .viz2-intra-flow { opacity:1; }
 .viz2-intra-svg .viz2-intra-flow.is-related { stroke:var(--primary);stroke-width:2;opacity:1; }
+.viz2-intra-svg [data-intra-kind].is-upstream > .viz2-intra-operation { stroke:var(--success); }
+.viz2-intra-svg [data-intra-kind].is-downstream > .viz2-intra-operation { stroke:var(--primary); }
+.viz2-intra [data-intra-dependency-summary]{display:block;flex-basis:100%;color:var(--foreground-secondary);font:var(--type-micro)}
 .viz2-intra-svg [data-intra-scene].has-selection [data-intra-kind="stage"]:not(.is-selected):not(.is-related) { opacity:.3; }
 .viz2-intra-svg [data-intra-kind]:is(:hover,.is-selected,:focus-visible) > rect:not(.viz2-intra-output-hit):not(.viz2-intra-event-hit),.viz2-intra-svg [data-intra-kind]:is(:hover,.is-selected,:focus-visible) > circle:not(.viz2-intra-event-hit),.viz2-intra-svg [data-intra-kind].is-related > rect { stroke:var(--primary); stroke-opacity:1; stroke-width:1.5; vector-effect:non-scaling-stroke; }
+.viz2-intra-svg [data-intra-kind].is-upstream > .viz2-intra-operation { stroke:var(--success); }
 .viz2-intra-svg .viz2-intra-reuse:is(.is-highlighted,.is-selected,:focus-visible) { opacity:1; }
 .viz2-intra-svg [data-intra-kind]:focus-visible { outline:none; }
 .viz2-intra-masked .viz2-intra-card.is-current [data-intra-kind="output"],.viz2-intra-masked .viz2-intra-card.is-current [data-intra-operation$=":qk"],.viz2-intra-masked .viz2-intra-card.is-current .viz2-intra-heading { visibility:hidden; }
