@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+<title id="title">人、Agent 与 Toolkit：围绕算子任务的协作闭环</title>
+<desc id="desc">开发者向 Agent 给出任务与授权并审查候选，Agent 调用 Toolkit 执行并根据结果迭代，Toolkit 的证据可供人和 Agent 共同查看；共享任务状态串联任务、候选、运行、证据和决策。</desc>
+<defs>
+ <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f5f8fc"/><stop offset="1" stop-color="#edf3f8"/></linearGradient>
+ <linearGradient id="agent" x2="1" y2="1"><stop stop-color="#2049a2"/><stop offset="1" stop-color="#16367d"/></linearGradient>
+ <filter id="shadow" x="-15%" y="-20%" width="130%" height="150%"><feDropShadow dx="0" dy="12" stdDeviation="17" flood-color="#203c68" flood-opacity=".10"/></filter>
+ <marker id="blueArrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 Z" fill="#3e69c5"/></marker>
+ <marker id="greenArrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 Z" fill="#2c918b"/></marker>
+ <marker id="mutedArrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 Z" fill="#8192a7"/></marker>
+ <style>text{font-family:'Microsoft YaHei','Noto Sans CJK SC',sans-serif}.title{font-size:38px;font-weight:700;fill:#14233d}.sub{font-size:19px;fill:#667993}.head{font-size:27px;font-weight:700;fill:#172b47}.body{font-size:19px;fill:#51657e}.small{font-size:16px;fill:#71839a}.label{font-size:16px;font-weight:700;fill:#45628c}.num{font-size:15px;font-weight:700;letter-spacing:2px;fill:#7386a1}</style>
+</defs>
+<rect width="1600" height="900" fill="url(#bg)"/>
+<rect x="64" y="48" width="5" height="74" rx="2" fill="#3469ca"/>
+<text x="91" y="79" class="title">人、Agent 与工具的协作闭环</text>
+<text x="92" y="115" class="sub">围绕同一项算子任务，让执行、证据与决策持续衔接</text>
+<rect x="1307" y="55" width="226" height="38" rx="19" fill="#e4ebf8"/><text x="1420" y="80" text-anchor="middle" font-size="15" font-weight="700" fill="#3c5c91">算子开发 · 协作模型</text>
+<!-- cards -->
+<g filter="url(#shadow)"><rect x="70" y="229" width="385" height="366" rx="24" fill="#fff"/><rect x="607" y="205" width="386" height="390" rx="24" fill="url(#agent)"/><rect x="1145" y="229" width="385" height="366" rx="24" fill="#fff"/></g>
+<!-- human -->
+<circle cx="119" cy="280" r="25" fill="#e7eefb"/><circle cx="119" cy="272" r="7" fill="none" stroke="#3c66b7" stroke-width="2.5"/><path d="M106 291 Q119 277 132 291" fill="none" stroke="#3c66b7" stroke-width="2.5" stroke-linecap="round"/>
+<text x="158" y="276" class="num">01  HUMAN</text><text x="158" y="310" class="head">开发者</text>
+<text x="102" y="361" font-size="21" font-weight="700" fill="#244d99">定义目标 · 判断结果</text>
+<line x1="102" y1="382" x2="423" y2="382" stroke="#e8edf5"/>
+<text x="102" y="420" class="body">定义语义、约束与验收标准</text><text x="102" y="458" class="body">设定范围、预算与授权边界</text><text x="102" y="496" class="body">审查证据，决定接受或继续</text>
+<rect x="102" y="532" width="173" height="32" rx="16" fill="#edf3fd"/><text x="188" y="554" text-anchor="middle" font-size="15" fill="#4167a9">对最终交付负责</text>
+<!-- agent -->
+<circle cx="659" cy="260" r="25" fill="#ffffff" fill-opacity=".15"/><path d="M648 251 h22 v19 h-22 z M654 246 v5 M664 246 v5 M653 259 h2 M663 259 h2 M655 266 h8" fill="none" stroke="#d6e6ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="699" y="254" font-size="15" font-weight="700" letter-spacing="2" fill="#a8c3f3">02  AGENT</text><text x="699" y="291" font-size="27" font-weight="700" fill="#fff">任务协作者</text>
+<text x="640" y="349" font-size="21" font-weight="700" fill="#d5e6ff">理解任务 · 组织迭代</text><line x1="640" y1="370" x2="960" y2="370" stroke="#7698d0" stroke-opacity=".4"/>
+<text x="640" y="408" font-size="19" fill="#e2ecff">读取工程上下文，拆解任务</text><text x="640" y="446" font-size="19" fill="#e2ecff">生成候选，调用工具验证</text><text x="640" y="484" font-size="19" fill="#e2ecff">根据反馈调整，汇报风险</text>
+<rect x="640" y="522" width="202" height="34" rx="17" fill="#ffffff" fill-opacity=".13"/><text x="741" y="545" text-anchor="middle" font-size="15" fill="#e5efff">在授权范围内自主推进</text>
+<!-- toolkit -->
+<circle cx="1195" cy="280" r="25" fill="#e2f3f0"/><path d="M1184 272 h22 v17 h-22 z M1189 277 h12 M1189 282 h8 M1192 289 v4 M1198 289 v4" fill="none" stroke="#2d9188" stroke-width="2.3" stroke-linecap="round"/>
+<text x="1234" y="276" class="num">03  TOOLKIT</text><text x="1234" y="310" class="head">工具与基础设施</text>
+<text x="1177" y="361" font-size="21" font-weight="700" fill="#25867f">确定执行 · 提供证据</text><line x1="1177" y1="382" x2="1498" y2="382" stroke="#e6efed"/>
+<text x="1177" y="420" class="body">编译、检查与正确性验证</text><text x="1177" y="458" class="body">设备运行、Profiling 与测量</text><text x="1177" y="496" class="body">记录环境、产物与原始数据</text>
+<rect x="1177" y="532" width="205" height="32" rx="16" fill="#e9f6f3"/><text x="1280" y="554" text-anchor="middle" font-size="15" fill="#2a8981">执行结果可追溯、可复现</text>
+<!-- arrows between cards -->
+<path d="M468 344 H594" fill="none" stroke="#3e69c5" stroke-width="2.5" marker-end="url(#blueArrow)"/><text x="531" y="331" text-anchor="middle" class="label">任务与授权</text>
+<path d="M594 456 H468" fill="none" stroke="#8192a7" stroke-width="2.5" marker-end="url(#mutedArrow)"/><text x="531" y="483" text-anchor="middle" class="small">方案与进展</text>
+<path d="M1006 344 H1132" fill="none" stroke="#2c918b" stroke-width="2.5" marker-end="url(#greenArrow)"/><text x="1069" y="331" text-anchor="middle" font-size="16" font-weight="700" fill="#28877f">工具调用</text>
+<path d="M1132 456 H1006" fill="none" stroke="#8192a7" stroke-width="2.5" marker-end="url(#mutedArrow)"/><text x="1069" y="483" text-anchor="middle" class="small">结果与证据</text>
+<!-- evidence access -->
+<path d="M1337 607 V626 H263 V607" fill="none" stroke="#9baec1" stroke-width="2" stroke-dasharray="5 6" marker-end="url(#mutedArrow)"/>
+<rect x="686" y="611" width="228" height="30" rx="15" fill="#eff4fa"/><text x="800" y="632" text-anchor="middle" font-size="15" fill="#71849b">开发者可直接查看原始证据</text>
+<!-- shared task strip -->
+<rect x="70" y="668" width="1460" height="148" rx="20" fill="#fff" stroke="#dce7f2"/>
+<text x="104" y="710" font-size="16" font-weight="700" fill="#334e72">共享任务上下文</text><text x="104" y="740" font-size="15" fill="#8090a4">人和 Agent 基于同一份记录协作</text>
+<line x1="358" y1="691" x2="358" y2="792" stroke="#e6edf5"/>
+<g font-size="18" font-weight="700" text-anchor="middle"><rect x="399" y="706" width="142" height="53" rx="13" fill="#eef3fc"/><text x="470" y="739" fill="#3e619a">任务目标</text><rect x="627" y="706" width="142" height="53" rx="13" fill="#eef3fc"/><text x="698" y="739" fill="#3e619a">候选方案</text><rect x="855" y="706" width="142" height="53" rx="13" fill="#eef7f6"/><text x="926" y="739" fill="#2f8580">执行记录</text><rect x="1083" y="706" width="142" height="53" rx="13" fill="#eef7f6"/><text x="1154" y="739" fill="#2f8580">验证证据</text><rect x="1311" y="706" width="142" height="53" rx="13" fill="#f2f4f8"/><text x="1382" y="739" fill="#52677f">人的决策</text></g>
+<g stroke="#9aabc0" stroke-width="2" marker-end="url(#mutedArrow)"><path d="M551 732 H613"/><path d="M779 732 H841"/><path d="M1007 732 H1069"/><path d="M1235 732 H1297"/></g>
+<text x="800" y="874" text-anchor="middle" font-size="15" fill="#8999ad">目标与约束驱动执行 · 真实证据支持迭代 · 关键取舍由人决定</text>
+</svg>

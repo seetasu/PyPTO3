@@ -1,0 +1,84 @@
+# Perf Lane Kit
+
+从 `Design/device-perf-lane-20261026` 提取通用性能泳道能力的独立项目。原 Demo 和原始数据不修改。本项目是通用能力的第一版，并非原 Demo 的完整功能迁移。
+
+## 运行
+
+需要 Node.js（无需安装第三方依赖）：
+
+```sh
+cd Design/perf-lane-kit
+npm start
+npm test
+```
+
+打开命令输出的本机地址。页面加载原 Demo 示例数据，也可通过“导入 JSON”选择新的 `perf-lane.v1` 数据。导入在本地浏览器中处理。服务只监听本机；ES module 和示例数据需要通过 HTTP 加载。
+
+## 架构与扩展
+
+- `src/data.js`：`perf-lane.v1` 适配和能力检查。其他文件格式应增加适配器，转换为该格式后再调用渲染器。
+- `src/analysis.js`：并发区间扫描、Task 贪心装箱和七种特征筛查，不操作 DOM。
+- `src/render.js`：共享时间坐标的泳道、并发、低并行区、Task 特征、耗时构成和独立关键路径视图。渲染函数接收数据、状态和选择回调。
+- `src/app.js`：文件导入、Rank、视图状态和选择联动。
+- `data/example.json`：从原项目复制的示例，不作为原始采集数据。
+
+最小数据契约：顶层 `schemaVersion` 为 `perf-lane.v1`，`ranks` 非空；每个 rank 含正数 `windowUs`、`cores`、`launches`。Task 需要 `id`、`taskId`、`ct`、`leaf`、`startUs`、`endUs`、`spanUs`、`coresUsed` 和 `blocks.items`；block 需要 `core`、`startUs`、`endUs`。时间统一为相对窗口起点的微秒。特征分析还需要原格式的块统计和计算 / Setup 字段，耗时构成需要每个 block 的 `slotUs`、`setupUs`、`computeUs`；依赖间隔需要 `edges`，关键路径展示需要 `criticalPath`。没有数据的能力应关闭，不能推断数据。详细字段与实例见 `data/example.json`。
+
+## 口径与范围
+
+- Task 视图为任务起止包络，条高表示使用过的不同核数比例，不代表瞬时并发。物理核视图显示实际 Block 区间。
+- 并行宽度按 Block 事件计数，低并行区为不超过两个 AICore Block；不包含其他设备活动。特征规则是当前 rank 内筛查线索，不是性能问题判定。
+- 耗时构成按 Block 的总占用比例表示 Setup，不能证明其内部发生顺序；不推断无法观测的等待原因。
+- 关键路径直接展示输入中已计算的结果，宽度按 `pathContributionUs`，缺失时使用 `spanUs`。运行目录适配器会从依赖图和核上实测时间计算路径；预处理文件仍直接展示已提供结果。
+- 原 Demo 的推荐排序、地标、详情分布、QK / Pass / Paged Attention 等专题下钻尚未迁移。新格式需先实现并测试适配器；不保证接受任意 trace JSON。
+
+
+## 从运行目录生成可导入数据
+
+```powershell
+node scripts/import-run.js "D:\project\PyPTO3\Data\_jit_decode_fwd_layers_20260625_184941" "data\my-decode.json"
+node scripts/import-run.js "D:\project\PyPTO3\Data\DeepseekV4\_jit_l3_decode_csa_20260903_010617" "data\my-deepseek.json"
+```
+
+也可以输入 `dfx_outputs` 目录。脚本识别单层 DFX 和 `rank*/d*` 布局，从 `merged_swimlane`、`name_map`、`chip_swimlane_records` 或 `l2_swimlane_records` 提取；每个设备目录必须有唯一 trace 和 name map。脚本检查有效事件数是否与核记录一致，数量不匹配时停止，不修改源目录。输出文件必须不存在，避免覆盖已有数据。然后在页面选择“导入 JSON”。
+
+两种输入的数据粒度不同：DeepSeek 的详细事件提供计算与 Setup 分解；decode 示例的事件只提供执行区间，适配后仍可看基础泳道和并发，但不提供耗时构成或 Task 特征筛查。目录适配器从依赖图和实测时间计算关键路径；缺少依赖、无匹配任务或发现环时会说明原因。目录中其他 Pass、编译和报告文件目前不会解析。
+
+## Agent 直接启动
+
+Agent 可在本目录执行 `node server.js --run "<运行目录>"`，等待命令输出的本机 URL，并打开该 URL。进程保持运行期间页面可用；每次使用独立随机端口。脚本只读取输入目录并在内存中准备数据，不生成中间文件。无参数 `npm start` 加载内置示例，并同样输出随机端口。关闭进程后页面不可用。
+
+
+## 与原 Demo 的迁移进度
+
+当前工作台对齐了原页面的整体框架，并支持物理核紧凑 / 展开行、Task 标签、特征按 kernel 分组着色与列表、任务计算耗时分布。它尚不等同于原 Demo：原页面的推荐排序、地标、固定时间轴、完整图例 / 浮层、精确的交互与专题下钻仍需迁移；不应将本项目称为原页面的完整复刻。
+
+本次补充了基于现有 Task 筛查的推荐排序、最长 Task / 低并行地标、固定时间轴及 kernel 图例。侧栏“打开原 Demo”入口直接打开原项目的完整专题案例，案例使用原 Demo 独立数据，未绑定当前导入运行。原 Demo 对其 DeepSeek 样例注入了标记为 Mock 的长 Block；因此原页面窗口与原始 trace 的窗口不同，不可把二者当作同一份测量。
+
+迁移仍不完整：推荐项聚焦和排序口径尚未与原版逐项校准；地标缺少视角 Top1 和原版标注；QK / Pass / Paged Attention 仍是原页面入口而非通用组件，未与当前数据联动；尚未完成各视口与所有交互的逐项对照。不能声称视觉和交互完全一致。
+
+## 同数据对照与专题接入（2026-10-28）
+
+内置原始样例可打开顶部“原 Demo 对照数据（含 Mock）”：仅数据与项目内 `data/example.json` 完全一致时可用。对照模式调用原 Demo 的 `withLongBlock`，在内存中生成与原 Demo 一致的 Mock 拷贝，不更改原始文件；关闭可恢复实测数据。该模式下选中 QK Task 后，详情中可打开原 Demo 的 QK / Pass 下钻，并传入 rank、Task 和 Core。下钻直接复用原 Demo，按需从相邻原项目加载，不适用于其他运行。Paged Attention 仍通过原 Demo 独立场景入口查看，不与当前运行绑定。
+
+推荐加入选中 / 再次点击复位、聚焦时间范围与 Setup 模式；地标支持按关键路径单块、尾块、Setup、波次选取 Top1。同数据下 rank0 与 rank1 推荐前五顺序已对照，但其他视觉与交互不保证逐像素一致：推荐卡片细节、地标布局、筛选和动画、可拖动侧栏等仍有差异。运行目录适配器计算关键路径，但不生成案例级证据。
+
+## 关键路径算法
+
+复用原 Demo 的 observed-envelope-v1 启发式：按 Task ID 合并核上事件的最早开始与最晚结束；沿 deps 前驱选择使时间包络最大的链，图中无核记录的编排节点保留在链中。条宽为包络扩展量，重叠不重复相加，间隔包含在包络中。未匹配前驱或后继边会计数并忽略；有环、缺少图或无可匹配时间时不生成路径。它不是严格的因果关键路径或性能收益结论。
+
+
+## 展示模式与分析模式
+
+默认打开基础视图：运行摘要、关键路径与泳道，不自动打开性能分析或推荐特征。用户可自行选择 Task 特征图层。点击“展开性能分析”进入分析模式；若未选择特征且数据支持，默认显示系统推荐。点击“收起性能分析”退出推荐展示，已选择的非推荐特征仍保留。直接在页面地址后添加 `?analysis=1` 可启动分析模式。数据不足时面板会说明限制。
+
+## 独立渲染模式
+
+Agent 使用服务输出的地址追加参数；无需修改或复制数据：
+
+- `?view=critical`：仅关键路径及运行摘要；Task 点击仍可查看详情。
+- `?view=lane`：仅基础泳道及运行摘要，默认关闭并行宽度、地标、低并行背景与 Task 特征。
+- `?view=lane&feature=setup`：仅泳道并启用指定 Task 特征。特征值：`tail` 拖尾、`parallel` 并行度不足、`imbalance` 块负载不均、`underfill` 尾波空置、`fragmented` 离散小 Task、`setup` Setup 占比高、`bubble` 依赖间隔。
+- `?view=combined`：关键路径与泳道（默认）；可加 `feature` 显示指定图层。
+
+页面顶部“呈现”也可切换视图。Task 特征依附物理核泳道，不是独立统计图；输入缺少该特征所需字段时显示提示并关闭图层。无关键路径数据时显示不可用原因。自然语言映射由 Skill 执行，页面本身不调用大模型。
