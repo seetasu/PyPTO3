@@ -144,7 +144,7 @@
     root.setAttribute('aria-label','DeepSeek V4 CSA Compute Explorer');
     root.innerHTML='<header class="pto-ide-frame__pane-header viz2-header"><button class="btn btn-ghost btn-sm" data-csa-back>← 返回代码</button><span class="pto-ide-frame__pane-title">Compute Explorer</span><span class="pto-ide-frame__pane-meta">decode_csa.py · TP=2</span></header>'+
     '<div class="pto-ide-frame__tabstrip viz2-tabs"><div class="tab-control" role="tablist" aria-label="CSA 可视化视图">'+tabs.map(id=>'<button class="tab-control-item" role="tab" id="csa-tab-'+id+'" data-csa-tab="'+id+'" aria-controls="csa-panel"><span class="viz2-tab-icon viz2-tab-icon--'+id+'"></span>'+id[0].toUpperCase()+id.slice(1)+'</button>').join('')+'</div></div>'+
-    '<div class="csa-toolbar"><div class="segmented-control segmented-control-muted" role="group" aria-label="CSA 观察层次" data-csa-scopegroup><button class="btn btn-sm" data-csa-scope="overall">整体</button><button class="btn btn-sm" data-csa-scope="local">局部</button></div><nav data-csa-breadcrumb aria-label="当前对象"></nav><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回整体</button><button class="btn btn-sm" data-csa-qk hidden>QK Work Assignment</button></div>'+
+    '<div class="csa-toolbar"><div class="segmented-control segmented-control-muted" role="group" aria-label="CSA 观察层次" data-csa-scopegroup><button class="btn btn-sm" data-csa-scope="overall">整体</button><button class="btn btn-sm" data-csa-scope="local">局部</button></div><nav data-csa-breadcrumb aria-label="当前对象"></nav><button class="btn btn-sm csa-navreturn" data-csa-navreturn hidden></button><button class="btn btn-ghost btn-sm" data-csa-return hidden>← 返回整体</button><button class="btn btn-sm" data-csa-qk hidden>QK Work Assignment</button></div>'+
     '<div class="csa-focusbar" aria-label="关键路径焦点"></div>'+
     '<div class="csa-workspace" id="csa-panel" role="tabpanel"><div class="csa-canvas-column"><div class="csa-caption"></div><div class="csa-stage pto-model-graphviz-pattern-page" role="group" aria-label="CSA 数据与任务关系，拖拽平移，按住 Command 或 Ctrl 滚轮缩放"></div><footer class="csa-footer"><div class="csa-legend"><span>中性矩形 · Tensor / Cache</span><span>彩色模块 · 计算 / 通信 / 同步</span><span>实线 · 数据</span><span class="csa-comm-legend">蓝线 · 跨 Rank</span><span>虚线 · 控制 / 同步</span></div><button class="btn btn-ghost btn-sm" data-csa-fit>全览</button><button class="btn btn-ghost btn-sm" data-csa-read>阅读</button><button class="btn btn-ghost btn-sm" data-csa-zoom="0.8" aria-label="缩小 CSA">−</button><button class="btn btn-ghost btn-sm" data-csa-zoom="1.25" aria-label="放大 CSA">＋</button></footer></div>'+
     '<aside class="pto-ide-frame__pane csa-inspector" aria-label="CSA 对象详情"><header class="pto-ide-frame__pane-header"><span class="pto-ide-frame__pane-title">对象详情</span><button class="btn btn-ghost btn-sm" data-csa-clear>清除选择</button></header><div class="pto-ide-frame__pane-body csa-detail"></div></aside></div>'+
@@ -153,9 +153,10 @@
     root.addEventListener('click',event=>{
       const b=event.target.closest('button');if(!b)return;
       if(b.hasAttribute('data-csa-back'))return close();
+      if(b.hasAttribute('data-csa-navreturn')){returnFromNavigation();return;}
       if(b.hasAttribute('data-csa-qk')){const entering=!state.qkMode;if(entering&&!graphIdForFocus()?.startsWith(qkPvId))setFocus({kind:'module',rank:null,semanticId:qkPvId,moduleId:qkPvId,objectId:'attention'});state.qkMode=entering;render();return;}
       if(b.hasAttribute('data-csa-crumb')){const id=b.dataset.csaCrumb;setFocus(id?graphFocus(id):null);const v=state.views.graph;v.expanded=id?id.split('/').slice(0,-1).map((_,i)=>id.split('/').slice(0,i+1).join('/')):[];v.scope=v.expanded.length?'local':'overall';v.camera=null;render();return;}
-      if(b.dataset.csaTab){saveCamera();state.tab=b.dataset.csaTab;if(state.tab==='assignment'){if(isQkFocus(state.focus))state.qkMode=true;if(state.focus)state.views.assignment.topic=selectedTopic(state.views.assignment.topic);}if(state.tab==='graph'){const v=state.views.graph,key=focusKey();if(key&&key!==v.projectedFocusKey){const path=graphIdForFocus()?.split('/')||[],ancestors=path.slice(0,-1).map((_,i)=>path.slice(0,i+1).join('/'));v.expanded=[...new Set([...v.expanded,...ancestors])];v.scope=v.expanded.length?'local':'overall';v.projectedFocusKey=key;}}render();return;}
+      if(b.dataset.csaTab){saveCamera();state.tab=b.dataset.csaTab;if(state.tab!=='graph')navigationReturn=null;if(state.tab==='assignment'){if(isQkFocus(state.focus))state.qkMode=true;if(state.focus)state.views.assignment.topic=selectedTopic(state.views.assignment.topic);}if(state.tab==='graph'){const v=state.views.graph,key=focusKey();if(key&&key!==v.projectedFocusKey){const path=graphIdForFocus()?.split('/')||[],ancestors=path.slice(0,-1).map((_,i)=>path.slice(0,i+1).join('/'));v.expanded=[...new Set([...v.expanded,...ancestors])];v.scope=v.expanded.length?'local':'overall';v.projectedFocusKey=key;}}render();return;}
       if(b.dataset.csaScope){saveCamera();const v=state.views[state.tab];if(state.tab==='graph'){if((v.expanded.length?'local':'overall')===b.dataset.csaScope)return;if(b.dataset.csaScope==='local'&&!v.bookmarkedNodeId&&semanticController){semanticController.toggleExpanded((graphIdForFocus()||v.nodeId||'input').split('/')[0],true);return;}setGraphScope(b.dataset.csaScope);render();return;}if(v.scope===b.dataset.csaScope)return;v.scope=b.dataset.csaScope;if(state.focus)v.topic=selectedTopic(v.topic);v.camera=null;render();return;}
       if(b.hasAttribute('data-csa-return')){if(state.tab==='graph'){const v=state.views.graph,focusId=graphIdForFocus()||'';const branch=v.expanded.filter(id=>focusId.startsWith(id)).sort((a,b)=>b.length-a.length);const last=branch[0]||v.expanded.at(-1);v.expanded=v.expanded.filter(id=>id!==last&&!id.startsWith(last+'/'));const parent=last?.slice(0,last.lastIndexOf('/'));if(parent&&semanticNodes.get(parent)?.name===semanticNodes.get(last)?.name)v.expanded=v.expanded.filter(id=>id!==parent&&!id.startsWith(parent+'/'));v.scope=v.expanded.length?'local':'overall';v.camera=null;}else{state.views[state.tab].scope='overall';state.views[state.tab].camera=null;}render();return;}
       if(b.dataset.csaFocus){const topic=b.dataset.csaFocus,v=state.views[state.tab];v.topic=topic;v.camera=null;setFocus(legacyFocus({gather:'gather',cache:'ready',output:'publish'}[topic],state.rank));render();return;}
@@ -169,6 +170,44 @@
     root.querySelector('[role="tablist"]').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const at=tabs.indexOf(state.tab),i=e.key==='Home'?0:e.key==='End'?2:(at+(e.key==='ArrowRight'?1:2))%3;root.querySelector('[data-csa-tab="'+tabs[i]+'"]').click();root.querySelector('[data-csa-tab="'+tabs[i]+'"]').focus();});
   }
   function selectedTopic(fallback){const object=objectForFocus();return object==='rank'?(fallback||'gather'):objects[object]?.topic||(fallback||'gather');}
+  // P5：跨模块探索只保存对象身份，Work Item / Scenario 数据仍由 QK Work Controller 派生。
+  let navigationReturn=null;
+  const ancestorsOf=id=>{const parts=id.split('/');return parts.slice(0,-1).map((_,i)=>parts.slice(0,i+1).join('/'));};
+  const returnTabs={assignment:'Assignment',pipeline:'Pipeline',graph:'Graph'};
+  function returnLabel(focus){
+    if(focus?.kind==='work-item')return '← 返回 Work Item '+focus.workItemId;
+    if(focus?.kind==='lane')return '← 返回 Lane '+focus.blockId;
+    if(focus?.kind==='query')return '← 返回 Q'+(focus.tokenIndex??'');
+    if(focus?.kind==='request')return '← 返回 Request '+focus.requestIndex;
+    return '← 返回 '+(returnTabs[navigationReturn?.tab]||'Pipeline');
+  }
+  function navigateToGraph(targetNodeId){
+    if(!targetNodeId||!semanticNodes.has(targetNodeId))return false;
+    if(state.tab!=='graph')navigationReturn={tab:state.tab,focus:state.focus?{...state.focus}:null,qkMode:state.qkMode};
+    saveCamera();
+    setFocus(graphFocus(targetNodeId));
+    // 只展开目标路径的祖先，避免整图展开；setFocus 会清空 Graph 选中态，因此在其后写回。
+    const v=state.views.graph;
+    v.expanded=ancestorsOf(targetNodeId);
+    v.scope=v.expanded.length?'local':'overall';
+    v.camera=null;v.nodeId=targetNodeId;v.edgeId=null;v.bookmarkedNodeId=null;v.inspectorOpen=true;v.projectedFocusKey=focusKey();
+    state.tab='graph';
+    render();
+    return true;
+  }
+  function returnFromNavigation(){
+    const back=navigationReturn;if(!back)return;
+    navigationReturn=null;
+    const scenarioId=qkController?.getScenario?.()?.items?.[0]?.scenarioId;
+    let focus=back.focus?{...back.focus}:null;
+    // Scenario 变化后相同数字 ID 不再指同一个 Work Item，退回 qk_pv 而不按 ID 强行恢复。
+    const detached=focus&&['request','query','work-item','lane'].includes(focus.kind)&&scenarioId&&focus.scenarioId&&focus.scenarioId!==scenarioId;
+    if(detached)focus={kind:'module',rank:focus.rank??state.rank,semanticId:qkPvId,moduleId:qkPvId,objectId:'attention'};
+    state.tab=back.tab||'pipeline';
+    state.qkMode=state.tab==='assignment'?isQkFocus(focus):!!back.qkMode;
+    setFocus(focus);
+    render();
+  }
   function setGraphScope(scope){
     const v=state.views.graph;
     if(scope==='overall'){
@@ -194,6 +233,8 @@
     const scopeGroup=root.querySelector('[data-csa-scopegroup]');if(scopeGroup)scopeGroup.hidden=qk||qkPipeline;
     const focusbar=root.querySelector('.csa-focusbar');if(focusbar)focusbar.hidden=qk||qkPipeline;
     root.querySelector('[data-csa-return]').hidden=qk||qkPipeline||scope!=='local';root.querySelector('[data-csa-return]').textContent=state.tab==='graph'?'← 返回上级':'← 返回整体';
+    const navReturn=root.querySelector('[data-csa-navreturn]');
+    if(navReturn){navReturn.hidden=!navigationReturn;if(navigationReturn)navReturn.textContent=returnLabel(navigationReturn.focus);}
     const qkButton=root.querySelector('[data-csa-qk]');
     if(qkButton){qkButton.hidden=state.tab!=='assignment';qkButton.classList.toggle('is-selected',qk);qkButton.textContent=qk?'← 返回 Assignment':graphIdForFocus()?.startsWith(qkPvId)?'查看 qk_pv Work Assignment':'QK Work Assignment';qkButton.setAttribute('aria-pressed',String(qk));}
     const crumbs=focusCrumbs(),scopeId=state.views.graph.expanded.at(-1),scopeName=semanticNodes.get(scopeId)?.name;
@@ -227,6 +268,7 @@
       else qkController=global.PtoCsaQkWork.create(qkHost,{onSource:qkSource,rank:state.focus?.rank??state.rank,selection:qkSelection(),onContext:context=>{
         setFocus({kind:'module',rank:context.rank,scenarioId:context.scenarioId,semanticId:qkPvId,moduleId:qkPvId,objectId:'attention'});state.qkMode=true;chrome();
       },onSelection:selection=>{
+        navigationReturn=null;
         if(selection.type==='item')setFocus({kind:'work-item',rank:selection.rank,scenarioId:selection.scenarioId,moduleId:qkPvId,operationId:qkPvId+'/dispatch',workItemId:selection.id,requestIndex:selection.requestIndex,tokenIndex:selection.tokenIndex,positionId:selection.positionId,sparseBlockIndex:selection.sparseBlockIndex,valid:selection.valid,validKvCount:selection.validKvCount,queuePosition:selection.queuePosition,laneId:selection.laneId,laneIteration:selection.laneIteration});
         else if(selection.type==='request')setFocus({kind:'request',rank:selection.rank,scenarioId:selection.scenarioId,moduleId:qkPvId,requestIndex:selection.requestIndex});
         else if(selection.type==='query')setFocus({kind:'query',rank:selection.rank,scenarioId:selection.scenarioId,moduleId:qkPvId,requestIndex:selection.requestIndex,tokenIndex:selection.tokenIndex});
@@ -237,7 +279,7 @@
     }
     if(qkPipelineActive){
       const context=qkController?.getState()||{mode:'source',workload:'mixed',position:8192,rank:state.focus?.rank??state.rank};
-      if(!qkPipelineController)qkPipelineController=global.PtoCsaQkPipeline.create(qkPipelineHost,{onFocus:focus=>{setFocus(focus);chrome();},onSource:qkSource,moduleId:qkPvId});
+      if(!qkPipelineController)qkPipelineController=global.PtoCsaQkPipeline.create(qkPipelineHost,{onFocus:focus=>{navigationReturn=null;setFocus(focus);chrome();},onSource:qkSource,onNavigate:navigateToGraph,moduleId:qkPvId});
       qkPipelineController.update(state.focus,context,qkController?.getScenario());
       root.querySelector('.csa-focusbar').innerHTML='';chrome();return;
     }
@@ -331,7 +373,7 @@
     if(state.tab!=='graph')details();chrome();
   }
   function open(button){if(!root)mount();if(state.open)return;trigger=button;state.open=true;root.hidden=false;const area=document.getElementById('ideWorkarea');area.dataset.visualization2='open';previousInert=[...area.children].filter(el=>el!==root).map(el=>[el,el.inert]);previousInert.forEach(([el])=>el.inert=true);render();root.querySelector('[data-csa-tab="'+state.tab+'"]').focus();}
-  function close(){if(!state.open)return;saveCamera();qkController?.pause();semanticController?.destroy();semanticController=null;state.open=false;root.hidden=true;delete document.getElementById('ideWorkarea').dataset.visualization2;previousInert.forEach(([el,inert])=>el.inert=inert);previousInert=[];trigger?.isConnected&&trigger.focus({preventScroll:true});}
+  function close(){if(!state.open)return;saveCamera();navigationReturn=null;qkController?.pause();semanticController?.destroy();semanticController=null;state.open=false;root.hidden=true;delete document.getElementById('ideWorkarea').dataset.visualization2;previousInert.forEach(([el,inert])=>el.inert=inert);previousInert=[];trigger?.isConnected&&trigger.focus({preventScroll:true});}
   document.addEventListener('click',e=>{const b=e.target.closest('[data-visualization2-open]');if(b&&global.PtoComputeIDE.getScene()==='csa')open(b);});
   global.PtoCsaExplorer=Object.freeze({open,close,getState:()=>structuredClone(state)});
 })(window);
