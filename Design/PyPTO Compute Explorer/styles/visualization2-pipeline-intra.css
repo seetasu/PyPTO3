@@ -37,6 +37,12 @@
 .viz2-intra-svg [data-intra-kind]:focus-visible { outline:none; }
 .viz2-intra-masked .viz2-intra-card.is-current [data-intra-kind="output"],.viz2-intra-masked .viz2-intra-card.is-current [data-intra-operation$=":qk"],.viz2-intra-masked .viz2-intra-card.is-current .viz2-intra-heading { visibility:hidden; }
 .viz2-intra [data-intra-source-preview] { white-space:pre; overflow:auto; max-height:280px; font:var(--type-mono); }
+.viz2-intra .viz2-anatomy-inspector{flex:0 0 300px;width:300px;max-width:34%;min-width:0;overflow:auto}
+.viz2-intra .viz2-anatomy-inspector[hidden]{display:none}
+.viz2-intra .viz2-anatomy-inspector [data-intra-context]{display:block;color:var(--foreground-muted);font:var(--type-micro);margin-top:4px}
+.viz2-intra-relation-group{display:grid;gap:4px;margin-top:10px}
+.viz2-intra-relation-group b{color:var(--foreground-secondary);font:var(--type-micro)}
+.viz2-intra-relation{justify-content:flex-start;text-align:left;white-space:normal}
 .viz2-intra-legend { flex-wrap:wrap; }
 .viz2-intra-flow-key,.viz2-intra-event-key,.viz2-intra-reuse-key { flex:none; display:inline-block; width:var(--space-4); }
 .viz2-intra-flow-key { border-top:1px solid var(--primary); }

@@ -30,7 +30,7 @@
         <div class="viz2-anatomy-viewport" id="viz2-intra-carousel" role="region" tabindex="0" aria-label="当前 Task 逻辑流水线，方向键切换 Task，画布内可平移浏览 Logical Tick"><div class="viz2-anatomy-track" data-intra-track></div></div>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
         <footer class="viz2-anatomy-footer"><span class="viz2-intra-legend"><i class="viz2-intra-flow-key"></i>数据依赖<i class="viz2-intra-event-key"></i>READY 事件<i class="viz2-intra-reuse-key"></i>Slot 复用<small>Logical Tick 为离散进度，不代表耗时</small><small data-intra-dependency-summary aria-live="polite"></small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-prev aria-label="上一个 Task">←</button><output data-intra-position aria-live="polite"></output><button class="btn btn-ghost btn-sm" data-intra-next aria-label="下一个 Task">→</button><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>适应</button></div></footer></div>
-        </div>`;
+        <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="流水线对象详情" hidden><header class="pto-ide-frame__pane-header"><div><b data-intra-title></b><small data-intra-context></small></div><button class="btn btn-ghost btn-sm" data-intra-close aria-label="关闭流水线详情">×</button></header><div class="pto-ide-frame__pane-body" data-intra-detail></div></aside></div>`;
     const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-intra-track]'),workspace=host.querySelector('.viz2-anatomy-workspace'),inspector=host.querySelector('aside'),tooltip=host.querySelector('[role="tooltip"]');
     let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,suppress=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,inspectorOpen=false;
     const scrollStates=new Map(),scales=new Map();
@@ -152,7 +152,7 @@
         el.classList.toggle('is-selected',selected||fixed?.kind==='stack'&&item.kind==='stage'&&item.index===fixed.index);el.classList.toggle('is-upstream',related&&item.kind==='stage'&&f?.kind==='stage'&&transfers.some(link=>link.consumer===f.stage&&link.producer===item.stage));el.classList.toggle('is-downstream',related&&item.kind==='stage'&&f?.kind==='stage'&&transfers.some(link=>link.producer===f.stage&&link.consumer===item.stage));el.classList.toggle('is-related',related);el.setAttribute('aria-pressed',String(selected));
         if(item.kind==='slot')el.classList.toggle('is-related',item.index===slot&&relevantBuffers.includes(item.buffer));
       });
-      const summary=host.querySelector('[data-intra-dependency-summary]');if(summary){const link=transfers.filter(t=>f?.kind==='stage'&&(t.producer===f.stage||t.consumer===f.stage));summary.textContent=f?.kind==='stage'?`Task ${task.id} · Stack ${f.index} · ${stages[f.stage]} · 上游 ${link.filter(t=>t.consumer===f.stage).map(t=>stages[t.producer]).join(' / ')||'输入数据'} · 下游 ${link.filter(t=>t.producer===f.stage).map(t=>stages[t.consumer]).join(' / ')||'输出归一化'} · Slot ${task.stacks[f.index].slot}`:f?.kind==='event'?`Stack ${f.index} · ${f.event} · ${events[f.event]?.map(stage=>stages[stage]).join(' → ')} · 静态同步关系`:f?.kind==='slot'?`Slot ${f.index} · ${f.buffer||'Transfer buffers'} · Stack ${f.from??task.stacks.find(s=>s.slot===f.index)?.index} → ${f.to??task.stacks.filter(s=>s.slot===f.index).at(-1)?.index} · 资源复用`:f?.kind==='stack'?`Stack ${f.index} · Slot ${task.stacks[f.index].slot} · QK → Softmax → PV → Accumulate`:'';}
+      const summary=host.querySelector('[data-intra-dependency-summary]');if(summary){const link=transfers.filter(t=>f?.kind==='stage'&&(t.producer===f.stage||t.consumer===f.stage));summary.textContent=f?.kind==='stage'?`S${f.index} · ${stages[f.stage]} | ↑ ${link.filter(t=>t.consumer===f.stage).map(t=>stages[t.producer]).join(', ')||'输入'} | ↓ ${link.filter(t=>t.producer===f.stage).map(t=>stages[t.consumer]).join(', ')||'输出'}`:f?.kind==='event'?`S${f.index} · ${f.event} | ${events[f.event]?.map(stage=>stages[stage]).join(' → ')}`:f?.kind==='slot'?`Slot ${f.index} · ${f.buffer||'Transfer buffers'} | S${f.from??task.stacks.find(s=>s.slot===f.index)?.index} → S${f.to??task.stacks.filter(s=>s.slot===f.index).at(-1)?.index}`:f?.kind==='stack'?`Stack ${f.index} · Slot ${task.stacks[f.index].slot}`:'';}
     }
     function revealFocus(){
       if(!validFocus(focus))return;
@@ -188,14 +188,30 @@
       inspector.hidden=!inspectorOpen||!focus;if(inspector.hidden)return;
       const f=effective(focus),d=describe(focus),sync=f.kind==='event'?syncFor(f):null,operation=f.kind==='stage'?task.operations.find(op=>op.stack===f.index&&op.stage===f.stage):null;
       host.querySelector('[data-intra-title]').textContent=d.title;
+      host.querySelector('[data-intra-context]').textContent=`Task ${task.id}${f.index!=null?' · Stack '+f.index:''}${operation?' · Tick '+operation.tick:''}`;
       const section=(title,rows)=>rows.length?`<section><h3>${title}</h3><dl>${rows.map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl></section>`:'';
+      const jump=(kind,index,stage,label)=>`<button class="btn btn-ghost btn-sm viz2-intra-relation" data-intra-jump-task="${task.id}" data-intra-jump-kind="${kind}" data-intra-jump-index="${index}" ${stage?`data-intra-jump-stage="${stage}"`:''}>${esc(label)} ↗</button>`;
+      let upstream=[],downstream=[],resource=[];
+      if(f.kind==='stage'){
+        upstream=transfers.filter(t=>t.consumer===f.stage).map(t=>jump('stage',f.index,t.producer,stages[t.producer]+' · '+t.buffer));
+        downstream=transfers.filter(t=>t.producer===f.stage).map(t=>jump('stage',f.index,t.consumer,stages[t.consumer]+' · '+t.buffer));
+        resource=[`Slot ${task.stacks[f.index].slot} · ${[buffers[f.stage].read,buffers[f.stage].write].filter(Boolean).join(' / ')}`];
+      }else if(f.kind==='event'){
+        const pair=events[f.event];upstream=[jump('stage',f.index,pair[0],stages[pair[0]]+' · SET')];downstream=[jump('stage',f.index,pair[1],stages[pair[1]]+' · WAIT')];resource=[f.buffer+' · 静态同步关系，WAIT 不代表实测 Stall'];
+      }else if(f.kind==='slot'){
+        upstream=f.from!=null?[jump('stack',f.from,null,`Stack ${f.from} · 前次使用`)]:[];downstream=f.to!=null?[jump('stack',f.to,null,`Stack ${f.to} · 后次使用`)]:[];resource=[`Slot ${f.index} · ${f.buffer||'Transfer buffers'} · 复用不是同一数据值的传递`];
+      }else if(f.kind==='stack'){
+        downstream=['qk','softmax','pv','accumulate'].map(stage=>jump('stage',f.index,stage,stages[stage]));resource=[`Slot ${task.stacks[f.index].slot}`];
+      }else if(f.kind==='output')upstream=[jump('stage',task.stacks.at(-1).index,'accumulate','最后一个 Stack · Accumulate')];
+      const relation=(title,items)=>items.length?`<div class="viz2-intra-relation-group"><b>${title}</b>${items.join('')}</div>`:'';
       const detail=sync?global.PTO_COMPUTATION_PRESENTATION.synchronization(sync,global.PTO_PYPA_SEMANTIC_GRAPH):null,edge=sync?eventEdge(f):null,waitRanges=edge?.consumerSource?.ranges||sync?.consumer.source.ranges||[];
-      host.querySelector('[data-intra-detail]').innerHTML=section('Operation',[['对象',d.title]])+
-        section('Iteration',[['Task',task.id],['Batch / KV Head',`${task.batch} / ${task.kvHead}`],...(f.index!=null&&f.kind!=='output'?[['Stack',f.index]]:[]),...(operation?[['Logical Tick',operation.tick],['Buffer Slot',operation.slot]]:[])])+
-        section('Inputs',operation?.read?[['读取',operation.read]]:[])+section('Outputs',operation?.write?[['写入',operation.write]]:[])+
-        section('Dependencies',d.facts)+
+      host.querySelector('[data-intra-detail]').innerHTML=
+        section('Inputs',operation?.read?[['Buffer',operation.read]]:f.kind==='event'?[['Producer',stages[events[f.event][0]]]]:[])+
+        section('Computation',[['对象',f.kind==='stage'?stages[f.stage]:d.title]])+
+        section('Outputs',operation?.write?[['Buffer',operation.write]]:f.kind==='event'?[['Consumer',stages[events[f.event][1]]]]:[])+
+        `<section><h3>Dependencies</h3>${relation('Upstream',upstream)}${relation('Downstream',downstream)}${resource.length?`<p>Resource / Synchronization · ${esc(resource.join('；'))}</p>`:''}</section>`+
         (detail?`<section><h3>Source Evidence</h3><dl>${detail.rows.map(row=>`<dt>${esc(row.label)}</dt><dd>${esc(row.value)}</dd>`).join('')}</dl><div class="viz2-ready-source-links">${[...sync.producer.source.ranges.map((range,index)=>({end:'producer',index,range})),...waitRanges.map((range,index)=>({end:'consumer',index,range}))].map(item=>`<button class="btn btn-ghost btn-sm" data-intra-sync-source="${item.end}" data-intra-sync-range="${item.index}">${item.end==='producer'?'SET':'WAIT'} · :${item.range.start}–${item.range.end}</button>`).join('')}</div><button class="btn btn-sm" data-intra-graph-ready>在 Graph 中查看</button><pre data-intra-source-preview hidden></pre></section>`:'')+
-        '<p>静态逻辑映射；Tick 不表示实测时长，READY WAIT 不表示已发生 Stall；Slot 复用与 State Feedback 是不同依赖。</p>';
+        '<p>静态逻辑映射；Tick 不表示实测时长，READY WAIT 不表示已发生 Stall。</p>';
     }
 
     function update(id,nextFocus,nextCamera,options={}){
@@ -220,11 +236,12 @@
     listen(host,'click',event=>{
       if(suppress){suppress=false;event.preventDefault();return;}tooltip.hidden=true;
       if(event.target.closest('[data-intra-graph-ready]')){stop();onNavigate?.();return;}
+      const jump=event.target.closest('[data-intra-jump-task]');if(jump){if(Number(jump.dataset.intraJumpTask)!==task.id)return;onFocus({kind:jump.dataset.intraJumpKind,index:Number(jump.dataset.intraJumpIndex),...(jump.dataset.intraJumpStage?{stage:jump.dataset.intraJumpStage}:{})});return;}
       const sourceButton=event.target.closest('[data-intra-sync-source]');
       if(sourceButton){const sync=syncFor(focus),edge=eventEdge(focus);if(!sync)return;const ranges=sourceButton.dataset.intraSyncSource==='producer'?sync.producer.source.ranges:(edge?.consumerSource?.ranges||sync.consumer.source.ranges),line=ranges[Number(sourceButton.dataset.intraSyncRange)]?.start,preview=host.querySelector('[data-intra-source-preview]');if(line&&preview){preview.hidden=false;preview.textContent=global.PTO_PAGED_ATTENTION_PYPTO_SOURCE.split('\n').slice(Math.max(0,line-3),line+12).map((text,i)=>`${Math.max(1,line-2)+i}  ${text}`).join('\n');}return;}
       const taskButton=event.target.closest('[data-intra-task-go]');if(taskButton){manualPage(tasks.findIndex(t=>t.id===Number(taskButton.dataset.intraTaskGo)));return;}
       if(event.target.closest('[data-intra-back]')){stop();onExit?.();return;}
-      if(event.target.closest('[data-intra-close]')){paging.reset();onInspector(false);return;}
+      if(event.target.closest('[data-intra-close]')){paging.reset();onFocus(null);onInspector(false);return;}
       if(event.target.closest('[data-intra-fit]')){paging.reset();const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task),fit=Math.max(.05,Math.min(1,(scroller?.clientWidth-12||size.width)/size.width,(scroller?.clientHeight-12||size.height)/size.height));onCamera(task.id,{scale:fit,x:0,y:0});if(scroller){scroller.scrollLeft=0;scroller.scrollTop=0;}return;}
       const z=event.target.closest('[data-intra-zoom]');if(z){zoom(Number(z.dataset.intraZoom));return;}
       if(event.target.closest('[data-intra-prev]')){manualPage(target-1);return;}
@@ -232,7 +249,7 @@
       const card=event.target.closest('[data-intra-task]'),el=event.target.closest('[data-intra-kind]'),nextFocus=objectFocus(el);
       if(card&&Number(card.dataset.intraTask)!==task.id){manualPage(tasks.findIndex(t=>t.id===Number(card.dataset.intraTask)),nextFocus);return;}
       if(nextFocus){paging.reset();onFocus(nextFocus);}
-      else if(card&&Number(card.dataset.intraTask)===task.id&&focus){onFocus(null);}
+      else if(card&&Number(card.dataset.intraTask)===task.id&&focus){onFocus(null);onInspector(false);}
     });
     listen(viewport,'wheel',event=>{
       const unit=event.deltaMode===1?16:event.deltaMode===2?viewport.clientWidth:1;
