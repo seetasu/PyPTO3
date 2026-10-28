@@ -109,6 +109,7 @@
 .csa-qp-timeline-data{stroke:var(--foreground-secondary);opacity:.7}
 .csa-qp-timeline-reuse{stroke:var(--primary);stroke-dasharray:5 5;opacity:.65}
 .csa-qp-timeline-data.is-related,.csa-qp-timeline-reuse.is-related{stroke:var(--primary);stroke-width:2.5;opacity:1}
+.csa-qp-timeline-reuse.is-related{stroke:var(--success)}
 .csa-qp-timeline-data.is-dimmed,.csa-qp-timeline-reuse.is-dimmed{opacity:.15}
 .csa-qp-svg[data-selected-operation]:not([data-selected-operation=""]) .csa-qp-node:not(.is-selected):not(.is-related){opacity:.3}
 .csa-qp-svg .csa-qp-node.is-related rect{stroke:var(--primary);stroke-width:1.5}
@@ -116,6 +117,7 @@
 .csa-qp-svg .csa-qp-task-boundary{fill:none;stroke:var(--foreground-muted);stroke-width:1.5;stroke-dasharray:6 5;vector-effect:non-scaling-stroke}
 .csa-qp-svg .csa-qp-boundary-label{fill:var(--foreground-secondary);font-size:12px;font-weight:600}
 .csa-qp-svg .csa-qp-boundary-note{fill:var(--foreground-muted);font-size:11px}
+.csa-qp-bottom [data-qp-dependency-summary]{display:block;color:var(--foreground-secondary);font:var(--type-micro);margin-top:4px}
 .csa-qp-inspector section{margin-top:14px;padding-top:10px;border-top:1px solid var(--border-subtle)}
 .csa-qp-inspector h3{margin:0 0 6px;color:var(--foreground-secondary);font:var(--type-body-sm)}
 .csa-qp-inspector section p{margin:0;color:var(--foreground-secondary);line-height:1.45}
