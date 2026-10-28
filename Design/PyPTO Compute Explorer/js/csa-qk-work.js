@@ -14,7 +14,7 @@
   const WIN = 128, IDX_TOPK = 512, ATTN_K_TILE = 128, COMPRESS_RATIO = 4;
   const POSITIONS = [7, 1023, 2047, 8192];
 
-  // Fixed teaching mask (1 = valid). Rows are tokens, columns are sparse blocks.
+  // 旧版固定 mask（1 = valid），仅作 buildWorkItems 的数组入参兼容保留。
   const DEFAULT_MASK = Object.freeze([
     Object.freeze([1, 1, 0, 0, 0]),
     Object.freeze([1, 0, 0, 0, 0]),
@@ -25,8 +25,7 @@
   const DEFAULT_SELECTION = 11;              // Token 2 / Sparse Block 1
 
   const MODES = Object.freeze({
-    teaching: Object.freeze({ tokens: TOKENS, blocks: 4, button: 'Teaching', badge: '5 Query · 4 Lane 教学配置' }),
-    source: Object.freeze({ tokens: SOURCE_TOKENS, blocks: NUM_QK_CORES, button: 'Source-scale Example', badge: '默认规模 · Synthetic idx_topk · 非 Runtime Trace' })
+    source: Object.freeze({ tokens: SOURCE_TOKENS, blocks: NUM_QK_CORES })
   });
 
   const SUB_FILE = 'decode_sparse_attn_csa.py';
@@ -46,7 +45,7 @@
 
   function buildWorkItems(input) {
     const legacyMask = Array.isArray(input) ? input : null;
-    const count = legacyMask ? legacyMask.length : MODES[input.mode].tokens;
+    const count = legacyMask ? legacyMask.length : (MODES[input.mode] || MODES.source).tokens;
     const items = [];
     for (let token = 0; token < count; token++) {
       const requestIndex = Math.floor(token / TOKENS_PER_REQUEST);
@@ -162,7 +161,7 @@
   function create(host, options = {}) {
     const onSource = options.onSource || (() => {}), onSelection = options.onSelection || (() => {}), onContext = options.onContext || (() => {});
     const state = {mode:options.mode || 'source', workload:'mixed', position:8192, rank:options.rank ?? 0,
-      requestIndex:0, selection:options.selection || null, inspectorOpen:!!options.selection&&['item','block'].includes(options.selection.type), phase:'assignment', playing:false, loop:false,
+      requestIndex:0, selection:options.selection || null, inspectorOpen:false, phase:'assignment', playing:false, loop:false,
       scale:1, panX:0, panY:0, manualCamera:false, advanced:false, overrides:new Map()};
     if(options.selection?.type==='request'||options.selection?.type==='query')state.requestIndex=options.selection.requestIndex;
     else if(options.selection?.type==='item')state.requestIndex=Math.floor(options.selection.id/(SPARSE_BLOCKS*TOKENS_PER_REQUEST));
@@ -197,8 +196,7 @@
         const cols=source?8:1,groupW=source?164:1100,groupH=source?116:610;
         return Array.from({length:source?32:1},(_,group)=>{const x=42+(group%cols)*groupW,y=58+Math.floor(group/cols)*groupH;
           const queryLabels=source?Array.from({length:8},(_,offset)=>'<text class="csa-qk-query-label" data-qk-query="'+(group*8+offset)+'" role="button" tabindex="-1" x="'+(x+7)+'" y="'+(y+29+offset*11)+'">Q'+(group*8+offset)+'</text>').join(''):Array.from({length:5},(_,token)=>'<text class="csa-qk-query-label" data-qk-query="'+token+'" role="button" tabindex="-1" x="'+(x+12)+'" y="'+(y+49+token*95)+'">Q'+token+'</text>').join('');
-          return '<g class="csa-qk-canvas-group" data-qk-request-group="'+group+'"><rect x="'+x+'" y="'+y+'" width="'+(groupW-12)+'" height="'+(groupH-5)+'" rx="5"/><text x="'+(x+8)+'" y="'+(y+14)+'">'+(source?'Request '+group:'Teaching · 5 Queries')+'</text>'+queryLabels+'</g>';}).join('')+
-          (source?'':'<text class="csa-qk-canvas-axis" x="140" y="57">SB0 · Window　　 SB1　　　　SB2　　　　SB3　　　　SB4</text>');
+          return '<g class="csa-qk-canvas-group" data-qk-request-group="'+group+'"><rect x="'+x+'" y="'+y+'" width="'+(groupW-12)+'" height="'+(groupH-5)+'" rx="5" vector-effect="non-scaling-stroke"/><text x="'+(x+8)+'" y="'+(y+14)+'">Request '+group+'</text>'+queryLabels+'</g>';}).join('');
       }
       if(phase==='ordering'){
         const boundary=d.validCount,cols=source?64:5,cellH=source?24:87;
@@ -210,7 +208,7 @@
       }
       const cols=source?12:4,laneW=source?110:320,laneH=source?240:540;
       return d.blocks.map(block=>{const x=36+(block.index%cols)*laneW,y=52+Math.floor(block.index/cols)*laneH;
-        return '<g class="csa-qk-canvas-lane" data-qk-lane="'+block.index+'" role="button" tabindex="0" aria-label="Lane '+block.index+' · '+block.entries.length+' Work Items"><rect x="'+x+'" y="'+y+'" width="'+(laneW-8)+'" height="'+(laneH-8)+'" rx="5"/><text x="'+(x+10)+'" y="'+(y+21)+'">Lane '+String(block.index).padStart(2,'0')+'</text><text class="csa-qk-canvas-count" x="'+(x+10)+'" y="'+(y+38)+'">'+block.entries.length+' 项 · '+block.validCount+' / '+block.invalidCount+'</text></g>';}).join('');
+        return '<g class="csa-qk-canvas-lane" data-qk-lane="'+block.index+'" role="button" tabindex="0" aria-label="Lane '+block.index+' · '+block.entries.length+' Work Items"><rect x="'+x+'" y="'+y+'" width="'+(laneW-8)+'" height="'+(laneH-8)+'" rx="5" vector-effect="non-scaling-stroke"/><text x="'+(x+10)+'" y="'+(y+21)+'">Lane '+String(block.index).padStart(2,'0')+'</text><text class="csa-qk-canvas-count" x="'+(x+10)+'" y="'+(y+38)+'">'+block.entries.length+' 项 · '+block.validCount+' / '+block.invalidCount+'</text></g>';}).join('');
     }
     function selectionIds(d,selection=state.selection){
       if(!selection)return new Set();
@@ -221,9 +219,8 @@
     }
     function itemMarkup(d,positions){const relatedIds=selectionIds(d);return d.items.map(item=>{const p=positions.get(item.id),selected=state.selection?.type==='item'&&state.selection.id===item.id;
       const related=!selected&&relatedIds.has(item.id);
-      const label=state.mode==='teaching'?'<text data-qk-item-label x="7" y="24">'+(state.phase==='ordering'?item.id+' · q'+d.queue.indexOf(item.id):item.id)+'</text>':'';
       const info=itemDetails(d,item.id);
-      return '<g class="csa-qk-canvas-item '+(item.valid?'is-valid':'is-invalid')+(selected?' is-selected':'')+(related?' is-related':'')+(state.selection&&!related&&!selected?' is-dimmed':'')+'" data-qk-item="'+item.id+'" tabindex="'+(selected||(!state.selection&&item.id===0)?'0':'-1')+'" role="button" aria-label="Work Item '+item.id+' · Q'+item.token+' SB'+item.sparseBlock+' · qk_order['+info.queuePosition+'] · Lane '+info.block+' / it '+info.iteration+' · '+(item.valid?'valid':'invalid')+'" style="transform:translate('+p.x+'px,'+p.y+'px)"><rect width="'+p.w+'" height="'+p.h+'" rx="2"/>'+label+'</g>';}).join('');}
+      return '<g class="csa-qk-canvas-item '+(item.valid?'is-valid':'is-invalid')+(selected?' is-selected':'')+(related?' is-related':'')+(state.selection&&!related&&!selected?' is-dimmed':'')+'" data-qk-item="'+item.id+'" tabindex="'+(selected||(!state.selection&&item.id===0)?'0':'-1')+'" role="button" aria-label="Work Item '+item.id+' · Q'+item.token+' SB'+item.sparseBlock+' · qk_order['+info.queuePosition+'] · Lane '+info.block+' / it '+info.iteration+' · '+(item.valid?'valid':'invalid')+'" style="transform:translate('+p.x+'px,'+p.y+'px)"><rect width="'+p.w+'" height="'+p.h+'" rx="2" vector-effect="non-scaling-stroke"/></g>';}).join('');}
     function inspector(d){if(!state.selection||!state.inspectorOpen)return '';
       const selection=state.selection,block=selection.type==='block'?getBlockDetails(selection.block,d.items,d.queue,d.blockCount):null;
       let title='',facts=[],formula='';
@@ -248,10 +245,10 @@
         '<details><summary>显式任务依赖</summary><p>qk_plan_tid → qk_pv ← cache_ready_dep。这里是源码中的静态依赖，不是 Runtime Timeline。</p><button type="button" data-qk-source="decode_csa.py:384:393">查看调用处 ↗</button></details>'+
         (selection.type==='item'?'<details><summary>Advanced Simulation · 手动覆盖</summary><p>仅用于观察规则变化，不代表 Indexer 真实输出。SB0 固定有效。</p><button type="button" data-qk-advanced>'+(state.advanced?'关闭手动覆盖':'启用手动覆盖')+'</button>'+(state.advanced&&d.byId.get(selection.id).sparseBlock!==0?'<button type="button" data-qk-toggle="'+selection.id+'">切换当前 Work Item 有效性</button><button type="button" data-qk-reset>清除覆盖</button>':'')+'</details>':'')+'</aside>';
     }
-    function shell(d){const count=d.items.length,mode=state.mode,positions=viewportPositions(d,state.phase);
-      const requests=mode==='source'?'<label>Request <select data-qk-request>'+Array.from({length:32},(_,i)=>'<option value="'+i+'"'+(i===state.requestIndex?' selected':'')+'>'+i+'</option>').join('')+'</select></label>':'';
-      return '<div class="csa-qk-canvas-shell"><div class="csa-qk-scenario"><div class="segmented-control segmented-control-muted"><button type="button" data-qk-mode="teaching" class="btn btn-sm'+(mode==='teaching'?' is-selected':'')+'" aria-pressed="'+(mode==='teaching')+'">Teaching</button><button type="button" data-qk-mode="source" class="btn btn-sm'+(mode==='source'?' is-selected':'')+'" aria-pressed="'+(mode==='source')+'">Source-scale</button></div><label>场景 <select data-qk-workload><option value="mixed"'+(state.workload==='mixed'?' selected':'')+(mode==='teaching'?' disabled':'')+'>Mixed Context · Synthetic</option><option value="uniform"'+(state.workload==='uniform'?' selected':'')+'>Uniform Context · Synthetic</option></select></label>'+
-        (state.workload==='uniform'||mode==='teaching'?'<label>Position <select data-qk-position>'+POSITIONS.map(p=>'<option value="'+p+'"'+(p===state.position?' selected':'')+'>'+p+'</option>').join('')+'</select></label>':'')+
+    function shell(d){const count=d.items.length,positions=viewportPositions(d,state.phase);
+      const requests='<label>Request <select data-qk-request>'+Array.from({length:32},(_,i)=>'<option value="'+i+'"'+(i===state.requestIndex?' selected':'')+'>'+i+'</option>').join('')+'</select></label>';
+      return '<div class="csa-qk-canvas-shell"><div class="csa-qk-scenario"><label>场景 <select data-qk-workload><option value="mixed"'+(state.workload==='mixed'?' selected':'')+'>Mixed Context · Synthetic</option><option value="uniform"'+(state.workload==='uniform'?' selected':'')+'>Uniform Context · Synthetic</option></select></label>'+
+        (state.workload==='uniform'?'<label>Position <select data-qk-position>'+POSITIONS.map(p=>'<option value="'+p+'"'+(p===state.position?' selected':'')+'>'+p+'</option>').join('')+'</select></label>':'')+
         '<label>Rank <select data-qk-rank><option value="0"'+(state.rank===0?' selected':'')+'>0</option><option value="1"'+(state.rank===1?' selected':'')+'>1</option></select></label>'+requests+'<span class="csa-qk-scenario-count">'+(count/SPARSE_BLOCKS)+' Queries · '+count+' Work Items · '+d.blockCount+' Lanes</span></div>'+
         '<div class="csa-qk-canvas-head"><div><h2 data-qk-title>'+PHASE_LABELS[state.phase]+'</h2><p data-qk-subtitle>'+subtitle(d)+'</p></div><div class="csa-qk-canvas-controls"><button type="button" class="btn btn-ghost btn-sm" data-qk-play>播放</button><button type="button" class="btn btn-ghost btn-sm" data-qk-replay>重播</button><div class="segmented-control segmented-control-muted">'+PHASES.map(p=>'<button type="button" class="btn btn-sm'+(state.phase===p?' is-selected':'')+'" data-qk-phase="'+p+'" aria-pressed="'+(state.phase===p)+'">'+({generation:'Generation',ordering:'Ordering',assignment:'Assignment'}[p])+'</button>').join('')+'</div><label><input type="checkbox" data-qk-loop'+(state.loop?' checked':'')+'> 循环</label></div></div>'+
         '<div class="csa-qk-canvas-viewport" tabindex="0" role="group" aria-label="QK/PV Work Assignment 画布"><svg viewBox="0 0 1400 790" preserveAspectRatio="xMidYMid meet"><g data-qk-scene><g data-qk-backdrop>'+backdrop(d)+'</g><g data-qk-items>'+itemMarkup(d,positions)+'</g></g></svg><div class="csa-qk-tooltip" data-qk-tooltip hidden></div></div>'+
@@ -306,7 +303,7 @@
         morphCameraTimer=global.setTimeout(()=>{morphCameraTimer=null;if(state.phase!==phase||JSON.stringify(state.selection)!==identity)return;state.scale=saved.scale;state.manualCamera=saved.manualCamera;focusCamera(derive());},reduced?0:530);
       }else refreshSelection(d,!!state.selection);
     }
-    function select(selection){stop();if(morphCameraTimer){global.clearTimeout(morphCameraTimer);morphCameraTimer=null;}state.selection=selection;state.inspectorOpen=!!selection&&['item','block'].includes(selection.type);const d=derive();
+    function select(selection){stop();if(morphCameraTimer){global.clearTimeout(morphCameraTimer);morphCameraTimer=null;}state.selection=selection;state.inspectorOpen=false;const d=derive();
       if(selection?.type==='item'){const item=d.byId.get(selection.id);if(!item)return;const info=itemDetails(d,item.id);state.requestIndex=item.requestIndex;
         onSelection({type:'item',id:item.id,rank:state.rank,scenarioId:scenarioId(),requestIndex:item.requestIndex,tokenIndex:item.token,positionId:item.positionId,sparseBlockIndex:item.sparseBlock,valid:item.valid,validKvCount:item.validKvCount,queuePosition:info.queuePosition,laneId:info.block,laneIteration:info.iteration});
       }else if(selection?.type==='block')onSelection({type:'block',block:selection.block,rank:state.rank,scenarioId:scenarioId(),laneId:selection.block});
@@ -320,7 +317,6 @@
       if(b.dataset.qkItem!=null){select({type:'item',id:Number(b.dataset.qkItem)});return;}
       if(b.dataset.qkQuery!=null){const tokenIndex=Number(b.dataset.qkQuery);select({type:'query',tokenIndex,requestIndex:Math.floor(tokenIndex/TOKENS_PER_REQUEST)});return;}
       if(b.dataset.qkLane!=null){select({type:'block',block:Number(b.dataset.qkLane)});return;}
-      if(b.dataset.qkMode){if(state.mode!==b.dataset.qkMode){state.mode=b.dataset.qkMode;if(state.mode==='teaching')state.workload='uniform';else state.workload='mixed';changeContext();}return;}
       if(b.dataset.qkPhase){stop();updatePhase(b.dataset.qkPhase);return;}
       if(b.hasAttribute('data-qk-play')){state.playing?stop():start();return;}
       if(b.hasAttribute('data-qk-replay')){stop();updatePhase('generation');start();return;}
@@ -350,7 +346,7 @@
     host.addEventListener('pointerup',()=>{drag=null;});
     render();
     if(global.ResizeObserver)new global.ResizeObserver(()=>{if(!host.hidden){if(state.selection&&!state.manualCamera)focusCamera(derive());else camera();}}).observe(host);
-    return {render,pause:()=>{stop();if(morphCameraTimer){global.clearTimeout(morphCameraTimer);morphCameraTimer=null;}},setSelection:selection=>{if(JSON.stringify(selection)===JSON.stringify(state.selection))return;state.selection=selection?{...selection}:null;state.inspectorOpen=!!selection&&['item','block'].includes(selection.type);if(selection?.type==='request'||selection?.type==='query')state.requestIndex=selection.requestIndex;else if(selection?.type==='item')state.requestIndex=Math.floor(selection.id/(SPARSE_BLOCKS*TOKENS_PER_REQUEST));refreshSelection(derive());},getState:()=>({mode:state.mode,workload:state.workload,position:state.position,rank:state.rank,requestIndex:state.requestIndex,phase:state.phase,selection:state.selection?{...state.selection}:null,inspectorOpen:state.inspectorOpen}),getScenario:derive};
+    return {render,pause:()=>{stop();if(morphCameraTimer){global.clearTimeout(morphCameraTimer);morphCameraTimer=null;}},setSelection:selection=>{if(JSON.stringify(selection)===JSON.stringify(state.selection))return;state.selection=selection?{...selection}:null;state.inspectorOpen=false;if(selection?.type==='request'||selection?.type==='query')state.requestIndex=selection.requestIndex;else if(selection?.type==='item')state.requestIndex=Math.floor(selection.id/(SPARSE_BLOCKS*TOKENS_PER_REQUEST));refreshSelection(derive());},getState:()=>({mode:state.mode,workload:state.workload,position:state.position,rank:state.rank,requestIndex:state.requestIndex,phase:state.phase,selection:state.selection?{...state.selection}:null,inspectorOpen:state.inspectorOpen}),getScenario:derive};
   }
 
   global.PtoCsaQkWork = Object.freeze({
