@@ -27,10 +27,10 @@
     host.classList.add('viz2-anatomy','viz2-intra');
     host.innerHTML=`<div class="viz2-anatomy-taskbar"><h2 data-intra-block></h2><span data-intra-kv></span><nav class="viz2-anatomy-task-nav" aria-label="Block 内流水线 Task 快捷导航" data-intra-tasks></nav><button class="btn btn-ghost btn-sm" data-intra-back>← 返回 Block 间</button></div>
       <div class="viz2-anatomy-body"><div class="viz2-anatomy-stage"><div class="viz2-anatomy-workspace">
-        <div class="viz2-anatomy-viewport" id="viz2-intra-carousel" role="region" aria-roledescription="轮播" tabindex="0" aria-label="Block 内 Task 流水线，左右方向键切换 Task，卡片内横向浏览 Logical Tick"><div class="viz2-anatomy-track" data-intra-track></div></div>
+        <div class="viz2-anatomy-viewport" id="viz2-intra-carousel" role="region" tabindex="0" aria-label="当前 Task 逻辑流水线，方向键切换 Task，画布内可平移浏览 Logical Tick"><div class="viz2-anatomy-track" data-intra-track></div></div>
         <div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
         <footer class="viz2-anatomy-footer"><span class="viz2-intra-legend"><i class="viz2-intra-flow-key"></i>数据依赖<i class="viz2-intra-event-key"></i>READY 事件<i class="viz2-intra-reuse-key"></i>Slot 复用<small>Logical Tick 为离散进度，不代表耗时</small></span><div class="kf-pa-map__tools"><button class="btn btn-ghost btn-sm" data-intra-prev aria-label="上一个 Task">←</button><output data-intra-position aria-live="polite"></output><button class="btn btn-ghost btn-sm" data-intra-next aria-label="下一个 Task">→</button><button class="btn btn-ghost btn-sm" data-intra-zoom="0.8" aria-label="缩小逻辑流水线">−</button><output data-intra-scale></output><button class="btn btn-ghost btn-sm" data-intra-zoom="1.25" aria-label="放大逻辑流水线">＋</button><button class="btn btn-ghost btn-sm" data-intra-fit>适应</button></div></footer></div>
-        <aside class="pto-ide-frame__pane viz2-anatomy-inspector" aria-label="流水线对象详情" hidden><header class="pto-ide-frame__pane-header"><b data-intra-title></b><button class="btn btn-ghost btn-sm" data-intra-close aria-label="关闭流水线详情">×</button></header><div class="pto-ide-frame__pane-body" data-intra-detail></div></aside></div>`;
+        </div>`;
     const viewport=host.querySelector('.viz2-anatomy-viewport'),track=host.querySelector('[data-intra-track]'),workspace=host.querySelector('.viz2-anatomy-workspace'),inspector=host.querySelector('aside'),tooltip=host.querySelector('[role="tooltip"]');
     let task=null,focus=null,active=false,block=null,tasks=[],cards=[],position=0,target=0,velocity=0,frame=0,drag=null,suppress=false,scale=1,pitch=440,pendingFocus=null,navButtons=[],navTask=null,inspectorOpen=false;
     const scrollStates=new Map(),scales=new Map();
@@ -96,14 +96,13 @@
     }
     function paint(){
       if(!active||!task||!viewport.clientWidth)return;
-      // Same card width, pitch, opacity and center anchoring as Assignment.
-      const width=Math.max(200,Math.min(520,viewport.clientWidth*.68));pitch=width+24;
-      track.style.transform=`translate3d(${viewport.clientWidth/2-width/2-position*pitch}px,0,0)`;
+      const width=viewport.clientWidth;pitch=width;
+      track.style.transform='none';
       cards.forEach((element,index)=>{
         const current=Number(element.dataset.intraTask)===task.id;
-        element.style.width=`${width}px`;element.style.left=`${index*pitch}px`;
-        element.style.opacity=String(Math.max(.25,1-Math.abs(index-position)*.48));
-        element.classList.toggle('is-current',current);element.classList.toggle('is-before',index<position-.5);element.setAttribute('aria-current',String(current));
+        element.style.width=`${width}px`;element.style.left='0px';element.hidden=!current;
+        element.style.opacity='1';
+        element.classList.toggle('is-current',current);element.classList.remove('is-before');element.setAttribute('aria-current',String(current));
         const localScale=current?scale:scales.get(tasks[index].id)||1,svg=element.querySelector('svg[data-intra-height]');
         const scroller=element.querySelector('.viz2-intra-tick-scroll');
         const diagramWidth=Number(svg.dataset.intraWidth)*localScale;
@@ -122,15 +121,7 @@
     }
     function snap(index,fromWheel=false){
       if(!fromWheel)paging.reset();cancelAnimationFrame(frame);target=clamp(Math.round(index));velocity=0;tooltip.hidden=true;
-      const origin=position,duration=400;let started=null;
-      if(media.matches||Math.abs(origin-target)<.001){position=target;frame=0;paint();commit();paging.flush();return;}
-      function tick(now){
-        if(!active){frame=0;return;}if(started===null)started=now;
-        const progress=Math.min(1,(now-started)/duration),eased=progress**3*(progress*(progress*6-15)+10);
-        position=origin+(target-origin)*eased;paint();
-        if(progress===1){position=target;frame=0;paint();commit();paging.flush();}else frame=requestAnimationFrame(tick);
-      }
-      frame=requestAnimationFrame(tick);
+      position=target;frame=0;paint();commit();paging.flush();
     }
     const resistance=value=>{const bound=clamp(value);return bound+(value-bound)*.22;};
     function objectFocus(el){return el?{kind:el.dataset.intraKind,index:Number(el.dataset.intraIndex),...(el.dataset.intraStage?{stage:el.dataset.intraStage}:{}),...(el.dataset.intraEvent?{event:el.dataset.intraEvent}:{}),...(el.dataset.intraBuffer?{buffer:el.dataset.intraBuffer}:{}),...(el.dataset.intraFrom!=null?{from:Number(el.dataset.intraFrom),to:Number(el.dataset.intraTo)}:{})}:null;}
@@ -192,14 +183,15 @@
         ['row 区间',`${s.produceRow}–${s.produceRow+model.rowTile-1}（AIV 按 lane_row 切分）`]]};
     }
     function inspect(){
+      if(!inspector)return;
       inspector.hidden=!inspectorOpen||!focus;if(inspector.hidden)return;
       const f=effective(focus),d=describe(focus),sync=f.kind==='event'?syncFor(f):null,operation=f.kind==='stage'?task.operations.find(op=>op.stack===f.index&&op.stage===f.stage):null;
       host.querySelector('[data-intra-title]').textContent=d.title;
       const section=(title,rows)=>rows.length?`<section><h3>${title}</h3><dl>${rows.map(([key,value])=>`<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl></section>`:'';
       const detail=sync?global.PTO_COMPUTATION_PRESENTATION.synchronization(sync,global.PTO_PYPA_SEMANTIC_GRAPH):null,edge=sync?eventEdge(f):null,waitRanges=edge?.consumerSource?.ranges||sync?.consumer.source.ranges||[];
       host.querySelector('[data-intra-detail]').innerHTML=section('Operation',[['对象',d.title]])+
-        section('Iteration / Stack',[['Task',task.id],['Batch / KV Head',`${task.batch} / ${task.kvHead}`],...(f.index!=null&&f.kind!=='output'?[['Stack',f.index]]:[]),...(operation?[['Logical Tick',operation.tick],['Buffer Slot',operation.slot]]:[])])+
-        section('Input Tensor / Buffer',operation?.read?[['读取',operation.read]]:[])+section('Output Tensor / Buffer',operation?.write?[['写入',operation.write]]:[])+
+        section('Iteration',[['Task',task.id],['Batch / KV Head',`${task.batch} / ${task.kvHead}`],...(f.index!=null&&f.kind!=='output'?[['Stack',f.index]]:[]),...(operation?[['Logical Tick',operation.tick],['Buffer Slot',operation.slot]]:[])])+
+        section('Inputs',operation?.read?[['读取',operation.read]]:[])+section('Outputs',operation?.write?[['写入',operation.write]]:[])+
         section('Dependencies',d.facts)+
         (detail?`<section><h3>Source Evidence</h3><dl>${detail.rows.map(row=>`<dt>${esc(row.label)}</dt><dd>${esc(row.value)}</dd>`).join('')}</dl><div class="viz2-ready-source-links">${[...sync.producer.source.ranges.map((range,index)=>({end:'producer',index,range})),...waitRanges.map((range,index)=>({end:'consumer',index,range}))].map(item=>`<button class="btn btn-ghost btn-sm" data-intra-sync-source="${item.end}" data-intra-sync-range="${item.index}">${item.end==='producer'?'SET':'WAIT'} · :${item.range.start}–${item.range.end}</button>`).join('')}</div><button class="btn btn-sm" data-intra-graph-ready>在 Graph 中查看</button><pre data-intra-source-preview hidden></pre></section>`:'')+
         '<p>静态逻辑映射；Tick 不表示实测时长，READY WAIT 不表示已发生 Stall；Slot 复用与 State Feedback 是不同依赖。</p>';
@@ -211,11 +203,13 @@
       const next=model.tasks[id];if(!next)return;
       const changed=task?.id!==id,focusChanged=JSON.stringify(focus)!==JSON.stringify(nextFocus);task=next;
       focus=validFocus(nextFocus)?nextFocus:null;inspectorOpen=!!options.inspectorOpen;
+      const needsInitialFit=!nextCamera&&!scales.has(id);
       scale=Math.max(.05,Math.min(3,nextCamera?.scale||scales.get(id)||1));scales.set(id,scale);
       if(block!==task.block){saveScroll();stop();buildBlock();}
       else if(entering){stop();position=target=tasks.findIndex(t=>t.id===id);velocity=0;}
       else if(changed){const index=tasks.findIndex(t=>t.id===id);if(Math.abs(position-index)>.001)snap(index);else target=index;}
       inspect();paint();paintFocus();if(entering||changed||focusChanged)revealFocus();
+      if(needsInitialFit){const scroller=currentCard()?.querySelector('.viz2-intra-tick-scroll'),size=diagramSize(task);if(scroller?.clientWidth&&scroller?.clientHeight){const fit=Math.max(.05,Math.min(1,(scroller.clientWidth-24)/size.width,(scroller.clientHeight-24)/size.height));onCamera(task.id,{scale:fit,x:0,y:0});}}
     }
     function zoom(factor){
       paging.reset();const next=Math.max(.05,Math.min(3,scale*factor));
@@ -250,12 +244,13 @@
     listen(viewport,'pointerdown',event=>{
       if(event.button!==0||event.target.closest('button'))return;
       const scroller=event.target.closest('.viz2-intra-card.is-current .viz2-intra-tick-scroll');
-      stop();suppress=false;velocity=0;drag={id:event.pointerId,x:event.clientX,y:event.clientY,lastX:event.clientX,lastTime:performance.now(),index:clamp(Math.round(position)),moved:false,scroller:scroller&&!event.target.closest('[data-intra-kind]')?scroller:null,left:scroller?.scrollLeft||0,top:scroller?.scrollTop||0};
+      if(!scroller)return;
+      stop();suppress=false;velocity=0;drag={id:event.pointerId,x:event.clientX,y:event.clientY,lastX:event.clientX,lastTime:performance.now(),index:clamp(Math.round(position)),moved:false,scroller,left:scroller.scrollLeft,top:scroller.scrollTop};
     });
     listen(viewport,'pointermove',event=>{
       if(!drag)return;if(!(event.buttons&1)){endDrag(true);return;}
       const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
-      if(drag.scroller){if(Math.abs(dx)+Math.abs(dy)>5){drag.moved=true;event.preventDefault();drag.scroller.scrollLeft=drag.left-dx;drag.scroller.scrollTop=drag.top-dy;}return;}
+      if(drag.scroller){if(Math.abs(dx)+Math.abs(dy)>5){if(!drag.moved){drag.moved=true;viewport.setPointerCapture(drag.id);}event.preventDefault();drag.scroller.scrollLeft=drag.left-dx;drag.scroller.scrollTop=drag.top-dy;}return;}
       if(!drag.moved){if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>6){drag=null;return;}if(Math.abs(dx)<5)return;drag.moved=true;viewport.setPointerCapture(drag.id);}
       event.preventDefault();tooltip.hidden=true;const now=performance.now(),dt=Math.max(8,now-drag.lastTime);velocity=.65*velocity+.35*(drag.lastX-event.clientX)/pitch/dt*1000;
       const offset=-dx/pitch;position=resistance(drag.index+Math.sign(offset)*Math.min(.92,Math.abs(offset)));drag.lastX=event.clientX;drag.lastTime=now;paint();
