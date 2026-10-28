@@ -65,6 +65,35 @@
 .csa-qp-stage-inner{display:block;flex:1;min-width:0;min-height:0;overflow:hidden;cursor:grab;touch-action:none}
 .csa-qp-stage-inner.is-panning{cursor:grabbing}
 .csa-qp-svg{display:block;width:100%;height:100%;min-width:0;min-height:0;max-height:none;aspect-ratio:auto;transform:none;transition:none}
+/* Lane workload map: one SVG cell per existing qk_order entry. */
+.csa-qp-map{display:flex;flex:1;min-height:0;min-width:0;flex-direction:column;background:var(--surface-1)}
+.csa-qp-map-toolbar,.csa-qp-map-footer{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding:9px 18px;font:var(--type-body-sm);color:var(--foreground-secondary)}
+.csa-qp-map-toolbar{border-bottom:1px solid var(--border-subtle)}
+.csa-qp-map-toolbar b{color:var(--foreground)}
+.csa-qp-map-toolbar label{display:flex;align-items:center;gap:6px}
+.csa-qp-map-toolbar select{max-width:120px;padding:5px 8px;background:var(--surface-2);color:var(--foreground);border:1px solid var(--border-subtle);border-radius:6px}
+.csa-qp-map-modes{display:flex;gap:3px;padding:3px;border:1px solid var(--border-subtle);border-radius:8px}
+.csa-qp-map-modes .btn.is-selected{background:var(--surface-3);color:var(--foreground)}
+.csa-qp-map-viewport{flex:1;min-height:0;min-width:0;overflow:hidden;cursor:grab;touch-action:none}
+.csa-qp-map-viewport.is-panning{cursor:grabbing}
+.csa-qp-map-svg{display:block;width:100%;height:100%;font:11px var(--font-mono,monospace);fill:var(--foreground-muted)}
+.csa-qp-map-axis{font-weight:600;fill:var(--foreground-secondary)}
+.csa-qp-map-lane{fill:var(--foreground-secondary);cursor:pointer}
+.csa-qp-map-lane:hover,.csa-qp-map-lane:focus-visible{fill:var(--foreground);text-decoration:underline}
+.csa-qp-map-count{fill:var(--foreground-muted)}
+.csa-qp-map-cell{cursor:pointer;stroke:transparent;stroke-width:1.5;transition:opacity .12s}
+.csa-qp-map-cell.is-original{fill:#2bbbad}
+.csa-qp-map-cell.is-compressed{fill:#4c78e8}
+.csa-qp-map-cell.is-invalid{fill:#555b66}
+.csa-qp-map-svg.mode-rows .csa-qp-map-cell.is-original,.csa-qp-map-svg.mode-rows .csa-qp-map-cell.is-compressed{fill:#4c78e8;fill-opacity:var(--kv-intensity)}
+.csa-qp-map-cell.is-dimmed,.csa-qp-map-row.is-dimmed .csa-qp-map-count{opacity:.19}
+.csa-qp-map-cell.is-last{stroke:#f5be64;stroke-width:2}
+.csa-qp-map-cell:hover,.csa-qp-map-cell:focus-visible{stroke:#fff;stroke-width:2.5;opacity:1;outline:none}
+.csa-qp-map-footer{justify-content:space-between;border-top:1px solid var(--border-subtle);font:var(--type-micro)}
+.csa-qp-map-legend{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.csa-qp-map-legend i{display:inline-block;width:10px;height:10px;margin-left:8px;border-radius:2px}
+.csa-qp-map-legend i.is-original{background:#2bbbad}.csa-qp-map-legend i.is-compressed{background:#4c78e8}.csa-qp-map-legend i.is-invalid{background:#555b66}
+@media(max-width:900px){.csa-qp-map-toolbar,.csa-qp-map-footer{padding:7px 10px;gap:6px 10px}.csa-qp-map-toolbar select{max-width:90px}}
 .csa-qp-inspector[hidden]{display:none}
 /* P5: 跨模块跳转入口只出现在 Inspector / Work Item 信息行，不占用画布。 */
 .csa-qp-nav-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border-subtle)}

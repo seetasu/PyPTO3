@@ -36,6 +36,17 @@
 .csa-unadapted p { max-width:440px; margin:0; color:var(--foreground-muted); font:var(--type-body-sm); }
 @media(max-width:1000px){.csa-inspector{flex-basis:260px;}.csa-toolbar,.csa-focusbar{padding-inline:var(--space-3)}.csa-legend{font:var(--type-micro)}}
 
+/* Assignment：Breadcrumb 下方一排紧凑的计算阶段 Tab，画布始终是主界面。 */
+.csa-stagebar { display:flex; flex:none; padding:0 var(--space-5) var(--space-2); overflow-x:auto; scrollbar-width:thin; }
+.csa-stagebar[hidden] { display:none; }
+.csa-stagebar > .segmented-control { flex:0 0 auto; max-width:none; }
+.csa-stagebar > .segmented-control > .btn { flex:0 0 auto; gap:var(--space-1); white-space:nowrap; }
+.csa-stagebar > .segmented-control > .btn.is-pending { color:var(--foreground-muted); }
+.csa-stage-todo { color:var(--foreground-muted); font:var(--type-micro); }
+.csa-stage-hold { flex:1; min-height:0; overflow:auto; }
+.csa-stage-hold[hidden] { display:none; }
+@media(max-width:1000px){.csa-stagebar{padding-inline:var(--space-3)}}
+
 /* CSA uses the shared semantic Graph scene and its original card/edge skins. */
 .csa-semantic-stage.viz2-graph { display:flex; flex-direction:column; }
 .csa-semantic-stage .viz2-graph-body { flex:1; min-height:0; }
