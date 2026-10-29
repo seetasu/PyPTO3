@@ -1,0 +1,9 @@
+[npu-lock] 获取设备 15 的锁 (无超时)...
+[npu-lock] 已获取设备 15 的锁 (pid=2020354)
+[warn] multiple camodel SoCs match --target a2a3: ['Ascend910B1', 'Ascend910B2', 'Ascend910B2C', 'Ascend910B3', 'Ascend910B4']; auto-selecting Ascend910B1. If the build/run fails with a SoC mismatch or your device is a different variant (check `npu-smi info`), override with --soc-version (e.g. --soc-version Ascend910B1).
+[01/01] generate qk_pv
+RUN_ROOT /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit__sparse_attn_hca_20261028_002149_tapccbye/kernel_insight_all_funcs_20261028_002433
+EXPORTED 0/1
+FAILED_FUNCS qk_pv:failed
+[npu-lock] 已释放设备 15 的锁
+=== 任务失败 (exit=2) ===

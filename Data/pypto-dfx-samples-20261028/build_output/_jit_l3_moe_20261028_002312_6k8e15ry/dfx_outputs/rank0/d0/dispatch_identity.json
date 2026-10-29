@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "run_id": 1,
+  "task_slot": 0,
+  "group_index": 0,
+  "group_size": 1,
+  "host_pid": 1991412,
+  "owner_instance_id": "70fb892d3b153aa8",
+  "chip_rank": 0,
+  "local_capture_index": 0,
+  "endpoint_dispatch_id": 1,
+  "pipeline_slot": 0,
+  "pipeline_generation": 1,
+  "callable_digest": "eff7de57281b4044fabf819d10462aee024ae25d437724ec6fe6f42e8d010373"
+}

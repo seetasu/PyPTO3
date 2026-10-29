@@ -591,7 +591,43 @@ body.core-pipeline-active #lane .qk-inline-entry{fill:#63e6b3!important}body.cor
 <link rel="stylesheet" href="critical-path-integration.css?v=top-dependency-7" />
 <script src="legend-library-icons.js?v=20261027-2"></script>
 <script src="task-semantic-icons.js"></script>
-<script src="critical-path-integration.js?v=top-dependency-7"></script><link rel="stylesheet" href="analysis-legend-style.css?v=display-9"></head>
+<script src="critical-path-integration.js?v=top-dependency-7"></script><script src="single-dependency.js?v=phases-1"></script><link rel="stylesheet" href="analysis-legend-style.css?v=display-9"><style>
+.single-panel{grid-column:3;grid-row:1;min-width:0;min-height:0;overflow:auto;padding:18px;background:#191919;color:#ddd}
+.single-panel[hidden]{display:none}.single-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px}.single-panel h2{font-size:16px;margin:0}.single-panel p{color:#aaa;font-size:12px;line-height:1.6}.single-panel table{width:100%;border-collapse:collapse;font-size:12px}.single-panel th,.single-panel td{text-align:left;vertical-align:top;padding:10px 6px;border-bottom:1px solid #383838}.single-panel th{color:#aaa;font-weight:400}.single-panel .single-path{border:0;background:none;color:#ddd;text-align:left;line-height:1.6;cursor:pointer;overflow-wrap:anywhere}.single-panel .single-path:hover,.single-panel .single-path[aria-pressed=true]{color:#8cefc9}.single-panel button:focus-visible{outline:2px solid #8cefc9}.single-panel .single-close{color:#aaa;background:none;border:0;font-size:22px;cursor:pointer}
+.single-panel{box-sizing:border-box}.single-panel table{table-layout:fixed}.single-panel col.single-col-number{width:48px}.single-panel col.single-col-count{width:56px}.single-panel th{white-space:nowrap;padding:10px 8px;color:#999;font-size:12px}.single-panel td{padding:10px 8px}.single-panel td:first-child,.single-panel td:nth-child(2){color:#aaa;font-variant-numeric:tabular-nums}.single-panel tr.single-selected td{background:#63e6b30a}.single-panel .single-path{display:block;width:100%;padding:7px 9px;border:1px solid transparent;border-radius:6px;box-sizing:border-box}.single-panel .single-path:hover{background:#ffffff0a}.single-panel .single-path[aria-pressed=true]{background:#63e6b30d;border-color:#63e6b355}.single-panel .single-path-step{position:relative;display:flex;align-items:baseline;gap:8px;min-width:0;padding:3px 0 3px 22px}.single-panel .single-path-step:not(:last-child)::before{content:'';position:absolute;left:6px;top:17px;bottom:-10px;border-left:1px solid #616b66}.single-panel .single-path-step:not(:last-child)::after{content:'›';position:absolute;left:3px;bottom:-8px;color:#87938d;font-size:14px;line-height:1;transform:rotate(90deg)}.single-panel .single-path-number{position:absolute;top:5px;left:0;display:grid;place-items:center;width:14px;height:14px;border:1px solid #777;border-radius:50%;background:#191919;color:#aaa;font:10px/1 var(--font)}.single-panel .single-path-name{min-width:0;color:#ddd;overflow-wrap:anywhere}.single-panel .single-path-id{flex:none;color:#888;font:11px/1.4 var(--mono)}.single-panel .single-path[aria-pressed=true] .single-path-number{border-color:#63e6b3;color:#8cefc9}.single-panel .single-path[aria-pressed=true] .single-path-name{color:#b9f5d9}
+/* Compact data rows: neutral by default, green only for the selected chain. */
+.single-panel{padding:22px 18px;scrollbar-width:thin;scrollbar-color:#555 transparent}
+.single-panel header{gap:12px}.single-panel header h2{color:#eee;font:500 16px/1.4 var(--font)}.single-panel .single-close{display:grid;place-items:center;width:30px;height:30px;border-radius:6px;font-size:20px}.single-panel .single-close:hover{background:#ffffff0d;color:#fff}
+.single-panel header{margin-bottom:14px}
+.single-panel table{border-collapse:separate;border-spacing:0 6px}.single-panel col.single-col-number{width:42px}.single-panel col.single-col-count{width:50px}
+.single-panel thead th{padding:2px 8px 6px;border:0;color:#898989;font:500 11px/1.4 var(--font);white-space:nowrap}
+.single-panel tbody td{padding:13px 8px;vertical-align:top;background:#202020;border-top:1px solid #303030;border-bottom:1px solid #303030;transition:background .15s,border-color .15s}
+.single-panel tbody td:first-child{border-left:1px solid #303030;border-radius:7px 0 0 7px;padding-left:11px;color:#777;font:11px/20px var(--mono)}
+.single-panel tbody td:last-child{border-right:1px solid #303030;border-radius:0 7px 7px 0;padding:7px 8px 7px 0}
+.single-panel tbody tr:hover td{background:#252725;border-color:#414a44}.single-panel tbody tr.single-selected td{background:#1d2b24;border-color:#416b56}.single-panel tbody tr.single-selected td:first-child{box-shadow:inset 2px 0 #63e6b3;color:#a4e9c6}
+.single-panel .single-count{display:inline-grid;place-items:center;min-width:23px;height:21px;padding:0 3px;box-sizing:border-box;border:1px solid #414141;border-radius:5px;background:#292929;color:#c1c1c1;font:11px/1 var(--mono)}.single-panel .single-selected .single-count{border-color:#4b705c;background:#253b2e;color:#b8f3d2}
+.single-panel .single-path{padding:5px 6px;border:1px solid transparent;border-radius:5px;color:#ddd;line-height:1.4}.single-panel .single-path:hover,.single-panel .single-path[aria-pressed=true]{background:transparent;border-color:transparent}.single-panel .single-path:focus-visible{outline:2px solid #8cefc9;outline-offset:0}
+.single-panel .single-path-step{align-items:flex-start;gap:6px;padding:4px 0 4px 22px}.single-panel .single-path-step:not(:last-child)::before{left:7px;top:19px;bottom:-5px;border-color:#555}.single-panel .single-path-step:not(:last-child)::after{display:none}
+.single-panel .single-path-number{top:5px;width:15px;height:15px;border-color:#5a5a5a;background:#242424;color:#aaa;font:10px/1 var(--mono)}.single-panel .single-path-name{color:#ddd;font:12px/1.5 var(--mono)}.single-panel .single-path-id{margin-left:auto;padding:2px 4px;border-radius:4px;background:#ffffff08;color:#8e8e8e;font:10px/1.4 var(--mono)}
+.single-panel .single-selected .single-path-step:not(:last-child)::before{border-color:#537d66}.single-panel .single-path[aria-pressed=true] .single-path-number{background:#253b2e;border-color:#63bd8d;color:#b8f3d2}.single-panel .single-path[aria-pressed=true] .single-path-name{color:#d7f9e7}.single-panel .single-selected .single-path-id{background:#ffffff09;color:#9db6a8}
+body.single-panel-open{--single-panel-width:clamp(300px,var(--single-panel-requested, clamp(320px,35vw,500px)),min(700px,calc(100vw - 360px)))}
+body.single-panel-open main{grid-template-columns:minmax(0,1fr) 8px var(--single-panel-width);grid-template-rows:minmax(0,1fr)}
+body.single-panel-open .lane-toolbar-group{left:calc((100% - var(--single-panel-width) - 8px) / 2);max-width:calc(100vw - var(--single-panel-width) - 24px)}
+body.single-panel-open .canvas-tools{right:calc(var(--single-panel-width) + 24px)}
+.single-panel-grip{grid-column:2;grid-row:1;position:relative;z-index:2;background:#191919;border-left:1px solid #3d3d3d;cursor:col-resize;touch-action:none;outline:none}
+.single-panel-grip::after{content:'';position:absolute;top:50%;left:2px;width:3px;height:44px;transform:translateY(-50%);border-radius:3px;background:#626262}
+.single-panel-grip:hover::after,.single-panel-grip:focus-visible::after,.single-panel-grip.is-dragging::after{background:#8cefc9}.single-panel-grip:focus-visible{box-shadow:inset 0 0 0 2px #8cefc9}.single-panel-grip[hidden]{display:none}
+.lane-toolbar-group{position:fixed;z-index:20;top:8px;left:50%;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;gap:8px;max-width:calc(100vw - 24px)}
+body.cpi-host .lane-toolbar-group .lane-toolbar{position:static;transform:none;translate:none;flex:none;width:max-content;max-width:100%;margin:0}
+.single-analysis-button{box-sizing:border-box;flex:none;height:48px;padding:0 18px;border-radius:999px;color:#eee;font:14px/1 var(--font);white-space:nowrap;cursor:pointer}
+.single-analysis-button:hover{background:rgb(58 58 58 / 92%)}.single-analysis-button[aria-pressed=true]{background:#f0f0f0;color:#111;text-shadow:none}.single-analysis-button:focus-visible{outline:2px solid #8cefc9;outline-offset:2px}
+@media(max-width:1050px){.lane-toolbar-group{top:64px}}
+@media(max-width:600px){.lane-toolbar-group{width:calc(100vw - 16px);flex-wrap:wrap;gap:4px}body.cpi-host .lane-toolbar-group .lane-toolbar{height:auto;min-height:48px}.lane-toolbar-group .lane-toolbar #lane-ovl{flex-wrap:wrap}body.cpi-host .lane-axis-sticky{padding-top:150px}.single-analysis-button{height:38px}}
+#lane.single-chain-active .task-event.single-muted{opacity:.15!important}#lane.single-chain-active .task-event.single-hit{opacity:1!important}#lane.single-chain-active .task-event.single-hit>rect:first-child:not(.single-phase-frame){fill:#63e6b3!important;stroke:#baffdf!important;stroke-width:1px}
+#lane.single-chain-active .single-phase-frame{fill:none;stroke:#c9fce2;stroke-width:.7}.single-phase-legend{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 10px;border:1px solid #3d5146;border-radius:6px;background:#18231e;color:#c5d5cc;font-size:12px}.single-phase-legend span{display:inline-flex;align-items:center;gap:6px}.single-phase-legend i{width:12px;height:8px;border-radius:2px}.single-phase-legend small{flex-basis:100%;color:#aab7ae;line-height:1.5}
+#lane.single-chain-active .task-event.single-hit .qk-inline-entry{fill:#63e6b3!important;stroke:#baffdf!important;stroke-width:1px}
+@media(max-width:800px){body.single-panel-open main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(160px,35%)}body.single-panel-open .main-column{height:auto}body.single-panel-open .single-panel{grid-column:1;grid-row:2;border-left:0;border-top:1px solid #3d3d3d}body.single-panel-open .single-panel-grip{display:none}body.single-panel-open .lane-toolbar-group{left:50%;max-width:calc(100vw - 16px)}body.single-panel-open .canvas-tools{right:16px;bottom:calc(35% + 16px)}}
+</style></head>
 <body>
   <main>
     <div class="main-column">
@@ -620,7 +656,9 @@ body.core-pipeline-active #lane .qk-inline-entry{fill:#63e6b3!important}body.cor
     <section class="sec">
       <div class="scroll" id="lane-wrap">
         <div class="lane-axis-sticky"><svg id="lane-axis" aria-label="设备时间轴"></svg></div>
+        <div id="single-scroll-before" aria-hidden="true"></div>
         <svg id="lane" role="img" aria-label="包含全部提交的设备任务时间泳道；泳道过高时可在此区域滚动"></svg>
+        <div id="single-scroll-after" aria-hidden="true"></div>
       </div>
       <div id="lane-navigator" aria-label="完整执行窗口与当前可见时间范围"></div>
       
@@ -630,8 +668,11 @@ body.core-pipeline-active #lane .qk-inline-entry{fill:#63e6b3!important}body.cor
         <button type="button" data-zoom="in" aria-label="放大" data-tooltip="放大时间轴"><svg class="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg></button>
         <button type="button" class="zoom-fit" data-zoom-reset aria-label="适配整体" data-tooltip="适配整体">Fit</button>
       </div>
-      <div class="lane-toolbar" data-liquid-glass="control" role="toolbar" aria-label="设备泳道视图与叠加控制">
-        <div class="chips" id="lane-ovl"></div>
+      <div class="lane-toolbar-group">
+        <div class="lane-toolbar" data-liquid-glass="control" role="toolbar" aria-label="设备泳道视图与叠加控制">
+          <div class="chips" id="lane-ovl"></div>
+        </div>
+        <button type="button" id="single-analysis-button" class="single-analysis-button" data-liquid-glass="control" data-tooltip="统计连续单依赖任务链" aria-controls="single-panel" aria-pressed="false">单依赖分析</button>
       </div>
     </section>
     </div>
@@ -703,7 +744,8 @@ let qkInline = null, qkReturnView = null, openQkInlinePass = () => {};
 let inlineEvolution=false,inlineReturnRange=null,inlineZoomFrom=null;const inlineEvolutionState={pass:'memory',iter:0,object:'q'};
 let laneExpanded = false, laneComposition = false, laneRowCenters = [];
 let laneZoomRaf = 0;
-const ovl = { navigation: true, ribbon: true, bands: true, marks: true };
+let singleChains = [], singleSelected = null, singlePanelOpen = false, singlePreviousRange = null, singlePreviousScroll = 0;
+const ovl = { ribbon: true, bands: true, marks: true };
 function laneLeft() { return qkInline && laneView === "core" ? 188 : 76; }
 
 const LENS = {
@@ -1270,10 +1312,15 @@ function focusRecommendation(key) {
 }
 function clearSelection() {
   qkInline=null;qkReturnView=null;
+  const restoreSingleScroll = singleSelected != null ? singlePreviousScroll : null;
+  if (singleSelected != null) { laneRange = singlePreviousRange; singlePreviousRange = null; singleSelected = null; renderSinglePanel(); }
   me = null; recommendedFocus = null; laneComposition = false; setDrawer(false); paint();
+  if (restoreSingleScroll != null) $('lane-wrap').scrollTop = restoreSingleScroll;
 }
 
 function renderLane() {
+  syncSingleScrollSpace();
+  $('single-analysis-button').setAttribute('aria-pressed', String(singlePanelOpen));
   document.body.classList.toggle("core-pipeline-active",!!qkInline);
   window.QK_PASS_EVOLUTION?.stop();window.INLINE_PASS_TRANSFORM?.stop();
   const showPathLane=pathAnalysisActive&&!document.body.classList.contains('compile-analysis-mode');
@@ -1633,7 +1680,8 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
     // ---- full: one row per physical core, blocks as flat texture ----
     const show = R.launches.flatMap((l) => (l.blocks.items || []).map((b) => ({ ...b, launch: l })))
       .filter((b) => keep(b.launch.id));
-    const selectedRows = new Set(show.filter(b=>b.launch.id===me&&(!qkInline||b.core===qkInline.core)).map(b=>b.core));
+    const chainIds = singleSelected == null ? null : new Set(singleChains[singleSelected]);
+    const selectedRows = new Set(show.filter(b=>(b.launch.id===me&&(!qkInline||b.core===qkInline.core)) || chainIds?.has(String(b.launch.taskId))).map(b=>b.core));
 
     coreRows.forEach((c, i) => {
       const y = coreY(i);
@@ -1651,7 +1699,8 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
       if (row < 0) return;
       const x = xOf(t0), w = Math.max(.4, (t1 - t0) / viewWin * innerW);
       const isLongQk = b.launch.leaf==='qk_pv_aic' && b.core===qkHero.core;
-      const barH = isLongQk ? Math.max(5,Math.min(22,coreHeight(row)-4)) : laneExpanded ? 16 : 2.6;
+      const showChainPhases = !!chainIds?.has(String(b.launch.taskId));
+      const barH = showChainPhases ? Math.max(3,Math.min(8,coreHeight(row)-2)) : isLongQk ? Math.max(5,Math.min(22,coreHeight(row)-4)) : laneExpanded ? 16 : 2.6;
       const rowY = coreY(row), hitW = Math.max(3, w), y = rowY + (coreHeight(row) - barH) / 2;
       const isSel = b.launch.id === me && (!qkInline || b.core===qkInline.core), isCand = cand.has(b.launch.id);
       const showComposition = laneComposition && (compositionIds ? compositionIds.has(b.launch.id) : me != null && (b.launch.id === me || String(b.launch.taskId) === String(R.launches.find(t=>t.id===me)?.taskId)));
@@ -1659,7 +1708,13 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
       g.setAttribute('data-core',b.core);
       if(window.QK_RESIDENCY.isTarget(b.launch))g.setAttribute('aria-expanded',String(qkInline?.id===b.launch.id&&qkInline?.core===b.core));
       if(isLongQk){g.classList.add('qk-long-block');g.setAttribute('data-qk-long','true');}
-      if (showComposition) {
+      if (showChainPhases) {
+        g.append(el('rect',{class:'single-phase-frame',x,y,width:w,height:barH,rx:1,'pointer-events':'none'}));
+        const colors = {setup:'#d6a75a',compute:'#63e6b3',other:'#777'};
+        for (const phase of window.SingleDependency.blockPhases(b, viewStart, viewEnd)) {
+          g.append(el('rect',{class:'single-phase-'+phase.kind,x:xOf(phase.start),y,width:Math.max(0,(phase.end-phase.start)/viewWin*innerW),height:barH,fill:colors[phase.kind],'pointer-events':'none'}));
+        }
+      } else if (showComposition) {
         const slot = Math.max(0, b.slotUs ?? (b.endUs - b.startUs));
         const setup = Math.max(0, b.setupUs || 0), compute = Math.max(0, b.computeUs || 0);
         const wait = Math.max(0, slot - setup - compute);
@@ -1684,7 +1739,7 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
           opacity: isSel || isCand || laneColor !== "none" ? 1 : .85 }));
       }
       g.append(el("rect", { x: x - (hitW - w) / 2, y: rowY, width: hitW, height: coreHeight(row), fill: "transparent" }));
-      if(isLongQk){
+      if(isLongQk && !showChainPhases){
         const expanded=qkInline?.id===b.launch.id&&qkInline?.core===b.core;
         const cy=rowY+coreHeight(row)/2,ink='#0b241a';
         g.setAttribute('aria-label',`核内流水 · ${(b.computeUs/1000).toFixed(3)} ms · ${expanded?'收起':'展开'}`);
@@ -1719,8 +1774,9 @@ ${l.blocks.n} 块 / 占用 ${l.coresUsed} 个核（共 ${nCores}）/ ${l.waves} 
       const blockWait = Math.max(0, blockSlot - (b.computeUs || 0) - (b.setupUs || 0));
       ttl.textContent = `${b.launch.leaf} · ${b.launch.ct} · core ${b.core}
 Task ${b.launch.taskId} · ${b.startUs.toFixed(1)}–${b.endUs.toFixed(1)} μs
-耗时构成（按比例绘制）：Setup ${b.setupUs.toFixed(1)} μs · 计算 ${b.computeUs.toFixed(1)} μs · 槽内等待 ${blockWait.toFixed(1)} μs（占用−Setup−计算残差）
+${showChainPhases ? '计时分段' : '耗时构成（按比例绘制）'}：Setup ${b.setupUs.toFixed(1)} μs · 计算 ${b.computeUs.toFixed(1)} μs · 未归因 ${blockWait.toFixed(1)} μs（占用−Setup−计算残差）
 Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.computeUs || 1) * 100).toFixed(1)}% · 尾块核时上界 ${ms(b.launch.tailWasteUs)} ms`;
+      if(showChainPhases) ttl.textContent += `\n计算起点约 ${(b.endUs-b.computeUs).toFixed(1)} μs；Setup 可能包含等待依赖，不能直接等同于依赖等待。`;
       g.append(ttl); svg.append(g);
     });
   }
@@ -1816,7 +1872,7 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
     `<div class="bar-group"><details class="bar-menu" data-menu="view"><summary class="ctl view-selector" aria-label="泳道布局">${byTask?'按 Task':'按物理核'}</summary><div class="menu-panel view-menu">${[['task','按 Task'],['core','按物理核']].map(([value,label])=>`<button class="ctl choice-item" data-view="${value}" role="radio" aria-checked="${laneView===value}">${label}</button>`).join('')}</div></details></div><span class="analysis-group-label">分析</span>`
     + `<div class="bar-group"><details class="bar-menu" data-menu="display"><summary class="ctl" aria-label="显示设置" data-tooltip="显示设置"><svg class="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--bg)"/><circle cx="15" cy="17" r="3" fill="var(--bg)"/></svg></summary><div class="menu-panel">`
     + `<strong>显示模块</strong>`
-    + [["navigation","路径导航"],["ribbon","并行宽度"]]
+    + [["ribbon","并行宽度"]]
       .map(([k,label])=>`<button class="ctl" data-ovl="${k}" aria-label="${label}" aria-pressed="${k==='composition'?laneComposition:!!ovl[k]}">${label}</button>`).join('')
     + '<div class="menu-divider"></div><strong>着色</strong>'
     + [['none','默认着色'],['setup','Setup 占比'],['tail','尾块浪费']].map(([v,l])=>`<button class="ctl choice-item" data-color="${v}" role="radio" aria-checked="${laneColor===v}">${l}</button>`).join('') + '</div></details></div>'
@@ -1859,6 +1915,7 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
     ovl.ribbon ? `<span><i style="width:16px;height:2px;background:#c4c4c4"></i>并行宽度低于 25% 参考线</span>` : "",
     ovl.bands && pathAnalysisActive ? `<span><i style="background:${C.warn}"></i>低并行（≤2 核）</span><span><i style="background:${C.accent}"></i>真空窗（0 核）</span>` : "",
     laneComposition ? `<span><i style="background:#9a7639"></i>Setup</span><span><i style="background:#dfbd69"></i>计算</span><span><i style="background:#f0dfb2"></i>槽内等待</span><span data-tooltip="同一黄色系以明度区分 Setup、计算和槽内等待；仅按耗时比例分段，不代表真实阶段位置">同色系明度区分 · 按耗时比例分段 · 悬停查看数值</span>` : "",
+    singleSelected != null && !byTask ? `<span><i style="background:#d6a75a"></i>Setup（可能包含等待）</span><span><i style="background:#63e6b3"></i>实际计算</span><span><i style="background:#777"></i>未归因时间</span>` : "",
     byTask
       ? `<span>条宽 = Task 跨度 · <b style="color:var(--text-2)">条高统一 · 占核数见任务详情</b> · 同轨的 Task 时间不重叠</span>`
       : `<span>每行 = 一个物理核 · 横轴 = 设备时间 · 悬停看耗时分解</span>`,
@@ -1872,6 +1929,7 @@ Task 组 Setup 占比 ${(b.launch.setupUs / (b.launch.setupUs + b.launch.compute
     resultHoverNodes.get(key).push(node);
   });
   indexLaneRelations();
+  applySingleChain();
   featurePreviewCache=new Map(); featurePreviewMode=null;
   drawLaneRelations();
 }
@@ -1911,6 +1969,95 @@ function syncLaneNavigator(){
 // only direct dependency edges from the current rank are shown.
 let laneRelationIndex = null;
 let resultHoverNodes = new Map(), resultHoverKey = null;
+function applySingleChain() {
+  const svg = $("lane"), chain = singleSelected == null ? null : singleChains[singleSelected], ids = chain ? new Set(chain) : null;
+  svg.classList.toggle('single-chain-active', !!ids);
+  if (!laneRelationIndex) return;
+  for (const {element, task} of laneRelationIndex.byElement.values()) {
+    element.classList.toggle('single-hit', !!ids && ids.has(String(task.taskId)));
+    element.classList.toggle('single-muted', !!ids && !ids.has(String(task.taskId)));
+  }
+  if (!chain) return;
+  const width = svg.viewBox.baseVal.width, left = laneLeft(), right = width - 12;
+  const bounds = chain.map(id => {
+    const entries = laneRelationIndex.byTask.get(id) || [];
+    if (!entries.length) return null;
+    return {x0:Math.min(...entries.map(e=>e.box.x)), x1:Math.max(...entries.map(e=>e.box.x+e.box.w)),
+      y0:Math.min(...entries.map(e=>e.box.cy-e.box.h/2)), y1:Math.max(...entries.map(e=>e.box.cy+e.box.h/2))};
+  });
+  const group = el('g', {class:'single-chain-annotation', 'pointer-events':'none', 'aria-hidden':'true'});
+  const defs = el('defs', {}), marker = el('marker', {id:'single-chain-arrow', viewBox:'0 0 10 10', refX:8, refY:5, markerWidth:7, markerHeight:7, orient:'auto-start-reverse'});
+  marker.append(el('path', {d:'M 0 0 L 10 5 L 0 10 z', fill:'#8cefc9'})); defs.append(marker); group.append(defs);
+  for(let i=0;i<bounds.length-1;i++){
+    const a=bounds[i],b=bounds[i+1]; if(!a||!b)continue;
+    const x1=a.x1,y1=(a.y0+a.y1)/2,x2=b.x0,y2=(b.y0+b.y1)/2,dx=Math.max(16,Math.abs(x2-x1)*.45);
+    const d=`M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`;
+    group.append(el('path',{d,fill:'none',stroke:'#111','stroke-width':5,'stroke-opacity':.8}));
+    group.append(el('path',{d,fill:'none',stroke:'#8cefc9','stroke-width':1.5,'marker-end':'url(#single-chain-arrow)'}));
+  }
+  const labels=[];
+  bounds.forEach((box,i) => {
+    if (!box) return;
+    const x=Math.max(left,box.x0-3), end=Math.min(right,Math.max(box.x1+3,x+8)), y=Math.max(0,box.y0-3);
+    group.append(el('rect', {class:'single-task-boundary',x,y,width:Math.max(1,end-x),height:Math.max(8,box.y1-y+3),rx:3,fill:'#63e6b3','fill-opacity':.045,stroke:'#63e6b3','stroke-opacity':.9,'stroke-width':1,'stroke-dasharray':'4 3'}));
+    const name=singleTaskName(chain[i]), text=name.length>24?name.slice(0,23)+'…':name;
+    const w=Math.min(right-left,Math.max(60,32+text.length*7)), lx=Math.max(left,Math.min(right-w,x));
+    let ly=Math.max(0,y-24);
+    for(let step=0;step<chain.length;step++){
+      if(!labels.some(p=>lx<p.x+p.w && lx+w>p.x && ly<p.y+22 && ly+22>p.y))break;
+      ly=Math.min(svg.viewBox.baseVal.height-22,ly+24);
+    }
+    labels.push({x:lx,y:ly,w});
+    group.append(el('rect',{x:lx,y:ly,width:w,height:22,rx:4,fill:'#14362a',stroke:'#63e6b3'}));
+    group.append(el('circle',{cx:lx+12,cy:ly+11,r:8,fill:'#63e6b3'}));
+    const number=el('text',{x:lx+12,y:ly+14,'text-anchor':'middle',fill:'#10251b','font-family':'var(--font)','font-size':10,'font-weight':600});number.textContent=String(i+1);group.append(number);
+    const label=el('text',{class:'single-task-label',x:lx+25,y:ly+15,fill:'#e0fff0','font-family':'var(--font)','font-size':11});label.textContent=text;group.append(label);
+  });
+  svg.append(group);
+}
+function singleTaskName(id) { return R.taskNames?.[id] || R.launches.find(t => String(t.taskId) === id)?.leaf || ('Task ' + id); }
+function syncSingleScrollSpace() {
+  const height = singleSelected == null ? 0 : Math.ceil($('lane-wrap').clientHeight / 2);
+  $('single-scroll-before').style.height = height + 'px';
+  $('single-scroll-after').style.height = height + 'px';
+}
+function centerSingleChain() {
+  if (singleSelected == null || !laneRelationIndex) return;
+  const entries = singleChains[singleSelected].flatMap(id => laneRelationIndex.byTask.get(id) || []);
+  if (!entries.length) return;
+  const wrap = $('lane-wrap'), view = wrap.getBoundingClientRect();
+  const stickyHeight = wrap.querySelector('.lane-axis-sticky').getBoundingClientRect().height;
+  const boxes = entries.map(entry => entry.element.getBoundingClientRect());
+  const center = (Math.min(...boxes.map(box => box.top)) + Math.max(...boxes.map(box => box.bottom))) / 2;
+  const availableTop = view.top + wrap.clientTop + Math.min(stickyHeight, wrap.clientHeight);
+  const availableBottom = view.top + wrap.clientTop + wrap.clientHeight;
+  const target = wrap.scrollTop + center - (availableTop + availableBottom) / 2;
+  wrap.scrollTop = Math.max(0, Math.min(wrap.scrollHeight - wrap.clientHeight, target));
+}
+function updateSingleGrip() {
+  const grip = $('single-panel-grip'), panel = $('single-panel');
+  grip.setAttribute('aria-valuemin', '300');
+  grip.setAttribute('aria-valuemax', String(Math.max(300, Math.min(700, window.innerWidth - 360))));
+  grip.setAttribute('aria-valuenow', String(Math.round(panel.getBoundingClientRect().width)));
+}
+function renderSinglePanel() {
+  const panel = $('single-panel');
+  document.body.classList.toggle('single-panel-open', singlePanelOpen);
+  panel.hidden = !singlePanelOpen;
+  $('single-panel-grip').hidden = !singlePanelOpen;
+  if (singlePanelOpen) updateSingleGrip();
+  if (!singlePanelOpen) return;
+  const label = singleTaskName;
+  const rows = singleChains.map((chain, i) => {
+    const steps = chain.map((id, step) => {
+      const task = R.launches.find(t => String(t.taskId) === id);
+      return `<span class="single-path-step" data-tooltip="Task ID ${esc(id)}"><span class="single-path-number" aria-hidden="true">${step + 1}</span><span class="single-path-name">${esc(label(id))}</span><span class="single-path-id">${esc(task?.tag || id)}</span></span>`;
+    }).join('');
+    const description = chain.map(id => `${label(id)}，Task ID ${id}`).join(' → ');
+    return `<tr class="${singleSelected === i ? 'single-selected' : ''}"><td>${String(i + 1).padStart(2,'0')}</td><td><span class="single-count">${chain.length}</span></td><td><button type="button" class="single-path" data-single-chain="${i}" aria-pressed="${singleSelected === i}" aria-label="任务链 ${i + 1}：${esc(description)}">${steps}</button></td></tr>`;
+  }).join('');
+  panel.innerHTML = `<header><h2>连续单依赖分析</h2><button class="single-close" data-single-close aria-label="关闭连续单依赖分析并清除高亮">×</button></header>${singleSelected != null ? '<div class="single-phase-legend"><span><i style="background:#d6a75a"></i>Setup</span><span><i style="background:#63e6b3"></i>实际计算</span><span><i style="background:#777"></i>未归因时间</span><small>按每个 block 的计时分段；Setup 可能包含依赖等待和本地准备，不能仅凭颜色判断等待原因。</small></div>' : ''}${rows ? '<table><colgroup><col class="single-col-number"><col class="single-col-count"><col></colgroup><thead><tr><th>序号</th><th>任务数</th><th>任务路径</th></tr></thead><tbody>' + rows + '</tbody></table>' : '<p>当前 Rank 没有满足条件的任务链。</p>'}`;
+}
 function highlightResult(key) {
   if(resultHoverKey===key)return;
   resultHoverKey=key;
@@ -1945,8 +2092,8 @@ function indexLaneRelations() {
   // Read geometry once per render, before any hover styling is written.
   for (const element of $("lane").querySelectorAll('.task-event')) {
     const task = launches.get(element.getAttribute('data-id')); if (!task) continue;
-    const bounds = element.getBBox();
-    const item = { element, task, box: { x:bounds.x, w:bounds.width, cy:bounds.y+bounds.height/2 } };
+    const bounds = (element.querySelector('rect') || element).getBBox();
+    const item = { element, task, box: { x:bounds.x, w:bounds.width, h:bounds.height, cy:bounds.y+bounds.height/2 } };
     const key=String(task.taskId);
     if(!byTask.has(key)) byTask.set(key,[]);
     byTask.get(key).push(item); byElement.set(element,item);
@@ -2111,7 +2258,7 @@ function hideUiTip(){
 function showUiTip(target,x,y){
   if(!target || target.closest('#lane') || target.matches('details[open]>summary')){hideUiTip();return;}
   if(uiTipTarget!==target){hideUiTip();uiTipTarget=target;uiTip.textContent=target.dataset.tooltip;uiTip.hidden=false;target.setAttribute('aria-describedby','ui-hover-tip');}
-  if(target.closest('.lane-toolbar')){
+  if(target.closest('.lane-toolbar-group')){
     const r=target.getBoundingClientRect();
     uiTip.style.left=Math.max(8,Math.min(innerWidth-uiTip.offsetWidth-8,r.left+(r.width-uiTip.offsetWidth)/2))+'px';
     uiTip.style.top=Math.min(innerHeight-uiTip.offsetHeight-8,r.bottom+10)+'px';
@@ -2190,6 +2337,11 @@ function loadRank(name) {
   recommendedFocus = null;
   laneRange = null;
   R = D.ranks.find((r) => r.rank === name) || D.ranks[0];
+  singleChains = window.SingleDependency.findChains(R.edges, R.launches.map(task => task.taskId));
+  singleSelected = null;
+  singlePreviousRange = null;
+  singlePreviousScroll = 0;
+  renderSinglePanel();
   // waves / available cores are display-only derivations, kept out of the data file
   R.launches.forEach((l) => {
     l.availCores = l.ct === "AIC" ? R.kpi.aicCores : R.kpi.aivCores;
@@ -2209,6 +2361,54 @@ try {
   D = null;
 }
 if (D) {
+  const singleGrip = document.createElement('div');
+  singleGrip.id = 'single-panel-grip'; singleGrip.className = 'single-panel-grip'; singleGrip.hidden = true;
+  singleGrip.tabIndex = 0; singleGrip.setAttribute('role', 'separator'); singleGrip.setAttribute('aria-orientation', 'vertical');
+  singleGrip.setAttribute('aria-label', '调整单依赖分析面板宽度'); singleGrip.setAttribute('aria-controls', 'single-panel');
+  document.querySelector('main').append(singleGrip);
+  const singlePanel = document.createElement('aside');
+  singlePanel.id = 'single-panel'; singlePanel.className = 'single-panel'; singlePanel.hidden = true;
+  singlePanel.setAttribute('aria-label', '连续单依赖分析'); document.querySelector('main').append(singlePanel);
+  let singleResizeDrag = null, singleResizeFrame = 0;
+  function setSingleWidth(width) {
+    const max = Math.min(700, window.innerWidth - 360), bounded = Math.max(300, Math.min(max, width));
+    document.body.style.setProperty('--single-panel-requested', bounded + 'px');
+    updateSingleGrip();
+    if (!singleResizeFrame) singleResizeFrame = requestAnimationFrame(() => { singleResizeFrame = 0; criticalPath(); renderLane(); });
+  }
+  singleGrip.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault(); singleResizeDrag = {x:e.clientX, width:singlePanel.getBoundingClientRect().width};
+    singleGrip.classList.add('is-dragging'); singleGrip.setPointerCapture(e.pointerId);
+  });
+  singleGrip.addEventListener('pointermove', e => { if (singleResizeDrag) setSingleWidth(singleResizeDrag.width + singleResizeDrag.x - e.clientX); });
+  const endSingleResize = () => { singleResizeDrag = null; singleGrip.classList.remove('is-dragging'); };
+  singleGrip.addEventListener('pointerup', endSingleResize); singleGrip.addEventListener('pointercancel', endSingleResize);
+  singleGrip.addEventListener('lostpointercapture', endSingleResize);
+  singleGrip.addEventListener('keydown', e => {
+    if (!['ArrowLeft','ArrowRight'].includes(e.key)) return;
+    e.preventDefault(); setSingleWidth(singlePanel.getBoundingClientRect().width + (e.key === 'ArrowLeft' ? 20 : -20));
+  });
+  singlePanel.addEventListener('click', e => {
+    if (e.target.closest('[data-single-close]')) { const restoreScroll = singleSelected != null ? singlePreviousScroll : null; singlePanelOpen = false; if (singleSelected != null) laneRange = singlePreviousRange; singleSelected = null; singlePreviousRange = null; renderSinglePanel(); renderLane(); if(restoreScroll != null)$('lane-wrap').scrollTop=restoreScroll; return; }
+    const button = e.target.closest('[data-single-chain]'); if (!button) return;
+    const index = Number(button.dataset.singleChain);
+    if (singleSelected == null) { singlePreviousRange = laneRange?.slice() || null; singlePreviousScroll = $('lane-wrap').scrollTop; }
+    singleSelected = singleSelected === index ? null : index;
+    if (singleSelected != null) {
+      laneView = 'core'; laneAll = true; laneRange = window.SingleDependency.focusRange(singleChains[index], R.launches, R.kpi.windowUs); taskLayer = 'none';
+      pathAnalysisActive = false; recommendedFocus = null; me = null; laneComposition = false;
+      qkInline = null; qkReturnView = null; setDrawer(false);
+      $('analysis-panel-anchor').classList.remove('results-open');
+    } else { laneRange = singlePreviousRange; singlePreviousRange = null; }
+    renderSinglePanel(); renderLane();
+    if (singleSelected != null) centerSingleChain(); else $('lane-wrap').scrollTop = singlePreviousScroll;
+    singlePanel.querySelector(`[data-single-chain="${index}"]`)?.focus({preventScroll:true});
+  });
+  $('single-analysis-button').addEventListener('click', () => {
+    singlePanelOpen = !singlePanelOpen;
+    renderSinglePanel(); renderLane();
+  });
   $("run").textContent = `${D.run} / ${D.ranks[0].program}`;
   $("soc").textContent = `${D.soc.name} ${D.soc.aicCores}×AIC ${D.soc.aivCores}×AIV`;
   $("soc").dataset.tooltip = D.soc.source;
@@ -2399,8 +2599,7 @@ if (D) {
     if (v) { laneView = v.dataset.view; renderLane();$("lane-ovl").querySelector('[data-menu="view"]').open=false; return; }
     const b = e.target.closest("[data-ovl]"); if (!b) return;
     const k = b.dataset.ovl;
-    if (k === "navigation") { ovl.navigation = !ovl.navigation; document.body.classList.toggle("hide-path-navigation", !ovl.navigation); }
-    else if (k === "path") pathVisible = !pathVisible;
+    if (k === "path") pathVisible = !pathVisible;
     else if (k === "only") laneAll = !laneAll;
     else if (k === "composition") laneComposition = !laneComposition;
     else ovl[k] = !ovl[k];
@@ -2489,7 +2688,7 @@ if (D) {
   let laneResizeRaf = 0;
   window.addEventListener("resize", () => {
     if (laneResizeRaf) cancelAnimationFrame(laneResizeRaf);
-    laneResizeRaf = requestAnimationFrame(() => { laneResizeRaf = 0; criticalPath(); renderLane(); });
+    laneResizeRaf = requestAnimationFrame(() => { laneResizeRaf = 0; if(singlePanelOpen)updateSingleGrip(); criticalPath(); renderLane(); });
   });
   window.CompileLaneAdapter={
     enterSplit:()=>{ovl.ribbon=false;pathAnalysisActive=false;taskLayer="none";recommendedFocus=null;$("analysis-panel-anchor").classList.remove("results-open");},

@@ -1,0 +1,11 @@
+module attributes {pto.target_arch = "a2a3"} {
+  func.func @physical_sparse_publish(%arg0: !pto.ptr<bf16>, %arg1: index) attributes {pto.kernel_kind = #pto.kernel_kind<vector>} {
+  %c4096_index = arith.constant 4096 : index
+  %c1_index = arith.constant 1 : index
+  %c0_index = arith.constant 0 : index
+  %attn_out__ssa_v0_view = pto.make_tensor_view %arg0, shape = [%arg1, %c4096_index], strides = [%c4096_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xbf16> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1737:5)
+  %completion_anchor_inline378__tile = pto.load %arg0[%c0_index] : !pto.ptr<bf16> -> bf16 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1738:9)
+  pto.store %completion_anchor_inline378__tile, %arg0[%c0_index] : !pto.ptr<bf16>, bf16 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1739:9)
+  return
+  }
+}

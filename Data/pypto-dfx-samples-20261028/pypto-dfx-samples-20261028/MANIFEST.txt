@@ -1,0 +1,40 @@
+PyPTO operator DFX samples, 2026-10-28
+
+Source: /data/m00956180/runtime/pypto-lib-hw-native-sys
+pypto-lib commit: 0813966667b12c6022883d1f553b7727462e1cd9
+PyPTO checkout commit: be5b1643e6356b60da90fac4bb2f31edd2c68895
+Platform: a2a3; every hardware command ran inside a task-submit allocation.
+The model scripts and generated DFX files were not edited for these runs.
+
+1. DeepSeek V4 Flash Decode HCA sparse attention
+   task: task_20261028_002146_180598318364; device: 15; result: [RUN] PASS (12.09s)
+   command: python models/deepseek_v4_flash_mtp/decode_sparse_attn_hca.py -p a2a3 -d 15 --enable-chip-swimlane 4 --enable-pmu 4
+   build_output/_jit__sparse_attn_hca_20261028_002149_tapccbye/
+   dfx_outputs/: chip_swimlane_records.json, deps.json, merged_swimlane_20261028_002200.json, pmu.csv, name map
+   recorded AICore tasks: 229; dependency graph: 31 tasks, 55 edges; PMU rows: 229
+   log: pypto-lib-decode-sparse-attn-hca-dfx-20261028.log
+
+2. DeepSeek V4 Flash Prefill sparse attention
+   task: task_20261028_002213_18274442182; device: 15; result: [RUN] PASS (17.64s)
+   command: python models/deepseek_v4_flash_mtp/prefill_sparse_attn.py -p a2a3 -d 15 --enable-chip-swimlane 4 --enable-pmu 4
+   build_output/_jit__sparse_attn_20261028_002216_31d5ji_2/
+   dfx_outputs/: chip_swimlane_records.json, deps.json, merged_swimlane_20261028_002233.json, pmu.csv, name map
+   recorded AICore tasks: 468; dependency graph: 36 tasks, 121 edges; PMU rows: 468
+   log: pypto-lib-prefill-sparse-attn-dfx-20261028.log
+
+3. DeepSeek V4 Flash Decode MoE (expert parallel, two ranks)
+   task: task_20261028_002249_190348113979; devices: 14,15; result: [RUN] PASS (37.90s)
+   command: python models/deepseek_v4_flash_mtp/decode_moe.py -p a2a3 --ep 2 -d 14,15 --enable-chip-swimlane 4
+   build_output/_jit_l3_moe_20261028_002312_6k8e15ry/
+   dfx_outputs/rank0/d0/: raw records, deps, dispatch identity, merged swimlane, name map
+   dfx_outputs/rank1/d0/: same file types; ranks are kept in their original directories
+   rank0: 689 AICore tasks, 251 dependency tasks, 767 edges
+   rank1: 651 AICore tasks, 235 dependency tasks, 719 edges
+   log: pypto-lib-decode-moe-dfx-20261028.log
+
+Notes:
+- Swimlane level 4 automatically captured dependency data in a separate run, then timing data in a clean run. The times are from the timing run.
+- PMU group 4 records UB/L1/L2/main-memory request counts and total cycles. These are request counts, not measured MTE bandwidth. Decode MoE's original CLI has no PMU switch, so no MoE PMU CSV was produced.
+- Each build directory includes the original generated PTO/C++ code, orchestration and compiler perf hints where generated.
+- No valid instruction-level msprof trace was produced for these new cases. HCA qk_pv generation rejected a computed dynamic dimension; the generated proj_a_mm standalone case failed to compile because its compatibility declaration duplicates a PTO ISA declaration. Logs are included for diagnosis; failed standalone output directories remain only in the original checkout and are omitted from this archive.
+- No cost-model estimate was run. The archive preserves successful raw outputs without rewriting their contents.

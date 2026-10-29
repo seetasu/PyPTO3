@@ -1,0 +1,20 @@
+{
+  "level": 2,
+  "orchestrator_name": null,
+  "callable_id_to_name": {
+    "0": "prefill_sparse_sources_ready",
+    "1": "physical_sparse_packed_init",
+    "2": "staged_swa_rope_cs",
+    "3": "physical_sparse_gather_ori",
+    "4": "physical_sparse_gather_cmp",
+    "5": "physical_sparse_build_bias",
+    "6": "staged_swa_qk_pv_aic",
+    "7": "staged_swa_qk_pv_aiv",
+    "8": "staged_swa_merge_rope_pack",
+    "9": "staged_swa_proj_a_mm",
+    "10": "staged_swa_quant",
+    "11": "staged_swa_proj_b_mm",
+    "12": "staged_swa_proj_b_act",
+    "13": "physical_sparse_publish"
+  }
+}

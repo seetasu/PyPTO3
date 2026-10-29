@@ -1,0 +1,47 @@
+{
+  "id": "model-architecture-front-view",
+  "name": "Model Architecture Front View",
+  "type": "hybrid",
+  "description": "Schema-driven source architecture front view for training workbenches. It preserves the v3 DeepSeek visual grammar while allowing model facts, branches, residual stream count, Layer identity, and Expert children to come from separate generated data.",
+  "source": {
+    "classification": "hybrid-pattern",
+    "basePattern": "patterns/model-graphviz",
+    "visualReference": "patterns/model-architecture-training-sidecar/deepseek-v4.html",
+    "patternHtml": "patterns/model-architecture-front-view/pattern.html",
+    "patternCss": "patterns/model-architecture-front-view/pattern.css",
+    "renderScript": "patterns/model-architecture-front-view/pattern.js",
+    "previewData": "patterns/model-architecture-front-view/pattern.pangu-preview-data.js",
+    "visualContract": "The Pattern owns recursive Module geometry, fixed-width operator geometry, rounded neutral Tensor nodes, module-semantic color families, main/left/right lanes, orthogonal edges, blue multi-stream residual bundles and states, v3-compatible Module toggles, Routed Experts parent expansion, Expert child grid, pan/zoom, fit, selection, and collapse state. Input data owns semantic nodes, hierarchy order, edge identities, branch choice, Layer facts, residual stream count, Expert count, and provenance."
+  },
+  "schemaVersion": "model_architecture_front_view.v1",
+  "requiredApis": [
+    "window.PtoModelArchitectureFrontView.validate(data)",
+    "window.PtoModelArchitectureFrontView.createLayout(data, collapsedIds)",
+    "window.PtoModelArchitectureFrontView.render(root, data, options)",
+    "controller.fit()",
+    "controller.selectNode(nodeId)",
+    "controller.setCollapsed(nodeId, collapsed)",
+    "controller.setData(data, options)",
+    "controller.getState()",
+    "controller.destroy()",
+    "options.onLayerChange({ nodeId, layerIndex, source })"
+  ],
+  "useWhen": [
+    "a training page needs the v3-style model architecture front view with a selected Layer",
+    "source-checked architecture nodes must remain separate from runtime event and Expert placement overlays",
+    "Routed Experts must be a parent Module that expands to every canonical logical Expert child"
+  ],
+  "allowedOverrides": [
+    "schema data for semantic nodes, ordered structure, edges, residual bundles, Layer selection, branches, Expert inventory, and provenance",
+    "initial collapsed IDs and selected canonical node ID",
+    "theme, aria label, and product callbacks including Layer instance changes"
+  ],
+  "forbiddenOverrides": [
+    "page-local node coordinates, cluster geometry, Expert grid math, residual bundle drawing, or pan/zoom controller copies",
+    "model names, Layer count, Expert count, branch selection, operator labels, or placement facts hard-coded in pattern.js",
+    "replacing mHC residual streams with a generic Add when the source branch is use_mhc=true",
+    "using representative Expert glyphs in place of canonical child identities",
+    "page-local node widths, Tensor shape/fill, expand button styling, residual color, or module-semantic palette overrides"
+  ],
+  "agentReuseRule": "Load model-graphviz first, then this Pattern. Generate or adapt model_architecture_front_view.v1 data outside the page, call PtoModelArchitectureFrontView.render, and drive selection/collapse through the returned controller. Product pages pass state only and must not reproduce layout math."
+}

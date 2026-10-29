@@ -657,6 +657,42 @@
     // 新增或更新 Design Demo 时，在此数组维护其 updatedAt（YYYY-MM-DD）。
     const demos = [
       {
+        title: "昇腾内容区卡片库",
+        subtitle: "环境检查 · 算子规格 · Tensor · 片上预算",
+        category: "开发工具",
+        status: "新增",
+        version: "02 / Card Lab",
+        updatedAt: "2026-10-29",
+        description: "20 个卡片级小内容区，围绕同一次 matmul_fp16 开发（A[1024,4096] × B[4096,2048]、20 AIC）展开，覆盖准备、定义、开发、编排、编译、验证、运行、调优八个阶段。对象命名对齐 PyPTO 源码而非硬件手册：片上空间用 MemorySpace 的 Left / Right / Acc / Mat / Vec（括号内标硬件 buffer），布局用 TensorLayout 的 ND / DN / NZ，并补齐了函数类型（Orchestration 在 AICPU、InCore 在 AICore）、Submit/TaskId 任务依赖、40+ Pass 流水线、两条代码产物路径与分布式张量。数值按 tile 配置现算并相互对账——Right = 128×N×2B ≤ 64KB 决定了 N 最大 256，64 块分 20 核的 +33% 偏差也解释了实测 18% 的核间等待。支持深浅主题与状态切换。",
+        href: "Design/object-card-lab/index.html",
+        preview: "Design/assets/launch-previews/tuning-console.svg",
+        tags: ["PyPTO", "昇腾", "卡片级", "基础对象", "MemorySpace", "FunctionType", "Submit"]
+      },
+      {
+        title: "PyPTO 对象卡片图鉴",
+        subtitle: "环境 · 算子规格 · Tensor · 开发全流程",
+        category: "开发工具",
+        status: "新增",
+        version: "01 / Object Cards",
+        updatedAt: "2026-10-29",
+        description: "探索由基础对象组合的开发卡片，覆盖环境、规格、Tensor、编译、验证、运行与调优。",
+        href: "Design/object-card-gallery/index.html",
+        preview: "Design/assets/launch-previews/tuning-console.svg",
+        tags: ["PyPTO", "昇腾", "对象卡片", "开发流程"]
+      },
+      {
+        title: "decode_csa 反向推导",
+        subtitle: "决策点 · 拒绝原因 · TP 世界",
+        category: "开发工具",
+        status: "新增",
+        version: "02 / Reverse Trace",
+        updatedAt: "2026-10-29",
+        description: "拿 DeepSeek-V4 的 CSA decode 层（Data/DeepseekV4/deepseek_v4_flash_dspark/decode_csa.py），把它钉死的每个数字推回设计空间：当初还有什么选法，为什么没选。被拒绝的选项不用编——源码里 11 条整除契约、worker 数旁边的调优注释、两处「inline 句柄跨不过调用边界」的防回归注释、一条稀疏块误编译的规避说明，都写着理由。决策点矩阵按形状现算占用：PROJ_B 的 INT32 累加器 128×256×4B 正好打满 L0C，indexer bias 按整个 T 做需要 512KB、远超 Vec 的 184KB。三个候选就是源码真实支持的 TP = 1 / 2 / 4。",
+        href: "Design/pypto-operator-gen/index.html",
+        preview: "Design/assets/launch-previews/tuning-console.svg",
+        tags: ["PyPTO", "DeepSeek-V4", "CSA", "反向推导", "TP 2", "决策点"]
+      },
+      {
         title: "PyPTO Compute Explorer",
         subtitle: "算子源码 · Assignment · Pipeline · Graph",
         category: "开发工具",

@@ -1,0 +1,107 @@
+[npu-lock] 获取设备 15 的锁 (无超时)...
+[npu-lock] 已获取设备 15 的锁 (pid=1827917)
+[RUN] compile ...
+2026-10-28 00:22:16.516 W | [warning] [UnusedVariableCheck] (pipeline_input) Unused variable '_q_ready' in function '_sparse_attn' at /data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py:1954:9
+2026-10-28 00:22:16.516 W | [warning] [UnusedVariableCheck] (pipeline_input) Unused variable '_raw_ready' in function '_sparse_attn' at /data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py:1955:9
+2026-10-28 00:22:16.516 W | [warning] [UnusedVariableCheck] (pipeline_input) Unused variable '_compressed_ready' in function '_sparse_attn' at /data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py:1956:9
+2026-10-28 00:22:16.516 W | [warning] [UnusedVariableCheck] (pipeline_input) Unused variable '_raw_indices_ready' in function '_sparse_attn' at /data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py:1957:9
+2026-10-28 00:22:16.516 W | [warning] [UnusedVariableCheck] (pipeline_input) Unused variable '_compressed_indices_ready' in function '_sparse_attn' at /data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py:1958:9
+2026-10-28 00:22:16.516 W | [warning] [UnusedVariableCheck] (pipeline_input) Unused variable '_mask_ready' in function '_sparse_attn' at /data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py:1959:9
+2026-10-28 00:22:16.516 W | [warning] [UnusedVariableCheck] (pipeline_input) Unused variable '_attn_out' in function 'physical_sparse_attn' at /data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py:1732:9
+2026-10-28 00:22:17.050 I | [perf_hint] 2 hints across 1 site; see build_output/_jit__sparse_attn_20261028_002216_31d5ji_2/report/perf_hints.log
+2026-10-28 00:22:17.052 I | [perf_hint] 2 hints across 1 site; see build_output/_jit__sparse_attn_20261028_002216_31d5ji_2/report/perf_hints.log
+2026-10-28 00:22:17.193 I | [perf_hint] 19 hints across 19 sites; see build_output/_jit__sparse_attn_20261028_002216_31d5ji_2/report/perf_hints.log
+[RUN] compile done (1.53s)
+[RUN] generate inputs ...
+[RUN] generate inputs done (0.49s)
+[RUN] compute golden ...
+[RUN] compute golden done (4.52s)
+[RUN] runtime ...
+[mono_ns=1744590364447475][T0xffff9eaa5020][TIMING] emit_host_span: [STRACE] v=1 pid=1885182 tid=1885182 inv=0 hid=0 depth=0 name=chip.prewarm.build ts=1744590356834121 dur=7605884 
+[mono_ns=1744590369814336][T0xffff9eaa5020][TIMING] log_callable_image: Callable image: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 upload_bytes=985200 children=14
+[mono_ns=1744590369824906][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=0 code_begin=0x12c0c0101b60 code_end_exclusive=0x12c0c0101b90 code_bytes=48 code_fnv1a64=0x335f4eb322756119
+[mono_ns=1744590369827456][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=1 code_begin=0x12c0c0101c60 code_end_exclusive=0x12c0c0101d9c code_bytes=316 code_fnv1a64=0x7f4d99733eb94e20
+[mono_ns=1744590369834216][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=2 code_begin=0x12c0c0101e60 code_end_exclusive=0x12c0c0102e14 code_bytes=4020 code_fnv1a64=0x545f266c37b01a52
+[mono_ns=1744590369836407][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=3 code_begin=0x12c0c0102ee0 code_end_exclusive=0x12c0c0103130 code_bytes=592 code_fnv1a64=0x73d9c1ee3532c811
+[mono_ns=1744590369844247][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=4 code_begin=0x12c0c0103220 code_end_exclusive=0x12c0c01045d4 code_bytes=5044 code_fnv1a64=0xff1ece76c5e67b9d
+[mono_ns=1744590369847857][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=5 code_begin=0x12c0c01046a0 code_end_exclusive=0x12c0c0104af8 code_bytes=1112 code_fnv1a64=0xc49ffaf0eeccc3ad
+[mono_ns=1744590369854237][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=6 code_begin=0x12c0c0104be0 code_end_exclusive=0x12c0c0105aa8 code_bytes=3784 code_fnv1a64=0x8d64409419198238
+[mono_ns=1744590369859037][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=7 code_begin=0x12c0c0105ba0 code_end_exclusive=0x12c0c010665c code_bytes=2748 code_fnv1a64=0x22ad495664710c6
+[mono_ns=1744590369869487][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=8 code_begin=0x12c0c0106720 code_end_exclusive=0x12c0c01082c0 code_bytes=7072 code_fnv1a64=0x65e59147f32dcea7
+[mono_ns=1744590369873617][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=9 code_begin=0x12c0c01083a0 code_end_exclusive=0x12c0c0108c5c code_bytes=2236 code_fnv1a64=0xd64df9a759a21683
+[mono_ns=1744590369879007][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=10 code_begin=0x12c0c0108d20 code_end_exclusive=0x12c0c01098ac code_bytes=2956 code_fnv1a64=0x15fb8e48ba81595
+[mono_ns=1744590369882527][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=11 code_begin=0x12c0c01099a0 code_end_exclusive=0x12c0c0109fec code_bytes=1612 code_fnv1a64=0x349b4fd12de5116d
+[mono_ns=1744590369885857][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=12 code_begin=0x12c0c010a0e0 code_end_exclusive=0x12c0c010a6c4 code_bytes=1508 code_fnv1a64=0xbfc04a754c3d3515
+[mono_ns=1744590369887767][T0xffff9eaa5020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaaaf18e0cc0 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=13 code_begin=0x12c0c010a7a0 code_end_exclusive=0x12c0c010a7f8 code_bytes=88 code_fnv1a64=0x77959afe2b96c2f4
+[mono_ns=1744590369894037][T0xffff9eaa5020][TIMING] record_device_orch_callable: [device_runner_base.cpp:1934] Callable registration: device=15 runner=0xaaaaf18e0cc0 cid=0 chip_hash=0xf456f5723f8a3dab aicore_image_hash=0x13cb58db35b181d7 orch_hash=0xd067e89d0d1ffffa orch_bytes=931272
+[swimlane:dep_gen subprocess] capturing the task dependency graph for the swimlane; the following compile/run output is for deps.json only (timing is discarded).
+[mono_ns=1744594586165575][T0xffff9a857020][TIMING] emit_host_span: [STRACE] v=1 pid=1828032 tid=1828032 inv=0 hid=0 depth=0 name=chip.prewarm.build ts=1744594574662614 dur=11494861 
+[mono_ns=1744594592252623][T0xffff9a857020][TIMING] log_callable_image: Callable image: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 upload_bytes=985200 children=14
+[mono_ns=1744594592262883][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=0 code_begin=0x12c0c0101b60 code_end_exclusive=0x12c0c0101b90 code_bytes=48 code_fnv1a64=0x335f4eb322756119
+[mono_ns=1744594592267303][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=1 code_begin=0x12c0c0101c60 code_end_exclusive=0x12c0c0101d9c code_bytes=316 code_fnv1a64=0x7f4d99733eb94e20
+[mono_ns=1744594592274463][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=2 code_begin=0x12c0c0101e60 code_end_exclusive=0x12c0c0102e14 code_bytes=4020 code_fnv1a64=0x545f266c37b01a52
+[mono_ns=1744594592276884][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=3 code_begin=0x12c0c0102ee0 code_end_exclusive=0x12c0c0103130 code_bytes=592 code_fnv1a64=0x73d9c1ee3532c811
+[mono_ns=1744594592285134][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=4 code_begin=0x12c0c0103220 code_end_exclusive=0x12c0c01045d4 code_bytes=5044 code_fnv1a64=0xff1ece76c5e67b9d
+[mono_ns=1744594592288264][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=5 code_begin=0x12c0c01046a0 code_end_exclusive=0x12c0c0104af8 code_bytes=1112 code_fnv1a64=0xc49ffaf0eeccc3ad
+[mono_ns=1744594592294794][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=6 code_begin=0x12c0c0104be0 code_end_exclusive=0x12c0c0105aa8 code_bytes=3784 code_fnv1a64=0x8d64409419198238
+[mono_ns=1744594592299904][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=7 code_begin=0x12c0c0105ba0 code_end_exclusive=0x12c0c010665c code_bytes=2748 code_fnv1a64=0x22ad495664710c6
+[mono_ns=1744594592312794][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=8 code_begin=0x12c0c0106720 code_end_exclusive=0x12c0c01082c0 code_bytes=7072 code_fnv1a64=0x65e59147f32dcea7
+[mono_ns=1744594592318394][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=9 code_begin=0x12c0c01083a0 code_end_exclusive=0x12c0c0108c5c code_bytes=2236 code_fnv1a64=0xd64df9a759a21683
+[mono_ns=1744594592324034][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=10 code_begin=0x12c0c0108d20 code_end_exclusive=0x12c0c01098ac code_bytes=2956 code_fnv1a64=0x15fb8e48ba81595
+[mono_ns=1744594592327554][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=11 code_begin=0x12c0c01099a0 code_end_exclusive=0x12c0c0109fec code_bytes=1612 code_fnv1a64=0x349b4fd12de5116d
+[mono_ns=1744594592332584][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=12 code_begin=0x12c0c010a0e0 code_end_exclusive=0x12c0c010a6c4 code_bytes=1508 code_fnv1a64=0xbfc04a754c3d3515
+[mono_ns=1744594592334124][T0xffff9a857020][TIMING] log_callable_image: Callable code: device=15 runner=0xaaab011f1080 chip_hash=0xf456f5723f8a3dab chip_dev=0x12c0c001a000 func_id=13 code_begin=0x12c0c010a7a0 code_end_exclusive=0x12c0c010a7f8 code_bytes=88 code_fnv1a64=0x77959afe2b96c2f4
+[mono_ns=1744594592339754][T0xffff9a857020][TIMING] record_device_orch_callable: [device_runner_base.cpp:1934] Callable registration: device=15 runner=0xaaab011f1080 cid=0 chip_hash=0xf456f5723f8a3dab aicore_image_hash=0x13cb58db35b181d7 orch_hash=0xd067e89d0d1ffffa orch_bytes=931272
+
+✓ Conversion complete
+  Input:  /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit__sparse_attn_20261028_002216_31d5ji_2/dfx_outputs/chip_swimlane_records.json
+  Output: /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit__sparse_attn_20261028_002216_31d5ji_2/dfx_outputs/merged_swimlane_20261028_002233.json
+
+To visualize: Open https://ui.perfetto.dev/ and drag in /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit__sparse_attn_20261028_002216_31d5ji_2/dfx_outputs/merged_swimlane_20261028_002233.json
+
+============================================================================================================================================
+Task Statistics by Function
+  Source chip_swimlane_level: 4 (full collection with orchestrator phases; recorded in chip_swimlane_records.json)
+  Exec = kernel time on AICore; Latency = dispatch->finish (incl. head OH + Exec + tail OH)
+  Head OH split (v3): Prop = NoC propagation (dispatch_ts→AICore receive); Local = dcci+ack (receive→start)
+============================================================================================================================================
+Func_ID  Func_Name    Count   Avg Exec(us)  Avg Latency(us)   Exec%   Avg Head OH(us)  Avg Tail OH(us)  Avg Prop(us)  Avg Local(us)
+--------------------------------------------------------------------------------------------------------------------------------------------
+0        prefill_sparse_sources_ready     1           0.48             8.64    5.6%              2.68             5.48          0.22           2.46
+1        physical_sparse_packed_init    32           5.98            23.37   25.6%              2.15            15.24          0.40           1.75
+2        staged_swa_rope_cs     8          38.13            41.39   92.1%              0.79             2.46          0.33           0.47
+3        physical_sparse_gather_ori    32         265.02           269.08   98.5%              0.82             3.25          0.33           0.49
+4        physical_sparse_gather_cmp    64           9.44            22.10   42.7%              1.35            11.31          0.33           1.03
+5        physical_sparse_build_bias     8           4.26            15.02   28.4%              2.41             8.35          0.22           2.19
+6        staged_swa_qk_pv_aic    22          80.91            98.81   81.9%              4.28            13.62          0.42           3.86
+7        staged_swa_qk_pv_aiv    44          83.10            98.62   84.3%              0.93            14.59          0.42           0.51
+8        staged_swa_merge_rope_pack    32          50.98            61.35   83.1%              0.74             9.63          0.24           0.51
+9        staged_swa_proj_a_mm    64          28.12            38.79   72.5%              0.88             9.79          0.33           0.55
+10       staged_swa_quant    64          12.62            27.05   46.7%              0.95            13.48          0.42           0.54
+11       staged_swa_proj_b_mm    64          18.49            25.13   73.6%              0.93             5.71          0.43           0.50
+12       staged_swa_proj_b_act    32          14.67            25.57   57.4%              0.87            10.04          0.36           0.51
+13       physical_sparse_publish     1           0.06             1.26    4.8%              0.68             0.52          0.26           0.42
+--------------------------------------------------------------------------------------------------------------------------------------------
+TOTAL                   468       20943.70         26350.90
+
+Total Test Time: 918.34 us (from earliest dispatch to latest finish)
+
+--- Task execution vs Scheduler overhead ---
+  Per-task (valid scheduler timing):  Avg Exec = 44.75 us,  Avg Latency (dispatch->finish) = 56.31 us,  Exec/Latency = 79.48%
+  (Latency = dispatch→finish; Exec = AICore kernel time per task)
+  Dispatch→kernel start (Host-computed): Total = 574.24 us, Max = 7.96 us
+==============================================================================================================
+
+Scheduler-overhead deep-dive: run sched_overhead_analysis manually with a separately-captured deps.json (--enable-dep-gen).
+[swimlane] chip swimlane enabled -> running the kernel twice (dep_gen perturbs timing, so the graph and the timing are captured separately):
+[swimlane] run 1/2: capturing the task dependency graph (deps.json) in a subprocess; its timing is discarded.
+[swimlane] run 2/2: measuring clean per-task timing (this run's numbers are the ones reported).
+Swimlane JSON written to: /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit__sparse_attn_20261028_002216_31d5ji_2/dfx_outputs/merged_swimlane_20261028_002233.json
+PMU CSV written to: /data/m00956180/runtime/pypto-lib-hw-native-sys/build_output/_jit__sparse_attn_20261028_002216_31d5ji_2/dfx_outputs/pmu.csv
+[RUN] runtime done (10.69s)
+[RUN] validate ...
+[RUN]   'attn_out' PASS  shape=(128, 4096) dtype=torch.bfloat16 (ratio_allclose(atol=0.0001, rtol=0.0078125, max_error_ratio=0.005, valid_rows=128, valid_axis=0, zero_tail=True, ignore_nan=False))
+[RUN] validate done (0.40s)
+[RUN] PASS (17.64s)
+[npu-lock] 已释放设备 15 的锁
+=== 任务完成 (exit=0) ===

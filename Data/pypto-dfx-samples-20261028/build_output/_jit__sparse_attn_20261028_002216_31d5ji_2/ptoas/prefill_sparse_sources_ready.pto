@@ -1,0 +1,34 @@
+module attributes {pto.target_arch = "a2a3"} {
+  func.func @prefill_sparse_sources_ready(%arg0: !pto.ptr<bf16>, %arg1: !pto.ptr<bf16>, %arg2: !pto.ptr<bf16>, %arg3: !pto.ptr<i32>, %arg4: !pto.ptr<i32>, %arg5: !pto.ptr<i32>, %arg6: index, %arg7: index, %arg8: index, %arg9: index) attributes {pto.kernel_kind = #pto.kernel_kind<vector>} {
+  %c64_index = arith.constant 64 : index
+  %c512_index = arith.constant 512 : index
+  %c1_index = arith.constant 1 : index
+  %c128_index = arith.constant 128 : index
+  %c8_index = arith.constant 8 : index
+  %c0_index = arith.constant 0 : index
+  %q__ssa_v0_s0 = arith.muli %c512_index, %c64_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %q__ssa_v0_view = pto.make_tensor_view %arg0, shape = [%arg6, %c64_index, %c512_index], strides = [%q__ssa_v0_s0, %c512_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?x?xbf16> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %ori_kv__ssa_v0_s1 = arith.muli %c512_index, %c1_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %ori_kv__ssa_v0_s0 = arith.muli %ori_kv__ssa_v0_s1, %c128_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %ori_kv__ssa_v0_view = pto.make_tensor_view %arg1, shape = [%arg7, %c128_index, %c1_index, %c512_index], strides = [%ori_kv__ssa_v0_s0, %ori_kv__ssa_v0_s1, %c512_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?x?x?xbf16> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %cmp_kv__ssa_v0_s1 = arith.muli %c512_index, %c1_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %cmp_kv__ssa_v0_s0 = arith.muli %cmp_kv__ssa_v0_s1, %arg9 : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %cmp_kv__ssa_v0_view = pto.make_tensor_view %arg2, shape = [%arg8, %arg9, %c1_index, %c512_index], strides = [%cmp_kv__ssa_v0_s0, %cmp_kv__ssa_v0_s1, %c512_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?x?x?xbf16> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %swa_indices__ssa_v0_view = pto.make_tensor_view %arg3, shape = [%arg6, %c128_index], strides = [%c128_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xi32> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %cmp_indices__ssa_v0_view = pto.make_tensor_view %arg4, shape = [%arg6, %c512_index], strides = [%c512_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xi32> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %valid_block_mask__ssa_v0_view = pto.make_tensor_view %arg5, shape = [%arg6, %c8_index], strides = [%c8_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xi32> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1953:5)
+  %_q_ready__tile = pto.load %arg0[%c0_index] : !pto.ptr<bf16> -> bf16 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1954:9)
+  %_raw_ready__tile = pto.load %arg1[%c0_index] : !pto.ptr<bf16> -> bf16 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1955:9)
+  %flat_offset_mul = arith.muli %c0_index, %arg9 : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1956:9)
+  %flat_offset = arith.addi %flat_offset_mul, %c0_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1956:9)
+  %0 = arith.muli %flat_offset, %c1_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1956:9)
+  %1 = arith.addi %0, %c0_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1956:9)
+  %2 = arith.muli %1, %c512_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1956:9)
+  %3 = arith.addi %2, %c0_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1956:9)
+  %_compressed_ready__tile = pto.load %arg2[%3] : !pto.ptr<bf16> -> bf16 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1956:9)
+  %_raw_indices_ready__tile = pto.load %arg3[%c0_index] : !pto.ptr<i32> -> i32 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1957:9)
+  %_compressed_indices_ready__tile = pto.load %arg4[%c0_index] : !pto.ptr<i32> -> i32 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1958:9)
+  %_mask_ready__tile = pto.load %arg5[%c0_index] : !pto.ptr<i32> -> i32 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/prefill_sparse_attn.py":1959:9)
+  return
+  }
+}

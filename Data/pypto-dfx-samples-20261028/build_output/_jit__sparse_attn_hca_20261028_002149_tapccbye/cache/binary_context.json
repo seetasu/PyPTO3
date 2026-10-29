@@ -1,0 +1,34 @@
+{
+  "context": {
+    "platform": "a2a3",
+    "pto_isa_revision": "418de18dde8fa33773dc5c384fdfe5506463b628",
+    "runtime_name": "tensormap_and_ringbuffer",
+    "runtime_revision": "c1f89ea431f5306f78c0e4ab9573c829756d7f1e",
+    "schema": 2
+  },
+  "files": {
+    "cache/incore_0_aiv_build_valid_a2a3.bin": "25f0492868d23a1826836d8e43ee4711e3b68d56d52f71889cd701f1a545d2e7",
+    "cache/incore_10_aiv_proj_b_act_a2a3.bin": "4aeb931b6e9a645c8b53e9590d62cb95904f3ebc3efc8e117c418aab4f18dcaf",
+    "cache/incore_1_aiv_kv_touch_a2a3.bin": "ad1077c93e808b495a65740bf7f9353c3d74c1edb1fa4fb12df6df08d9078305",
+    "cache/incore_2_aic_qk_pv_aic_a2a3.bin": "615acedfcb3833f719cd569bab6726c02d4d141e061186f00d94dd104be9f4e7",
+    "cache/incore_3_aiv_qk_pv_aiv_a2a3.bin": "4bd97959faa48580e40b6fac02dca4cc13a5b16f11e849d32793dc2cb4a75064",
+    "cache/incore_4_aiv_rope_swap_a2a3.bin": "7cdf2fc3d5ef3b12c7973ee5a1c0fbe22cc37108be8a333ca9bbafa3a9a57008",
+    "cache/incore_5_aiv_rope_cs_a2a3.bin": "c765791a9bd2b9270d3f4b343862e17dd36abbc6133ed8f44c9c50ef3584db2a",
+    "cache/incore_6_aiv_merge_norm_a2a3.bin": "469c2d0f03361bea86c15abb3ce7ac7d52d2804f31711cc803fba230cedf7022",
+    "cache/incore_7_aic_proj_a_mm_a2a3.bin": "fba4e5cc8cce1793db49b02c48748ee10cd42ea7c488f7fe118383a60128b3ac",
+    "cache/incore_8_aiv_quant_a2a3.bin": "a6bd0e1f4c28af017f97a22f9ec8845f6c62d52322c775cb30d331e9f62cb1e5",
+    "cache/incore_9_aic_proj_b_mm_a2a3.bin": "85bcd13f31fa3cb10ea2619f1e46963de65c6c77790acd62752dd752b0e2e094",
+    "kernels/aic/proj_a_mm.o": "2c4a04cb457325427140099c676d386216050d86795c9adc756bdbdd431d1825",
+    "kernels/aic/proj_b_mm.o": "92f0d0634911dca94925eeedb99a838ac7311ffd302c1334c6f883b858c347a3",
+    "kernels/aic/qk_pv_aic.o": "0ab996f8f9aa275728b4b35e30935ed8889128cd1e7d00474c9d74fa98f65c58",
+    "kernels/aiv/build_valid.o": "38326521f5ed155201955c60572dd7a3524da9994bcf7fa36745526186c8e185",
+    "kernels/aiv/kv_touch.o": "b3f62e4f71e17a5ec12805728e336304142d40386a13581716f526043e267e08",
+    "kernels/aiv/merge_norm.o": "f004e544ae979de9e5443674d82dfc324e8bfc33510c6e727bd1f68d780d5d0d",
+    "kernels/aiv/proj_b_act.o": "79550023fe15c5ab1fdaaa687977ec0802e8f7685248ac440963e4bcccba492d",
+    "kernels/aiv/qk_pv_aiv.o": "a820ba448b0926c750ff2368c686ff20bf213638dd50e456a09d734ca9ec24b1",
+    "kernels/aiv/quant.o": "9a7f932792d7b10be22995924e583e8783cbff14aa7a67261ca1020088481aa4",
+    "kernels/aiv/rope_cs.o": "e79d75018f1dd297938fcb0df0d421f9328b7f553f55179787f53f379fe8d523",
+    "kernels/aiv/rope_swap.o": "8d2dc1ead37a27dac9cec6c6699271b806e8da21c3ba645c96b3630330395f54",
+    "orchestration/_sparse_attn_hca.so": "d206c7f4b5146534c718076e9aed104817970830c75f7f103e5763dbc65d2a62"
+  }
+}

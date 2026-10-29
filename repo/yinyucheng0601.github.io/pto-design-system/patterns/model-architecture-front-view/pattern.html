@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Model Architecture Front View Pattern</title>
+  <link rel="stylesheet" href="../../tokens/foundation.css">
+  <link rel="stylesheet" href="../../tokens/semantic.css">
+  <link rel="stylesheet" href="../../tokens/components.css">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../model-graphviz/pattern.css?v=front-view-2">
+  <link rel="stylesheet" href="./pattern.css?v=front-view-2">
+</head>
+<body class="pto-model-graphviz-pattern-page">
+  <main class="model-front-preview">
+    <header class="model-front-preview__toolbar">
+      <strong>openPangu 2.0 Flash · Source Architecture Front View</strong>
+      <label for="previewLayer">Layer</label>
+      <select id="previewLayer" aria-label="Layer 选择"></select>
+      <button class="btn btn-ghost btn-sm" id="toggleExperts" type="button">收起 Routed Experts</button>
+      <button class="btn btn-ghost btn-sm" id="fit" type="button">适配 ⤢</button>
+      <button class="btn btn-ghost btn-sm" id="theme" type="button">◐ 主题</button>
+    </header>
+    <section class="model-front-preview__stage" id="frontViewPattern" aria-label="openPangu source architecture front view"></section>
+    <footer class="model-front-preview__status" id="status">L38 · MoE · Routed Experts 256 children · E193 selected</footer>
+  </main>
+  <script src="../model-graphviz/pattern.js?v=front-view-2"></script>
+  <script src="./pattern.js?v=front-view-5"></script>
+  <script src="./pattern.pangu-preview-data.js?v=front-view-5"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const theme = params.get('theme') === 'light' ? 'light' : 'dark';
+    const initialLayer = Number.parseInt(params.get('layer') || '38', 10);
+    document.documentElement.dataset.theme = theme;
+    const layerSelect = document.getElementById('previewLayer');
+    for (let layer = 0; layer < PtoOpenPanguFrontViewPreviewData.model.layerCount; layer += 1) {
+      const option = document.createElement('option');
+      option.value = String(layer);
+      option.textContent = `L${layer} · ${PtoOpenPanguFrontViewPreviewData.model.denseLayers.includes(layer) ? 'Dense' : 'MoE'}`;
+      layerSelect.appendChild(option);
+    }
+    layerSelect.value = String(Math.max(0, Math.min(45, initialLayer)));
+    let expertCollapsed = false;
+    const selectedFor = (layer) => PtoOpenPanguFrontViewPreviewData.model.denseLayers.includes(layer) ? 'dense_mlp' : 'expert_193';
+    const controller = PtoModelArchitectureFrontView.render(
+      '#frontViewPattern',
+      PtoOpenPanguFrontViewPreviewData.build(Number(layerSelect.value)),
+      { selectedNodeId: selectedFor(Number(layerSelect.value)), theme }
+    );
+    function updateStatus() {
+      const layer = Number(layerSelect.value);
+      const dense = PtoOpenPanguFrontViewPreviewData.model.denseLayers.includes(layer);
+      const expertToggle = document.getElementById('toggleExperts');
+      expertToggle.disabled = dense;
+      expertToggle.textContent = dense ? 'Routed Experts 不适用' : expertCollapsed ? '展开 Routed Experts' : '收起 Routed Experts';
+      document.getElementById('status').textContent = dense
+        ? `L${layer} · Dense branch · source-checked operators · mHC residual ×4`
+        : `L${layer} · MoE branch · Routed Experts 256 children · E193 selected · mHC residual ×4`;
+    }
+    layerSelect.addEventListener('change', () => {
+      const layer = Number(layerSelect.value);
+      expertCollapsed = false;
+      document.getElementById('toggleExperts').textContent = '收起 Routed Experts';
+      controller.setData(PtoOpenPanguFrontViewPreviewData.build(layer), { selectedNodeId: selectedFor(layer) });
+      updateStatus();
+    });
+    document.getElementById('toggleExperts').addEventListener('click', () => {
+      if (PtoOpenPanguFrontViewPreviewData.model.denseLayers.includes(Number(layerSelect.value))) return;
+      expertCollapsed = !expertCollapsed;
+      controller.setCollapsed('routed_expert_bank', expertCollapsed);
+      document.getElementById('toggleExperts').textContent = expertCollapsed ? '展开 Routed Experts' : '收起 Routed Experts';
+    });
+    document.getElementById('fit').addEventListener('click', () => controller.fit());
+    document.getElementById('theme').addEventListener('click', () => {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      location.search = `?theme=${next}&layer=${layerSelect.value}`;
+    });
+    updateStatus();
+  </script>
+</body>
+</html>
