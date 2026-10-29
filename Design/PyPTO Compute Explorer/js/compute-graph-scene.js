@@ -24,9 +24,15 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       stack.setAttribute('role','button');stack.setAttribute('tabindex','0');
       stack.setAttribute('aria-label',`${node.title}，${entry.count} 个静态逻辑实例`);
       stack.style.cssText = `left:${node.x}px;top:${node.y}px;width:${node.w}px;height:${node.h}px`;
+      // Read the rendered node so composite and primitive silhouettes stay identical.
+      const nodeShape = getComputedStyle(element);
       for (let instance = entry.count; instance >= 2; instance--) {
         const layer = document.createElement('span');
         layer.className = 'kf-pypa-graph__execution-layer';
+        for (const corner of ['borderTopLeftRadius','borderTopRightRadius','borderBottomRightRadius','borderBottomLeftRadius']) {
+          layer.style[corner] = nodeShape[corner];
+        }
+        layer.style.clipPath = nodeShape.clipPath;
         layer.dataset.pypaExecutionInstance = String(instance);
         const offset=window.PtoPagedAttentionExecution.deckOffset(instance);
         layer.style.setProperty('--execution-offset', `${offset.right}px`);
