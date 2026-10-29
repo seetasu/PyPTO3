@@ -58,7 +58,7 @@
         const box=rect(element),style=getComputedStyle(paint),vector=paint instanceof SVGElement,item={id,element,box,
           fill:vector?(style.fill&&style.fill!=='none'?style.fill:'transparent'):style.backgroundColor,
           stroke:vector?(style.stroke&&style.stroke!=='none'?style.stroke:'transparent'):style.borderColor,
-          radius:parseFloat(style.rx)||parseFloat(style.borderRadius)||5};
+          radius:(parseFloat(style.rx)||parseFloat(style.borderRadius)||5)*(vector?(paint.getScreenCTM()?.a||1):(element.offsetWidth?box.width/element.offsetWidth:1))};
         objects.set(id,item);
       };
       if(tab==='assignment'){
@@ -75,6 +75,10 @@
         if(cards?.[0])add('normalize',cards[0]);if(cards?.[1])add('output',cards[1]);
       }else{
         for(const element of host.querySelectorAll('[data-pypa-node]'))add(`node:${element.dataset.pypaNode}`,element,element);
+        add('container:0',host.querySelector('[data-pypa-region="task-compute"]'));
+        for(const element of host.querySelectorAll('[data-stack-container-layer]'))add(`container:${element.dataset.stackContainerLayer}`,element);
+        add('qk-layer:0',host.querySelector('[data-pypa-node="qk"]'));
+        for(const element of host.querySelectorAll('[data-pypa-execution-stack="qk"] [data-pypa-execution-instance]'))add(`qk-layer:${Number(element.dataset.pypaExecutionInstance)-1}`,element);
         const operations=['qk','softmax','pv','context-acc'].map(id=>objects.get(`node:${id}`)).filter(Boolean);
         if(operations.length===4){
           const left=Math.min(...operations.map(item=>item.box.x)),top=Math.min(...operations.map(item=>item.box.y));
@@ -106,21 +110,22 @@
         if(source.tab==='pipeline'){add('normalize','node:output-norm','operation','Normalize',170);add('output','node:output','output','Output',210);}
         else {add('node:output-norm','normalize','operation','Normalize',170);add('node:output','output','output','Output',210);}
       }else if(direction==='assignment>graph'||direction==='graph>assignment'){
-        const forward=source.tab==='assignment';
-        const link=(assignment,graph,kind,label,priority)=>add(forward?assignment:graph,forward?graph:assignment,kind,label,priority);
-        if(focus?.kind==='q'||focus?.node==='q'){
-          link('q:0','node:q','data','Q Tile',0);
-        }else if(focus?.kind==='output'||focus?.node==='output'){
-          link('output:0','node:output','output','Output',0);
-        }else if(focus?.kind==='page'&&task.pages[focus.index]){
-          // A logical page participates in both reads; it is not either cache node.
-          link(`page:${focus.index}`,'node:qk','relation','K → QK',30);
-          link(`page:${focus.index}`,'node:pv','relation','V → PV',95);
-        }else{
-          // One Stack executes the shared operation template; no duplicate graph nodes.
-          ['qk','softmax','pv','context-acc'].forEach((node,index)=>
-            link(`stack:${selected}`,`node:${node}`,'stack-operation',node==='context-acc'?'Accumulate':node.toUpperCase(),index*45));
+        const forward=source.tab==='assignment',assignment=forward?source:target,graph=forward?target:source;
+        const groups=[['stack',task.stacks,'container:'],['page',task.pages,'qk-layer:']];
+        for(const [kind,entities,prefix] of groups){
+          const entries=entities.map((entity,index)=>({a:assignment.objects.get(`${kind}:${entity.index??index}`),g:graph.objects.get(`${prefix}${index}`),index}));
+          // Require a complete one-layer-per-instance mapping; Structure falls back safely.
+          if(entries.some(({a,g})=>!a||!g))return [];
+          const center=entries.reduce((v,{a})=>({x:v.x+(a.box.x+a.box.width/2)/entries.length,y:v.y+(a.box.y+a.box.height/2)/entries.length}),{x:0,y:0});
+          const base=entries[0].a.box;
+          const graphBase=entries[0].g.box;
+          for(const {a,g,index} of entries){
+            const gather={x:center.x-base.width/2+(g.box.x-graphBase.x),y:center.y-base.height/2+(g.box.y-graphBase.y),width:base.width,height:base.height};
+            result.push({source:forward?a:g,target:forward?g:a,kind:'gather',family:kind,index,gather,forward,label:'',priority:0});
+          }
         }
+        // Paint the backmost instances first, Pages above the large Stack outlines.
+        result.sort((a,b)=>(a.family==='stack'?0:1)-(b.family==='stack'?0:1)||b.index-a.index);
       }
       return result;
     }
@@ -161,33 +166,44 @@
       if(!task){cancel();return;}
       const mapping=pairs(current.source,target,current.focus,task);
       if(!mapping.length){cancel();return;}
+      const gathered=mapping[0]?.kind==='gather';
       const o=origin(),overlay=svg('svg',{class:'viz2-transition-overlay',width:o.width,height:o.height,'aria-hidden':'true','data-direction':`${current.from}-${current.to}`},root);
+      overlay.style.overflow='visible';
       current.overlay=overlay;current.destination=target.host;
       // A cloned source holds unmatched content; matched elements are owned by the overlay.
       for(const pair of mapping)for(const element of pair.source.elements||[pair.source.element])current.cloneMap.get(element)?.style.setProperty('visibility','hidden');
       for(const pair of mapping)for(const element of pair.target.elements||[pair.target.element]){if(current.masked.some(item=>item.element===element))continue;current.masked.push({element,previous:element.style.visibility});element.style.setProperty('visibility','hidden');}
       root.classList.remove('viz2-morph-preparing');delete root.dataset.morphDestination;
       const destination=target.host;
-      current.animations=[current.hold.animate([{opacity:1},{opacity:1,offset:.17},{opacity:0}],{duration:780,fill:'both',easing:'ease-in-out'}),destination.animate([{opacity:0},{opacity:0,offset:.35},{opacity:1}],{duration:900,fill:'both',easing:'ease-in-out'})];
+      current.animations=[current.hold.animate([{opacity:1},{opacity:1,offset:.17},{opacity:0}],{duration:gathered?600:780,fill:'both',easing:'ease-in-out'}),destination.animate([{opacity:0},{opacity:0,offset:gathered?.72:.35},{opacity:1}],{duration:gathered?1100:900,fill:'both',easing:'ease-in-out'})];
       const items=mapping.map(pair=>{
         const group=svg('g',{'data-intra-morph':`${pair.source.id}>${pair.target.id}`},overlay);
-        const box=svg('rect',{rx:pair.source.radius,fill:pair.source.fill||'transparent',stroke:pair.source.stroke||'none','stroke-width':1.5},group);
+        const box=svg('rect',{rx:pair.source.radius,fill:gathered?'transparent':pair.source.fill||'transparent',stroke:pair.source.stroke||'none','stroke-width':1.5},group);
         const label=svg('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':11,'font-family':'var(--font-mono)','fill':'var(--foreground)'},group);
         label.textContent=pair.label;
-        current.animations.push(box.animate([{fill:pair.source.fill||'transparent',stroke:pair.source.stroke||'none'},{fill:pair.target.fill||'transparent',stroke:pair.target.stroke||'none'}],{duration:650,fill:'both',easing:'ease-in-out'}));
+        if(!gathered)current.animations.push(box.animate([{fill:gathered?'transparent':pair.source.fill||'transparent',stroke:pair.source.stroke||'none'},{fill:pair.target.fill||'transparent',stroke:pair.target.stroke||'none'}],{duration:650,fill:'both',easing:'ease-in-out'}));
         return {...pair,box,label};
       });
-      current.phase='animating';const started=performance.now(),duration=900;
+      current.phase='animating';const started=performance.now(),duration=gathered?1100:900;
       function frame(now){
         if(job!==current)return;
         const elapsed=now-started;
         for(const item of items){
           const p=ease(clamp((elapsed-150-item.priority*.5)/610)),a=item.source.box,b=item.target.box;
-          const x=mix(a.x,b.x,p)-o.x,y=mix(a.y,b.y,p),width=mix(a.width,b.width,p),height=mix(a.height,b.height,p);
-          for(const [key,value] of Object.entries({x,y,width,height,rx:mix(item.source.radius,item.target.radius,p)}))item.box.setAttribute(key,String(Math.max(key==='width'||key==='height'?0.1:0,value)));
+          let geometry={x:mix(a.x,b.x,p),y:mix(a.y,b.y,p),width:mix(a.width,b.width,p),height:mix(a.height,b.height,p)};
+          if(gathered){
+            const time=item.forward?elapsed:1100-elapsed;
+            const start=item.forward?a:b,end=item.forward?b:a;
+            const first=time<420,progress=ease(clamp(first?time/420:(time-420)/480));
+            const left=first?start:item.gather,right=first?item.gather:end;
+            geometry=Object.fromEntries(['x','y','width','height'].map(key=>[key,mix(left[key],right[key],progress)]));
+            item.box.setAttribute('stroke',time<500?item.source.stroke:item.target.stroke);
+          }
+          const {width,height}=geometry,x=geometry.x-o.x,y=geometry.y-o.y;
+          for(const [key,value] of Object.entries({x,y,width,height,rx:mix(item.source.radius,item.target.radius,gathered?ease(clamp(elapsed/900)):p)}))item.box.setAttribute(key,String(Math.max(key==='width'||key==='height'?0.1:0,value)));
           item.label.setAttribute('x',String(x+width/2));item.label.setAttribute('y',String(y+height/2));
           item.label.style.opacity=String(Math.min(1,p*4)*(1-Math.max(0,(p-.78)/.22)));
-          item.box.style.opacity=String(1-Math.max(0,(p-.88)/.12));
+          item.box.style.opacity=String(gathered?1-clamp((elapsed-980)/120):1-Math.max(0,(p-.88)/.12));
         }
         if(elapsed<duration)current.frame=requestAnimationFrame(frame);else cancel();
       }
