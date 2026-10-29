@@ -23,7 +23,7 @@
   function mount(host, { onSelect, onView, execution, onEnter, onBlockEnter, adapter = null }) {
     let model = adapter?.getModel() || global.PTO_PYPA_SEMANTIC_GRAPH;
     let graph,rendered,nodes,nodeMap,nodeLabels,stageLabels,labels;
-    let expanded=new Set(),layers={data:!!adapter,shape:false,precision:false,memory:false,control:false,sync:false,execution:false},layoutKey='',executionKey='';
+    let expanded=new Set(),layers={data:!!adapter,shape:false,precision:false,memory:false,control:false,sync:false,execution:true},layoutKey='',executionKey='';
     const layerNames={data:adapter?'Data 节点':'中间数据',shape:'Shape',precision:'精度',memory:'存储及执行',control:'状态 / 控制',execution:'执行次数',sync:'同步'};
     host.classList.add('viz2-graph');
     host.innerHTML = `<div class="viz2-graph-body"><div class="viz2-graph-stage">
@@ -231,7 +231,7 @@
       const nextModel=adapter?.getModel() || model;
       if(nextModel!==model){model=nextModel;layoutKey='';executionKey='';first=true;}
       selection=nextSelection;view=nextView;active=!!options.active;camera=view.camera;
-      const nextLayers={data:!!adapter,shape:false,precision:false,memory:false,control:false,sync:false,execution:false,...view.overlays};
+      const nextLayers={data:!!adapter,shape:false,precision:false,memory:false,control:false,sync:false,execution:true,...view.overlays};
       const nextExpanded=new Set(view.expanded||[]),nextKey=JSON.stringify([{...nextLayers,execution:undefined},[...nextExpanded],selection?.task,global.PtoPagedAttentionContext?.scenario?.seqLen]);
       if(layers.execution!==nextLayers.execution)executionKey='';
       layers=nextLayers;scene.dataset.overlayExecution=String(layers.execution);

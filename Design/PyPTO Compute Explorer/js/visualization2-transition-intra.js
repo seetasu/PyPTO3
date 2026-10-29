@@ -107,11 +107,20 @@
         else {add('node:output-norm','normalize','operation','Normalize',170);add('node:output','output','output','Output',210);}
       }else if(direction==='assignment>graph'||direction==='graph>assignment'){
         const forward=source.tab==='assignment';
-        add(forward?'q:0':'node:q',forward?'node:q':'q:0','data','Q Tile',0);
-        const page=focus?.kind==='page'&&task.pages[focus.index]?focus.index:task.stacks[selected]?.pages?.[0];
-        if(Number.isInteger(page))for(const [index,node] of ['k-cache','v-cache'].entries())add(forward?`page:${page}`:`node:${node}`,forward?`node:${node}`:`page:${page}`,'data',node==='k-cache'?'K Pages':'V Pages',45+index*35);
-        add(forward?`stack:${selected}`:'region:stack-loop',forward?'region:stack-loop':`stack:${selected}`,'region',`S${selected} · Stack Loop`,130);
-        add(forward?'output:0':'node:output',forward?'node:output':'output:0','output','Output',190);
+        const link=(assignment,graph,kind,label,priority)=>add(forward?assignment:graph,forward?graph:assignment,kind,label,priority);
+        if(focus?.kind==='q'||focus?.node==='q'){
+          link('q:0','node:q','data','Q Tile',0);
+        }else if(focus?.kind==='output'||focus?.node==='output'){
+          link('output:0','node:output','output','Output',0);
+        }else if(focus?.kind==='page'&&task.pages[focus.index]){
+          // A logical page participates in both reads; it is not either cache node.
+          link(`page:${focus.index}`,'node:qk','relation','K → QK',30);
+          link(`page:${focus.index}`,'node:pv','relation','V → PV',95);
+        }else{
+          // One Stack executes the shared operation template; no duplicate graph nodes.
+          ['qk','softmax','pv','context-acc'].forEach((node,index)=>
+            link(`stack:${selected}`,`node:${node}`,'stack-operation',node==='context-acc'?'Accumulate':node.toUpperCase(),index*45));
+        }
       }
       return result;
     }
@@ -159,7 +168,7 @@
       for(const pair of mapping)for(const element of pair.target.elements||[pair.target.element]){if(current.masked.some(item=>item.element===element))continue;current.masked.push({element,previous:element.style.visibility});element.style.setProperty('visibility','hidden');}
       root.classList.remove('viz2-morph-preparing');delete root.dataset.morphDestination;
       const destination=target.host;
-      current.animations=[current.hold.animate([{opacity:1},{opacity:0}],{duration:400,fill:'both',easing:'ease-in-out'}),destination.animate([{opacity:0},{opacity:0,offset:.22},{opacity:1}],{duration:690,fill:'both',easing:'ease-in-out'})];
+      current.animations=[current.hold.animate([{opacity:1},{opacity:1,offset:.17},{opacity:0}],{duration:780,fill:'both',easing:'ease-in-out'}),destination.animate([{opacity:0},{opacity:0,offset:.35},{opacity:1}],{duration:900,fill:'both',easing:'ease-in-out'})];
       const items=mapping.map(pair=>{
         const group=svg('g',{'data-intra-morph':`${pair.source.id}>${pair.target.id}`},overlay);
         const box=svg('rect',{rx:pair.source.radius,fill:pair.source.fill||'transparent',stroke:pair.source.stroke||'none','stroke-width':1.5},group);
@@ -168,12 +177,12 @@
         current.animations.push(box.animate([{fill:pair.source.fill||'transparent',stroke:pair.source.stroke||'none'},{fill:pair.target.fill||'transparent',stroke:pair.target.stroke||'none'}],{duration:650,fill:'both',easing:'ease-in-out'}));
         return {...pair,box,label};
       });
-      current.phase='animating';const started=performance.now(),duration=680;
+      current.phase='animating';const started=performance.now(),duration=900;
       function frame(now){
         if(job!==current)return;
         const elapsed=now-started;
         for(const item of items){
-          const p=ease(clamp((elapsed-item.priority*.25)/650)),a=item.source.box,b=item.target.box;
+          const p=ease(clamp((elapsed-150-item.priority*.5)/610)),a=item.source.box,b=item.target.box;
           const x=mix(a.x,b.x,p)-o.x,y=mix(a.y,b.y,p),width=mix(a.width,b.width,p),height=mix(a.height,b.height,p);
           for(const [key,value] of Object.entries({x,y,width,height,rx:mix(item.source.radius,item.target.radius,p)}))item.box.setAttribute(key,String(Math.max(key==='width'||key==='height'?0.1:0,value)));
           item.label.setAttribute('x',String(x+width/2));item.label.setAttribute('y',String(y+height/2));

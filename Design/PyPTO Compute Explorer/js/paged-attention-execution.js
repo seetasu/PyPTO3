@@ -3,7 +3,7 @@
   'use strict';
   // Bounded logarithmic frequency: comparable across Tasks, never time or bytes.
   const width = count => Math.min(6, 1.5 + 0.9 * Math.log2(Math.max(1, count)));
-  const deckOffset = count => ({right:3 * Math.max(0,count-1),bottom:1.5 * Math.max(0,count-1)});
+  const deckOffset = count => ({right:7 * Math.max(0,count-1),bottom:5 * Math.max(0,count-1)});
   const decoration = (node,data) => !node.expandedGroup && ['operation','composite'].includes(node.type) && Number.isFinite(data?.nodes[node.id]?.count) ? data.nodes[node.id] : null;
   function derive(model, taskModel, scenario) {
     const { task, seqLen } = scenario || {};
