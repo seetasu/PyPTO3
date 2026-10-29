@@ -481,7 +481,7 @@ const CARDS = [
       + (tone === 'bad' ? 'var(--err)' : tone === 'idle' ? 'var(--track)' : 'var(--fill)') + '"/>'
       + '<text x="' + (40 + kpx(4096) + 8) + '" y="' + (y + 7) + '" font-size="9.5" font-family="var(--mono)" fill="'
       + (tone === 'bad' ? 'var(--err)' : 'var(--text-2)') + '">' + (draft ? 'K 待填' : v) + '</text>';
-    const svg = '<svg viewBox="0 0 300 150" role="img" aria-label="矩阵乘形状与收缩维对账">'
+    const svg = '<svg viewBox="0 0 300 172" role="img" aria-label="矩阵乘形状与收缩维对账">'
       + box(10, baseY - ah, aw, ah, draft ? 'ghost' : '', 'A')
       + '<text x="' + (10 + aw / 2) + '" y="' + (baseY + 12) + '" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--muted)">1024×4096</text>'
       + '<text x="' + (14 + aw) + '" y="' + (baseY - ah / 2 + 4) + '" font-size="12" fill="var(--muted)">×</text>'
@@ -494,13 +494,14 @@ const CARDS = [
             + '<text x="' + (47 + aw + bw + cw / 2) + '" y="' + (baseY + 12) + '" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--err)">无法推导</text>'
           : box(47 + aw + bw, baseY - ch, cw, ch, draft ? 'ghost' : '', 'C')
             + '<text x="' + (47 + aw + bw + cw / 2) + '" y="' + (baseY + 12) + '" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--muted)">1024×2048</text>')
-      /* 对账区 */
-      + '<line x1="4" y1="108" x2="296" y2="108" stroke="var(--line)"/>'
-      + '<text x="4" y="122" font-size="9.5" font-family="var(--mono)" fill="var(--faint)">收缩维 K 对账 · 线性比例</text>'
-      + kbar(128, 'A.K', draft ? 0 : 4096, draft ? 'idle' : '')
-      + kbar(140, 'B.K', draft ? 0 : K, conflict ? 'bad' : draft ? 'idle' : '')
+      /* 对账区：线性比例，不匹配时差距直接是一段看得见的空缺 */
+      + '<line x1="4" y1="120" x2="296" y2="120" stroke="var(--line)"/>'
+      + '<text x="4" y="133" font-size="9.5" font-family="var(--mono)" fill="var(--faint)">收缩维 K 对账 · 线性比例</text>'
+      + kbar(140, 'A.K', draft ? 0 : 4096, draft ? 'idle' : '')
+      + kbar(152, 'B.K', draft ? 0 : K, conflict ? 'bad' : draft ? 'idle' : '')
       + (conflict
-          ? '<rect x="' + (40 + kpx(2048)) + '" y="140" width="' + kpx(2048) + '" height="8" rx="2" fill="none" stroke="var(--err)" stroke-dasharray="3 2"/>'
+          ? '<rect x="' + (40 + kpx(2048)) + '" y="152" width="' + kpx(2048) + '" height="8" rx="2" fill="none" stroke="var(--err)" stroke-dasharray="3 2"/>'
+            + '<text x="' + (40 + kpx(4096) + 8) + '" y="166" font-size="9" font-family="var(--mono)" fill="var(--err)">缺 2048</text>'
           : '')
       + '</svg>';
     const checks = [
@@ -532,7 +533,7 @@ const CARDS = [
   id: 'tensor', zh: 'Tensor', en: 'TensorDesc', glyph: '▦', stage: ['定义', '开发', '验证'],
   objects: ['TensorType', 'TileType', 'DataType', 'MemorySpace', 'MemRef'],
   question: '这个张量是什么形状、什么类型，放在哪一级存储？',
-  intent: '张量是被复用最多的对象，字段必须在所有卡片里保持一致的命名与顺序，所以这里直接用 PyPTO 的字段名。MemorySpace 单列出来，因为它决定了后续能做什么搬运——TensorType 恒在 DDR，要进 Cube 必须先 tile.load 成 TileType。',
+  intent: '张量是被复用最多的对象，字段必须在所有卡片里保持一致的命名与顺序，所以这里直接用 PyPTO 的字段名。图不画「一个盒子」，而画它在存储层级中的位置与搬运方向——因为 TensorType 的定义性特征就是它恒在 DDR、必须 tile.load 才能进 Cube。输入画成 DDR→片上、输出画成片上→DDR，四个状态因此在视觉上就能分开；「与规格不符」用虚线画出期望形状，差距成为看得见的几何缺口，而不是一个要读者自己比对的红色数字。',
   states: [['in', '输入 A'], ['out', '输出 C'], ['draft', '属性待补'], ['bad', '与规格不符']],
   render(s) {
     const d = {
@@ -542,19 +543,44 @@ const CARDS = [
       bad: { n: 'A', role: '输入 / Input', dims: [1024, 2048], expect: [1024, 4096], shape: '[1024, 2048]', dt: 'FP16', fmt: 'ND', space: 'DDR', bytes: '4.00 MB', ct: '连续', pill: ['err', '与规格不符'], msg: '规格要求 A 的 K 维为 4096，实际传入 2048。' }
     }[s];
     const soft = s === 'draft' ? 'soft' : '';
-    const cells = '<svg viewBox="0 0 300 92" role="img" aria-label="张量形状示意">'
-      + '<text x="150" y="10" fill="var(--muted)" font-size="10" text-anchor="middle" font-family="var(--mono)">dim 1 · ' + d.shape.split(', ')[1].replace(']', '') + '</text>'
-      + '<text x="8" y="54" fill="var(--muted)" font-size="10" font-family="var(--mono)">' + d.shape.replace('[', '').split(',')[0] + '</text>'
-      + '<rect x="52" y="18" width="196" height="62" rx="3" fill="' + (s === 'bad' ? 'var(--err-bg)' : s === 'draft' ? 'var(--track)' : 'var(--brand-dim)') + '" stroke="' + (s === 'bad' ? 'var(--err)' : s === 'draft' ? 'var(--faint)' : 'var(--brand)') + '"/>'
-      + Array.from({ length: 7 }, (_, i) => '<line x1="' + (52 + 24.5 * (i + 1)) + '" y1="18" x2="' + (52 + 24.5 * (i + 1)) + '" y2="80" stroke="var(--line)" stroke-width="1"/>').join('')
-      + Array.from({ length: 2 }, (_, i) => '<line x1="52" y1="' + (18 + 20.6 * (i + 1)) + '" x2="248" y2="' + (18 + 20.6 * (i + 1)) + '" stroke="var(--line)" stroke-width="1"/>').join('')
-      + '<text x="150" y="54" fill="' + (s === 'bad' ? 'var(--err)' : s === 'draft' ? 'var(--faint)' : 'var(--brand)') + '" font-size="14" text-anchor="middle" font-family="var(--mono)">' + d.n + '</text>'
-      + '<text x="264" y="54" fill="var(--faint)" font-size="9.5" font-family="var(--mono)">' + d.space + '</text>'
+    /* 张量恒在 DDR，要参与 Cube 计算必须先 tile.load 到片上；
+       输入画成 DDR→片上，输出画成片上→DDR，四个状态因此在视觉上真正分开。 */
+    const bad = s === 'bad', draft = s === 'draft', isOut = s === 'out';
+    const bw = d.dims ? logPx(d.dims[1]) : 60, bh = d.dims ? logPx(d.dims[0]) : 30;
+    const bx = 77 - bw / 2, by = 57 - bh / 2;
+    const stroke = bad ? 'var(--err)' : draft ? 'var(--faint)' : 'var(--brand)';
+    const fill = bad ? 'var(--err-bg)' : draft ? 'none' : 'var(--brand-dim)';
+    const ghost = bad && d.expect
+      ? '<rect x="' + (77 - logPx(d.expect[1]) / 2) + '" y="' + (57 - logPx(d.expect[0]) / 2) + '" width="' + logPx(d.expect[1])
+        + '" height="' + logPx(d.expect[0]) + '" rx="3" fill="none" stroke="var(--faint)" stroke-dasharray="4 3"/>'
+        + '<text x="77" y="30" text-anchor="middle" font-size="8.5" font-family="var(--mono)" fill="var(--faint)">规格期望 1024×4096</text>'
+      : '';
+    const arrow = draft
+      ? '<text x="175" y="61" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--faint)">形状未定</text>'
+      : '<line x1="' + (isOut ? 196 : 154) + '" y1="57" x2="' + (isOut ? 158 : 192) + '" y2="57" stroke="var(--brand)" stroke-width="1.5"/>'
+        + '<path d="M' + (isOut ? 154 : 196) + ' 57 l' + (isOut ? 6 : -6) + ' -4 l0 8 z" fill="var(--brand)"/>'
+        + '<text x="175" y="48" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--brand)">'
+        + (isOut ? 'tile.store' : 'tile.load') + '</text>';
+    const cells = '<svg viewBox="0 0 300 116" role="img" aria-label="张量在存储层级中的位置与搬运方向">'
+      + '<rect x="4" y="14" width="146" height="86" rx="7" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>'
+      + '<text x="12" y="27" font-size="9" font-family="var(--mono)" fill="var(--faint)">DDR · 片外</text>'
+      + ghost
+      + '<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + fill + '" stroke="' + stroke + '"'
+        + (draft ? ' stroke-dasharray="4 3"' : '') + '/>'
+      + '<text x="77" y="' + (57 + 4) + '" text-anchor="middle" font-size="12" font-family="var(--mono)" fill="' + stroke + '">' + d.n + '</text>'
+      + '<text x="77" y="94" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="' + (bad ? 'var(--err)' : 'var(--muted)') + '">'
+        + d.shape + ' · ' + d.bytes + '</text>'
+      + arrow
+      + '<rect x="200" y="14" width="96" height="86" rx="7" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>'
+      + '<text x="208" y="27" font-size="9" font-family="var(--mono)" fill="var(--faint)">Mat / Vec · 片上</text>'
+      + '<rect x="226" y="47" width="44" height="20" rx="3" fill="none" stroke="var(--faint)" stroke-dasharray="3 2"/>'
+      + '<text x="248" y="61" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--faint)">TileType</text>'
+      + '<text x="248" y="94" text-anchor="middle" font-size="8.5" font-family="var(--mono)" fill="var(--faint)">Cube 只能读这里</text>'
       + '</svg>';
     return {
       pill: d.pill,
       body: lead(d.n + ' · ' + d.role, 'matmul_fp16')
-        + viz('SHAPE / ' + d.fmt, '网格为示意，不表示元素数量', cells)
+        + viz('PLACEMENT / ' + d.fmt, '矩形边长 log2 阻尼，非真实比例', cells)
         + kv([
             ['Shape', d.shape, s === 'bad' ? 'bad' : soft],
             ['DataType', d.dt, soft],
