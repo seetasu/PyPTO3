@@ -191,7 +191,7 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
  const shared=global.PtoVisualization2Graph.mount(canvas,{onView:patch=>{if(patch.overlays){const {execution,...overlays}=patch.overlays;onView({intraOverlays:overlays,intraMode:execution?'weight':'structure'});return;}const mapped={};for(const [k,v] of Object.entries(patch))mapped[{camera:'intraCamera',expanded:'intraExpanded',overlays:'intraOverlays',inspectorOpen:'intraInspectorOpen',relationMode:'intraRelationMode'}[k]||k]=v;onView(mapped);},adapter:{
   getModel:()=>task.graph,resolveFocus,executionData,showExecutionCount:node=>node.type==='operation'||node.type==='composite',
   stageLabel:g=>`<b>${esc(g.label)}</b>`,
-  context:()=>view.intraMode==='weight'?'Static Execution Weight · AIC / 每 AIV Lane 分别统计 · 非耗时':'Data / State / Feedback / READY · 源码静态计算关系',
+  context:()=>view.intraMode!=='structure'?'Static Execution Weight · AIC / 每 AIV Lane 分别统计 · 非耗时':'Data / State / Feedback / READY · 源码静态计算关系',
   hasInspector:()=>!!focus,
   inspector(node,sync,graph){
    const d=description(node,sync,graph),semantic=node&&!sync?global.PTO_COMPUTATION_PRESENTATION.inspector(node,{model:task.graph,qualifiedId:node.id}):[],related=node&&!sync?relatedSyncs(node.id):[];
@@ -220,7 +220,7 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
   onSync(id){const sync=syncFor(id),index=stackIndex()??0;onFocus({kind:'event',syncId:sync.id,event:sync.name+'_EVENT',index,stackIndex:index});},
   onHover(node,edge,syncId){hover=node?{node}:edge?{edge}:syncId?{syncId}:null;},
   tooltip(id,edge,syncId,graph){const d=description(graph.nodes.find(n=>n.id===id),task.graph.synchronizations.find(s=>s.id===syncId),graph,edge),state=['m','l','rescale','o'].includes(id?.split('/')[0])||['feedback','state'].includes(edgeFor(edge,graph)?.type),rows=state?d.rows.filter(r=>['状态路径','Softmax · m','Softmax · rescale_after','Softmax · l_sum','FIFO 延迟','Context Accumulate · o'].includes(r[0])):d.rows.slice(0,3);return `${d.title} · ${rows.map(r=>r.join(': ')).join(' · ')} · source:${d.line}`;},
-  decorate(scene,nodes,graph,data){scene.dataset.executionWeight=String(!!data);nodes.forEach(n=>{const el=scene.querySelector(`[data-pypa-node="${n.id}"]`),entry=data?.nodes[n.id];if(el)el.style.setProperty('--execution-weight',entry&&n.type==='operation'?String(Math.min(1,entry.count/Math.max(task.pageCount,task.tickCount))):'0');});}
+  decorate(scene,nodes,graph,data){scene.dataset.executionWeight=String(!!data);scene.querySelectorAll('[data-stack-container-layer]').forEach(el=>el.remove());const container=scene.querySelector('[data-pypa-region="task-compute"]');if(data&&container){for(let i=task.stackCount-1;i>0;i--){const layer=document.createElement('div');layer.dataset.stackContainerLayer=String(i);layer.className='kf-pypa-graph__group execution-container-layer';layer.style.cssText=container.style.cssText;layer.style.transform=`translate(${i*10}px,${i*8}px)`;layer.setAttribute('aria-hidden','true');scene.insertBefore(layer,container);}}nodes.forEach(n=>{const el=scene.querySelector(`[data-pypa-node="${n.id}"]`),entry=data?.nodes[n.id];if(el)el.style.setProperty('--execution-weight',entry&&n.type==='operation'?String(Math.min(1,entry.count/Math.max(task.pageCount,task.tickCount))):'0');});}
  }});
  host.addEventListener('change',e=>{if(e.target.matches('[data-compute-task]'))onTask(Number(e.target.value));});
  canvas.addEventListener('click',e=>{const button=e.target.closest('[data-compute-instance-page],[data-compute-instance-stack]');if(!button)return;e.stopPropagation();const page=button.dataset.computeInstancePage!==undefined?Number(button.dataset.computeInstancePage):undefined,index=page!==undefined?task.pages[page].stack:Number(button.dataset.computeInstanceStack);onFocus({...focus,instancePage:page,index,stackIndex:index});},true);
@@ -232,10 +232,10 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
   if(model.tasks[id])task=model.tasks[id];focus=f;view=v;active=!!next;hover=null;
   if(active){toolbar.querySelector('[data-compute-task]').value=task.id;toolbar.querySelector('[data-compute-context]').textContent=`Batch ${task.batch} · KV ${task.kvHead} · ${task.seqLen} tokens · ${task.pageCount} Pages / ${task.stackCount} Stacks / ${task.tickCount} logical ticks`;
    const s=stackIndex();toolbar.querySelector('[data-compute-stacks]').innerHTML=task.stacks.map(stack=>`${stack.index?'<span aria-hidden="true">→</span>':''}<button class="btn btn-ghost btn-sm ${s===stack.index?'is-selected':''}" data-compute-stack="${stack.index}" aria-pressed="${s===stack.index}">S${stack.index}</button>`).join('');
-   toolbar.querySelectorAll('[data-compute-mode]').forEach(b=>{const selected=b.dataset.computeMode===(v.intraMode||'structure');b.classList.toggle('is-selected',selected);b.setAttribute('aria-pressed',String(selected));});
+   toolbar.querySelectorAll('[data-compute-mode]').forEach(b=>{const selected=b.dataset.computeMode===(v.intraMode||'weight');b.classList.toggle('is-selected',selected);b.setAttribute('aria-pressed',String(selected));});
   }
   const sync=task.graph.synchronizations.find(s=>s.id===f?.syncId||s.name===f?.event?.replace('_EVENT',''));
-  shared.update({kind:'task',task:task.id,block:task.block,batch:task.batch,kvHead:task.kvHead,subobject:f},{camera:v.intraCamera,nodeId:currentNode(),syncId:sync?.id,expanded:v.intraExpanded||[],overlays:{control:true,...v.intraOverlays,sync:!!sync||!!v.intraOverlays?.sync,execution:v.intraMode==='weight'},relationMode:v.intraRelationMode,inspectorOpen:v.intraInspectorOpen},{active});
+  shared.update({kind:'task',task:task.id,block:task.block,batch:task.batch,kvHead:task.kvHead,subobject:f},{camera:v.intraCamera,nodeId:currentNode(),syncId:sync?.id,expanded:v.intraExpanded||[],overlays:{control:true,...v.intraOverlays,sync:!!sync||!!v.intraOverlays?.sync,execution:v.intraMode!=='structure'},relationMode:v.intraRelationMode,inspectorOpen:v.intraInspectorOpen},{active});
  },hideTooltip:shared.hideTooltip,getTransitionRect:shared.getTransitionRect};
 }
 global.PtoVisualization2GraphIntra=Object.freeze({createModel,stackEvolution,pageInstances,mount});

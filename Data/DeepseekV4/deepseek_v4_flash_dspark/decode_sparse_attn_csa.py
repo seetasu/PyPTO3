@@ -62,7 +62,7 @@ CMP_MAX_BLOCKS = (MAX_SEQ_LEN // COMPRESS_RATIO + BLOCK_SIZE - 1) // BLOCK_SIZE
 
 # tiling
 H_TILE = 16
-QK_M_TILE = 32           # qk_pv M rows per QK/PV matmul; QK_M_TILE/H_TILE-way KV L1->L0 reuse
+QK_M_TILE = 32           #  M rows per QK/PV matmul; QK_M_TILE/H_TILE-way KV L1->L0 reuse
 ATTN_K_TILE = 128
 NUM_QK_CORES = 24        # qk_pv dispatch lanes = a2a3 AIC count; re-sweep for other AIC counts
 T_PAD = ((T + 16 - 1) // 16) * 16  # T padded up to the 16-row cube M floor

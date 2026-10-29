@@ -205,3 +205,7 @@
   opacity: .28;
 }
 .kf-pypa-graph__scene.has-journey .kf-pypa-graph__execution-stack:is(.is-journey-path, .is-selected) { opacity: 1; }
+
+/* Logical repetition: separated silhouettes stay legible at half scale. */
+.kf-pypa-graph__execution-layer { border-width: 1.5px; border-radius: 8px; background: var(--surface-3); }
+.kf-pypa-graph__group.execution-container-layer { pointer-events:none; background:transparent; border:1.5px solid color-mix(in srgb,var(--foreground-muted) 38%,transparent); }
