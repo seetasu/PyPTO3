@@ -475,13 +475,13 @@ const CARDS = [
           + (tone === 'bad' ? 'var(--err)' : tone === 'ghost' ? 'var(--faint)' : 'var(--brand)') + '">' + label + '</text>' : '');
     /* K 对账条：线性比例，1 单位 = 110/4096 px */
     const kpx = (v) => v * 110 / 4096;
-    const kbar = (y, name, v, tone) =>
+    const kbar = (y, name, v, tone, suffix) =>
       '<text x="4" y="' + (y + 7) + '" font-size="9.5" font-family="var(--mono)" fill="var(--muted)">' + name + '</text>'
       + '<rect x="40" y="' + y + '" width="' + kpx(v) + '" height="8" rx="2" fill="'
       + (tone === 'bad' ? 'var(--err)' : tone === 'idle' ? 'var(--track)' : 'var(--fill)') + '"/>'
       + '<text x="' + (40 + kpx(4096) + 8) + '" y="' + (y + 7) + '" font-size="9.5" font-family="var(--mono)" fill="'
-      + (tone === 'bad' ? 'var(--err)' : 'var(--text-2)') + '">' + (draft ? 'K 待填' : v) + '</text>';
-    const svg = '<svg viewBox="0 0 300 172" role="img" aria-label="矩阵乘形状与收缩维对账">'
+      + (tone === 'bad' ? 'var(--err)' : 'var(--text-2)') + '">' + (draft ? 'K 待填' : v + (suffix || '')) + '</text>';
+    const svg = '<svg viewBox="0 0 300 164" role="img" aria-label="矩阵乘形状与收缩维对账">'
       + box(10, baseY - ah, aw, ah, draft ? 'ghost' : '', 'A')
       + '<text x="' + (10 + aw / 2) + '" y="' + (baseY + 12) + '" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--muted)">1024×4096</text>'
       + '<text x="' + (14 + aw) + '" y="' + (baseY - ah / 2 + 4) + '" font-size="12" fill="var(--muted)">×</text>'
@@ -498,10 +498,9 @@ const CARDS = [
       + '<line x1="4" y1="120" x2="296" y2="120" stroke="var(--line)"/>'
       + '<text x="4" y="133" font-size="9.5" font-family="var(--mono)" fill="var(--faint)">收缩维 K 对账 · 线性比例</text>'
       + kbar(140, 'A.K', draft ? 0 : 4096, draft ? 'idle' : '')
-      + kbar(152, 'B.K', draft ? 0 : K, conflict ? 'bad' : draft ? 'idle' : '')
+      + kbar(152, 'B.K', draft ? 0 : K, conflict ? 'bad' : draft ? 'idle' : '', conflict ? ' · 缺 2048' : '')
       + (conflict
           ? '<rect x="' + (40 + kpx(2048)) + '" y="152" width="' + kpx(2048) + '" height="8" rx="2" fill="none" stroke="var(--err)" stroke-dasharray="3 2"/>'
-            + '<text x="' + (40 + kpx(4096) + 8) + '" y="166" font-size="9" font-family="var(--mono)" fill="var(--err)">缺 2048</text>'
           : '')
       + '</svg>';
     const checks = [
