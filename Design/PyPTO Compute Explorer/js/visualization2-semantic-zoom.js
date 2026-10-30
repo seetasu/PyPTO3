@@ -34,7 +34,7 @@
       const frame=make('rect',{rx:4,fill:color('--surface-3'),stroke:color('--foreground'),'stroke-width':1.5},overlay);
       const prefix=make('text',{'text-anchor':'middle','dominant-baseline':'central',fill:color('--foreground'),'font-family':color('--font-mono')},overlay);prefix.textContent='Task ';
       const number=make('text',{'text-anchor':'middle','dominant-baseline':'central',fill:color('--foreground'),'font-family':color('--font-mono')},overlay);number.textContent=current.id;
-      const qRows=matrix.qRows.map((source,index)=>({source,target:anatomy.qRows[index],node:make('rect',{fill:color('--ai-data-fill'),rx:1},overlay)}));
+      const qRows=matrix.qRows.map((source,index)=>({source,target:anatomy.qRows[index],node:make('rect',{fill:color('--primary'),rx:1},overlay)}));
       const cells=new Map(anatomy.cells.map(cell=>[cell.key,cell.rect]));
       const parts=[];
       matrix.segments.forEach((segment,stack)=>{
@@ -45,7 +45,7 @@
           const fraction=Math.max(0,Math.min(1,(anatomy.model.seqLen-index*pageTokens)/pageTokens));
           const targetCell=cells.get(`${stack}:${page}`);
           const add=(destination,disappears=false)=>parts.push({source,target:destination,fraction,disappears,
-            track:make('rect',{fill:color('--surface-4'),rx:1},overlay),fill:make('rect',{fill:color('--ai-data-fill'),rx:1},overlay)});
+            track:make('rect',{fill:color('--surface-4'),rx:1},overlay),fill:make('rect',{fill:color('--primary'),rx:1},overlay)});
           if(targetCell)add(targetCell);else add({...anatomy.frame,x:anatomy.frame.x+anatomy.frame.width/2,y:anatomy.frame.y+anatomy.frame.height/2,width:0,height:0},true);
         }
       });
