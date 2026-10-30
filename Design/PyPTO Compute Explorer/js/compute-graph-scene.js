@@ -35,8 +35,8 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
         layer.style.clipPath = nodeShape.clipPath;
         layer.dataset.pypaExecutionInstance = String(instance);
         const offset=window.PtoPagedAttentionExecution.deckOffset(instance);
-        layer.style.setProperty('--execution-offset', `${offset.right}px`);
-        layer.style.setProperty('--execution-offset-y', `${offset.bottom}px`);
+        layer.style.setProperty('--execution-offset', `${offset.right*.4}px`);
+        layer.style.setProperty('--execution-offset-y', `${offset.bottom*.4}px`);
         stack.appendChild(layer);
       }
       stack.classList.toggle('is-journey-path', element.classList.contains('is-journey-path'));
@@ -73,9 +73,15 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
   function renderPypaGraphScene(scene, graph, options = {}) {
     const { view = 'compute', selectedNodeId = null, expandedStages = new Set(),
       modelGraphviz = false, compactNodes = false, markerPrefix = 'pypa', cardHtml = pypaComputeCardHtml } = options;
+    const labelMeasure = document.createElement('canvas').getContext('2d');
+    labelMeasure.font = '500 15px -apple-system, BlinkMacSystemFont, "PingFang SC", Arial, sans-serif';
+    const opWidth = node => Math.ceil(labelMeasure.measureText(window.PtoAIInfraPresentation?.localizeText?.(node.title) || node.title).width) + (node.expandable ? 88 : 58);
+    const fitOp = node => view === 'compute' && window.PtoAIInfraPresentation && node.kind !== 'data' && !node.expandedGroup;
     const placedNodes = graph.nodes.map((node) => ({
-      ...node, expandable: options.allowExpand === false ? false : node.expandable,
-      y: view === 'overview' ? node.y + (node.y >= 600 ? 70 : 0) + (node.y >= 760 ? 60 : 0) : node.y,
+      ...node, w: fitOp(node) ? opWidth(node) : node.w, x: fitOp(node) ? node.x + (node.w - opWidth(node)) / 2 : node.x, expandable: options.allowExpand === false ? false : node.expandable,
+      // Normalize presentation geometry before routing, preserving each node's center.
+      h: view === 'compute' && window.PtoAIInfraPresentation && !node.expandedGroup ? (node.kind === 'data' ? 64 : 48) : node.h,
+      y: view === 'overview' ? node.y + (node.y >= 600 ? 70 : 0) + (node.y >= 760 ? 60 : 0) : node.y + (window.PtoAIInfraPresentation && !node.expandedGroup ? (node.h - (node.kind === 'data' ? 64 : 48)) / 2 : 0),
     }));
     const syncBridges = view === 'compute' && options.synchronizations !== false ? window.PTO_COMPUTATION_LAYOUT.synchronizationBridges(graph) : [];
     const sceneWidth = Math.max(graph.width || options.fallbackWidth || 2260, ...syncBridges.map((bridge) => bridge.maxX + 32));
@@ -293,6 +299,7 @@ const pypaEscape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
       }
       scene.appendChild(button);
     });
+    window.PtoAIInfraPresentation?.apply(scene, { ...graph, nodes: placedNodes }, options);
     return { placedNodes, sceneWidth, sceneHeight };
   }
   function pypaComputeCardHtml(node, options = {}) {
