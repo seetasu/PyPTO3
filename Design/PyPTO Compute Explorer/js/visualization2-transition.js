@@ -46,9 +46,9 @@
         tasks:[...host.querySelectorAll('[data-pa-task]')].map(task=>{
           const frame=task.querySelector('.kf-pa-map__cell'),r=rect(frame.getBoundingClientRect());
           const sequence=task.querySelector('.viz2-am-seq-encoding');
-          const tracks=[...sequence.querySelectorAll('.kf-pa-map__seq-track')];
-          const fills=[...sequence.querySelectorAll('.kf-pa-map__seq-fill')];
-          const label=task.querySelector('.kf-pa-map__task-id');
+          const tracks=[...sequence.querySelectorAll('.ai-stack-track')];
+          const fills=[...sequence.querySelectorAll('.ai-stack-fill')];
+          const label=task.querySelector('.kf-pa-map__task-id') || frame;
           const sourceScale=r.width/(Number(frame.getAttribute('width'))||r.width);
           return {id:Number(task.dataset.paTask),block:Number(task.dataset.paTask)%blockCount,rect:r,
             cell:{fill:getComputedStyle(frame).fill,stroke:getComputedStyle(frame).stroke,strokeWidth:getComputedStyle(frame).strokeWidth},
@@ -184,8 +184,8 @@
           const toFill={...toTrack,width:toTrack.width*(stack?.fraction||0)};
           const sourceTrack=el('rect',{rx:1,fill:sourceSegment?.trackColor||color('--surface-2')},group);
           const targetTrack=el('rect',{rx:1,fill:color('--surface-4')},group);
-          const sourceFill=el('rect',{rx:1,fill:sourceSegment?.fillColor||color('--primary')},group);
-          const targetFill=el('rect',{rx:1,fill:color('--primary')},group);
+          const sourceFill=el('rect',{rx:1,fill:sourceSegment?.fillColor||color('--ai-data-fill')},group);
+          const targetFill=el('rect',{rx:1,fill:color('--ai-data-fill')},group);
           const pages=Array.from({length:Math.max(0,(stack?.pages.length||0)-1)},()=>el('line',{
             stroke:color('--surface-2'),'stroke-width':.7},group));
           return {fromTrack,fromFill,toTrack,toFill,sourceTrack,targetTrack,sourceFill,targetFill,
@@ -259,6 +259,7 @@
             label.setAttribute('x',lx);label.setAttribute('y',ly);
             label.setAttribute('font-size',mix(source.label.fontSize,target.label.size,q));
             label.setAttribute('font-weight',Math.round(mix(600,400,q)));
+            label.style.opacity=String(q);
             label.style.strokeOpacity=String(1-q);
             const bw=target.label.width+4,bh=Math.min(target.rect.height,13);
             setRect(backing,{x:r.x+(r.width-bw)/2,y:r.y+(r.height-bh)/2,width:bw,height:bh});

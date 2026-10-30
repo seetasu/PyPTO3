@@ -235,7 +235,7 @@ function mount(host,{model,onTask,onFocus,onView,onNavigate}){
    toolbar.querySelectorAll('[data-compute-mode]').forEach(b=>{const selected=b.dataset.computeMode===(v.intraMode||'weight');b.classList.toggle('is-selected',selected);b.setAttribute('aria-pressed',String(selected));});
   }
   const sync=task.graph.synchronizations.find(s=>s.id===f?.syncId||s.name===f?.event?.replace('_EVENT',''));
-  shared.update({kind:'task',task:task.id,block:task.block,batch:task.batch,kvHead:task.kvHead,subobject:f},{camera:v.intraCamera,nodeId:currentNode(),syncId:sync?.id,expanded:v.intraExpanded||[],overlays:{control:true,...v.intraOverlays,sync:!!sync||!!v.intraOverlays?.sync,execution:v.intraMode!=='structure'},relationMode:v.intraRelationMode,inspectorOpen:v.intraInspectorOpen},{active});
+  shared.update({kind:'task',task:task.id,block:task.block,batch:task.batch,kvHead:task.kvHead,subobject:f},{camera:v.intraCamera,nodeId:currentNode(),syncId:sync?.id,expanded:v.intraExpanded||[],overlays:{control:true,...v.intraOverlays,sync:!!sync||(v.intraOverlays?.sync??true),execution:v.intraMode!=='structure'},relationMode:v.intraRelationMode,inspectorOpen:v.intraInspectorOpen},{active});
  },hideTooltip:shared.hideTooltip,getTransitionRect:shared.getTransitionRect};
 }
 global.PtoVisualization2GraphIntra=Object.freeze({createModel,stackEvolution,pageInstances,mount});

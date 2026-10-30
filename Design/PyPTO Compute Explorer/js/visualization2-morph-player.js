@@ -3,11 +3,11 @@
   'use strict';
   const timing = Object.freeze({ forward: 1000, reverse: 900, generationHold: 1000, assignmentHold: 1500, manual: 700 });
   const clamp = value => Math.max(0, Math.min(1, value));
-  function create({ draw, onChange = () => {}, pauseOnReturn = false, clock, media, visibility } = {}) {
+  function create({ draw, onChange = () => {}, pauseOnReturn = false, once = false, clock, media, visibility } = {}) {
     clock ||= { now: () => global.performance.now(), frame: fn => global.requestAnimationFrame(fn), cancelFrame: id => global.cancelAnimationFrame(id), delay: (fn, ms) => global.setTimeout(fn, ms), cancelDelay: id => global.clearTimeout(id) };
     media ||= global.matchMedia('(prefers-reduced-motion: reduce)');
     visibility ||= global.document;
-    let progress = 0, target = 0, active = false, seen = false, held = false, loop = true;
+    let progress = 0, target = 0, active = false, seen = false, held = false, loop = !once;
     let frame = null, timer = null, running = false, serial = 0, disposed = false;
     const notify = () => onChange({ progress, target, active, held, loop, playing: running || timer !== null });
     const paint = value => { progress = clamp(value); draw(progress); };
@@ -36,7 +36,7 @@
       frame = clock.frame(tick);
     }
     function schedule() {
-      if (disposed || !active || held || !loop || visibility.hidden) {
+      if (disposed || !active || held || (!loop && (!once || progress === 1)) || visibility.hidden) {
         if (!loop) held = true;
         notify(); return;
       }
@@ -61,7 +61,7 @@
       animateTo(progress > 0 && progress < 1 ? target : progress === 0 ? 1 : 0, false, schedule);
     }
     function goTo(next) { if (disposed) return; pause(); animateTo(next, true); }
-    function replay() { if (disposed || !active) return; held = false; animateTo(0, true, schedule); }
+    function replay() { if (disposed || !active) return; held = false; if (once) { clear(); paint(0); animateTo(1, false, schedule); } else animateTo(0, true, schedule); }
     function setLoop(next) {
       loop = next;
       if (!loop) { if (timer !== null) clock.cancelDelay(timer); timer = null; if (!running) held = true; }
