@@ -55,7 +55,7 @@ for metric in exp['profiling']:
     check('PMU report: ' + metric['metric'], metric['baseline'] in report and metric['final'] in report)
 layout = (ROOT / 'lineage-layout.js').read_text()
 items = re.findall(r"\['(e[0-9]+|[dxi]-[^']*)','", layout)
-branches = re.findall(r"\{id:'((?:d|x)-[^']+)',parent:", layout)
+branches = re.findall(r"\{id:'((?:d|x)-[^']+)'", layout)
 shown = items + branches
 check('unique displayed node identities', len(shown) == len(set(shown)))
 check('displayed nodes exist', all(i in ids for i in shown))

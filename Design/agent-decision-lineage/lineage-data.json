@@ -337,7 +337,6 @@
         "x-if",
         "x-final",
         "x-tail",
-        "x-fusion",
         "h-mask",
         "x-verify"
       ],
@@ -382,7 +381,8 @@
       "stage": 5,
       "reason": "默认目标已满足。",
       "relatedNodeIds": [
-        "w5"
+        "w5",
+        "d-stop"
       ],
       "evidenceRefs": [
         {
@@ -403,7 +403,8 @@
       "stage": 5,
       "reason": "未尝试；复用 exp 需要 fp32 UB staging，会改变冻结的三趟结构。",
       "relatedNodeIds": [
-        "w5"
+        "w5",
+        "d-stop"
       ],
       "evidenceRefs": [
         {
@@ -447,7 +448,10 @@
       "reason": "报告判定 compute_bound；pipeline 采用 DAG 证明。小 case 实际时间仍以启动开销为主。",
       "relatedNodeIds": [
         "w5",
-        "x-final"
+        "x-final",
+        "x-fusion",
+        "x-rows",
+        "x-reuse"
       ],
       "evidenceRefs": [
         {
@@ -727,7 +731,7 @@
       "stage": 5,
       "reason": "未尝试；会改变冻结三趟结构。",
       "relatedNodeIds": [
-        "x-mask"
+        "d-stop"
       ],
       "evidenceRefs": [
         {
@@ -1283,9 +1287,9 @@
       ]
     },
     {
-      "source": "x-mask",
+      "source": "d-stop",
       "target": "x-fusion",
-      "type": "not_explored",
+      "type": "open_opportunity",
       "evidenceRefs": [
         {
           "sourceId": "PERFORMANCE_REPORT.md",
@@ -1345,6 +1349,28 @@
         {
           "sourceId": "PERFORMANCE_REPORT.md",
           "location": "§7 candidate 3 / §8"
+        }
+      ]
+    },
+    {
+      "source": "d-stop",
+      "target": "x-rows",
+      "type": "open_opportunity",
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§7、§11（目标达成后保留的未执行方向，非执行后继）"
+        }
+      ]
+    },
+    {
+      "source": "d-stop",
+      "target": "x-reuse",
+      "type": "open_opportunity",
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§7、§11（目标达成后保留的未执行方向，非执行后继）"
         }
       ]
     }
