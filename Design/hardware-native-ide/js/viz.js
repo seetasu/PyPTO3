@@ -327,7 +327,7 @@ window.HNV = (function () {
     const ya = 46, yb = 84, h = 22;
     let s = '';
 
-    s += t(PAD, 18, 'pl.pipeline(' + label + ', stage=' + stage + ') · 迭代间自动重叠', 'hv-t hv-dim');
+    s += t(PAD, 18, 'pl.pipeline(' + label + ', stage=' + stage + ') · 预期重叠示意', 'hv-t hv-dim');
     s += t(PAD, ya + h / 2 + 3, 'AIC', 'hv-t hv-dim');
     s += t(PAD, yb + h / 2 + 3, 'AIV', 'hv-t hv-dim');
 
@@ -342,10 +342,10 @@ window.HNV = (function () {
     }
     const fy = yb + h + 24;
     s += r(PAD + 36 + step / 2, ya - 6, step - 4, (yb + h + 5) - (ya - 6), 'hv-overlap', 2);
-    s += t(PAD, fy, '重叠窗口：第 i+1 次 QK 与第 i 次 softmax 同时在跑。', 'hv-t hv-ok-text');
+    s += t(PAD, fy, '预期：第 i+1 次 QK 与第 i 次 softmax 重叠；非实测时间线。', 'hv-t hv-ok-text');
     s += t(PAD, fy + 15, '不需要手工展开 QK0/QK1 → sm0/sm1 —— 流水结构是声明出来的。', 'hv-t hv-dim');
     if (d.K_TILE_DB > d.L0B_CAP) {
-      s += t(PAD, fy + 30, '当前 K tile 双缓冲 ' + d.K_TILE_DB_KB + ' KB 超出 Right 64 KB，重叠会退化为串行。', 'hv-t hv-err-text');
+      s += t(PAD, fy + 30, '当前 K tile 双缓冲 ' + d.K_TILE_DB_KB + ' KB 超出模型中的 Right 64 KB 限制。', 'hv-t hv-err-text');
       return svg(W, fy + 40, s);
     }
     return svg(W, fy + 26, s);
@@ -441,7 +441,50 @@ window.HNV = (function () {
 
   // 概念面板 —— id → { lens, kind, title, sub, facts, note, viz }
   // ════════════════════════════════════════════════════════════════════════════
+  function stages(labels, caption) {
+    let s = t(14, 20, caption, 'hv-t hv-dim');
+    const width = (530 - (labels.length - 1) * 16) / labels.length;
+    labels.forEach(function (label, i) {
+      const x = 14 + i * (width + 16);
+      s += r(x, 38, width, 36, i % 2 ? 'hv-aiv' : 'hv-aic', 2);
+      s += t(x + width / 2, 60, label, 'hv-t hv-micro', 'middle');
+      if (i < labels.length - 1) s += arrow(x + width + 2, 56, x + width + 14, 56);
+    });
+    return svg(560, 90, s);
+  }
   const CONCEPTS = {
+    'scope:deps': {
+      lens: 'scope', kind: '依赖', title: 'deps 与 Task ID', sub: '显式任务依赖',
+      facts: function () { return [['前置任务', '对应 normed slab 与 q_seed'], ['依赖表达', 'deps=[prev_normed_tids[q_ks], q_seed_tid]'], ['作用', '等待数据准备和目标清零'], ['前提', 'split-K 切片与 slab 的对应关系成立']]; },
+      note: 'manual_scope 中通过 Task ID 明确表达任务间顺序。',
+      viz: function () { return stages(['normed slab + q_seed', 'deps · 等待', 'q_proj task'], '显式依赖 · 示意'); }
+    },
+    'scope:atomic': {
+      lens: 'scope', kind: '并发写入', title: 'Split-K 原子累加', sub: '清零 → 并行部分结果 → 汇合',
+      facts: function (d) { return [['切片数', String(d.QKV_OK)], ['目标', 'q_proj · FP32'], ['写入', 'pl.assemble(..., atomic=pl.AtomicType.Add)'], ['顺序', 'q_seed 先清零；各 task 依赖 q_seed'], ['注意', '汇合后的消费者仍需等待对应生产任务']]; },
+      note: '原子加保护并发累加；任务依赖负责表达清零及后续消费的顺序。',
+      viz: function (d) { return atomicMerge(d); }
+    },
+    'tile:v-tile': {
+      lens: 'tile', kind: 'Tile', title: 'v_tile', sub: 'KV 物理页 → SV matmul',
+      facts: function (d) { return [['切法', 'v_cache[cache_row : cache_row + SEQ_TILE, :]'], ['形状', '[' + d.SEQ_TILE + ', ' + d.HEAD_DIM + '] BF16'], ['来源', '与 k_tile 使用同一物理行范围'], ['消费者', 'exp_scores_bf16 × v_tile → oi_tmp FP32']]; },
+      note: 'K 页用于 QK，V 页用于 SV；二者通过同一个 cache_row 定位。',
+      viz: function (d) { return pagedKV(d); }
+    },
+    'parallel:handoff': {
+      lens: 'parallel', kind: '计算单元', title: 'QK → Softmax → SV', sub: 'Cube / Vector 交接与流水意图',
+      facts: function () { return [['QK', 'Cube：Q × K，FP32 scores'], ['Softmax', 'Vector：缩放、填充、row_max 与 exp'], ['SV', 'Cube：BF16 exp × V，FP32 输出'], ['交接', 'QK → Vector；exp → Cube'], ['状态', '源码表达预期结构，非真机执行结果']]; },
+      note: '这是源码中的阶段与交接意图，实际排布及重叠需要编译产物和设备 trace 验证。',
+      viz: function () { return stages(['Cube · QK', 'Vector · Softmax', 'Cube · SV'], '交接路径 · 源码意图，非实测'); }
+    },
+    'precision:cast': {
+      lens: 'precision', kind: '数值与精度', title: 'FP32 / BF16 转换边界', sub: '计算与存储的数据类型',
+      facts: function () { return [['QK 输出', 'FP32 scores'], ['Softmax 输出', 'exp_scores 转 BF16，供 SV matmul 使用'], ['SV 输出', 'oi_tmp 使用 FP32'], ['残差路径', '残差保留 FP32；归一化后的 MLP 输入转 BF16'], ['验证', '精度影响需以数值对比验证']]; },
+      note: '转换位置由源码表达；不应仅凭 dtype 推断精度损失或性能收益。',
+      viz: function () {
+        return stages(['Q/K · BF16', 'QK · FP32', 'exp · FP32', 'cast · BF16', 'SV · FP32'], 'Attention 的 dtype 路径 · 源码示意');
+      }
+    },
     'tensor:hidden-states': {
       lens: 'tensor', kind: 'Tensor', title: 'hidden_states', sub: '跨层 FP32 carry',
       facts: function (d) {
@@ -647,8 +690,7 @@ window.HNV = (function () {
           ['通道', 'C2V / V2C']
         ];
       },
-      note: '写 pl.pipeline(n, stage=2)，而不是手工展开 QK0,QK1 → sm0,sm1。'
-        + '重叠意图留在代码里，排布交给编译器。',
+      note: '代码声明流水重叠意图，实际排布需通过编译产物和设备 trace 验证；本源码注明该版本预期代码生成失败。',
       viz: function (d) { return pipelineLanes(d, d.GP_SIZE, 2); }
     },
     'parallel:grid-stride': {
@@ -674,7 +716,8 @@ window.HNV = (function () {
           ['物理行距', String(d.Q_HEAD_PAD)],
           ['填充占比', d.PAD_WASTE_PCT + '%'],
           ['有效标记', 'set_validshape(·, ' + d.Q_HEAD_BATCH + ', valid_len)'],
-          ['填充值', 'fillpad(PadValue.min)']
+          ['填充值', 'fillpad(PadValue.min)'],
+          ['Softmax', '无效位置使用最小填充值，避免影响有效区域的 row_max']
         ];
       },
       note: 'tile 物理上保持 ' + '16 行以满足 cube M fractal；set_validshape 只把真实行标为有效，'

@@ -322,7 +322,7 @@ window.HNL = (function () {
   // ════════════════════════════════════════════════════════════════════════════
   // 源码视图 —— 节选自 decode_layer.py，行号保留原值
   // ════════════════════════════════════════════════════════════════════════════
-  const SOURCE = [
+  const SOURCE_BASE = [
     { sec: '硬件可见常量', hint: '这些不是超参，而是硬件事实在代码里的落点' },
     { no: 103, t: 'NUM_HEADS = 40' },
     { no: 104, t: 'NUM_KV_HEADS = {{NUM_KV_HEADS}}' },
@@ -495,10 +495,11 @@ window.HNL = (function () {
       no: 615, t: '        with pl.spmd(ROPE_CORES, name_hint="rope_qkv", deps=[qk_tids..., v_tile_tids...]) as rope_tid:',
       focus: 'parallel:spmd',
       scope: { kind: 'spmd', label: 'pl.spmd × {{ROPE_CORES}} blocks', span: 4 },
-      inlay: [{ lens: 'parallel', text: '{{ROPE_ITEMS}} items / {{ROPE_CORES}} 核 = {{ROPE_ITEMS_PER_CORE}} per core' }]
+      inlay: [{ lens: 'parallel', text: '{{ROPE_CORES}} 核 · 仿射索引按 {{ROPE_ITEMS_PER_CORE}} items/core 计算' }]
     },
     { no: 627, t: '            rope_core = pl.get_block_idx()', focus: 'parallel:spmd' },
-    { no: 628, t: '            for it in pl.pipeline(ROPE_ITEMS_PER_CORE, stage=2):', focus: 'parallel:pipeline' },
+    { no: 628, t: '            for it in pl.pipeline(ROPE_ITEMS_PER_CORE, stage=2):', focus: 'parallel:pipeline',
+      inlay: [{ lens: 'parallel', text: '源码循环使用 ROPE_GROUP_ITEMS_PER_CORE · stage=2' }] },
     {
       no: 655, t: '                cache_row = layer_cache_base + (wr_slot_block * NUM_KV_HEADS + ki) * BLOCK_SIZE + wr_slot_offset',
       focus: 'layout:paged-kv',
@@ -558,6 +559,48 @@ window.HNL = (function () {
     }
   ];
 
+  // 合并真实源码中的计算主链路；原有标注与焦点保留，遗漏行数按行号计算。
+  const SOURCE = (function () {
+    const byLine = {};
+    SOURCE_BASE.forEach(function (entry) { if (entry.no) byLine[entry.no] = entry; });
+    (window.HN_EXTRA_SOURCE || []).forEach(function (entry) {
+      byLine[entry.no] = Object.assign({}, byLine[entry.no] || {}, entry);
+    });
+    // 在完整源码合并后附加对象标注，保留源码原文和已有标注。
+    const additions = {
+      429: ['scope:deps', 'scope', 'q_seed 产出清零任务句柄'],
+      441: ['scope:deps', 'scope', '等待对应 slab 与 q_seed'],
+      455: ['scope:atomic', 'scope', 'split-K 部分结果原子累加'],
+      774: ['parallel:handoff', 'parallel', 'QK · Cube 计算，结果交给 Vector'],
+      783: ['layout:q-pad', 'layout', '填充值不应影响有效区域的最大值'],
+      786: ['precision:cast', 'precision', 'Softmax 结果转 BF16，供 SV matmul 使用'],
+      789: ['tile:v-tile', 'tile', 'V 页与 K 页使用同一物理行范围'],
+      790: ['parallel:handoff', 'parallel', 'SV · Cube 计算，FP32 输出'],
+      939: ['precision:cast', 'precision', '残差归一化结果转 BF16']
+    };
+    Object.keys(additions).forEach(function (key) {
+      const entry = byLine[key], a = additions[key];
+      if (!entry) return;
+      entry.focus = a[0];
+      entry.inlay = (entry.inlay || []).concat([{ lens: a[1], text: a[2] }]);
+    });
+    const sections = {
+      103: '模型与切分参数', 303: '张量契约', 410: 'RMSNorm 与 Q 投影',
+      459: 'K / V 投影', 615: 'RoPE 与 KV 缓存写入', 728: '分块 Attention',
+      810: 'Online Softmax 归约', 881: '输出投影与残差', 960: 'MLP · Gate / Up',
+      998: 'SwiGLU 与 Down 投影', 1079: '残差输出与跨层传递'
+    };
+    const rows = [];
+    let previous = null;
+    Object.keys(byLine).map(Number).sort(function (a, b) { return a - b; }).forEach(function (no) {
+      if (previous !== null && no > previous + 1) rows.push({ fold: no - previous - 1 });
+      if (sections[no]) rows.push({ sec: sections[no] });
+      rows.push(byLine[no]);
+      previous = no;
+    });
+    return rows;
+  })();
+
   // ════════════════════════════════════════════════════════════════════════════
   // 概念词典 —— 代码里的符号 → 可视化面板
   // ════════════════════════════════════════════════════════════════════════════
@@ -575,6 +618,9 @@ window.HNL = (function () {
     'q_acc': 'tile:q-acc',
     'q_padded': 'layout:q-pad',
     'k_tile': 'tile:k-tile',
+    'v_tile': 'tile:v-tile',
+    'exp_scores_bf16': 'precision:cast',
+    'q_seed_tid': 'scope:deps',
     'scores_valid': 'layout:q-pad',
     'Q_HEAD_PAD': 'layout:q-pad',
     'Q_HEAD_BATCH': 'layout:q-pad',
@@ -589,7 +635,7 @@ window.HNL = (function () {
     'ROPE_CORES': 'parallel:spmd',
     'prev_out_tids': 'scope:manual',
     'prev_normed_tids': 'scope:manual',
-    'deps': 'scope:manual',
+    'deps': 'scope:deps',
     'pl.manual_scope': 'scope:manual',
     'pl.at': 'scope:at',
     'pl.Level.CORE_GROUP': 'scope:at',
@@ -601,7 +647,7 @@ window.HNL = (function () {
     'pl.set_validshape': 'layout:q-pad',
     'pl.fillpad': 'layout:q-pad',
     'pl.assemble': 'layout:split-k',
-    'pl.AtomicType.Add': 'layout:split-k',
+    'pl.AtomicType.Add': 'scope:atomic',
     'pl.matmul': 'tile:q-acc',
     'pl.create_tensor': 'tensor:q-proj',
     'pl.Tensor': 'tensor:hidden-states'

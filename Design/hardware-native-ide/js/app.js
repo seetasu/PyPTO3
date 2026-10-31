@@ -14,7 +14,8 @@
     { id: 'tensor', label: 'Tensor / Tile', members: ['tensor', 'tile'], desc: '形状 · dtype · 片上空间' },
     { id: 'scope', label: 'Scope', members: ['scope'], desc: '任务粒度 · 依赖成边' },
     { id: 'parallel', label: '并行请求', members: ['parallel'], desc: 'parallel · spmd · pipeline' },
-    { id: 'layout', label: '内部布局', members: ['layout'], desc: '填充 · 分页 · 对齐' }
+    { id: 'layout', label: '内部布局', members: ['layout'], desc: '填充 · 分页 · 对齐' },
+    { id: 'precision', label: '数值与精度', members: ['precision'], desc: 'dtype · 转换 · 累加' }
   ];
   const LENS_OF = {};
   LENSES.forEach(function (L) { L.members.forEach(function (m) { LENS_OF[m] = L.id; }); });
@@ -37,10 +38,11 @@
   // ── 状态 ───────────────────────────────────────────────────────────────────
   const state = {
     cfg: Object.assign({}, M.DEFAULTS),
-    lens: { tensor: true, scope: true, parallel: true, layout: true },
+    lens: { tensor: true, scope: true, parallel: true, layout: true, precision: true },
     sel: { type: 'overview', id: null },
     anchor: null,
     filter: 'all',
+    constraintReturn: null,
     d: null,
     results: {}
   };
@@ -214,11 +216,15 @@
   // 编辑器
   // ════════════════════════════════════════════════════════════════════════════
   function buildScopeRanges() {
-    // 以「渲染行序号」为单位计算 scope 覆盖
+    // 按源码行号确定范围，避免补充代码后色带覆盖到无关计算。
+    const scopeEnd = { 410: 1047, 411: 426, 434: 456, 438: 455, 615: 690, 728: 798, 764: 798 };
     const rows = [];
     SOURCE_ROWS.forEach(function (row, i) {
       if (row.entry.scope) {
-        rows.push({ i: i, kind: row.entry.scope.kind, label: row.entry.scope.label, end: i + row.entry.scope.span - 1 });
+        let end = i;
+        const endLine = scopeEnd[row.entry.no] || row.entry.no;
+        while (end + 1 < SOURCE_ROWS.length && (!SOURCE_ROWS[end + 1].entry.no || SOURCE_ROWS[end + 1].entry.no <= endLine)) end++;
+        rows.push({ i: i, kind: row.entry.scope.kind, label: row.entry.scope.label, end: end });
       }
     });
     return rows;
@@ -242,7 +248,7 @@
       + '<div class="inline-content"><div class="inline-viz"><div class="inline-viz-label"><span>语义视图</span><span>示意图 · 随配置更新</span></div>' + c.viz(state.d) + '</div>'
       + '<dl class="insp-facts">' + c.facts(state.d).map(function (f) {
         return '<div><dt>' + esc(f[0]) + '</dt><dd>' + esc(f[1]) + '</dd></div>';
-      }).join('') + '</dl></div>'
+      }).join('') + '</dl>' + (['scope:deps', 'scope:atomic', 'tile:v-tile', 'parallel:handoff', 'parallel:pipeline', 'precision:cast'].indexOf(id) >= 0 && c.note ? '<p class="inline-note">' + esc(c.note) + '</p>' : '') + '</div>'
       + (lines.length > 1 ? '<div class="inline-locations"><span>代码落点</span>' + lines.map(function (no) {
         return '<button type="button" class="lineref" data-anchor="' + no + '"' + (no === state.anchor ? ' aria-current="location"' : '') + '>L' + no + '</button>';
       }).join('') + '</div>' : '') + '</section>';
@@ -528,9 +534,13 @@
     const host = $('#rightBody');
     const top = keepScroll ? host.scrollTop : 0;
     $('#rightTitle').textContent = title;
-    host.innerHTML = '<div class="hn-obj">' + body + '</div>'
-      + '<section class="hn-cons-sec" id="consSection" aria-label="硬件约束"></section>';
-    renderCons();
+    if (state.sel.type === 'constraint') {
+      host.innerHTML = '<div class="hn-obj"><button class="hn-back" type="button" data-constraint-back>← 返回约束列表</button>' + body + '</div>';
+    } else {
+      host.innerHTML = '<div class="hn-obj">' + body + '</div>'
+        + '<section class="hn-cons-sec" id="consSection" aria-label="硬件约束"></section>';
+      renderCons();
+    }
     host.scrollTop = top;
   }
 
@@ -548,18 +558,23 @@
     const focusHost = focusAttr && active.closest('#rightBody, #hnExplorer, #editorBody');
     const focusHostId = focusHost ? focusHost.id : null;
 
+    if (type === 'constraint' && state.sel.type !== 'constraint') {
+      state.constraintReturn = { sel: state.sel, anchor: state.anchor, scrollTop: $('#rightBody').scrollTop };
+    }
     state.sel = { type: type, id: id };
     const lines = type === 'concept' ? conceptLines(id) : [];
     state.anchor = lines.indexOf(opts && opts.anchor) >= 0 ? opts.anchor : (lines[0] || null);
     // 选中语义对象会换掉「约束区在讲什么」，筛选随之复位；
     // 在约束之间跳转只是同一个列表内的导航，筛选保留。
-    if (type === 'concept') state.filter = 'all';
+    if (type === 'concept' && !(opts && opts.preserveFilter)) state.filter = 'all';
     const inspectorToggle = $('[data-ide-toggle="inspector"]');
     if (type === 'constraint' && inspectorToggle.getAttribute('aria-expanded') === 'false') inspectorToggle.click();
     renderEditor();
     renderCatalog();
     renderRight();
-    if (focusAttr && focusValue) {
+    if (type === 'constraint' && focusHostId === 'rightBody') {
+      $('[data-constraint-back]').focus({ preventScroll: true });
+    } else if (focusAttr && focusValue) {
       const q = '[' + focusAttr + '="' + focusValue + '"]';
       const scope = focusHostId ? $('#' + focusHostId) : null;
       const replacement = (scope && $(q, scope)) || document.querySelector(q);
@@ -652,6 +667,17 @@
         $('[data-lens-toggle="' + id + '"]').focus();
         return;
       }
+      const constraintBack = ev.target.closest('[data-constraint-back]');
+      if (constraintBack) {
+        const id = state.sel.id;
+        const previous = state.constraintReturn || { sel: { type: 'overview', id: null }, anchor: null, scrollTop: 0 };
+        state.constraintReturn = null;
+        select(previous.sel.type, previous.sel.id, { anchor: previous.anchor, preserveFilter: true });
+        $('#rightBody').scrollTop = previous.scrollTop;
+        const row = $('#rightBody [data-constraint="' + id + '"]');
+        if (row) row.focus({ preventScroll: true });
+        return;
+      }
       const consBtn = ev.target.closest('[data-constraint]');
       if (consBtn) {
         select('constraint', consBtn.getAttribute('data-constraint'), { scroll: true });
@@ -700,10 +726,11 @@
 
   function reset() {
     state.cfg = Object.assign({}, M.DEFAULTS);
-    state.lens = { tensor: true, scope: true, parallel: true, layout: true };
+    state.lens = { tensor: true, scope: true, parallel: true, layout: true, precision: true };
     state.sel = { type: 'overview', id: null };
     state.anchor = null;
     state.filter = 'all';
+    state.constraintReturn = null;
     applyLensAttrs();
     renderAll();
     $('#rightBody').scrollTop = 0;
