@@ -313,7 +313,9 @@
         "w5",
         "x-base",
         "x-if",
-        "x-final"
+        "x-final",
+        "x-tail",
+        "x-fusion"
       ],
       "evidenceRefs": [
         {
@@ -363,10 +365,10 @@
     {
       "id": "x-reuse",
       "type": "Experiment",
-      "title": "复用 exp / 融合 pass",
+      "title": "Exp Result Reuse",
       "status": "not_attempted",
       "stage": 5,
-      "reason": "改变冻结设计，未执行。",
+      "reason": "未尝试；复用 exp 需要 fp32 UB staging，会改变冻结的三趟结构。",
       "relatedNodeIds": [
         "w5"
       ],
@@ -613,6 +615,42 @@
         {
           "sourceId": "PERFORMANCE_REPORT.md",
           "location": "§5、§11"
+        }
+      ],
+      "assertionBasis": "artifact_report"
+    },
+    {
+      "id": "x-tail",
+      "title": "Empty-tail-loop",
+      "type": "Experiment",
+      "status": "adopted",
+      "stage": 5,
+      "reason": "Mask Lifting 的组成部分；以空范围尾循环替代 runtime if，并非独立性能实验。",
+      "relatedNodeIds": [
+        "x-mask"
+      ],
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§7 Candidate Coverage Ledger"
+        }
+      ],
+      "assertionBasis": "artifact_report"
+    },
+    {
+      "id": "x-fusion",
+      "title": "Pass Fusion",
+      "type": "Experiment",
+      "status": "not_attempted",
+      "stage": 5,
+      "reason": "未尝试；会改变冻结三趟结构。",
+      "relatedNodeIds": [
+        "x-mask"
+      ],
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§7 Candidate Coverage Ledger"
         }
       ],
       "assertionBasis": "artifact_report"
@@ -1113,6 +1151,28 @@
           "location": "softmax_rows_vf / softmax_tile_group_kernel"
         }
       ]
+    },
+    {
+      "source": "x-mask",
+      "target": "x-tail",
+      "type": "includes",
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§7"
+        }
+      ]
+    },
+    {
+      "source": "x-mask",
+      "target": "x-fusion",
+      "type": "not_explored",
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§7"
+        }
+      ]
     }
   ],
   "sources": [
@@ -1175,6 +1235,12 @@
       "file": "performance.json",
       "path": "evidence/performance.json",
       "sha256": "e81abccf65162a212a2fc4492a13e3a5e804e799dc96fa12ad74ad0c7c7877ae"
+    },
+    {
+      "id": "test_softmax.py.bak_stage5",
+      "file": "test_softmax.py.bak_stage5",
+      "path": "evidence/test_softmax.py.bak_stage5",
+      "sha256": "6eb8914e3c06d3f0af87a2f5424cbe7cb7f1b5811f766a6de6b6370db706d017"
     }
   ],
   "limitations": [
