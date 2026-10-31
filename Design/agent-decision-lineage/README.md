@@ -34,3 +34,23 @@ Stage 5 基线与 Final 正式采集、quick A/B 和 Golden 的范围不能混�
 新增知识选择、API 适配、设计约束、Precision、Tiling、Memory、Scheduling、Kernel、正确性和 Final 节点，均引用既有材料。关系有独立 evidenceRefs；workflow、stage_membership 和实际决策关系分开。原始 evidence 快照未改动。
 
 浏览器检查受工具 file:// 协议安全策略阻止，未绕过策略；尚未实际确认布局和点击表现。未新增或运行测试。
+
+## 阶段 2 信息架构重构（2026-10-31，取代前述三栏/阶段发散布局）
+
+- Workflow-first 改为 Decision-first + Experiment-first；五阶段成为轻量标尺，不再绘制阶段归属边。
+- 默认全宽图谱：SPEC → 知识/API/硬件约束 → 采用设计节点群 → Kernel → Correctness → Baseline → Mask Lifting → Final。
+- 保留 ide-frame direct embedding 与原深色主题；复用 V3 连续带、局部节点群和分流视觉原则。带宽固定，不表示数量。没有引入硬件视图或性能 Dashboard。
+- `lineage-layout.js` 为语义展示投影：groups/items、branches/parent/relation、links/source citation。原 `lineage-data.json/js` 与 evidence 快照未修改。主线中工作流交接不是实验因果；所有展示关系记录文件与位置。
+- 同一布局坐标用于 Overview / Design / Optimize；通过 viewBox 和 clipPath 聚焦，不根据选择重新排列节点。任务导航默认折叠，Inspector 在下方按需打开。
+- 单击节点默认高亮直接上下游；可切换完整语义溯源。Fit to View 恢复当前范围，返回全局清除选择并恢复全局缩放。Focus Selection 适配选中节点及其关联边界。
+- 正式大用例 kernel：5.926 → 4.946 μs（1.198×）；保留小用例 3.250 → 3.428 μs 未获益限定。Golden E2E 比值未改为优化加速比。
+
+### HTTP 与可视验收
+
+本机 HTTP 入口：`http://127.0.0.1:8765/agent-decision-lineage-softmax.html`。若服务已停止，可在本目录执行 `python3 -m http.server 8765 --bind 127.0.0.1`。
+
+已在 1440×1000 视口实际打开 Overview、Design、Optimize 并截图；页面 scrollWidth=1440，与视口相等。检查了 Runtime if 失败 Inspector、TILE_ROWS 未尝试 Inspector、Focus Selection、Fit to View、返回全局。截图见 `previews/overview-1440.png`、`design-1440.png`、`optimize-1440.png`。未重跑 NPU 性能或正确性测试。
+
+### 仍有限制
+
+这是单次 Softmax Run 的语义布局，不是支持任意拓扑的通用自动布局器。默认 Overview 为保留完整故事采用较密文字；聚焦视图使用原坐标裁切，留白较多。低于 900px 的窄屏保留画布滚动。记录不足的因果不补画；timeline 工具失败仅在说明中披露。硬件、性能详细视图仍未开发。
