@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="PyPTO Design System 组件预览：tokens、基础组件与 patterns 模式库速查页，配合 references/DESIGN.md 和 skill 使用。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235b8cff'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-size='17' font-weight='700' text-anchor='middle' fill='white'%3EP%3C/text%3E%3C/svg%3E">
+  <title>PyPTO Design System</title>
+  <link rel="stylesheet" href="./tokens/foundation.css">
+  <link rel="stylesheet" href="./tokens/semantic.css">
+  <link rel="stylesheet" href="./tokens/components.css">
+  <link rel="stylesheet" href="./css/style.css">
+  <link rel="stylesheet" href="./patterns/workbench-shell/pattern.css">
+  <link rel="stylesheet" href="./patterns/floating-playback-control/pattern.css">
+  <link rel="stylesheet" href="./patterns/ide-frame/pattern.css">
+  <link rel="stylesheet" href="./swimlane/styles.css">
+  <link rel="stylesheet" href="./preview/preview.css">
+</head>
+<body>
+  <noscript>
+    <p style="margin:16px 20px;color:var(--foreground-secondary);font:13px/1.6 var(--font-sans)">本预览页的 pattern 嵌入需要 JavaScript 才能加载；请启用 JS 后刷新。</p>
+  </noscript>
+  <header class="toolbar blocks-toolbar">
+    <div class="toolbar-l">
+      <span class="toolbar-logo">PyPTO Design System</span>
+      <span class="toolbar-sep" aria-hidden="true"></span>
+      <nav class="blocks-nav" aria-label="Primary">
+        <a class="is-active" href="./design-system-preview.html">组件</a>
+        <a href="#pattern-previews">模式</a>
+        <a href="./references/DESIGN.md">Design.md</a>
+      </nav>
+    </div>
+    <div class="toolbar-r">
+      <div class="preview-control-group" aria-label="Theme mode">
+        <button class="theme-switch-btn is-active" type="button" data-theme-mode="dark">深色</button>
+        <button class="theme-switch-btn" type="button" data-theme-mode="light">浅色</button>
+        <button class="theme-switch-btn" type="button" data-theme-mode="glass">玻璃</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="preview-shell blocks-shell">
+    <div class="preview-main blocks-list">
+    <header class="preview-head" id="overview">
+      <div class="preview-inline">
+        <a class="btn btn-ghost" href="#pattern-previews">浏览模式库</a>
+      </div>
+      <h1 class="preview-title">PyPTO Design System</h1>
+      <p class="preview-sub">基于 Shadcn 实现的 PTO 3.0 设计风格组件库，配合 design.md 和 skill 使用。本页面展示基础组件、tokens 和 patterns 入口。</p>
+
+    <!-- ⚠ 手工维护：本 Agent Reference 表格（token 覆盖缺口 / 迁移状态 / pattern 契约）为手写内容，
+         修改 tokens/*、css/style.css 或 patterns/<id>/pattern.json 后需同步更新，避免与系统漂移。 -->
+      <details class="preview-agent-ref">
+        <summary>Agent Reference</summary>
+        <div class="preview-agent-body">
+
+          <div class="agent-row">
+            <div class="agent-label">Token Stack (load order)</div>
+            <table class="agent-table">
+              <tr><td>tokens/foundation.css</td><td>Primitives — raw color palette, spacing scale, radius, font families</td></tr>
+              <tr><td>tokens/semantic.css</td><td>Semantic aliases — <code>--background</code>, <code>--foreground</code>, <code>--surface-1..4</code>, <code>--border-*</code>, <code>--state-*</code></td></tr>
+              <tr><td>tokens/components.css</td><td>Component tokens — <code>--button-*</code>, <code>--card-*</code>, <code>--panel-*</code>, <code>--tag-*</code>, typography composites</td></tr>
+              <tr><td>css/style.css</td><td>Class rules — <code>.btn</code>, <code>.btn-solid</code>, <code>.btn-ghost</code>, <code>.btn-icon</code>, <code>.is-selected</code>, layout primitives</td></tr>
+              <tr><td>patterns/patterns.json</td><td>Pattern registry — graph/timeline primitives that must be reused from their source files instead of copied into preview CSS.</td></tr>
+            </table>
+          </div>
+
+          <div class="agent-divider"></div>
+
+          <div class="agent-row">
+            <div class="agent-label">tokens.json — 生成产物说明</div>
+            <table class="agent-table">
+              <tr><td colspan="2" style="color:var(--foreground-muted);font-size:10px;padding-bottom:4px">文件路径：tokens/tokens.json　　生成脚本：<code>tokens/generate_tokens.py</code></td></tr>
+              <tr><td><code>$meta</code></td><td>生成时间、生成器、source-of-truth 说明。用于明确该文件不可手改。</td></tr>
+              <tr><td><code>source.foundation</code></td><td>来自 <code>tokens/foundation.css</code> 的原始 token，按 <code>base / light</code> 分组。</td></tr>
+              <tr><td><code>source.semantic</code></td><td>来自 <code>tokens/semantic.css</code> 的语义 token，按 <code>dark / light</code> 分组。</td></tr>
+              <tr><td><code>source.components</code></td><td>来自 <code>tokens/components.css</code> 的组件 token，按 <code>base / light</code> 分组。</td></tr>
+              <tr><td><code>themes.dark / themes.light</code></td><td>由三份 CSS token 源合并后的最终主题变量快照。键为 CSS 变量名（不含 <code>--</code>）。</td></tr>
+              <tr><td>使用原则</td><td><strong>三份 CSS token 源才是单一来源</strong>。修改样式 → 改 CSS token 源 → 运行生成器；不要直接编辑 <code>tokens.json</code> 或 <code>tokens.js</code>。</td></tr>
+            </table>
+          </div>
+
+          <div class="agent-divider"></div>
+
+          <div class="agent-row">
+            <div class="agent-label">Token Coverage Gaps（待补录）</div>
+            <table class="agent-table">
+              <tr>
+                <td style="color:var(--foreground-muted);font-size:10px">CLASS</td>
+                <td style="color:var(--foreground-muted);font-size:10px">CSS 来源</td>
+                <td style="color:var(--foreground-muted);font-size:10px">缺失情况</td>
+              </tr>
+              <tr><td>.btn-icon</td><td>css/style.css L276</td><td>CSS 已实现（正方形尺寸修饰符），<code>component.button</code> 无对应条目，缺 <code>size</code> token</td></tr>
+              <tr><td>.toggle-outline</td><td>design-system-preview.html <code>&lt;style&gt;</code></td><td>仅在预览页 inline 定义，CSS 文件和 tokens.json 均无。需提取到 css/style.css + 补录 <code>component.toggle</code></td></tr>
+              <tr><td>.toggle-outline[aria-pressed="true"]</td><td>同上</td><td>pressed 状态同上，未正式化</td></tr>
+              <tr><td>.toggle-outline-sm / -lg</td><td>同上</td><td>尺寸变体，与 button height/paddingX 体系不一致，需对齐</td></tr>
+              <tr><td>.toggle-outline-icon</td><td>同上</td><td>icon slot 子元件，未录入</td></tr>
+              <tr><td>.accent-input / .accent-picker</td><td>design-system-preview.html <code>&lt;style&gt;</code></td><td>预览控制条专用 UI，非复用组件；如保留建议归入 preview-utilities，标注 preview-only</td></tr>
+            </table>
+          </div>
+
+          <div class="agent-divider"></div>
+
+          <div class="agent-row">
+            <div class="agent-label">Canonical Button Classes</div>
+            <table class="agent-table">
+              <tr><td>.btn</td><td>Soft / secondary. Surface fill + border + secondary text. Default for most actions.</td></tr>
+              <tr><td>.btn.btn-solid</td><td>Primary CTA. <code>var(--foreground)</code> fill + <code>var(--background)</code> text. High-contrast. One per context.</td></tr>
+              <tr><td>.btn.btn-ghost</td><td>Utility / icon-adjacent. No bg, muted text, hover reveals bg. Toolbar helpers, back links.</td></tr>
+              <tr><td>.btn.btn-icon</td><td>Square icon-only size modifier. Pair with any variant: <code>.btn.btn-icon</code>, <code>.btn.btn-icon.btn-ghost</code>.</td></tr>
+              <tr><td>.btn[disabled]</td><td>Disabled state. Opacity 0.42, pointer-events none. No extra class needed.</td></tr>
+              <tr><td>.btn.is-selected</td><td>Selected / active toggle state. Same fill as <code>.btn-solid</code>. Overrides all variant backgrounds.</td></tr>
+            </table>
+          </div>
+
+          <div class="agent-divider"></div>
+
+          <div class="agent-row">
+            <div class="agent-label">Component Usage Notes</div>
+            <table class="agent-table">
+              <tr><td>Button weight</td><td><code>.btn-solid</code> is for the only action that commits or advances the workflow: Run, Generate, Apply, Execute, Start. Open/import/browse/load actions stay <code>.btn</code>.</td></tr>
+              <tr><td>Ghost action</td><td><code>.btn-ghost</code> is for cancel, close, more, toolbar helpers, and icon-only utility actions.</td></tr>
+              <tr><td>Outline toggle</td><td>Single binary toggles use <code>.toggle-outline</code> with <code>aria-pressed</code>. Do not fake toggle state with generic buttons.</td></tr>
+              <tr><td>Toggle group</td><td>Mutually exclusive options use grouped outline toggles. Keep size smaller than primary actions.</td></tr>
+              <tr><td>Chip filter</td><td>Filter chips stay low-emphasis. Selected chips use a muted selected surface, not a solid CTA fill.</td></tr>
+              <tr><td>Status badge</td><td>Semantic badges keep the neutral badge structure and only change text/border color.</td></tr>
+              <tr><td>Action list</td><td>Action lists live inside card content. One row may be selected; do not promote each row to a separate component category.</td></tr>
+            </table>
+          </div>
+
+          <div class="agent-divider"></div>
+
+          <div class="agent-row">
+            <div class="agent-label">Foundation Rules</div>
+            <table class="agent-table">
+              <tr><td>Semantic mapping</td><td>Neutral ramp values are primitive colors. Map them through theme-level <code>surface</code>, <code>foreground</code>, <code>border</code>, and <code>state</code> tokens before use.</td></tr>
+              <tr><td>Highlight steps</td><td>Light themes use low steps for backgrounds; dark themes use high steps for backgrounds. Middle steps stay for foregrounds or data-viz base hues.</td></tr>
+              <tr><td>State overlay</td><td>Hover, pressed, muted, selected, and focus states come from semantic state tokens. Do not hard-code per-component alpha overlays.</td></tr>
+              <tr><td>Palette policy</td><td>Shared tokens only hold reusable palettes. Module-local alpha fills stay local unless promoted through a documented token pass.</td></tr>
+            </table>
+          </div>
+
+          <div class="agent-divider"></div>
+
+          <div class="agent-row">
+            <div class="agent-label">State Modifier Rules</div>
+            <table class="agent-table">
+              <tr><td>.is-selected</td><td>Universal selected state. Applies to <code>.btn</code> of any variant. Produces <code>var(--foreground)</code> fill + <code>var(--background)</code> text. Used by toggle groups, chip filters, toolbar active states.</td></tr>
+              <tr><td>Deprecated</td><td>Do NOT use: <code>.btn-flat</code>, <code>.btn-md-primary</code>, <code>.btn-md-text</code>, <code>.sw-toggle-active</code> with blue fill, <code>--button-flat-primary-*</code> tokens. All removed or neutralised.</td></tr>
+            </table>
+          </div>
+
+          <div class="agent-divider"></div>
+
+          <div class="agent-row">
+            <div class="agent-label">Pattern Reuse Rules</div>
+            <table class="agent-table">
+              <tr><td>Stable entry</td><td>Every pattern must expose a stable consumer entry. Static visual primitives use documented CSS classes; DOM/SVG/canvas generation, drag behavior, zoom, routing, persistence, or synchronized state must go through a <code>window.Pto*Pattern</code> or <code>window.Pto*</code> helper. Business pages must not copy generated DOM or restyle internal pattern classes.</td></tr>
+              <tr><td><code>swimlane-task-bar</code></td><td>Use <code>patterns/swimlane-task/pattern.js</code> and call <code>window.PtoSwimlaneTaskPattern.drawTaskBar</code>, <code>createTaskColormap</code>, and <code>initHoverTooltip</code>. The canonical task bar is canvas-rendered, sourced from <code>pypto-swimlane-perf-tool/js/swimlane.js</code>, and the hover tip mirrors the PMU swimlane <code>.sl-tooltip</code> interaction. Do not rebuild it with DOM/CSS or rewrite segment math, colormap selection, or hover tip behavior locally.</td></tr>
+              <tr><td><code>tensor-volume-canvas</code></td><td>Load <code>patterns/tensor-volume-canvas/pattern.css</code> and <code>pattern.js</code>, then call <code>window.PtoTensorVolumeCanvas.render</code> with a business-neutral <code>extent</code>, <code>axes</code>, and <code>voxels</code> scene. Voxels default to <code>neutral</code>; semantic tones are opt-in for explicit interaction state or semantic emphasis, not object identity alone. Use the returned <code>update</code>, <code>resize</code>, and <code>destroy</code> lifecycle. Do not rewrite projection, depth sorting, DPR, or ResizeObserver logic; do not add iframe embedding, camera interaction, a private palette, or product chrome.</td></tr>
+              <tr><td><code>memory-architecture-layout</code></td><td>Use <code>patterns/memory-architecture/pattern.js</code>. Call <code>window.PtoMemoryArchitecturePattern.renderArchitecture</code> to build the stage, <code>createRouteOverlay</code> for MTE routes, <code>attachHoverInteractions</code> for hardware tips, and <code>attachPathFocusInteractions</code> or <code>setPathFocus</code> / <code>clearPathFocus</code> for <code>ascend-hardware-map-v3</code>-style flow-step hover. Extend preset data for 910B/950; do not copy raw <code>mem_viewer</code> HTML, redraw route geometry locally, reimplement <code>is-path-focused</code> route glow, or change route <code>stroke-width</code> for hover/playback focus.</td></tr>
+              <tr><td><code>memory-reuse-viewer</code></td><td>Load <code>patterns/memory-reuse-viewer/pattern.css</code> and <code>pattern.js</code>, then call <code>window.PtoMemoryReuseViewer.render</code> with Memory.txt-derived buffer, tensor lifetime, source, and CCE data. Keep the returned <code>resize</code> and <code>destroy</code> lifecycle attached to an unscaled panel. Do not mount it inside the architecture pan/zoom canvas, copy the lifetime renderer, mutate generated rectangles, or add a second bordered frame.</td></tr>
+              <tr><td><code>hardware-architecture-viewport</code></td><td>Use <code>patterns/hardware-architecture-viewport/pattern.css</code> and <code>pattern.js</code>, then call <code>window.PtoHardwareArchitectureViewport.mount</code> for architecture-map host controls, detail visibility, zoom readout, iframe readiness, size sync, and the standard hardware postMessage protocol. Do not replace the shared dotted viewport, title toolbar, zoom cluster, or standard <code>hardware-ready</code> / <code>hardware-size</code> / <code>hardware-focus</code> messages with page-local variants.</td></tr>
+              <tr><td><code>model-architecture-3d-deck</code></td><td>Use <code>patterns/model-architecture-3d-deck/pattern.css</code> and <code>pattern.js</code>, then call <code>window.PtoModelArchitecture3dDeck.render</code>. The shared hybrid renderer preserves the source openPangu 46-layer Dense/MoE/Sparse MLA/mHC/MTP architecture and owns dark/light switching, iso/front/right transforms, drag rotate/direct pan, wheel zoom, projected PP stage wireframes, DP/PP/TP/EP badges, and right-view operator labels. Pass model data and callbacks only; do not simplify the model graph, copy projection math, or hand-position labels in product CSS.</td></tr>
+              <tr><td><code>model-parallel-rank-deck</code></td><td>Load it after <code>model-architecture-3d-deck</code>, supply the pinned local Three.js module, and call <code>window.PtoModelParallelRankDeck.render</code>. The canonical demo compiles every original Layer Node, Cluster, and Edge into GPU batches inside 128 transparent Rank volumes for TP2 × PP4 × CP1 × EP8 × EDP2. Do not substitute glyphs, screenshots, representative Layers, or consumer-owned Layer styles.</td></tr>
+              <tr><td><code>model-architecture-training-sidecar</code></td><td>Load it after <code>model-architecture-3d-deck</code> and call <code>window.PtoModelArchitectureTrainingSidecar.render</code>. It preserves the canonical right view as an immutable baseline and adds sibling overlays for forward hidden state, backward activation gradients, local parameter gradients, optimizer state, metric strips, mock context, and selectable Layer focus. Extend Layer internals only through <code>renderLayerDetail</code>; do not mutate or restyle the base deck.</td></tr>
+              <tr><td><code>aic-core-object</code></td><td>Use <code>patterns/aic-core-object/pattern.js</code> and call <code>window.PtoAicCorePattern.render</code>. The shell is config-driven from the design draft; extend the preset data for 950B instead of cloning the generated DOM or restyling the chrome locally.</td></tr>
+              <tr><td><code>aiv-core-object</code></td><td>Use <code>patterns/aiv-core-object/pattern.js</code> and call <code>window.PtoAivCorePattern.render</code> with <code>ascend910b</code> or <code>ascend950b</code>. The 910B preset is the simplified Scalar + UB + Vector object; the 950B preset keeps DCache, ICache, ND-DMA Cache, SIMT, SIMD, and Vector topology. Extend preset data instead of copying generated DOM or changing card geometry locally.</td></tr>
+              <tr><td><code>pass-ir-graph-node</code></td><td>Use <code>patterns/pass-ir-graph-node/pattern.js</code> and build cards through <code>window.PtoPassIrGraphNodePattern</code>. The shared contract owns full/compact op, tensor, incast/outcast, selected, and JS-generated group cards. Do not rewrite node chrome or group shell geometry in page-local CSS/HTML.</td></tr>
+              <tr><td><code>matrix-canvas</code></td><td>Use <code>patterns/matrix-canvas/pattern.css</code> and <code>pattern.js</code>, then call <code>window.PtoMatrixCanvas.render</code>. Cells and aggregate helpers default to <code>neutral</code>; semantic tones are opt-in. For large matrices, keep the source extent and use arbitrary spans, <code>createAggregateLayoutCells</code>, or <code>createAggregatedCells</code>. When multiple tensors share one view, call <code>resolveSharedAggregateScale</code>: equal source units on shared semantic axes are required, while equal cell counts are forbidden as a substitute. Fit all controllers and call <code>synchronizeScale</code> when screen area must preserve true relative tensor size. Wheel scrolling stays bounded; Control/Command-wheel zooms; drag-to-pan is intentionally absent.</td></tr>
+              <tr><td><code>tensor-title</code></td><td>Use <code>patterns/tensor-title/pattern.css</code> and <code>pattern.js</code>, then call <code>window.PtoTensorTitle.render(host, scene, options)</code>. The business supplies structured <code>label</code>, <code>role</code>, logical/physical/tile shape, <code>dtype</code>, <code>format</code>, memory, owner, partition, state, provenance, step, axes, constraints, and status fields. The Pattern owns the header DOM, byte formatting, and text escaping. Do not copy the header DOM/CSS, wrap it in a second card, add page-local colors, or use an iframe.</td></tr>
+              <tr><td><code>workbench-shell</code></td><td>Resize kernel only. Use <code>patterns/workbench-shell/pattern.css</code> and <code>patterns/workbench-shell/pattern.js</code>, then call <code>window.PtoWorkbenchShell.initResizablePanes</code>, <code>createSplitGutter</code>, or <code>initNestedResizablePanes</code> for horizontal / vertical / nested splits. Do not put page chrome, pane fills, topbars, titles, canvas controls, or IDE typography into this pattern.</td></tr>
+              <tr><td><code>ide-frame</code></td><td>IDE framework shell. Use <code>patterns/ide-frame/pattern.css</code>, <code>patterns/ide-frame/pattern.js</code>, <code>patterns/floating-playback-control/pattern.css</code>, <code>patterns/floating-playback-control/pattern.js</code>, and optional <code>patterns/ide-frame/vscode.css</code>. Set <code>data-host="standalone"</code> or <code>data-host="vscode-webview"</code>. It owns IDE chrome, pane headers, pane-local preview tabs, generic slots, floating playback mounting, split initialization, and the standalone IDE skin: 100% multi-point gradient/aura background, 80% translucent blurred pane fill, pane header fill, pane shadow, and transparent top chrome. It must not ship business sample data, must not recreate playback chrome, must not locally replace the shared IDE skin, and must not override <code>.pto-workbench-shell__*</code> internals.</td></tr>
+              <tr><td><code>floating-playback-control</code></td><td>Use <code>patterns/floating-playback-control/pattern.css</code> and <code>patterns/floating-playback-control/pattern.js</code>. Pages should use <code>.pto-floating-playback*</code> classes or call <code>window.PtoFloatingPlaybackControl.createControl</code>, then call <code>init</code> and <code>initScrubberHover</code>. Business pages own playback data and button handlers, but must not copy floating-shell chrome, collapse synchronization, or scrubber hover behavior locally.</td></tr>
+              <tr><td><code>model-graphviz</code></td><td>Use <code>patterns/model-graphviz/pattern.html</code> for parity preview; it iframes the real DeepSeek V3.2 Graphviz page directly. Bundled source/config schema assets include DeepSeek V3.2, Qwen-7B, and <code>openpangu_2_0_flash_modelviz.html</code>. For new lightweight examples, use <code>patterns/model-graphviz/pattern.js</code> and call <code>window.PtoModelGraphvizPattern.render</code>. The contract preserves the DeepSeek V3.2 rules: default depth-2 folding, full-pill module/op nodes, rounded-rect tensor nodes for Input/Output/MTP/Constant/Parameter/Tensor, graph stage, graph edges, semantic-first colormap defaults for common op roles with communication operators in a blue-green lane and unknown keys expanded through the shared palette, stronger light-mode node-fill opacity, transparent expanded parent containers, <code>--radius-xl</code> (16px) cluster corners, vertically centered node label+type stacks, strict semantic module hierarchy, explicit <code>sem:*</code> op colors before parent fallback, folded representative edge dedupe, stable expand/collapse viewport anchoring, top-right corner fold controls, right-inset expand controls, no graph shadows, and no-border clicked-operator preview cards. New model graph pages additionally derive cluster boxes from their visible-child bounding boxes (so collapse reflows and shrinks the parent), lay the decoder chain out as a single top-to-bottom column (Gate/Up the only parallel pair), use transform-based cursor-anchored pan/zoom, show a single white selection stroke with no browser focus ring, add <code>.pto-model-architecture-stage</code> for the shared model-architecture gallery treatment, and place the repeat-count badge at the cluster top-left under the title; <code>qwen7b_modelviz.html</code> is the reference implementation. Node fill colors are the only data-viz color exception; all other UI styling must remain token-derived. Do not render tensor nodes as ellipses or full pills, drift fold icons away from the cluster top-right corner anchor, use colored or translucent expanded-cluster fills, add graph shadows or operator-card borders, hard-code non-node UI styles, recenter/refit the whole graph after expand/collapse, or duplicate an expanded parent as a standalone node.</td></tr>
+              <tr><td><code>training-metrics-chart</code></td><td>Use <code>patterns/training-metrics-chart/pattern.css</code> and <code>pattern.js</code>, then call <code>window.PtoTrainingMetricsChart.render</code> for SVG metric series, dual axis, anomaly spikes, interest-window brushing, and step cursors. Series colors must come from viz highlight ramps; anomaly uses <code>--danger</code> and brush uses <code>--primary</code>. Do not rebuild line, axis, brush, or cursor geometry locally.</td></tr>
+              <tr><td>Preview rule</td><td>Preview pages may wrap a pattern for layout, but must not redefine the pattern's internal class styles.</td></tr>
+            </table>
+          </div>
+
+          <div class="agent-divider"></div>
+
+          <div class="agent-row">
+            <div class="agent-label">Module Migration Status</div>
+            <table class="agent-table">
+              <tr>
+                <td style="color:var(--foreground-muted);font-size:10px">MODULE</td>
+                <td style="color:var(--foreground-muted);font-size:10px">PATH</td>
+                <td style="color:var(--foreground-muted);font-size:10px">STATUS</td>
+              </tr>
+              <tr><td>pass-ir</td><td>pass-ir/index.html — <code>.btn-md-primary→.btn.btn-solid</code>, <code>.btn-md-text→.btn.btn-ghost</code> ✓</td><td class="agent-status-ok">migrated</td></tr>
+              <tr><td>swimlane</td><td>swimlane/styles.css — active states neutralised to <code>var(--foreground)</code> fill ✓</td><td class="agent-status-ok">migrated</td></tr>
+              <tr><td>op-ide-assistant</td><td>Still uses old <code>.btn-primary</code> class</td><td class="agent-status-todo">pending</td></tr>
+              <tr><td>execution-overlay</td><td>Still uses old <code>.btn-primary</code> class</td><td class="agent-status-todo">pending</td></tr>
+              <tr><td>mem_viewer</td><td>Floating playback migrated to <code>floating-playback-control</code>; remaining memory-viz colors stay data-viz exempt</td><td class="agent-status-ok">migrated</td></tr>
+              <tr><td>model-architecture</td><td>Not audited yet</td><td class="agent-status-todo">pending</td></tr>
+              <tr><td>graph-prototype-lab</td><td>Missing token imports entirely</td><td class="agent-status-warn">no tokens</td></tr>
+            </table>
+          </div>
+
+          <div class="agent-divider"></div>
+
+          <div class="agent-row">
+            <div class="agent-label">Exemptions — Do Not Migrate</div>
+            <table class="agent-table">
+              <tr><td>stitch colors</td><td>Data viz palette for swimlane dependency rendering. Intentional, never merge into shared tokens.</td></tr>
+              <tr><td>eo-query / eo-key / eo-weight</td><td>Execution overlay color semantics. Module-specific, exempt.</td></tr>
+              <tr><td>mem_viewer layer accents</td><td>Memory viewer layer-depth color scale. Exempt.</td></tr>
+              <tr><td>graph node colors</td><td>Graph prototype node type palette. Exempt.</td></tr>
+            </table>
+          </div>
+
+        </div>
+      </details>
+      <div class="preview-controls">
+        <div class="preview-control-group">
+          <span class="preview-control-label">主色调</span>
+          <button class="theme-switch-btn" type="button" data-accent-scope="default">默认</button>
+          <button class="theme-switch-btn is-active" type="button" data-accent-scope="accent">强调色</button>
+        </div>
+        <div class="preview-control-group">
+          <span class="preview-control-label">强调色</span>
+          <input class="accent-picker" id="accentPicker" type="color" value="#5b8cff" aria-label="Accent color picker">
+          <input class="accent-input" id="accentInput" type="text" value="#5B8CFF" spellcheck="false" aria-label="Accent hex input">
+        </div>
+      </div>
+    </header>
+
+    <aside class="preview-nav" aria-label="Component categories">
+      <div class="preview-nav-title">PTO UI Kit</div>
+      <a class="preview-nav-link" href="#overview" data-filter="all">全部</a>
+      <a class="preview-nav-link is-active" href="#overview" data-filter="featured">精选</a>
+      <a class="preview-nav-link" href="#pattern-previews" data-filter="patterns">模式库</a>
+      <a class="preview-nav-link" href="#color-palette" data-filter="foundations">基础色板</a>
+      <a class="preview-nav-link" href="#buttons" data-filter="actions">操作按钮</a>
+      <a class="preview-nav-link" href="#toggle-chip" data-filter="selection">选择控件</a>
+      <a class="preview-nav-link" href="#labels-badges" data-filter="metadata">元信息</a>
+      <a class="preview-nav-link" href="#panels-containers" data-filter="surfaces">容器卡片</a>
+      <a class="preview-nav-link" href="#layout-shell" data-filter="layout">布局框架</a>
+      <a class="preview-nav-link" href="#data-viz-exempt" data-filter="visualization">可视化例外</a>
+      <a class="preview-nav-link" href="#module-matrix" data-filter="migration">迁移映射</a>
+    </aside>
+
+    <section class="preview-section preview-section-viewer block-card" id="layout-shell" data-categories="featured layout surfaces patterns">
+      <h2 class="preview-section-title">PTO 典型 IDE 框架</h2>
+      <div class="preview-fullpage">
+        <section class="pto-ide-frame preview-feature-ide" data-ide-frame data-host="standalone" aria-label="PTO typical IDE frame">
+          <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+            <div class="pto-ide-frame__topbar-left">
+              <div class="pto-ide-frame__host-chip">
+                <svg class="pto-ide-frame__host-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                  <path d="m7 9 3 3-3 3"></path>
+                  <path d="M12 15h5"></path>
+                </svg>
+                <span>IDE</span>
+              </div>
+              <div class="pto-ide-frame__workspace" data-ide-slot="workspace-switcher">
+                <span>ascend-950-workbench-demo</span>
+                <span class="pto-ide-frame__crumbs">index.html</span>
+              </div>
+            </div>
+            <div class="pto-ide-frame__topbar-right">
+              <div class="pto-ide-frame__window-actions" data-ide-slot="window-controls" aria-label="Window controls">
+                <button class="pto-ide-frame__window-action" type="button" aria-label="Toggle left dock">
+                  <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <path d="M9 3v18"></path>
+                  </svg>
+                </button>
+                <button class="pto-ide-frame__window-action" type="button" aria-label="Toggle right dock">
+                  <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <path d="M15 3v18"></path>
+                  </svg>
+                </button>
+                <button class="pto-ide-frame__window-action" type="button" aria-label="Settings">
+                  <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9.67 4.14a2.34 2.34 0 0 1 4.66 0 2.34 2.34 0 0 0 3.32 1.91 2.34 2.34 0 0 1 2.33 4.04 2.34 2.34 0 0 0 0 3.82 2.34 2.34 0 0 1-2.33 4.04 2.34 2.34 0 0 0-3.32 1.91 2.34 2.34 0 0 1-4.66 0 2.34 2.34 0 0 0-3.32-1.91 2.34 2.34 0 0 1-2.33-4.04 2.34 2.34 0 0 0 0-3.82 2.34 2.34 0 0 1 2.33-4.04 2.34 2.34 0 0 0 3.32-1.91"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div class="pto-ide-frame__body">
+            <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" data-ide-slot="activity-rail" aria-label="Activity rail">
+              <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer" aria-label="Toggle file explorer" aria-controls="feature-explorer-pane" aria-expanded="true" aria-pressed="true" title="Explorer">
+                <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
+                </svg>
+              </button>
+              <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Search" title="Search">
+                <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <path d="m21 21-4.3-4.3"></path>
+                </svg>
+              </button>
+              <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Source control" title="Source control">
+                <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="6" r="3"></circle>
+                  <path d="M6 15V3"></path>
+                  <path d="M9 18a9 9 0 0 0 9-9"></path>
+                </svg>
+              </button>
+              <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Terminal" title="Terminal">
+                <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                  <path d="m7 9 3 3-3 3"></path>
+                  <path d="M12 15h5"></path>
+                </svg>
+              </button>
+            </nav>
+
+            <div class="pto-ide-frame__workarea">
+              <div class="pto-ide-frame__split" data-ide-split="standalone-main" data-storage-key="pto-design-system-feature-ide-main-v3" data-split-direction="horizontal" data-sizes="22,50,28" data-pixel-sizes="300" data-min-size="220,360,240">
+                <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="feature-explorer-pane">
+                  <header class="pto-ide-frame__pane-header">
+                    <h2 class="pto-ide-frame__pane-title">资源管理器</h2>
+                    <span class="pto-ide-frame__pane-meta">PTO</span>
+                  </header>
+                  <div class="pto-ide-frame__pane-body" data-ide-slot="navigation">
+                    <div class="preview-tree">
+                      <div class="preview-tree-group">文件</div>
+                      <div class="preview-tree-row" style="--tree-depth:0">
+                        <svg class="preview-tree-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                        <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+                        <span class="preview-tree-name">ascend-950-workbench-demo</span>
+                        <span class="preview-tree-status"></span>
+                      </div>
+                      <div class="preview-tree-row" style="--tree-depth:1">
+                        <svg class="preview-tree-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                        <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+                        <span class="preview-tree-name">kernels</span>
+                        <span class="preview-tree-status"></span>
+                      </div>
+                      <div class="preview-tree-row" style="--tree-depth:2">
+                        <span></span>
+                        <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+                        <span class="preview-tree-name">c_api_add.asc</span>
+                        <span class="preview-tree-status is-modified">M</span>
+                      </div>
+                      <div class="preview-tree-row" style="--tree-depth:2">
+                        <span></span>
+                        <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+                        <span class="preview-tree-name">gelu_high_api.js</span>
+                        <span class="preview-tree-status">U</span>
+                      </div>
+                      <div class="preview-tree-row" style="--tree-depth:2">
+                        <span></span>
+                        <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+                        <span class="preview-tree-name">fp8_mmad_masked_reduce.js</span>
+                        <span class="preview-tree-status"></span>
+                      </div>
+                      <div class="preview-tree-row" style="--tree-depth:1">
+                        <svg class="preview-tree-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
+                        <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+                        <span class="preview-tree-name">patterns</span>
+                        <span class="preview-tree-status"></span>
+                      </div>
+                      <div class="preview-tree-row is-active" style="--tree-depth:1">
+                        <span></span>
+                        <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+                        <span class="preview-tree-name">index.html</span>
+                        <span class="preview-tree-status is-modified">M</span>
+                      </div>
+                      <div class="preview-tree-row" style="--tree-depth:1">
+                        <span></span>
+                        <svg class="preview-tree-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+                        <span class="preview-tree-name">hardware-frame.html</span>
+                        <span class="preview-tree-status"></span>
+                      </div>
+                    </div>
+                  </div>
+                </aside>
+
+                <section class="pto-ide-frame__pane" data-ide-pane="editor-preview">
+                  <div class="pto-ide-frame__tabstrip" data-ide-slot="preview-tabs">
+                    <div class="tab-control" role="tablist" aria-label="Preview tabs">
+                      <button class="tab-control-item" type="button" role="tab">c_api_add.asc <span class="pto-ide-frame__tab-close" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></span></button>
+                      <button class="tab-control-item is-selected" type="button" role="tab">index.html <span class="pto-ide-frame__tab-close" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></span></button>
+                    </div>
+                  </div>
+                  <header class="pto-ide-frame__pane-header">
+                    <h2 class="pto-ide-frame__pane-title">预览</h2>
+                    <span class="pto-ide-frame__pane-meta">index.html</span>
+                  </header>
+                  <div class="pto-ide-frame__pane-body" data-ide-slot="preview">
+                    <div class="preview-editor-breadcrumbs">
+                      <strong>ascend-950-workbench-demo</strong>
+                      <span>/</span>
+                      <strong>index.html</strong>
+                      <span>/</span>
+                      <span>workbench shell</span>
+                    </div>
+                    <div class="pto-ide-frame__code-surface preview-code-surface" aria-label="Code preview surface">
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1944</span><span class="pto-ide-frame__code-line-code"><span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;workbench-shell-page wb-page&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1945</span><span class="pto-ide-frame__code-line-code">  <span class="tk-tag">&lt;header</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;layout-header layout-header-filled workbench-shell-header&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1946</span><span class="pto-ide-frame__code-line-code">    <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;layout-header-left&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line is-related"><span class="pto-ide-frame__code-line-number">1947</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;a</span> <span class="tk-attr">href</span>=<span class="tk-value">&quot;../launch.html&quot;</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;home-link&quot;</span> <span class="tk-attr">title</span>=<span class="tk-value">&quot;Back to Launcher&quot;</span><span class="tk-tag">&gt;</span>⌂<span class="tk-tag">&lt;/a&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1948</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-brand&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1949</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-title-stack&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line is-active"><span class="pto-ide-frame__code-line-number">1950</span><span class="pto-ide-frame__code-line-code">          <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-title&quot;</span><span class="tk-tag">&gt;</span>硬件路径工作台<span class="tk-tag">&lt;/div&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1951</span><span class="pto-ide-frame__code-line-code">          <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-subtitle&quot;</span><span class="tk-tag">&gt;</span>代码 ↔ 硬件 ↔ 决策同步审查<span class="tk-tag">&lt;/div&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1952</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;/div&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1953</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;/div&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1954</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-context&quot;</span> <span class="tk-attr">aria-label</span>=<span class="tk-value">&quot;Context&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line is-related"><span class="pto-ide-frame__code-line-number">1955</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;span</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-chip&quot;</span><span class="tk-tag">&gt;</span>内核 <span class="tk-tag">&lt;strong</span> <span class="tk-attr">id</span>=<span class="tk-value">&quot;contextKernelName&quot;</span><span class="tk-tag">&gt;</span>c_api_add<span class="tk-tag">&lt;/strong&gt;&lt;/span&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1956</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;span</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-chip&quot;</span><span class="tk-tag">&gt;</span>目标 <span class="tk-tag">&lt;strong</span> <span class="tk-attr">id</span>=<span class="tk-value">&quot;contextTarget&quot;</span><span class="tk-tag">&gt;</span>Ascend 910B<span class="tk-tag">&lt;/strong&gt;&lt;/span&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1957</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;span</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-chip&quot;</span><span class="tk-tag">&gt;</span>分析 <span class="tk-tag">&lt;strong</span> <span class="tk-attr">id</span>=<span class="tk-value">&quot;contextAnalysis&quot;</span><span class="tk-tag">&gt;</span>T1 静态<span class="tk-tag">&lt;/strong&gt;&lt;/span&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1958</span><span class="pto-ide-frame__code-line-code">        <span class="tk-tag">&lt;span</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;wb-chip is-verdict&quot;</span><span class="tk-tag">&gt;</span>结论 <span class="tk-tag">&lt;strong</span> <span class="tk-attr">id</span>=<span class="tk-value">&quot;contextVerdict&quot;</span><span class="tk-tag">&gt;</span>Native Vector baseline<span class="tk-tag">&lt;/strong&gt;&lt;/span&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1959</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;/div&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1960</span><span class="pto-ide-frame__code-line-code">    <span class="tk-tag">&lt;/div&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1961</span><span class="pto-ide-frame__code-line-code">    <span class="tk-tag">&lt;div</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;layout-header-right&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line is-active"><span class="pto-ide-frame__code-line-number">1962</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;button</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;btn btn-sm&quot;</span> <span class="tk-attr">type</span>=<span class="tk-value">&quot;button&quot;</span> <span class="tk-attr">id</span>=<span class="tk-value">&quot;analyzeBtn&quot;</span><span class="tk-tag">&gt;</span>分析<span class="tk-tag">&lt;/button&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1963</span><span class="pto-ide-frame__code-line-code">      <span class="tk-tag">&lt;button</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;btn btn-solid btn-sm&quot;</span> <span class="tk-attr">type</span>=<span class="tk-value">&quot;button&quot;</span><span class="tk-tag">&gt;</span>应用建议<span class="tk-tag">&lt;/button&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1964</span><span class="pto-ide-frame__code-line-code">    <span class="tk-tag">&lt;/div&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1965</span><span class="pto-ide-frame__code-line-code">  <span class="tk-tag">&lt;/header&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1966</span><span class="pto-ide-frame__code-line-code"></span></div>
+                      <div class="pto-ide-frame__code-line is-related"><span class="pto-ide-frame__code-line-number">1967</span><span class="pto-ide-frame__code-line-code">  <span class="tk-tag">&lt;main</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;workbench-frame workbench-frame-split wb-workbench&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                      <div class="pto-ide-frame__code-line"><span class="pto-ide-frame__code-line-number">1968</span><span class="pto-ide-frame__code-line-code">    <span class="tk-tag">&lt;section</span> <span class="tk-attr">class</span>=<span class="tk-value">&quot;panel-shell panel-shell-quiet workbench-pane wb-source-panel&quot;</span> <span class="tk-attr">aria-label</span>=<span class="tk-value">&quot;Kernel source&quot;</span><span class="tk-tag">&gt;</span></span></div>
+                    </div>
+                  </div>
+                </section>
+
+                <aside class="pto-ide-frame__pane" data-ide-pane="inspector">
+                  <header class="pto-ide-frame__pane-header">
+                    <h2 class="pto-ide-frame__pane-title">视图</h2>
+                    <span class="pto-ide-frame__pane-meta">视图插槽</span>
+                  </header>
+                  <div class="pto-ide-frame__pane-body" data-ide-slot="inspector">
+                    <div class="preview-empty-view">请运行 skill，并定义本窗口视图</div>
+                  </div>
+                </aside>
+              </div>
+
+              <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome" data-ide-slot="status">
+                <span>PTO 3.0</span>
+                <span>等待视图组合</span>
+              </footer>
+            </div>
+          </div>
+          <div class="pto-ide-frame__floating-playback-mount" data-ide-slot="playback" data-ide-floating-playback data-total-steps="128" data-step="32" data-playback-state="memory path trace"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="preview-section block-card" id="pattern-previews" data-categories="featured patterns layout visualization">
+      <h2 class="preview-section-title">模式库 <button class="btn btn-ghost preview-reveal-covered" type="button" aria-expanded="false">显示被覆盖模式</button></h2>
+      <div class="preview-grid">
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">泳道事件 Pattern</h3>
+            <div class="preview-card-class">swimlane 模块：Canvas 任务条 + hover tip</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/swimlane-task/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="swimlane-task" data-src="./patterns/swimlane-task/pattern.html?embed=1" src="about:blank" title="Swimlane Task Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: swimlane-task-bar</span>
+            <span class="token-badge">source: patterns/swimlane-task/pattern.js</span>
+            <span class="token-badge">contract: canvas renderer + hover tip</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Tensor Volume Canvas Pattern</h3>
+            <div class="preview-card-class">固定视角 Canvas：NCHW / A1 / Load3D 体素状态；共享投影与 DPR，无相机交互</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/tensor-volume-canvas/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="tensor-volume-canvas" data-src="./patterns/tensor-volume-canvas/pattern.html?embed=1" src="about:blank" title="Tensor Volume Canvas Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: tensor-volume-canvas</span>
+            <span class="token-badge">source: patterns/tensor-volume-canvas/pattern.js</span>
+            <span class="token-badge">contract: fixed projection + voxel state protocol + responsive DPR</span>
+            <span class="state-badge">Canvas Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Tensor Title Pattern</h3>
+            <div class="preview-card-class">共享 DOM 标题条：Tensor / Matrix / Volume 上方的身份、shape、format、memory、tiling、state、provenance 与 step 元数据</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/tensor-title/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="tensor-title" data-src="./patterns/tensor-title/pattern.html?embed=1" src="about:blank" title="Tensor Title Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: tensor-title</span>
+            <span class="token-badge">source: patterns/tensor-title/pattern.js</span>
+            <span class="token-badge">contract: structured scene fields + shared header DOM</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Memory Reuse Viewer Pattern</h3>
+            <div class="preview-card-class">UB / L1 / L0C：tensor lifetime、buffer offset、peak usage、reuse links、source 与 CCE 关联检查</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/memory-reuse-viewer/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="memory-reuse-viewer" data-src="./patterns/memory-reuse-viewer/pattern.html?embed=1" src="about:blank" title="Memory Reuse Viewer Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: memory-reuse-viewer</span>
+            <span class="token-badge">source: patterns/memory-reuse-viewer/pattern.js</span>
+            <span class="token-badge">contract: tensor lifetime canvas + detail inspector + direct embedding</span>
+            <span class="state-badge">Hybrid Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row" hidden data-preview-hidden="covered-by-hardware-architecture-viewport">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">910B / 950 存储架构 Pattern</h3>
+            <div class="preview-card-class">全画布对象：GM / L2 / AIC / AIV / UB / L0C；iframe graph-only，默认 60% 缩放，支持拖拽和 Command-wheel 缩放</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/memory-architecture/pattern.html?v=memory-graph-only-scalar-v1">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="memory-architecture" data-src="./patterns/memory-architecture/pattern.html?embed=1&amp;v=memory-graph-only-scalar-v1" src="about:blank" title="910B / 950 Memory Architecture Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: memory-architecture-layout</span>
+            <span class="token-badge">source: patterns/memory-architecture/pattern.js</span>
+            <span class="token-badge">contract: shared presets + route overlay + hardware tips + path focus hover + graph-only pan/zoom viewport</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">模型并行 Rank Three.js Deck Pattern</h3>
+            <div class="preview-card-class">TP2 × PP4 × EP8 × EDP2：128 个透明 Rank 内编译 1472 个完整 Layer 载荷，支持并行拓扑变换、关系选中与双击进入 Rank</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/model-parallel-rank-deck/pattern.html?v=rank-packing-v1">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="model-parallel-rank-deck" data-src="./patterns/model-parallel-rank-deck/pattern.html?embed=1&amp;v=rank-packing-v1" src="about:blank" title="Model Parallel Rank Three.js Deck Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: model-parallel-rank-deck</span>
+            <span class="token-badge">payload: complete GPU scene records</span>
+            <span class="token-badge">topology: 128-rank demo</span>
+            <span class="state-badge">Three.js Hybrid Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">模型训练语义 Sidecar Pattern</h3>
+            <div class="preview-card-class">不修改原侧视图：叠加 Forward hidden state、Backward activation gradient、参数/优化器状态、指标热条与可展开 Layer focus lens</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/model-architecture-training-sidecar/pattern.html?view=right&amp;parallel=pp&amp;v=pp-boundary-detail-v17">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="model-architecture-training-sidecar" data-src="./patterns/model-architecture-training-sidecar/pattern.html?embed=1&amp;view=right&amp;parallel=pp&amp;v=pp-boundary-detail-v17" src="about:blank" title="Model Architecture Training Sidecar Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: model-architecture-training-sidecar</span>
+            <span class="token-badge">source: patterns/model-architecture-training-sidecar/pattern.js</span>
+            <span class="token-badge">contract: immutable base deck + projected training-semantics overlay + Layer detail slot</span>
+            <span class="state-badge">Hybrid Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">硬件架构视口 Pattern</h3>
+            <div class="preview-card-class">architecture-map 宿主控件 + 真实 910B/950B 架构图：架构切换 / detail / zoom / pan</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/hardware-architecture-viewport/pattern.html?arch=ascend910b&amp;v=stable-theme-toggle-16">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="hardware-architecture-viewport" data-src="./patterns/hardware-architecture-viewport/pattern.html?embed=1&amp;arch=ascend910b&amp;v=stable-theme-toggle-16" src="about:blank" title="Ascend 910B Hardware Architecture Viewport Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: hardware-architecture-viewport</span>
+            <span class="token-badge">source: patterns/hardware-architecture-viewport/pattern.js</span>
+            <span class="token-badge">contract: viewport toolbar + 910B/950B switch + memory architecture renderer</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">模型架构 3D Deck Pattern</h3>
+            <div class="preview-card-class">源页 openPangu 46 层完整架构：深浅模式、3D / 正视 / 侧视切换、PP 分区投影、DP / PP / TP / EP 标注与侧视算子标签</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/model-architecture-3d-deck/pattern.html?v=parallel-tabs-v2">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="model-architecture-3d-deck" data-src="./patterns/model-architecture-3d-deck/pattern.html?embed=1&amp;v=parallel-tabs-v2" src="about:blank" title="Model Architecture 3D Deck Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: model-architecture-3d-deck</span>
+            <span class="token-badge">source: patterns/model-architecture-3d-deck/pattern.js</span>
+            <span class="token-badge">contract: source-parity CSS 3D + dark/light + projected parallel annotations + multi-view controller</span>
+            <span class="state-badge">Hybrid Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">AIC Core Object Pattern</h3>
+            <div class="preview-card-class">AIC 内部对象：L1 / micro-buffer stack / Cube / L0C，配置驱动 shell</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/aic-core-object/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="aic-core-object" data-src="./patterns/aic-core-object/pattern.html?embed=1" src="about:blank" title="AIC Core Object Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: aic-core-object</span>
+            <span class="token-badge">source: patterns/aic-core-object/pattern.js</span>
+            <span class="token-badge">contract: config-driven DOM + JS grid generator</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">AIV Core Object Pattern</h3>
+            <div class="preview-card-class">AIV 内部对象：DCache / ICache / ND-DMA Cache / UB / SIMT / SIMD / Vector routes</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/aiv-core-object/pattern.html?v=aiv-variants-v1">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="aiv-core-object" data-src="./patterns/aiv-core-object/pattern.html?embed=1&amp;v=aiv-variants-v1" src="about:blank" title="AIV Core Object Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: aiv-core-object</span>
+            <span class="token-badge">source: patterns/aiv-core-object/pattern.js</span>
+            <span class="token-badge">contract: config-driven DOM + JS grid + SVG routes</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Pass-IR 图节点 Pattern</h3>
+            <div class="preview-card-class">pass-ir 模块：混合图节点渲染器</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/pass-ir-graph-node/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="pass-ir-graph-node" data-src="./patterns/pass-ir-graph-node/pattern.html?embed=1" src="about:blank" title="Pass-IR Graph Node Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: pass-ir-graph-node</span>
+            <span class="token-badge">source: patterns/pass-ir-graph-node/pattern.js</span>
+            <span class="token-badge">contract: DOM shell + renderer-driven group/compact states</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row" hidden data-preview-hidden="low-level-kernel">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Workbench Split Kernel Pattern</h3>
+            <div class="preview-card-class">低层 split / gutter / resize kernel：水平、垂直和嵌套 panes</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/workbench-shell/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="workbench-shell" data-src="./patterns/workbench-shell/pattern.html?embed=1" src="about:blank" title="Workbench Split Kernel Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: workbench-shell</span>
+            <span class="token-badge">source: patterns/workbench-shell/pattern.js</span>
+            <span class="token-badge">contract: resize kernel + split gutters + persistence + destroy lifecycle</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row" hidden data-preview-hidden="covered-by-workbench-shell-preview">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">PTO IDE 框架 Pattern</h3>
+            <div class="preview-card-class">框架壳：独立宿主预览 + VS Code webview 适配契约 + 无内容插槽</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/ide-frame/pattern.html?v=ide-frame-v7">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="ide-frame" data-src="./patterns/ide-frame/pattern.html?embed=1&amp;v=ide-frame-v7" src="about:blank" title="PTO IDE Frame Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: ide-frame</span>
+            <span class="token-badge">source: patterns/ide-frame/pattern.js</span>
+            <span class="token-badge">contract: IDE chrome + slots + shared split + floating playback mount</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">悬浮播放控件 Pattern</h3>
+            <div class="preview-card-class">mem_viewer 模块：底部播放壳 + 时间轴拖拽状态辅助</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/floating-playback-control/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="floating-playback-control" data-src="./patterns/floating-playback-control/pattern.html?embed=1" src="about:blank" title="Floating Playback Control Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: floating-playback-control</span>
+            <span class="token-badge">source: patterns/floating-playback-control/pattern.js</span>
+            <span class="token-badge">contract: DOM shell + collapse + scrubber hover helper</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row" hidden data-preview-hidden="covered-by-model-architecture-gallery">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Model Graphviz Pattern</h3>
+            <div class="preview-card-class">torchvista graphviz：DeepSeek / Qwen / openPangu / Pangu MoE 模型图 SVG 渲染样式</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/model-graphviz/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="model-graphviz" data-src="./patterns/model-graphviz/pattern.html?embed=1&amp;v=cmd-wheel-v1" src="about:blank" title="Model Graphviz Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: model-graphviz</span>
+            <span class="token-badge">source: patterns/model-graphviz/pattern.js</span>
+            <span class="token-badge">contract: iframe parity + SVG renderer rules</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">MoE Routing Pattern</h3>
+            <div class="preview-card-class">单层 Rank 路由负载 + 单 Token L0–L45 激活路径</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/moe-routing/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="moe-routing" data-src="./patterns/moe-routing/pattern.html?embed=1" src="about:blank" title="MoE Routing Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: moe-routing</span>
+            <span class="token-badge">source: patterns/moe-routing/pattern.js</span>
+            <span class="token-badge">contract: generated SVG + linked layer/token controller</span>
+            <span class="state-badge">Rendered Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row model-architecture-card" id="model-architecture-gallery">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">模型架构</h3>
+            <div class="preview-card-class">model-graphviz assets：Qwen / openPangu 架构图 tab 预览</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="model-architecture-floor">
+              <div class="model-architecture-toolbar">
+                <div class="model-architecture-tabs" role="tablist" aria-label="Model architecture tabs">
+                  <button class="model-architecture-tab is-active" type="button" role="tab" id="model-architecture-tab-qwen7b" aria-selected="true" aria-controls="model-architecture-panel-qwen7b" data-model-architecture-tab="qwen7b">Qwen-7B</button>
+                  <button class="model-architecture-tab" type="button" role="tab" id="model-architecture-tab-openpangu-2-0-flash" aria-selected="false" aria-controls="model-architecture-panel-openpangu-2-0-flash" data-model-architecture-tab="openpangu-2-0-flash">openPangu-2.0-Flash</button>
+                </div>
+              </div>
+
+              <article class="model-architecture-panel is-active" id="model-architecture-panel-qwen7b" role="tabpanel" aria-labelledby="model-architecture-tab-qwen7b" data-model-architecture-panel="qwen7b">
+                <div class="model-architecture-summary">
+                  <div class="model-architecture-summary-main">
+                    <span class="token-badge">nodes: 26</span>
+                    <span class="token-badge">edges: 22</span>
+                    <span class="token-badge">main layers: 32</span>
+                    <span class="token-badge">parameter nodes: 4</span>
+                    <span class="token-badge">parent fill: transparent</span>
+                  </div>
+                  <a class="btn btn-ghost" href="./patterns/model-graphviz/assets/qwen7b_modelviz.html?theme=dark&amp;embed=1&amp;v=model-capsule-7">查看完整示例</a>
+                </div>
+                <div class="model-architecture-frame-shell">
+                  <iframe class="model-architecture-frame" data-pattern-preview="model-architecture-qwen7b" data-model-frame="qwen7b" data-sync-theme-param="true" data-src="./patterns/model-graphviz/assets/qwen7b_modelviz.html?embed=1&amp;v=model-capsule-7" src="about:blank" title="Qwen-7B Model Architecture" loading="lazy"></iframe>
+                </div>
+              </article>
+
+              <article class="model-architecture-panel" id="model-architecture-panel-openpangu-2-0-flash" role="tabpanel" aria-labelledby="model-architecture-tab-openpangu-2-0-flash" data-model-architecture-panel="openpangu-2-0-flash" hidden>
+                <div class="model-architecture-summary">
+                  <div class="model-architecture-summary-main">
+                    <span class="token-badge">nodes: 63</span>
+                    <span class="token-badge">edges: 68</span>
+                    <span class="token-badge">main layers: 46</span>
+                    <span class="token-badge">parameter nodes: 8</span>
+                    <span class="token-badge">MTP: 3 layers</span>
+                  </div>
+                  <a class="btn btn-ghost" href="./patterns/model-graphviz/assets/openpangu_2_0_flash_modelviz.html?theme=dark&amp;v=model-capsule-7">查看完整示例</a>
+                </div>
+                <div class="model-architecture-frame-shell">
+                  <iframe class="model-architecture-frame" data-pattern-preview="model-architecture-openpangu-2-0-flash" data-model-frame="openpangu-2-0-flash" data-sync-theme-param="true" data-src="./patterns/model-graphviz/assets/openpangu_2_0_flash_modelviz.html?embed=1&amp;v=model-capsule-7" src="about:blank" title="openPangu-2.0-Flash Model Architecture" loading="lazy"></iframe>
+                </div>
+              </article>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: model-graphviz</span>
+            <span class="token-badge">source: patterns/model-graphviz/assets</span>
+            <span class="token-badge">contract: tabbed model architecture floor</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-full-row">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Training Metrics Chart Pattern</h3>
+            <div class="preview-card-class">训练指标 SVG：multi-series / dual axis / anomaly / brush / step cursor</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <a class="btn btn-ghost" href="./patterns/training-metrics-chart/pattern.html">查看完整示例</a>
+            </div>
+            <div class="preview-embed">
+              <iframe class="preview-embed-frame" data-pattern-preview="training-metrics-chart" data-src="./patterns/training-metrics-chart/pattern.html?embed=1&amp;v=theme-sync-v1" src="about:blank" title="Training Metrics Chart Pattern Preview" loading="lazy"></iframe>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">pattern id: training-metrics-chart</span>
+            <span class="token-badge">source: patterns/training-metrics-chart/pattern.js</span>
+            <span class="token-badge">contract: dependency-free SVG chart + brush + cursor + anomaly highlight</span>
+            <span class="state-badge">Pattern</span>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <section class="preview-section block-card" id="color-palette" data-categories="featured foundations visualization">
+      <h2 class="preview-section-title">基础色板</h2>
+
+      <div class="palette-overview palette-overview-single">
+        <div class="palette-ramp-card" id="paletteNeutralCard"></div>
+      </div>
+
+      <div class="palette-grid" id="paletteHighlightGrid"></div>
+    </section>
+
+    <!-- ① Core Variants -->
+    <section class="preview-section block-card" id="buttons" data-categories="featured actions">
+      <h2 class="preview-section-title">操作按钮</h2>
+      <div class="preview-grid">
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">按钮匹配规则</h3>
+            <div class="preview-card-class">Solid 与 Soft 的选用</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <button class="btn btn-solid" type="button">运行分析</button>
+              <button class="btn" type="button">打开本地资源</button>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">solid: primary workflow commit</span>
+            <span class="token-badge">soft: entry / open / import / choose</span>
+            <span class="state-badge">规则</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">次按钮 Soft</h3>
+            <div class="preview-card-class">.btn</div>
+          </div>
+          <div class="preview-stage">
+            <button class="btn" type="button">默认</button>
+            <button class="btn preview-hover" type="button">悬浮</button>
+            <button class="btn preview-active" type="button">按压</button>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">--button-secondary-bg</span>
+            <span class="token-badge">--button-secondary-border</span>
+            <span class="token-badge">--button-secondary-fg</span>
+            <span class="state-badge">Use for open/import/load</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">主按钮 Solid</h3>
+            <div class="preview-card-class">.btn .btn-solid</div>
+          </div>
+          <div class="preview-stage">
+            <button class="btn btn-solid" type="button">提交</button>
+            <button class="btn btn-solid preview-hover" type="button">悬浮</button>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">bg: --foreground</span>
+            <span class="token-badge">color: --background</span>
+            <span class="state-badge">Use for run/apply/submit</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">幽灵按钮 Ghost</h3>
+            <div class="preview-card-class">.btn .btn-ghost</div>
+          </div>
+          <div class="preview-stage">
+            <button class="btn btn-ghost" type="button">取消</button>
+            <button class="btn btn-ghost preview-hover" type="button">悬浮</button>
+            <button class="btn btn-ghost btn-icon" type="button" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+            <button class="btn btn-ghost btn-icon preview-hover" type="button" aria-label="添加"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">bg: transparent</span>
+            <span class="token-badge">--button-ghost-fg</span>
+            <span class="token-badge">--button-ghost-bg-hover</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">禁用态 Disabled</h3>
+            <div class="preview-card-class">[disabled]</div>
+          </div>
+          <div class="preview-stage">
+            <button class="btn" type="button" disabled aria-disabled="true">Soft</button>
+            <button class="btn btn-solid" type="button" disabled aria-disabled="true">Solid</button>
+            <button class="btn btn-ghost" type="button" disabled aria-disabled="true">Ghost</button>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">opacity: --button-disabled-opacity (0.42)</span>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ② Toggle & Chip -->
+    <section class="preview-section block-card" id="toggle-chip" data-categories="featured selection">
+      <h2 class="preview-section-title">选择控件</h2>
+      <div class="preview-grid">
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">双态切换 Toggle</h3>
+            <div class="preview-card-class">轮廓切换：图标 + 文字</div>
+          </div>
+          <div class="preview-stage">
+            <button class="toggle-outline" type="button" aria-pressed="false">
+              <span class="toggle-outline-icon">I</span>
+              斜体
+            </button>
+            <button class="toggle-outline" type="button" aria-pressed="true">
+              <span class="toggle-outline-icon">B</span>
+              粗体
+            </button>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">border: --border-default</span>
+            <span class="token-badge">pressed bg: foreground 7% tint</span>
+            <span class="token-badge">radius: 6px</span>
+            <span class="state-badge">通用</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Toggle 尺寸</h3>
+            <div class="preview-card-class">size=&quot;sm&quot; / default / &quot;lg&quot;</div>
+          </div>
+          <div class="preview-stage">
+            <button class="toggle-outline toggle-outline-sm" type="button" aria-pressed="false">小号</button>
+            <button class="toggle-outline" type="button" aria-pressed="false">默认</button>
+            <button class="toggle-outline toggle-outline-lg" type="button" aria-pressed="false">大号</button>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">sm: h-8 px-2.5</span>
+            <span class="token-badge">default: h-8 px-2.5</span>
+            <span class="token-badge">lg: h-9 px-3</span>
+            <span class="state-badge">通用</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Toggle 分组</h3>
+            <div class="preview-card-class">.sw-toggle-btn / .sw-view-mode-btn / .model-btn.active</div>
+          </div>
+          <div class="preview-stage">
+            <div class="preview-inline">
+              <button class="toggle-outline" type="button" aria-pressed="true">优化前</button>
+              <button class="toggle-outline" type="button" aria-pressed="false">优化后</button>
+            </div>
+            <div class="preview-inline">
+              <button class="toggle-outline" type="button" aria-pressed="false">单视图</button>
+              <button class="toggle-outline" type="button" aria-pressed="true">Diff</button>
+            </div>
+            <div class="preview-inline">
+              <button class="toggle-outline" type="button" aria-pressed="false">TB</button>
+              <button class="toggle-outline" type="button" aria-pressed="true">LR</button>
+              <button class="toggle-outline" type="button" aria-pressed="false">v3.2</button>
+              <button class="toggle-outline" type="button" aria-pressed="true">v3.3</button>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">base: outline toggle</span>
+            <span class="token-badge">selected via aria-pressed</span>
+            <span class="state-badge">通用</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Chip 过滤</h3>
+            <div class="preview-card-class">.sw-chip-btn + 紧凑过滤语义</div>
+          </div>
+          <div class="preview-stage">
+            <button class="sw-chip-btn is-active" type="button" aria-pressed="true">AIC</button>
+            <button class="sw-chip-btn" type="button" aria-pressed="false">AIV</button>
+            <button class="sw-chip-btn" type="button" aria-pressed="false">CPU</button>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">compact spacing</span>
+            <span class="token-badge">selected: var(--state-selected) + var(--foreground)</span>
+            <span class="state-badge">模块变体</span>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <section class="preview-section block-card" id="labels-badges" data-categories="metadata">
+      <h2 class="preview-section-title">元信息与状态</h2>
+      <div class="preview-grid">
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">中性徽章</h3>
+            <div class="preview-card-class">.badge-neutral</div>
+          </div>
+          <div class="preview-stage">
+            <span class="state-badge">默认</span>
+            <span class="state-badge">检视器</span>
+            <span class="state-badge">通用</span>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">bg: --surface-disabled</span>
+            <span class="token-badge">border: --border-default</span>
+            <span class="token-badge">fg: --foreground-secondary</span>
+            <span class="state-badge">通用</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">语义化状态</h3>
+            <div class="preview-card-class">.badge-neutral + 语义颜色</div>
+          </div>
+          <div class="preview-stage">
+            <span class="status-tag status-tag-success"><span aria-hidden="true">✓ </span>成功</span>
+            <span class="status-tag status-tag-pending"><span aria-hidden="true">… </span>进行中</span>
+            <span class="status-tag status-tag-warning"><span aria-hidden="true">⚠ </span>警告</span>
+            <span class="status-tag status-tag-error"><span aria-hidden="true">✕ </span>错误</span>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">base: neutral badge shape</span>
+            <span class="token-badge">semantic colors: success / info / warning / danger</span>
+            <span class="state-badge">通用</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">行内标签</h3>
+            <div class="preview-card-class">.label-inline</div>
+          </div>
+          <div class="preview-stage">
+            <div class="preview-inline" style="gap: 8px;">
+              <span style="font-size: 11px; color: var(--foreground-muted); text-transform: uppercase; letter-spacing: 0.08em;">Pass</span>
+              <span style="font-size: 13px; color: var(--foreground); font-weight: 600;">fuse_attention</span>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">label: --foreground-muted</span>
+            <span class="token-badge">value: --foreground</span>
+            <span class="state-badge">通用</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">模块专属状态药丸</h3>
+            <div class="preview-card-class">timeline / swimlane / graph 状态</div>
+          </div>
+          <div class="preview-stage">
+            <span class="state-badge" style="background: rgba(255,255,255,0.08); color: #f0f0f0;">空缺</span>
+            <span class="state-badge" style="background: rgba(255,190,0,0.14); color: #ffc75a;">回退</span>
+            <span class="state-badge" style="background: rgba(0,196,140,0.15); color: #55d8aa;">已修复</span>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">status-specific semantic tint</span>
+            <span class="state-badge">豁免</span>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <section class="preview-section block-card" id="panels-containers" data-categories="featured surfaces">
+      <h2 class="preview-section-title">容器与卡片</h2>
+      <div class="preview-grid">
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">泳道资源面板</h3>
+            <div class="preview-card-class">.sw-resource-panel → CardHeader + CardContent</div>
+          </div>
+          <div class="preview-stage">
+            <div class="card-demo">
+              <div class="card-demo-header">
+                <div class="card-demo-title">本地资源库</div>
+                <div class="card-demo-description">加载拼接 trace、查看可用样本，并将所有资源相关动作集中到一张紧凑卡片里。</div>
+              </div>
+              <div class="card-demo-content">
+                <div class="card-demo-field">
+                  <div class="card-demo-label">当前来源</div>
+                  <div class="card-demo-input">stitched_after.json</div>
+                </div>
+                <div class="card-demo-field">
+                  <div class="card-demo-label">样本</div>
+                  <div class="card-demo-input">before / after / diff</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">slots: header + content</span>
+            <span class="token-badge">bg: --background-elevated</span>
+            <span class="state-badge">通用</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">执行 Overlay 详情面板</h3>
+            <div class="preview-card-class">.eo-detail-panel → CardHeader + CardAction + CardContent</div>
+          </div>
+          <div class="preview-stage">
+            <div class="card-demo">
+              <div class="card-demo-header">
+                <div class="card-demo-header-row">
+                  <div>
+                    <div class="card-demo-title">节点详情</div>
+                    <div class="card-demo-description">执行诊断、依赖查找和节点元信息应当呈现为一张结构化的分析卡片。</div>
+                  </div>
+                  <button class="btn btn-ghost btn-icon" type="button" aria-label="关闭"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                </div>
+              </div>
+              <div class="card-demo-content">
+                <div class="card-demo-field">
+                  <div class="card-demo-label">节点</div>
+                  <div class="card-demo-input">q_proj_fused</div>
+                </div>
+                <div class="card-demo-field">
+                  <div class="card-demo-label">流水线</div>
+                  <div class="card-demo-input">Query · Core 3</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">slots: header + action + content</span>
+            <span class="token-badge">action: link/ghost button</span>
+            <span class="state-badge">通用</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">泳道任务弹窗</h3>
+            <div class="preview-card-class">.sw-task-popup → CardContent + CardFooter</div>
+          </div>
+          <div class="preview-stage">
+            <div class="card-demo">
+              <div class="card-demo-header">
+                <div class="card-demo-title">任务详情</div>
+                <div class="card-demo-description">弹窗详情应当表现为一张内容卡片：清晰的元信息字段 + 底部操作按钮。</div>
+              </div>
+              <div class="card-demo-content">
+                <div class="card-demo-field">
+                  <div class="card-demo-label">内核</div>
+                  <div class="card-demo-input">matmul_128x64</div>
+                </div>
+                <div class="card-demo-field">
+                  <div class="card-demo-label">时间窗口</div>
+                  <div class="card-demo-input">12.4ms → 18.1ms</div>
+                </div>
+              </div>
+              <div class="card-demo-footer">
+                <button class="btn btn-solid" type="button">聚焦该任务</button>
+                <button class="btn" type="button">打开源码</button>
+              </div>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">slots: content + footer</span>
+            <span class="token-badge">footer: stacked actions</span>
+            <span class="state-badge">通用</span>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <section class="preview-section block-card" id="data-viz-exempt" data-categories="visualization foundations">
+      <h2 class="preview-section-title">可视化例外</h2>
+      <div class="preview-grid">
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">泳道拼接色</h3>
+            <div class="preview-card-class">--sw-stitch-0 ~ --sw-stitch-4</div>
+          </div>
+          <div class="preview-stage">
+            <div class="preview-inline">
+              <span class="preview-swatch" style="background: var(--sw-stitch-0);"></span>
+              <span class="preview-swatch" style="background: var(--sw-stitch-1);"></span>
+              <span class="preview-swatch" style="background: var(--sw-stitch-2);"></span>
+              <span class="preview-swatch" style="background: var(--sw-stitch-3);"></span>
+              <span class="preview-swatch" style="background: var(--sw-stitch-4);"></span>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">role: stitched lanes</span>
+            <span class="state-badge">豁免</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">依赖连线</h3>
+            <div class="preview-card-class">.sw-dep-line-* / .sw-dep-dot-*</div>
+          </div>
+          <div class="preview-stage">
+            <div class="preview-inline">
+              <span class="preview-swatch" style="background: #7dd3fc;"></span>
+              <span class="preview-swatch" style="background: #a78bfa;"></span>
+              <span class="preview-swatch" style="background: #34d399;"></span>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">role: relation encoding</span>
+            <span class="state-badge">豁免</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">图节点 / 边语义色</h3>
+            <div class="preview-card-class">model / graph / overlay 语义色</div>
+          </div>
+          <div class="preview-stage">
+            <div class="preview-inline">
+              <span class="state-badge" style="background: rgba(16,185,129,0.16); color: #10b981;">Op</span>
+              <span class="state-badge" style="background: rgba(244,114,182,0.16); color: #f472b6;">Tensor</span>
+              <span class="state-badge" style="background: rgba(96,165,250,0.16); color: #60a5fa;">Pass</span>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">role: chart semantics</span>
+            <span class="state-badge">豁免</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Colormap 模块</h3>
+            <div class="preview-card-class">热力图 / 时延 / 密度 / 标量渐变</div>
+          </div>
+          <div class="preview-stage">
+            <div class="preview-inline">
+              <span class="preview-swatch" style="background: linear-gradient(90deg, #1d4ed8, #06b6d4, #22c55e, #facc15, #f97316, #ef4444); width: 180px;"></span>
+              <span class="preview-swatch" style="background: linear-gradient(90deg, #111827, #374151, #9ca3af, #f3f4f6); width: 140px;"></span>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">role: scalar mapping / colormap</span>
+            <span class="token-badge">examples: heat, latency, density</span>
+            <span class="state-badge">豁免</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">模块画布</h3>
+            <div class="preview-card-class">graph / swimlane / canvas 画布</div>
+          </div>
+          <div class="preview-stage">
+            <div class="preview-panel">
+              <div class="preview-panel-title">Canvas 画布</div>
+              <div class="preview-panel-sub">图面板、泳道布景、overlay surface 允许保留模块特定处理，不并入 Card。</div>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">surface gradient</span>
+            <span class="token-badge">border: module-specific</span>
+            <span class="state-badge">豁免</span>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ③ Module Mapping -->
+    <section class="preview-section block-card" id="module-matrix" data-categories="migration reference actions selection surfaces">
+      <h2 class="preview-section-title">迁移映射</h2>
+      <div class="preview-grid">
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Pass-IR 入口</h3>
+            <div class="preview-card-class">原 .btn-md-primary / .btn-md-text</div>
+          </div>
+          <div class="preview-stage preview-stack">
+            <div class="preview-inline">
+              <button class="btn" type="button">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M1.5 4h4.5l1 1.5H14a.5.5 0 01.5.5v7a.5.5 0 01-.5.5H2a.5.5 0 01-.5-.5V4z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                打开 Pass 目录
+              </button>
+              <button class="btn" type="button">打开单个 JSON</button>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">Open Pass Folder → .btn</span>
+            <span class="token-badge">Open single JSON → .btn</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">Swimlane 工具栏</h3>
+            <div class="preview-card-class">资源入口 / 搜索工具</div>
+          </div>
+          <div class="preview-stage">
+            <button class="btn" type="button">加载本地资源</button>
+            <button class="sw-search-icon-btn" type="button" aria-label="搜索">
+              <span class="preview-icon-box" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
+            </button>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">加载本地资源 → .btn</span>
+            <span class="token-badge">search-icon → ghost pattern</span>
+          </div>
+        </article>
+
+        <article class="preview-card">
+          <div class="preview-card-head">
+            <h3 class="preview-card-title">卡片内操作列表</h3>
+            <div class="preview-card-class">卡片内容模式：.cp-btn / .mm-btn / .panel-toggle-btn</div>
+          </div>
+          <div class="preview-stage">
+            <div class="preview-stack" style="max-width: 320px;">
+              <button class="cp-btn" type="button">
+                <span class="cp-btn-icon icon-purple">A</span>
+                <span class="cp-btn-text">
+                  <span class="cp-btn-label">语义</span>
+                  <span class="cp-btn-sub">检视模式</span>
+                </span>
+              </button>
+              <button class="cp-btn action-row-selected" type="button">
+                <span class="cp-btn-icon icon-blue">L</span>
+                <span class="cp-btn-text">
+                  <span class="cp-btn-label">时延</span>
+                  <span class="cp-btn-sub">当前模式</span>
+                </span>
+              </button>
+              <button class="cp-btn" type="button">
+                <span class="cp-btn-icon icon-green">C</span>
+                <span class="cp-btn-text">
+                  <span class="cp-btn-label">紧凑</span>
+                  <span class="cp-btn-sub">高密度布局</span>
+                </span>
+              </button>
+            </div>
+          </div>
+          <div class="preview-meta">
+            <span class="token-badge">outer container: card</span>
+            <span class="token-badge">inner pattern: action list rows</span>
+            <span class="token-badge">one row can be selected</span>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    </div>
+  </main>
+  <script src="./patterns/workbench-shell/pattern.js"></script>
+  <script src="./patterns/floating-playback-control/pattern.js"></script>
+  <script src="./patterns/ide-frame/pattern.js"></script>
+  <script src="./preview/preview.js"></script>
+</body>
+</html>

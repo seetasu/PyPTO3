@@ -1,3 +1,4 @@
+import {capabilities} from './data.js';
 export function concurrency(rank) {
   const events = [[0,0],[rank.windowUs,0]];
   for (const task of rank.launches) for (const b of task.blocks.items) { events.push([b.startUs,1],[b.endUs,-1]); }
@@ -5,6 +6,23 @@ export function concurrency(rank) {
   const segments=[]; let count=0, previous=events[0][0];
   for (let i=0;i<events.length;) { const time=events[i][0]; if (time>previous) segments.push({start:previous,end:time,count}); while(i<events.length && events[i][0]===time) count+=events[i++][1]; previous=time; }
   return segments;
+}
+// Average occupancy in equal time buckets, matching the focus demo's ribbon.
+export function concurrencyBuckets(segments, start, end, count=400) {
+  const values=new Float64Array(count), width=(end-start)/count;
+  if (!(width>0)) return values;
+  for (const segment of segments) {
+    if (segment.count<=0) continue;
+    const a=Math.max(segment.start,start), b=Math.min(segment.end,end);
+    if(b<=a)continue;
+    const first=Math.max(0,Math.floor((a-start)/width)),last=Math.min(count-1,Math.ceil((b-start)/width)-1);
+    for(let i=first;i<=last;i++){const lo=Math.max(a,start+i*width),hi=Math.min(b,start+(i+1)*width);if(hi>lo)values[i]+=segment.count*(hi-lo)/width;}
+  }
+  return values;
+}
+export function concurrencyRegions(segments, windowUs) {
+  const min=Math.max(8,windowUs/500), merge=(predicate,threshold)=>{const result=[];let current=null;for(const s of segments){if(predicate(s.count)){if(current&&Math.abs(current.end-s.start)<1e-9)current.end=s.end;else{current={start:s.start,end:s.end};result.push(current);}}else current=null;}return result.filter(r=>r.end-r.start>=threshold).sort((a,b)=>(b.end-b.start)-(a.end-a.start)).slice(0,10);};
+  return {idle:merge(n=>n===0,min),serial:merge(n=>n>=1&&n<=2,min*2)};
 }
 export function pack(rank) {
   const lanes=new Map(), groups=[];
@@ -41,7 +59,9 @@ export function recommend(rank) {
   const modes=['tail','parallel','imbalance','underfill','fragmented','setup','bubble'];
   const path=new Set((rank.criticalPath||[]).flatMap(p=>[String(p.taskId),...(p.ids||[])]));
   const groups=new Map();
+  const available=capabilities(rank).featureModes;
   for(const mode of modes){
+    if(!available[mode])continue;
     const result=feature(rank,mode);
     for(const task of rank.launches.filter(t=>result.hits.has(t.id))){
       const kernel=task.leaf.replace(/_\d+$/,''),key=`${task.ct} · ${kernel}`;
@@ -55,7 +75,7 @@ export function recommend(rank) {
       if(mode==='parallel'){const width=Math.max(...tasks.map(t=>t.computeUs/Math.max(1,t.spanUs)));score*=Math.max(0,1-width/cores);reason=`平均计算并行宽度最高 ${width.toFixed(1)} / ${cores} 核`;}
       if(mode==='imbalance'){const spread=Math.max(...tasks.map(t=>t.blocks.spread));score*=Math.min(2,spread-1);reason=`最慢块 / 平均块最高 ${spread.toFixed(1)}×`;}
       if(mode==='underfill'){const fill=Math.min(...tasks.map(t=>(t.blocks.n%cores)/cores));score*=(1-fill)*.6;reason=`末波核填充最低 ${Math.round(fill*100)}%`;}
-      if(mode==='fragmented'){score=tasks.length*.006+setup/rank.windowUs*.1;reason=`${tasks.length} 次短提交`;}
+      if(mode==='fragmented'){score=tasks.length*.006+(Number.isFinite(setup)?setup/rank.windowUs*.1:0);reason=`${tasks.length} 次短提交`;}
       if(mode==='setup'){const share=setup/Math.max(1,setup+compute);score*=share;reason=`Setup 占比 ${Math.round(share*100)}%`;}
       if(mode==='bubble'){const gap=Math.max(0,...result.gaps.filter(x=>tasks.some(t=>t.id===x.task.id)).map(x=>x.end-x.start));score=gap/rank.windowUs;reason=`最长观测间隔 ${gap.toFixed(1)} μs`;}
       g.evidence.push({mode,score,reason});g.score=Math.max(g.score,score);g.onPath ||= tasks.some(t=>path.has(t.id)||path.has(String(t.taskId)));
@@ -75,4 +95,9 @@ export function landmarks(rank,lens='wait'){
  const longest=rank.launches.reduce((a,b)=>!a||b.spanUs>a.spanUs?b:a,null),segments=concurrency(rank),runs=[];let current=null;
  for(const s of segments){if(s.count>0&&s.count<=2){if(current&&Math.abs(current.end-s.start)<1e-8)current.end=s.end;else{current={start:s.start,end:s.end};runs.push(current);}}else current=null;}
  const min=Math.max(8,rank.windowUs/500)*2;runs.sort((a,b)=>(b.end-b.start)-(a.end-a.start));const marks=[];const top=topCandidate(rank,lens),same=top&&longest&&top.id===longest.id&&lens!=='tail';if(longest)marks.push({start:longest.startUs,end:longest.endUs,label:same?`最长 Task，也是当前视角 Top1 · ${longest.leaf}`:`最长 Task · ${longest.leaf}`});if(runs.length&&runs[0].end-runs[0].start>=min)marks.push({...runs[0],label:'最长串行段 · ≤2 核'});if(top&&!same){if(lens==='tail'){const ends=top.blocks.items.map(b=>b.endUs).sort((a,b)=>a-b);if(ends.length>1)marks.push({start:ends[Math.floor(ends.length/2)],end:ends.at(-1),label:`尾块拖尾 · ${top.leaf}`});}else marks.push({start:top.startUs,end:top.endUs,label:`当前视角 Top1 · ${top.leaf}`});}return marks;
+}
+export function featureGroups(rank,mode,result=feature(rank,mode)){
+ if(mode==='fragmented')return [...new Set(rank.cores.map(c=>c.ct))].map(ct=>({key:`${ct} fragmented`,kernel:'细碎任务簇',ct,tasks:rank.launches.filter(t=>t.ct===ct&&result.hits.has(t.id)),primaryMode:mode,modes:[mode]})).filter(g=>g.tasks.length);
+ const groups=new Map();for(const task of rank.launches.filter(t=>result.hits.has(t.id))){const kernel=task.leaf.replace(/_\d+$/,''),key=`${task.ct} · ${kernel}`;if(!groups.has(key))groups.set(key,{key,kernel,ct:task.ct,tasks:[],primaryMode:mode,modes:[mode]});groups.get(key).tasks.push(task);}
+ return [...groups.values()].map(g=>{g.tasks.sort((a,b)=>a.startUs-b.startUs||b.endUs-a.endUs);g.totalSpan=g.tasks.reduce((n,t)=>n+t.spanUs,0);return g;}).sort((a,b)=>b.tasks.length-a.tasks.length||b.totalSpan-a.totalSpan);
 }

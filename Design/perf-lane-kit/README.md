@@ -40,7 +40,7 @@ node scripts/import-run.js "D:\project\PyPTO3\Data\_jit_decode_fwd_layers_202606
 node scripts/import-run.js "D:\project\PyPTO3\Data\DeepseekV4\_jit_l3_decode_csa_20260903_010617" "data\my-deepseek.json"
 ```
 
-也可以输入 `dfx_outputs` 目录。脚本识别单层 DFX 和 `rank*/d*` 布局，从 `merged_swimlane`、`name_map`、`chip_swimlane_records` 或 `l2_swimlane_records` 提取；每个设备目录必须有唯一 trace 和 name map。脚本检查有效事件数是否与核记录一致，数量不匹配时停止，不修改源目录。输出文件必须不存在，避免覆盖已有数据。然后在页面选择“导入 JSON”。
+也可以输入 `dfx_outputs` 目录。脚本根据文件识别平铺 DFX 和多级采集目录（包括 `rank*/d*`），从 `merged_swimlane`、`name_map`、`chip_swimlane_records` 或 `l2_swimlane_records` 提取；每个采集目录必须有唯一 trace 和 name map。脚本检查有效事件数是否与核记录一致，数量不匹配时停止，不修改源目录。输出文件必须不存在，避免覆盖已有数据。然后在页面选择“导入 JSON”。
 
 两种输入的数据粒度不同：DeepSeek 的详细事件提供计算与 Setup 分解；decode 示例的事件只提供执行区间，适配后仍可看基础泳道和并发，但不提供耗时构成或 Task 特征筛查。目录适配器从依赖图和实测时间计算关键路径；缺少依赖、无匹配任务或发现环时会说明原因。目录中其他 Pass、编译和报告文件目前不会解析。
 
@@ -70,15 +70,26 @@ Agent 可在本目录执行 `node server.js --run "<运行目录>"`，等待命�
 
 ## 展示模式与分析模式
 
-默认打开基础视图：运行摘要、关键路径与泳道，不自动打开性能分析或推荐特征。用户可自行选择 Task 特征图层。点击“展开性能分析”进入分析模式；若未选择特征且数据支持，默认显示系统推荐。点击“收起性能分析”退出推荐展示，已选择的非推荐特征仍保留。直接在页面地址后添加 `?analysis=1` 可启动分析模式。数据不足时面板会说明限制。
+默认打开路径视角：关键路径与泳道中与路径相关的推荐特征；性能分析侧栏默认关闭。点击“特征分布”切换到全量任务的特征图层。点击“优化”打开当前采集的优化候选菜单；选择候选可聚焦泳道，再次选择可复位。候选名称、图标和说明来自当前采集的推荐结果，数据不足时显示提示。顶部的单依赖按钮打开连续单依赖分析面板。
 
 ## 独立渲染模式
 
 Agent 使用服务输出的地址追加参数；无需修改或复制数据：
 
 - `?view=critical`：仅关键路径及运行摘要；Task 点击仍可查看详情。
+- `?view=path`：关键路径和仅包含路径相关 Task 的泳道；按路径节点的 Task ID 或关联的事件 ID 匹配。编排节点没有核上记录时只出现在路径中；路径不存在时泳道为空并显示原因。路径视图暂不显示特征、并发和地标图层。
 - `?view=lane`：仅基础泳道及运行摘要，默认关闭并行宽度、地标、低并行背景与 Task 特征。
 - `?view=lane&feature=setup`：仅泳道并启用指定 Task 特征。特征值：`tail` 拖尾、`parallel` 并行度不足、`imbalance` 块负载不均、`underfill` 尾波空置、`fragmented` 离散小 Task、`setup` Setup 占比高、`bubble` 依赖间隔。
 - `?view=combined`：关键路径与泳道（默认）；可加 `feature` 显示指定图层。
 
 页面顶部“呈现”也可切换视图。Task 特征依附物理核泳道，不是独立统计图；输入缺少该特征所需字段时显示提示并关闭图层。无关键路径数据时显示不可用原因。自然语言映射由 Skill 执行，页面本身不调用大模型。
+
+## 导入标准输出目录
+
+页面中选择“导入运行文件夹”，选择运行目录、`dfx_outputs` 或包含采集文件的子目录。浏览器本地读取其中的 `merged_swimlane_*.json`、`name_map*.json`、`chip_swimlane_records.json` 或 `l2_swimlane_records.json`，以及可选的 `deps.json`，不需要先转换为中间 JSON。直接放在 `dfx_outputs` 的一组数据会显示“单次采集”；有 `rank*/d*` 等子目录时显示其实际相对路径。采集目录层级不限于 rank；多个同名标签会使用目录路径区分。使用“导入整理后 JSON”仅针对 `perf-lane.v1`；若选择原始单个 JSON，页面会提示改选完整文件夹。缺文件、重复 trace 或无法匹配核记录时会说明原因，不把现有页面数据替换成示例。
+
+Agent 依然可以传运行目录、`dfx_outputs` 或采集子目录给 `node server.js --run`；该路径与浏览器文件夹导入共用同一转换逻辑。`ranks` 只是内部统一数据格式的集合字段，不表示输入一定有 rank 目录。
+
+## 连续单依赖分析
+
+泳道工具栏的“单依赖分析”按当前采集的 Worker Task 依赖边识别最长连续单依赖链（重复边去重，分支和汇合处截断；环不生成链）。选择链后切换物理核视图，聚焦时间范围并突出相关 Block；再次选择或关闭面板恢复原时间范围和滚动位置。面板可拖动或使用方向键调整宽度。Block 同时提供 Setup 和计算时长时显示 Setup、计算和未归因分段；缺失时仅显示占用区间。分段依据计时字段推定，不证明 Setup 内部的等待原因。

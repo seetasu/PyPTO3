@@ -1,0 +1,1257 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>昇腾 · PyPTO 内容区卡片库</title>
+<style>
+/* ── 令牌 ─────────────────────────────────────────── */
+:root{
+  --radius:10px; --radius-sm:6px;
+  --mono:"JetBrains Mono",Consolas,"Cascadia Mono",monospace;
+  --sans:Inter,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0c0f14; --surface:#141922; --surface-2:#19202b; --inset:#0f141b;
+  --line:#242d3a; --line-soft:#1d2631;
+  --text:#e6ecf3; --text-2:#b4c0cf; --muted:#8a97a8; --faint:#64707f;
+  --brand:#5ad1e6; --brand-ink:#06212a; --brand-dim:#17323c;
+  --ok:#7ddba0; --ok-bg:#16291f; --warn:#f0b35e; --warn-bg:#2d2317;
+  --err:#f08878; --err-bg:#2e1c1a; --info:#a79af5; --info-bg:#221f33;
+  --idle:#7b8794; --idle-bg:#1b2129;
+  --track:#1f2832; --fill:#3c93a6; --fill-2:#2b6b7a;
+}
+html[data-theme="light"]{
+  color-scheme:light;
+  --bg:#f4f6f8; --surface:#ffffff; --surface-2:#f7f9fb; --inset:#f1f4f7;
+  --line:#dee4ea; --line-soft:#e8ecf1;
+  --text:#121a23; --text-2:#3b4858; --muted:#5f6d7d; --faint:#8794a3;
+  --brand:#0e7d93; --brand-ink:#ffffff; --brand-dim:#d9eef2;
+  --ok:#1a7a46; --ok-bg:#e4f4ea; --warn:#95611a; --warn-bg:#fbf0dd;
+  --err:#b23b2a; --err-bg:#fbe8e4; --info:#5444b8; --info-bg:#ebe8fb;
+  --idle:#6b7786; --idle-bg:#eef1f4;
+  --track:#e6eaee; --fill:#2b94a8; --fill-2:#7fc0cc;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+h1,h2,h3,h4{margin:0;letter-spacing:-.01em}
+code,.mono{font-family:var(--mono)}
+
+/* ── 页头 ─────────────────────────────────────────── */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;
+  gap:16px;padding:14px clamp(16px,5vw,56px);background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.wordmark{display:flex;align-items:center;gap:10px;font-weight:650;letter-spacing:.01em}
+.wordmark i{display:grid;place-items:center;width:26px;height:26px;border-radius:7px;
+  background:var(--brand);color:var(--brand-ink);font-style:normal;font-weight:800;font-size:13px}
+.wordmark s{text-decoration:none;color:var(--faint);font-weight:400}
+.topbar nav{display:flex;align-items:center;gap:6px}
+.ghost{border:1px solid var(--line);background:transparent;color:var(--text-2);
+  padding:7px 12px;border-radius:var(--radius-sm);font-size:12.5px}
+.ghost:hover{border-color:var(--brand);color:var(--text)}
+
+/* ── 版面 ─────────────────────────────────────────── */
+main{max-width:1380px;margin:0 auto;padding:clamp(28px,5vw,56px) clamp(16px,5vw,56px) 96px}
+.eyebrow{font:650 11px/1 var(--mono);letter-spacing:.18em;color:var(--brand)}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:end;
+  padding-bottom:26px;border-bottom:1px solid var(--line)}
+.hero h1{margin:14px 0 10px;font-size:clamp(26px,3.4vw,38px);letter-spacing:-.035em}
+.hero p{margin:0;max-width:64ch;color:var(--muted)}
+.hero p code{font-size:12px;padding:1px 5px;border-radius:4px;background:var(--surface);
+  border:1px solid var(--line);color:var(--text-2)}
+.disclaimer{display:flex;gap:9px;align-items:flex-start;max-width:290px;padding:11px 13px;
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);
+  font-size:11.5px;line-height:1.6;color:var(--text-2)}
+.disclaimer b{color:var(--warn);font-weight:600}
+.disclaimer code{font-size:10.5px;padding:1px 4px;border-radius:3px;background:var(--inset);
+  border:1px solid var(--line-soft);color:var(--text)}
+
+/* 贯穿用例条 */
+.thread{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;margin:22px 0 0;
+  padding:14px 16px;border:1px solid var(--line);border-left:2px solid var(--brand);
+  border-radius:var(--radius);background:var(--surface)}
+.thread h2{font-size:12.5px;color:var(--text)}
+.thread p{margin:0;font-size:12px;color:var(--muted)}
+.thread .mono{font-size:12px;color:var(--text-2)}
+
+/* 工具条 */
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+  margin:26px 0 18px}
+.stages{display:flex;flex-wrap:wrap;gap:6px}
+.stages button{border:1px solid var(--line);background:var(--surface);color:var(--muted);
+  padding:7px 13px;border-radius:999px;font-size:12.5px}
+.stages button:hover{color:var(--text)}
+.stages button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);
+  color:var(--brand-ink);font-weight:650}
+.seek{display:flex;align-items:center;gap:10px}
+.seek input{width:230px;max-width:52vw;padding:8px 12px;border:1px solid var(--line);
+  border-radius:var(--radius-sm);background:var(--surface);color:var(--text)}
+.seek input::placeholder{color:var(--faint)}
+.seek span{font-size:12px;color:var(--muted);white-space:nowrap}
+
+/* ── 卡片外壳 ─────────────────────────────────────── */
+.deck{display:grid;grid-template-columns:repeat(auto-fill,minmax(336px,1fr));gap:16px}
+.card{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden}
+.card:hover{border-color:color-mix(in srgb,var(--brand) 45%,var(--line))}
+.card.wide{grid-column:span 2}
+@media(max-width:760px){.card.wide{grid-column:span 1}}
+
+.c-head{display:flex;gap:11px;align-items:flex-start;padding:15px 16px 12px}
+.c-glyph{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:9px;
+  background:var(--brand-dim);color:var(--brand);font-size:14px}
+.c-id{flex:1;min-width:0}
+.c-id h3{font-size:14px}
+.c-id small{display:block;margin-top:1px;font:11px/1.3 var(--mono);color:var(--faint);letter-spacing:.04em}
+.pill{flex:none;display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;
+  font-size:11px;font-weight:600;white-space:nowrap}
+.pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+.pill.ok{color:var(--ok);background:var(--ok-bg)}
+.pill.warn{color:var(--warn);background:var(--warn-bg)}
+.pill.err{color:var(--err);background:var(--err-bg)}
+.pill.info{color:var(--info);background:var(--info-bg)}
+.pill.idle{color:var(--idle);background:var(--idle-bg)}
+
+.c-states{display:flex;gap:3px;margin:0 16px 12px;padding:3px;background:var(--inset);
+  border:1px solid var(--line-soft);border-radius:8px}
+.c-states button{flex:1;border:0;background:transparent;color:var(--muted);padding:6px 4px;
+  border-radius:var(--radius-sm);font-size:11.5px;white-space:nowrap}
+.c-states button[aria-pressed="true"]{background:var(--surface-2);color:var(--text);
+  box-shadow:inset 0 0 0 1px var(--line);font-weight:600}
+
+.c-body{flex:1;padding:0 16px 14px;display:flex;flex-direction:column;gap:13px}
+.c-lead{margin:0;font-size:13px;font-weight:600;color:var(--text)}
+.c-lead em{font-style:normal;font-weight:400;color:var(--muted)}
+.c-note{margin:0;padding:10px 12px;border-radius:var(--radius-sm);font-size:11.5px;line-height:1.6;
+  background:var(--inset);color:var(--text-2);border-left:2px solid var(--line)}
+.c-note.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--text)}
+.c-note.warn{background:var(--warn-bg);border-color:var(--warn);color:var(--text)}
+.c-note.err{background:var(--err-bg);border-color:var(--err);color:var(--text)}
+.c-note code{font-size:11px;padding:1px 4px;border-radius:3px;background:var(--surface-2);
+  border:1px solid var(--line-soft);color:var(--text)}
+
+.c-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;
+  padding:11px 16px;border-top:1px solid var(--line-soft);background:var(--surface-2)}
+.obj-chips{display:flex;flex-wrap:wrap;gap:5px}
+.obj-chips b{font:600 10.5px/1 var(--mono);letter-spacing:.04em;padding:4px 7px;border-radius:5px;
+  background:var(--inset);border:1px solid var(--line-soft);color:var(--text-2)}
+.c-foot .anatomy{border:0;background:transparent;color:var(--brand);font-size:11.5px;padding:3px 0}
+
+/* ── 卡内零件 ─────────────────────────────────────── */
+.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 14px}
+.kv.one{grid-template-columns:1fr}
+.kv div{min-width:0}
+.kv dt{font-size:11px;color:var(--muted)}
+.kv dd{margin:2px 0 0;font:12.5px/1.4 var(--mono);color:var(--text);overflow-wrap:anywhere}
+.kv dd.bad{color:var(--err)}
+.kv dd.soft{color:var(--faint)}
+
+.lines{display:grid;gap:7px}
+.line{display:flex;justify-content:space-between;gap:12px;font-size:12px}
+.line span{color:var(--muted)}
+.line b{font:500 12px/1.4 var(--mono);color:var(--text)}
+.line b.bad{color:var(--err)}
+.line b.soft{color:var(--faint)}
+
+.bars{display:grid;gap:9px}
+.bar-row{display:grid;grid-template-columns:96px minmax(56px,1fr) 84px;gap:10px;align-items:center;font-size:11.5px}
+.bar-row>span:first-child{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-row>b{font:500 11.5px/1 var(--mono);color:var(--text-2);text-align:right}
+.track{height:7px;border-radius:4px;background:var(--track);overflow:hidden}
+.track i{display:block;height:100%;border-radius:4px;background:var(--fill)}
+.track i.hi{background:var(--warn)}
+.track i.max{background:var(--err)}
+.track i.lo{background:var(--fill-2)}
+
+.viz{padding:13px;border:1px solid var(--line-soft);border-radius:var(--radius-sm);background:var(--inset)}
+.viz-cap{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;
+  font:11px/1.3 var(--mono);letter-spacing:.06em;color:var(--faint)}
+.viz svg{display:block;width:100%;height:auto;overflow:visible}
+
+/* AIC : AIV 配比条 */
+.ratio{display:flex;gap:3px;height:28px}
+.ratio i{display:grid;place-items:center;border-radius:5px;font:600 10.5px/1 var(--mono);font-style:normal}
+.ratio .aic{background:var(--fill);color:var(--brand-ink)}
+.ratio .aiv{background:var(--fill-2);color:var(--brand-ink)}
+.ratio.idle i{background:var(--track);color:var(--faint)}
+.ratio-cap{margin:7px 0 0;font-size:11px;color:var(--muted)}
+
+.cores{display:grid;grid-template-columns:repeat(20,1fr);gap:2px}
+.cores i{aspect-ratio:1;border-radius:2px;background:var(--fill)}
+.cores i.v{background:var(--fill-2)}
+.cores i.off{background:var(--track)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;font-size:10.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend s{text-decoration:none;width:8px;height:8px;border-radius:2px;background:var(--fill)}
+.legend s.v{background:var(--fill-2)}
+.legend s.off{background:var(--track)}
+
+.lanes{display:grid;gap:4px}
+.lane{display:grid;grid-template-columns:52px 1fr;gap:9px;align-items:center}
+.lane>span{font:11px/1 var(--mono);color:var(--muted)}
+.lane-track{position:relative;height:13px;border-radius:3px;background:var(--track);overflow:hidden}
+.lane-track i{position:absolute;top:0;height:100%;border-radius:3px;background:var(--fill)}
+.lane-track i.b{background:var(--fill-2)}
+.lane-track i.w{background:var(--warn)}
+
+/* 函数签名 */
+.sig{display:grid;gap:5px}
+.sig-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:9px;align-items:center;
+  padding:7px 10px;border:1px solid var(--line-soft);border-radius:var(--radius-sm);background:var(--surface-2)}
+.sig-row b{font:600 11.5px/1 var(--mono);color:var(--brand)}
+.sig-row span{font:11px/1.3 var(--mono);color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dir{font:600 10px/1 var(--mono);letter-spacing:.04em;padding:3px 6px;border-radius:4px;
+  background:var(--inset);color:var(--muted);font-style:normal}
+.dir.warn{background:var(--warn-bg);color:var(--warn)}
+.dir.info{background:var(--info-bg);color:var(--info)}
+
+/* 代码产物双路径 */
+.paths{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.path-head{margin-bottom:8px;font:600 11px/1.3 var(--mono);color:var(--text-2)}
+.path-step{position:relative;padding:7px 10px;border:1px solid var(--line-soft);border-radius:var(--radius-sm);
+  background:var(--surface-2);font-size:11.5px;color:var(--text);margin-bottom:16px}
+.path-step:last-child{margin-bottom:0}
+.path-step i{position:absolute;left:50%;bottom:-15px;transform:translateX(-50%);
+  font-style:normal;font-size:11px;color:var(--faint)}
+.path-step.alt{border-color:color-mix(in srgb,var(--info) 40%,var(--line-soft))}
+@media(max-width:620px){.paths{grid-template-columns:1fr;gap:18px}}
+
+.stack{display:grid;gap:5px}
+.layer{display:flex;justify-content:space-between;gap:10px;padding:8px 11px;border-radius:var(--radius-sm);
+  border:1px solid var(--line-soft);background:var(--surface-2);font-size:11.5px}
+.layer b{font:500 11.5px/1.4 var(--mono);color:var(--text)}
+.layer.missing{border-color:var(--err);background:var(--err-bg)}
+.layer.blank{color:var(--faint)}
+.layer.blank b{color:var(--faint)}
+
+/* ── 对象索引 ─────────────────────────────────────── */
+.objects{margin-top:52px;padding-top:30px;border-top:1px solid var(--line)}
+.objects h2{font-size:19px;letter-spacing:-.02em}
+.objects>p{margin:8px 0 22px;max-width:70ch;color:var(--muted);font-size:13px}
+.objects>p code{font-size:11.5px;padding:1px 5px;border-radius:4px;background:var(--inset);border:1px solid var(--line-soft)}
+.objects>p b{color:var(--brand)}
+.obj-group{margin-bottom:26px}
+.obj-cat{display:flex;align-items:center;gap:9px;margin-bottom:11px;
+  font:650 11px/1 var(--mono);letter-spacing:.14em;color:var(--muted)}
+.obj-cat::after{content:"";flex:1;height:1px;background:var(--line-soft)}
+.obj-cat em{order:3;font-style:normal;font-size:10.5px;color:var(--faint)}
+.obj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:12px}
+.obj{padding:13px 15px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface)}
+.obj h3{font:650 12px/1.3 var(--mono);letter-spacing:.03em;color:var(--brand)}
+.obj p{margin:5px 0 9px;font-size:12px;color:var(--text-2)}
+.obj p strong{color:var(--text)}
+.obj small{font-size:11px;color:var(--faint)}
+
+.empty{padding:56px 4px;color:var(--muted);text-align:center}
+
+/* ── 结构说明弹层 ─────────────────────────────────── */
+dialog{width:min(560px,calc(100vw - 32px));padding:0;border:1px solid var(--line);
+  border-radius:14px;background:var(--surface);color:var(--text)}
+dialog::backdrop{background:#00000099;backdrop-filter:blur(2px)}
+.d-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;
+  padding:20px 22px 16px;border-bottom:1px solid var(--line)}
+.d-head h2{font-size:18px;letter-spacing:-.02em}
+.d-head small{display:block;margin-top:3px;font:11px/1.3 var(--mono);color:var(--faint);letter-spacing:.05em}
+.d-close{border:1px solid var(--line);background:var(--surface-2);color:var(--text-2);
+  width:28px;height:28px;border-radius:var(--radius-sm);line-height:1}
+.d-body{padding:18px 22px 22px;display:grid;gap:17px}
+.d-sec h4{font:650 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--muted);margin-bottom:8px}
+.d-sec p{margin:0;font-size:13px;color:var(--text-2)}
+
+@media(max-width:760px){
+  .hero{grid-template-columns:1fr;align-items:start}
+  .disclaimer{max-width:none}
+  .controls{align-items:stretch;flex-direction:column}
+  .seek{justify-content:space-between}
+  .seek input{width:auto;flex:1;max-width:none}
+  .deck{grid-template-columns:1fr}
+  .cores{grid-template-columns:repeat(10,1fr)}
+  .topbar{padding:12px 16px;gap:10px}
+  .wordmark{white-space:nowrap;font-size:13px}
+  .wordmark s{display:none}
+  .ghost{padding:7px 10px;font-size:12px;white-space:nowrap}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="wordmark" href="../../launch.html"><i>⬡</i> 内容区卡片库 <s>/ Ascend · PyPTO</s></a>
+  <nav>
+    <button class="ghost" id="themeBtn" type="button" aria-live="polite">浅色</button>
+    <a class="ghost" href="../../launch.html">← 原型入口</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <div class="eyebrow">CARD-LEVEL CONTENT AREAS</div>
+      <h1>一次昇腾算子开发，拆成 20 个内容区</h1>
+      <p>这些是卡片级的小内容区，不是完整页面。它们由同一组基础对象组合而成，可以嵌进任何工作台布局。整套卡片围绕同一次开发任务展开，因此可以看到同一个对象（比如 <code>TensorType</code>、<code>MemorySpace</code>）在不同阶段如何换一种呈现方式复用。对象命名对齐 PyPTO 源码，而不是硬件手册——这两套叫法不一样，混用会在评审时出问题。</p>
+    </div>
+    <p class="disclaimer"><b>◌</b><span>全部字段、版本号与指标均为<b>虚构示例</b>，用于演示信息结构与状态设计，不代表任何真实设备的实测结果或规格；片上容量等硬件数值在落地前须按目标 SoC 手册核对。<br><br>对象名称与枚举值取自 PyPTO 源码镜像 <code>repo/pto</code>；带 <b>✻</b> 的对象是本卡片库自行引入的工程概念。</span></p>
+  </section>
+
+  <section class="thread">
+    <h2>贯穿用例</h2>
+    <span class="mono">matmul_fp16 · A[1024, 4096] × B[4096, 2048] → C[1024, 2048]</span>
+    <p>累加 FP32 · Ascend 910B 20 AIC（示例） · 基线 tile [128, 256, 128]</p>
+  </section>
+
+  <div class="controls">
+    <nav class="stages" id="stages" aria-label="开发阶段筛选"></nav>
+    <div class="seek">
+      <input id="seek" type="search" placeholder="搜索卡片、字段或基础对象" aria-label="搜索卡片">
+      <span id="tally" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <section class="deck" id="deck" aria-label="卡片样例"></section>
+  <p class="empty" id="empty" hidden>没有匹配的卡片，换个关键词或阶段看看。</p>
+
+  <section class="objects">
+    <h2>基础对象</h2>
+    <p>卡片不是一个个独立设计的面板，而是这些对象的不同切面。新增一张卡片时，先确认它由哪些对象组合、是否需要引入新对象。分类与命名对齐 PyPTO 源码（<code>repo/pto</code> 的 IR 类型、算子与 DSL 文档）；标 <b>✻</b> 的是本卡片库为了串起开发流程自行引入的工程概念，PyPTO 本身没有同名对象。</p>
+    <div id="objGrid"></div>
+  </section>
+</main>
+
+<dialog id="anatomy">
+  <div class="d-head">
+    <div>
+      <h2 id="aTitle"></h2>
+      <small id="aEn"></small>
+    </div>
+    <button class="d-close" id="aClose" type="button" aria-label="关闭">✕</button>
+  </div>
+  <div class="d-body">
+    <div class="d-sec"><h4>它回答的问题</h4><p id="aQuestion"></p></div>
+    <div class="d-sec"><h4>设计意图</h4><p id="aIntent"></p></div>
+    <div class="d-sec"><h4>组合的基础对象</h4><div class="obj-chips" id="aObjects"></div></div>
+    <div class="d-sec"><h4>出现阶段</h4><p id="aStages"></p></div>
+  </div>
+</dialog>
+
+<script>
+/* ═══ 零件 ═══════════════════════════════════════════ */
+const kv = (pairs, one) =>
+  '<dl class="kv' + (one ? ' one' : '') + '">' +
+  pairs.map(([k, v, tone]) => '<div><dt>' + k + '</dt><dd' + (tone ? ' class="' + tone + '"' : '') + '>' + v + '</dd></div>').join('') +
+  '</dl>';
+
+const lines = (rows) =>
+  '<div class="lines">' +
+  rows.map(([k, v, tone]) => '<div class="line"><span>' + k + '</span><b' + (tone ? ' class="' + tone + '"' : '') + '>' + v + '</b></div>').join('') +
+  '</div>';
+
+const bars = (rows) =>
+  '<div class="bars">' +
+  rows.map(([label, pct, text, tone]) =>
+    '<div class="bar-row"><span>' + label + '</span>' +
+    '<div class="track"><i class="' + (tone || '') + '" style="width:' + Math.max(2, Math.min(100, pct)) + '%"></i></div>' +
+    '<b>' + text + '</b></div>').join('') +
+  '</div>';
+
+/* 维度 → 像素。用 log2 阻尼：1024→30、2048→56、4096→82。
+   二维图形必须用它，否则 4096 会把 1024 压成一条线、形状失去可读性；
+   一维对账条则用线性比例，因为那里的重点恰恰是差距要显得大。 */
+const logPx = (d) => Math.max(14, Math.round(30 + 26 * Math.log2(d / 1024)));
+
+const viz = (title, hint, inner) =>
+  '<div class="viz"><div class="viz-cap"><span>' + title + '</span><span>' + hint + '</span></div>' + inner + '</div>';
+
+const note = (text, tone) => '<p class="c-note' + (tone ? ' ' + tone : '') + '">' + text + '</p>';
+const lead = (main, sub) => '<p class="c-lead">' + main + (sub ? ' <em>· ' + sub + '</em>' : '') + '</p>';
+
+/* ═══ 卡片定义 ═══════════════════════════════════════ */
+const CARDS = [
+
+/* ── 准备 ───────────────────────────────────────── */
+{
+  id: 'env', zh: '环境检查', en: 'EnvironmentCheck', glyph: '⬡', stage: ['准备'],
+  objects: ['Environment', 'Device', 'Toolchain', 'Diagnostic'],
+  question: '这台机器现在能不能跑 PyPTO 开发？',
+  intent: '版本号本身不说明兼容性——真正决定「能不能跑」的是各层之间的版本约束。所以这张卡不罗列版本，而是把依赖链画出来，把每层对下层的要求标在箭头上：断链时读者直接看到断在哪一环、差多少，不必自己比对两个号段。核数也不用方格阵列，那只能传达「有很多核」；改用 1:2 配比条，它顺带解释了 blockDim 的上限从哪来。',
+  states: [['ok', '通过'], ['warn', '版本不一致'], ['idle', '未检测']],
+  render(s) {
+    const idle = s === 'idle', bad = s === 'warn';
+    /* 兼容链：自上而下 = 谁要求谁，箭头标签是上层对下层提出的版本约束 */
+    const node = (y, name, ver, st) => {
+      const stroke = st === 'bad' ? 'var(--err)' : st === 'idle' ? 'var(--faint)' : 'var(--brand)';
+      const fill = st === 'bad' ? 'var(--err-bg)' : st === 'idle' ? 'none' : 'var(--brand-dim)';
+      return '<rect x="4" y="' + y + '" width="292" height="30" rx="6" fill="' + fill + '" stroke="' + stroke + '"'
+        + (st === 'idle' ? ' stroke-dasharray="4 3"' : '') + '/>'
+        + '<text x="16" y="' + (y + 19) + '" fill="var(--text-2)" font-size="11" font-family="var(--mono)">' + name + '</text>'
+        + '<text x="284" y="' + (y + 19) + '" text-anchor="end" font-size="11.5" font-family="var(--mono)" fill="'
+        + (st === 'bad' ? 'var(--err)' : st === 'idle' ? 'var(--faint)' : 'var(--text)') + '">' + ver + '</text>';
+    };
+    const edge = (y, label, st) => {
+      const c = st === 'bad' ? 'var(--err)' : st === 'idle' ? 'var(--faint)' : 'var(--ok)';
+      return '<line x1="30" y1="' + y + '" x2="30" y2="' + (y + 16) + '" stroke="' + c + '" stroke-width="1.5"'
+        + (st === 'idle' ? ' stroke-dasharray="3 2"' : '') + '/>'
+        + '<path d="M30 ' + (y + 21) + ' l-4.5 -6 l9 0 z" fill="' + c + '"/>'
+        + '<text x="44" y="' + (y + 15) + '" font-size="9.5" font-family="var(--mono)" fill="' + c + '">' + label + '</text>';
+    };
+    const chain = '<svg viewBox="0 0 300 144" role="img" aria-label="软件栈兼容链">'
+      + node(2, 'PyPTO', idle ? '—' : '0.9.2', idle ? 'idle' : 'ok')
+      + edge(34, idle ? '未检测' : bad ? '需 CANN ≥ 8.0 · 实测 7.0.RC1 ✕' : '需 CANN ≥ 8.0 ✓', idle ? 'idle' : bad ? 'bad' : 'ok')
+      + node(58, 'CANN', idle ? '—' : bad ? '7.0.RC1' : '8.1.RC1', idle ? 'idle' : bad ? 'bad' : 'ok')
+      + edge(90, idle ? '未检测' : '需 driver ≥ 23.0 ✓', idle ? 'idle' : 'ok')
+      + node(114, 'Driver / Firmware', idle ? '—' : '24.1.0', idle ? 'idle' : 'ok')
+      + '</svg>';
+    const hw = idle
+      ? [['芯片型号', '—', 'soft'], ['AI Core', '—', 'soft'], ['HBM', '—', 'soft'], ['可见设备', '—', 'soft']]
+      : [['芯片型号', 'Ascend 910B'], ['AI Core', '20 AIC / 40 AIV'], ['HBM', '64 GB'], ['可见设备', '0–7（8 卡）']];
+    return {
+      pill: { ok: ['ok', '检查通过'], warn: ['warn', '2 项需处理'], idle: ['idle', '未检测'] }[s],
+      body: lead(idle ? '尚未连接目标环境' : 'Ascend 910B · device 0', idle ? '' : '示例机器')
+        + kv(hw)
+        + '<div><div class="ratio' + (idle ? ' idle' : '') + '">'
+          + '<i class="aic" style="flex:20">' + (idle ? '—' : '20 AIC') + '</i>'
+          + '<i class="aiv" style="flex:40">' + (idle ? '—' : '40 AIV') + '</i></div>'
+          + '<p class="ratio-cap">' + (idle ? '核数未检出' : '1 AIC : 2 AIV · blockDim 上限 = 20') + '</p></div>'
+        + viz('兼容链 / COMPATIBILITY', '箭头标签是上层对下层的版本要求', chain)
+        + lines([
+            ['Python', idle ? '—' : '3.11.9', idle ? 'soft' : ''],
+            ['torch_npu', idle ? '—' : bad ? '未安装' : '2.4.0.post2', idle ? 'soft' : bad ? 'bad' : '']
+          ])
+        + note({
+            ok: '链上每一环都满足上层要求，可以继续后续开发。兼容结论来自本次检查，更换任一组件后需重新检测。',
+            warn: '链在 PyPTO → CANN 这一环断开：需要 ≥ 8.0，实测 7.0.RC1。另外 torch_npu 未在当前解释器中找到。两项都处理后重新检测。',
+            idle: '尚无检测记录。连接目标环境并执行检查，以获取设备型号、核数与各组件版本。'
+          }[s], s === 'ok' ? 'ok' : s === 'warn' ? 'err' : '')
+    };
+  }
+},
+{
+  id: 'device', zh: '设备占用', en: 'DeviceInventory', glyph: '▤', stage: ['准备', '运行'],
+  objects: ['Device', 'Process', 'Memory', 'Environment'],
+  question: '哪张卡现在空着，可以拿来跑？',
+  intent: '开发机通常多人共用。调度前先看占用，比跑挂之后再查更省事。显存既给已用也给总量，避免只剩一个百分比无法判断余量。',
+  states: [['free', '有空卡'], ['busy', '全部占用']],
+  render(s) {
+    const rows = s === 'free'
+      ? [['device 0', 32, '21 / 64 GB', 'lo'], ['device 1', 0, '空闲', 'lo'], ['device 2', 94, '60 / 64 GB', 'max'], ['device 3', 0, '空闲', 'lo']]
+      : [['device 0', 88, '56 / 64 GB', 'hi'], ['device 1', 72, '46 / 64 GB', 'hi'], ['device 2', 94, '60 / 64 GB', 'max'], ['device 3', 81, '52 / 64 GB', 'hi']];
+    return {
+      pill: s === 'free' ? ['ok', '2 张空闲'] : ['warn', '无空闲卡'],
+      body: lead('8 卡节点 · 显示前 4 张', 'HBM 64 GB / 卡')
+        + bars(rows)
+        + lines(s === 'free'
+            ? [['建议设备', 'device 1', ''], ['其他进程', '2 个（device 0 / 2）', ''], ['采集时间', '示例 10:42:08', 'soft']]
+            : [['建议设备', '排队等待', 'bad'], ['其他进程', '6 个', ''], ['采集时间', '示例 10:42:08', 'soft']])
+        + note(s === 'free'
+            ? 'device 1、3 当前无进程占用。占用情况随时变化，启动前请再确认一次。'
+            : '四张卡均有进程。强行占用会与他人任务争抢显存，建议等待或切换节点。', s === 'free' ? '' : 'warn')
+    };
+  }
+},
+
+/* ── 定义 ───────────────────────────────────────── */
+{
+  id: 'spec', zh: '算子规格', en: 'Op Contract', glyph: 'ƒ', stage: ['定义'], wide: true,
+  objects: ['Op', 'TensorType', 'DataType', 'Span'],
+  question: '这个算子要算什么，输入输出需要满足什么契约？',
+  intent: '把数学语义、张量契约和约束检查放进同一个内容区，让「规格是否自洽」可以当场判断，而不是等编译器报错。约束项逐条标状态，冲突时直接指向冲突的两个数。',
+  states: [['draft', '草稿'], ['checked', '契约自洽'], ['conflict', '约束冲突']],
+  render(s) {
+    const conflict = s === 'conflict', draft = s === 'draft';
+    const K = conflict ? 2048 : 4096;
+    /* 矩形边长按 logPx 阻尼，形状比例可读；下方 K 对账条用线性比例，差距才显得真实 */
+    const aw = logPx(4096), ah = logPx(1024);          // A: 1024×4096 宽扁
+    const bw = logPx(2048), bh = logPx(K);             // B: K×2048
+    const cw = logPx(2048), ch = logPx(1024);          // C: 1024×2048
+    const top = 18, baseY = top + logPx(4096);          // 以最高的 B 作为底线基准
+    const box = (x, y, w, h, tone, label) =>
+      '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="3" fill="'
+      + (tone === 'bad' ? 'var(--err-bg)' : tone === 'ghost' ? 'none' : 'var(--brand-dim)') + '" stroke="'
+      + (tone === 'bad' ? 'var(--err)' : tone === 'ghost' ? 'var(--faint)' : 'var(--brand)') + '"'
+      + (tone === 'ghost' ? ' stroke-dasharray="4 3"' : '') + '/>'
+      + (label ? '<text x="' + (x + w / 2) + '" y="' + (y + h / 2 + 4) + '" text-anchor="middle" font-size="12" font-family="var(--mono)" fill="'
+          + (tone === 'bad' ? 'var(--err)' : tone === 'ghost' ? 'var(--faint)' : 'var(--brand)') + '">' + label + '</text>' : '');
+    /* K 对账条：线性比例，1 单位 = 110/4096 px */
+    const kpx = (v) => v * 110 / 4096;
+    const kbar = (y, name, v, tone, suffix) =>
+      '<text x="4" y="' + (y + 7) + '" font-size="9.5" font-family="var(--mono)" fill="var(--muted)">' + name + '</text>'
+      + '<rect x="40" y="' + y + '" width="' + kpx(v) + '" height="8" rx="2" fill="'
+      + (tone === 'bad' ? 'var(--err)' : tone === 'idle' ? 'var(--track)' : 'var(--fill)') + '"/>'
+      + '<text x="' + (40 + kpx(4096) + 8) + '" y="' + (y + 7) + '" font-size="9.5" font-family="var(--mono)" fill="'
+      + (tone === 'bad' ? 'var(--err)' : 'var(--text-2)') + '">' + (draft ? 'K 待填' : v + (suffix || '')) + '</text>';
+    const svg = '<svg viewBox="0 0 300 164" role="img" aria-label="矩阵乘形状与收缩维对账">'
+      + box(10, baseY - ah, aw, ah, draft ? 'ghost' : '', 'A')
+      + '<text x="' + (10 + aw / 2) + '" y="' + (baseY + 12) + '" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--muted)">1024×4096</text>'
+      + '<text x="' + (14 + aw) + '" y="' + (baseY - ah / 2 + 4) + '" font-size="12" fill="var(--muted)">×</text>'
+      + box(26 + aw, baseY - bh, bw, bh, conflict ? 'bad' : draft ? 'ghost' : '', 'B')
+      + '<text x="' + (26 + aw + bw / 2) + '" y="' + (baseY + 12) + '" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="'
+        + (conflict ? 'var(--err)' : 'var(--muted)') + '">' + K + '×2048</text>'
+      + '<text x="' + (31 + aw + bw) + '" y="' + (baseY - ah / 2 + 4) + '" font-size="12" fill="var(--muted)">→</text>'
+      + (conflict
+          ? box(47 + aw + bw, baseY - ch, cw, ch, 'ghost', '?')
+            + '<text x="' + (47 + aw + bw + cw / 2) + '" y="' + (baseY + 12) + '" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--err)">无法推导</text>'
+          : box(47 + aw + bw, baseY - ch, cw, ch, draft ? 'ghost' : '', 'C')
+            + '<text x="' + (47 + aw + bw + cw / 2) + '" y="' + (baseY + 12) + '" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--muted)">1024×2048</text>')
+      /* 对账区：线性比例，不匹配时差距直接是一段看得见的空缺 */
+      + '<line x1="4" y1="120" x2="296" y2="120" stroke="var(--line)"/>'
+      + '<text x="4" y="133" font-size="9.5" font-family="var(--mono)" fill="var(--faint)">收缩维 K 对账 · 线性比例</text>'
+      + kbar(140, 'A.K', draft ? 0 : 4096, draft ? 'idle' : '')
+      + kbar(152, 'B.K', draft ? 0 : K, conflict ? 'bad' : draft ? 'idle' : '', conflict ? ' · 缺 2048' : '')
+      + (conflict
+          ? '<rect x="' + (40 + kpx(2048)) + '" y="152" width="' + kpx(2048) + '" height="8" rx="2" fill="none" stroke="var(--err)" stroke-dasharray="3 2"/>'
+          : '')
+      + '</svg>';
+    const checks = [
+      ['输入秩均为 2', s === 'draft' ? '待校验' : '通过', s === 'draft' ? 'soft' : ''],
+      ['A.shape[1] = B.shape[0]', s === 'conflict' ? '冲突 · 4096 ≠ 2048' : s === 'draft' ? '待校验' : '通过 · 4096', s === 'conflict' ? 'bad' : s === 'draft' ? 'soft' : ''],
+      ['dtype 组合受支持', s === 'draft' ? '未填写' : 'FP16 × FP16 → FP16', s === 'draft' ? 'soft' : ''],
+      ['累加精度已声明', s === 'draft' ? '未填写' : 'FP32', s === 'draft' ? 'soft' : '']
+    ];
+    return {
+      pill: { draft: ['idle', '草稿'], checked: ['ok', '契约自洽'], conflict: ['err', '约束冲突'] }[s],
+      body: lead('matmul_fp16', '二维非批量矩阵乘')
+        + viz('SEMANTICS / C = A × B', '矩形边长 log2 阻尼 · 对账条线性', svg)
+        + kv([
+            ['输入 A', '[1024, 4096] · FP16 · ND'],
+            ['输入 B', '[' + K + ', 2048] · FP16 · ND', s === 'conflict' ? 'bad' : ''],
+            ['输出 C', s === 'conflict' ? '无法推导' : '[1024, 2048] · FP16 · ND', s === 'conflict' ? 'bad' : ''],
+            ['累加 / 转出', s === 'draft' ? '待定义' : 'FP32 累加后转 FP16', s === 'draft' ? 'soft' : '']
+          ])
+        + lines(checks)
+        + note({
+            draft: 'dtype 与累加精度尚未填写，形状校验也未执行。补全后再提交契约检查。',
+            checked: '四项契约检查均通过。本卡只覆盖二维非批量情形；动态维、零长度与其他 layout 需另行定义。',
+            conflict: 'A 的列数 4096 与 B 的行数 2048 不一致，输出形状无法推导。修正任一侧后重新校验。'
+          }[s], s === 'checked' ? 'ok' : s === 'conflict' ? 'err' : '')
+    };
+  }
+},
+{
+  id: 'tensor', zh: 'Tensor', en: 'TensorDesc', glyph: '▦', stage: ['定义', '开发', '验证'],
+  objects: ['TensorType', 'TileType', 'DataType', 'MemorySpace', 'MemRef'],
+  question: '这个张量是什么形状、什么类型，放在哪一级存储？',
+  intent: '张量是被复用最多的对象，字段必须在所有卡片里保持一致的命名与顺序，所以这里直接用 PyPTO 的字段名。图不画「一个盒子」，而画它在存储层级中的位置与搬运方向——因为 TensorType 的定义性特征就是它恒在 DDR、必须 tile.load 才能进 Cube。输入画成 DDR→片上、输出画成片上→DDR，四个状态因此在视觉上就能分开；「与规格不符」用虚线画出期望形状，差距成为看得见的几何缺口，而不是一个要读者自己比对的红色数字。',
+  states: [['in', '输入 A'], ['out', '输出 C'], ['draft', '属性待补'], ['bad', '与规格不符']],
+  render(s) {
+    const d = {
+      in: { n: 'A', role: '输入 / Input', dims: [1024, 4096], shape: '[1024, 4096]', dt: 'FP16', fmt: 'ND', space: 'DDR', bytes: '8.00 MB', ct: '连续', pill: ['ok', '属性完整'], msg: '与 matmul_fp16 规格中的 A 一致。TensorType 的 memory_space 恒为 DDR。' },
+      out: { n: 'C', role: '输出 / Output', dims: [1024, 2048], shape: '[1024, 2048]', dt: 'FP16', fmt: 'ND', space: 'DDR', bytes: '4.00 MB', ct: '连续', pill: ['ok', '属性完整'], msg: '形状由 A、B 推导而来，与规格一致。' },
+      draft: { n: 'A', role: '输入 / Input', dims: null, shape: '[M, K]', dt: '待定义', fmt: '待定义', space: 'DDR', bytes: '—', ct: '—', pill: ['idle', '属性待补'], msg: 'dtype 与 layout 尚未定义，无法估算占用。' },
+      bad: { n: 'A', role: '输入 / Input', dims: [1024, 2048], expect: [1024, 4096], shape: '[1024, 2048]', dt: 'FP16', fmt: 'ND', space: 'DDR', bytes: '4.00 MB', ct: '连续', pill: ['err', '与规格不符'], msg: '规格要求 A 的 K 维为 4096，实际传入 2048。' }
+    }[s];
+    const soft = s === 'draft' ? 'soft' : '';
+    /* 张量恒在 DDR，要参与 Cube 计算必须先 tile.load 到片上；
+       输入画成 DDR→片上，输出画成片上→DDR，四个状态因此在视觉上真正分开。 */
+    const bad = s === 'bad', draft = s === 'draft', isOut = s === 'out';
+    const bw = d.dims ? logPx(d.dims[1]) : 60, bh = d.dims ? logPx(d.dims[0]) : 30;
+    const bx = 77 - bw / 2, by = 57 - bh / 2;
+    const stroke = bad ? 'var(--err)' : draft ? 'var(--faint)' : 'var(--brand)';
+    const fill = bad ? 'var(--err-bg)' : draft ? 'none' : 'var(--brand-dim)';
+    const ghost = bad && d.expect
+      ? '<rect x="' + (77 - logPx(d.expect[1]) / 2) + '" y="' + (57 - logPx(d.expect[0]) / 2) + '" width="' + logPx(d.expect[1])
+        + '" height="' + logPx(d.expect[0]) + '" rx="3" fill="none" stroke="var(--faint)" stroke-dasharray="4 3"/>'
+        + '<text x="77" y="30" text-anchor="middle" font-size="8.5" font-family="var(--mono)" fill="var(--faint)">规格期望 1024×4096</text>'
+      : '';
+    const arrow = draft
+      ? '<text x="175" y="61" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--faint)">形状未定</text>'
+      : '<line x1="' + (isOut ? 196 : 154) + '" y1="57" x2="' + (isOut ? 158 : 192) + '" y2="57" stroke="var(--brand)" stroke-width="1.5"/>'
+        + '<path d="M' + (isOut ? 154 : 196) + ' 57 l' + (isOut ? 6 : -6) + ' -4 l0 8 z" fill="var(--brand)"/>'
+        + '<text x="175" y="48" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--brand)">'
+        + (isOut ? 'tile.store' : 'tile.load') + '</text>';
+    const cells = '<svg viewBox="0 0 300 116" role="img" aria-label="张量在存储层级中的位置与搬运方向">'
+      + '<rect x="4" y="14" width="146" height="86" rx="7" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>'
+      + '<text x="12" y="27" font-size="9" font-family="var(--mono)" fill="var(--faint)">DDR · 片外</text>'
+      + ghost
+      + '<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + fill + '" stroke="' + stroke + '"'
+        + (draft ? ' stroke-dasharray="4 3"' : '') + '/>'
+      + '<text x="77" y="' + (57 + 4) + '" text-anchor="middle" font-size="12" font-family="var(--mono)" fill="' + stroke + '">' + d.n + '</text>'
+      + '<text x="77" y="94" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="' + (bad ? 'var(--err)' : 'var(--muted)') + '">'
+        + d.shape + ' · ' + d.bytes + '</text>'
+      + arrow
+      + '<rect x="200" y="14" width="96" height="86" rx="7" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>'
+      + '<text x="208" y="27" font-size="9" font-family="var(--mono)" fill="var(--faint)">Mat / Vec · 片上</text>'
+      + '<rect x="226" y="47" width="44" height="20" rx="3" fill="none" stroke="var(--faint)" stroke-dasharray="3 2"/>'
+      + '<text x="248" y="61" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--faint)">TileType</text>'
+      + '<text x="248" y="94" text-anchor="middle" font-size="8.5" font-family="var(--mono)" fill="var(--faint)">Cube 只能读这里</text>'
+      + '</svg>';
+    return {
+      pill: d.pill,
+      body: lead(d.n + ' · ' + d.role, 'matmul_fp16')
+        + viz('PLACEMENT / ' + d.fmt, '矩形边长 log2 阻尼，非真实比例', cells)
+        + kv([
+            ['Shape', d.shape, s === 'bad' ? 'bad' : soft],
+            ['DataType', d.dt, soft],
+            ['TensorLayout', d.fmt, soft],
+            ['MemorySpace', d.space],
+            ['占用', d.bytes, soft],
+            ['连续性', d.ct, soft]
+          ])
+        + note(d.msg, s === 'bad' ? 'err' : s === 'draft' ? '' : 'ok')
+    };
+  }
+},
+{
+  id: 'format', zh: '布局转换', en: 'FormatCast', glyph: '◫', stage: ['定义', '开发'],
+  objects: ['TensorView', 'TileView', 'TensorLayout', 'PadValue'],
+  question: 'ND 的数据要怎么摆才能喂进 Cube？',
+  intent: '布局是昇腾开发里最容易被忽略又最常出错的一环。把 ND 与 NZ 并排画出来，并把对齐余量写成数字，比只写一个 layout 名称有用。PyPTO 的 TensorLayout 只有 ND / DN / NZ 三个值，其中 NZ 是分形，无法用平坦 stride 表达，所以只允许出现在 TileType 上。',
+  states: [['aligned', '整齐对齐'], ['padded', '需要补齐']],
+  render(s) {
+    const cols = s === 'aligned' ? 4 : 3;
+    const grid = (x0, label, color) => Array.from({ length: 12 }, (_, i) =>
+      '<rect x="' + (x0 + (i % 4) * 17) + '" y="' + (16 + Math.floor(i / 4) * 17) + '" width="15" height="15" rx="2" fill="' + color + '" stroke="var(--line)"/>').join('')
+      + '<text x="' + (x0 + 32) + '" y="78" fill="var(--muted)" font-size="9.5" text-anchor="middle" font-family="var(--mono)">' + label + '</text>';
+    const svg = '<svg viewBox="0 0 300 86" role="img" aria-label="布局转换示意">'
+      + grid(6, 'ND 行主序', 'var(--track)')
+      + '<text x="106" y="44" fill="var(--muted)" font-size="13" text-anchor="middle">→</text>'
+      + Array.from({ length: cols * 2 }, (_, i) =>
+          '<rect x="' + (130 + (i % cols) * 25) + '" y="' + (16 + Math.floor(i / cols) * 25) + '" width="23" height="23" rx="2" fill="var(--brand-dim)" stroke="var(--brand)"/>').join('')
+      + (s === 'padded'
+          ? '<rect x="' + (130 + cols * 25) + '" y="16" width="23" height="48" rx="2" fill="none" stroke="var(--warn)" stroke-dasharray="3 3"/>'
+            + '<text x="' + (130 + cols * 25 + 11) + '" y="44" fill="var(--warn)" font-size="9" text-anchor="middle">pad</text>' : '')
+      + '<text x="' + (130 + cols * 12) + '" y="78" fill="var(--brand)" font-size="9.5" text-anchor="middle" font-family="var(--mono)">NZ 分形块 16×16</text>'
+      + '</svg>';
+    return {
+      pill: s === 'aligned' ? ['ok', '无需补齐'] : ['warn', '引入 pad'],
+      body: lead('A · ND → NZ', s === 'aligned' ? 'TensorLayout.NZ · 基本块 16×16（示例）' : '假设末维为 4090 · 基本块 16×16')
+        + viz('LAYOUT CAST', '块大小为示例值，须按 SoC 核对', svg)
+        + lines(s === 'aligned'
+            ? [['源 / 目标', 'ND → NZ（16×16）', ''], ['末维', '4096 = 256 × 16', ''], ['补齐元素', '0', ''], ['额外搬运', '无', ''], ['承载类型', 'NZ 仅能用于 TileType', 'soft']]
+            : [['源 / 目标', 'ND → NZ（16×16）', ''], ['末维', '4090 = 255 × 16 + 10', 'bad'], ['补齐元素', '每行 6 个', 'bad'], ['额外搬运', '约 +0.15%', ''], ['承载类型', 'NZ 仅能用于 TileType', 'soft']])
+        + note(s === 'aligned'
+            ? '两个维度都是 16 的整数倍，转换不引入填充。<code>TensorView</code> 可以只写 layout 不写 stride，由 MaterializeTensorStrides 补成显式形式。'
+            : '末维 4090 不是 16 的整数倍，需补齐 6 个元素。填充值须参与计算前清零，否则会污染累加结果；<code>PadValue.zero</code> 正是为此存在。', s === 'aligned' ? 'ok' : 'warn')
+    };
+  }
+},
+
+{
+  id: 'func', zh: '函数签名', en: 'Function / FunctionType', glyph: 'λ', stage: ['定义', '编排'], wide: true,
+  objects: ['Function', 'FunctionType', 'Direction', 'Var'],
+  question: '这个函数跑在哪一级硬件上，参数谁读谁写？',
+  intent: 'PyPTO 不是「写一个 kernel」那么扁平：Orchestration 函数跑在 Host/AICPU 做调度，InCore 才跑在 AICore 上算。这张卡把 FunctionType 与参数方向放在一起，因为二者共同决定了这个函数能做什么、产物走哪条编译路径。方向不是注释而是类型包装，错了编译期就会拦住。',
+  states: [['incore', 'InCore 内核'], ['orch', 'Orchestration 编排']],
+  render(s) {
+    const incore = s === 'incore';
+    const params = incore
+      ? [['a', 'Tensor[[1024,4096], FP16]', 'In'], ['b', 'Tensor[[4096,2048], FP16]', 'In'], ['c', 'Tensor[[1024,2048], FP16]', 'Out']]
+      : [['x', 'Tensor[[1024,4096], FP16]', 'In'], ['w', 'Tensor[[4096,2048], FP16]', 'In'], ['out', 'Tensor[[1024,2048], FP16]', 'InOut']];
+    const dirTone = { In: '', Out: 'warn', InOut: 'info' };
+    const chain = incore
+      ? [['AICore', 'on'], ['.pto 产物', 'on'], ['PTOAS → pto-isa', 'off']]
+      : [['Host / AICPU', 'on'], ['编排 C++（PTO2 API）', 'on'], ['调度 InCore 任务', 'off']];
+    return {
+      pill: incore ? ['info', 'FunctionType.InCore'] : ['info', 'FunctionType.Orchestration'],
+      body: lead(incore ? 'matmul_fp16' : 'main', incore ? '在 AICore 上执行 tile 级计算' : '在 Host/AICPU 上编排任务')
+        + viz('SIGNATURE', 'Direction 是类型包装，不是注释',
+            '<div class="sig">'
+            + params.map(([n, t, d]) =>
+                '<div class="sig-row"><b>' + n + '</b><span>' + t + '</span>'
+                + '<em class="dir ' + dirTone[d] + '">' + d + '</em></div>').join('')
+            + '</div>'
+            + '<div class="legend"><span>In 默认只读</span><span>Out 只写</span><span>InOut 读写</span></div>')
+        + lines([
+            ['函数类型', incore ? 'InCore（可再特化为 AIC / AIV / Group）' : 'Orchestration', ''],
+            ['执行位置', incore ? 'AICore' : 'Host / AICPU', ''],
+            ['可用算子', incore ? 'tile.* · system.* · 跨核 tpush/tpop' : 'pl.submit · pl.spmd · tensor.*', ''],
+            ['Scalar 参数', '不允许 InOut 方向', 'soft']
+          ])
+        + '<div class="stack">' + chain.map(([t, k]) =>
+            '<div class="layer' + (k === 'off' ? ' blank' : '') + '"><span>' + t + '</span><b>' + (k === 'off' ? '↓' : '●') + '</b></div>').join('') + '</div>'
+        + note(incore
+            ? 'InCore 函数编译成 .pto，再由 PTOAS 汇编、链接 pto-isa 头文件，最终生成 AICore 二进制。未指定类型时函数默认是 Opaque。'
+            : 'Orchestration 函数编译成使用 PTO2 运行时 API 的 C++，在 AICPU 上执行。它自己不做张量计算，只负责把 InCore 任务按依赖投递下去。')
+    };
+  }
+},
+
+/* ── 开发 ───────────────────────────────────────── */
+{
+  id: 'tile', zh: 'Tile 切分', en: 'TileType / Tiling', glyph: '▥', stage: ['开发', '调优'],
+  objects: ['TileType', 'TileView', 'IterArg', 'Span'],
+  question: '数据怎么切块，尾块怎么处理？',
+  intent: '切分方案要能一眼看出「切得齐不齐」。整除与带尾块是两种完全不同的代码路径，卡片必须让它们看起来就不一样，而不是埋在一行数字里。',
+  states: [['even', 'N=256 整除'], ['tail', 'N=192 带尾块']],
+  render(s) {
+    const tn = s === 'even' ? 256 : 192;
+    const full = Math.floor(2048 / tn), tail = 2048 % tn;
+    const ncols = s === 'even' ? full : full + 1;
+    const step = 288 / ncols;
+    const svg = '<svg viewBox="0 0 300 80" role="img" aria-label="切分示意">'
+      + Array.from({ length: 8 }, (_, r) => Array.from({ length: ncols }, (_, c) => {
+          const isTail = s === 'tail' && c === full;
+          const w = step - 2;
+          return '<rect x="' + (8 + c * step) + '" y="' + (6 + r * 8.6) + '" width="' + (isTail ? (w * tail / tn).toFixed(1) : w.toFixed(1)) + '" height="6.6" rx="1" fill="' + (isTail ? 'none' : 'var(--brand-dim)') + '" stroke="' + (isTail ? 'var(--warn)' : 'var(--brand)') + '" stroke-width="' + (isTail ? 1 : .6) + '"' + (isTail ? ' stroke-dasharray="2 2"' : '') + '/>';
+        }).join('')).join('')
+      + '</svg>';
+    return {
+      pill: s === 'even' ? ['ok', '无尾块'] : ['warn', '1 列尾块'],
+      body: lead('mnk tile = [128, ' + tn + ', 128]', 'M×N 共 ' + (8 * ncols) + ' 块')
+        + viz('TILING / M × N', s === 'even' ? '8 × 8 块，全部等大' : '虚线列为尾块', svg)
+        + kv([
+            ['M 方向', '1024 / 128 = 8'],
+            ['N 方向', s === 'even' ? '2048 / 256 = 8' : '2048 / 192 = 10 余 128', s === 'tail' ? 'bad' : ''],
+            ['K 方向', '4096 / 128 = 32'],
+            ['尾块宽度', s === 'even' ? '无' : tail + ' 列（不足 ' + tn + '）', s === 'tail' ? 'bad' : '']
+          ])
+        + lines([
+            ['循环顺序', 'M → N → K（K 内层累加）', ''],
+            ['单块输出', '128 × ' + tn + ' FP32 累加', ''],
+            ['K 轴迭代', '32 次 / 输出块', ''],
+            ['Right 占用', '128 × ' + tn + ' × 2B = ' + (tn / 4) + ' KB', '']
+          ])
+        + note(s === 'even'
+            ? '三个方向都整除，所有块等大，只需一条主路径；Right（L0B）也正好用满 64 KB（上限）。'
+            : 'N 方向最后一块只有 ' + tail + ' 列，需要掩码或独立尾块分支——边界读写越界是这里最常见的缺陷。Right 降到 48 KB，但 Mat 仍要 320 KB，离开 double buffer 所需的 ≤256 KB 还差一截，所以这次切分既没省出余量、又多了一条分支。', s === 'even' ? 'ok' : 'warn')
+    };
+  }
+},
+{
+  id: 'budget', zh: '片上预算', en: 'OnChipBudget', glyph: '◰', stage: ['开发', '调优'], wide: true,
+  objects: ['MemorySpace', 'MemRef', 'TileType', 'TileView'],
+  question: '这个 tile 放得进片上存储吗，还剩多少余量？',
+  intent: '片上容量是硬约束，超了就是编译失败。把各级 buffer 的占用算式摊开写，开发者改 tile 时能立刻看出哪一级先打满，而不用自己换算字节。double buffer 单独标注，因为它直接把占用翻倍。',
+  states: [['fit', 'N=128'], ['tight', 'N=256'], ['over', 'N=512']],
+  render(s) {
+    const tileN = { fit: 128, tight: 256, over: 512 }[s];
+    /* 占用按 tile 现算。空间名用 PyPTO 的 MemorySpace 枚举，括号内是对应的硬件 buffer。
+       Left=Mt×Kt×2B  Right=Kt×Nt×2B  Acc=Mt×Nt×4B(fp32 累加)  Mat=A 分片+B 分片 */
+    const right = tileN / 4, acc = tileN / 2, mat = 128 + tileN;
+    const cap = { left: 64, right: 64, acc: 256, mat: 512, vec: 192 };
+    const pct = (v, c) => Math.round(v / c * 100);
+    const tone = (v, c) => (v >= c ? 'max' : v / c > .7 ? 'hi' : 'lo');
+    const rows = [
+      ['Left (L0A)', pct(32, cap.left), '32 / 64 KB', tone(32, cap.left)],
+      ['Right (L0B)', pct(right, cap.right), right + ' / 64 KB', tone(right, cap.right)],
+      ['Acc (L0C)', pct(acc, cap.acc), acc + ' / 256 KB', tone(acc, cap.acc)],
+      ['Mat (L1)', pct(mat, cap.mat), mat + ' / 512 KB', tone(mat, cap.mat)],
+      ['Vec (UB)', pct(16, cap.vec), '16 / 192 KB', 'lo']
+    ];
+    return {
+      pill: { fit: ['ok', '全部放得下'], tight: ['warn', 'Right 已打满'], over: ['err', '两级溢出'] }[s],
+      body: lead('tile = [128, ' + tileN + ', 128]', 'double buffer 关闭')
+        + bars(rows)
+        + lines([
+            ['Left = 128 × 128 × 2B', '32 KB', ''],
+            ['Right = 128 × ' + tileN + ' × 2B', right + ' KB', right >= cap.right ? 'bad' : ''],
+            ['Acc = 128 × ' + tileN + ' × 4B（FP32 累加）', acc + ' KB', acc >= cap.acc ? 'bad' : ''],
+            ['Mat = A 分片 128×512 + B 分片 512×' + tileN, mat + ' KB', mat >= cap.mat ? 'bad' : '']
+          ])
+        + note({
+            fit: '各空间占用都在一半左右，有开 double buffer 的空间（占用翻倍后 Mat 为 512 KB，正好触顶）。',
+            tight: 'Right 恰好用满 64 KB，已没有留给 double buffer 的余量；Mat 到 75%。再增大 N 方向 tile 会直接溢出。',
+            over: 'N 取 512 时 Right 需 128 KB（容量 64 KB）、Mat 需 640 KB（容量 512 KB），两处同时溢出，编译阶段即失败。'
+          }[s], s === 'fit' ? 'ok' : s === 'tight' ? 'warn' : 'err')
+        + note('空间名用 PyPTO 的 <code>MemorySpace</code>（Left / Right / Acc / Mat / Vec），括号内为对应硬件 buffer；容量为示例值，落地前须按目标 SoC 手册核对。')
+    };
+  }
+},
+{
+  id: 'coremap', zh: '核分配', en: 'CoreMap', glyph: '⊞', stage: ['开发', '调优'],
+  objects: ['CoreMap', 'Device', 'TileType', 'Metric'],
+  question: '任务块怎么分到各个核，负载齐不齐？',
+  intent: '核数与块数很少正好整除，余数会变成木桶效应。卡片直接给出最慢核与最快核的差距，而不是只报一个平均值——平均值会把这类问题藏起来。',
+  states: [['skew', '负载不均'], ['balanced', '基本均衡']],
+  render(s) {
+    const loads = s === 'skew'
+      ? [4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+      : Array.from({ length: 20 }, () => 4);
+    const svg = '<svg viewBox="0 0 300 70" role="img" aria-label="各核任务块数">'
+      + loads.map((v, i) => '<rect x="' + (6 + i * 14.7).toFixed(1) + '" y="' + (58 - v * 12) + '" width="11" height="' + (v * 12) + '" rx="2" fill="' + (v === 4 && s === 'skew' ? 'var(--warn)' : 'var(--fill)') + '"/>').join('')
+      + '<line x1="2" y1="58" x2="298" y2="58" stroke="var(--line)"/>'
+      + '<text x="2" y="68" fill="var(--faint)" font-size="9" font-family="var(--mono)">core 0</text>'
+      + '<text x="298" y="68" fill="var(--faint)" font-size="9" text-anchor="end" font-family="var(--mono)">core 19</text>'
+      + '</svg>';
+    return {
+      pill: s === 'skew' ? ['warn', '偏差 +33%'] : ['ok', '完全均衡'],
+      body: lead('blockDim = 20 AIC', s === 'skew' ? '64 块 · tile [128, 256]' : '80 块 · tile [256, 128]')
+        + viz('BLOCK PER CORE', s === 'skew' ? '橙色为多承载一块的核' : '各核等量', svg)
+        + lines(s === 'skew'
+            ? [['块数 / 核数', '64 / 20 = 3 余 4', ''], ['最多 / 最少', '4 块 / 3 块', ''], ['负载偏差', '+33%', 'bad'], ['理论浪费核时间', '1 − 64/80 = 20%', 'bad']]
+            : [['块数 / 核数', '80 / 20 = 4', ''], ['最多 / 最少', '4 块 / 4 块', ''], ['负载偏差', '0%', ''], ['理论浪费核时间', '可忽略', '']])
+        + note(s === 'skew'
+            ? 'tile [128, 256] 切出 8 × 8 = 64 块，不被 20 核整除：4 个核各多承担一块，另外 16 个核在最后一轮空等，整体耗时由最慢核决定。把 tile 换成 [256, 128] 可得 4 × 16 = 80 块，正好整除。'
+            : '80 块恰好 20 核均分，每核 4 块，没有尾轮空等。两种 tile 的片上占用相同（Mat 均为 384 KB），所以这是一次无代价的调整。', s === 'skew' ? 'warn' : 'ok')
+    };
+  }
+},
+{
+  id: 'pipe', zh: '流水编排', en: 'PipeType / ISA Lanes', glyph: '≡', stage: ['开发', '调优'], wide: true,
+  objects: ['PipeType', 'MemorySpace', 'TileType', 'Metric'],
+  question: '搬运和计算有没有真正并起来？',
+  intent: '流水是否重叠必须看图，数字看不出来。五条泳道按硬件单元固定排列，开 double buffer 前后的对比放在同一张卡里切换，让收益与代价（buffer 翻倍）同时可见。注意泳道名是 ISA 级的搬运/计算单元；PyPTO 的 PipeType 只有 S / V / M / ALL 四个值，用于屏障与 sync_src/sync_dst 的 set_pipe、wait_pipe，两者不是一套东西。',
+  states: [['serial', '未开 double buffer'], ['overlap', '开启 double buffer']],
+  render(s) {
+    const segs = s === 'serial'
+      ? { MTE2: [[0, 22], [34, 22], [68, 22]], MTE1: [[22, 10], [56, 10], [90, 8]], CUBE: [[32, 24], [66, 24]], VEC: [[]], MTE3: [[56, 8], [90, 8]] }
+      : { MTE2: [[0, 22], [22, 22], [44, 22], [66, 22]], MTE1: [[22, 10], [44, 10], [66, 10]], CUBE: [[32, 24], [56, 24], [80, 20]], VEC: [[]], MTE3: [[56, 8], [80, 8]] };
+    const lane = (name, arr, cls) =>
+      '<div class="lane"><span>' + name + '</span><div class="lane-track">'
+      + arr.filter(a => a.length).map(([x, w]) => '<i class="' + cls + '" style="left:' + x + '%;width:' + w + '%"></i>').join('')
+      + '</div></div>';
+    return {
+      pill: s === 'serial' ? ['warn', 'Cube 利用率 41%'] : ['ok', 'Cube 利用率 73%'],
+      body: lead(s === 'serial' ? '搬运与计算串行' : '搬运与计算重叠', 'tile N=128 · K 轴前 3 次迭代')
+        + viz('PIPELINE / 单核时间轴', '示意图，不按实测比例',
+            '<div class="lanes">'
+            + lane('MTE2', segs.MTE2, 'b') + lane('MTE1', segs.MTE1, 'b')
+            + lane('CUBE', segs.CUBE, '') + lane('VEC', segs.VEC, '')
+            + lane('MTE3', segs.MTE3, 'w')
+            + '</div>'
+            + '<div class="legend"><span><s class="v"></s>搬入（MTE2 / MTE1）</span><span><s></s>计算（Cube）</span><span><s style="background:var(--warn)"></s>搬出（MTE3）</span></div>')
+        + lines(s === 'serial'
+            ? [['Mat / Left / Right buffer', '单份', ''], ['Cube 空闲占比', '59%', 'bad'], ['单次 K 迭代', '示例 2.6 µs', ''], ['Mat 占用', '256 / 512 KB', ''], ['VEC 泳道', '本例不参与计算', 'soft']]
+            : [['Mat / Left / Right buffer', '双份（ping-pong）', ''], ['Cube 空闲占比', '27%', ''], ['单次 K 迭代', '示例 1.5 µs', ''], ['Mat 占用', '512 / 512 KB', 'bad'], ['VEC 泳道', '本例不参与计算', 'soft']])
+        + note(s === 'serial'
+            ? 'Cube 必须等 MTE2 把下一块搬完才能继续，超过一半时间在空等。开启 double buffer 可让搬运与计算重叠。'
+            : '重叠后 Cube 空闲降到 27%。代价是 Mat 占用翻倍到 512 KB、正好触顶，再无余量——这也是 double buffer 只能配 N=128 的原因（见片上预算卡）。', s === 'serial' ? 'warn' : 'ok')
+    };
+  }
+},
+
+{
+  id: 'array', zh: '核内数组', en: 'ArrayType', glyph: '⋮', stage: ['开发'],
+  objects: ['ArrayType', 'MemorySpace', 'Var'],
+  question: '核内要存一小组标量，放哪里、有什么限制？',
+  intent: 'Array 是容易被忽略的第三种数据载体：它既不是 DDR 上的 Tensor，也不是 Cube/Vector 的 Tile，而是落在 ScalarLocal（标量寄存器/C 栈）上的 rank-1 数组。它的约束很硬，所以卡片把约束逐条列成可检查项，而不是写一句「有限制」。',
+  states: [['ok', '合法'], ['bad', '违反约束']],
+  render(s) {
+    const ok = s === 'ok';
+    const checks = [
+      ['元素 dtype 为整型或 BOOL', ok ? 'INT32 · 通过' : 'FP32 · 不支持', ok ? '' : 'bad'],
+      ['rank 为 1', '通过', ''],
+      ['长度是编译期常量', ok ? '16 · 通过' : 'n · 非常量', ok ? '' : 'bad'],
+      ['不跨函数边界', ok ? '通过' : '被当作参数传出', ok ? '' : 'bad']
+    ];
+    return {
+      pill: ok ? ['ok', '约束满足'] : ['err', '3 项不满足'],
+      body: lead(ok ? 'pl.Array[16, pl.INT32]' : 'pl.Array[n, pl.FP32]', 'MemorySpace.ScalarLocal')
+        + kv([
+            ['地址空间', 'ScalarLocal'],
+            ['MemRef', '无（降级为 C 栈数组）', 'soft'],
+            ['读', 'array.get_element(arr, i)'],
+            ['写', 'array.update_element(arr, i, v)']
+          ])
+        + lines(checks)
+        + note(ok
+            ? '<code>arr[i] = v</code> 是语法糖，会脱糖成 <code>arr = pl.array.update_element(arr, i, v)</code> —— 返回新 SSA 值而不是就地改写，这样才符合 SSA；两条 codegen 路径都会把结果别名到原存储，不产生拷贝。'
+            : '三项不满足：元素必须是整型或 BOOL（FP32 不行）、长度必须是编译期常量、而且 Array 不能跨函数边界——最后一条由 ArrayNotEscaped 验证器拦下。', ok ? 'ok' : 'err')
+    };
+  }
+},
+{
+  id: 'tasks', zh: '任务编排', en: 'Submit / TaskId', glyph: '⇶', stage: ['编排'], wide: true,
+  objects: ['Submit', 'TaskId', 'deps', 'Scope'],
+  question: '这几个任务谁先谁后，依赖是谁定的？',
+  intent: '这是整套卡片里唯一回答「执行顺序从哪来」的内容区。PyPTO 默认按缓冲区读写重叠自动推导任务依赖；进了 MANUAL scope 就完全交给用户手写 deps，漏一条边就是数据竞争。所以两种模式必须能并排对照，并且明确标出「谁在负责正确性」。',
+  states: [['auto', 'AUTO 自动推导'], ['manual', 'MANUAL 显式 deps']],
+  render(s) {
+    const auto = s === 'auto';
+    const nodes = [['stage1', 40], ['stage2', 140], ['stage3', 240]];
+    const svg = '<svg viewBox="0 0 300 74" role="img" aria-label="任务依赖示意">'
+      + nodes.map(([n, x]) =>
+          '<rect x="' + (x - 32) + '" y="14" width="64" height="26" rx="5" fill="var(--brand-dim)" stroke="var(--brand)"/>'
+          + '<text x="' + x + '" y="31" fill="var(--brand)" font-size="10" text-anchor="middle" font-family="var(--mono)">' + n + '</text>').join('')
+      + [[72, 108], [172, 208]].map(([a, b]) =>
+          '<line x1="' + a + '" y1="27" x2="' + b + '" y2="27" stroke="' + (auto ? 'var(--idle)' : 'var(--warn)') + '" stroke-width="1.5"'
+          + (auto ? ' stroke-dasharray="3 3"' : '') + '/>'
+          + '<path d="M' + b + ' 27 l-5 -3 l0 6 z" fill="' + (auto ? 'var(--idle)' : 'var(--warn)') + '"/>').join('')
+      + '<text x="150" y="58" fill="' + (auto ? 'var(--idle)' : 'var(--warn)') + '" font-size="9.5" text-anchor="middle" font-family="var(--mono)">'
+      + (auto ? '虚线 = 运行时按读写重叠自动推导' : '实线 = 用户在 deps 里手写的边') + '</text>'
+      + '<text x="150" y="70" fill="var(--faint)" font-size="9" text-anchor="middle">'
+      + (auto ? 'OverlapMap 负责正确性' : '漏写一条边即数据竞争，编译器不会补') + '</text>'
+      + '</svg>';
+    return {
+      pill: auto ? ['ok', 'AUTO · 编译器负责'] : ['warn', 'MANUAL · 用户负责'],
+      body: lead(auto ? '依赖由读写重叠推导' : '依赖由 deps 显式声明', auto ? 'pl.scope()' : 'pl.manual_scope()')
+        + viz('TASK GRAPH', 'pl.submit 返回 (结果, TaskId)', svg)
+        + lines(auto
+            ? [['scope', 'Runtime(manual=false)', ''], ['依赖来源', '缓冲区读写重叠（OverlapMap）', ''], ['deps 参数', '可选，用于补充额外边', 'soft'], ['漏写风险', '无——编译器兜底', ''], ['TaskId', '仍可用 as tid 捕获', 'soft']]
+            : [['scope', 'Runtime(manual=true)', ''], ['依赖来源', '用户手写 deps=[tid, ...]', ''], ['deps 参数', '必填，每条必需边都要写', 'bad'], ['漏写风险', '数据竞争，运行时不报错', 'bad'], ['TaskId', 'None 表示「暂无生产者」哨兵', 'soft']])
+        + kv([
+            ['提交形式', 'out, tid = pl.submit(f, ...)'],
+            ['TaskId 类型', 'Scalar[TASK_ID]（不可运算）'],
+            ['多块分发', 'pl.spmd(N) / pl.spmd_submit'],
+            ['返回元组', '(运行时分配的 Out..., 返回值..., TASK_ID)']
+          ])
+        + note(auto
+            ? '运行时按 OverlapMap 自动串起顺序，deps 只是在自动推导之外补边。TASK_ID 不是数字，没有算术运算——它只是个句柄。'
+            : 'MANUAL 下编译器不再兜底：每一条必需的顺序边都必须出现在 deps 里。<code>None</code> 用来给 TaskId 循环携带值做种子，会降级到 <code>system.task_invalid</code>。', auto ? 'ok' : 'warn')
+    };
+  }
+},
+
+/* ── 编译 ───────────────────────────────────────── */
+{
+  id: 'passes', zh: '编译 Pass', en: 'PassPipeline', glyph: '⟐', stage: ['编译'],
+  objects: ['Pass', 'PassContext', 'IRProperty', 'Backend'],
+  question: '从 DSL 到产物，中间到底做了什么？',
+  intent: 'Pass 流水线是 PyPTO 最重的部分，也是最不透明的部分。把 40 多个 pass 按职责分组、给出区间，比罗列名字有用；一旦某组里出问题，开发者知道该去读哪几个 pass 的文档。文档编号与执行顺序严格一致，所以区间本身就是导航。',
+  states: [['run', '本次编译']],
+  render() {
+    return {
+      pill: ['info', '42 个流水线 pass'],
+      body: lead('Default 策略', 'DSL → IR → 产物')
+        + bars([
+            ['通用 / 外联', 26, '01–11', 'lo'],
+            ['tile 降级', 14, '12–17', 'lo'],
+            ['混合核 / 流水', 21, '18–26', 'lo'],
+            ['内存', 17, '27–33', 'lo'],
+            ['依赖 / 编排', 10, '34–36 · 41', 'lo'],
+            ['分布式', 10, '37–40', 'lo']
+          ])
+        + lines([
+            ['校验级别', '由 PassContext 决定，非全局状态', ''],
+            ['后端分派', 'BackendHandler，pass 不判断 BackendType', ''],
+            ['性质声明', '每个 pass 声明 required / produced / invalidated', ''],
+            ['失败定位', 'CHECK_SPAN 带 IR 源位置指回 DSL', ''],
+            ['90+ 编号', '工具 pass 与验证器，不在 Default 里', 'soft']
+          ])
+        + note('文档编号与 pass_manager 的执行顺序严格对齐，所以上面的区间可以直接当导航用。pass 内部的断言失败通常意味着编译器 bug 而非用户错误——这也是它用 INTERNAL_CHECK 而不是 CHECK 的原因。')
+    };
+  }
+},
+{
+  id: 'artifact', zh: '代码产物', en: 'CodegenArtifact', glyph: '⎋', stage: ['编译', '运行'], wide: true,
+  objects: ['CompiledProgram', 'FunctionType', 'Backend'],
+  question: '编译出来的东西分别去了哪里？',
+  intent: '一次编译产出两套互不相同的东西，走两条完全不同的下游链路。只画一个「编译产物」方框会掩盖这件事，而它恰恰是理解 PyPTO 架构的关键：算在 AICore，调度在 AICPU。',
+  states: [['both', '两条路径']],
+  render() {
+    const path = (title, chain, tone) =>
+      '<div class="path"><div class="path-head"><b>' + title + '</b></div>'
+      + chain.map((step, i) =>
+          '<div class="path-step' + (tone ? ' ' + tone : '') + '">' + step
+          + (i < chain.length - 1 ? '<i>↓</i>' : '') + '</div>').join('')
+      + '</div>';
+    return {
+      pill: ['info', 'InCore + Orchestration'],
+      body: lead('一次编译，两套产物', '目标 Ascend 910B（示例）')
+        + viz('CODEGEN PATHS', '下游仓库：PTOAS · pto-isa · simpler',
+            '<div class="paths">'
+            + path('InCore 函数 · 计算', ['.pto 文件', 'PTOAS 汇编优化', 'pto-isa 指令头', 'AICore 二进制'])
+            + path('Orchestration 函数 · 调度', ['C++（PTO2 运行时 API）', '编译为 AICPU 可执行', '按依赖投递任务'], 'alt')
+            + '</div>')
+        + lines([
+            ['计算在哪', 'AICore', ''],
+            ['调度在哪', 'AICPU', ''],
+            ['两者汇合', 'simpler 运行时的任务图执行', ''],
+            ['Host 职责', '下发与同步', 'soft']
+          ])
+        + note('左路是算，右路是调度。理解这条分叉之后，FunctionType 为什么是一等概念就清楚了——它决定代码走哪条链路，也决定你能在函数里写什么算子。')
+    };
+  }
+},
+{
+  id: 'build', zh: '编译结果', en: 'BuildArtifact', glyph: '⌘', stage: ['编译'],
+  objects: ['CompiledProgram', 'Pass', 'Diagnostic', 'Span'],
+  question: '编译成功了吗，有哪些提示值得看？',
+  intent: '「成功」不等于「没问题」。警告要和产物放在一起，并且可以下钻到具体 Pass；只给一个绿勾会让开发者错过真正重要的提示。',
+  states: [['pass', '成功带提示'], ['fail', '失败']],
+  render(s) {
+    return {
+      pill: s === 'pass' ? ['warn', '成功 · 2 提示'] : ['err', '编译失败'],
+      body: lead(s === 'pass' ? 'matmul_fp16_kernel' : '未生成产物', s === 'pass' ? 'build #0147' : 'build #0148')
+        + kv(s === 'pass'
+            ? [['Pass 数', '38 / 38'], ['耗时', '示例 6.4 s'], ['产物大小', '142 KB'], ['目标', 'Ascend 910B']]
+            : [['Pass 数', '26 / 38', 'bad'], ['耗时', '示例 3.1 s'], ['产物大小', '—', 'soft'], ['目标', 'Ascend 910B']])
+        + '<div class="stack">'
+          + (s === 'pass'
+              ? '<div class="layer"><span>⚠ BufferAlloc</span><b>Right 用满 64 KB，无 DB 余量</b></div>'
+                + '<div class="layer"><span>⚠ CoreMap</span><b>64 块 / 20 核不整除，偏差 +33%</b></div>'
+              : '<div class="layer missing"><span>✕ BufferAlloc</span><b>Right 需 128 KB &gt; 容量 64 KB</b></div>'
+                + '<div class="layer"><span>↳ 来源</span><b>tile[1] = 512</b></div>')
+          + '</div>'
+        + note(s === 'pass'
+            ? '产物已生成，可进入精度验证。两条提示都指向同一个 tile 配置 [128, 256, 128]：Right 已无余量、块数又不整除核数，调优阶段都要回看。'
+            : '在 BufferAlloc 阶段中断：N=512 使 B 分片需要 128 KB，超出 Right 的 64 KB 容量。把 tile[1] 降到 256 或更小后重新编译。', s === 'pass' ? 'warn' : 'err')
+    };
+  }
+},
+
+/* ── 验证 ───────────────────────────────────────── */
+{
+  id: 'accuracy', zh: '精度验证', en: 'AccuracyCheck', glyph: '✓', stage: ['验证'],
+  objects: ['TestCase', 'Golden', 'Tolerance', 'Deviation'],
+  question: '算得对不对，判断依据是什么？',
+  intent: '通过与不通过都要带上判据：参考实现、容差、最大误差、失败用例定位。只显示「通过」的绿灯无法支撑评审，也无法在容差被悄悄放宽时发现问题。',
+  states: [['pass', '全部通过'], ['fail', '存在超差']],
+  render(s) {
+    const hist = s === 'pass' ? [38, 62, 44, 22, 9, 3, 1, 0] : [30, 55, 40, 24, 14, 9, 6, 11];
+    const svg = '<svg viewBox="0 0 300 62" role="img" aria-label="误差分布">'
+      + hist.map((v, i) => '<rect x="' + (8 + i * 36) + '" y="' + (50 - v * .7) + '" width="28" height="' + (v * .7) + '" rx="2" fill="' + (i >= 6 && s === 'fail' ? 'var(--err)' : 'var(--fill)') + '"/>').join('')
+      + '<line x1="4" y1="50" x2="296" y2="50" stroke="var(--line)"/>'
+      + (s === 'fail' ? '<line x1="224" y1="4" x2="224" y2="50" stroke="var(--err)" stroke-dasharray="3 2"/><text x="228" y="12" fill="var(--err)" font-size="9" font-family="var(--mono)">atol</text>' : '')
+      + '<text x="6" y="60" fill="var(--faint)" font-size="9" font-family="var(--mono)">0</text>'
+      + '<text x="294" y="60" fill="var(--faint)" font-size="9" text-anchor="end" font-family="var(--mono)">1e-3</text>'
+      + '</svg>';
+    return {
+      pill: s === 'pass' ? ['ok', '2048 / 2048'] : ['err', '17 例超差'],
+      body: lead(s === 'pass' ? '与参考实现一致' : '17 个用例超出容差', 'golden: numpy FP32 → FP16')
+        + viz('ABS ERROR 分布', s === 'fail' ? '红色为超差区间' : '全部位于容差内', svg)
+        + kv(s === 'pass'
+            ? [['用例', '2048 / 2048 通过'], ['最大绝对误差', '4.9e-4'], ['容差', 'atol 1e-3 · rtol 1e-3'], ['相对误差中位数', '1.1e-4']]
+            : [['用例', '2031 / 2048 通过', 'bad'], ['最大绝对误差', '7.3e-3', 'bad'], ['容差', 'atol 1e-3 · rtol 1e-3'], ['失败集中位置', '输出绝对值 &gt; 1e3 区间', 'bad']])
+        + note(s === 'pass'
+            ? '最大误差 4.9e-4，低于 atol 一个量级，与 FP16 舍入量级相符。参考实现、容差与误差一并记录，便于后续回归对照。'
+            : '17 个失败用例集中在输出绝对值较大的区间，指向 FP32 累加转 FP16 的转出环节（饱和或舍入），而不是矩阵乘本身。回到算子规格卡确认转出约定——不要靠放宽容差让检查变绿。', s === 'pass' ? 'ok' : 'err')
+    };
+  }
+},
+
+/* ── 运行 / 调优 ────────────────────────────────── */
+{
+  id: 'metric', zh: '执行指标', en: 'RunMetric', glyph: '▷', stage: ['运行', '调优'],
+  objects: ['Run', 'Metric', 'Device', 'Environment'],
+  question: '这次跑下来，时间花在哪了？',
+  intent: '单看耗时无法指导优化。把耗时与利用率、带宽、等待占比并列，再带上运行条件（设备、输入、环境），这张卡才能作为后续比较的共同上下文。',
+  states: [['run', '本次运行']],
+  render() {
+    return {
+      pill: ['info', 'run #0391'],
+      body: lead('matmul_fp16 · 86.4 µs', 'device 0 · 环境 #01')
+        + bars([
+            ['Cube 利用率', 41, '41%', 'lo'],
+            ['等待搬运', 34, '34%', 'hi'],
+            ['等待其他核', 18, '18%', 'lo'],
+            ['MTE2 带宽', 58, '1.1 TB/s', 'lo']
+          ])
+        + kv([
+            ['输入', '[1024,4096] × [4096,2048]'],
+            ['blockDim', '20 AIC'],
+            ['tile', '[128, 256, 128]'],
+            ['重复次数', '50 次取中位数']
+          ])
+        + note('单次示例运行的中位数，作为后续变体的基线。Cube 只有 41% 时间在算：34% 等搬运（指向流水编排卡）、18% 等其他核（指向核分配卡），两条线索各有对应的下一步，不要混成一个「性能差」的结论。')
+    };
+  }
+},
+{
+  id: 'finding', zh: '瓶颈发现', en: 'Finding', glyph: '!', stage: ['调优'],
+  objects: ['Finding', 'Evidence', 'Run', 'CoreMap'],
+  question: '现在最值得动的是哪里，证据是什么？',
+  intent: '发现必须与证据绑定，并明确标注是「已确认」还是「待验证」。把推测写成结论是性能工作里最常见的错误，卡片用置信度字段把这件事挡在前面。',
+  states: [['confirmed', '已确认'], ['hypothesis', '待验证']],
+  render(s) {
+    return {
+      pill: s === 'confirmed' ? ['warn', '已确认'] : ['idle', '待验证'],
+      body: lead(s === 'confirmed' ? '核间负载不均导致空等' : '疑似 MTE2 带宽受限', 'run #0391')
+        + lines(s === 'confirmed'
+            ? [['置信度', '已确认', ''], ['证据', '核分配 4/3 块（+33%）', ''], ['交叉证据', '实测等待其他核 18%', ''], ['理论可回收', '20% 核时间', ''], ['下一步', 'tile 改 [256,128] 得 80 块整除', '']]
+            : [['置信度', '待验证', 'soft'], ['证据', 'MTE2 带宽 1.1 TB/s，低于峰值', 'soft'], ['交叉证据', '暂无', 'soft'], ['理论可回收', '尚未量化', 'soft'], ['下一步', '采集 MTE2 等待事件分布', 'soft']])
+        + note(s === 'confirmed'
+            ? '两个独立数据对得上：64 块分 20 核的理论浪费 20%，与实测「等待其他核」18% 量级吻合。注意这只解释了 Cube 空闲的一部分，34% 的等搬运是另一条独立线索，不要一起归因。'
+            : '目前只有一个带宽读数。峰值带宽本身受 layout 与访存模式影响，单看数值不足以判定受限，需先采集等待事件再下结论。', s === 'confirmed' ? 'warn' : '')
+    };
+  }
+},
+{
+  id: 'variant', zh: '变体对比', en: 'VariantCompare', glyph: '⇄', stage: ['调优'], wide: true,
+  objects: ['Variant', 'Run', 'Metric', 'TileSpec', 'Baseline'],
+  question: '几个调优方案里，哪个真的更好？',
+  intent: '对比卡的关键是可比性：比较条件必须显式写出，否则数字之间没有意义。每个变体同时给出代价（片上占用、是否引入尾块分支），避免只看耗时就下结论。',
+  states: [['compare', '三个变体']],
+  render() {
+    const rows = [
+      ['基线 [128,256]', 100, '86.4 µs', 'hi', 'Mat 384 KB', '64 块 · 偏差 +33%', '—'],
+      ['A [256,128]', 80, '69.1 µs', 'lo', 'Mat 384 KB', '80 块 · 整除', '−20.0%'],
+      ['B [128,128]+DB', 65, '56.2 µs', 'lo', 'Mat 512 KB · 触顶', '128 块 · 偏差 +17%', '−35.0%'],
+      ['C [128,512]', 2, '编译失败', 'max', 'Right / Mat 溢出', '未产生产物', '不可用']
+    ];
+    return {
+      pill: ['info', '基线 run #0391'],
+      body: lead('matmul_fp16 调优变体', '同输入 · 同设备 · 同环境')
+        + bars(rows.map(r => [r[0], r[1], r[2], r[3]]))
+        + '<div class="stack">'
+          + rows.slice(1).map(r => '<div class="layer' + (r[6] === '不可用' ? ' missing' : '') + '"><span>' + r[0] + ' · ' + r[6] + '</span><b>' + r[4] + '</b></div>').join('')
+          + '</div>'
+        + lines([
+            ['比较条件', '输入 / 设备 / 环境 / 重复次数一致', ''],
+            ['测量方式', '50 次取中位数', ''],
+            ['A 的收益来源', '块数整除核数，消除空等', ''],
+            ['B 的收益来源', '搬运与计算重叠（但偏差回到 +17%）', ''],
+            ['C', '编译未通过，无耗时可比', 'bad']
+          ])
+        + note('B 最快，代价有两处：Mat（L1）正好用满 512 KB 没有余量，且 128 块分 20 核又带回 +17% 负载不均——它是用「赢回搬运时间」换「让一部分核多等一轮」。A 收益小一半，但占用不变、负载全平。C 在编译阶段就失败，表中那一行只说明它被排除，不是一个更慢的结果。')
+    };
+  }
+},
+{
+  id: 'dist', zh: '分布式张量', en: 'DistributedTensor', glyph: '⊕', stage: ['定义', '运行'],
+  objects: ['DistributedTensorType', 'WindowBuffer', 'CommCtx'],
+  question: '跨 rank 的张量和普通张量差在哪？',
+  intent: '分布式张量不是「加了个 rank 字段的 Tensor」，而是一个独立的类型：类型系统刻意让它不能被当作普通 Tensor 使用，这样跨 rank 算子的验证器才能挡住误传。卡片要把这个「刻意的不兼容」讲清楚，否则使用者只会觉得是 API 啰嗦。',
+  states: [['window', '窗口切片'], ['param', '参数声明']],
+  render(s) {
+    const win = s === 'window';
+    return {
+      pill: ['info', win ? '来自 WindowBuffer' : '用户声明'],
+      body: lead(win ? 'window(buf, [256], FP32)' : 'pld.DistributedTensor[[256], FP32]',
+                 win ? '由 alloc_window_buffer 切出' : '函数参数注解')
+        + kv([
+            ['类型', 'DistributedTensorType'],
+            ['继承', 'C++ 层是 TensorType 子类'],
+            ['As&lt;TensorType&gt;', '不匹配（精确 kind）', 'bad'],
+            ['window_buffer 回指', win ? '指向源 WindowBuffer' : 'None', win ? '' : 'soft']
+          ])
+        + lines([
+            ['为什么单独一个类型', '让跨 rank 算子验证器能拒收普通 Tensor', ''],
+            ['分配元信息在哪', 'WindowBuffer（per-rank 大小、host 暂存标记）', ''],
+            ['通信域', 'CommDomainScope 划出 HCCL 窗口', ''],
+            ['Tile 有没有分布式版', '没有，跨 rank 一律走 DistributedTensor', 'soft']
+          ])
+        + note(win
+            ? '两个形状、dtype 都相同但来自不同分配的窗口切片，靠 window_buffer 回指保持结构上可区分——否则它们会被结构比较判为同一个。'
+            : '用户写的参数注解不带 window_buffer 回指（该字段为 None）。这是正常的：回指只在从 WindowBuffer 切片时才产生。')
+    };
+  }
+}
+];
+
+/* ═══ 基础对象索引 ═══════════════════════════════════
+   分类与命名取自 PyPTO 源码镜像 repo/pto（docs/en/dev/ir/02-types.md、
+   05-operators.md、language/00-python_syntax.md、00-ecosystem.md）。
+   标 ✻ 的是本卡片库自行引入的工程概念，PyPTO 本身没有同名对象。     */
+const OBJECT_GROUPS = [
+  ['类型 / Types', [
+    ['DataType', '标量 dtype。含 INDEX（索引专用，与 INT64 是不同类型）与 TASK_ID（不可运算的任务句柄）', '算子规格 · Tensor'],
+    ['TensorType', 'N 维张量，隐含在 DDR；可挂 MemRef 与 TensorView', 'Tensor · 算子规格'],
+    ['TileType', '片上 tile。IR 层可多维，但物理上是 2D，低于 2D 会被提升', 'Tensor · Tile 切分'],
+    ['ArrayType', '核内 rank-1 栈数组，位于 ScalarLocal；仅整型/BOOL，不可跨函数边界', '核内数组'],
+    ['TupleType', '异构元组，用于多返回值；Submit 的返回就是元组', '任务编排'],
+    ['PipeType', '硬件流水/屏障：S（标量）· V（向量）· M（矩阵）· ALL', '流水编排'],
+    ['UnknownType', '无返回值，同步类算子用它', '流水编排'],
+    ['DistributedTensorType', 'TensorType 的精确 kind 子类；As&lt;TensorType&gt; 不匹配它', '分布式张量']
+  ]],
+  ['内存 / Memory', [
+    ['MemorySpace', 'DDR · Vec · Mat · Left · Right · Acc · Bias · ScalarLocal —— 这是 PyPTO 的正式命名', '片上预算 · Tensor'],
+    ['MemRef', '分配句柄 (addr, size, id)。注意它本身<strong>不含</strong> memory space', '片上预算'],
+    ['TensorView', 'stride · layout · valid_shape · pad，描述逻辑形状到访存步长的映射', '布局转换'],
+    ['TileView', 'valid_shape · stride · start_offset；省略不等于没有，DSL 会推一个隐式的', 'Tile 切分'],
+    ['TensorLayout', 'ND · DN · NZ。NZ 是分形，无法用平坦 stride 表达，只能用于 tile', '布局转换'],
+    ['PadValue', 'null · zero · max · min，读越过 valid_shape 时的填充模式', '布局转换'],
+    ['WindowBuffer', 'HCCL 窗口缓冲，承载按 rank 切分的分配元信息', '分布式张量']
+  ]],
+  ['程序结构 / Program', [
+    ['Program / GlobalVar', '一个程序与其中可被调用的函数符号', '函数签名'],
+    ['FunctionType', 'Opaque · Orchestration（Host/AICPU）· InCore（AICore）· AIC · AIV · Group', '函数签名 · 代码产物'],
+    ['Direction', 'In（默认）· Out · InOut；Scalar 参数不允许 InOut', '函数签名'],
+    ['Var / IterArg', 'SSA 值与循环携带值。IterArg 有自己的 kind，As&lt;Var&gt; 取不到它', '函数签名'],
+    ['Op', '注册算子，命名空间化：tensor.* · tile.* · system.* · dist.*。只按 name 比对，不靠指针', '算子规格'],
+    ['Call / Submit', '同步调用与异步任务提交，是一对兄弟 kind', '任务编排'],
+    ['Span', 'IR 源位置。CHECK_SPAN 失败时据此指回用户代码', '编译 Pass · 算子规格']
+  ]],
+  ['编排 / Orchestration', [
+    ['Scope', 'InCore · Hierarchy · Cluster · Spmd · Runtime(manual|auto)', '任务编排'],
+    ['Level', 'HOST · CORE_GROUP，决定 pl.at 外联成哪种 scope', '任务编排'],
+    ['TaskId', 'pl.submit 返回的第二个元素；None 是「暂无生产者」哨兵', '任务编排'],
+    ['deps', '显式依赖边。AUTO 下由读写重叠自动推导，MANUAL 下必须手写', '任务编排']
+  ]],
+  ['编译 / Compile', [
+    ['Pass / PassManager', '40+ 个有序 pass，文档编号与执行顺序一致', '编译 Pass'],
+    ['PassContext', '校验级别、instruments、backend 都挂在这里，不用全局状态', '编译 Pass'],
+    ['IRProperty + Verifier', 'pass 声明自己 required / produced / invalidated 的性质', '编译 Pass'],
+    ['Backend / BackendHandler', '按后端分派行为；pass 不直接判断 BackendType', '编译 Pass'],
+    ['CompiledProgram', '编译结果：.pto 内核 + 编排 C++', '代码产物']
+  ]],
+  ['工程概念 ✻ / Workbench', [
+    ['Environment ✻', '一台机器上的硬件 + 软件栈快照', '环境检查'],
+    ['Device ✻', '单张昇腾卡：型号、核数、HBM、占用', '设备占用 · 核分配'],
+    ['CoreMap ✻', '任务块到 AI Core 的分配。PyPTO 侧对应 blockDim 与 spmd 的分发', '核分配'],
+    ['Diagnostic ✻', '一条可定位的提示或错误，对应 CHECK / INTERNAL_CHECK', '环境检查 · 编译 Pass'],
+    ['TestCase ✻', '一次精度比对的输入与判据', '精度验证'],
+    ['Metric ✻', '一个带口径的测量值', '执行指标 · 变体对比'],
+    ['Finding ✻', '一条带证据与置信度的结论', '瓶颈发现'],
+    ['Variant ✻', '一个可与基线比较的方案', '变体对比']
+  ]]
+];
+
+/* ═══ 渲染 ═══════════════════════════════════════════ */
+const STAGES = ['全部', '准备', '定义', '开发', '编排', '编译', '验证', '运行', '调优'];
+let stage = '全部';
+const state = {};
+CARDS.forEach(c => { state[c.id] = c.states ? c.states[0][0] : null; });
+
+const deck = document.getElementById('deck');
+const stagesEl = document.getElementById('stages');
+const seek = document.getElementById('seek');
+
+function cardHtml(c) {
+  const out = c.render(state[c.id]);
+  const switcher = c.states && c.states.length > 1
+    ? '<div class="c-states" role="group" aria-label="' + c.zh + '状态">'
+      + c.states.map(([k, label]) =>
+          '<button type="button" data-card="' + c.id + '" data-state="' + k + '" aria-pressed="' + (state[c.id] === k) + '">' + label + '</button>').join('')
+      + '</div>'
+    : '';
+  return '<article class="card' + (c.wide ? ' wide' : '') + '">'
+    + '<div class="c-head"><div class="c-glyph" aria-hidden="true">' + c.glyph + '</div>'
+    + '<div class="c-id"><h3>' + c.zh + '</h3><small>' + c.en + '</small></div>'
+    + '<span class="pill ' + out.pill[0] + '">' + out.pill[1] + '</span></div>'
+    + switcher
+    + '<div class="c-body">' + out.body + '</div>'
+    + '<div class="c-foot"><div class="obj-chips">' + c.objects.map(o => '<b>' + o + '</b>').join('') + '</div>'
+    + '<button class="anatomy" type="button" data-anatomy="' + c.id + '">结构 ↗</button></div>'
+    + '</article>';
+}
+
+function render() {
+  stagesEl.innerHTML = STAGES.map(s =>
+    '<button type="button" data-stage="' + s + '" aria-pressed="' + (s === stage) + '">' + s + '</button>').join('');
+  const q = seek.value.trim().toLowerCase();
+  const hits = CARDS.filter(c => {
+    if (stage !== '全部' && !c.stage.includes(stage)) return false;
+    if (!q) return true;
+    return (c.zh + c.en + c.objects.join(' ') + c.question + c.intent + c.stage.join(' ')).toLowerCase().includes(q);
+  });
+  document.getElementById('tally').textContent = hits.length + ' / ' + CARDS.length + ' 张';
+  document.getElementById('empty').hidden = hits.length > 0;
+  deck.innerHTML = hits.map(cardHtml).join('');
+}
+
+stagesEl.addEventListener('click', e => {
+  const b = e.target.closest('[data-stage]');
+  if (b) { stage = b.dataset.stage; render(); }
+});
+seek.addEventListener('input', render);
+
+deck.addEventListener('click', e => {
+  const sb = e.target.closest('[data-state]');
+  if (sb) { state[sb.dataset.card] = sb.dataset.state; render(); return; }
+  const ab = e.target.closest('[data-anatomy]');
+  if (ab) {
+    const c = CARDS.find(x => x.id === ab.dataset.anatomy);
+    document.getElementById('aTitle').textContent = c.zh;
+    document.getElementById('aEn').textContent = c.en;
+    document.getElementById('aQuestion').textContent = c.question;
+    document.getElementById('aIntent').textContent = c.intent;
+    document.getElementById('aObjects').innerHTML = c.objects.map(o => '<b>' + o + '</b>').join('');
+    document.getElementById('aStages').textContent = c.stage.join(' · ');
+    document.getElementById('anatomy').showModal();
+  }
+});
+
+document.getElementById('objGrid').innerHTML = OBJECT_GROUPS.map(([cat, items]) =>
+  '<section class="obj-group"><h3 class="obj-cat">' + cat + '<em>' + items.length + '</em></h3>'
+  + '<div class="obj-grid">'
+  + items.map(([n, d, used]) =>
+      '<div class="obj"><h3>' + n + '</h3><p>' + d + '</p><small>出现在：' + used + '</small></div>').join('')
+  + '</div></section>').join('');
+
+const dlg = document.getElementById('anatomy');
+document.getElementById('aClose').addEventListener('click', () => dlg.close());
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+
+const themeBtn = document.getElementById('themeBtn');
+themeBtn.addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  themeBtn.textContent = next === 'dark' ? '浅色' : '深色';
+});
+
+render();
+</script>
+</body>
+</html>

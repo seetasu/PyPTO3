@@ -1,0 +1,17 @@
+{
+  "level": 2,
+  "orchestrator_name": null,
+  "callable_id_to_name": {
+    "0": "build_valid",
+    "1": "kv_touch",
+    "2": "qk_pv_aic",
+    "3": "qk_pv_aiv",
+    "4": "rope_swap",
+    "5": "rope_cs",
+    "6": "merge_norm",
+    "7": "proj_a_mm",
+    "8": "quant",
+    "9": "proj_b_mm",
+    "10": "proj_b_act"
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "schema": 2,
+  "supported_execution_modes": [
+    "program"
+  ],
+  "params": [
+    {
+      "name": "q",
+      "direction": "In",
+      "shape": [
+        8,
+        64,
+        512
+      ],
+      "dtype": "bfloat16",
+      "layout": "ND"
+    },
+    {
+      "name": "ori_kv",
+      "direction": "In",
+      "shape": [
+        -1,
+        128,
+        1,
+        512
+      ],
+      "dtype": "bfloat16",
+      "layout": "ND"
+    },
+    {
+      "name": "window_swa_indices",
+      "direction": "In",
+      "shape": [
+        8,
+        128
+      ],
+      "dtype": "int32",
+      "layout": "ND"
+    },
+    {
+      "name": "cmp_kv",
+      "direction": "In",
+      "shape": [
+        -1,
+        1,
+        1,
+        512
+      ],
+      "dtype": "bfloat16",
+      "layout": "ND"
+    },
+    {
+      "name": "cmp_block_table",
+      "direction": "In",
+      "shape": [
+        4,
+        -1
+      ],
+      "dtype": "int32",
+      "layout": "ND"
+    },
+    {
+      "name": "position_ids",
+      "direction": "In",
+      "shape": [
+        8
+      ],
+      "dtype": "int32",
+      "layout": "ND"
+    },
+    {
+      "name": "kv_seq_lens",
+      "direction": "In",
+      "shape": [
+        4
+      ],
+      "dtype": "int32",
+      "layout": "ND"
+    },
+    {
+      "name": "attn_sink",
+      "direction": "In",
+      "shape": [
+        64
+      ],
+      "dtype": "fp32",
+      "layout": "ND"
+    },
+    {
+      "name": "freqs_cos",
+      "direction": "In",
+      "shape": [
+        8,
+        64
+      ],
+      "dtype": "bfloat16",
+      "layout": "ND"
+    },
+    {
+      "name": "freqs_sin",
+      "direction": "In",
+      "shape": [
+        8,
+        64
+      ],
+      "dtype": "bfloat16",
+      "layout": "ND"
+    },
+    {
+      "name": "wo_a",
+      "direction": "In",
+      "shape": [
+        8,
+        1024,
+        4096
+      ],
+      "dtype": "bfloat16",
+      "layout": "NZ"
+    },
+    {
+      "name": "wo_b",
+      "direction": "In",
+      "shape": [
+        8,
+        4096,
+        1024
+      ],
+      "dtype": "int8",
+      "layout": "NZ"
+    },
+    {
+      "name": "wo_b_scale",
+      "direction": "In",
+      "shape": [
+        4096
+      ],
+      "dtype": "fp32",
+      "layout": "ND"
+    },
+    {
+      "name": "attn_out",
+      "direction": "Out",
+      "shape": [
+        8,
+        4096
+      ],
+      "dtype": "bfloat16",
+      "layout": "ND"
+    }
+  ],
+  "num_return_types": 1,
+  "platform": "a2a3",
+  "backend_type": "Ascend910B"
+}

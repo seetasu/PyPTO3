@@ -1,0 +1,46 @@
+module attributes {pto.target_arch = "a2a3"} {
+  func.func @gate_pre_route(%arg0: !pto.ptr<f32>, %arg1: !pto.ptr<i32>, %arg2: !pto.ptr<f32>, %arg3: !pto.ptr<f32>, %arg4: index, %arg5: index, %arg6: index, %arg7: index) attributes {pto.kernel_kind = #pto.kernel_kind<vector>} {
+  %c0_i64 = arith.constant 0 : i64
+  %c8_index = arith.constant 8 : index
+  %c1_index = arith.constant 1 : index
+  %c6_index = arith.constant 6 : index
+  %c256_index = arith.constant 256 : index
+  %c0_index = arith.constant 0 : index
+  %cst_6 = arith.constant 0.00000000000000000e+00 : f32
+  %c0_i32 = arith.constant 0 : i32
+  %c16_index = arith.constant 16 : index
+  %c192_index = arith.constant 192 : index
+  %cst_10 = arith.constant -3.40282346638528860e+38 : f32
+  %c64_index = arith.constant 64 : index
+  %x_norm_scale_inline4__ssa_v0_view = pto.make_tensor_view %arg0, shape = [%c8_index, %c1_index], strides = [%c1_index, %c8_index] {layout = #pto.layout<dn>} : !pto.tensor_view<?x?xf32> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":172:9)
+  %indices_inline5__ssa_v0_view = pto.make_tensor_view %arg1, shape = [%c8_index, %c6_index], strides = [%c6_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xi32> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":172:9)
+  %weights_inline6__ssa_v0_view = pto.make_tensor_view %arg2, shape = [%c8_index, %c6_index], strides = [%c6_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xf32> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":172:9)
+  %biased_scores_buf_inline174__ssa_v0_view = pto.make_tensor_view %arg3, shape = [%arg7, %c256_index], strides = [%c256_index, %c1_index] {layout = #pto.layout<nd>} : !pto.tensor_view<?x?xf32> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":172:9)
+  scf.for %zt_inline216__idx_v0 = %c0_index to %arg4 step %c1_index {
+    %0 = arith.cmpi sle, %arg5, %zt_inline216__idx_v0 : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":174:17)
+    scf.if %0 {
+      %flat_offset_mul = arith.muli %zt_inline216__idx_v0, %c1_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":175:21)
+      %flat_offset = arith.addi %flat_offset_mul, %c0_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":175:21)
+      pto.store %cst_6, %arg0[%flat_offset] : !pto.ptr<f32>, f32 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":175:21)
+      scf.for %zk_inline217__idx_v0 = %c0_index to %c6_index step %c1_index {
+        %2 = arith.muli %zt_inline216__idx_v0, %c6_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":177:25)
+        %3 = arith.addi %2, %zk_inline217__idx_v0 : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":177:25)
+        pto.store %c0_i32, %arg1[%3] : !pto.ptr<i32>, i32 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":177:25)
+        %5 = arith.muli %zt_inline216__idx_v0, %c6_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":178:25)
+        %6 = arith.addi %5, %zk_inline217__idx_v0 : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":178:25)
+        pto.store %cst_6, %arg2[%6] : !pto.ptr<f32>, f32 loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":178:25)
+      }
+    }
+  }
+  %7 = arith.divsi %arg7, %c16_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":184:17)
+  scf.for %pad_block_inline218__idx_v0 = %c0_index to %7 step %c1_index {
+    %8 = arith.muli %pad_block_inline218__idx_v0, %c16_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":185:21)
+    %t__tile = pto.alloc_tile addr = %c0_i64 valid_row = %c16_index valid_col = %c192_index : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=192, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":186:21)
+    pto.texpands ins(%cst_10 : f32) outs(%t__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=192, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":186:21)
+    %9 = arith.maxsi %8, %c0_index : index loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":186:21)
+    %biased_scores_buf_inline174__iter_v1_pview = pto.partition_view %biased_scores_buf_inline174__ssa_v0_view, offsets = [%9, %c64_index], sizes = [%c16_index, %c192_index] : !pto.tensor_view<?x?xf32> -> !pto.partition_tensor_view<16x192xf32> loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":186:21)
+    pto.tstore ins(%t__tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=192, v_row=?, v_col=?, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%biased_scores_buf_inline174__iter_v1_pview : !pto.partition_tensor_view<16x192xf32>) loc("/data/m00956180/runtime/pypto-lib-hw-native-sys/models/deepseek_v4_flash_mtp/gate.py":186:21)
+  }
+  return
+  }
+}

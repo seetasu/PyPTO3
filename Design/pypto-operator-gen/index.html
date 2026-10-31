@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>decode_csa 反向推导 · PyPTO 算子生成</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/foundation.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/semantic.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/tokens/components.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/css/style.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/workbench-shell/pattern.css">
+  <link rel="stylesheet" href="../../vendor/pto-design-system/patterns/ide-frame/pattern.css">
+  <link rel="stylesheet" href="components/candidate-population-lineage/pattern.css">
+  <link rel="stylesheet" href="src/base.css">
+  <style>
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: auto;
+      background: var(--ide-frame-page-bg);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+    }
+
+    body { min-height: 100%; }
+
+    code { font-family: var(--font-mono); }
+
+    /* base.css 里的布局规则多为 display: flex / grid，会盖过 [hidden] 的默认值 */
+    [hidden] { display: none !important; }
+
+    /* ── 本 Demo 自有的补充样式（base.css 之后，覆盖优先） ───────────── */
+
+    .budget-table {
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .budget-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--space-2);
+      align-items: baseline;
+      color: var(--foreground-secondary);
+      font: var(--text-body-sm);
+    }
+
+    .budget-row code {
+      color: var(--foreground);
+      font: var(--text-mono);
+    }
+
+    .budget-row.is-note {
+      color: var(--foreground-muted);
+      font: var(--text-caption);
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .memgraph-edges {
+      display: grid;
+      gap: var(--space-1);
+      padding: var(--space-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+    }
+
+    .memgraph-edge {
+      display: flex;
+      gap: var(--space-2);
+      align-items: baseline;
+      color: var(--foreground-secondary);
+      font: var(--text-mono);
+      font-size: 11px;
+    }
+
+    .memgraph-edge.is-missing {
+      color: var(--destructive);
+      text-decoration: line-through;
+      text-decoration-color: color-mix(in srgb, var(--destructive) 60%, transparent);
+    }
+
+    .atlas-matrix {
+      display: grid;
+      gap: var(--space-2);
+      overflow: auto;
+    }
+
+    .atlas-row {
+      display: grid;
+      grid-template-columns: 184px repeat(var(--atlas-columns, 4), minmax(112px, 1fr));
+      gap: var(--space-2);
+      align-items: stretch;
+    }
+
+    .atlas-row-label {
+      display: grid;
+      gap: 2px;
+      align-content: center;
+    }
+
+    .atlas-row-label strong {
+      color: var(--foreground);
+      font: var(--text-body-sm-strong);
+    }
+
+    .atlas-row-label span {
+      color: var(--foreground-muted);
+      font: var(--text-caption);
+    }
+
+    .atlas-row-label span:last-child {
+      color: var(--foreground-secondary);
+      font: var(--text-mono);
+      font-size: 10px;
+    }
+
+    .atlas-cell {
+      display: grid;
+      gap: 2px;
+      padding: var(--space-2);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+      color: var(--foreground-secondary);
+      font: var(--text-caption);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .atlas-cell:hover { border-color: var(--border-strong); }
+
+    .atlas-cell:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+
+    .atlas-cell strong {
+      color: var(--foreground);
+      font: var(--text-mono);
+      font-size: 11px;
+    }
+
+    .atlas-cell.is-over {
+      border-color: color-mix(in srgb, var(--destructive) 55%, var(--border-subtle));
+      background: color-mix(in srgb, var(--destructive) 12%, transparent);
+      color: var(--destructive);
+    }
+
+    .atlas-cell.is-selected {
+      border-color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 16%, transparent);
+      color: var(--foreground);
+    }
+
+    /* 源码最终取值：★ 前缀 + 实色描边 */
+    .atlas-cell strong:first-child { color: var(--foreground); }
+
+    .atlas-bars {
+      display: grid;
+      gap: 2px;
+      margin-top: 2px;
+    }
+
+    .atlas-bar {
+      position: relative;
+      height: 4px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--foreground) 12%, transparent);
+      overflow: hidden;
+    }
+
+    .atlas-bar i {
+      position: absolute;
+      inset: 0 auto 0 0;
+      display: block;
+      border-radius: 999px;
+      background: var(--primary);
+    }
+
+    .atlas-bar.is-over i { background: var(--destructive); }
+
+    .atlas-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+      color: var(--foreground-muted);
+      font: var(--text-caption);
+    }
+
+    .atlas-readout {
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .atlas-readout code {
+      color: var(--foreground);
+      font: var(--text-mono);
+      font-size: 11px;
+    }
+
+    .api-pill-group {
+      display: grid;
+      gap: var(--space-1);
+    }
+
+    .api-pill-group > span {
+      color: var(--foreground-muted);
+      font: var(--text-caption);
+    }
+
+    .pipeline-strip {
+      display: grid;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+    }
+
+    .pipeline-lane {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: var(--space-2);
+      align-items: center;
+    }
+
+    .pipeline-lane > strong {
+      color: var(--foreground-secondary);
+      font: var(--text-mono);
+      font-size: 11px;
+    }
+
+    .pipeline-track {
+      display: flex;
+      gap: 3px;
+      height: 18px;
+    }
+
+    .pipeline-block {
+      display: grid;
+      flex: 1 1 0;
+      place-items: center;
+      border-radius: var(--radius-sm);
+      color: var(--foreground);
+      font: var(--text-caption);
+      font-size: 10px;
+    }
+
+    .pipeline-block.is-idle {
+      background: color-mix(in srgb, var(--foreground) 8%, transparent);
+      color: var(--foreground-muted);
+    }
+
+    .pipeline-block.is-cube { background: color-mix(in srgb, var(--primary) 46%, transparent); }
+    .pipeline-block.is-drain { background: color-mix(in srgb, var(--warning) 42%, transparent); }
+    .pipeline-block.is-vector { background: color-mix(in srgb, var(--success) 42%, transparent); }
+
+    .disclaimer-note {
+      display: grid;
+      gap: 2px;
+      padding: var(--space-2) var(--space-3);
+      border-left: 2px solid var(--border-strong);
+      color: var(--foreground-muted);
+      font: var(--text-caption);
+    }
+
+    .disclaimer-note strong { color: var(--foreground-secondary); }
+
+    .generated-project-breadcrumbs .btn { margin-left: auto; }
+
+    /* 组件靠 --trace-chart-height 定高，直接写在宿主上，不依赖祖先规则 */
+    #lineageMapSurface { --trace-chart-height: 320px; }
+  </style>
+</head>
+<body>
+  <section class="pto-ide-frame trace-demo-frame" data-ide-frame data-host="standalone" aria-label="PyPTO 算子生成推荐轨迹">
+    <header class="pto-ide-frame__topbar pto-ide-frame__standalone-chrome">
+      <div class="pto-ide-frame__topbar-left">
+        <div class="pto-ide-frame__host-chip">
+          <svg class="pto-ide-frame__host-icon" viewBox="0 0 24 24">
+            <path d="M4 5h16v14H4z"></path><path d="m8 9 3 3-3 3"></path><path d="M13 15h3"></path>
+          </svg>
+          <span>IDE</span>
+        </div>
+        <div class="pto-ide-frame__workspace">
+          <span class="workspace-title">PyPTO Operator Generation · Reverse Trace</span>
+          <span class="workspace-meta">decode_csa · DeepSeek-V4 CSA · TP 2 · Ascend910B</span>
+        </div>
+      </div>
+      <div class="pto-ide-frame__topbar-center"></div>
+      <div class="pto-ide-frame__topbar-right">
+        <div class="pto-ide-frame__window-actions" aria-label="Window controls">
+          <button class="pto-ide-frame__window-action" type="button" aria-label="Toggle left dock">
+            <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18"></path></svg>
+          </button>
+          <button class="pto-ide-frame__window-action" type="button" aria-label="Toggle right dock">
+            <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M15 3v18"></path></svg>
+          </button>
+          <button class="pto-ide-frame__window-action" type="button" aria-label="Settings">
+            <svg class="pto-ide-frame__window-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.67 4.14a2.34 2.34 0 0 1 4.66 0 2.34 2.34 0 0 0 3.32 1.91 2.34 2.34 0 0 1 2.33 4.04 2.34 2.34 0 0 0 0 3.82 2.34 2.34 0 0 1-2.33 4.04 2.34 2.34 0 0 0-3.32 1.91 2.34 2.34 0 0 1-4.66 0 2.34 2.34 0 0 0-3.32-1.91 2.34 2.34 0 0 1-2.33-4.04 2.34 2.34 0 0 0 0-3.82 2.34 2.34 0 0 1 2.33-4.04 2.34 2.34 0 0 0 3.32-1.91"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="pto-ide-frame__body">
+      <nav class="pto-ide-frame__activity-rail pto-ide-frame__standalone-chrome" aria-label="Activity rail">
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button is-selected" type="button" data-ide-toggle="explorer" aria-label="Toggle explorer" aria-controls="pypto-gen-explorer-pane" aria-expanded="true" aria-pressed="true" title="Kernel intent">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9l-.81-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Search" title="Search">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Source control" title="Source control">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="6" r="3"></circle><path d="M6 15V3"></path><path d="M9 18a9 9 0 0 0 9-9"></path></svg>
+        </button>
+        <button class="btn btn-icon btn-ghost pto-ide-frame__rail-button" type="button" aria-label="Terminal" title="Terminal">
+          <svg class="pto-ide-frame__rail-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m7 9 3 3-3 3"></path><path d="M12 15h5"></path></svg>
+        </button>
+      </nav>
+
+      <div class="pto-ide-frame__workarea">
+        <div class="pto-ide-frame__split" data-ide-split="standalone-main" data-storage-key="pypto-operator-gen-ide-frame" data-split-direction="horizontal" data-sizes="1,1" data-pixel-sizes="316,0" data-min-size="252,600">
+          <aside class="pto-ide-frame__pane pto-ide-frame__explorer" data-ide-pane="explorer" id="pypto-gen-explorer-pane">
+            <header class="pto-ide-frame__pane-header">
+              <h2 class="pto-ide-frame__pane-title" data-explorer-title>Kernel Intent</h2>
+              <span class="pto-ide-frame__pane-meta" data-explorer-meta>Cube + Vector · BF16</span>
+            </header>
+            <div class="pto-ide-frame__pane-body pane-scroll">
+              <div class="operator-input-panel pane-view" data-explorer-view="operator">
+                <section class="operator-context-hero" aria-labelledby="kernelTitle">
+                  <div>
+                    <div class="eyebrow">已落地的实现</div>
+                    <h3 class="context-title" id="kernelTitle">decode_csa</h3>
+                  </div>
+                  <div class="context-kv">
+                    <div class="context-kv-row"><span>模型</span><code>DeepSeek-V4 FLASH</code></div>
+                    <div class="context-kv-row"><span>入口</span><code>@pl.jit.inline</code></div>
+                    <div class="context-kv-row"><span>TP</span><code>2（默认，可选 1 / 4）</code></div>
+                    <div class="context-kv-row"><span>Backend</span><code>Ascend910B · A2/A3</code></div>
+                  </div>
+                  <div class="disclaimer-note">
+                    <strong>反向推导</strong>
+                    <span>这一份实现已经跑在卡上。下面要做的不是生成它，而是把它钉死的每个数字推回设计空间：当初还有什么选法，为什么没选。</span>
+                  </div>
+                </section>
+
+                <section class="operator-input-section" aria-labelledby="genShapeTitle">
+                  <div class="operator-input-section-head">
+                    <h3 id="genShapeTitle">形状</h3>
+                    <span>TP = 2 下的派生值</span>
+                  </div>
+                  <div class="operator-io-table" role="table" aria-label="关键形状">
+                    <div class="operator-io-head" role="row"><span>量</span><span>值</span><span>来源</span></div>
+                    <div class="operator-io-row" role="row"><strong>D</strong><code>4096</code><span>hidden_size</span></div>
+                    <div class="operator-io-row" role="row"><strong>H</strong><code>64</code><span>heads</span></div>
+                    <div class="operator-io-row" role="row"><strong>HEAD_DIM</strong><code>512</code><span>MLA value</span></div>
+                    <div class="operator-io-row" role="row"><strong>ROPE/NOPE</strong><code>64 / 448</code><span>派生</span></div>
+                    <div class="operator-io-row" role="row"><strong>B</strong><code>32</code><span>64 / TP</span></div>
+                    <div class="operator-io-row" role="row"><strong>T</strong><code>256</code><span>B × 8</span></div>
+                    <div class="operator-io-row" role="row"><strong>KV_T</strong><code>512</code><span>全组 token</span></div>
+                    <div class="operator-io-row" role="row"><strong>IDX_TOPK</strong><code>512</code><span>indexer</span></div>
+                    <div class="operator-io-row" role="row"><strong>SPARSE_BLOCKS</strong><code>5</code><span>(128+512)/128</span></div>
+                  </div>
+                </section>
+
+                <section class="operator-input-section" aria-labelledby="genChainTitle">
+                  <div class="operator-input-section-head">
+                    <h3 id="genChainTitle">子内核链</h3>
+                    <span>一个 rank 的一层</span>
+                  </div>
+                  <ol class="reason-list">
+                    <li><span class="reason-index">1</span><span>hc_pre · 超连接预混</span></li>
+                    <li><span class="reason-index">2</span><span>csa_rope_interleave · 交织 cos / sin</span></li>
+                    <li><span class="reason-index">3</span><span>rms_norm</span></li>
+                    <li><span class="reason-index">4</span><span>decode_cp_token_allgather_step · 跨卡 ①</span></li>
+                    <li><span class="reason-index">5</span><span>q_proj_rope / kv_proj_rope</span></li>
+                    <li><span class="reason-index">6</span><span>csa_cache_writeback · 散写 paged KV</span></li>
+                    <li><span class="reason-index">7</span><span>compressor_ratio4 · 压缩 KV 与状态页</span></li>
+                    <li><span class="reason-index">8</span><span>indexer_compressor + indexer · top-k 选块</span></li>
+                    <li><span class="reason-index">9</span><span>sparse_attn_csa · QK / PV 分块</span></li>
+                    <li><span class="reason-index">10</span><span>csa_merge_pack_publish · 合并 + 跨卡 ②</span></li>
+                    <li><span class="reason-index">11</span><span>o_group_a2a → o_proj_reduce_scatter · 跨卡 ③</span></li>
+                    <li><span class="reason-index">12</span><span>hc_post · 超连接回写</span></li>
+                  </ol>
+                </section>
+
+                <section class="operator-input-section" aria-labelledby="genApiTitle">
+                  <div class="operator-input-section-head">
+                    <h3 id="genApiTitle">PyPTO 构件</h3>
+                    <span>点击查看作用</span>
+                  </div>
+                  <div class="api-pill-group">
+                    <span>装饰器与符号</span>
+                    <div class="operator-api-pills" role="group" aria-label="装饰器">
+                      <button class="btn btn-sm operator-api-pill" type="button" data-api="inline" aria-pressed="false">@pl.jit.inline</button>
+                      <button class="btn btn-sm operator-api-pill" type="button" data-api="host" aria-pressed="false">@pl.jit.host</button>
+                      <button class="btn btn-sm operator-api-pill" type="button" data-api="dynamic" aria-pressed="false">pl.dynamic</button>
+                      <button class="btn btn-sm operator-api-pill" type="button" data-api="createtensor" aria-pressed="false">pl.create_tensor</button>
+                    </div>
+                  </div>
+                  <div class="api-pill-group">
+                    <span>并行与依赖</span>
+                    <div class="operator-api-pills" role="group" aria-label="并行">
+                      <button class="btn btn-sm operator-api-pill" type="button" data-api="scope" aria-pressed="false">pl.at / pl.scope</button>
+                      <button class="btn btn-sm operator-api-pill" type="button" data-api="spmd" aria-pressed="false">pl.spmd</button>
+                      <button class="btn btn-sm operator-api-pill" type="button" data-api="pipeline" aria-pressed="false">pl.pipeline</button>
+                      <button class="btn btn-sm operator-api-pill" type="button" data-api="taskdummy" aria-pressed="false">task_dummy</button>
+                    </div>
+                  </div>
+                  <div class="api-pill-group">
+                    <span>跨卡</span>
+                    <div class="operator-api-pills" role="group" aria-label="跨卡">
+                      <button class="btn btn-sm operator-api-pill" type="button" data-api="put" aria-pressed="false">pld.tensor.put</button>
+                      <button class="btn btn-sm operator-api-pill" type="button" data-api="notify" aria-pressed="false">pld.system.notify</button>
+                    </div>
+                  </div>
+                  <div class="operator-api-note" aria-live="polite">
+                    <strong data-api-title>构件作用</strong>
+                    <p data-api-copy>选择一个构件，查看它在 decode_csa 里承担什么，以及它为什么出现在这个位置。</p>
+                  </div>
+                </section>
+
+                <section class="operator-input-section" aria-labelledby="genBudgetTitle">
+                  <div class="operator-input-section-head">
+                    <h3 id="genBudgetTitle">硬件边界</h3>
+                    <span>Ascend910B · A2/A3</span>
+                  </div>
+                  <div class="budget-table">
+                    <div class="budget-row"><span>Mat · L1</span><code>512 KB</code></div>
+                    <div class="budget-row"><span>Left · L0A</span><code>64 KB</code></div>
+                    <div class="budget-row"><span>Right · L0B</span><code>64 KB</code></div>
+                    <div class="budget-row"><span>Acc · L0C</span><code>128 KB</code></div>
+                    <div class="budget-row"><span>Vec · UB</span><code>184 KB</code></div>
+                    <div class="budget-row"><span>AIC · Cube 核</span><code>24</code></div>
+                    <div class="budget-row"><span>AIV · Vector 核</span><code>48</code></div>
+                    <div class="budget-row is-note">UB 物理 192 KB，PTO-ISA 在顶部保留约 8 KB（pto-isa#170）。24 与 48 这两个数在源码里反复出现，正是因为它们是这块芯片的两种核数。</div>
+                  </div>
+                </section>
+
+                <section class="operator-input-section" aria-labelledby="genCommTitle">
+                  <div class="operator-input-section-head">
+                    <h3 id="genCommTitle">跨卡窗口</h3>
+                    <span>6 块缓冲</span>
+                  </div>
+                  <div class="memgraph-edges">
+                    <div class="memgraph-edge">gather_window [512, 4096] BF16</div>
+                    <div class="memgraph-edge">attention_window [2048, 4096] BF16</div>
+                    <div class="memgraph-edge">o_window [512, 4096] BF16</div>
+                    <div class="memgraph-edge">× 3 信号量 [TP, 1] INT32</div>
+                  </div>
+                  <div class="disclaimer-note">
+                    <strong>put 不自带完成语义</strong>
+                    <span>每块数据窗口都配一块信号窗口。publish 写完要显式 notify（AtomicAdd），对端据此知道哪一份已经到齐——这条规则决定了依赖图的形状。</span>
+                  </div>
+                </section>
+
+                <div class="goal-note operator-goal">
+                  <strong>反推目标</strong>
+                  <span>找出这一份实现里每个常量的取值理由，以及被它排除掉的那些选项。</span>
+                </div>
+                <button class="btn btn-solid operator-show-trace" type="button" data-show-trace>反推设计空间</button>
+              </div>
+              <div class="generated-project-tree pane-view" data-explorer-view="project" aria-label="生成的算子工程" hidden></div>
+            </div>
+          </aside>
+
+          <main class="pto-ide-frame__pane" data-ide-pane="editor-preview" id="pypto-gen-panel-pane">
+            <div class="pto-ide-frame__tabstrip generated-project-tabs" data-project-tabstrip hidden>
+              <div class="tab-control" role="tablist" aria-label="工程文件标签" data-project-tabs></div>
+            </div>
+            <header class="pto-ide-frame__pane-header">
+              <h2 class="pto-ide-frame__pane-title" data-center-title>Generation Trace</h2>
+              <span class="pto-ide-frame__pane-meta" data-center-meta>Candidates · 编译期候选</span>
+            </header>
+            <div class="pto-ide-frame__pane-body pane-scroll">
+              <div class="center-workbench" id="generationTracePanel">
+                <section class="trace-section" aria-labelledby="lineageTitle">
+                  <div class="trace-summary">
+                    <h1 class="trace-population-title" id="lineageTitle">候选谱系 · 从成品倒推，再收敛回来</h1>
+                  </div>
+                  <div id="lineageMapSurface" aria-labelledby="lineageTitle"></div>
+                </section>
+
+                <section class="candidate-section" data-view-panel="candidates">
+                  <header class="candidate-header-plain">
+                    <h2 id="candidateTitle">三个候选，就是源码真实支持的三个 TP 世界</h2>
+                    <p class="candidate-subtitle">decode_csa.py 开头写着 _TP_CHOICES = (1, 2, 4)、_TP_DEFAULT = 2。下表每一行都按 config.py 的 FLASH 配置现算，不是估计值。</p>
+                  </header>
+
+                  <div class="candidate-table-wrap">
+                    <table class="candidate-table" aria-label="候选对比">
+                      <thead>
+                        <tr>
+                          <th scope="col">决策因子</th>
+                          <th scope="col"><span class="candidate-title"><strong>A · TP = 1</strong><span>无跨卡</span></span></th>
+                          <th scope="col" class="is-recommended"><span class="candidate-title is-recommended"><strong>B · TP = 2</strong><span>源码默认</span></span></th>
+                          <th scope="col"><span class="candidate-title"><strong>C · TP = 4</strong><span>最深切分</span></span></th>
+                        </tr>
+                      </thead>
+                      <tbody data-candidate-rows></tbody>
+                    </table>
+                  </div>
+
+                  <div class="candidate-actions-wrap" aria-label="候选操作">
+                    <div class="candidate-actions-grid">
+                      <div aria-hidden="true"></div>
+                      <div class="candidate-action-cell">
+                        <button class="btn btn-sm" type="button" data-code-preview="tp1" aria-haspopup="dialog">源码预览</button>
+                        <button class="btn btn-sm" type="button" data-show-pipeline="tp1">流水示意</button>
+                        <button class="btn btn-sm btn-solid" type="button" data-generate-project="tp1">打开工程</button>
+                      </div>
+                      <div class="candidate-action-cell is-recommended">
+                        <button class="btn btn-sm" type="button" data-code-preview="tp2" aria-haspopup="dialog">源码预览</button>
+                        <button class="btn btn-sm" type="button" data-show-pipeline="tp2">流水示意</button>
+                        <button class="btn btn-sm btn-solid" type="button" data-generate-project="tp2">打开工程</button>
+                      </div>
+                      <div class="candidate-action-cell">
+                        <button class="btn btn-sm" type="button" data-code-preview="tp4" aria-haspopup="dialog">源码预览</button>
+                        <button class="btn btn-sm" type="button" data-show-pipeline="tp4">流水示意</button>
+                        <button class="btn btn-sm btn-solid" type="button" data-generate-project="tp4">打开工程</button>
+                      </div>
+                    </div>
+                    <div class="candidate-project-status" data-project-status>源码取自 Data/DeepseekV4/deepseek_v4_flash_dspark/，为展示做了节选。</div>
+                  </div>
+
+                  <section class="intended-kem" data-pipeline-panel hidden aria-live="polite">
+                    <header class="intended-kem__head">
+                      <div>
+                        <h3 data-pipeline-title>候选的流水示意</h3>
+                        <p data-pipeline-meta></p>
+                      </div>
+                      <button class="btn btn-sm" type="button" data-close-pipeline>收起</button>
+                    </header>
+                    <div class="pipeline-strip" data-pipeline-strip></div>
+                    <div class="intended-kem__note" data-pipeline-note></div>
+                  </section>
+
+                  <footer class="candidate-footer">
+                    <strong>反向推导，不是实测结果</strong>
+                    <span>表中数值按 config.py 现算；被拒选项出自源码的断言、注释理由与已知缺陷说明。谱系上的候选数量是量级示意。</span>
+                  </footer>
+                </section>
+
+                <section class="trace-detail-section" data-view-panel="trace-detail" aria-live="polite" hidden>
+                  <div class="trace-detail-summary">
+                    <h1 id="traceTitle">设计空间如何收敛回这一份实现</h1>
+                  </div>
+
+                  <section class="rejection-browser" data-rejection-browser aria-labelledby="rejectionBrowserTitle" hidden>
+                    <header class="rejection-browser-head">
+                      <div class="rejection-browser-title">
+                        <strong id="rejectionBrowserTitle" data-rejection-browser-title>主要拒绝原因</strong>
+                        <span data-rejection-browser-copy></span>
+                      </div>
+                      <span class="stat-chip" data-rejection-browser-status></span>
+                    </header>
+                    <div class="rejection-categories" data-rejection-categories aria-label="拒绝分类"></div>
+
+                    <section class="rejection-case-browser" aria-labelledby="rejectionCaseTitle">
+                      <header class="rejection-case-head">
+                        <div class="rejection-case-title">
+                          <strong id="rejectionCaseTitle" data-rejection-case-list-title>被拒候选</strong>
+                        </div>
+                        <span class="workspace-meta" data-rejection-case-count></span>
+                      </header>
+                      <div class="rejection-case-list">
+                        <span class="rejection-case-nav-arrow rejection-case-nav-arrow--previous" aria-hidden="true">
+                          <svg viewBox="0 0 16 16"><path d="m11.5 1.5-8 6.5 8 6.5" /></svg>
+                        </span>
+                        <div class="rejection-case-list__items" data-rejection-cases></div>
+                        <span class="rejection-case-nav-arrow rejection-case-nav-arrow--next" aria-hidden="true">
+                          <svg viewBox="0 0 16 16"><path d="m4.5 1.5 8 6.5-8 6.5" /></svg>
+                        </span>
+                      </div>
+                      <div class="trace-stage-note" data-rejection-case-detail hidden>
+                        <strong data-rejection-case-rule></strong>
+                        <p data-rejection-case-copy></p>
+                        <ol class="reason-list" data-rejection-case-reasons></ol>
+                      </div>
+                    </section>
+                  </section>
+
+                  <div class="trace-detail-grid" data-generic-trace-detail>
+                    <section class="trace-detail-column">
+                      <h3 data-detail-list-title></h3>
+                      <dl class="trace-detail-list" data-detail-list></dl>
+                    </section>
+                    <section class="trace-detail-column">
+                      <h3 data-detail-output-title></h3>
+                      <div class="trace-stage-note">
+                        <strong data-detail-output-strong></strong>
+                        <p data-detail-output-copy></p>
+                      </div>
+                      <dl class="trace-detail-list" data-detail-output-list></dl>
+                    </section>
+                  </div>
+
+                  <section class="tiling-candidate-atlas" data-tile-atlas aria-labelledby="tileAtlasTitle" hidden>
+                    <header class="tiling-candidate-atlas-head">
+                      <div class="tiling-candidate-atlas-title">
+                        <strong id="tileAtlasTitle">决策点矩阵</strong>
+                        <span>每行是 decode_csa 链路上一个被钉死的常量，格子是它当初的候选取值。占用按形状与 dtype 现算，与 910B 的真实容量比较。</span>
+                      </div>
+                      <span class="stat-chip">蓝边 = 源码取值</span>
+                    </header>
+
+                    <div class="trace-stage-note tiling-candidate-selection" aria-live="polite">
+                      <span>Selected</span>
+                      <code data-atlas-summary>选择一个取值，查看它的占用、结论与源码出处</code>
+                    </div>
+
+                    <div class="atlas-matrix" data-atlas-matrix></div>
+
+                    <div class="atlas-legend">
+                      <span>条形 = 占用 / 预算</span>
+                      <span>红色 = 越界或有已知缺陷，不进入下一阶段</span>
+                      <span>★ = 源码最终取值</span>
+                    </div>
+
+                    <div class="trace-stage-note atlas-readout" data-atlas-readout hidden></div>
+                  </section>
+
+                  <footer class="candidate-footer" data-generic-trace-footer>
+                    <strong data-detail-footer-strong></strong>
+                    <span data-detail-footer-copy></span>
+                  </footer>
+                </section>
+              </div>
+
+              <section class="generated-project-view" data-project-view hidden aria-label="生成的算子工程代码">
+                <div class="generated-project-breadcrumbs" data-project-breadcrumbs></div>
+                <div class="pto-ide-frame__code-surface generated-project-code-surface" data-project-code aria-label="代码"></div>
+              </section>
+            </div>
+          </main>
+        </div>
+
+        <footer class="pto-ide-frame__status-strip pto-ide-frame__standalone-chrome">
+          <span data-status-stage>Reverse trace · decode_csa.py · _TP_CHOICES = (1, 2, 4)</span>
+          <span>反向推导 · 无 profiling · 无实测</span>
+        </footer>
+      </div>
+    </div>
+  </section>
+
+  <div class="candidate-code-preview" data-code-preview-modal hidden>
+    <section class="candidate-code-preview__dialog" role="dialog" aria-modal="true" aria-labelledby="codePreviewTitle">
+      <header class="candidate-code-preview__header">
+        <div>
+          <h2 class="candidate-code-preview__title" id="codePreviewTitle">源码预览</h2>
+          <span class="candidate-code-preview__meta" data-code-preview-meta></span>
+        </div>
+        <button class="btn btn-sm btn-ghost" type="button" data-close-code-preview>关闭</button>
+      </header>
+      <div class="candidate-code-preview__summary" data-code-preview-summary></div>
+      <div class="candidate-code-preview__workbench">
+        <nav class="candidate-code-preview__files" aria-label="工程文件" data-code-preview-files>
+          <h4>文件</h4>
+        </nav>
+        <section class="candidate-code-preview__editor" aria-label="代码预览">
+          <div class="candidate-code-preview__tab" data-code-preview-filename></div>
+          <div class="candidate-code-preview__code" data-code-preview-code></div>
+        </section>
+      </div>
+      <footer class="candidate-code-preview__footer">
+        <span class="candidate-code-preview__meta">节选自 Data/DeepseekV4/deepseek_v4_flash_dspark/，省略号处为原文省略。</span>
+        <div class="candidate-code-preview__actions">
+          <button class="btn btn-sm" type="button" data-close-code-preview>返回候选比较</button>
+          <button class="btn btn-sm btn-solid" type="button" data-generate-project-from-preview>在工程视图打开</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+
+  <script src="../../vendor/pto-design-system/patterns/ide-frame/pattern.js"></script>
+  <script src="components/candidate-population-lineage/pattern.js"></script>
+  <script src="src/data.js"></script>
+  <script src="src/app.js"></script>
+</body>
+</html>

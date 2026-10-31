@@ -1,0 +1,156 @@
+.pto-model-architecture-front-view {
+  --model-front-residual: #5273ff;
+  --model-front-grid: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --model-graphviz-stage-bg: var(--background);
+  --model-graphviz-line: color-mix(in srgb, var(--foreground) 58%, var(--background));
+  --model-graphviz-line-soft: color-mix(in srgb, var(--foreground) 16%, transparent);
+  --model-graphviz-cluster-label: color-mix(in srgb, var(--foreground) 82%, transparent);
+  --model-graphviz-toggle-bg: color-mix(in srgb, var(--foreground) 12%, transparent);
+  --model-graphviz-toggle-icon: var(--foreground-secondary);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background-color: var(--background);
+  background-image: radial-gradient(circle, var(--model-front-grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+:root[data-theme='light'] .pto-model-architecture-front-view {
+  --model-front-residual: #4564ed;
+  --model-front-grid: rgba(0, 0, 0, .08);
+  --model-graphviz-line: rgba(0, 0, 0, .64);
+  --model-graphviz-line-soft: rgba(0, 0, 0, .14);
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-toggle {
+  display: inline;
+  fill: var(--model-graphviz-toggle-bg);
+  stroke: transparent;
+  stroke-width: 0;
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-toggle-icon {
+  display: inline;
+  stroke: var(--model-graphviz-toggle-icon);
+  stroke-width: 2.2px;
+  vector-effect: non-scaling-stroke;
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-cluster > rect:first-child {
+  fill: color-mix(in srgb, var(--surface-1) 18%, transparent);
+  stroke: color-mix(in srgb, var(--foreground) 18%, transparent);
+  stroke-width: 1.2px;
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-cluster-label {
+  font-weight: var(--font-weight-semibold, 600);
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-node-label {
+  font-size: 13px;
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-node-type {
+  font-size: 10px;
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-node.is-overlay-expert-cell rect {
+  rx: 3px;
+  ry: 3px;
+  stroke: color-mix(in srgb, var(--foreground) 22%, transparent);
+  stroke-width: .8px;
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-node.is-overlay-expert-cell :is(.pto-model-graphviz-node-label, .pto-model-graphviz-node-type) {
+  display: none;
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-node.is-overlay-expert-cell.is-model-selected rect {
+  fill: var(--danger) !important;
+  fill-opacity: 1;
+  stroke: var(--foreground);
+  stroke-width: 3.5px;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--danger) 72%, transparent));
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-node.is-overlay-expert-bank-anchor rect {
+  fill-opacity: .9;
+}
+
+.pto-model-architecture-front-view .pto-model-graphviz-node.is-tensor rect {
+  fill: var(--model-graphviz-tensor-fill);
+  fill-opacity: 1;
+}
+
+.pto-model-front__residual-bundles {
+  pointer-events: none;
+}
+
+.pto-model-front__residual-line {
+  fill: none;
+  stroke: var(--model-front-residual);
+  stroke-width: 1.6px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: .82;
+}
+
+.pto-model-front__residual-label {
+  fill: color-mix(in srgb, var(--model-front-residual) 82%, var(--foreground));
+  font: 700 10px/1 var(--font-mono);
+}
+
+.model-front-preview {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.model-front-preview__toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 46px;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--background-elevated);
+}
+
+.model-front-preview__toolbar strong {
+  margin-right: auto;
+  font: var(--type-label);
+}
+
+.model-front-preview__toolbar label,
+.model-front-preview__status {
+  color: var(--foreground-secondary);
+  font: var(--type-label);
+}
+
+.model-front-preview__toolbar select {
+  min-width: 108px;
+  height: var(--input-height-md);
+  padding: 0 28px 0 var(--space-2);
+  border: 1px solid var(--input-border);
+  border-radius: var(--input-radius);
+  background: var(--input-bg);
+  color: var(--foreground);
+  font: var(--type-body-sm);
+}
+
+.model-front-preview__stage {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.model-front-preview__status {
+  min-height: 30px;
+  padding: 7px var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--background-elevated);
+}
