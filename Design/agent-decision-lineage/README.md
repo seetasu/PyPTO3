@@ -54,3 +54,18 @@ Stage 5 基线与 Final 正式采集、quick A/B 和 Golden 的范围不能混�
 ### 仍有限制
 
 这是单次 Softmax Run 的语义布局，不是支持任意拓扑的通用自动布局器。默认 Overview 为保留完整故事采用较密文字；聚焦视图使用原坐标裁切，留白较多。低于 900px 的窄屏保留画布滚动。记录不足的因果不补画；timeline 工具失败仅在说明中披露。硬件、性能详细视图仍未开发。
+
+## 阶段 3：Design Decision Explorer
+
+新增 `decision-inspector.js`（三个专题与对象交互）、`decision-evidence.js`（从 evidence 原样打包的五份材料，支持 file/HTTP 两种打开方式），在 HTML 与 app.js 中接入。未改变 Lineage 主干、坐标或原数据模型。page.css 添加专题局部样式，保留主工作区独立滚动。
+
+Design Focus 选择 Mixed Precision、Single Tile、UB、Scheduling 或 Vector/VF 即进入专题 Inspector。专题标签同步对应 Lineage 选择；「返回 Lineage」滚动回图谱。对象选择更新约束解释及高亮代码片段；代码行号通过快照逐行定位，未编造行号。
+
+- Precision：Input/Max/Exp/Sum/Divide/Output，明确 FP16 max、exp_sub 内部 FP32 widen、FP32 sum/div、astype ZERO/ONE narrow；Pass 3 重算 Exp。全 FP16 / 全 FP32 为探索备选，不提供伪造实测数据。
+- Memory：真实 [7,200] 与 [32,4096] 用例；Tile 行区间和有效尾行，关联每核独立 UB 的 in0/out0；四槽按字节比例，支持 Slot 地址、容量、mutex 和实现选择，192/248 KiB=77.4%，剩余 56 KiB。第二槽表示预留轮转资源，未声称已流水重叠。
+- Scheduling：P0 静态分核映射、Load→三趟VF→Store、Tail mask、next 与 auto_mutex。区分设计义务、静态代码、Profiling 运行事实。
+- 证据：DESIGN 章节入口、DESIGN_BINDINGS 的 reference/req_id/status/invariant、KB_USAGE 对应 reference/req_id 实现记录、test_softmax.py 实际片段；找不到同 ID 时明确披露。未将知识条目数量解释为实验数。
+
+已通过本地 HTTP 在 1440×900、1600×900 操作 Precision 步骤、Tile 尾块与 Slot、执行阶段、专题切换与返回。检查 Inline code 与高亮、not_triggered 绑定、Inspector 纵向滚动与页面无横向溢出。未运行 NPU 测试，未重新采集性能。
+
+缺失证据仍包括逐步骤精度误差、其他 TILE_ROWS 性能比较、备选 dtype 路线本次实测对照、运行时 Tile→Slot 时间轨迹和真实重叠时间轴。远端页面读取失败，本阶段事实依据为工作区原始材料和现有 evidence 快照；未声称同步线上内容或部署。
