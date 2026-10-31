@@ -29,6 +29,7 @@ box=FlowGeometry.bounds(boundElements,view.river.flow.padding);
 // Keep one SVG unit per CSS pixel at every viewport width; overflow scrolls.
 g.style.width=box[2]+'px';g.style.height=box[3]+'px';g.style.aspectRatio=String(box[2]/box[3]);g.setAttribute('viewBox',box.join(' '));
 const clip=el('clipPath',{id:'view-clip'});clip.append(el('rect',{x:box[0],y:box[1],width:box[2],height:box[3]}));defs.append(clip);const scene=el('g',{'clip-path':'url(#view-clip)'});for(const child of [...g.children])if(child!==defs)scene.append(child);g.append(scene);window.ExploreDesignHover?.attach(g,view);
+requestAnimationFrame(updateStageNavigation);
 }
 $('graph').addEventListener('click',e=>{if(!e.target.closest('.node,.stage-ruler,.opportunity-category'))reset()});$('close-detail').onclick=()=>{selected=null;fullTrace=false;$('inspector').hidden=true;render();$('graph').scrollIntoView({block:'start',behavior:'instant'});$('graph').focus({preventScroll:true})};$('trace').onclick=()=>{fullTrace=!fullTrace;render()};$('context-toggle').onclick=()=>{$('context').hidden=!$('context').hidden;$('context-toggle').setAttribute('aria-expanded',String(!$('context').hidden));render()};for(const s of data.sources){const a=document.createElement('a');a.href=s.path;a.target='_blank';a.textContent=s.file;$('artifacts').append(a)}window.PtoIdeFrame?.initAll();reset();
 
@@ -40,3 +41,40 @@ window.addEventListener('review-select',event=>choose(event.detail));
 window.addEventListener('review-return',()=>{const id=selected;render();const node=[...$('graph').querySelectorAll('.node')].find(n=>n.getAttribute('data-node-id')===id);$('graph').scrollIntoView({block:'start',behavior:'instant'});node?.focus({preventScroll:true});});
 
 window.addEventListener('resize',()=>render());
+
+// Read rendered ruler geometry: chapter 06 remains a post-run summary.
+const graphScroller=$('graph').parentElement;
+let stageNavigationFrame=0;
+function stageVisibility(){
+ const viewport=graphScroller.getBoundingClientRect();
+ const stages=[...$('graph').querySelectorAll('.stage-ruler')].map(node=>({node,rect:node.querySelector('text').getBoundingClientRect()}));
+ return {viewport,stages,right:stages.filter(s=>s.rect.right>viewport.left+graphScroller.clientWidth-2),left:stages.filter(s=>s.rect.left<viewport.left-2)};
+}
+function updateStageNavigation(){
+ stageNavigationFrame=0;
+ const next=$('stage-scroll-next'),back=$('stage-scroll-back');
+ const {viewport,stages,right,left}=stageVisibility();
+ const overflow=graphScroller.scrollWidth>graphScroller.clientWidth+2;
+ next.hidden=!overflow||!right.length||graphScroller.scrollLeft+graphScroller.clientWidth>=graphScroller.scrollWidth-2;
+ back.hidden=!overflow||!left.length||graphScroller.scrollLeft<=2;
+ next.textContent='还有 '+right.length+' 个阶段 →';
+ next.setAttribute('aria-label','向右查看 '+(right[0]?.node.getAttribute('aria-label')||'后续阶段'));
+ if(stages.length){
+ // Occupy the existing gap above the ruler titles, never the node body.
+ const frame=graphScroller.parentElement.getBoundingClientRect();
+ $('stage-scroll-next').parentElement.style.top=Math.max(0,stages[0].rect.top-frame.top-24)+'px';
+ }
+}
+function scheduleStageNavigation(){if(!stageNavigationFrame)stageNavigationFrame=requestAnimationFrame(updateStageNavigation)}
+function navigateStage(direction){
+ const {viewport,right,left}=stageVisibility();
+ const target=direction>0?right[0]:left[left.length-1];if(!target)return;
+ const offset=target.rect.left-viewport.left;
+ const desired=graphScroller.scrollLeft+offset-24;
+ graphScroller.scrollTo({left:Math.max(0,Math.min(graphScroller.scrollWidth-graphScroller.clientWidth,desired)),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+}
+$('stage-scroll-next').onclick=()=>navigateStage(1);
+$('stage-scroll-back').onclick=()=>navigateStage(-1);
+graphScroller.addEventListener('scroll',scheduleStageNavigation,{passive:true});
+new ResizeObserver(scheduleStageNavigation).observe(graphScroller);
+scheduleStageNavigation();
