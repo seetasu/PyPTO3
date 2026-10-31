@@ -11,7 +11,6 @@ window.LINEAGE_VIEW = {
  {id:'baseline',stage:5,x:1057,y:210,w:120,h:112,label:'Baseline',sub:'[32,4096] · kernel',items:[['x-base','5.926 μs','round_001']]},
  {id:'optimization',stage:5,x:1188,y:190,w:190,h:170,label:'Mask Lifting',sub:'✓ 采用',items:[['x-mask','Full Mask Reuse','核心优化 · 循环外创建'],['x-tail','Empty-tail-loop','采用 · 尾寄存器处理']]},
  {id:'final',stage:5,x:1408,y:210,w:105,h:112,label:'Final',sub:'[32,4096]',items:[['x-final','4.946 μs','1.198×']]},
- {id:'stop',stage:5,x:1535,y:210,w:130,h:112,label:'Target / Stop',sub:'✓ 目标与门槛通过',items:[['d-stop','为什么停止','保留未探索机会']]}
  ],
  branches:[
  {id:'d-online',parent:'d-tiling',x:447,y:502,w:192,h:72,title:'跨 tile 流式归约',subtitle:'− 设计未采用 · 整行已容纳',mode:'design',relation:'selected over'}
@@ -41,7 +40,6 @@ window.LINEAGE_VIEW = {
  ['correctness','baseline','workflow handoff','PERFORMANCE_REPORT.md','§3 Stage 4 implementation'],
  ['baseline','optimization','improved by','PERFORMANCE_REPORT.md','§3–4'],
  ['optimization','final','measured as','PERFORMANCE_REPORT.md','§5'],
- ['final','stop','supports stop','PERFORMANCE_REPORT.md','§6、§11']
  ]
 };
 

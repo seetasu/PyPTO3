@@ -87,3 +87,30 @@ body > .pto-ide-frame[data-ide-frame] > .pto-ide-frame__status-strip{min-height:
 .stage-scroll-nav .btn{pointer-events:auto;min-height:22px;height:22px;padding:0 var(--space-3);border-radius:999px;font-size:12px;white-space:nowrap}
 #stage-scroll-next{margin-left:auto;background:var(--primary);color:var(--primary-foreground,var(--foreground));box-shadow:var(--shadow-lg)}
 #stage-scroll-back{background:var(--surface-3);color:var(--foreground-secondary)}
+
+/* One context shell; detailed analysis owns the large workspace. */
+main.pto-ide-frame__pane{position:relative}
+.inspector{position:absolute;right:0;top:70px;bottom:0;width:min(460px,100%);z-index:5;overflow-y:auto;background:var(--ide-frame-pane-bg,var(--surface-2));backdrop-filter:blur(18px);box-shadow:var(--shadow-lg);padding:var(--space-5)}
+.inspector header{gap:var(--space-3);align-items:flex-start}.inspector h2{font-size:18px;margin:0}.summary-identity{color:var(--foreground-muted);font-size:12px;margin-top:var(--space-4)}
+.summary-takeaway{font-size:20px;font-weight:600;line-height:1.55;margin:var(--space-5) 0}.summary-reasons{padding-left:20px;font-size:14px;line-height:1.8;color:var(--foreground-secondary)}.summary-reasons li{margin:var(--space-3) 0}
+.summary-preview{white-space:pre-line;padding:var(--space-4) 0;margin:var(--space-4) 0;font:14px/1.8 var(--font-mono)}.summary-preview strong{font-size:22px;color:var(--primary-hover)}.summary-slots{display:flex;gap:var(--space-1);margin-top:var(--space-3)}.summary-slots span{flex:1;padding:var(--space-2);background:var(--surface-3);font:11px/1.6 var(--font-mono)}
+.summary-evidence{margin-top:var(--space-5);font-size:12px;color:var(--foreground-secondary)}.summary-evidence summary{cursor:pointer;line-height:1.8}.summary-evidence-item{padding:var(--space-4) 0}.summary-evidence-item p{font-size:12px}.summary-evidence-item small{display:block;margin-bottom:var(--space-2)}.summary-evidence-item a{color:var(--primary-hover)}
+.analysis-workspace{position:absolute;inset:70px 0 0;overflow:auto;padding:var(--space-5);background:var(--surface-2)}.analysis-header{display:flex;justify-content:space-between;align-items:center;gap:var(--space-4)}.analysis-header h2{font-size:20px;margin:var(--space-2) 0}.analysis-header small{color:var(--foreground-muted);letter-spacing:.12em}.analysis-actions{margin:var(--space-3) 0}#detail{min-width:0}#detail.design-detail{max-width:1500px;margin:auto}
+@media(max-width:700px){.inspector{width:min(460px,100%);top:70px}.analysis-workspace{padding:var(--space-3)}.code-diff{grid-template-columns:1fr}}
+/* Dock the Inspector beside the scroll viewport without scaling the SVG. */
+main:has(> #inspector:not([hidden]))>.workspace,
+main:has(> #inspector:not([hidden]))>.reading-note{margin-right:460px}
+@media(max-width:760px){
+ main:has(> #inspector:not([hidden]))>.workspace,
+ main:has(> #inspector:not([hidden]))>.reading-note{margin-right:0}
+ /* A narrow drawer still needs trailing scroll room to reveal the last node. */
+ main:has(> #inspector:not([hidden])) .graph-host{padding-right:min(460px,calc(100vw - 32px))}
+}
+
+/* Detailed analysis expands in normal flow below the lineage. */
+.analysis-workspace{position:relative;inset:auto;margin:var(--space-4) 0 0;max-height:75vh;overflow:auto}
+main:has(> #inspector:not([hidden]))>.analysis-workspace{margin-right:460px}
+@media(max-width:760px){main:has(> #inspector:not([hidden]))>.analysis-workspace{margin-right:0}}
+
+#node-tooltip{position:fixed;z-index:20;width:min(380px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;padding:var(--space-4);background:var(--surface-3);color:var(--foreground);box-shadow:var(--shadow-lg);border-radius:var(--radius-lg)}
+#node-tooltip h2{font-size:16px;margin:0}#node-tooltip .summary-takeaway{font-size:16px;margin:var(--space-3) 0}#node-tooltip .summary-reasons{font-size:12px}#node-tooltip .summary-preview{margin:var(--space-2) 0;padding:var(--space-2) 0}#node-tooltip .summary-preview strong{font-size:18px}
