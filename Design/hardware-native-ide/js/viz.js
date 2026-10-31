@@ -455,26 +455,44 @@ window.HNV = (function () {
 
   // 五个代表对象使用不同的视觉结构，突出各自的硬件关系。
   function tileMap(d) {
-    let s = t(16, 20, 'Q PROJECTION  /  一个 K CHUNK', 'hv-t hv-dim');
-    const cards = [
-      { x: 16, name: 'A · 输入', shape: d.BATCH + ' × 256', type: 'BF16', space: 'LEFT / L0A', bytes: d.bytes(d.BATCH * 256 * 2), cls: 'hv-aic' },
-      { x: 202, name: 'B · 权重', shape: '256 × 256', type: 'BF16', space: 'RIGHT / L0B', bytes: d.bytes(256 * 256 * 2), cls: 'hv-page' },
-      { x: 388, name: 'C · 累加', shape: d.BATCH + ' × 256', type: 'FP32', space: 'ACC / L0C', bytes: d.bytes(d.BATCH * 256 * 4), cls: 'hv-aiv' }
-    ];
-    cards.forEach(function (c) {
-      s += r(c.x, 36, 156, 118, c.cls, 5);
-      s += t(c.x + 12, 56, c.name, 'hv-t hv-strong');
-      s += t(c.x + 12, 80, c.shape, 'hv-t hv-viz-big');
-      s += t(c.x + 12, 97, c.type + '  ·  ' + c.bytes, 'hv-t');
-      s += ln(c.x + 12, 110, c.x + 144, 110, 'hv-l');
-      s += t(c.x + 12, 132, c.space, 'hv-t hv-dim');
-    });
-    s += t(187, 91, '×', 'hv-t hv-viz-big', 'middle');
-    s += t(373, 91, '=', 'hv-t hv-viz-big', 'middle');
-    s += r(16, 169, 528, 42, 'hv-buf', 4);
-    s += t(29, 187, '沿 K 维分块', 'hv-t hv-strong');
-    s += t(29, 202, d.QKV_K_CHUNKS + ' 个 chunk 逐次计算；matmul_acc 累加至 C', 'hv-t hv-dim');
-    return svg(560, 226, s);
+    const count = d.QKV_K_CHUNKS;
+    if (!Number.isInteger(count) || count < 1) {
+      return '<div class="tile-animation-empty">当前 K 切片宽度 ' + esc(d.QKV_K_SLICE)
+        + ' 不能整除 chunk 宽度 ' + d.TK + '，请调整配置后查看分块过程。</div>';
+    }
+    let cells = '';
+    for (let i = 0; i < count; i++) cells += '<span data-tile-chunk="' + i + '">' + (i + 1) + '</span>';
+    let slices = '';
+    for (let i = 0; i < d.QKV_OK; i++) {
+      slices += i === 0
+        ? '<div class="tile-map-slice is-selected" aria-label="选中的第一个 Split-K 切片"><div class="tile-map-chunks">' + cells + '</div></div>'
+        : '<div class="tile-map-slice" aria-hidden="true"></div>';
+    }
+    return '<div class="tile-animation" data-tile-animation data-count="' + count + '" data-tk="' + d.TK + '">'
+      + '<div class="tile-animation-top"><span>Q PROJECTION · 分块计算</span><span data-tile-counter></span></div>'
+      + '<div class="tile-location"><div class="tile-location-heading"><b>当前计算的位置</b><span>示例：q_ks = 0 · q_nt = 0 · n_sub = 0</span></div>'
+      + '<div class="tile-axis-heading"><span>K 维 · HIDDEN = ' + d.HIDDEN + '</span><span>' + d.QKV_OK + ' 个 Split-K 切片</span></div>'
+      + '<div class="tile-map-slices">' + slices + '</div>'
+      + '<div class="tile-axis-ends"><span>0</span><span>' + d.HIDDEN + '</span></div>'
+      + '<div class="tile-location-detail"><span>高亮：第 1 个切片，宽 ' + d.QKV_K_SLICE + '</span><span data-tile-location></span></div>'
+      + '<div class="tile-axis-heading"><span>N 维 · 输出宽度 ' + d.HIDDEN + '</span><span>一个 N 子块 = ' + d.TN + '</span></div>'
+      + '<div class="tile-n-track"><span style="width:' + (d.TN / d.HIDDEN * 100) + '%"></span></div>'
+      + '<div class="tile-axis-ends"><span>0 · 当前输出子块</span><span>' + d.HIDDEN + '</span></div>'
+      + '<p>下方展示选中 K 切片中的各 chunk，计算结果累加到选中的 N 子块。</p></div>'
+      + '<div class="tile-animation-grid">'
+      + '<section class="tile-matrix tile-matrix-a"><div class="tile-matrix-label">A · 输入 <small>LEFT / L0A</small></div>'
+      + '<div class="tile-a-blocks">' + cells + '</div><p>沿 K 维取列块</p><small>单块 ' + d.BATCH + ' × ' + d.TK + ' · BF16</small></section>'
+      + '<span class="tile-operator">×</span>'
+      + '<section class="tile-matrix tile-matrix-b"><div class="tile-matrix-label">B · 权重 <small>RIGHT / L0B</small></div>'
+      + '<div class="tile-b-blocks">' + cells + '</div><p>沿 K 维取对应行块</p><small>单块 ' + d.TK + ' × ' + d.TN + ' · BF16</small></section>'
+      + '<span class="tile-operator">→</span>'
+      + '<section class="tile-matrix tile-matrix-c"><div class="tile-matrix-label">C · 结果 <small>ACC / L0C</small></div>'
+      + '<div class="tile-acc"><b data-tile-acc>0</b><span>个块已累加</span><div class="tile-acc-track"><i data-tile-progress></i></div></div>'
+      + '<p>部分结果累加到 C</p><small>' + d.BATCH + ' × ' + d.TN + ' · FP32</small></section></div>'
+      + '<div class="tile-animation-step" data-tile-description aria-live="off"></div>'
+      + '<div class="tile-animation-controls"><button type="button" data-tile-action="toggle">暂停</button>'
+      + '<button type="button" data-tile-action="prev">上一步</button><button type="button" data-tile-action="next">下一步</button>'
+      + '<span>示意图 · 展示一个 task 内 K chunk 的计算</span></div></div>';
   }
 
   function dependencyMap(d) {
@@ -567,7 +585,7 @@ window.HNV = (function () {
       viz: function (d) { return dependencyMap(d); }
     },
     'scope:atomic': {
-      lens: 'scope', kind: '并发写入', title: 'Split-K 原子累加', sub: '清零 → 并行部分结果 → 汇合',
+      lens: 'parallel', kind: '并发写入', title: 'Split-K 原子累加', sub: '清零 → 并行部分结果 → 汇合',
       facts: function (d) { return [['切片数', String(d.QKV_OK)], ['目标', 'q_proj · FP32'], ['写入', 'pl.assemble(..., atomic=pl.AtomicType.Add)'], ['顺序', 'q_seed 先清零；各 task 依赖 q_seed'], ['注意', '汇合后的消费者仍需等待对应生产任务']]; },
       note: '原子加保护并发累加；任务依赖负责表达清零及后续消费的顺序。',
       viz: function (d) { return atomicMerge(d); }

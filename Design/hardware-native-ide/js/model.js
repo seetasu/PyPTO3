@@ -485,8 +485,7 @@ window.HNL = (function () {
     },
     {
       no: 455, t: '                    q_proj = pl.assemble(q_proj, q_acc, [0, n0], atomic=pl.AtomicType.Add)',
-      focus: 'layout:split-k',
-      inlay: [{ lens: 'layout', text: '硬件 atomic add 回 GM 偏移 [0, n0]' }]
+      focus: 'layout:split-k'
     },
     { fold: 159 },
 
@@ -570,7 +569,7 @@ window.HNL = (function () {
     const additions = {
       429: ['scope:deps', 'scope', 'q_seed 产出清零任务句柄'],
       441: ['scope:deps', 'scope', '等待对应 slab 与 q_seed'],
-      455: ['scope:atomic', 'scope', 'split-K 部分结果原子累加'],
+      455: ['scope:atomic', 'parallel', 'split-K 原子累加至 GM [0, n0]'],
       774: ['parallel:handoff', 'parallel', 'QK · Cube 计算，结果交给 Vector'],
       783: ['layout:q-pad', 'layout', '填充值不应影响有效区域的最大值'],
       786: ['precision:cast', 'precision', 'Softmax 结果转 BF16，供 SV matmul 使用'],

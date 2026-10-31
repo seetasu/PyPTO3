@@ -12,8 +12,8 @@
   // 透镜：Tensor/Tile 合并为一组，其余各一组
   const LENSES = [
     { id: 'tensor', label: 'Tensor / Tile', members: ['tensor', 'tile'], desc: '形状 · dtype · 片上空间' },
-    { id: 'scope', label: 'Scope', members: ['scope'], desc: '任务粒度 · 依赖成边' },
-    { id: 'parallel', label: '并行请求', members: ['parallel'], desc: 'parallel · spmd · pipeline' },
+    { id: 'scope', label: '任务与依赖', members: ['scope'], desc: '任务边界 · 任务句柄 · 显式依赖' },
+    { id: 'parallel', label: '并行与同步', members: ['parallel'], desc: '并行调度 · 流水交接 · 原子累加' },
     { id: 'layout', label: '内部布局', members: ['layout'], desc: '填充 · 分页 · 对齐' },
     { id: 'precision', label: '数值与精度', members: ['precision'], desc: 'dtype · 转换 · 累加' }
   ];
@@ -231,6 +231,42 @@
   }
 
   let SOURCE_ROWS = [];
+  let tileTimer = null;
+  let tileStep = 0;
+  let tilePlaying = false;
+
+  function paintTileAnimation() {
+    const host = $('[data-tile-animation]');
+    if (!host) return;
+    const count = Number(host.dataset.count), tk = Number(host.dataset.tk);
+    host.querySelectorAll('[data-tile-chunk]').forEach(function (cell) {
+      const i = Number(cell.dataset.tileChunk);
+      cell.classList.toggle('is-current', i === tileStep);
+      cell.classList.toggle('is-done', i < tileStep);
+    });
+    $('[data-tile-counter]', host).textContent = '第 ' + (tileStep + 1) + ' / ' + count + ' 块';
+    $('[data-tile-location]', host).textContent = '当前 chunk：K [' + (tileStep * tk) + ', ' + ((tileStep + 1) * tk) + ')';
+    $('[data-tile-acc]', host).textContent = tileStep + 1;
+    $('[data-tile-progress]', host).style.width = ((tileStep + 1) / count * 100) + '%';
+    $('[data-tile-description]', host).textContent = 'K = ' + (tileStep * tk) + '–' + ((tileStep + 1) * tk - 1)
+      + '：A 列块 × B 行块 → ' + (tileStep === 0 ? 'matmul 初始化 C' : 'matmul_acc 加入 C');
+    $('[data-tile-action="toggle"]', host).textContent = tilePlaying ? '暂停' : '播放';
+  }
+
+  function setTilePlaying(playing) {
+    clearInterval(tileTimer);
+    tileTimer = null;
+    tilePlaying = playing;
+    const host = $('[data-tile-animation]');
+    if (playing && host) {
+      tileTimer = setInterval(function () {
+        if (!document.body.contains(host)) { setTilePlaying(false); return; }
+        tileStep = (tileStep + 1) % Number(host.dataset.count);
+        paintTileAnimation();
+      }, 1600);
+    }
+    paintTileAnimation();
+  }
 
   function conceptLines(id) {
     return SOURCE_ROWS.map(function (row) { return row.entry; }).filter(function (e) {
@@ -321,6 +357,8 @@
     });
 
     $('#editorBody').innerHTML = html;
+    tileStep = 0;
+    setTilePlaying(!!$('[data-tile-animation]') && !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -341,6 +379,10 @@
 
   function renderCatalog() {
     const groups = {};
+    const order = {
+      scope: ['scope:manual', 'scope:at', 'scope:deps'],
+      parallel: ['parallel:parallel', 'parallel:spmd', 'parallel:grid-stride', 'parallel:pipeline', 'parallel:handoff', 'scope:atomic']
+    };
     Object.keys(V.CONCEPTS).forEach(function (id) {
       const c = V.CONCEPTS[id];
       const g = LENS_OF[c.lens];
@@ -349,6 +391,10 @@
     let html = '';
     LENSES.forEach(function (L) {
       const items = groups[L.id] || [];
+      if (order[L.id]) items.sort(function (a, b) {
+        const ai = order[L.id].indexOf(a.id), bi = order[L.id].indexOf(b.id);
+        return (ai < 0 ? Infinity : ai) - (bi < 0 ? Infinity : bi);
+      });
       html += '<div class="cat-group"><span class="cat-head"><i class="lens-swatch lens-' + L.id + '"></i>'
         + esc(L.label) + '</span>';
       items.forEach(function (it) {
@@ -627,6 +673,19 @@
   // ════════════════════════════════════════════════════════════════════════════
   function wire() {
     document.addEventListener('click', function (ev) {
+      const tileAction = ev.target.closest('[data-tile-action]');
+      if (tileAction) {
+        const host = tileAction.closest('[data-tile-animation]');
+        const action = tileAction.dataset.tileAction;
+        if (action === 'toggle') setTilePlaying(!tilePlaying);
+        else {
+          setTilePlaying(false);
+          const count = Number(host.dataset.count);
+          tileStep = (tileStep + (action === 'next' ? 1 : count - 1)) % count;
+          paintTileAnimation();
+        }
+        return;
+      }
       const close = ev.target.closest('[data-close-concept]');
       if (close) {
         const id = state.sel.id;
