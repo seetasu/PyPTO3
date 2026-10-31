@@ -50,7 +50,7 @@ export async function runReviewRegression({tab,browser,width,writeFile,directory
  check('tail source mapping',(await text('.code-diff')).includes('n_tail_iters'));
  await click('Runtime if · × Rejected');check('reported compiler failure',(await text('.experiment-workspace')).includes('__inline_0_tail_mreg_fp16_2'));
  await click('Empty-tail-loop · ✓ Accepted · 属于 Mask Lifting');check('component not independent',(await text('.experiment-workspace')).includes('没有独立性能归因'));
- for(const name of ['TILE_ROWS Adjustment · ○ Not Attempted','Exp Result Reuse · ○ Not Attempted','Pass Fusion · ○ Not Attempted']){await click(name);check(name,(await text('.evidence-labels')).includes('Not Attempted'));}
+ for(const name of ['TILE_ROWS Adjustment · ○ Not Attempted','Exp Result Reuse · ○ Not Attempted','Pass Fusion · ○ Not Attempted']){await click('Optimization Journey');await click(name);check(name,(await text('.evidence-labels')).includes('Not Attempted'));}
  await click('Optimization Journey');await click('8/8 PASS');check('PASS maps verification',(await text('#inspector-heading')).includes('编译与正确性'));
  await click('下一步 → Baseline');await click('Optimization Journey');await click('正式采集 / Final');await click('Evidence & Decision');
  await tab.playwright.locator('.experiment-workspace summary').click();check('PMU table',(await text('.profiling-table')).includes('121.50%'));
@@ -67,14 +67,14 @@ export async function runReviewRegression({tab,browser,width,writeFile,directory
  check('return keeps Stop selection',await tab.playwright.locator('#graph [data-node-id="d-stop"]').getAttribute('class').then(c=>c.includes('selected')));
  check('return Optimize scope',(await text('#scope')).includes('Optimize'));
  await shot('audit-optimize');
- await click('Focus Selection');await snap();check('Focus changes viewBox',(await tab.playwright.locator('#graph').getAttribute('viewBox'))!=='1035 25 505 730');
- await click('Fit to View');check('Fit current scope',(await tab.playwright.locator('#graph').getAttribute('viewBox'))==='1035 25 505 730');
+ await click('Focus Selection');await snap();check('Focus changes viewBox',(await tab.playwright.locator('#graph').getAttribute('viewBox'))!=='1035 95 653 405');
+ await click('Fit to View');check('Fit current scope',(await tab.playwright.locator('#graph').getAttribute('viewBox'))==='1035 95 653 405');
  await click('Design');check('Design clears inspector',await tab.playwright.locator('#inspector').getAttribute('hidden')!==null);
  check('Design clears selection',await tab.playwright.locator('#graph .node.selected').count()===0);
  await node('d-precision');await click('Precision Decision');check('Design regression',(await text('#detail')).includes('FP16 max'));
  await tab.playwright.locator('#review-context nav button').last().click();await click('Overview');check('Overview clears selection',await tab.playwright.locator('#graph .node.selected').count()===0);
  await node('d-precision');await click('关闭');check('close restores graph focus',await tab.playwright.evaluate(()=>document.activeElement?.id==='graph'));
- await click('返回全局');check('global viewBox',(await tab.playwright.locator('#graph').getAttribute('viewBox'))==='0 0 1540 750');
+ await click('返回全局');check('global viewBox',(await tab.playwright.locator('#graph').getAttribute('viewBox'))==='0 0 1688 500');
  const sizes=await tab.playwright.evaluate(()=>({width:innerWidth,page:document.documentElement.scrollWidth,main:document.querySelector('main').clientWidth,scroll:document.querySelector('main').scrollWidth}));
  check('no horizontal overflow',sizes.width===sizes.page&&sizes.main===sizes.scroll,JSON.stringify(sizes));
  const errors=await tab.dev.logs({levels:['error','warn'],limit:30});check('Console clean',errors.length===0,JSON.stringify(errors));

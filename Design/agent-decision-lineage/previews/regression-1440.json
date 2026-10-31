@@ -20,7 +20,7 @@
     {
       "name": "auto scroll to Inspector",
       "passed": true,
-      "detail": "{\"a\":84.796875,\"m\":76}"
+      "detail": "{\"a\":84.953125,\"m\":76}"
     },
     {
       "name": "full trace enabled",
@@ -180,7 +180,7 @@
     {
       "name": "workarea scroll reaches Inspector end",
       "passed": true,
-      "detail": "{\"end\":858.8515625,\"main\":860,\"top\":1210.5}"
+      "detail": "{\"end\":859.0078125,\"main\":860,\"top\":1000.5}"
     },
     {
       "name": "return keeps Stop selection",
