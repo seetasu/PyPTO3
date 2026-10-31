@@ -452,12 +452,119 @@ window.HNV = (function () {
     });
     return svg(560, 90, s);
   }
+
+  // 五个代表对象使用不同的视觉结构，突出各自的硬件关系。
+  function tileMap(d) {
+    let s = t(16, 20, 'Q PROJECTION  /  一个 K CHUNK', 'hv-t hv-dim');
+    const cards = [
+      { x: 16, name: 'A · 输入', shape: d.BATCH + ' × 256', type: 'BF16', space: 'LEFT / L0A', bytes: d.bytes(d.BATCH * 256 * 2), cls: 'hv-aic' },
+      { x: 202, name: 'B · 权重', shape: '256 × 256', type: 'BF16', space: 'RIGHT / L0B', bytes: d.bytes(256 * 256 * 2), cls: 'hv-page' },
+      { x: 388, name: 'C · 累加', shape: d.BATCH + ' × 256', type: 'FP32', space: 'ACC / L0C', bytes: d.bytes(d.BATCH * 256 * 4), cls: 'hv-aiv' }
+    ];
+    cards.forEach(function (c) {
+      s += r(c.x, 36, 156, 118, c.cls, 5);
+      s += t(c.x + 12, 56, c.name, 'hv-t hv-strong');
+      s += t(c.x + 12, 80, c.shape, 'hv-t hv-viz-big');
+      s += t(c.x + 12, 97, c.type + '  ·  ' + c.bytes, 'hv-t');
+      s += ln(c.x + 12, 110, c.x + 144, 110, 'hv-l');
+      s += t(c.x + 12, 132, c.space, 'hv-t hv-dim');
+    });
+    s += t(187, 91, '×', 'hv-t hv-viz-big', 'middle');
+    s += t(373, 91, '=', 'hv-t hv-viz-big', 'middle');
+    s += r(16, 169, 528, 42, 'hv-buf', 4);
+    s += t(29, 187, '沿 K 维分块', 'hv-t hv-strong');
+    s += t(29, 202, d.QKV_K_CHUNKS + ' 个 chunk 逐次计算；matmul_acc 累加至 C', 'hv-t hv-dim');
+    return svg(560, 226, s);
+  }
+
+  function dependencyMap(d) {
+    let s = t(16, 20, 'MANUAL SCOPE  /  一个 Q 投影任务', 'hv-t hv-dim');
+    s += r(16, 38, 210, 58, 'hv-page', 5);
+    s += t(29, 58, '上层 normed slab', 'hv-t hv-strong');
+    s += t(29, 77, 'prev_normed_tids[q_ks]', 'hv-t');
+    s += r(16, 112, 210, 58, 'hv-aiv', 5);
+    s += t(29, 132, 'q_seed · 目标清零', 'hv-t hv-strong');
+    s += t(29, 151, 'q_seed_tid', 'hv-t');
+    s += arrow(231, 67, 304, 94, 'hv-l hv-flow');
+    s += arrow(231, 141, 304, 113, 'hv-l hv-flow');
+    s += r(310, 73, 234, 82, 'hv-aic', 5);
+    s += t(324, 95, 'q_proj task', 'hv-t hv-strong');
+    s += t(324, 115, 'deps=[slab tid, seed tid]', 'hv-t');
+    s += t(324, 135, '两个前置任务均完成后执行', 'hv-t hv-dim');
+    const aligned = d.QKV_K_SLICE === d.DOWN_TN;
+    s += r(16, 188, 528, 42, aligned ? 'hv-page' : 'hv-straddle', 4);
+    s += t(28, 205, '切片 ' + d.QKV_K_SLICE + '  /  slab ' + d.DOWN_TN, 'hv-t hv-strong');
+    s += t(28, 221, aligned ? '宽度一致：一条 slab 依赖对应一个切片' : '宽度不一致：需重新检查依赖覆盖', aligned ? 'hv-t hv-ok-text' : 'hv-t hv-err-text');
+    return svg(560, 244, s);
+  }
+
+  function handoffMap() {
+    let s = t(16, 20, 'ATTENTION  /  数据交接示意 · 非实测', 'hv-t hv-dim');
+    s += t(16, 62, 'CUBE', 'hv-t hv-strong');
+    s += t(16, 141, 'VECTOR', 'hv-t hv-strong');
+    s += ln(88, 65, 544, 65, 'hv-l hv-dash');
+    s += ln(88, 144, 544, 144, 'hv-l hv-dash');
+    s += r(98, 39, 126, 53, 'hv-aic', 5);
+    s += t(110, 59, '01  Q × K', 'hv-t hv-strong');
+    s += t(110, 77, 'scores · FP32', 'hv-t');
+    s += r(248, 117, 144, 53, 'hv-aiv', 5);
+    s += t(260, 137, '02  Softmax', 'hv-t hv-strong');
+    s += t(260, 155, 'max → exp → cast', 'hv-t');
+    s += r(416, 39, 128, 53, 'hv-aic', 5);
+    s += t(428, 59, '03  exp × V', 'hv-t hv-strong');
+    s += t(428, 77, 'oi_tmp · FP32', 'hv-t');
+    s += arrow(224, 80, 266, 115, 'hv-l hv-flow');
+    s += arrow(390, 125, 430, 94, 'hv-l hv-flow');
+    s += t(16, 199, 'C2V：scores 交给 Vector  ·  V2C：exp 交回 Cube', 'hv-t');
+    s += t(16, 216, 'stage=2 表达迭代重叠意图；实际执行需以 trace 验证', 'hv-t hv-dim');
+    return svg(560, 230, s);
+  }
+
+  function validRegionMap(d) {
+    let s = t(16, 20, 'SCORES TILE  /  物理范围与有效范围', 'hv-t hv-dim');
+    const x = 20, y = 49, w = 260, h = 130;
+    const ratio = Math.max(0, Math.min(1, d.Q_HEAD_BATCH / d.Q_HEAD_PAD));
+    s += r(x, y, w, h, 'hv-row-pad', 3);
+    s += r(x, y, w, h, 'hv-row-hatch', 3);
+    s += r(x, y, w * 0.65, h * ratio, 'hv-row-real', 2);
+    s += t(x + 8, y + 16, '有效 scores', 'hv-t hv-strong');
+    s += t(x + w / 2, y - 9, '物理列：SEQ_TILE = ' + d.SEQ_TILE, 'hv-t hv-dim', 'middle');
+    s += t(300, 65, '物理行  ' + d.Q_HEAD_PAD, 'hv-t hv-strong');
+    s += t(300, 88, '有效行  ' + d.Q_HEAD_BATCH, 'hv-t hv-ok-text');
+    s += t(300, 111, '有效列  valid_len（运行时）', 'hv-t');
+    s += t(300, 137, '阴影 = 无效区域', 'hv-t hv-dim');
+    s += t(300, 156, '图中列宽为示意', 'hv-t hv-dim');
+    s += r(16, 198, 528, 51, 'hv-buf', 4);
+    s += t(28, 218, 'set_validshape → fillpad(PadValue.min) → row_max', 'hv-t hv-strong');
+    s += t(28, 237, '填充值避免无效位置干扰有效区域的最大值；行填充占 ' + d.PAD_WASTE_PCT + '%', 'hv-t hv-dim');
+    return svg(560, 263, s);
+  }
+
+  function precisionMap() {
+    let s = t(16, 20, 'ATTENTION  /  数据类型随计算变化', 'hv-t hv-dim');
+    const steps = [
+      ['Q / K', 'BF16', '输入'], ['QK scores', 'FP32', 'matmul 输出'],
+      ['exp_scores', 'FP32', 'Softmax'], ['exp_scores', 'BF16', '显式 cast'], ['oi_tmp', 'FP32', 'SV 输出']
+    ];
+    steps.forEach(function (v, i) {
+      const x = 16 + i * 106;
+      s += r(x, 40, 96, 94, i === 3 ? 'hv-aiv' : (v[1] === 'FP32' ? 'hv-aic' : 'hv-page'), 5);
+      s += t(x + 8, 59, v[0], 'hv-t hv-micro');
+      s += t(x + 8, 85, v[1], 'hv-t hv-viz-big');
+      s += t(x + 8, 112, v[2], 'hv-t hv-dim');
+      if (i < steps.length - 1) s += arrow(x + 97, 87, x + 105, 87, 'hv-l hv-flow');
+    });
+    s += r(16, 151, 520, 56, 'hv-buf', 4);
+    s += t(28, 171, '另一条路径：残差 FP32 → 乘 gamma → cast BF16', 'hv-t hv-strong');
+    s += t(28, 190, '转换位置来自源码；精度影响需数值对比验证', 'hv-t hv-dim');
+    return svg(560, 221, s);
+  }
   const CONCEPTS = {
     'scope:deps': {
       lens: 'scope', kind: '依赖', title: 'deps 与 Task ID', sub: '显式任务依赖',
       facts: function () { return [['前置任务', '对应 normed slab 与 q_seed'], ['依赖表达', 'deps=[prev_normed_tids[q_ks], q_seed_tid]'], ['作用', '等待数据准备和目标清零'], ['前提', 'split-K 切片与 slab 的对应关系成立']]; },
       note: 'manual_scope 中通过 Task ID 明确表达任务间顺序。',
-      viz: function () { return stages(['normed slab + q_seed', 'deps · 等待', 'q_proj task'], '显式依赖 · 示意'); }
+      viz: function (d) { return dependencyMap(d); }
     },
     'scope:atomic': {
       lens: 'scope', kind: '并发写入', title: 'Split-K 原子累加', sub: '清零 → 并行部分结果 → 汇合',
@@ -475,14 +582,14 @@ window.HNV = (function () {
       lens: 'parallel', kind: '计算单元', title: 'QK → Softmax → SV', sub: 'Cube / Vector 交接与流水意图',
       facts: function () { return [['QK', 'Cube：Q × K，FP32 scores'], ['Softmax', 'Vector：缩放、填充、row_max 与 exp'], ['SV', 'Cube：BF16 exp × V，FP32 输出'], ['交接', 'QK → Vector；exp → Cube'], ['状态', '源码表达预期结构，非真机执行结果']]; },
       note: '这是源码中的阶段与交接意图，实际排布及重叠需要编译产物和设备 trace 验证。',
-      viz: function () { return stages(['Cube · QK', 'Vector · Softmax', 'Cube · SV'], '交接路径 · 源码意图，非实测'); }
+      viz: function () { return handoffMap(); }
     },
     'precision:cast': {
       lens: 'precision', kind: '数值与精度', title: 'FP32 / BF16 转换边界', sub: '计算与存储的数据类型',
       facts: function () { return [['QK 输出', 'FP32 scores'], ['Softmax 输出', 'exp_scores 转 BF16，供 SV matmul 使用'], ['SV 输出', 'oi_tmp 使用 FP32'], ['残差路径', '残差保留 FP32；归一化后的 MLP 输入转 BF16'], ['验证', '精度影响需以数值对比验证']]; },
       note: '转换位置由源码表达；不应仅凭 dtype 推断精度损失或性能收益。',
       viz: function () {
-        return stages(['Q/K · BF16', 'QK · FP32', 'exp · FP32', 'cast · BF16', 'SV · FP32'], 'Attention 的 dtype 路径 · 源码示意');
+        return precisionMap();
       }
     },
     'tensor:hidden-states': {
@@ -580,7 +687,7 @@ window.HNV = (function () {
       },
       note: '一次 matmul 就把三个片上空间的占用写清楚了：A 进 Left，B 进 Right，'
         + 'C 留在 Acc。容量能不能装下，在这一行就能判断。',
-      viz: function (d) { return matmulSpaces(d); }
+      viz: function (d) { return tileMap(d); }
     },
     'tile:k-tile': {
       lens: 'tile', kind: 'Tile', title: 'k_tile', sub: 'paged KV 上的一个物理页',
@@ -722,7 +829,7 @@ window.HNV = (function () {
       },
       note: 'tile 物理上保持 ' + '16 行以满足 cube M fractal；set_validshape 只把真实行标为有效，'
         + '搬运与计算的差额因此是可见的、可算的，而不是一个隐藏的性能黑洞。',
-      viz: function (d) { return padRows(d); }
+      viz: function (d) { return validRegionMap(d); }
     },
     'layout:paged-kv': {
       lens: 'layout', kind: '内部布局', title: 'paged KV 的行寻址', sub: '逻辑块 → 物理页',

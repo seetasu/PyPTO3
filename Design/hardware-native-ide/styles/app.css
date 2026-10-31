@@ -601,6 +601,7 @@ html[data-lens-parallel="off"] .rb-pipeline { background: #2a2a2a; opacity: .5; 
 .hv-micro { font-size: 8.5px; }
 .hv-dim { fill: #7e7e7e; }
 .hv-strong { fill: var(--hn-text); font-weight: 600; }
+.hv-viz-big { fill: var(--hn-text); font-size: 14px; font-weight: 600; }
 .hv-ok-text { fill: var(--hn-ok); }
 .hv-warn-text { fill: var(--hn-warn); }
 .hv-err-text { fill: var(--hn-error); }
