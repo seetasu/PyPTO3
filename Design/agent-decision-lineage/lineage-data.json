@@ -5,7 +5,8 @@
     "Workflow",
     "Decision",
     "Experiment",
-    "Evidence"
+    "Evidence",
+    "Finding"
   ],
   "statusLabels": {
     "completed": "已完成",
@@ -35,7 +36,8 @@
           "location": "stage_status.1"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": []
     },
     {
       "id": "e1",
@@ -53,7 +55,8 @@
           "location": "全文"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": []
     },
     {
       "id": "w2",
@@ -76,7 +79,8 @@
           "location": "stage_status.2"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": []
     },
     {
       "id": "e2",
@@ -94,7 +98,8 @@
           "location": "全文"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": []
     },
     {
       "id": "w3",
@@ -120,7 +125,8 @@
           "location": "stage_status.3"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": []
     },
     {
       "id": "e3",
@@ -138,7 +144,8 @@
           "location": "全文"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": []
     },
     {
       "id": "w4",
@@ -160,7 +167,8 @@
           "location": "stage_status.4"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": []
     },
     {
       "id": "e4",
@@ -178,7 +186,8 @@
           "location": "全文"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": []
     },
     {
       "id": "w5",
@@ -205,7 +214,8 @@
           "location": "stage_status.5"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": []
     },
     {
       "id": "e5",
@@ -223,7 +233,8 @@
           "location": "全文"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": []
     },
     {
       "id": "d-device",
@@ -241,7 +252,10 @@
           "location": "语义说明 §12 自动决策"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     },
     {
       "id": "d-vf",
@@ -261,7 +275,10 @@
           "location": "§0 Module 划分"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     },
     {
       "id": "d-online",
@@ -280,7 +297,10 @@
           "location": "归约轴容量结论"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     },
     {
       "id": "x-base",
@@ -292,7 +312,7 @@
       "relatedNodeIds": [
         "w5",
         "i-kernel",
-        "x-mask"
+        "f-mask"
       ],
       "evidenceRefs": [
         {
@@ -300,7 +320,10 @@
           "location": "§3"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Measured"
+      ]
     },
     {
       "id": "x-mask",
@@ -311,11 +334,12 @@
       "reason": "正式采集 round_002，保持三趟结构；8 个正确性用例通过。",
       "relatedNodeIds": [
         "w5",
-        "x-base",
         "x-if",
         "x-final",
         "x-tail",
-        "x-fusion"
+        "x-fusion",
+        "h-mask",
+        "x-verify"
       ],
       "evidenceRefs": [
         {
@@ -323,7 +347,10 @@
           "location": "§4–5、§8"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Reported Attempt"
+      ]
     },
     {
       "id": "x-if",
@@ -342,7 +369,10 @@
           "location": "§7 candidate 2"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Reported Attempt"
+      ]
     },
     {
       "id": "x-rows",
@@ -360,7 +390,10 @@
           "location": "§7 candidate 4"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Not Attempted"
+      ]
     },
     {
       "id": "x-reuse",
@@ -378,7 +411,10 @@
           "location": "§7 candidate 5–6"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Not Attempted"
+      ]
     },
     {
       "id": "x-timeline",
@@ -396,7 +432,11 @@
           "location": "§6.6"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Missing Evidence",
+        "Reported Attempt"
+      ]
     },
     {
       "id": "d-stop",
@@ -415,7 +455,12 @@
           "location": "§6、§11"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Measured",
+        "Derived",
+        "Missing Evidence"
+      ]
     },
     {
       "id": "d-kb",
@@ -434,7 +479,10 @@
           "location": "optional_patterns"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     },
     {
       "id": "d-api",
@@ -453,7 +501,10 @@
           "location": "§3.3 API 约束"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     },
     {
       "id": "d-constraint",
@@ -472,7 +523,10 @@
           "location": "§3.3 API 约束"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     },
     {
       "id": "d-precision",
@@ -492,7 +546,10 @@
           "location": "§1 Vector 选择"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     },
     {
       "id": "d-tiling",
@@ -514,7 +571,10 @@
           "location": "§2.1"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     },
     {
       "id": "d-buffer",
@@ -534,7 +594,10 @@
           "location": "§3"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     },
     {
       "id": "d-schedule",
@@ -553,7 +616,10 @@
           "location": "§5"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     },
     {
       "id": "i-kernel",
@@ -578,7 +644,11 @@
           "location": "softmax_rows_vf / softmax_tile_group_kernel"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision",
+        "Derived"
+      ]
     },
     {
       "id": "x-verify",
@@ -589,7 +659,9 @@
       "reason": "性能报告记载最终实现编译通过，8 个 Stage 4 用例通过；本地未重跑。",
       "relatedNodeIds": [
         "w4",
-        "i-kernel"
+        "i-kernel",
+        "x-mask",
+        "x-tail"
       ],
       "evidenceRefs": [
         {
@@ -597,7 +669,10 @@
           "location": "§7 candidate 3、§8"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Measured"
+      ]
     },
     {
       "id": "x-final",
@@ -617,7 +692,10 @@
           "location": "§5、§11"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Measured"
+      ]
     },
     {
       "id": "x-tail",
@@ -627,7 +705,8 @@
       "stage": 5,
       "reason": "Mask Lifting 的组成部分；以空范围尾循环替代 runtime if，并非独立性能实验。",
       "relatedNodeIds": [
-        "x-mask"
+        "x-mask",
+        "x-verify"
       ],
       "evidenceRefs": [
         {
@@ -635,7 +714,10 @@
           "location": "§7 Candidate Coverage Ledger"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Reported Attempt"
+      ]
     },
     {
       "id": "x-fusion",
@@ -653,7 +735,55 @@
           "location": "§7 Candidate Coverage Ledger"
         }
       ],
-      "assertionBasis": "artifact_report"
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Not Attempted"
+      ]
+    },
+    {
+      "id": "f-mask",
+      "title": "循环内重复 update_mask",
+      "type": "Finding",
+      "status": "recorded",
+      "stage": 5,
+      "reason": "性能报告记录循环内 mask 重复计算的静态线索与 Profiling 信号；不是独立实验或逐指令因果测量。",
+      "relatedNodeIds": [
+        "x-base",
+        "h-mask"
+      ],
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§3 Baseline bottleneck analysis"
+        }
+      ],
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Measured",
+        "Derived"
+      ]
+    },
+    {
+      "id": "h-mask",
+      "title": "提升 full mask 的优化假设",
+      "type": "Decision",
+      "status": "adopted",
+      "stage": 5,
+      "reason": "同一 full-register mask 可跨寄存器迭代复用；假设减少循环内标量开销，后续以代码与正式测量检验。",
+      "relatedNodeIds": [
+        "f-mask",
+        "x-mask"
+      ],
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§4 Hypothesis"
+        }
+      ],
+      "assertionBasis": "artifact_report",
+      "evidenceKinds": [
+        "Design Decision"
+      ]
     }
   ],
   "edges": [
@@ -1054,17 +1184,6 @@
       ]
     },
     {
-      "source": "x-base",
-      "target": "x-mask",
-      "type": "motivates",
-      "evidenceRefs": [
-        {
-          "sourceId": "PERFORMANCE_REPORT.md",
-          "location": "§3–4"
-        }
-      ]
-    },
-    {
       "source": "x-if",
       "target": "x-mask",
       "type": "replaced_by",
@@ -1171,6 +1290,61 @@
         {
           "sourceId": "PERFORMANCE_REPORT.md",
           "location": "§7"
+        }
+      ]
+    },
+    {
+      "source": "x-base",
+      "target": "f-mask",
+      "type": "observed_in",
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§3"
+        }
+      ]
+    },
+    {
+      "source": "f-mask",
+      "target": "h-mask",
+      "type": "motivates",
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§3–4"
+        }
+      ]
+    },
+    {
+      "source": "h-mask",
+      "target": "x-mask",
+      "type": "implemented_by",
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§4"
+        }
+      ]
+    },
+    {
+      "source": "x-mask",
+      "target": "x-verify",
+      "type": "validated_by",
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§4 Correctness / §8"
+        }
+      ]
+    },
+    {
+      "source": "x-tail",
+      "target": "x-verify",
+      "type": "validated_by",
+      "evidenceRefs": [
+        {
+          "sourceId": "PERFORMANCE_REPORT.md",
+          "location": "§7 candidate 3 / §8"
         }
       ]
     }
