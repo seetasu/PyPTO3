@@ -6,11 +6,27 @@ function el(tag,attrs={},text){const n=document.createElementNS(NS,tag);for(cons
 function button(text,fn){const b=document.createElement('button');b.className='btn btn-ghost';b.textContent=text;b.onclick=fn;return b}
 function sourceLink(ref){const a=document.createElement('a');a.href=data.sources.find(s=>s.id===ref.sourceId).path;a.target='_blank';a.rel='noopener';a.textContent=ref.sourceId+' · '+ref.location;return a}
 function neighborhood(){const set=new Set(selected?[selected]:[]);if(!selected)return set;for(const direction of ['up','down']){const queue=[selected],visited=new Set(queue);while(queue.length){const id=queue.shift();for(const e of semanticEdges){const next=direction==='up'&&e.target===id?e.source:direction==='down'&&e.source===id?e.target:null;if(next&&!visited.has(next)){visited.add(next);set.add(next);if(fullTrace)queue.push(next)}}}}return set}
-function reset(){selected=null;fullTrace=false;$('inspector').hidden=true;render()}
-function choose(id){if(!data.nodes.some(n=>n.id===id))return;selected=id;fullTrace=false;$('inspector').hidden=false;showDetail();window.ExploreDesignHover?.inspector(id);render();window.ReviewInspector?.context(id);$('inspector-heading')?.focus({preventScroll:true});$('inspector').scrollIntoView({block:'start',behavior:'instant'});}
-function showDetail(){window.DecisionInspector?.clear();if(window.ReviewInspector?.open(selected))return;if(window.ExperimentInspector?.open(selected))return;if(window.DecisionInspector?.open(selected))return;const n=data.nodes.find(n=>n.id===selected);$('detail').replaceChildren();const summary=document.createElement('div'),h=document.createElement('h3');h.textContent=n.title;summary.append(h);const p=document.createElement('p');p.textContent=data.statusLabels[n.status]+' · '+n.type+' · Stage '+n.stage;summary.append(p);const reason=document.createElement('p');reason.textContent=n.reason;summary.append(reason);for(const ref of n.evidenceRefs){const p=document.createElement('p');p.append(sourceLink(ref));summary.append(p)}const related=document.createElement('div');const heading=document.createElement('h4');heading.textContent='直接上下游 · 关系与出处';related.append(heading);const edges=semanticEdges.filter(e=>[e.source,e.target].includes(n.id));for(const edge of edges){const id=edge.source===n.id?edge.target:edge.source,node=data.nodes.find(n=>n.id===id);related.append(button((edge.source===n.id?'→ ':'← ')+(relationNames[edge.type]||edge.type)+' · '+node.title,()=>choose(id)));const small=document.createElement('small');for(const r of edge.evidenceRefs)small.append(sourceLink(r));related.append(small)}if(!edges.length){const p=document.createElement('p');p.textContent='此材料作为主线的来源入口；没有补造更细的因果记录。';related.append(p)}$('detail').append(summary,related)}
+function reset(){selected=null;fullTrace=false;render()}
+let analysisActive=false,analysisOrigin=null,lineageScroll=0,mainScroll=0,analysisContextId=null,analysisScroll=0;
+function choose(id){if(!data.nodes.some(n=>n.id===id))return;
+ NodeTooltip.hide();selected=id;fullTrace=false;render();AnalysisWorkspace.open(id);
+}
+function showAnalysis(id){analysisContextId=id;window.DecisionInspector?.clear();$('detail').replaceChildren();$('analysis-title').textContent=data.nodes.find(n=>n.id===id)?.title||id;
+ if(window.ReviewInspector?.open(id))return;
+ if(window.ExperimentInspector?.open(id))return;
+ if(window.DecisionInspector?.open(id))return;
+ const node=data.nodes.find(n=>n.id===id);const p=document.createElement('p');p.textContent=node.reason;$('detail').append(p);
+}
+window.AnalysisWorkspace={open(id){analysisActive=true;
+ $('analysis').hidden=false;if(analysisContextId!==id||!$('detail').children.length){showAnalysis(id);analysisScroll=0}$('analysis').scrollTop=analysisScroll;
+ $('analysis-title').focus({preventScroll:true});
+},back(){analysisScroll=$('analysis').scrollTop;analysisActive=false;$('analysis').hidden=true;
+ $('graph').focus({preventScroll:true});
+}};
+$('analysis-back').onclick=()=>AnalysisWorkspace.back();
+document.addEventListener('keydown',event=>{if(event.key!=='Escape')return;NodeTooltip.hide();if(analysisActive)AnalysisWorkspace.back()});
 function activate(node,fn){node.setAttribute('tabindex','0');node.setAttribute('role','button');node.addEventListener('click',e=>{e.stopPropagation();fn()});node.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();e.stopPropagation();fn()}})}
-function render(){window.ExploreDesignHover?.clear();const g=$('graph');g.replaceChildren();const related=neighborhood(),positions=new Map(),groups=new Map(view.groups.map(g=>[g.id,g]));$('trace').setAttribute('aria-pressed',String(fullTrace));$('trace').textContent=fullTrace?'仅看直接关联':'查看完整溯源路径';
+function render(){window.ExploreDesignHover?.clear();const g=$('graph');g.replaceChildren();const related=neighborhood(),positions=new Map(),groups=new Map(view.groups.map(g=>[g.id,g]));
 let box;
 for(const group of view.groups)group.items.forEach(([id],i)=>positions.set(id,FlowGeometry.itemBox(group,i)));for(const b of view.branches)positions.set(b.id,{x:b.x,y:b.y,w:b.w,h:b.h});for(const p of window.ExperimentRiver.positions(view))positions.set(p.id,p);
 positions.set('h-mask',positions.get('x-mask'));
@@ -29,16 +45,16 @@ box=FlowGeometry.bounds(boundElements,view.river.flow.padding);
 // Keep one SVG unit per CSS pixel at every viewport width; overflow scrolls.
 g.style.width=box[2]+'px';g.style.height=box[3]+'px';g.style.aspectRatio=String(box[2]/box[3]);g.setAttribute('viewBox',box.join(' '));
 const clip=el('clipPath',{id:'view-clip'});clip.append(el('rect',{x:box[0],y:box[1],width:box[2],height:box[3]}));defs.append(clip);const scene=el('g',{'clip-path':'url(#view-clip)'});for(const child of [...g.children])if(child!==defs)scene.append(child);g.append(scene);window.ExploreDesignHover?.attach(g,view);
-requestAnimationFrame(updateStageNavigation);
+NodeTooltip.attach(g);requestAnimationFrame(updateStageNavigation);
 }
-$('graph').addEventListener('click',e=>{if(!e.target.closest('.node,.stage-ruler,.opportunity-category'))reset()});$('close-detail').onclick=()=>{selected=null;fullTrace=false;$('inspector').hidden=true;render();$('graph').scrollIntoView({block:'start',behavior:'instant'});$('graph').focus({preventScroll:true})};$('trace').onclick=()=>{fullTrace=!fullTrace;render()};$('context-toggle').onclick=()=>{$('context').hidden=!$('context').hidden;$('context-toggle').setAttribute('aria-expanded',String(!$('context').hidden));render()};for(const s of data.sources){const a=document.createElement('a');a.href=s.path;a.target='_blank';a.textContent=s.file;$('artifacts').append(a)}window.PtoIdeFrame?.initAll();reset();
+$('graph').addEventListener('click',e=>{if(!e.target.closest('.node,.stage-ruler,.opportunity-category'))reset()});$('context-toggle').onclick=()=>{$('context').hidden=!$('context').hidden;$('context-toggle').setAttribute('aria-expanded',String(!$('context').hidden));render()};for(const s of data.sources){const a=document.createElement('a');a.href=s.path;a.target='_blank';a.textContent=s.file;$('artifacts').append(a)}window.PtoIdeFrame?.initAll();reset();
 
 window.addEventListener('decision-topic-select',event=>choose(event.detail));
 
 window.addEventListener('experiment-select',event=>choose(event.detail));
 
 window.addEventListener('review-select',event=>choose(event.detail));
-window.addEventListener('review-return',()=>{const id=selected;render();const node=[...$('graph').querySelectorAll('.node')].find(n=>n.getAttribute('data-node-id')===id);$('graph').scrollIntoView({block:'start',behavior:'instant'});node?.focus({preventScroll:true});});
+
 
 window.addEventListener('resize',()=>render());
 
