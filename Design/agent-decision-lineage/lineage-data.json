@@ -334,7 +334,6 @@
       "reason": "正式采集 round_002，保持三趟结构；8 个正确性用例通过。",
       "relatedNodeIds": [
         "w5",
-        "x-if",
         "x-final",
         "x-tail",
         "h-mask",
@@ -360,7 +359,7 @@
       "reason": "报告记录 C++ 作用域/类型错误，被空尾循环替代。",
       "relatedNodeIds": [
         "w5",
-        "x-mask"
+        "x-tail"
       ],
       "evidenceRefs": [
         {
@@ -710,7 +709,8 @@
       "reason": "Mask Lifting 的组成部分；以空范围尾循环替代 runtime if，并非独立性能实验。",
       "relatedNodeIds": [
         "x-mask",
-        "x-verify"
+        "x-verify",
+        "x-if"
       ],
       "evidenceRefs": [
         {
@@ -1189,7 +1189,7 @@
     },
     {
       "source": "x-if",
-      "target": "x-mask",
+      "target": "x-tail",
       "type": "replaced_by",
       "evidenceRefs": [
         {
