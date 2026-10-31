@@ -2,7 +2,7 @@
 (function (root) {
   'use strict';
   function withoutData(graph, options) {
-    const hidden = new Set(graph.nodes.filter((node) => (node.kind === 'data' || ['data','state'].includes(node.type))).map((node) => node.id));
+    const hidden = new Set(graph.nodes.filter((node) => node.type === 'data').map((node) => node.id));
     const nodes = graph.nodes.filter((node) => !hidden.has(node.id));
     const outgoing = new Map(graph.nodes.map((node) => [node.id, []]));
     graph.edges.forEach((edge) => outgoing.get(edge.s).push(edge));

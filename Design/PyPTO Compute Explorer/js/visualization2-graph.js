@@ -23,8 +23,8 @@
   function mount(host, { onSelect, onView, execution, onEnter, onBlockEnter, adapter = null }) {
     let model = adapter?.getModel() || global.PTO_PYPA_SEMANTIC_GRAPH;
     let graph,rendered,nodes,nodeMap,nodeLabels,stageLabels,labels;
-    let expanded=new Set(),layers={data:true,shape:true,precision:true,memory:true,control:true,sync:true,execution:true},layoutKey='',executionKey='';
-    const layerNames={data:'数据节点',shape:'Shape',precision:'精度',memory:'存储及执行',control:'状态 / 控制',execution:'执行次数',sync:'同步'};
+    let expanded=new Set(),layers={data:!!adapter,shape:false,precision:false,memory:false,control:false,sync:false,execution:true},layoutKey='',executionKey='';
+    const layerNames={data:adapter?'Data 节点':'中间数据',shape:'Shape',precision:'精度',memory:'存储及执行',control:'状态 / 控制',execution:'执行次数',sync:'同步'};
     host.classList.add('viz2-graph');
     host.innerHTML = `<div class="viz2-graph-body"><div class="viz2-graph-stage">
       <div class="kf-pypa-graph__viewport viz2-graph-viewport" role="group" tabindex="0" aria-label="${adapter?'Block 内计算图':'Block 间完整计算图'}，滚轮缩放，拖拽平移"><div class="kf-pypa-graph__scene viz2-graph-scene" data-viz2-graph-scene></div><div class="kf-pa-map__tooltip" role="tooltip" hidden></div></div>
@@ -44,8 +44,8 @@
     function rebuild(){
       scene.innerHTML='';labels?.remove();
       const overview=!adapter && !layers.data;
-      const visibleModel=model;
-      graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:false,rootLayerGap:150,childLayerGap:110,...adapter?.layoutOptions});
+      const visibleModel=overview?global.PtoComputationVisibility.overview(model):model;
+      graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,{flowLayout:true,overviewLayout:overview,...adapter?.layoutOptions});
       // Reserve the same visual footprint in Structure and Weight so switching
       // decoration never moves nodes. Front card dimensions remain unchanged.
       const counts=staticExecutionData(graph);
@@ -53,10 +53,10 @@
         const entry=global.PtoPagedAttentionExecution.decoration(node,counts);
         return entry?[[node.id,global.PtoPagedAttentionExecution.deckOffset(entry.count)]]:[];
       }));
-      const layoutOptions={flowLayout:true,overviewLayout:false,rootLayerGap:150,childLayerGap:110,executionFootprints,...adapter?.layoutOptions};
+      const layoutOptions={flowLayout:true,overviewLayout:overview,executionFootprints,...adapter?.layoutOptions};
       graph=global.PTO_SEMANTIC_COMPUTATION_GRAPH.materialize(visibleModel,expanded,layoutOptions);
       scene.dataset.stateExpanded=String([...expanded].some(id=>visibleModel.nodes.find(node=>node.id===id)?.composite?.subgraph?.stateEvolution));
-      if(!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,layoutOptions);
+      if(adapter&&!layers.data)graph=global.PtoComputationVisibility.withoutData(graph,layoutOptions);
       Object.entries(layers).forEach(([key,value])=>{scene.dataset[`overlay${key[0].toUpperCase()+key.slice(1)}`]=String(value);});
     rendered = global.PtoStudioComputationGraph.renderScene(scene, graph, {
       view:'compute', expandedStages:expanded, synchronizations:true, compactNodes:!adapter, markerPrefix:'viz2-graph',
@@ -71,7 +71,6 @@
     nodeLabels=nodes.map(node=>{
       const label=document.createElement('span');label.className='viz2-graph-node-title';
       label.dataset.viz2GraphLabel=node.id;
-      label.dataset.aiNodeKind=node.kind;
       const name=document.createElement('span');name.dataset.viz2GraphName=node.id;name.textContent=node.title;label.append(name);
       if(node.expandable){const toggle=document.createElement('button');toggle.type='button';toggle.className='btn btn-ghost btn-sm';toggle.dataset.pypaExpandToggle=node.id;toggle.textContent=expanded.has(node.id)?'−':'+';toggle.setAttribute('aria-label',`${expanded.has(node.id)?'收起':'展开'} ${node.title}`);toggle.setAttribute('aria-expanded',String(expanded.has(node.id)));label.append(toggle);}
       labels.append(label);
@@ -124,7 +123,6 @@
         const name=label.querySelector('[data-viz2-graph-name]');
         name.textContent=name.dataset.fullName||node.title;
         const labelWidth=Math.min(300,Math.max(adapter?.labelMinWidth ?? 196,box.w-8));
-        label.style.setProperty('--ai-label-width', `${Math.min(240, Math.max(96, box.w - 48))}px`);
         label.style.maxWidth=`${labelWidth}px`;
         label.classList.toggle('is-compact',scale<.55);
         label.classList.toggle('is-selected',node.id===(selection?.graphNodeId||view.nodeId));
@@ -145,17 +143,8 @@
     const fitted = () => {
       const box=bounds(nodes.filter(node=>!node.expandedGroup).map(node=>node.id));
       if(!box)return {scale:1,x:0,y:0};
-      // The AI Infra skin retains the original groups. Include their title
-      // margins so Fit to View also fits the surrounding stage boundaries.
-      if(global.PtoAIInfraPresentation){
-        for(const group of graph.groups){
-          const right=Math.max(box.x+box.w,group.x+group.w),bottom=Math.max(box.y+box.h,group.y+group.h);
-          box.x=Math.min(box.x,group.x);box.y=Math.min(box.y,group.y-12);
-          box.w=right-box.x;box.h=bottom-box.y;
-        }
-      }
-      const scale=Math.max(.01,Math.min((viewport.clientWidth-80)/box.w,(viewport.clientHeight-112)/box.h,1));
-      return {scale,x:(viewport.clientWidth-box.w*scale)/2-box.x*scale,y:72+(viewport.clientHeight-96-box.h*scale)/2-box.y*scale};
+      const scale=Math.max(.01,Math.min((viewport.clientWidth-80)/box.w,(viewport.clientHeight-72)/box.h,1));
+      return {scale,x:(viewport.clientWidth-box.w*scale)/2-box.x*scale,y:(viewport.clientHeight-box.h*scale)/2-box.y*scale};
     };
     const initialCamera = () => {
       if(!adapter||adapter.fitOnEnter)return fitted();
@@ -242,7 +231,7 @@
       const nextModel=adapter?.getModel() || model;
       if(nextModel!==model){model=nextModel;layoutKey='';executionKey='';first=true;}
       selection=nextSelection;view=nextView;active=!!options.active;camera=view.camera;
-      const nextLayers={data:true,shape:true,precision:true,memory:true,control:true,sync:true,execution:true,...view.overlays};
+      const nextLayers={data:!!adapter,shape:false,precision:false,memory:false,control:false,sync:false,execution:true,...view.overlays};
       const nextExpanded=new Set(view.expanded||[]),nextKey=JSON.stringify([{...nextLayers,execution:undefined},[...nextExpanded],selection?.task,global.PtoPagedAttentionContext?.scenario?.seqLen]);
       if(layers.execution!==nextLayers.execution)executionKey='';
       layers=nextLayers;scene.dataset.overlayExecution=String(layers.execution);
@@ -269,7 +258,7 @@
       const ikey=show?(adapter?JSON.stringify([selection,view.nodeId,view.syncId]):edge?'edge:'+edge.id:sync?'sync:'+sync.id:JSON.stringify([node.id,view.instancesNode,view.instancePage])):'';
       if(ikey!==inspectorKey){const detailBody=host.querySelector('[data-viz2-graph-detail]'),previousTitle=host.querySelector('[data-viz2-graph-title]').textContent,openDetails=[...detailBody.querySelectorAll('details[open]')].map(el=>el.querySelector('summary')?.textContent);inspectorKey=ikey;if(adapter&&show){const detail=adapter.inspector(node,sync,graph);host.querySelector('[data-viz2-graph-title]').textContent=detail.title;detailBody.innerHTML=detail.html;if(previousTitle===detail.title)detailBody.querySelectorAll('details').forEach(el=>{if(openDetails.includes(el.querySelector('summary')?.textContent))el.open=true;});}else if(edge&&show){host.querySelector('[data-viz2-graph-title]').textContent=edge.type==='feedback'?'跨 Stack 反馈':'状态依赖';detailBody.innerHTML=global.PTO_COMPUTATION_PRESENTATION.inspectorEdge(edge,{model}).map(section=>`<section><h3>${escape(section.title)}</h3><dl>${section.rows.map(row=>`<dt>${escape(row.label)}</dt><dd>${escape(row.value)}</dd>`).join('')}</dl></section>`).join('');}else if(sync&&show){host.querySelector('[data-viz2-graph-title]').textContent=sync.name;detailBody.innerHTML=`<dl>${[['Buffer',sync.buffer],['Dtype',sync.dtype],['Producer',`${sync.producer.coreType} SET · ${sync.producer.pipe}`],['Consumer',`${sync.consumer.coreType} WAIT · ${sync.consumer.pipe}`]].map(([k,v])=>`<dt>${escape(k)}</dt><dd>${escape(v)}</dd>`).join('')}</dl><p>源码静态 READY 关系，不表示运行耗时。</p>`;}else if(node&&show){host.querySelector('[data-viz2-graph-title]').textContent=node.title;detailBody.innerHTML=inspectorHtml(node);}}
       const context=selection?.kind==='task'?`Task ${selection.task} · Batch ${selection.batch} · KV Head ${selection.kvHead}`:selection?.block!=null?`Block ${String(selection.block).padStart(2,'0')}${selection.kind==='lane'?` · AIV Lane ${selection.lane}`:''}`:'完整计算图';
-      host.querySelector('[data-viz2-graph-context]').hidden=true;
+      host.querySelector('[data-viz2-graph-context]').textContent=layers.execution?'线宽 = 静态逻辑传输 / 贡献频次 · 非数据量、带宽或耗时':adapter?.context?.() || context;
       if(!active||!viewport.clientWidth||!viewport.clientHeight)return;
       if(first||(entering&&adapter&&!camera)){first=false;pendingFocus=false;if(!adapter||!camera){onView({camera:initialCamera()});return;}}
       if(!camera){onView({camera:initialCamera()});return;}
@@ -298,8 +287,6 @@
       }else if(point&&node)onView({camera:{...before,x:point.x-(node.x+node.w/2)*before.scale,y:point.y-(node.y+node.h/2)*before.scale}});
     }
     host.addEventListener('click',event=>{
-      // Scope controls live in the shared dock but are owned by the parent view.
-      if (event.target.closest('.viz2-phase-toolbar')) return;
       // Graph owns these node events; the legacy page has document-level selectors.
       event.stopPropagation(); tooltip.hidden=true;
       const sourceButton=event.target.closest('[data-viz2-graph-source]');
@@ -338,14 +325,6 @@
       const target=event.target.closest('[data-pypa-node], [data-viz2-graph-label]'),node=target?nodeMap.get(target.dataset.pypaNode||target.dataset.viz2GraphLabel):null;tooltip.hidden=!node;
       if(!adapter&&hoverNodeId!==node?.id){hoverNodeId=node?.id||null;paintFocus(resolveFocus({...model,nodes},selection,view.nodeId));}
       if(adapter){const el=event.target.closest('[data-pypa-edge],[data-pypa-edge-label],[data-pypa-sync]');adapter.onHover?.(node?.id,el?.dataset.pypaEdge||el?.dataset.pypaEdgeLabel,el?.dataset.pypaSync,graph);paintFocus(adapter.resolveFocus(graph,selection,view));if(!node&&el){tooltip.hidden=false;tooltip.textContent=adapter.tooltip?.(null,el.dataset.pypaEdge||el.dataset.pypaEdgeLabel,el.dataset.pypaSync,graph)||'';const r=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+14,r.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;}}
-      if(!node&&layers.execution&&event.target.closest('[data-pypa-edge],[data-pypa-edge-label]')){
-        tooltip.hidden=false;
-        const widthHelp='连线越粗，静态逻辑传输或贡献次数越多；不表示数据量、带宽或耗时';
-        tooltip.textContent=[adapter?tooltip.textContent:'',widthHelp].filter(Boolean).join('。');
-        const r=viewport.getBoundingClientRect();
-        tooltip.style.left=`${Math.max(8,Math.min(event.clientX-r.left+14,r.width-tooltip.offsetWidth-8))}px`;
-        tooltip.style.top=`${Math.max(8,Math.min(event.clientY-r.top+16,r.height-tooltip.offsetHeight-8))}px`;
-      }
       if(node){tooltip.textContent=adapter?.tooltip?.(node.id,null,null,graph)||`${node.title} · ${node.detail.length>100?node.detail.slice(0,100)+'…':node.detail}`;const rect=viewport.getBoundingClientRect();tooltip.style.left=`${Math.max(8,Math.min(event.clientX-rect.left+14,rect.width-tooltip.offsetWidth-8))}px`;tooltip.style.top=`${Math.max(8,Math.min(event.clientY-rect.top+16,rect.height-tooltip.offsetHeight-8))}px`;}
     },{signal:events.signal});
     const endDrag=()=>{if(drag?.moved)suppressClick=true;drag=null;};['pointerup','pointercancel','lostpointercapture'].forEach(type=>viewport.addEventListener(type,endDrag,{signal:events.signal}));

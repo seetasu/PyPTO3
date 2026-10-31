@@ -49,8 +49,6 @@
     const taskDescription = task => `Task ${task.id} · Block ${String(task.block).padStart(2, '0')} · Batch ${task.batch} · KV ${task.kvHead} · ${task.seqLen} tokens · ${task.stacks} Stacks`;
     targets.innerHTML = model.lanes.map(lane => `<button class="viz2-pipeline-target" type="button" data-bem-block="${lane.block}" aria-label="Pipeline Block ${String(lane.block).padStart(2,'0')}，${lane.tasks.length} Tasks" aria-pressed="false"></button>
       ${lane.tasks.map(task => `<button class="viz2-pipeline-target" type="button" data-bem-task="${task.id}" aria-label="${taskDescription(task)}，末尾 Output Normalize 和 BF16 Store" aria-pressed="false"></button>`).join('')}`).join('');
-    const blockTargets=new Map([...targets.querySelectorAll('[data-bem-block]')].map(n=>[Number(n.dataset.bemBlock),n]));
-    const taskTargets=new Map([...targets.querySelectorAll('[data-bem-task]')].map(n=>[Number(n.dataset.bemTask),n]));
     let selection = null, camera = null, layout = null, drag = null, suppressClick = false, hover = null, active = false;
     let selectionKey = '', focusOnNextPaint = false, transitionMasked = false, transitionFocusBlock = null, semanticTaskMask = null, doubleCandidate = null;
     const tooltip = document.createElement('div');
@@ -65,8 +63,8 @@
     function measure() {
       host.style.setProperty('--viz2-pipeline-footer-height', `${host.querySelector('.viz2-pipeline-footer').offsetHeight}px`);
       const width = viewport.clientWidth, header = 40;
-      const row = Math.max(1,(viewport.clientHeight-header-8)/model.blocks);
-      const height = viewport.clientHeight;
+      const row = Math.max(36,(viewport.clientHeight-header-8)/model.blocks);
+      const height = Math.max(viewport.clientHeight,header+row*model.blocks+8);
       const labelX = 12, phaseX = 72, phaseW = 98, syncX = 198, taskX = 232, outputW = 28, gap = 8;
       const available = Math.max(64, width - taskX - 18);
       const unit = Math.max(2, Math.min(...model.lanes.filter(lane=>lane.tasks.length).map(lane =>
@@ -98,67 +96,60 @@
       const next = bounded({...camera,x:camera.x + (left+right)/2 - (rect.x+rect.outputX+rect.outputWidth)/2});
       if (Math.abs(next.x-camera.x)>.5) { camera=next; onCamera(next); }
     }
-    let paintStyle;
-    const color = name => (paintStyle || getComputedStyle(host)).getPropertyValue(name).trim();
+    const color = name => getComputedStyle(host).getPropertyValue(name).trim();
     function place(element, x, y, width, height) {
       Object.assign(element.style, {left:`${x}px`,top:`${y}px`,width:`${width}px`,height:`${height}px`});
     }
-    let hoverFrame=0;
-    function paintHover(){if(!hoverFrame)hoverFrame=requestAnimationFrame(()=>{hoverFrame=0;paint({visualOnly:true});});}
-    function paint({visualOnly=false}={}) {
+    function paint() {
       if (!active || !viewport.clientWidth || !viewport.clientHeight) return;
-      if(!visualOnly || !layout) layout = measure();
-      paintStyle=getComputedStyle(host);
+      layout = measure();
       if (!camera) { camera={scale:1,x:0}; onCamera(camera); return; }
       const next = bounded(camera);
       if (next.x !== camera.x) { camera=next; onCamera(next); return; }
       if (focusOnNextPaint) { focusOnNextPaint=false; revealTask(); }
       surface.style.height = `${layout.height}px`;
       const dpr = global.devicePixelRatio || 1;
-      const pixelsW=Math.round(layout.width*dpr),pixelsH=Math.round(layout.height*dpr);
-      if(canvas.width!==pixelsW)canvas.width=pixelsW;
-      if(canvas.height!==pixelsH)canvas.height=pixelsH;
+      canvas.width=Math.round(layout.width*dpr); canvas.height=Math.round(layout.height*dpr);
       canvas.style.width=`${layout.width}px`; canvas.style.height=`${layout.height}px`;
       ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,layout.width,layout.height);
       const fg=color('--foreground'), secondary=color('--foreground-secondary'), muted=color('--foreground-muted'), divider=color('--border-subtle');
       const family=getComputedStyle(host).fontFamily, mono=color('--font-mono')||family;
       ctx.font=`12px ${mono}`; ctx.textBaseline='middle'; ctx.textAlign='left'; ctx.fillStyle=secondary;
-      ctx.fillText('执行块',layout.labelX,19); ctx.fillText('准备阶段',layout.phaseX,19); ctx.fillText('→',layout.phaseX+layout.phaseW+6,19);
-      ctx.fillText('→',layout.syncX+15,19);ctx.fillText('注意力任务与输出',layout.taskX,19);
+      ctx.fillText('BLOCK',layout.labelX,19); ctx.fillText('Phase0',layout.phaseX,19); ctx.fillText('→',layout.phaseX+layout.phaseW+6,19);
+      ctx.fillText('→',layout.syncX+15,19);ctx.fillText('Attention Tasks + Output',layout.taskX,19);
       // One shared barrier, spanning all Blocks. Vertical alignment is a logical boundary.
       ctx.fillStyle=color('--surface-3');ctx.fillRect(layout.syncX-6,layout.header-2,12,layout.height-layout.header);
-      ctx.save();ctx.translate(layout.syncX,layout.header+(layout.height-layout.header)/2);ctx.rotate(-Math.PI/2);ctx.fillStyle=fg;ctx.font=`11px ${mono}`;ctx.textAlign='center';ctx.fillText('SYNCALL · 全部执行块',0,0);ctx.restore();
+      ctx.save();ctx.translate(layout.syncX,layout.header+(layout.height-layout.header)/2);ctx.rotate(-Math.PI/2);ctx.fillStyle=fg;ctx.font=`11px ${mono}`;ctx.textAlign='center';ctx.fillText('SYNCALL · 全部 Blocks',0,0);ctx.restore();
       model.lanes.forEach(lane => {
         const y=layout.header+lane.block*layout.row, related=lane.block===selection?.block;
-        if(related){ctx.fillStyle='#262626';ctx.fillRect(0,y,layout.width,layout.row);}
+        if(related){ctx.fillStyle=color('--state-selected');ctx.fillRect(0,y,layout.width,layout.row);}
         ctx.strokeStyle=divider;ctx.beginPath();ctx.moveTo(0,y+layout.row);ctx.lineTo(layout.width,y+layout.row);ctx.stroke();
         ctx.fillStyle=related?fg:secondary;ctx.font=`12px ${mono}`;if (!transitionMasked) ctx.fillText(String(lane.block).padStart(2,'0'),layout.labelX+8,y+layout.row/2);
         // Equal-size AIV strips encode work ownership, not Phase0 execution time.
         lane.phase0Lanes.forEach((aiv,index)=>{
           const y0=y+3+index*(layout.row-6)/lane.phase0Lanes.length, h=(layout.row-8)/lane.phase0Lanes.length;
-          ctx.fillStyle=aiv.groups.length?(related?colors.phase0:'#505050'):color('--surface-3');ctx.globalAlpha=aiv.groups.length?.65:.5;
+          ctx.fillStyle=aiv.groups.length?colors.phase0:color('--surface-3');ctx.globalAlpha=aiv.groups.length?.65:.5;
           ctx.fillRect(layout.phaseX,y0,layout.phaseW,h);ctx.globalAlpha=1;
           aiv.groups.forEach((group,i)=>{const w=(layout.phaseW-8)/aiv.groups.length;ctx.fillStyle=fg;ctx.globalAlpha=.25;ctx.fillRect(layout.phaseX+4+i*w,y0+2,Math.max(1,w-3),Math.max(1,h-4));ctx.globalAlpha=1;});
         });
         if(!lane.phase0Groups){ctx.fillStyle=muted;ctx.font=`10px ${family}`;ctx.fillText('无有效预处理',layout.phaseX+12,y+layout.row/2);}
         ctx.strokeStyle=divider;ctx.beginPath();ctx.moveTo(layout.phaseX+layout.phaseW+2,y+layout.row/2);ctx.lineTo(layout.syncX-6,y+layout.row/2);ctx.moveTo(layout.syncX+6,y+layout.row/2);ctx.lineTo(layout.taskX-5,y+layout.row/2);ctx.stroke();
-        if(!visualOnly){const button=blockTargets.get(lane.block);place(button,0,y,layout.taskX-14,layout.row);button.setAttribute('aria-pressed',String(related));}
+        const button=targets.querySelector(`[data-bem-block="${lane.block}"]`);place(button,0,y,layout.taskX-14,layout.row);button.setAttribute('aria-pressed',String(related));
       });
       ctx.save();ctx.beginPath();ctx.rect(layout.taskX,layout.header,Math.max(0,layout.width-layout.taskX),layout.height-layout.header);ctx.clip();
       positions().forEach(rect=>{
         const task=rect.task, selected=selection?.kind==='task'&&selection.task===task.id, related=selection?.block===task.block;
         if (!transitionMasked && transitionFocusBlock !== task.block && semanticTaskMask !== task.id) global.PtoVisualization2TaskEncoding.draw(ctx,{task,...rect,
-          colors:{track:color('--surface-4'),fill:color('--ai-data-fill'),page:color('--surface-2'),text:fg,label:color('--surface-2')},
+          colors:{track:color('--surface-4'),fill:color('--primary'),page:color('--surface-2'),text:fg,label:color('--surface-2')},
           selected,related,hovered:hover===task.id,fontFamily:mono});
         // One Output cap belongs to this Task. No synthesized IN/OUT timing segments.
-        if(semanticTaskMask !== task.id) pattern.drawTaskBar(ctx,{task:{label:'N↓'},x:rect.outputX,y:rect.y,width:rect.outputWidth,height:rect.height,baseColor:(selected||related?colors.output:'#505050'),isSelected:selected,isRelated:related,fontFamily:mono});
-        if(visualOnly)return;
-        const button=taskTargets.get(task.id), left=Math.max(layout.taskX,rect.x), right=Math.min(layout.width,rect.outputX+rect.outputWidth);
-        if(button.hidden!==(right<=left))button.hidden=right<=left;place(button,left,rect.y,Math.max(0,right-left),rect.height);button.setAttribute('aria-pressed',String(selected));
+        if(semanticTaskMask !== task.id) pattern.drawTaskBar(ctx,{task:{label:'N↓'},x:rect.outputX,y:rect.y,width:rect.outputWidth,height:rect.height,baseColor:colors.output,isSelected:selected,isRelated:related,fontFamily:mono});
+        const button=targets.querySelector(`[data-bem-task="${task.id}"]`), left=Math.max(layout.taskX,rect.x), right=Math.min(layout.width,rect.outputX+rect.outputWidth);
+        button.hidden=right<=left;place(button,left,rect.y,Math.max(0,right-left),rect.height);button.setAttribute('aria-pressed',String(selected));
         button.dataset.batch=task.batch;button.dataset.seqLen=task.seqLen;button.dataset.pageCount=task.pages;button.dataset.stackCount=task.stacks;button.dataset.attentionWidth=String(rect.width);button.dataset.outputX=String(rect.outputX);button.dataset.attentionX=String(rect.x);
       });
       ctx.restore();
-      const output=host.querySelector('[data-bem-scale]'),value=`${Math.round(camera.scale*100)}%`;if(output.textContent!==value)output.textContent=value;
+      host.querySelector('[data-bem-scale]').textContent=`${Math.round(camera.scale*100)}%`;
     }
     function updateInspector() {
       inspector.hidden=!selection||selection.kind==='task';
@@ -199,11 +190,11 @@
     viewport.addEventListener('pointerdown',event=>{if(event.button!==0)return;suppressClick=false;drag={id:event.pointerId,x:event.clientX,startX:event.clientX,startY:event.clientY,moved:false};});
     viewport.addEventListener('pointermove',event=>{
       if(drag){if(!drag.moved&&Math.hypot(event.clientX-drag.startX,event.clientY-drag.startY)<=4)return;drag.moved=true;viewport.setPointerCapture(drag.id);viewport.classList.add('is-dragging');pattern.hideTooltip(tooltip);const c=camera||{scale:1,x:0};onCamera(bounded({...c,x:c.x+event.clientX-drag.x}));drag.x=event.clientX;return;}
-      const target=event.target.closest('[data-bem-task]'),next=target?Number(target.dataset.bemTask):null;if(hover!==next){hover=next;paintHover();}
+      const target=event.target.closest('[data-bem-task]'),next=target?Number(target.dataset.bemTask):null;if(hover!==next){hover=next;paint();}
     });
     const endDrag=()=>{if(drag?.moved)suppressClick=true;drag=null;viewport.classList.remove('is-dragging');};
     ['pointerup','pointercancel','lostpointercapture'].forEach(type=>viewport.addEventListener(type,endDrag));
-    viewport.addEventListener('pointerleave',()=>{hover=null;pattern.hideTooltip(tooltip);paintHover();});
+    viewport.addEventListener('pointerleave',()=>{hover=null;pattern.hideTooltip(tooltip);paint();});
     viewport.addEventListener('keydown',event=>{
       if(event.key==='Escape'){onSelect(null);viewport.focus();return;}
       if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;

@@ -186,8 +186,8 @@
     const task=anatomyModel.tasks[id],element=scene.querySelector(`[data-pa-task="${id}"]`);
     const strip=scene.querySelector(`[data-pa-column="${task.batch}"] .kf-pa-map__sequence`);
     const rect=element=>{const r=element.getBoundingClientRect();return {x:r.left,y:r.top,width:r.width,height:r.height};};
-    return {task:id,model:task,frame:rect(element.querySelector('.kf-pa-map__cell')),title:rect(element.querySelector('.ai-task-identity') || element.querySelector('.kf-pa-map__cell')),
-      qRows:[...element.querySelectorAll('.kf-pa-map__q')].map(rect),segments:[...strip.querySelectorAll('.ai-stack-track')].map(rect)};
+    return {task:id,model:task,frame:rect(element.querySelector('.kf-pa-map__cell')),title:rect(element.querySelector('text')),
+      qRows:[...element.querySelectorAll('.kf-pa-map__q')].map(rect),segments:[...strip.querySelectorAll('.kf-pa-map__seq-track')].map(rect)};
   }
   function enterAnatomy(id) {
     if(!Number.isInteger(id)||!anatomyModel.tasks[id]||store.getState().views.assignment.subview==='block')return;
@@ -240,7 +240,7 @@
     root.querySelectorAll('[data-pa-block]').forEach(el => { const id=Number(el.dataset.paBlock); el.classList.toggle('is-selected',id===selection?.block); el.classList.toggle('is-hovered',hoverTask!==null && taskInfo(hoverTask).block===id); el.setAttribute('aria-pressed',String(id===selection?.block)); });
     root.querySelectorAll('[data-pa-task]').forEach(el => { const id=Number(el.dataset.paTask); el.classList.toggle('is-assigned',id%constants.blocks===selection?.block); el.classList.toggle('is-selected',id===selection?.task); el.classList.toggle('is-hovered',id===hoverTask); el.setAttribute('aria-pressed',String(id===selection?.task)); el.setAttribute('tabindex',id===(selection?.task ?? 0)?'0':'-1'); });
     assignmentMorph.update(selection, store.getState().open && store.getState().activeTab==='assignment' && store.getState().views.assignment.phase==='attention' && store.getState().views.assignment.subview!=='block');
-    root.querySelector('[data-viz2-selection]').textContent=selection?.task != null ? taskDescription(selection.task) : selection?.kind==='block' ? `Block ${selection.block} → ${tasksForBlock(selection.block).join(', ')} · Task ID % ${constants.blocks}` : `任务矩阵：一格 = Q Head（固定 5 个）· Block 分组：一格 = Stack（最多 512 tokens）`;
+    root.querySelector('[data-viz2-selection]').textContent=selection?.task != null ? taskDescription(selection.task) : selection?.kind==='block' ? `Block ${selection.block} → ${tasksForBlock(selection.block).join(', ')} · Task ID % ${constants.blocks}` : `每个 Task 对应 ${constants.qPerKv} 个 Q Head`;
   }
   function render(state, action) {
     root.hidden=!state.open;
