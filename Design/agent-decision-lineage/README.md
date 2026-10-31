@@ -69,3 +69,21 @@ Design Focus 选择 Mixed Precision、Single Tile、UB、Scheduling 或 Vector/V
 已通过本地 HTTP 在 1440×900、1600×900 操作 Precision 步骤、Tile 尾块与 Slot、执行阶段、专题切换与返回。检查 Inline code 与高亮、not_triggered 绑定、Inspector 纵向滚动与页面无横向溢出。未运行 NPU 测试，未重新采集性能。
 
 缺失证据仍包括逐步骤精度误差、其他 TILE_ROWS 性能比较、备选 dtype 路线本次实测对照、运行时 Tile→Slot 时间轨迹和真实重叠时间轴。远端页面读取失败，本阶段事实依据为工作区原始材料和现有 evidence 快照；未声称同步线上内容或部署。
+
+## Stage 4：Experiment Lineage / Performance Optimization Explorer
+
+新增 `experiment-inspector.js` 与 `experiment-data.js`，独立于 Design 专题。Baseline/Final 进入正式对比，Mask Lifting/Empty-tail-loop/失败及未探索方向进入 Journey，Target Met / Stop 进入证据审查。三个空间共享 Shape 与实验上下文；没有实际运行 Agent 的控制。
+
+- Journey：问题→假设→修改→正确性→正式采集→停止，六条候选状态；Before/After 静态循环结构可点选，对应代码片段与实际快照行号。失败 runtime if 仅有报告记录，没有编造失败代码。
+- Comparison：三个 Shape 的同轴 dumbbell 图，动态计算绝对变化、(Final−Baseline)/Baseline 与 Baseline/Final speedup；Samples 按正式采集分组。Quick A/B 和 Golden E2E 不混入优化加速。
+- Evidence：大用例完整 PMU 表按需展开；单次 Profiling Task Duration（5.834）与正式中位数（5.926）分开。保留 vec_resc_cflt 原名与121.50%的读数，不解释成硬件利用率。停止门槛分实际测量、分析推导和证据缺失。
+- 引入 `evidence/test_softmax.py.bak_stage5` 原样快照；数据源为 PERFORMANCE_REPORT §3/§5 正式表与 Samples、§7 候选账本、§6/§8–11 停止依据，以及 performance.json 的 terminal_evidence。experiment-data.js 从这些本地证据生成。
+- Empty-tail-loop 改用唯一 `x-tail`，作为 Mask Lifting 的组成部分；Pass Fusion 独立 `x-fusion`。Lineage 增加 Stop 分支，其余主线与设计结构保留。
+
+### 实际验证
+
+本地 HTTP 在1440×900与1600×900下检查 Baseline→Journey→Mask Lifting→Before/After、三个 Shape 与 Samples、Runtime if 原因、Final→PMU表→停止审查、Stop 节点入口；切回 Design 后操作 Precision Exp、Tile预算、Scheduling Pass2。专题与 Lineage 选择联动；主工作区可滚动，1440下页面/主区无横向溢出。浏览器 Console error/warn 列表为空，数据节点ID唯一、边端点与证据路径完整；未运行或重新采集NPU实验。
+
+截图：`previews/experiment-comparison-1440.png`、`experiment-mask-1440.png`、`experiment-stop-1600.png`。
+
+尚缺：runtime-if 失败源版本和编译日志快照、未尝试方向的实测数据、逐指令因果/周期轨迹、更充分的重复测量和显著性依据。Timeline preflight 失败未当成 Kernel 失败。当前UI为历史证据审查，非在线实验执行器。

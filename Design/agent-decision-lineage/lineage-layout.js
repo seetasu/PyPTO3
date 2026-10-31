@@ -9,10 +9,11 @@ window.LINEAGE_VIEW = {
  {id:'kernel',stage:4,x:687,y:210,w:153,h:112,label:'PyPTO Kernel',sub:'生成的实现',items:[['i-kernel','三趟 max / sum / div','softmax_rows_vf']]},
  {id:'correctness',stage:4,x:875,y:210,w:146,h:112,label:'Correctness PASS',sub:'报告记录 · 非本机复测',items:[['x-verify','✓ 8/8 PASS','与 Baseline 精度一致']]},
  {id:'baseline',stage:5,x:1057,y:210,w:132,h:112,label:'Baseline',sub:'[32,4096] · kernel',items:[['x-base','5.926 μs','round_001']]},
- {id:'optimization',stage:5,x:1225,y:175,w:135,h:165,label:'Mask Lifting',sub:'减少循环内 mask 开销',items:[['x-mask','✓ 采用','full mask 提升'],['x-mask','Empty tail loop','替代 runtime if']]},
+ {id:'optimization',stage:5,x:1225,y:175,w:135,h:165,label:'Mask Lifting',sub:'减少循环内 mask 开销',items:[['x-mask','✓ 采用','full mask 提升'],['x-tail','Empty tail loop','替代 runtime if']]},
  {id:'final',stage:5,x:1396,y:210,w:128,h:112,label:'Final',sub:'[32,4096] · kernel',items:[['x-final','4.946 μs','round_002 · 1.198×']]}
  ],
  branches:[
+ {id:'d-stop',parent:'x-final',x:1396,y:375,w:128,h:64,title:'Target Met / Stop',subtitle:'✓ 交付门槛通过',relation:'supports stop'},
  {id:'d-online',parent:'d-tiling',x:447,y:502,w:192,h:72,title:'跨 tile 流式归约',subtitle:'− 设计未采用 · 整行已容纳',mode:'design',relation:'selected over'},
  {id:'x-if',parent:'x-mask',x:1070,y:428,w:208,h:78,title:'Runtime if',subtitle:'× 实际尝试失败 · C++ 作用域',relation:'failed attempt'},
  {id:'x-rows',parent:'x-mask',x:1070,y:565,w:208,h:70,title:'TILE_ROWS Adjustment',subtitle:'○ 未尝试 · 默认目标已满足',relation:'not explored'},
