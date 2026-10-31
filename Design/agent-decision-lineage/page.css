@@ -79,3 +79,11 @@ body > .pto-ide-frame[data-ide-frame] > .pto-ide-frame__status-strip{min-height:
 /* Preserve readable graph scale; constrain scrolling to the graph pane. */
 .graph-host{overflow-x:auto;overflow-y:hidden;max-width:100%}
 .graph-host #graph{min-width:0;max-width:none;flex-shrink:0}
+
+/* Overlay occupies existing ruler headroom; SVG size and native scrolling stay intact. */
+.graph-viewport{position:relative;flex:1;min-width:0;margin:0 var(--space-3)}
+.graph-viewport>.graph-host{margin:0;width:100%}
+.stage-scroll-nav{position:absolute;left:0;right:0;height:22px;z-index:3;pointer-events:none;display:flex;align-items:center;justify-content:space-between}
+.stage-scroll-nav .btn{pointer-events:auto;min-height:22px;height:22px;padding:0 var(--space-3);border-radius:999px;font-size:12px;white-space:nowrap}
+#stage-scroll-next{margin-left:auto;background:var(--primary);color:var(--primary-foreground,var(--foreground));box-shadow:var(--shadow-lg)}
+#stage-scroll-back{background:var(--surface-3);color:var(--foreground-secondary)}
