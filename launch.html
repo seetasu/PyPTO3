@@ -657,6 +657,18 @@
     // 新增或更新 Design Demo 时，在此数组维护其 updatedAt（YYYY-MM-DD）。
     const demos = [
       {
+        title: "Hardware-Native Lens",
+        subtitle: "Tensor/Tile · Scope · 并行请求 · 内部布局",
+        category: "开发工具",
+        status: "新增",
+        version: "01 / HN Lens",
+        updatedAt: "2026-10-31",
+        description: "IDE 内的单页设计：用 Qwen3-14B 的 decode_layer 算子，演示昇腾 Hardware-Native 体系的「可表达」与「约束前移」。编辑器里保留源码行号，在行内叠加四类语义标注——Tensor/Tile（形状、dtype、片上空间与字节数）、Scope（manual_scope 关闭 tensormap、pl.at 的 submit 粒度、嵌套 scope 色带）、并行请求（pl.parallel / pl.spmd 栅格 / pl.pipeline 重叠 / grid-stride 取号）、内部布局（Q_HEAD_PAD 填充与 set_validshape、paged KV 的逻辑块到物理页、split-K 切片与上一层 slab 的 1:1 对齐）。四个透镜可逐个收起。左栏目录、源码里的高亮符号与右栏约束行是同一个选中模型的三个入口：右栏一列到底，选中对象的详情与 SVG 可视化在上，9 条硬件约束的实时判定在下，选中对象时下方标出「相关约束 N / 9」并压暗其余；底部是 10 个硬件配置旋钮：改动 SEQ_TILE、QKV_OK、DOWN_TN、GP_SIZE 等任一项，源码里的形状、布局图与波浪线即时重算，约束状态在编码期就给出判定，不经编译、不上板。视觉语言参考 AI_Infra 的 demo（近黑灰阶 + lime/lavender/amber/sky 四色强调 + 单一告警红，等宽宽字距标签，浅底深字选中态）；代码按分词后的上下文着色，函数调用、函数定义、关键字实参、类型/dtype、常量、模块与属性分别取色。",
+        href: "Design/hardware-native-ide/index.html",
+        preview: "Design/assets/launch-previews/decode-layer-graph.png",
+        tags: ["PyPTO", "昇腾", "Hardware-Native", "可表达", "约束前移", "Tensor/Tile", "Scope", "decode_layer"]
+      },
+      {
         title: "昇腾内容区卡片库",
         subtitle: "环境检查 · 算子规格 · Tensor · 片上预算",
         category: "开发工具",

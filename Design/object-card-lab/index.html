@@ -179,15 +179,10 @@ main{max-width:1380px;margin:0 auto;padding:clamp(28px,5vw,56px) clamp(16px,5vw,
 .ratio.idle i{background:var(--track);color:var(--faint)}
 .ratio-cap{margin:7px 0 0;font-size:11px;color:var(--muted)}
 
-.cores{display:grid;grid-template-columns:repeat(20,1fr);gap:2px}
-.cores i{aspect-ratio:1;border-radius:2px;background:var(--fill)}
-.cores i.v{background:var(--fill-2)}
-.cores i.off{background:var(--track)}
 .legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;font-size:10.5px;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:5px}
 .legend s{text-decoration:none;width:8px;height:8px;border-radius:2px;background:var(--fill)}
 .legend s.v{background:var(--fill-2)}
-.legend s.off{background:var(--track)}
 
 .lanes{display:grid;gap:4px}
 .lane{display:grid;grid-template-columns:52px 1fr;gap:9px;align-items:center}
@@ -268,7 +263,6 @@ dialog::backdrop{background:#00000099;backdrop-filter:blur(2px)}
   .seek{justify-content:space-between}
   .seek input{width:auto;flex:1;max-width:none}
   .deck{grid-template-columns:1fr}
-  .cores{grid-template-columns:repeat(10,1fr)}
   .topbar{padding:12px 16px;gap:10px}
   .wordmark{white-space:nowrap;font-size:13px}
   .wordmark s{display:none}
@@ -480,7 +474,7 @@ const CARDS = [
       + '<rect x="40" y="' + y + '" width="' + kpx(v) + '" height="8" rx="2" fill="'
       + (tone === 'bad' ? 'var(--err)' : tone === 'idle' ? 'var(--track)' : 'var(--fill)') + '"/>'
       + '<text x="' + (40 + kpx(4096) + 8) + '" y="' + (y + 7) + '" font-size="9.5" font-family="var(--mono)" fill="'
-      + (tone === 'bad' ? 'var(--err)' : 'var(--text-2)') + '">' + (draft ? 'K 待填' : v + (suffix || '')) + '</text>';
+      + (tone === 'bad' ? 'var(--err)' : 'var(--text-2)') + '">' + v + (suffix || '') + '</text>';
     const svg = '<svg viewBox="0 0 300 164" role="img" aria-label="矩阵乘形状与收缩维对账">'
       + box(10, baseY - ah, aw, ah, draft ? 'ghost' : '', 'A')
       + '<text x="' + (10 + aw / 2) + '" y="' + (baseY + 12) + '" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--muted)">1024×4096</text>'
@@ -497,8 +491,8 @@ const CARDS = [
       /* 对账区：线性比例，不匹配时差距直接是一段看得见的空缺 */
       + '<line x1="4" y1="120" x2="296" y2="120" stroke="var(--line)"/>'
       + '<text x="4" y="133" font-size="9.5" font-family="var(--mono)" fill="var(--faint)">收缩维 K 对账 · 线性比例</text>'
-      + kbar(140, 'A.K', draft ? 0 : 4096, draft ? 'idle' : '')
-      + kbar(152, 'B.K', draft ? 0 : K, conflict ? 'bad' : draft ? 'idle' : '', conflict ? ' · 缺 2048' : '')
+      + kbar(140, 'A.K', 4096, draft ? 'idle' : '', draft ? ' · 待校验' : '')
+      + kbar(152, 'B.K', K, conflict ? 'bad' : draft ? 'idle' : '', conflict ? ' · 缺 2048' : draft ? ' · 待校验' : '')
       + (conflict
           ? '<rect x="' + (40 + kpx(2048)) + '" y="152" width="' + kpx(2048) + '" height="8" rx="2" fill="none" stroke="var(--err)" stroke-dasharray="3 2"/>'
           : '')
@@ -546,13 +540,14 @@ const CARDS = [
        输入画成 DDR→片上，输出画成片上→DDR，四个状态因此在视觉上真正分开。 */
     const bad = s === 'bad', draft = s === 'draft', isOut = s === 'out';
     const bw = d.dims ? logPx(d.dims[1]) : 60, bh = d.dims ? logPx(d.dims[0]) : 30;
-    const bx = 77 - bw / 2, by = 57 - bh / 2;
+    /* 左边缘对齐而非居中：期望形状的虚线框与实际框共用左边，差距就落在右侧一段缺口上 */
+    const bx = 36, by = 57 - bh / 2;
     const stroke = bad ? 'var(--err)' : draft ? 'var(--faint)' : 'var(--brand)';
     const fill = bad ? 'var(--err-bg)' : draft ? 'none' : 'var(--brand-dim)';
     const ghost = bad && d.expect
-      ? '<rect x="' + (77 - logPx(d.expect[1]) / 2) + '" y="' + (57 - logPx(d.expect[0]) / 2) + '" width="' + logPx(d.expect[1])
+      ? '<rect x="' + bx + '" y="' + (57 - logPx(d.expect[0]) / 2) + '" width="' + logPx(d.expect[1])
         + '" height="' + logPx(d.expect[0]) + '" rx="3" fill="none" stroke="var(--faint)" stroke-dasharray="4 3"/>'
-        + '<text x="77" y="30" text-anchor="middle" font-size="8.5" font-family="var(--mono)" fill="var(--faint)">规格期望 1024×4096</text>'
+        + '<text x="77" y="110" text-anchor="middle" font-size="8.5" font-family="var(--mono)" fill="var(--faint)">虚线 = 规格期望 1024×4096</text>'
       : '';
     const arrow = draft
       ? '<text x="175" y="61" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--faint)">形状未定</text>'
@@ -560,13 +555,13 @@ const CARDS = [
         + '<path d="M' + (isOut ? 154 : 196) + ' 57 l' + (isOut ? 6 : -6) + ' -4 l0 8 z" fill="var(--brand)"/>'
         + '<text x="175" y="48" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="var(--brand)">'
         + (isOut ? 'tile.store' : 'tile.load') + '</text>';
-    const cells = '<svg viewBox="0 0 300 116" role="img" aria-label="张量在存储层级中的位置与搬运方向">'
+    const cells = '<svg viewBox="0 0 300 118" role="img" aria-label="张量在存储层级中的位置与搬运方向">'
       + '<rect x="4" y="14" width="146" height="86" rx="7" fill="none" stroke="var(--line)" stroke-dasharray="3 3"/>'
       + '<text x="12" y="27" font-size="9" font-family="var(--mono)" fill="var(--faint)">DDR · 片外</text>'
       + ghost
       + '<rect x="' + bx + '" y="' + by + '" width="' + bw + '" height="' + bh + '" rx="3" fill="' + fill + '" stroke="' + stroke + '"'
         + (draft ? ' stroke-dasharray="4 3"' : '') + '/>'
-      + '<text x="77" y="' + (57 + 4) + '" text-anchor="middle" font-size="12" font-family="var(--mono)" fill="' + stroke + '">' + d.n + '</text>'
+      + '<text x="' + (bx + bw / 2) + '" y="' + (57 + 4) + '" text-anchor="middle" font-size="12" font-family="var(--mono)" fill="' + stroke + '">' + d.n + '</text>'
       + '<text x="77" y="94" text-anchor="middle" font-size="9" font-family="var(--mono)" fill="' + (bad ? 'var(--err)' : 'var(--muted)') + '">'
         + d.shape + ' · ' + d.bytes + '</text>'
       + arrow
